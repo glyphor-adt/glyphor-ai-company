@@ -627,6 +627,7 @@ export function createChiefOfStaffTools(
           proposedBy: ctx.agentRole,
           reasoning: params.reasoning as string,
           assignedTo: finalAssignedTo,
+          actionMode: graphClient && decisionsChannel ? 'execute' : 'openUrl',
         });
 
         const decisionsChannel = channels.decisions;
@@ -1224,6 +1225,7 @@ export function createChiefOfStaffTools(
             proposedBy: ctx.agentRole,
             reasoning: params.reasoning as string,
             assignedTo: params.assigned_to as string[],
+            actionMode: 'execute',
           });
           await graphClient.sendCard(
             { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
@@ -1242,6 +1244,7 @@ export function createChiefOfStaffTools(
               proposedBy: ctx.agentRole,
               reasoning: params.reasoning as string,
               assignedTo: params.assigned_to as string[],
+              actionMode: 'openUrl',
             });
             await sendTeamsWebhook(webhookUrl, card);
           }

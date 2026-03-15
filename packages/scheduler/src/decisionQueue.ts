@@ -64,6 +64,7 @@ export class DecisionQueue {
       proposedBy: decision.proposedBy,
       reasoning: decision.reasoning ?? '',
       assignedTo: decision.assignedTo,
+      actionMode: this.graphClient && decisionsChannel ? 'execute' : 'openUrl',
     });
 
     // Send via Graph API (preferred) or webhook fallback
@@ -212,6 +213,7 @@ export class DecisionQueue {
           proposedBy: decision.proposedBy,
           reasoning: `This decision has been pending since ${pd.notifiedAt}`,
           assignedTo: decision.assignedTo,
+          actionMode: this.graphClient && decisionsChannel ? 'execute' : 'openUrl',
         });
 
         // Send via Graph API (preferred) or webhook fallback

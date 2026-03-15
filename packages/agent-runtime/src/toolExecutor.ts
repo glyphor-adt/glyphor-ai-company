@@ -216,7 +216,7 @@ function normalizeAndValidateToolParams(
 
     if (typeof params.recipient === 'string') {
       params.recipient = params.recipient.trim().toLowerCase();
-      const recipient = params.recipient;
+      const recipient = String(params.recipient);
       if (recipient === 'both' || recipient.includes(',')) {
         return {
           params,

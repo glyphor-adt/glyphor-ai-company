@@ -184,7 +184,7 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 export function formatDecisionCard(data: DecisionCardData): TeamsWebhookPayload {
-  const actionMode = data.actionMode ?? (process.env.AGENT365_CLIENT_ID ? 'execute' : 'openUrl');
+  const actionMode = data.actionMode ?? 'openUrl';
   const body: AdaptiveCardElement[] = [
     {
       type: 'TextBlock',
