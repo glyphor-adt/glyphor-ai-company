@@ -23,6 +23,7 @@ import { createLogoTools } from '../shared/logoTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { createFuseTools } from '../shared/fuseTools.js';
 
 export interface UiUxDesignerRunParams {
   task?: 'component_spec' | 'design_token_review' | 'on_demand';
@@ -48,6 +49,12 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createScreenshotTools(),
     ...createDesignSystemTools(),
     ...createAssetTools(glyphorEventBus),
+    ...createFuseTools(memory, {
+      allowBuild: true,
+      allowIterate: false,
+      allowUpgrade: false,
+      allowedBuildTiers: ['prototype'],
+    }),
     ...createFigmaTools(),
     ...createSharePointTools(),
     ...createLogoTools(),

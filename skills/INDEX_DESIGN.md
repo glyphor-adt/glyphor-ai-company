@@ -4,11 +4,11 @@
 
 | Agent | Role | Reports To | Skills |
 |-------|------|------------|--------|
-| Mia Tanaka | VP Design & Frontend | Sarah Chen | `design-review` (v2), `design-system-management` (v2), `brand-management` (NEW), `ui-development` (NEW) |
-| Leo Vargas | UI/UX Designer | Mia Tanaka | `design-review` (v2), `design-system-management` (v2), `ux-design` (NEW) |
+| Mia Tanaka | VP Design & Frontend | Sarah Chen | `design-review` (v2), `design-system-management` (v2), `brand-management` (NEW), `ui-development` (NEW), `advanced-web-creation` (NEW) |
+| Leo Vargas | UI/UX Designer | Mia Tanaka | `design-review` (v2), `design-system-management` (v2), `ux-design` (NEW), `advanced-web-creation` (NEW) |
 | Sofia Marchetti | Design Critic | Mia Tanaka | `design-review` (v2) |
 | Ryan Park | Template Architect | Mia Tanaka | `design-system-management` (v2) |
-| Ava Chen | Frontend Engineer | Mia Tanaka | `design-system-management` (v2), `frontend-development` (see IT team skills) |
+| Ava Chen | Frontend Engineer | Mia Tanaka | `design-system-management` (v2), `frontend-development` (see IT team skills), `advanced-web-creation` (NEW) |
 
 > **Note:** Ava Chen's primary skill `frontend-development` is in the engineering skills set. She also holds `design-system-management` as the builder who implements system changes.
 
@@ -34,6 +34,7 @@ All skills reference the correct infrastructure:
 | brand-management | (didn't exist) | ~140 lines, 27 tools |
 | ui-development | (didn't exist) | ~125 lines, 33 tools |
 | ux-design | (didn't exist) | ~145 lines, 21 tools |
+| advanced-web-creation | (didn't exist) | ~120 lines, 9 tools |
 
 ## Key Design Decisions
 
@@ -56,5 +57,6 @@ skills/design/
 ├── brand-management.md        # NEW — Mia, Maya (CMO)
 ├── ui-development.md          # NEW — Mia
 ├── ux-design.md               # NEW — Leo
+├── advanced-web-creation.md   # NEW — Mia, Ava, Leo, Marcus, Maya
 └── INDEX.md                   # This file
 ```

@@ -702,7 +702,6 @@ input:focus, textarea:focus, select:focus {
 .dark .dashboard-home-inner-card {
   position: relative;
   overflow: hidden;
-  isolation: isolate;
   background: var(--dashboard-surface-bg);
   border: 1px solid var(--dashboard-surface-border);
   backdrop-filter: var(--dashboard-surface-filter);

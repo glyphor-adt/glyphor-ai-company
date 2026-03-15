@@ -43,6 +43,7 @@ import { createLogoTools } from '../shared/logoTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { createFuseTools } from '../shared/fuseTools.js';
 
 export interface VPDesignRunParams {
   task?: 'design_audit' | 'design_system_review' | 'on_demand';
@@ -84,6 +85,12 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createAssetTools(glyphorEventBus),
     ...createScaffoldTools(),
     ...createDeployPreviewTools(),
+    ...createFuseTools(memory, {
+      allowBuild: true,
+      allowIterate: true,
+      allowUpgrade: true,
+      allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
+    }),
     ...createFigmaTools(),
     ...createStorybookTools(),
     ...createCanvaTools(),

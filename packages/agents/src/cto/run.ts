@@ -34,6 +34,7 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { systemQuery } from '@glyphor/shared/db';
+import { createFuseTools } from '../shared/fuseTools.js';
 
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
@@ -85,6 +86,12 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createToolRegistryTools(),
     ...createAgentDirectoryTools(),
     ...createDiagnosticTools(),
+    ...createFuseTools(memory, {
+      allowBuild: true,
+      allowIterate: false,
+      allowUpgrade: false,
+      allowedBuildTiers: ['prototype', 'full_build'],
+    }),
     ...await createAgent365McpTools('cto'),
     ...await createGlyphorMcpTools('cto'),
   ];

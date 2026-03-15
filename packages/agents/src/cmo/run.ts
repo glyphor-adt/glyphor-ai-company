@@ -37,6 +37,7 @@ import { createLogoTools } from '../shared/logoTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { createFuseTools } from '../shared/fuseTools.js';
 
 export interface CMORunParams {
   task?: 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand';
@@ -77,6 +78,12 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createSeoTools(),
     ...createSocialMediaTools(glyphorEventBus),
     ...createMarketingIntelTools(),
+    ...createFuseTools(memory, {
+      allowBuild: true,
+      allowIterate: false,
+      allowUpgrade: false,
+      allowedBuildTiers: ['prototype'],
+    }),
     ...createCanvaTools(),
     ...createLogoTools(),
     ...await createAgent365McpTools('cmo'),

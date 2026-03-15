@@ -580,6 +580,9 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'create_github_issue',
   // Infrastructure / deployment
   'deploy_to_staging',
+  'invoke_fuse_build',
+  'invoke_fuse_iterate',
+  'invoke_fuse_upgrade',
   'trigger_agent_run',
   'retry_failed_run',
   'pause_agent',

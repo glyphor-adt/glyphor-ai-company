@@ -121,6 +121,7 @@ export async function loadGrantedToolNames(
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const LONG_TOOL_TIMEOUT_MS = 120_000;
+const VERY_LONG_TOOL_TIMEOUT_MS = 420_000;
 
 // Company tools that legitimately take longer (API calls, report generation)
 const LONG_RUNNING_TOOLS = new Set([
@@ -137,6 +138,12 @@ const LONG_RUNNING_TOOLS = new Set([
   'run_test_suite',
   'run_cohort_analysis',
   'calculate_health_scores',
+]);
+
+const VERY_LONG_RUNNING_TOOLS = new Set([
+  'invoke_fuse_build',
+  'invoke_fuse_iterate',
+  'invoke_fuse_upgrade',
 ]);
 
 // Tools that are safe to execute in dry-run mode (read-only / computation)
@@ -250,6 +257,7 @@ const VERIFICATION_MAP: Record<string, { name: string; paramKey: string }> = {
 /** Rough cost estimate per tool call in USD */
 function estimateToolCost(toolName: string): number {
   if (isReadOnlyTool(toolName)) return 0.001;
+  if (VERY_LONG_RUNNING_TOOLS.has(toolName)) return 0.02;
   if (LONG_RUNNING_TOOLS.has(toolName)) return 0.01;
   return 0.003;
 }
@@ -743,7 +751,11 @@ export class ToolExecutor {
       }
     }
 
-    const timeoutMs = LONG_RUNNING_TOOLS.has(toolName) ? LONG_TOOL_TIMEOUT_MS : DEFAULT_TOOL_TIMEOUT_MS;
+    const timeoutMs = VERY_LONG_RUNNING_TOOLS.has(toolName)
+      ? VERY_LONG_TOOL_TIMEOUT_MS
+      : LONG_RUNNING_TOOLS.has(toolName)
+        ? LONG_TOOL_TIMEOUT_MS
+        : DEFAULT_TOOL_TIMEOUT_MS;
     const toolSource = detectToolSource(toolName);
     const execStart = Date.now();
 

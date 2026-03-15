@@ -180,6 +180,10 @@ const KNOWN_TOOLS = new Set([
   'deploy_preview',
   'get_deployment_status',
   'list_deployments',
+  // fuseTools
+  'invoke_fuse_build',
+  'invoke_fuse_iterate',
+  'invoke_fuse_upgrade',
   // figmaTools
   'get_figma_file',
   'export_figma_images',

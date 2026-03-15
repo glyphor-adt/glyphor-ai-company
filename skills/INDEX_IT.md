@@ -20,11 +20,11 @@ These skills are written for the actual Glyphor infrastructure:
 
 | Agent | Role | Reports To | Skills |
 |-------|------|------------|--------|
-| Marcus Reeves | CTO | Sarah Chen | `code-review` (NEW), `incident-response` (v2), `platform-monitoring` (v2), `tech-spec-writing` (v2) |
+| Marcus Reeves | CTO | Sarah Chen | `code-review` (NEW), `incident-response` (v2), `platform-monitoring` (v2), `tech-spec-writing` (v2), `advanced-web-creation` (shared) |
 | Alex Park | Platform Engineer | Marcus Reeves | `platform-monitoring` (v2), `incident-response` (v2) |
 | Sam DeLuca | Quality Engineer | Marcus Reeves | `quality-assurance` (NEW), `tech-spec-writing` (v2) |
 | Jordan Hayes | DevOps Engineer | Marcus Reeves | `infrastructure-ops` (NEW), `incident-response` (v2), `platform-monitoring` (v2) |
-| Ava Chen | Frontend Engineer | Mia Tanaka | `frontend-development` (NEW), `design-system-management` (existing) |
+| Ava Chen | Frontend Engineer | Mia Tanaka | `frontend-development` (NEW), `design-system-management` (existing), `advanced-web-creation` (shared) |
 | Riley Morgan | M365 Administrator | Marcus Reeves | `tenant-administration` (NEW) |
 | Morgan Blake | Global Administrator | Sarah Chen | `access-management` (NEW) |
 

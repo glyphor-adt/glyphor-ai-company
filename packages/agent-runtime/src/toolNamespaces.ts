@@ -23,7 +23,7 @@ export const TOOL_NAMESPACES: ToolNamespaceConfig[] = [
   {
     name: 'design',
     description: 'Design tokens, component libraries, Figma, accessibility, and Storybook tools.',
-    toolPrefixes: ['get_design', 'update_design', 'get_color', 'get_typography', 'get_component', 'save_component', 'query_component', 'check_ai_smell', 'run_accessibility', 'write_design', 'get_figma', 'export_figma', 'create_figma', 'post_figma', 'manage_figma', 'get_template', 'list_template', 'save_template', 'update_template', 'query_template', 'validate_tokens', 'create_logo', 'restyle_logo', 'generate_favicon', 'create_social_avatar', 'screenshot_component', 'screenshot_page', 'compare_screenshot', 'scaffold_component', 'scaffold_page', 'push_component', 'storybook_'],
+    toolPrefixes: ['get_design', 'update_design', 'get_color', 'get_typography', 'get_component', 'save_component', 'query_component', 'check_ai_smell', 'run_accessibility', 'write_design', 'get_figma', 'export_figma', 'create_figma', 'post_figma', 'manage_figma', 'get_template', 'list_template', 'save_template', 'update_template', 'query_template', 'validate_tokens', 'create_logo', 'restyle_logo', 'generate_favicon', 'create_social_avatar', 'screenshot_component', 'screenshot_page', 'compare_screenshot', 'scaffold_component', 'scaffold_page', 'push_component', 'storybook_', 'invoke_fuse'],
   },
   {
     name: 'research',
