@@ -4,7 +4,7 @@ slug: content-creation
 category: marketing
 description: Produce multi-format content — blog posts, video promos, social campaigns, email sequences, case studies, storyboarded product demos, and branded visual assets — that position Glyphor as the leader in autonomous AI operations. Use when any content needs producing across any medium (written, visual, video, audio), when the content calendar needs filling, when a product milestone needs announcing, when a campaign requires coordinated assets across channels, or when any published asset needs to carry the Glyphor voice and visual identity. This skill covers the full production pipeline from research through multi-format asset creation to publish, orchestrating the Pulse creative production engine for visual, video, and audio work.
 holders: cmo, content-creator
-tools_granted: web_search, web_fetch, save_memory, send_agent_message, draft_blog_post, draft_case_study, draft_email, draft_social_post, write_content, create_content_draft, update_content_draft, submit_content_for_review, approve_content_draft, reject_content_draft, publish_content, get_content_calendar, get_content_drafts, get_trending_topics, get_content_metrics, query_content_performance, query_top_performing_content, validate_brand_compliance, generate_content_image, pulse_generate_concept_image, pulse_edit_image, pulse_enhance_prompt, pulse_enhance_video_prompt, pulse_polish_scene_prompt, pulse_remove_background, pulse_upscale_image, pulse_expand_image, pulse_extract_image_text, pulse_replace_image_text, pulse_transform_viral_image, pulse_product_recontex, pulse_doodle_to_image, pulse_generate_video, pulse_poll_video_status, pulse_list_videos, pulse_remix_video, pulse_text_to_speech, pulse_generate_sound_effect, pulse_generate_music, pulse_create_storyboard_from_idea, pulse_list_storyboards, pulse_get_storyboard, pulse_generate_scene_images, pulse_suggest_scenes, pulse_storyboard_chat, pulse_generate_storyboard_script, pulse_generate_voiceover_script, pulse_kling_text_to_video, pulse_kling_image_to_video, pulse_kling_video_extend, pulse_kling_video_reference, pulse_kling_multi_shot, pulse_poll_multi_shot, pulse_kling_poll_task, pulse_kling_lip_sync, pulse_kling_motion_upload, pulse_kling_motion_create, pulse_kling_create_voice, pulse_create_hero_promo, pulse_create_multi_angle, pulse_create_product_showcase, pulse_generate_promo_scenes, pulse_analyze_brand_website, pulse_analyze_image_for_video, pulse_create_share_link, pulse_list_brand_kits
+tools_granted: web_search, web_fetch, save_memory, send_agent_message, draft_blog_post, draft_case_study, draft_email, draft_social_post, write_content, create_content_draft, update_content_draft, submit_content_for_review, approve_content_draft, reject_content_draft, publish_content, get_content_calendar, get_content_drafts, get_trending_topics, get_content_metrics, query_content_performance, query_top_performing_content, validate_brand_compliance, generate_content_image, pulse_generate_concept_image, pulse_edit_image, pulse_enhance_prompt, pulse_enhance_video_prompt, pulse_polish_scene_prompt, pulse_remove_background, pulse_upscale_image, pulse_expand_image, pulse_extract_image_text, pulse_replace_image_text, pulse_transform_viral_image, pulse_product_recontext, pulse_doodle_to_image, pulse_generate_video, pulse_poll_video_status, pulse_list_videos, pulse_remix_video, pulse_text_to_speech, pulse_generate_sound_effect, pulse_generate_music, pulse_create_storyboard_from_idea, pulse_list_storyboards, pulse_get_storyboard, pulse_generate_scene_images, pulse_suggest_scenes, pulse_storyboard_chat, pulse_generate_storyboard_script, pulse_generate_voiceover_script, pulse_kling_text_to_video, pulse_kling_image_to_video, pulse_kling_video_extend, pulse_kling_video_reference, pulse_kling_multi_shot, pulse_poll_multi_shot, pulse_kling_poll_task, pulse_kling_lip_sync, pulse_kling_motion_upload, pulse_kling_motion_create, pulse_kling_create_voice, pulse_create_hero_promo, pulse_create_multi_angle, pulse_create_product_showcase, pulse_generate_promo_scenes, pulse_analyze_brand_website, pulse_analyze_image_for_video, pulse_create_share_link, pulse_list_brand_kits
 version: 3
 ---
 
@@ -47,7 +47,7 @@ Pulse is your creative production engine — 41 tools across 7 categories. Every
 | `pulse_expand_image` | Outpaint to new aspect ratios — square to banner, portrait to landscape. |
 | `pulse_replace_image_text` | Swap text in images — localize, version, or A/B test headline variants without regenerating. |
 | `pulse_transform_viral_image` | Apply trending visual styles — make content feel native to current social aesthetics. |
-| `pulse_product_recontex` | Place the Glyphor dashboard or agent interface into contextual scenes — offices, devices, presentations. |
+| `pulse_product_recontext` | Place the Glyphor dashboard or agent interface into contextual scenes — offices, devices, presentations. |
 | `pulse_doodle_to_image` | Turn rough sketches into polished visuals — whiteboard-to-graphic workflow. |
 | `pulse_enhance_prompt` | Polish image prompts before generation. Always run this before producing hero images. |
 
@@ -121,7 +121,7 @@ End-to-end production in a single call:
 2. **Structure** — thesis, evidence sections, CTA
 3. **Draft** — `create_content_draft`
 4. **Hero image** — `pulse_enhance_prompt` → `pulse_generate_concept_image` → `pulse_upscale_image`
-5. **In-article graphics** — `pulse_generate_concept_image` for diagrams, `pulse_product_recontex` for product shots in context
+5. **In-article graphics** — `pulse_generate_concept_image` for diagrams, `pulse_product_recontext` for product shots in context
 6. **Review** — `submit_content_for_review` → `validate_brand_compliance`
 7. **Publish** — `publish_content`
 
@@ -157,7 +157,7 @@ Every blog post: minimum one hero image + one in-article visual. Both Pulse-prod
 1. **Subject line** — under 50 chars, curiosity/urgency
 2. **Header image** — `pulse_generate_concept_image` → `pulse_expand_image` to email banner ratio
 3. **Body** — one idea, one CTA, Glyphor voice
-4. **Product visuals** — `pulse_product_recontex` for contextual imagery
+4. **Product visuals** — `pulse_product_recontext` for contextual imagery
 5. **A/B variants** — `pulse_replace_image_text` for headline variant images
 6. **Draft** — `draft_email` → `submit_content_for_review`
 
@@ -178,7 +178,7 @@ The full production treatment — coordinate across all formats:
 1. **Research** — problem, approach, results, quote
 2. **Write** — `draft_case_study` (Problem → Approach → Result → Quote)
 3. **Data visuals** — `pulse_generate_concept_image` for metrics/comparisons
-4. **Product in context** — `pulse_product_recontex` showing Glyphor in customer environment
+4. **Product in context** — `pulse_product_recontext` showing Glyphor in customer environment
 5. **Pull quote graphic** — `pulse_generate_concept_image` with styled quote
 6. **Optional video** — `pulse_create_hero_promo` for 30-second case study video
 7. **Optional talking head** — `pulse_text_to_speech` + `pulse_kling_lip_sync` for synthetic testimonial
