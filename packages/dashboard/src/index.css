@@ -50,6 +50,9 @@
   --scrollbar-hover: rgba(255, 255, 255, 0.2);
   --glass-filter: blur(24px) saturate(170%) contrast(1.04) brightness(1.08);
   --glass-bg: rgba(18, 24, 42, 0.34);
+  --sidebar-glass-bg: linear-gradient(180deg, rgba(8, 14, 32, 0.56) 0%, rgba(7, 12, 28, 0.46) 100%);
+  --sidebar-glass-border: rgba(0, 224, 255, 0.1);
+  --sidebar-glass-highlight: rgba(255, 255, 255, 0.09);
   /* Accent colors – bright shades from Prism */
   --cyan: var(--prism-accent-1);
   --azure: var(--prism-accent-3);
@@ -594,50 +597,54 @@ input:focus, textarea:focus, select:focus {
 
 .dark .glass-card.glass-panel,
 .dark .glass-raised.glass-panel {
-  --panel-bg: var(--glass-bg);
+  --panel-bg: var(--sidebar-glass-bg);
   background: var(--panel-bg) !important;
   backdrop-filter: var(--glass-filter) !important;
   -webkit-backdrop-filter: var(--glass-filter) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid var(--sidebar-glass-border) !important;
   border-radius: 12px;
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-    0 10px 24px rgba(0, 0, 0, 0.32) !important;
+    inset 0 1px 0 var(--sidebar-glass-highlight),
+    0 0 0 1px rgba(0, 224, 255, 0.05) inset,
+    0 8px 20px rgba(0, 0, 0, 0.3) !important;
 }
 
 .dark .glass-panel.panel-primary {
-  --panel-bg: var(--glass-bg);
+  --panel-bg: var(--sidebar-glass-bg);
   background: var(--panel-bg) !important;
   backdrop-filter: var(--glass-filter) !important;
   -webkit-backdrop-filter: var(--glass-filter) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid var(--sidebar-glass-border) !important;
 }
 
 .dark .glass-panel.panel-nested {
-  --panel-bg: var(--glass-bg);
+  --panel-bg: linear-gradient(180deg, rgba(7, 13, 30, 0.58) 0%, rgba(7, 12, 26, 0.5) 100%);
   background: var(--panel-bg) !important;
   backdrop-filter: var(--glass-filter) !important;
   -webkit-backdrop-filter: var(--glass-filter) !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border: 1px solid rgba(0, 224, 255, 0.09) !important;
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
-    0 6px 14px rgba(0, 0, 0, 0.26) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 1px rgba(0, 224, 255, 0.04) inset,
+    0 6px 14px rgba(0, 0, 0, 0.24) !important;
 }
 
 .dark .glass-card.glass-panel:hover,
 .dark .glass-raised.glass-panel:hover {
   background: var(--panel-bg) !important;
-  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  border: 1px solid rgba(0, 224, 255, 0.16) !important;
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.1) inset,
-    0 12px 28px rgba(0, 0, 0, 0.34) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(0, 224, 255, 0.07) inset,
+    0 10px 24px rgba(0, 0, 0, 0.32) !important;
 }
 
 .dark .sidebar-glass {
-  background: var(--glass-bg) !important;
+  background: var(--sidebar-glass-bg) !important;
   backdrop-filter: var(--glass-filter) !important;
   -webkit-backdrop-filter: var(--glass-filter) !important;
-  border-right: 1px solid rgba(0, 224, 255, 0.08);
+  border-right: 1px solid var(--sidebar-glass-border);
+  box-shadow: inset 0 1px 0 var(--sidebar-glass-highlight);
 }
 
 .dark .hero-glass {
