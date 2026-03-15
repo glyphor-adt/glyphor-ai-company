@@ -677,6 +677,83 @@ Evidence checklist before incident closure:
 - Temporary mitigations (tool disablement, throttles, overrides) are either rolled back or documented with expiry.
 - Incident note includes root cause, blast radius, prevention action, and owner for follow-through.
 
+### 6.13 Model Routing Policy (Selection, Overrides, and Fallback)
+
+This section defines the canonical model-selection logic used in production.
+
+Model choice precedence for agent runs:
+
+1. Explicit per-agent model override from `company_agents.model` (dashboard/operator-set) wins.
+2. If no DB override exists, role cost tier selects the baseline model (`economy`, `standard`, `pro`).
+3. For `on_demand` runs with `pro` tier roles, use `EXEC_CHAT_MODEL`.
+4. If a selected model ID is deprecated, upgrade to replacement via model registry.
+5. If a selected model ID is unknown, fail-safe to `DEFAULT_AGENT_MODEL`.
+
+Primary implementation anchors:
+
+- `packages/agents/src/shared/createRunDeps.ts`
+  - `loadAgentConfig` reads model/temperature/max_turns/thinking_enabled from `company_agents`.
+  - Calls runner-level `resolveModel(role, task, DEFAULT_AGENT_MODEL, dbModel)`.
+- `packages/agents/src/shared/createRunner.ts`
+  - `resolveModel` delegates to `optimizeModel(role, task, dbModel)`.
+- `packages/shared/src/models.ts`
+  - `optimizeModel` applies override -> tier -> on-demand exec-chat policy.
+  - `resolveModel(modelId)` normalizes deprecated/unknown model IDs.
+
+Role and task policy behavior:
+
+- Tier map (`ROLE_COST_TIER`) drives default selection for most roles.
+- Tier model map (`TIER_MODELS`) binds each tier to a concrete default model.
+- `EXEC_CHAT_MODEL` is a special override only for founder-facing `on_demand` conversations on `pro` roles.
+- New temporary agents default to `DEFAULT_AGENT_MODEL` unless explicitly set at creation time.
+
+Runtime fallback policy in `ModelClient`:
+
+- Provider is inferred from model ID prefix (`gemini-*`, `gpt-*`/`o*`, `claude-*`).
+- Fallback scope is request-controlled:
+  - `cross-provider` (default): uses cross-provider fallback chain.
+  - `same-provider`: uses provider-local fallback chain.
+  - `none`: disables fallback.
+- Retry/fallback strategy:
+  - Retries transient failures on current model with bounded backoff.
+  - Quota/rate-limit errors skip to next fallback model.
+  - Model-level client errors (`400/404/422`) skip to next fallback model.
+  - Auth errors (`401/403`) are treated as non-retryable provider failures.
+- If provider credentials are missing for a candidate model, runtime skips that model and continues through chain.
+
+Specialized/pinned model lanes (intentional exceptions):
+
+- Constitutional pre-check lane: fixed economy model (`PRE_CHECK_MODEL`).
+- Constitutional evaluation lane: fixed economy model (`EVALUATION_MODEL`).
+- Analysis engine lane: engine-level default model unless constructor-injected override.
+- Triangulation lane:
+  - single-model mode resolves user-selected model or defaults to `gpt-5.4`.
+  - multi-model mode accepts per-provider model selections and resolves each through registry normalization.
+
+```mermaid
+flowchart TD
+  A[Run request role plus task] --> B{DB model override present}
+  B -->|Yes| C[Use DB model after registry normalization]
+  B -->|No| D[Resolve role cost tier]
+  D --> E{task is on_demand and tier is pro}
+  E -->|Yes| F[Use EXEC_CHAT_MODEL]
+  E -->|No| G[Use TIER_MODELS mapping]
+  C --> H[ModelClient execution]
+  F --> H
+  G --> H
+  H --> I{Request fallback scope}
+  I -->|none| J[Try selected model only]
+  I -->|same-provider| K[Try provider-local fallback chain]
+  I -->|cross-provider default| L[Try cross-provider fallback chain]
+  J --> M[Return first successful response or error]
+  K --> M
+  L --> M
+```
+
+Governance note:
+
+- Model-switch actions are authority-gated in scheduler policy controls and can be routed for approval based on governance rules.
+
 ## 7. Scheduler API Surface (Endpoint Matrix)
 
 The scheduler server in packages/scheduler/src/server.ts exposes the following route surface.
