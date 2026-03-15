@@ -150,7 +150,7 @@ export function createAssignmentTools(
     {
       name: 'submit_assignment_output',
       description:
-        'Submit your completed work for a specific assignment. Include your full deliverable. Sarah will evaluate the quality and either accept it or send it back with feedback. Use status "completed" for final submissions, "in_progress" for partial updates with progress notes.',
+        'Submit your completed work for a specific assignment that is assigned to you. Include your full deliverable. Sarah will evaluate the quality and either accept it or send it back with feedback. Use status "completed" for final submissions, "in_progress" for partial updates with progress notes. If an assignment is owned by another agent, use send_agent_message to follow up instead of submitting on their behalf.',
       parameters: {
         assignment_id: {
           type: 'string',
@@ -185,7 +185,14 @@ export function createAssignmentTools(
             return { success: false, error: 'Assignment not found' };
           }
           if (assignment.assigned_to !== ctx.agentRole) {
-            return { success: false, error: 'This assignment is not assigned to you' };
+            const owner = assignment.assigned_to as string;
+            return {
+              success: false,
+              error:
+                `Assignment ${assignmentId} is assigned to ${owner}, not ${ctx.agentRole}. ` +
+                `Only the assignee can call submit_assignment_output. ` +
+                `Use send_agent_message to ${owner} for status updates or unblock support.`,
+            };
           }
 
           // Route notification to whoever assigned this work (default: chief-of-staff)
@@ -285,7 +292,7 @@ export function createAssignmentTools(
     {
       name: 'flag_assignment_blocker',
       description:
-        'Flag a work assignment as blocked. Describe what is preventing you from completing the work and what you need to proceed. Sarah will triage: reassign, escalate to founders, or dispatch another agent to help.',
+        'Flag a work assignment as blocked when your own assignment cannot proceed. Describe what is preventing completion and what you need. Sarah will triage: reassign, escalate to founders, or dispatch another agent to help. Do not flag blockers on assignments owned by other agents; coordinate via send_agent_message or escalate_to_sarah for cross-team issues.',
       parameters: {
         assignment_id: {
           type: 'string',
@@ -320,7 +327,14 @@ export function createAssignmentTools(
             return { success: false, error: 'Assignment not found' };
           }
           if (assignment.assigned_to !== ctx.agentRole) {
-            return { success: false, error: 'This assignment is not assigned to you' };
+            const owner = assignment.assigned_to as string;
+            return {
+              success: false,
+              error:
+                `Assignment ${assignmentId} is assigned to ${owner}, not ${ctx.agentRole}. ` +
+                `Only the assignee can call flag_assignment_blocker. ` +
+                `Use send_agent_message to ${owner} to coordinate or escalate_to_sarah if cross-functional unblock is needed.`,
+            };
           }
 
           // Route blocker notification to whoever assigned this work

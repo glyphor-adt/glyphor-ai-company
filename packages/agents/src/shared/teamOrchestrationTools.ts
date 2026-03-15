@@ -86,11 +86,17 @@ export function createTeamOrchestrationTools(
         success: true,
         data: {
           direct_reports: directReports,
+          ownership_guardrail:
+            'Only call submit_assignment_output and flag_assignment_blocker when assigned_to matches your role. For teammate-owned assignments, coordinate via send_agent_message and escalate_to_sarah only when needed.',
           total: assignments.length,
           byStatus,
           assignments: assignments.map(a => ({
             id: a.id,
             assigned_to: a.assigned_to,
+            can_act_directly: a.assigned_to === agentRole,
+            recommended_next_action: a.assigned_to === agentRole
+              ? 'You own this assignment. Use submit_assignment_output or flag_assignment_blocker as needed.'
+              : `Owned by ${a.assigned_to}. Use send_agent_message to coordinate; avoid assignee-only tools.`,
             status: a.status,
             title: (a.task_description ?? '').slice(0, 100),
             priority: a.priority,
