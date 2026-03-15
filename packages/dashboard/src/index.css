@@ -561,8 +561,8 @@ input:focus, textarea:focus, select:focus {
   width: 24px;
 }
 
-.glass-card::before,
-.glass-raised::before {
+.glass-card::after,
+.glass-raised::after {
   content: '';
   position: absolute;
   top: 0;
@@ -730,6 +730,7 @@ input:focus, textarea:focus, select:focus {
   content: '';
   position: absolute;
   inset: -14%;
+  height: auto;
   background:
     url('/freepik__talk__14219.png') center / cover no-repeat,
     radial-gradient(58% 42% at 14% 26%, rgba(62, 109, 255, 0.26) 0%, rgba(62, 109, 255, 0) 68%),
@@ -737,6 +738,7 @@ input:focus, textarea:focus, select:focus {
   opacity: 0.34;
   filter: blur(18px) saturate(145%);
   transform: scale(1.06);
+  border-radius: inherit;
   pointer-events: none;
   z-index: 0;
 }

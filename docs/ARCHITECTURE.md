@@ -361,6 +361,322 @@ Run completes
   -> optional graph/world-model updates
 ```
 
+### 6.6 Runtime Logic Pipeline (Detailed)
+
+This is the concrete decision-and-execution pipeline used when an agent run is triggered.
+
+1. Ingress normalization and request shaping
+   - Primary entrypoint: scheduler `server.ts` (`POST /run`, `POST /event`, `POST /pubsub`, Graph webhook path).
+   - User identity, chat history, and attachments are normalized into runtime payloads before routing.
+   - For direct chat requests, identity context is prepended and dashboard history is converted to runtime `ConversationTurn` entries.
+
+2. Control-plane routing and wake semantics
+   - `EventRouter` handles event-originated dispatch.
+   - `WakeRouter` handles reactive wake-ups (messages, webhooks, urgency signals).
+   - `HeartbeatManager` and `DynamicScheduler` drive periodic and schedule-based runs.
+   - `DecisionQueue` provides queue-backed escalation and decision routing hooks.
+
+3. Runner strategy selection
+   - `packages/agents/src/shared/createRunner.ts` enforces runner selection policy:
+     - `on_demand` -> `CompanyAgentRunner`
+     - orchestrator roles -> `OrchestratorRunner`
+     - all others -> `TaskRunner`
+   - Model choice is resolved through shared optimization (`resolveModel` -> `optimizeModel`) with explicit DB overrides honored.
+
+4. Context assembly and compression
+   - `BaseAgentRunner` / `CompanyAgentRunner` assemble run context from:
+     - chat history and current input
+     - attachments (including document text extraction for office files)
+     - shared memory + profile context
+     - JIT retrieval via `JitContextRetriever`
+   - `historyManager` performs compaction/compression and tool-pair sanitation before model calls.
+
+5. Subtask routing and value gating
+   - `routeSubtask` computes per-turn routing and capability posture (model route + complexity classification).
+   - Optional deterministic pre-check path can skip expensive model calls when criteria are met.
+   - Optional value gate (`reasoningEngine.evaluateValue`) can abort low-value runs before full execution.
+
+6. Tool-aware generation loop
+   - Supervisor enforces hard run constraints (turn limits, timeout/abort semantics).
+   - Prompt + filtered tool declarations are sent to provider adapters through the model client.
+   - Tool availability can be narrowed by role/task subsets before each call.
+
+7. Tool policy enforcement and execution controls
+   - `ToolExecutor` enforces multiple guard layers for mutative and high-stakes actions:
+     - block/grant enforcement and reputation telemetry
+     - formal budget verification (`FormalVerifier`)
+     - constitutional pre-check (`constitutionalPreCheck` via `ConstitutionalGovernor`)
+     - data-evidence gate for decision/report tools
+     - optional cross-agent verifier gate (`verifierRunner`)
+   - Runtime/dynamic tools are supported via `RuntimeToolFactory` and `dynamicToolExecutor`.
+   - MCP name-shape normalization is handled in executor alias resolution (namespaced-to-concrete tool mapping).
+
+8. Post-response constitutional and trust feedback
+   - Final text can be constitutionally evaluated post-generation.
+   - `TrustScorer` applies deltas from constitutional outcomes, verifier confidence, and run quality signals.
+   - `DecisionChainTracker` records chain-level reasoning metadata for downstream auditability.
+
+9. Persistence and side effects
+   - Outputs, action receipts, and status transitions are persisted to operational tables.
+   - Assignment-linked runs update `work_assignments` output/status directly.
+   - Follow-on workflow, wake, or notification paths are triggered based on run result and priority.
+
+### 6.7 Intelligence Layers (Operational Stack)
+
+The platform intelligence model is layered rather than a single monolithic "agent brain." Each layer has explicit ownership and artifacts.
+
+| Layer | Purpose | Primary components | Output artifact |
+| --- | --- | --- | --- |
+| L0 Signal Intake | Normalize external and internal triggers | `server.ts`, Graph webhook handler, `/run`, `/event`, `/pubsub` | Canonical run/event payload |
+| L1 Control Routing | Decide who should run and when | `EventRouter`, `WakeRouter`, `HeartbeatManager`, `DynamicScheduler` | Routed execution intent |
+| L2 Runner Selection | Choose execution archetype | `createRunner.ts`, `CompanyAgentRunner`, `OrchestratorRunner`, `TaskRunner` | Runner + model envelope |
+| L3 Context Intelligence | Build relevant working context | `JitContextRetriever`, memory/profile loading, `historyManager` | Compressed, relevance-scoped context |
+| L4 Planning/Reasoning | Determine approach and decomposition | `routeSubtask`, value gate, reasoning hooks, role prompts | Turn strategy + tool plan |
+| L5 Action Intelligence | Execute tools safely and adaptively | `ToolExecutor`, tool subsets, runtime/dynamic tool execution | Tool results + action receipts |
+| L6 Assurance Intelligence | Prevent unsafe/invalid outputs | `FormalVerifier`, constitutional pre-check/eval, verifier runner | Allow/block decisions + violations |
+| L7 Trust and Adaptation | Continuously score execution reliability | `TrustScorer`, tool reputation tracker, drift detector | Trust deltas and reliability state |
+| L8 Learning and Memory | Convert outcomes into durable improvement | reflection flow, `skillLearning`, task outcome harvesting, memory lifecycle jobs | Episodic/procedural memory + skill updates |
+| L9 Governance and Oversight | Human-in-loop and policy lifecycle control | authority gates, `DecisionQueue`, governance/policy endpoints, canary evaluators | approvals, policy versions, audit trails |
+
+### 6.8 Intelligence Modes in Production
+
+Glyphor currently runs multiple intelligence modes in parallel, each with different latency and assurance profiles.
+
+- Conversational execution mode
+  - Used by on-demand chat and agent interactions.
+  - Optimized for iterative turn-taking with tool calls and fast memory retrieval.
+
+- Orchestration mode
+  - Used by orchestrator roles and workflow tasks.
+  - Emphasizes decomposition, delegation, and cross-agent coordination.
+
+- Analytical synthesis mode
+  - Implemented by analysis engines (`analysis`, `simulation`, `cot`, `deep-dive`, `strategy-lab`).
+  - Produces durable analytical artifacts and optional visual/report exports.
+
+- Triangulated reasoning mode
+  - Used by Ora chat surfaces (`/ora/chat`, `/chat/triangulate`).
+  - Blends model/provider perspectives with retrieval context for selection and synthesis.
+
+- Governance and assurance mode
+  - Runs continuously around execution via constitutional checks, verifier paths, trust scoring, and policy/canary evaluators.
+  - Converts raw agent output into policy-compliant operational behavior.
+
+### 6.9 Failure Semantics and Recovery Contracts
+
+This section defines how failures are handled at each layer, what fails closed vs fails open, and where recovery occurs.
+
+| Layer | Failure types | Default behavior | Recovery path |
+| --- | --- | --- | --- |
+| L0 Signal Intake | malformed payload, auth/token failure, unknown route, integration not configured | return HTTP error (`400`, `401`, `404`, `503`) | caller retry or configuration correction |
+| L1 Control Routing | event dispatch errors, wake processing errors | best-effort processing; route returns structured failure when dispatch fails | event replay, manual re-run, or wake retry via scheduler endpoints |
+| L2 Supervision | max turns exceeded, timeout exceeded, stalled turns | supervisor aborts run with explicit reason (`max_turns_exceeded`, `timeout`, `stalled`) | re-run with adjusted config/context or reduced tool plan |
+| L3 Context Intelligence | JIT retrieval/cache/read failures | fail-open; run continues with reduced context | next turn/run may repopulate retrieval cache and memory context |
+| L4 Planning/Reasoning | value-gate abort, model request error | value gate may abort pre-loop; model errors terminate current run path | retry run, switch model routing tier, or reduce task scope |
+| L5 Tool Execution | tool timeout, tool exception, abort signal, repeated tool failure | returns structured tool failure; run can continue or terminate based on caller behavior | per-call timeout handling, alternate tools, and repeated-failure escalation |
+| L6 Assurance Intelligence | budget violation, constitutional violation, evidence-gate violation, verifier block | fail-closed for policy/budget/evidence/verifier denials; pre-check infra errors are fail-open | revise plan/tool args, gather required evidence, or escalate for human review |
+| L7 Workflow Orchestration | step failure, wait timeout, queue unavailable | retries with backoff; on policy exhaustion marks step/workflow failed; queue absence logs manual dispatch | retry endpoint, cancel endpoint, approval/webhook resolution, operator intervention |
+| L8 Learning/Trust | trust write errors, drift scoring issues, reflection write errors | non-fatal where possible (warnings/logging) to preserve availability | periodic maintenance jobs and future runs restore learning signals |
+| L9 Governance | policy eval/canary workflow errors | recorded as failing/stale governance operations, not silent success | rerun policy jobs, canary checks, or manual governance resolution |
+
+Current concrete reliability controls implemented in runtime/control plane:
+
+- Supervisor guardrails
+  - `AgentSupervisor` enforces max turns, max stall turns, and per-run timeout.
+  - Abort is propagated through `AbortController` into tool/model operations.
+
+- Tool execution timeboxing
+  - Standard tool timeout: `30s`.
+  - Long-running tool timeout: `120s`.
+  - Execution races against timeout and abort signal.
+
+- Assurance gates (high-stakes path)
+  - Formal budget checks can block mutative actions.
+  - Constitutional pre-check can block disallowed high-stakes actions.
+  - Data-evidence gate blocks decision/report generation without substantive prior data retrieval.
+  - Cross-agent verifier can block or escalate sensitive actions.
+
+- Workflow recovery contracts
+  - Step retries use exponential backoff (`30s`, `60s`, `120s`).
+  - `wait_*` steps fail after max wait window (`48h`).
+  - Cancel path marks workflow cancelled and skips pending/running/waiting steps.
+  - Retry endpoint can restart from failed step or rearm step 0.
+
+- Repeated-failure escalation
+  - Repeated tool failures are tracked in a rolling 1-hour window.
+  - On threshold breach, a system activity-log escalation event is written for CTO/ops visibility.
+
+### 6.10 Sequence Diagrams (Critical Paths)
+
+#### 6.10.1 On-Demand `/run` Execution Path
+
+```mermaid
+sequenceDiagram
+  participant U as User/Dashboard
+  participant S as Scheduler /run
+  participant R as EventRouter
+  participant E as trackedAgentExecutor
+  participant A as Role Runner
+  participant X as createRunner
+  participant C as Context Layer
+  participant M as Model Client
+  participant T as ToolExecutor
+  participant D as DB
+
+  U->>S: POST /run (agentRole, task, message, history, attachments)
+  S->>S: Normalize identity/history/attachments
+  S->>R: route(source=manual, payload)
+  R->>E: execute(agentRole, task, payload)
+  E->>A: run<Role>() / runDynamicAgent()
+  A->>X: select runner strategy
+  X-->>A: CompanyAgentRunner / OrchestratorRunner / TaskRunner
+  A->>C: load memory + JIT context + compressed history
+  A->>M: generate(systemPrompt, history, tools)
+  loop Tool call turns
+    M-->>A: tool call request(s)
+    A->>T: execute(toolName, args)
+    T-->>A: tool result (success/error + checks)
+    A->>M: continue with tool receipts
+  end
+  M-->>A: final response
+  A-->>E: AgentExecutionResult
+  E-->>R: routed result
+  R-->>S: action/status/output
+  S->>D: optional assignment/status persistence
+  S-->>U: response payload
+```
+
+#### 6.10.2 Workflow Retry/Cancel Path
+
+```mermaid
+sequenceDiagram
+  participant O as Operator/Dashboard
+  participant S as Scheduler Workflow API
+  participant W as WorkflowOrchestrator
+  participant D as DB (workflows/workflow_steps)
+
+  alt Retry failed workflow
+    O->>S: POST /workflows/:id/retry
+    S->>W: getWorkflowState(id)
+    W->>D: SELECT workflow + steps
+    D-->>W: failed state + failed step
+    W-->>S: workflow state
+    S->>D: set workflow running, clear failed step error/status
+    alt failed step index > 0
+      S->>W: advanceWorkflow(id, failedStep-1, prevOutput)
+      W->>D: complete prior step, dispatch failed step
+    else failed step index == 0
+      S->>D: mark step 0 running (rearm)
+    end
+    S-->>O: retrying_step
+  else Cancel running workflow
+    O->>S: POST /workflows/:id/cancel
+    S->>W: cancelWorkflow(id, reason)
+    W->>D: mark workflow cancelled
+    W->>D: mark pending/running/waiting steps skipped
+    S-->>O: success
+  end
+```
+
+#### 6.10.3 High-Stakes Tool Verification Path
+
+```mermaid
+sequenceDiagram
+  participant R as Runner
+  participant T as ToolExecutor
+  participant B as Block/Budget Checks
+  participant G as Constitutional Governor
+  participant V as VerifierRunner
+  participant X as Tool Impl
+  participant D as Audit/Reputation Logs
+
+  R->>T: execute(toolName, params, context)
+  T->>B: emergency block + budget/rate checks
+  alt blocked by safety budget/policy
+    B-->>T: deny
+    T-->>R: error (blocked)
+  else allowed
+    T->>G: constitutional pre-check (high-stakes)
+    alt constitutional violation
+      G-->>T: deny + violations
+      T->>D: security event
+      T-->>R: error (constitutional block)
+    else pass
+      T->>T: data-evidence gate (for decision/report tools)
+      alt missing evidence
+        T->>D: security event
+        T-->>R: error (evidence required)
+      else evidence ok
+        T->>V: cross-agent verification (selected tools)
+        alt verifier BLOCK/ESCALATE
+          V-->>T: block verdict
+          T->>D: verification block event
+          T-->>R: error (verifier block)
+        else verifier pass
+          T->>X: execute with timeout/abort race
+          X-->>T: result
+          T->>T: optional mutation read-back verification
+          T->>D: tool call + reputation/failure tracking
+          T-->>R: ToolResult
+        end
+      end
+    end
+  end
+```
+
+### 6.11 Production SLI/SLO and Ownership Contracts
+
+This section converts architecture layers into measurable reliability contracts.
+
+Scope notes:
+
+- Targets are monthly unless otherwise specified.
+- Policy-denied actions are tracked separately from execution errors.
+- Planned maintenance windows are excluded from availability SLOs.
+
+| Contract | SLI definition | Target SLO | Error budget | Primary telemetry source | Primary owner |
+| --- | --- | --- | --- | --- | --- |
+| Control-plane availability | non-5xx response ratio for scheduler ingress (`/run`, `/event`, `/pubsub`, webhook entrypoints) | >= 99.90% | <= 43m 49s/month | Cloud Run request logs + scheduler health checks | Scheduler platform owner |
+| On-demand responsiveness | p95 end-to-end latency for successful `/run` chat invocations | <= 12s p95 | <= 5% of monthly successful runs above 12s | `agent_runs` + API timing logs | Agent runtime owner |
+| Tool execution reliability | successful tool call ratio excluding constitutional/policy-denied actions | >= 97.00% | <= 3.00% monthly failed tool executions | tool result telemetry + `tool_reputation` | Runtime tooling owner |
+| Workflow completion reliability | workflow runs finishing `completed` before max wait horizon | >= 98.00% | <= 2.00% monthly failed/timed-out workflows | `workflows`, `workflow_steps`, orchestrator logs | Workflow orchestration owner |
+| Assurance gate correctness | mutative/high-stakes actions with enforced pre-check trail (`constitutional`, `budget`, `evidence`, `verifier`) | 100.00% | 0 missing assurance trails | `constitutional_gate_events`, audit/security logs | Governance and assurance owner |
+| Persistence durability | successful write transaction ratio for critical runtime entities (`agent_runs`, `work_assignments`, `decisions`) | >= 99.99% | <= 4m 23s/month equivalent | PostgreSQL error telemetry + activity/audit logs | Data platform owner |
+
+Operational alert thresholds:
+
+- P0: control-plane availability below 99.0% in rolling 15m, or assurance gate correctness below 100%.
+- P1: tool execution reliability below 95% in rolling 1h, or workflow failure rate above 5% in rolling 1h.
+- P2: on-demand latency p95 above 20s in rolling 1h, or persistence durability below 99.95% in rolling 1h.
+
+Escalation contracts:
+
+- Scheduler ingress incidents escalate first to scheduler platform owner, then to runtime owner if failures originate in execution handoff.
+- Tool reliability incidents escalate to runtime tooling owner; if isolated to one connector, hand off to integration owner.
+- Assurance correctness incidents are fail-closed and immediately page governance and assurance owner plus platform security contact.
+- Database durability incidents page data platform owner first and freeze mutative retries until write health stabilizes.
+
+### 6.12 Incident Playbook Appendix (Mapped to Failure Layers)
+
+This appendix defines first-response actions aligned to section 6.9 failure semantics.
+
+| Failure layer and trigger | First 5 minutes | Containment actions | Recovery and verification | Owner and escalation |
+| --- | --- | --- | --- | --- |
+| L0 intake failures: 5xx spike on `/run` or `/event` | confirm health endpoint, inspect latest deploy revision and ingress error class | shift/rollback traffic to last known good revision if deploy-correlated | replay safe failed requests and confirm ingress success ratio recovery | Scheduler platform owner; escalate to runtime owner if execution handoff faults |
+| L2 supervision abort surge: `timeout`/`stalled` reasons spike | sample recent `agent_runs` abort reasons and affected roles/tasks | reduce run complexity (tool subset/model tier), pause noisy trigger sources | verify abort-rate trend returns to baseline and backlog drains | Agent runtime owner; escalate to role prompt/tooling owners for chronic patterns |
+| L5 tool failure surge: repeated tool errors or timeout cluster | group failures by `toolName`, provider, and error signature | disable or rate-limit failing tool grants for impacted roles; route to fallback tools | re-enable gradually after success-rate canary and reputation trend improvement | Runtime tooling owner; escalate to integration owner for connector/API defects |
+| L6 assurance denials blocking critical work | inspect constitutional/evidence/verifier verdict reasons and policy version | apply controlled override path only through governance approval when business-critical | validate assurance event completeness and restore normal gating mode | Governance and assurance owner; escalate to executive approver for emergency override |
+| L7 workflow stuck/failing: retries exhausted or wait timeout risk | inspect workflow step states and failed step index | cancel deadlocked workflow; use retry endpoint from failed step or rearm step 0 | confirm step progression and no duplicate side effects in assignment/output tables | Workflow orchestration owner; escalate to scheduler platform owner for queue/dispatch defects |
+| L8 trust/learning write degradation | check trust score write errors and reflection persistence failures | run in degraded mode (no hard dependency on learning writes) and queue backfill | run maintenance/backfill jobs and verify trust/learning write recovery | Runtime intelligence owner; escalate to data platform owner if storage-linked |
+| Integration auth/config expiry (Teams/Graph/GitHub/etc.) | validate credential health and recent auth failures by integration module | disable failing integration triggers to prevent retry storms | reauthorize credential, run smoke command, and re-enable trigger paths | Integration owner; escalate to scheduler owner if ingress flood persists |
+
+Evidence checklist before incident closure:
+
+- SLO metric has recovered for two consecutive measurement windows.
+- Backlog or failed-run queues are either drained or explicitly triaged.
+- Temporary mitigations (tool disablement, throttles, overrides) are either rolled back or documented with expiry.
+- Incident note includes root cause, blast radius, prevention action, and owner for follow-through.
+
 ## 7. Scheduler API Surface (Endpoint Matrix)
 
 The scheduler server in packages/scheduler/src/server.ts exposes the following route surface.
