@@ -132,6 +132,12 @@ export function checkAuthority(
   agentRole: CompanyAgentRole,
   action: string,
 ): AuthorityCheck {
+  // Dedicated internal task for skill methodology A/B validation.
+  // Keep green-tier so tests can run without founder approval queues.
+  if (action === 'skill_test') {
+    return { allowed: true, tier: 'green', requiresApproval: false };
+  }
+
   // Check green (fully autonomous)
   const greenSet = GREEN_ACTIONS[agentRole];
   if (greenSet?.has(action)) {

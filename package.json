@@ -15,6 +15,8 @@
     "db:reconcile-ledger": "tsx scripts/reconcile-migration-ledger.ts",
     "db:apply-migration": "tsx scripts/apply-migration.ts",
     "skills:it:generate-migration": "tsx scripts/generate-it-skill-migration.ts",
+    "skills:test": "tsx scripts/test-skills.ts",
+    "skills:canary-report": "tsx scripts/skill-canary-report.ts",
     "decisions:cleanup-orphaned": "tsx scripts/cleanup-orphaned-decisions.ts",
     "seed": "bash infra/scripts/seed-memory.sh",
     "cos:briefing": "tsx packages/agents/src/chief-of-staff/run.ts briefing",

@@ -1,0 +1,153 @@
+{
+  "suiteName": "pilot-skill-suite",
+  "schedulerUrl": "http://localhost:8080",
+  "judgeModel": "gpt-5-mini-2025-08-07",
+  "tests": [
+    {
+      "skillSlug": "access-management",
+      "agentRole": "global-admin",
+      "skillFile": "skills/operations/access-management.md",
+      "prompts": [
+        "Run an access audit for the last 7 days and summarize over-provisioned, under-provisioned, and orphaned access findings with remediation steps.",
+        "Review a pending request: content-creator asks for deploy_to_staging and grant_tool_access. Decide approve/deny with rationale and safer alternatives.",
+        "Onboard a new agent role called contract-review-assistant with least-privilege access and include an audit log entry plan."
+      ],
+      "assertions": [
+        {
+          "type": "status_is",
+          "value": "completed",
+          "description": "Run should complete successfully"
+        },
+        {
+          "type": "min_tool_calls",
+          "min": 1,
+          "description": "Agent should use at least one tool"
+        },
+        {
+          "type": "requires_any_tool",
+          "tools": [
+            "run_access_audit",
+            "get_access_matrix",
+            "view_pending_grant_requests",
+            "review_tool_request",
+            "audit_access"
+          ],
+          "description": "Agent should use access-management tools"
+        },
+        {
+          "type": "output_contains_any",
+          "values": [
+            "least privilege",
+            "approve",
+            "deny",
+            "audit",
+            "remediation"
+          ],
+          "description": "Output should include concrete access-governance language"
+        }
+      ]
+    },
+    {
+      "skillSlug": "content-creation",
+      "agentRole": "content-creator",
+      "skillFile": "skills/marketing/content-creation.md",
+      "prompts": [
+        "Draft a LinkedIn post announcing that Glyphor's autonomous agents cut incident response time by 43% this quarter.",
+        "Create a blog post outline and opening section on how autonomous AI operations reduce executive overhead.",
+        "Write a launch email for a new feature: policy canary rollback automation."
+      ],
+      "assertions": [
+        {
+          "type": "status_is",
+          "value": "completed",
+          "description": "Run should complete successfully"
+        },
+        {
+          "type": "min_tool_calls",
+          "min": 1,
+          "description": "Agent should use at least one tool"
+        },
+        {
+          "type": "requires_any_tool",
+          "tools": [
+            "query_top_performing_content",
+            "get_trending_topics",
+            "create_content_draft",
+            "draft_social_post",
+            "draft_blog_post"
+          ],
+          "description": "Agent should use content planning/creation tools"
+        },
+        {
+          "type": "output_not_contains_any",
+          "values": [
+            "in today's fast-paced world",
+            "revolutionary",
+            "game-changing"
+          ],
+          "description": "Output should avoid generic hype language"
+        },
+        {
+          "type": "output_contains_any",
+          "values": [
+            "Glyphor",
+            "autonomous",
+            "CTA",
+            "active voice"
+          ],
+          "description": "Output should align with Glyphor positioning"
+        }
+      ]
+    },
+    {
+      "skillSlug": "platform-monitoring",
+      "agentRole": "ops",
+      "skillFile": "skills/engineering/platform-monitoring.md",
+      "prompts": [
+        "Run the morning health check and provide a status report.",
+        "Data freshness check: verify all sync pipelines completed overnight and identify stale sources.",
+        "Pre-deployment verification for a new scheduler revision with explicit go/no-go call."
+      ],
+      "assertions": [
+        {
+          "type": "status_is",
+          "value": "completed",
+          "description": "Run should complete successfully"
+        },
+        {
+          "type": "requires_first_tool_in",
+          "tools": [
+            "check_system_health",
+            "get_platform_health"
+          ],
+          "description": "Health signal should be gathered first"
+        },
+        {
+          "type": "requires_any_tool",
+          "tools": [
+            "check_system_health",
+            "query_error_patterns",
+            "query_cloud_run_metrics",
+            "query_db_health",
+            "get_data_freshness"
+          ],
+          "description": "Agent should use observability tools"
+        },
+        {
+          "type": "output_contains_any",
+          "values": [
+            "GREEN",
+            "YELLOW",
+            "RED"
+          ],
+          "description": "Output should include status classification"
+        },
+        {
+          "type": "min_tool_calls",
+          "min": 1,
+          "description": "Agent should use at least one tool"
+        }
+      ]
+    }
+  ]
+}
