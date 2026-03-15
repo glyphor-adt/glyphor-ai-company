@@ -698,14 +698,40 @@ input:focus, textarea:focus, select:focus {
   background: var(--sidebar-glass-bg) !important;
   border-color: var(--sidebar-glass-border) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 0 1px rgba(0, 224, 255, 0.07) inset,
-    0 10px 24px rgba(0, 0, 0, 0.32) !important;
+    inset 0 1px 0 var(--sidebar-glass-highlight),
+    0 0 0 1px rgba(0, 224, 255, 0.05) inset,
+    0 8px 20px rgba(0, 0, 0, 0.3) !important;
 }
 
 .dark .dashboard-sidebar.sidebar-glass {
   border: 0 !important;
   border-right: 1px solid var(--sidebar-glass-border) !important;
+}
+
+/* Make dashboard cards use the exact same visual recipe as menu glass. */
+.dark .dashboard-home .glass-card.sidebar-glass,
+.dark .dashboard-home .glass-raised.sidebar-glass,
+.dark .dashboard-home .hero-glass.sidebar-glass,
+.dark .dashboard-home .banner-wrapper.sidebar-glass {
+  background: var(--sidebar-glass-bg) !important;
+  border: 1px solid var(--sidebar-glass-border) !important;
+  backdrop-filter: var(--glass-filter) !important;
+  -webkit-backdrop-filter: var(--glass-filter) !important;
+  box-shadow: inset 0 1px 0 var(--sidebar-glass-highlight) !important;
+}
+
+.dark .dashboard-home .glass-card.sidebar-glass::before,
+.dark .dashboard-home .glass-raised.sidebar-glass::before {
+  display: none !important;
+}
+
+.dark .dashboard-home .glass-card.sidebar-glass:hover,
+.dark .dashboard-home .glass-raised.sidebar-glass:hover,
+.dark .dashboard-home .hero-glass.sidebar-glass:hover,
+.dark .dashboard-home .banner-wrapper.sidebar-glass:hover {
+  background: var(--sidebar-glass-bg) !important;
+  border-color: var(--sidebar-glass-border) !important;
+  box-shadow: inset 0 1px 0 var(--sidebar-glass-highlight) !important;
 }
 
 .dark .bg-raised {
