@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
+import ChatMarkdown from '../components/ChatMarkdown';
 import {
   Card,
   SectionHeader,
@@ -81,6 +82,29 @@ function formatTokens(n: number | null): string {
 function formatCapabilities(capabilities: string[] | null): string {
   if (!capabilities || capabilities.length === 0) return '—';
   return capabilities.join(', ');
+}
+
+function normalizeRunContent(text: string): string {
+  const sectionLabels: Record<string, string> = {
+    reasoning: 'Reasoning',
+    approach: 'Approach',
+    tradeoffs: 'Tradeoffs',
+    risks: 'Risks',
+    alternatives: 'Alternatives',
+  };
+
+  let value = text.trim();
+
+  value = value.replace(/^##\s*#\s*/gm, '## ');
+
+  for (const [tag, label] of Object.entries(sectionLabels)) {
+    const openTag = new RegExp(`<${tag}>`, 'gi');
+    const closeTag = new RegExp(`</${tag}>`, 'gi');
+    value = value.replace(openTag, `\n\n### ${label}\n`);
+    value = value.replace(closeTag, '');
+  }
+
+  return value.replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function statusConfig(status: string) {
@@ -368,16 +392,16 @@ export default function Activity() {
                       {run.input && (
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-1">Input</p>
-                          <p className="text-[12px] text-txt-secondary whitespace-pre-wrap bg-surface rounded-md border border-border px-3 py-2">
-                            {run.input}
-                          </p>
+                          <div className="text-[12px] text-txt-secondary bg-surface rounded-md border border-border px-3 py-2 max-h-[300px] overflow-y-auto prose-chat">
+                            <ChatMarkdown>{normalizeRunContent(run.input)}</ChatMarkdown>
+                          </div>
                         </div>
                       )}
                       {run.output && (
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-1">Output</p>
-                          <div className="text-[12px] text-txt-secondary whitespace-pre-wrap bg-surface rounded-md border border-border px-3 py-2 max-h-[400px] overflow-y-auto">
-                            {run.output}
+                          <div className="text-[12px] text-txt-secondary bg-surface rounded-md border border-border px-3 py-2 max-h-[400px] overflow-y-auto prose-chat">
+                            <ChatMarkdown>{normalizeRunContent(run.output)}</ChatMarkdown>
                           </div>
                         </div>
                       )}
