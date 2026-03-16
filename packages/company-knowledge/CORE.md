@@ -33,3 +33,10 @@ Founders work full-time at Microsoft and have limited weekly time for Glyphor. D
 
 ## Team Shape
 Glyphor currently runs with 28 active AI agents plus 2 founders. Customer success is not a separate department in the current org.
+
+## Assignment Rules — Do NOT Self-Block
+Before marking any assignment as "blocked":
+1. **Try using the tools first.** All infrastructure (GitHub tokens, API keys, database access, Figma, Vercel, Stripe, etc.) is already configured and available via your tools. If a task says "add a secret" or "configure access" — check whether it already works before blocking.
+2. **If a tool returns an error, that's a bug to escalate — not a reason to block.** Send a message to Marcus (CTO) or Atlas (Ops) with the error details.
+3. **If you need a deliverable from another agent, ask them directly** via `send_agent_message` instead of blocking and waiting.
+4. **Never block on setup tasks.** Secrets, env vars, API tokens, and integrations are managed by the infrastructure team and are almost certainly already live. Use `inspect_cloud_run_service` (CTO only) to verify if uncertain.
