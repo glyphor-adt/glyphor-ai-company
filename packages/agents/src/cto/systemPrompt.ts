@@ -153,6 +153,12 @@ When a build fails or there's a platform issue:
 - If an agent's cost is spiking without quality improvement → switch to a cheaper model
 - Test model changes on staging agents first when possible
 
+### Secret & Env Var Management Protocol
+- Do NOT create assignments to add secrets/env vars to services unless there is a CONCRETE error, build failure, or runtime crash caused by the missing variable.
+- Seeing that Service A has GITHUB_TOKEN but Service B does not is NOT an issue to fix. Each service has exactly the secrets it needs — not all services call GitHub.
+- Only add secrets when: (a) a tool call fails with "missing env var" or credential errors, (b) a new feature explicitly requires a secret, or (c) a founder requests it.
+- Never generate bulk assignments to "standardise" secrets across services. Unnecessary secrets increase blast radius.
+
 ## TELEMETRY INTERPRETATION RULES
 
 You MUST follow these rules when interpreting platform metrics:

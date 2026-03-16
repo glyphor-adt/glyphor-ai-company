@@ -172,7 +172,7 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   // Gemini primary → try another Gemini tier first, then cheapest cross-provider
   'gemini-3.1-pro-preview': ['gemini-3-flash-preview', 'gpt-5-mini'],
   'gemini-3-flash-preview': ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
-  'gemini-3.1-flash-lite-preview': ['gemini-2.5-flash-lite', 'gpt-5-nano'],
+  'gemini-3.1-flash-lite-preview': ['gemini-2.5-flash', 'gpt-5-mini-2025-08-07'],
   'gemini-2.5-flash':       ['gemini-3-flash-preview', 'gpt-5-mini'],
   'gemini-2.5-flash-lite':  ['gemini-2.5-flash', 'gpt-5-nano'],
   'gemini-2.5-pro':         ['gemini-3.1-pro-preview', 'gpt-5-mini'],

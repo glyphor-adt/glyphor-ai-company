@@ -135,7 +135,7 @@ export function inferCapabilities(context: RoutingContext): Capability[] {
     capabilities.add('structured_extraction');
   }
 
-  if (/\b(engineering|design|frontend|platform)\b/.test(departmentSignal)) {
+  if (/\b(engineering|frontend|platform)\b/.test(departmentSignal)) {
     capabilities.add('code_generation');
     capabilities.add('needs_apply_patch');
   }
