@@ -283,7 +283,7 @@ function SidebarContent({
           New Chat
         </button>
         {recentChats.length > 3 && (
-          <div className="flex items-center gap-2 rounded-lg bg-raised px-3 py-1.5">
+          <div className="sidebar-glass flex items-center gap-2 rounded-lg border border-border px-3 py-1.5">
             <MdSearch size={14} className="text-txt-faint flex-shrink-0" />
             <input
               type="text"
@@ -945,7 +945,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setMobileSidebarOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
-          <div className="relative z-10 flex h-full w-72 flex-col bg-white/[0.03] backdrop-blur-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="sidebar-glass relative z-10 flex h-full w-72 flex-col overflow-hidden border-r border-border" onClick={(e) => e.stopPropagation()}>
             <SidebarContent
               recentChats={recentChats}
               sidebarItems={sidebarItems}
@@ -961,7 +961,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         </div>
       )}
       {/* ── Chat Sidebar (Left) — desktop only ────── */}
-      <div className="hidden md:flex w-72 flex-shrink-0 flex-col overflow-hidden">
+      <div className="sidebar-glass glass-inner-layout hidden w-72 flex-shrink-0 flex-col overflow-hidden rounded-2xl border md:flex">
         <SidebarContent
           recentChats={recentChats}
           sidebarItems={sidebarItems}
@@ -977,17 +977,17 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
       {/* ── Chat Area (Right) ────────────── */}
       <Card
-        className={`flex flex-1 flex-col min-h-0 min-w-0 transition-all border-transparent ${dragging ? 'ring-2 ring-cyan/40' : ''}`}
+        className={`flex flex-1 flex-col min-h-0 min-w-0 transition-all ${dragging ? 'ring-2 ring-cyan/40' : ''}`}
         onDragOver={(e: React.DragEvent) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e: React.DragEvent) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
       >
         {/* Header */}
-        <div className="flex items-center gap-2 md:gap-3 pb-3 md:pb-4">
+        <div className="flex items-center gap-2 border-b border-border/70 pb-3 md:gap-3 md:pb-4">
           <button
             type="button"
             onClick={() => setMobileSidebarOpen(true)}
-            className="flex md:hidden h-8 w-8 items-center justify-center rounded-lg text-txt-muted hover:bg-raised transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-txt-muted transition-colors hover:bg-[var(--color-hover-bg)] md:hidden"
           >
             <MdSearch size={18} />
           </button>
@@ -1022,7 +1022,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             ) : (
               <button
                 onClick={() => setShowTeamsModal(true)}
-                className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5 text-[11px] font-medium text-txt-muted hover:text-cyan transition-colors"
+                className="sidebar-glass flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:text-cyan"
                 title="Add agent to a Teams call"
               >
                 <MdVideoCall size={16} />
@@ -1098,7 +1098,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                 className={`max-w-[85%] md:max-w-[70%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
                     ? 'bg-cyan/15 text-txt-primary'
-                    : 'bg-raised text-txt-secondary'
+                    : 'sidebar-glass border border-border text-txt-secondary'
                 }`}
               >
                 {/* Attachment chips */}
@@ -1148,7 +1148,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           {Array.from(respondingAgents.entries()).filter(([_, targetChat]) => targetChat === selectedRole).map(([respondingRole]) => (
             <div key={respondingRole} className="flex gap-3">
               <AgentAvatar role={respondingRole} size={28} />
-              <div className="rounded-xl bg-raised px-4 py-3">
+              <div className="sidebar-glass rounded-xl border border-border px-4 py-3">
                 <div className="flex items-center gap-1.5">
                   {respondingRole !== selectedRole && (
                     <span className="text-[10px] font-semibold mr-1" style={{ color: AGENT_META[respondingRole]?.color ?? '#06b6d4' }}>
@@ -1177,7 +1177,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         {pendingFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 px-1 pt-2">
             {pendingFiles.map((f, i) => (
-              <div key={i} className="flex items-center gap-1.5 rounded-lg bg-raised px-2.5 py-1.5">
+              <div key={i} className="sidebar-glass flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5">
                 {f.previewUrl ? (
                   <img src={f.previewUrl} alt={f.name} className="h-8 w-8 rounded object-cover" />
                 ) : (
@@ -1194,7 +1194,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         <div className="pt-3 pb-[max(10px,var(--sat))] relative shrink-0">
           {/* @mention dropdown */}
           {showMentions && filteredMentions.length > 0 && (
-            <div className="dropdown-panel absolute bottom-full left-0 z-10 mb-1 max-h-48 w-64 overflow-y-auto rounded-lg bg-surface">
+            <div className="dropdown-panel sidebar-glass absolute bottom-full left-0 z-10 mb-1 max-h-48 w-64 overflow-y-auto rounded-lg">
               {filteredMentions.map((m, i) => (
                 <button
                   key={m.role}
@@ -1219,7 +1219,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-shrink-0 rounded-lg bg-raised px-2 py-2 md:px-2.5 md:py-2.5 text-txt-muted hover:text-cyan transition-colors"
+              className="sidebar-glass flex-shrink-0 rounded-lg border border-border px-2 py-2 text-txt-muted transition-colors hover:text-cyan md:px-2.5 md:py-2.5"
               title="Attach file"
             >
               <MdAttachFile className="text-[16px]" />
@@ -1246,7 +1246,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               placeholder={`Message ${codename}... (@ to mention, Shift+Enter for new line)`}
               disabled={respondingAgents.has(selectedRole)}
               rows={1}
-              className="flex-1 rounded-lg bg-raised px-4 py-3 text-[13px] leading-5 text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 resize-none min-h-[44px] max-h-[140px]"
+              className="sidebar-glass flex-1 resize-none rounded-lg border border-border px-4 py-3 text-[13px] leading-5 text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 min-h-[44px] max-h-[140px]"
               onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; }}
             />
             <button
@@ -1255,7 +1255,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               className={`flex-shrink-0 w-[36px] h-[36px] md:w-[40px] md:h-[40px] hidden md:flex items-center justify-center rounded-full transition-all ${
                 isListening
                   ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
-                  : 'bg-raised text-txt-muted hover:text-cyan hover:bg-cyan/5'
+                  : 'sidebar-glass border border-border text-txt-muted hover:text-cyan hover:bg-cyan/5'
               }`}
               title={isListening ? 'Stop dictation' : 'Dictate (speech to text)'}
             >
@@ -1273,7 +1273,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   ? 'bg-prism-fill-2 text-white shadow-lg shadow-prism-fill-2/25 hover:bg-prism-critical hover:shadow-prism-critical/25'
                   : voice.isConnecting
                     ? 'bg-prism-elevated/20 text-prism-elevated animate-pulse'
-                    : 'bg-raised text-txt-muted hover:text-cyan hover:bg-cyan/5'
+                    : 'sidebar-glass border border-border text-txt-muted hover:text-cyan hover:bg-cyan/5'
               }`}
               title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
             >
@@ -1330,7 +1330,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               value={teamsMeetingUrl}
               onChange={(e) => setTeamsMeetingUrl(e.target.value)}
               placeholder="https://teams.microsoft.com/l/meetup-join/..."
-              className="w-full rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none focus:border-cyan/40 mb-3"
+              className="sidebar-glass mb-3 w-full rounded-lg border border-border px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none focus:border-cyan/40"
               onKeyDown={(e) => { if (e.key === 'Enter') joinTeamsCall(); }}
               autoFocus
             />
@@ -1340,7 +1340,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowTeamsModal(false)}
-                className="rounded-lg border border-border px-4 py-2 text-[12px] text-txt-muted hover:bg-raised transition-colors"
+                className="sidebar-glass rounded-lg border border-border px-4 py-2 text-[12px] text-txt-muted transition-colors hover:bg-[var(--color-hover-bg)]"
               >
                 Cancel
               </button>
