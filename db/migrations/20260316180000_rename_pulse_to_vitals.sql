@@ -32,13 +32,34 @@ UPDATE agent_tool_grants SET tool_name = 'update_company_vitals'
 UPDATE agent_tool_grants SET tool_name = 'update_vitals_highlights'
   WHERE tool_name = 'update_pulse_highlights';
 
--- 5. Update skill playbook tool_names arrays
-UPDATE skills SET tool_names = array_replace(tool_names, 'get_company_pulse', 'get_company_vitals')
-  WHERE 'get_company_pulse' = ANY(tool_names);
-UPDATE skills SET tool_names = array_replace(tool_names, 'update_company_pulse', 'update_company_vitals')
-  WHERE 'update_company_pulse' = ANY(tool_names);
-UPDATE skills SET tool_names = array_replace(tool_names, 'update_pulse_highlights', 'update_vitals_highlights')
-  WHERE 'update_pulse_highlights' = ANY(tool_names);
+-- 5. Update skill playbook tool arrays
+-- Support both legacy schemas (`tool_names`) and current schemas (`tools_granted`).
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'skills' AND column_name = 'tool_names'
+  ) THEN
+    UPDATE skills SET tool_names = array_replace(tool_names, 'get_company_pulse', 'get_company_vitals')
+      WHERE 'get_company_pulse' = ANY(tool_names);
+    UPDATE skills SET tool_names = array_replace(tool_names, 'update_company_pulse', 'update_company_vitals')
+      WHERE 'update_company_pulse' = ANY(tool_names);
+    UPDATE skills SET tool_names = array_replace(tool_names, 'update_pulse_highlights', 'update_vitals_highlights')
+      WHERE 'update_pulse_highlights' = ANY(tool_names);
+  ELSIF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'skills' AND column_name = 'tools_granted'
+  ) THEN
+    UPDATE skills SET tools_granted = array_replace(tools_granted, 'get_company_pulse', 'get_company_vitals')
+      WHERE 'get_company_pulse' = ANY(tools_granted);
+    UPDATE skills SET tools_granted = array_replace(tools_granted, 'update_company_pulse', 'update_company_vitals')
+      WHERE 'update_company_pulse' = ANY(tools_granted);
+    UPDATE skills SET tools_granted = array_replace(tools_granted, 'update_pulse_highlights', 'update_vitals_highlights')
+      WHERE 'update_pulse_highlights' = ANY(tools_granted);
+  END IF;
+END $$;
 
 -- 6. Update RLS policies to reference the new table name
 -- (Postgres automatically renames policies on the table, but
