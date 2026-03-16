@@ -116,4 +116,22 @@ describe('ToolExecutor', () => {
     expect(result.success).toBe(true);
     expect(highStakesTool.execute).toHaveBeenCalledOnce();
   });
+
+  it('omits provider-specific defer_loading from base tool declarations', () => {
+    const deferredTool: ToolDefinition = {
+      name: 'search_docs',
+      description: 'Search internal docs',
+      deferLoading: true,
+      parameters: {
+        query: { type: 'string', description: 'Search query', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: [] }),
+    };
+
+    const executor = new ToolExecutor([deferredTool]);
+    const declarations = executor.getDeclarations();
+
+    expect(declarations).toHaveLength(1);
+    expect(declarations[0]).not.toHaveProperty('defer_loading');
+  });
 });

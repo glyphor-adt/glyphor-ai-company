@@ -527,7 +527,6 @@ export class ToolExecutor {
         name: t.name,
         description: buildSearchableToolDescription(t.name, t.description),
         parameters: params,
-        ...(t.deferLoading ? { defer_loading: true } : {}),
       };
     });
   }

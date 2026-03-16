@@ -35,6 +35,26 @@ function isQuotaError(msg: string): boolean {
   return /429|rate.?limit|quota|resource.?exhausted|too many requests|capacity|overloaded/i.test(msg);
 }
 
+function sanitizeToolsForProvider(
+  provider: ModelProvider,
+  tools: ModelRequest['tools'],
+): ModelRequest['tools'] {
+  if (!tools?.length) return tools;
+
+  if (provider === 'gemini') {
+    return tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: structuredClone(tool.parameters),
+    }));
+  }
+
+  return tools.map((tool) => ({
+    ...tool,
+    parameters: structuredClone(tool.parameters),
+  }));
+}
+
 // ─── ModelClient ─────────────────────────────────────────────
 
 export class ModelClient {
@@ -100,7 +120,12 @@ export class ModelClient {
 
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
-          const apiPromise = adapter.generate({ ...request, model: currentModel });
+          const sanitizedTools = sanitizeToolsForProvider(provider, request.tools);
+          const apiPromise = adapter.generate({
+            ...request,
+            model: currentModel,
+            ...(sanitizedTools ? { tools: sanitizedTools } : {}),
+          });
           const response = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
           if (modelIdx > 0) {
             console.warn(`[ModelClient] Fallback success: ${request.model} → ${currentModel}`);

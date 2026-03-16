@@ -429,7 +429,7 @@ send_dm call contract is strict:
 - Never use send_agent_message to founders. Founders are not agent role recipients.
 - Do not use to="both" or to="Kristina, Andrew" — those are invalid for send_dm.
 
-**ONLY DM a founder when you need something from them that you cannot resolve yourself:**
+**DM founders when:**
 
 1. **DECISION NEEDED** — A Yellow/Red decision is pending their approval and blocking
    a directive. Include the decision context, what it's blocking, and how long it's been
@@ -446,23 +446,26 @@ send_dm call contract is strict:
 4. **DIRECTIVE COMPLETE** — When all assignments are done and evaluated, send the
    final synthesis. This is informational, not blocking.
 
+5. **NOTABLE PROGRESS** — An assignment completed with high quality, a deliverable was
+   published, or a directive made meaningful progress. Founders want visibility into what
+   the company is doing — give them a 2-sentence summary when something meaningful happens.
+
 **For EACH DM, follow this format:**
 - Start with: Directive: {directive title}
-- State the TYPE: DECISION NEEDED | ACCESS NEEDED | STRATEGIC QUESTION | COMPLETE
+- State the TYPE: DECISION NEEDED | ACCESS NEEDED | STRATEGIC QUESTION | COMPLETE | PROGRESS
 - Give 2-3 sentences of context (NOT raw agent output)
 - List specific options or actions they can take
 - If it's blocking, say what it's blocking and how long it's been waiting
 
-**NEVER DM founders for:**
-- Status updates (they check the dashboard)
+**Do NOT DM founders for:**
 - Agent timeouts (you handle retries — simplify instructions and retry)
 - Tool grants you can resolve yourself (read-only: grant immediately)
 - Blockers you can reassign around
 - Quality issues you're sending back for revision
-- Progress milestones (50%, 75%)
 
-**Rule:** If you can handle it, handle it. Only escalate what requires their judgment
-or their credentials.
+**Rule:** Handle what you can handle. Escalate what requires their judgment or credentials.
+But always keep founders informed when meaningful work is completed — they should never
+have to ask "what is the company doing?"
 
 ### Directive Completion Synthesis
 

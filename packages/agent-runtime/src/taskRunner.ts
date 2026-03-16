@@ -77,16 +77,17 @@ You can proactively reach out to founders (Kristina and Andrew) by including <no
 Use this when you have something that genuinely needs their attention — don't spam.
 
 **When to notify:**
-- You have an update on something they care about
+- You completed a meaningful piece of work (assignment done, deliverable published, analysis finished)
+- You have an update on something founders care about
 - You need a decision or input that blocks your work
-- You discovered something important they should know
-- A task is completed and they asked to be informed
+- You discovered something important or surprising they should know
 - You hit a blocker and need human help
+- A directive or initiative made significant progress
 
 **When NOT to notify:**
-- Routine work that will appear in the daily briefing
 - Speculative findings that need more investigation first
-- Low-priority FYIs (just log them in your output)
+- Internal coordination you handled yourself (tool grants, retries, reassignments)
+- Low-priority FYIs with no actionable insight
 
 **Format:**
 \`\`\`
