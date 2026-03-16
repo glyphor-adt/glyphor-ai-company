@@ -21,7 +21,7 @@ export interface AuthorityCheck {
 const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'chief-of-staff': new Set([
     'compile_briefing', 'route_decision', 'log_activity', 'synthesize_report',
-    'check_escalations', 'generate_briefing', 'morning_briefing', 'eod_summary',
+    'check_escalations', 'generate_briefing', 'morning_briefing', 'eod_summary', 'midday_digest',
     'on_demand', 'send_dm', 'orchestrate', 'agent365_mail_triage',
   ]),
   'cto': new Set([

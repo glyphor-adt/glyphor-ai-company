@@ -64,6 +64,7 @@ const THINKING_DISABLED_TASKS = new Set<string>([
 const THINKING_ENABLED_TASKS = new Set([
   'morning_briefing',
   'eod_summary',
+  'midday_digest',
   'orchestrate',
   'daily_cost_check',
   'weekly_usage_analysis',
@@ -131,6 +132,7 @@ function needsThinking(message: string): boolean {
 const FULL_CONTEXT_TASKS = new Set([
   'morning_briefing',
   'eod_summary',
+  'midday_digest',
   'orchestrate',
   'weekly_usage_analysis',
   'weekly_content_planning',

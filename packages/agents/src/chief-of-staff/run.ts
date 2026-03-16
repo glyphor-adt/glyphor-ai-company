@@ -46,8 +46,9 @@ export interface CoSRunParams {
     | 'monthly_retrospective'
     | 'orchestrate'
     | 'strategic_planning'
+    | 'midday_digest'
     | 'on_demand';
-  recipient?: 'kristina' | 'andrew';
+  recipient?: 'kristina' | 'andrew' | 'both';
   message?: string;
   conversationHistory?: ConversationTurn[];
 }
@@ -335,6 +336,29 @@ Constraints:
 - Revenue-generating work outranks infrastructure unless infrastructure blocks execution
 - Include initial directive drafts whenever you can make them specific and actionable`;
         break;
+    }
+
+    case 'midday_digest': {
+      const recipient = params.recipient || 'both';
+      initialMessage = `Generate a midday status digest for ${recipient} covering ${today}.
+
+This is NOT a full morning briefing. This is a concise "here's what's happening" update for the workday so far.
+
+Steps:
+1. Use get_recent_activity to see what happened since 7 AM CT today
+2. Use check_assignment_status on all active directives to see progress
+3. Use check_messages to see if any agents flagged blockers or completed important work
+4. Use get_pending_decisions to check for stuck decisions
+
+Synthesize into a SHORT status update (not a full briefing). Structure:
+- **Completed since morning:** What finished? Which assignments? Which agents delivered?
+- **In progress:** What's actively being worked on right now?
+- **Needs attention:** Any blockers, stuck decisions, or items requiring founder input?
+- **Cost note:** Any spending anomalies today?
+
+Send via send_dm to ${recipient === 'both' ? 'kristina and then andrew (two separate calls)' : recipient}.
+Keep it under 400 words. Be direct — this is a status pulse, not a report.`;
+      break;
     }
 
     case 'on_demand':

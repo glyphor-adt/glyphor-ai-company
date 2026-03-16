@@ -42,6 +42,15 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     enabled: true,
   },
   {
+    id: 'cos-midday-digest',
+    agentRole: 'chief-of-staff',
+    schedule: '30 17 * * 1-5',  // 17:30 UTC = 12:30 PM CT, weekdays
+    timezone: 'America/Chicago',
+    task: 'midday_digest',
+    payload: { founder: 'both' },
+    enabled: true,
+  },
+  {
     id: 'cos-eod-summary',
     agentRole: 'chief-of-staff',
     schedule: '0 23 * * *',  // 23:00 UTC = 6:00 PM CT, daily

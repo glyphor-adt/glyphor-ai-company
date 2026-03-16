@@ -846,6 +846,25 @@ resource "google_cloud_scheduler_job" "briefing_andrew" {
   depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
 }
 
+# ─── Cloud Scheduler: CoS Midday Status Digest ──────────────
+resource "google_cloud_scheduler_job" "cos_midday_digest" {
+  name      = "cos-midday-digest"
+  schedule  = "30 12 * * 1-5"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "chief-of-staff"
+      task      = "midday_digest"
+      payload   = { founder = "both" }
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
 # ─── Cloud Scheduler: CoS Orchestration (hourly backup sweep) ──
 # Primary detection is via heartbeat (~10 min); this hourly cron is a safety net.
 resource "google_cloud_scheduler_job" "cos_orchestrate" {
