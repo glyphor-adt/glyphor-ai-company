@@ -21,6 +21,13 @@ export interface ProviderFactoryConfig {
   geminiApiKey?: string;
   /** GCP project ID — used for Vertex AI (Gemini + Claude). Preferred over geminiApiKey when set. */
   vertexProjectId?: string;
+  /**
+   * Model transport mode:
+   * - 'auto'   (default): preserve existing behavior (prefer Vertex when configured)
+   * - 'direct'           : force direct provider APIs (Gemini/OpenAI/Anthropic keys)
+   * - 'vertex'           : force Vertex for Gemini when available
+   */
+  providerTransport?: 'auto' | 'direct' | 'vertex';
   /** GCP region for Vertex AI Gemini. Defaults to us-central1. */
   vertexLocation?: string;
   openaiApiKey?: string;
@@ -53,20 +60,42 @@ export class ProviderFactory {
     return adapter;
   }
 
+  private resolveTransportMode(): 'auto' | 'direct' | 'vertex' {
+    const raw = (this.config.providerTransport ?? process.env.MODEL_PROVIDER_TRANSPORT ?? 'auto').toLowerCase();
+    if (raw === 'direct' || raw === 'vertex' || raw === 'auto') return raw;
+    return 'auto';
+  }
+
   private create(provider: ModelProvider): ProviderAdapter {
+    const transportMode = this.resolveTransportMode();
+
     switch (provider) {
       case 'gemini': {
-        // Prefer Vertex AI (uses service account credentials) over direct API key
+        // Auto mode preserves existing behavior: prefer Vertex when configured.
+        // Direct mode forces GOOGLE_AI_API_KEY usage even if GCP_PROJECT_ID is set.
         const geminiProjectId = this.config.vertexProjectId ?? process.env.GCP_PROJECT_ID;
+        const directGeminiKey = (this.config.geminiApiKey ?? process.env.GOOGLE_AI_API_KEY)?.trim();
+
+        if (transportMode === 'direct') {
+          if (!directGeminiKey) {
+            throw new Error('Gemini direct mode requires GOOGLE_AI_API_KEY');
+          }
+          return new GeminiAdapter({ apiKey: directGeminiKey });
+        }
+
+        if (transportMode === 'vertex' && !geminiProjectId) {
+          throw new Error('Gemini vertex mode requires GCP_PROJECT_ID or vertexProjectId');
+        }
+
         if (geminiProjectId) {
           return new GeminiAdapter({
             vertexProjectId: geminiProjectId,
             vertexLocation: this.config.vertexLocation ?? process.env.VERTEX_LOCATION ?? 'us-central1',
-            apiKey: this.config.geminiApiKey,
+            apiKey: directGeminiKey,
           });
         }
-        if (!this.config.geminiApiKey) throw new Error('Gemini not configured — set GCP_PROJECT_ID for Vertex AI or GOOGLE_AI_API_KEY for direct');
-        return new GeminiAdapter({ apiKey: this.config.geminiApiKey });
+        if (!directGeminiKey) throw new Error('Gemini not configured — set GCP_PROJECT_ID for Vertex AI or GOOGLE_AI_API_KEY for direct');
+        return new GeminiAdapter({ apiKey: directGeminiKey });
       }
       case 'openai': {
         const openaiApiKey = (this.config.openaiApiKey ?? process.env.OPENAI_API_KEY)?.trim();
@@ -87,7 +116,9 @@ export class ProviderFactory {
       case 'anthropic': {
         const anthropicApiKey = (this.config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY)?.trim();
         if (!anthropicApiKey) throw new Error('Anthropic not configured — set ANTHROPIC_API_KEY environment variable');
-        const anthropicProjectId = this.config.vertexProjectId ?? process.env.GCP_PROJECT_ID;
+        const anthropicProjectId = transportMode === 'direct'
+          ? ''
+          : (this.config.vertexProjectId ?? process.env.GCP_PROJECT_ID);
         return new AnthropicAdapter(anthropicProjectId ?? '', this.config.vertexRegion, anthropicApiKey);
       }
     }
