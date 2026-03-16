@@ -445,8 +445,10 @@ const KNOWN_TOOLS = new Set([
   'check_tool_access',
   'list_my_tools',
   'tool_search',
-  // sharepointTools (search/read/list/page moved to Agent365 mcp_ODSPRemoteServer)
+  // sharepointTools — app-permission search/read + upload with knowledge sync
   'upload_to_sharepoint',
+  'search_sharepoint',
+  'read_sharepoint_document',
 
   // ── Marketing shared tools (Wave 1) ──
   // contentTools

@@ -214,7 +214,7 @@ async function getOrCreateDirective(): Promise<string> {
        status,
        source
      ) VALUES (
-       $1, 'kristina', $2, $3, 'critical', 'operations', $4::text[], 'active', 'manual'
+       $1, 'kristina', $2, $3, 'critical', 'operations', $4::text[], 'active', 'founder'
      ) RETURNING id`,
     [TENANT_ID, DIRECTIVE_TITLE, DIRECTIVE_DESCRIPTION, targetAgents],
   );

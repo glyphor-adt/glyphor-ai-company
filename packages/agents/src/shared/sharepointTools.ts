@@ -1,14 +1,15 @@
 /**
- * SharePoint Tools — Upload with Cloud SQL knowledge sync
+ * SharePoint Tools — Search, read, and upload with Cloud SQL knowledge sync
  *
- * Only upload_to_sharepoint is kept as a custom tool because it syncs
- * uploaded documents to the Cloud SQL company_knowledge table.
- * All other SharePoint operations (search, read, list, create page)
- * are handled by Agent365 mcp_ODSPRemoteServer.
+ * upload_to_sharepoint syncs uploaded documents to the Cloud SQL company_knowledge table.
+ * search_sharepoint and read_sharepoint_document use app-level permissions
+ * (Sites.Read.All) which work across all sites without per-user membership.
+ * Agent365 mcp_ODSPRemoteServer tools are also available but depend on the
+ * agentic user's SharePoint site membership, which may not cover all sites.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { uploadToSharePoint } from '@glyphor/integrations';
+import { uploadToSharePoint, searchSharePoint, readSharePointDocument } from '@glyphor/integrations';
 
 /**
  * Create SharePoint upload tool for agents.
@@ -83,6 +84,94 @@ export function createSharePointTools(): ToolDefinition[] {
                     + 'which uses a different API path. Or try a different folder.',
                 },
           };
+        }
+      },
+    },
+
+    {
+      name: 'search_sharepoint',
+      description:
+        'Search for documents in the company SharePoint site by keyword. ' +
+        'Uses app-level permissions so it can find files across all document libraries, ' +
+        'not just the agent knowledge folder. Use this to find company documents like ' +
+        'policies, certificates, legal filings, briefs, or any file stored in SharePoint. ' +
+        'Returns file names, paths, and web URLs. Prefer this over mcp_ODSPRemoteServer ' +
+        'for finding files by name or keyword.',
+      parameters: {
+        query: {
+          type: 'string',
+          description: 'Search keywords (e.g., "certificate of incorporation", "brand guidelines")',
+          required: true,
+        },
+        max_results: {
+          type: 'number',
+          description: 'Maximum results to return (default: 10)',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const results = await searchSharePoint(
+            params.query as string,
+            { maxResults: (params.max_results as number) ?? 10 },
+          );
+
+          if (results.length === 0) {
+            return {
+              success: true,
+              data: {
+                count: 0,
+                documents: [],
+                hint: 'No documents matched this query. Try broader keywords or different terms.',
+              },
+            };
+          }
+
+          return {
+            success: true,
+            data: {
+              count: results.length,
+              documents: results.map(d => ({
+                name: d.name,
+                path: d.path,
+                webUrl: d.webUrl,
+                lastModified: d.lastModified,
+                size: d.size,
+              })),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
+      name: 'read_sharepoint_document',
+      description:
+        'Read the text content of a document from SharePoint by file path. ' +
+        'Supports .md, .txt, and Office files (.docx, .pptx, .xlsx). ' +
+        'Use search_sharepoint first to find the file path, then use this to read it.',
+      parameters: {
+        file_path: {
+          type: 'string',
+          description: 'Path to the file within SharePoint (e.g., "Legal/certificate-of-incorporation.pdf" or the full path from search results)',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const result = await readSharePointDocument(params.file_path as string);
+          return {
+            success: true,
+            data: {
+              content: result.content,
+              webUrl: result.webUrl,
+              lastModified: result.lastModified,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
         }
       },
     },

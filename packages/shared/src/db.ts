@@ -75,7 +75,7 @@ function buildPasswordGuidance(): string {
   if (process.env.DATABASE_URL?.trim()) {
     return 'DATABASE_URL is set but missing a usable password. Provide postgres://user:pass@host/db or set DB_PASSWORD/PGPASSWORD.';
   }
-  return 'Set DB_PASSWORD (or PGPASSWORD). If you rely on .env, run with node --env-file-if-exists=.env.';
+  return 'Set DB_PASSWORD (or PGPASSWORD) from GCP Secret Manager before running DB scripts.';
 }
 
 function buildAuthFailureGuidance(): string {
