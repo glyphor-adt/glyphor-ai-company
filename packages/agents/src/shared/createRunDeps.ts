@@ -12,7 +12,7 @@ import { ConstitutionalGovernor, TrustScorer } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
 import { SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
-import { REQUIRED_COMPANY_DOCTRINE_SECTIONS } from './collectiveIntelligenceTools';
+import { REQUIRED_COMPANY_DOCTRINE_SECTIONS } from './collectiveIntelligenceTools.js';
 
 /** Map agent roles to their organizational department for knowledge routing. */
 const ROLE_DEPARTMENT: Record<string, string> = {
