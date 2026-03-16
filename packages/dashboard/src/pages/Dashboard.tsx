@@ -323,7 +323,7 @@ export default function Dashboard() {
           priority: 'high',
           title: 'Agent briefing is stale',
           context: `The latest company vitals were updated ${pulse?.updated_at ? timeAgo(pulse.updated_at) : 'a while ago'}, which means your briefing surface is drifting out of date.`,
-          recommendation: 'Confirm Sarah's scheduled briefing run is landing, then check channel delivery and company vitals writes.',
+          recommendation: "Confirm Sarah\u2019s scheduled briefing run is landing, then check channel delivery and company vitals writes.",
           reviewTo: '/operations?tab=overview&focus=briefing',
         }]
       : [];

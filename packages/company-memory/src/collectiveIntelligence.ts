@@ -376,6 +376,7 @@ ${highlights || '(no highlights)'}`;
   /** @deprecated Use formatVitalsContext() */
   async formatPulseContext(): Promise<string> {
     return this.formatVitalsContext();
+  }
 
   // ─── LAYER 2: KNOWLEDGE CIRCULATION ─────────────────────────
 
