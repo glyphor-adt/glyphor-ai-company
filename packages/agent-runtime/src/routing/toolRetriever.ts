@@ -56,6 +56,7 @@ const CORE_PINNED_TOOLS = new Set<string>([
   'read_inbox',
   'send_email',
   'reply_to_email',
+  'reply_email_with_attachments',
   'forward_email',
   'mark_email_as_read',
   'move_email',

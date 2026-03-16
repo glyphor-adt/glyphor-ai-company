@@ -159,6 +159,56 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       }
     }
 
+    // Add reply_email_with_attachments composite tool — delegates to MCP send_email
+    // with reply formatting. The MCP reply_to_email tool does not support attachments
+    // (Graph API /messages/{id}/reply limitation), so agents should use send_email
+    // to compose a reply-formatted email with attachmentUris.
+    const mcpSendEmail = tools.find((t) => t.name === 'send_email');
+    if (mcpSendEmail) {
+      tools.push({
+        name: 'reply_email_with_attachments',
+        description:
+          '[Agent365 mcp_MailTools] Reply to an email AND attach files. ' +
+          'Use this instead of reply_to_email when you need to include file attachments. ' +
+          'Pass SharePoint/OneDrive file webUrls as attachmentUris. ' +
+          'Set subject to "RE: <original subject>" and to to the original sender. ' +
+          'The MCP server will download files from the provided URIs and attach them.',
+        parameters: {
+          to: {
+            type: 'string',
+            description: 'Recipient email address (the original sender you are replying to)',
+            required: true,
+          },
+          subject: {
+            type: 'string',
+            description: 'Email subject — use "RE: <original subject>" format for replies',
+            required: true,
+          },
+          body: {
+            type: 'string',
+            description: 'Reply body content. Plain text only, no markdown formatting.',
+            required: true,
+          },
+          attachmentUris: {
+            type: 'array',
+            description: 'SharePoint or OneDrive file URLs to attach to the email',
+            required: true,
+            items: { type: 'string', description: 'SharePoint/OneDrive file webUrl' },
+          },
+          cc: {
+            type: 'string',
+            description: 'CC recipient email addresses (comma-separated)',
+            required: false,
+          },
+        },
+        deferLoading: true,
+        execute: async (params, context) => {
+          return mcpSendEmail.execute(params, context);
+        },
+      });
+      console.log(`[Agent365] Added reply_email_with_attachments composite tool`);
+    }
+
     activeBridges.set(cacheKey, { ...bridge, tools });
     console.log(`[Agent365] Initialized ${tools.length} MCP tools`);
     return tools;

@@ -71,6 +71,7 @@ const KNOWN_TOOLS = new Set([
   'send_dm',
   'send_teams_dm',
   'read_teams_dm',
+  'reply_email_with_attachments',
   'create_calendar_event',
   'read_founder_directives',
   'create_work_assignments',
