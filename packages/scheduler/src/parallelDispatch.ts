@@ -17,7 +17,11 @@ import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runt
 const MAX_CONCURRENT_AGENTS = 10;
 
 /** Timeout for each agent dispatch (ms) */
-const DISPATCH_TIMEOUT_MS = 120_000;
+const DEFAULT_DISPATCH_TIMEOUT_MS = 15 * 60 * 1000;
+const dispatchTimeoutEnv = Number(process.env.DISPATCH_TIMEOUT_MS ?? DEFAULT_DISPATCH_TIMEOUT_MS);
+const DISPATCH_TIMEOUT_MS = Number.isFinite(dispatchTimeoutEnv) && dispatchTimeoutEnv > 0
+  ? dispatchTimeoutEnv
+  : DEFAULT_DISPATCH_TIMEOUT_MS;
 
 type AgentExecutorFn = (
   agentRole: CompanyAgentRole,

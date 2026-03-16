@@ -440,27 +440,78 @@ export class HeartbeatManager {
   }
 
   /**
-   * Mark agent_runs stuck in "running" for >10 minutes as "failed".
+   * Mark agent_runs stuck in "running" past the stale threshold as "failed".
    * Prevents stale rows from permanently blocking future dispatches while
    * still giving long-running retries enough time to complete.
    */
   private async reapStaleRuns(): Promise<void> {
-    const STALE_THRESHOLD_MS = 10 * 60 * 1000;
-    const cutoff = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
-    try {
-      const data = await systemQuery<{id: string; agent_id: string; task: string}>(
-        'UPDATE agent_runs SET status=$1, completed_at=$2, error=$3 WHERE status=$4 AND created_at < $5 RETURNING id, agent_id, task',
-        ['failed', new Date().toISOString(), 'reaped: stuck in running state for >10 minutes', 'running', cutoff],
-      );
+    const DEFAULT_STALE_THRESHOLD_MS = 30 * 60 * 1000;
+    const ORCHESTRATION_STALE_THRESHOLD_MS = 45 * 60 * 1000;
+    const defaultThresholdMsRaw = Number(process.env.AGENT_RUN_STALE_MS ?? DEFAULT_STALE_THRESHOLD_MS);
+    const orchestrationThresholdMsRaw = Number(
+      process.env.AGENT_RUN_ORCHESTRATION_STALE_MS ?? ORCHESTRATION_STALE_THRESHOLD_MS,
+    );
+    const defaultThresholdMs = Number.isFinite(defaultThresholdMsRaw) && defaultThresholdMsRaw > 0
+      ? defaultThresholdMsRaw
+      : DEFAULT_STALE_THRESHOLD_MS;
+    const orchestrationThresholdMs = Number.isFinite(orchestrationThresholdMsRaw) && orchestrationThresholdMsRaw > 0
+      ? orchestrationThresholdMsRaw
+      : ORCHESTRATION_STALE_THRESHOLD_MS;
 
-      if (data && data.length > 0) {
-        const agents = data.map((r: { agent_id: string }) => r.agent_id);
-        console.log(`[Heartbeat] Reaped ${data.length} stale running rows: [${agents.join(', ')}]`);
+    const defaultCutoff = new Date(Date.now() - defaultThresholdMs).toISOString();
+    const orchestrationCutoff = new Date(Date.now() - orchestrationThresholdMs).toISOString();
+    const orchestrationTasks = ['orchestrate', 'strategic_planning'];
+
+    const reaped: Array<{ id: string; agent_id: string; task: string }> = [];
+    try {
+      const longRunning = await systemQuery<{id: string; agent_id: string; task: string}>(
+        `UPDATE agent_runs
+            SET status = $1,
+                completed_at = $2,
+                error = $3
+          WHERE status = $4
+            AND task = ANY($5::text[])
+            AND created_at < $6
+          RETURNING id, agent_id, task`,
+        [
+          'failed',
+          new Date().toISOString(),
+          `reaped: stuck in running state for >${Math.floor(orchestrationThresholdMs / 60000)} minutes`,
+          'running',
+          orchestrationTasks,
+          orchestrationCutoff,
+        ],
+      );
+      reaped.push(...longRunning);
+
+      const normal = await systemQuery<{id: string; agent_id: string; task: string}>(
+        `UPDATE agent_runs
+            SET status = $1,
+                completed_at = $2,
+                error = $3
+          WHERE status = $4
+            AND (task IS NULL OR task <> ALL($5::text[]))
+            AND created_at < $6
+          RETURNING id, agent_id, task`,
+        [
+          'failed',
+          new Date().toISOString(),
+          `reaped: stuck in running state for >${Math.floor(defaultThresholdMs / 60000)} minutes`,
+          'running',
+          orchestrationTasks,
+          defaultCutoff,
+        ],
+      );
+      reaped.push(...normal);
+
+      if (reaped.length > 0) {
+        const agents = reaped.map((r: { agent_id: string }) => r.agent_id);
+        console.log(`[Heartbeat] Reaped ${reaped.length} stale running rows: [${agents.join(', ')}]`);
 
         // Auto-retry reaped scheduled tasks (briefings, summaries, etc.)
         // These are one-shot cron tasks that won't naturally re-fire until the next day.
           const RETRYABLE_TASKS = new Set(['morning_briefing', 'eod_summary', 'orchestrate', 'strategic_planning']);
-        for (const run of data) {
+        for (const run of reaped) {
           if (RETRYABLE_TASKS.has(run.task)) {
             console.log(`[Heartbeat] Auto-retrying reaped scheduled task: ${run.agent_id}/${run.task}`);
             try {
