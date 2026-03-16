@@ -306,7 +306,9 @@ export abstract class BaseAgentRunner {
     if (sharedMemory && safeDeps.sharedMemoryLoader) {
       const memPrompt = safeDeps.sharedMemoryLoader.formatForPrompt(sharedMemory);
       if (memPrompt) {
-        history.push({ role: 'user', content: memPrompt, timestamp: Date.now() });
+        history.push({ role: 'user', content: `[CONTEXT — Background information for reference. Do NOT respond to this message; wait for your task instruction.]
+
+${memPrompt}`, timestamp: Date.now() });
       }
     }
 
@@ -328,7 +330,7 @@ export abstract class BaseAgentRunner {
       if (jitSections.length > 0) {
         history.push({
           role: 'user',
-          content: `# Task-Relevant Context (JIT Retrieved)\n\n${jitSections.join('\n\n')}`,
+          content: `[CONTEXT — Background information for reference. Do NOT respond to this message; wait for your task instruction.]\n\n# Task-Relevant Context (JIT Retrieved)\n\n${jitSections.join('\n\n')}`,
           timestamp: Date.now(),
         });
       }
@@ -387,7 +389,7 @@ export abstract class BaseAgentRunner {
             }
             skillParts.push('');
           }
-          history.push({ role: 'user', content: skillParts.join('\n'), timestamp: Date.now() });
+          history.push({ role: 'user', content: `[CONTEXT — Your skill playbooks for reference. Do NOT respond to this message; wait for your task instruction.]\n\n${skillParts.join('\n')}`, timestamp: Date.now() });
         }
       } catch (err) {
         console.warn(`[${this.archetype}Runner] Skill context load failed for ${config.role}:`, (err as Error).message);
