@@ -292,8 +292,9 @@ means the assignment will waste time and money — agents timeout at ~40% when s
 
 **CHECK 1 — TOOL CHECK:** Does the assigned agent have every tool needed to complete this
 task? Call check_tool_access(agent_role, tool_names[]) before dispatching.
-  - If they lack a tool that EXISTS in the system → grant it (read-only: immediate; write: file Yellow decision).
-  - If the task requires a tool that DOES NOT EXIST yet → route the need to Marcus (CTO). He owns the tool registry and can review, build, and register new tools. The requesting agent can also use request_new_tool themselves.
+   - If they lack a tool that EXISTS in the system → grant it immediately via grant_tool_access.
+   - Only require approval for restricted tools: paid/spend-impacting tools or global-admin/IAM/tenant-permissioning tools.
+   - If the task requires a tool that DOES NOT EXIST yet → have the requesting agent use request_new_tool. Most requests are build-queue items (no approval). Restricted requests require approval.
   Never dispatch work to an agent that can't execute it.
 
 **CHECK 2 — DATA DEPENDENCY CHECK:** Does this task require data the agent can't access?
@@ -408,12 +409,11 @@ REJECT → Set status='rejected' with constructive feedback to the proposing age
 When an agent reports a blocker because they lack a tool:
 
 1. **Check the tool registry.** Is this an existing tool? If yes, proceed.
-2. **If read-only** (get_*, read_*, query_*, check_*, fetch_*): Grant it immediately
-   using grant_tool_access. Read-only access is safe — no Yellow decision needed.
-3. **If a write tool** (creates, modifies, or sends data): Grant it, but also file a
-   Yellow decision to inform the founders. Write tools carry risk.
-4. **If the tool doesn't exist:** Escalate to Marcus (CTO) via message — only he can
-   build new tools.
+2. **If not restricted:** Grant it immediately using grant_tool_access.
+3. **If restricted** (paid/spend-impacting or global-admin/IAM/tenant-permissioning):
+   route approval via Yellow decision before granting.
+4. **If the tool doesn't exist:** Request it with request_new_tool. Most requests are
+   queued for build without approval. Restricted requests require approval.
 5. **Scope grants narrowly.** Set expires_in_hours when the need is temporary. Prefer
    directive-scoped grants (pass the directive_id).
 6. **Revoke when done.** After a directive completes, revoke any temporary tool grants
@@ -528,8 +528,9 @@ simply send it back with "needs_revision" unchanged. Diagnose the failure and ad
   - If a specific tool kept failing, check agent_tool_grants and grant access before retry
 
 **TOOL GRANT FAILURE (agent reported a blocker about missing tools):**
-- Check the tool registry. If the tool exists, grant it immediately (read-only) or via
-  Yellow decision (write). Then re-dispatch — do NOT just send needs_revision.
+- Check the tool registry. If the tool exists, grant it immediately unless it is
+   restricted (paid/spend-impacting or global-admin/IAM/tenant-permissioning), which
+   requires approval. Then re-dispatch — do NOT just send needs_revision.
 
 **REPEATED FAILURES (same assignment failed 3+ times):**
 - Stop retrying the same agent with the same approach. Choose ONE:

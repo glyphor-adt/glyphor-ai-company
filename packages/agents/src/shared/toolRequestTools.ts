@@ -2,8 +2,11 @@
  * Shared Tool Request Tools
  *
  * Allows any agent to request a new tool that doesn't exist yet.
- * Requests are stored in the `tool_requests` table and routed through
- * the decision system (Yellow tier) for CTO review and approval.
+ * Requests are stored in the `tool_requests` table.
+ *
+ * Default behavior is self-service and unblocked.
+ * Approval is required only for paid/spend-impacting capabilities and
+ * global-admin/IAM/tenant-permissioning capabilities.
  *
  * Also provides request_tool_access for agents to self-service access
  * to existing tools they don't currently have.
@@ -12,6 +15,7 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { isKnownToolAsync, invalidateGrantCache, refreshDynamicToolCache } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+import { evaluateToolPermissionGate } from './toolPermissionPolicy.js';
 
 const KNOWLEDGE_ARTIFACT_PATTERN = /(sharepoint|toolkit|playbook|guide|guidelines|primer|document|deck|brief|policy|template|style\s*guide|brand\s*guide|asset\s*library)/i;
 
@@ -22,6 +26,8 @@ function looksLikeKnowledgeArtifact(value: string): boolean {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+
+const DIRECT_PERMISSION_APPROVERS = new Set(['kristina', 'system']);
 
 export function createToolRequestTools(): ToolDefinition[] {
   return [
@@ -219,9 +225,9 @@ export function createToolRequestTools(): ToolDefinition[] {
       name: 'request_new_tool',
       description:
         'Request a new tool capability that does not currently exist in the system. ' +
-        'Creates a tool request for CTO review. Include a clear description of what the tool should do, ' +
+        'Creates a tool request for CTO build review. Include a clear description of what the tool should do, ' +
         'why it is needed, and optionally suggest an API configuration if the tool wraps an external API. ' +
-        'Yellow-tier decision is auto-created for approval.',
+        'Approval is required only for paid/spend-impacting or global-admin permissioning tools.',
       parameters: {
         tool_name: {
           type: 'string',
@@ -277,6 +283,11 @@ export function createToolRequestTools(): ToolDefinition[] {
         const justification = params.justification as string;
         const useCase = params.use_case as string;
         const combinedRequestText = `${toolName}\n${description}\n${justification}\n${useCase}`;
+        const permissionPolicy = evaluateToolPermissionGate({
+          toolName,
+          contextText: [description, justification, useCase],
+        });
+        const requesterCanBypassApproval = DIRECT_PERMISSION_APPROVERS.has(ctx.agentRole);
 
         if (looksLikeKnowledgeArtifact(combinedRequestText)) {
           return {
@@ -356,6 +367,7 @@ export function createToolRequestTools(): ToolDefinition[] {
         const suggestedApiConfig = params.suggested_api_config;
         const suggestedParameters = params.suggested_parameters;
         const autoBuildEligible = autoBuildEnabled
+          && (!permissionPolicy.requiresApproval || requesterCanBypassApproval)
           && isRecord(suggestedApiConfig)
           && isRecord(suggestedParameters);
 
@@ -418,29 +430,51 @@ export function createToolRequestTools(): ToolDefinition[] {
           }
         }
 
-        // Auto-file a Yellow decision for CTO review
-        try {
-          await systemQuery(
-            'INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, assigned_to) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-            [
-              'yellow',
-              'pending',
-              `New tool request: ${toolName}`,
-              `${ctx.agentRole} is requesting a new tool "${toolName}": ${description}\n\nJustification: ${justification}\n\nUse case: ${useCase}`,
-              ctx.agentRole,
-              justification,
-              ['cto'],
-            ],
-          );
-        } catch (decisionErr) {
-          // Request was created but decision failed — not fatal
+        if (permissionPolicy.requiresApproval && !requesterCanBypassApproval) {
+          try {
+            await systemQuery(
+              'INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, assigned_to, data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)',
+              [
+                'yellow',
+                'pending',
+                `Restricted tool request: ${toolName}`,
+                `${ctx.agentRole} requested restricted tool "${toolName}" (${permissionPolicy.reason}).\n\nDescription: ${description}\n\nJustification: ${justification}\n\nUse case: ${useCase}`,
+                ctx.agentRole,
+                justification,
+                ['kristina'],
+                JSON.stringify({
+                  type: 'restricted_tool_request',
+                  tool_name: toolName,
+                  requested_by: ctx.agentRole,
+                  restriction_reason: permissionPolicy.reason,
+                  matches: permissionPolicy.matches,
+                  request_id: request.id,
+                }),
+              ],
+            );
+          } catch (decisionErr) {
+            return {
+              success: true,
+              data: {
+                request_id: request.id,
+                tool_name: toolName,
+                status: 'pending',
+                warning: `Restricted tool request created but approval routing failed: ${(decisionErr as Error).message}.`,
+              },
+            };
+          }
+
           return {
             success: true,
             data: {
               request_id: request.id,
               tool_name: toolName,
-              status: 'pending',
-              warning: `Tool request created but decision filing failed: ${(decisionErr as Error).message}. Alert Marcus (CTO) directly.`,
+              status: 'pending_approval',
+              approval_required: true,
+              approval_reason: permissionPolicy.reason,
+              message:
+                `Restricted request received (${permissionPolicy.reason}). ` +
+                'Founder approval is required before this tool can be built/granted.',
             },
           };
         }
@@ -451,9 +485,10 @@ export function createToolRequestTools(): ToolDefinition[] {
             request_id: request.id,
             tool_name: toolName,
             status: 'pending',
+            approval_required: false,
             message:
-              'Tool request submitted and Yellow decision filed for CTO review. ' +
-              'Marcus will review, approve, and build the tool. You will be notified when it is available.',
+              'Tool request submitted to build queue. No approval is required for this tool type. ' +
+              'Marcus can build/register it and grant access when ready.',
           },
         };
       },
@@ -496,8 +531,8 @@ export function createToolRequestTools(): ToolDefinition[] {
       name: 'request_tool_access',
       description:
         'Request access to an EXISTING tool you don\'t currently have. Use this when a tool call ' +
-        'fails with "does not have access". Read-only tools (get_*, read_*, query_*, check_*, fetch_*) ' +
-        'are auto-approved immediately. Write tools are auto-approved but logged for founder awareness. ' +
+        'fails with "does not have access". Most tools are auto-granted immediately. ' +
+        'Only paid/spend-impacting or global-admin permissioning tools require approval. ' +
         'After calling this, retry the original tool call.',
       parameters: {
         tool_name: {
@@ -515,6 +550,11 @@ export function createToolRequestTools(): ToolDefinition[] {
         const toolName = params.tool_name as string;
         const reason = params.reason as string;
         const agentRole = ctx.agentRole;
+        const permissionPolicy = evaluateToolPermissionGate({
+          toolName,
+          contextText: [reason],
+        });
+        const requesterCanBypassApproval = DIRECT_PERMISSION_APPROVERS.has(agentRole);
 
         if (!(await isKnownToolAsync(toolName))) {
           if (looksLikeKnowledgeArtifact(`${toolName}\n${reason}`)) {
@@ -544,6 +584,49 @@ export function createToolRequestTools(): ToolDefinition[] {
               granted: true,
               tool_name: toolName,
               message: `You already have access to "${toolName}". Cache refreshed — retry your tool call now.`,
+            },
+          };
+        }
+
+        if (permissionPolicy.requiresApproval && !requesterCanBypassApproval) {
+          try {
+            await systemQuery(
+              `INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, assigned_to, data)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
+              [
+                'yellow',
+                'pending',
+                `Restricted tool access: ${toolName} → ${agentRole}`,
+                `${agentRole} requested restricted access to "${toolName}" (${permissionPolicy.reason}).`,
+                agentRole,
+                reason,
+                ['kristina'],
+                JSON.stringify({
+                  type: 'restricted_tool_access_request',
+                  agent_role: agentRole,
+                  tool_name: toolName,
+                  restriction_reason: permissionPolicy.reason,
+                  matches: permissionPolicy.matches,
+                }),
+              ],
+            );
+          } catch (decisionErr) {
+            return {
+              success: false,
+              error: `Restricted tool access requires approval, but request routing failed: ${(decisionErr as Error).message}`,
+            };
+          }
+
+          return {
+            success: true,
+            data: {
+              granted: false,
+              pending_approval: true,
+              tool_name: toolName,
+              approval_reason: permissionPolicy.reason,
+              message:
+                `Access to "${toolName}" requires approval (${permissionPolicy.reason}). ` +
+                'A Yellow decision was filed to Kristina.',
             },
           };
         }

@@ -76,7 +76,7 @@ export function createAccessAuditTools(): ToolDefinition[] {
     {
       name: 'view_pending_grant_requests',
       description:
-        'View all pending tool grant decisions awaiting approval. ' +
+        'View pending restricted tool grant decisions awaiting approval. ' +
         'Shows who requested what, for which agent, and when.',
       parameters: {},
       execute: async (_params, _ctx): Promise<ToolResult> => {

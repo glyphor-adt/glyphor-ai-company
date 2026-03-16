@@ -4,15 +4,17 @@
  * Allows admin agents (Morgan, Riley, Sarah) to dynamically grant/revoke
  * tools for other agents via the agent_tool_grants table.
  *
- * Executive agents can propose grants, but all grants from non-admin
- * grantors file a Yellow decision requiring Kristina's approval.
+ * Executive agents can grant most tools directly.
+ * Only restricted grants (paid/spend-impacting or global-admin permissioning)
+ * file a Yellow decision requiring Kristina's approval.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { WRITE_TOOLS, invalidateGrantCache, isKnownToolAsync } from '@glyphor/agent-runtime';
+import { invalidateGrantCache, isKnownToolAsync } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+import { evaluateToolPermissionGate } from './toolPermissionPolicy.js';
 
-/** Grantors who can directly approve grants without filing a decision */
+/** Grantors who can directly approve restricted grants without filing a decision */
 const DIRECT_GRANT_ADMINS = new Set(['kristina', 'system']);
 
 export function createToolGrantTools(
@@ -25,8 +27,8 @@ export function createToolGrantTools(
       name: 'grant_tool_access',
       description:
         canDirectGrant
-          ? 'Grant an existing tool to an agent. Read-only tools (get_*, read_*, query_*, check_*, fetch_*) can be granted autonomously. Write tools auto-file a Yellow decision for founder awareness. The tool must exist in the system registry.'
-          : 'Request a tool grant for an agent. All grants require Kristina\'s approval and will create a Yellow decision. The tool must exist in the system registry.',
+          ? 'Grant an existing tool to an agent. Most grants are immediate. Restricted grants (paid/spend-impacting or global-admin permissioning) can still be approved directly by you. The tool must exist in the system registry.'
+          : 'Grant a tool to an agent. Most grants are immediate. Only restricted grants (paid/spend-impacting or global-admin permissioning) create a Yellow decision for founder approval. The tool must exist in the system registry.',
       parameters: {
         agent_role: {
           type: 'string',
@@ -68,15 +70,18 @@ export function createToolGrantTools(
           };
         }
 
-        const isWrite = WRITE_TOOLS.has(toolName);
-        const requiresApproval = !canDirectGrant || isWrite;
+        const permissionPolicy = evaluateToolPermissionGate({
+          toolName,
+          contextText: [reason],
+        });
+        const requiresApproval = permissionPolicy.requiresApproval && !canDirectGrant;
 
         const expiresAt = expiresInHours
           ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString()
           : null;
 
-        // Non-admin grantors: file a Yellow decision instead of granting directly
-        if (!canDirectGrant) {
+        // Restricted grants by non-admin grantors: file a Yellow decision instead of granting directly
+        if (requiresApproval) {
           try {
             await systemQuery(
               `INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, data, assigned_to)
@@ -84,14 +89,16 @@ export function createToolGrantTools(
               [
                 'yellow',
                 'pending',
-                `Tool Grant: ${toolName} → ${agentRole}`,
-                `${grantedBy} requests granting "${toolName}" to ${agentRole}. Reason: ${reason}`,
+                `Restricted Tool Grant: ${toolName} → ${agentRole}`,
+                `${grantedBy} requests restricted grant "${toolName}" to ${agentRole}. Reason: ${reason}`,
                 grantedBy,
                 reason,
                 JSON.stringify({
                   type: 'tool_grant_request',
                   agent_role: agentRole,
                   tool_name: toolName,
+                  restriction_reason: permissionPolicy.reason,
+                  matches: permissionPolicy.matches,
                   scope: 'full',
                   expires_at: expiresAt,
                   directive_id: directiveId ?? null,
@@ -110,7 +117,8 @@ export function createToolGrantTools(
               pending_approval: true,
               agent_role: agentRole,
               tool_name: toolName,
-              note: 'Grant request filed as a Yellow decision for Kristina\'s approval. The grant will take effect once approved.',
+              approval_reason: permissionPolicy.reason,
+              note: 'Restricted grant request filed as a Yellow decision for Kristina\'s approval. The grant will take effect once approved.',
             },
           };
         }
@@ -134,11 +142,11 @@ export function createToolGrantTools(
             granted: true,
             agent_role: agentRole,
             tool_name: toolName,
-            is_write_tool: isWrite,
+            restricted_tool: permissionPolicy.requiresApproval,
             expires_at: expiresAt,
-            note: isWrite
-              ? 'This is a WRITE tool — a Yellow decision has been filed for founder awareness.'
-              : 'Tool granted directly by admin.',
+            note: permissionPolicy.requiresApproval
+              ? 'Restricted tool granted directly by privileged admin.'
+              : 'Tool granted directly.',
             written: { tool_name: toolName, agent_role: agentRole, action: 'grant' },
           },
         };

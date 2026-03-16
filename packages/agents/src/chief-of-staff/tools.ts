@@ -6,7 +6,7 @@
  */
 
 import type { ToolDefinition, ToolContext, ToolResult, BriefingData, CompanyAgentRole, StructuredReflection, OrchestratorGrade } from '@glyphor/agent-runtime';
-import { WRITE_TOOLS, invalidateGrantCache } from '@glyphor/agent-runtime';
+import { invalidateGrantCache } from '@glyphor/agent-runtime';
 import { isKnownTool } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { markOutcomeRevised, markOutcomeAccepted } from '@glyphor/agent-runtime';
@@ -28,6 +28,7 @@ import {
   type InitiativeDirectiveDraft,
 } from '../shared/initiativeTools.js';
 import { normalizeAssigneeRole, resolveActiveAssigneeBatch } from '../shared/assigneeRouting.js';
+import { evaluateToolPermissionGate } from '../shared/toolPermissionPolicy.js';
 
 const INITIATIVE_OWNER_CATEGORY: Record<string, string> = {
   cto: 'engineering',
@@ -2414,7 +2415,7 @@ export function createOrchestrationTools(
 
     {
       name: 'grant_tool_access',
-      description: 'Grant an existing tool to an agent. Read-only tools (get_*, read_*, query_*, check_*, fetch_*) can be granted autonomously. Write tools auto-file a Yellow decision for founder approval. The tool must exist in the system registry.',
+      description: 'Grant an existing tool to an agent. Most grants are immediate. Only restricted grants (paid/spend-impacting or global-admin permissioning) require founder approval. The tool must exist in the system registry.',
       parameters: {
         agent_role: {
           type: 'string',
@@ -2457,12 +2458,52 @@ export function createOrchestrationTools(
           };
         }
 
-        // Check if this is a write tool — requires Yellow decision
-        const isWrite = WRITE_TOOLS.has(toolName);
+        const permissionPolicy = evaluateToolPermissionGate({
+          toolName,
+          contextText: [reason],
+        });
 
         const expiresAt = expiresInHours
           ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString()
           : null;
+
+        if (permissionPolicy.requiresApproval) {
+          await systemQuery(
+            `INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, data, assigned_to)
+             VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)`,
+            [
+              'yellow',
+              'pending',
+              `Restricted Tool Grant: ${toolName} → ${agentRole}`,
+              `${ctx.agentRole} requested restricted grant "${toolName}" to ${agentRole}. Reason: ${reason}`,
+              ctx.agentRole,
+              reason,
+              JSON.stringify({
+                type: 'restricted_tool_grant_request',
+                agent_role: agentRole,
+                tool_name: toolName,
+                restriction_reason: permissionPolicy.reason,
+                matches: permissionPolicy.matches,
+                directive_id: directiveId ?? null,
+                expires_at: expiresAt,
+              }),
+              ['kristina'],
+            ],
+          );
+
+          return {
+            success: true,
+            data: {
+              granted: false,
+              pending_approval: true,
+              agent_role: agentRole,
+              tool_name: toolName,
+              approval_reason: permissionPolicy.reason,
+              expires_at: expiresAt,
+              note: 'Restricted grant request filed as a Yellow decision for Kristina approval.',
+            },
+          };
+        }
 
         // Upsert the grant
         await systemQuery(
@@ -2480,11 +2521,9 @@ export function createOrchestrationTools(
             granted: true,
             agent_role: agentRole,
             tool_name: toolName,
-            is_write_tool: isWrite,
+            restricted_tool: false,
             expires_at: expiresAt,
-            note: isWrite
-              ? 'This is a WRITE tool — a Yellow decision should be filed for founder awareness.'
-              : 'Read-only tool granted autonomously.',
+            note: 'Tool granted autonomously.',
           },
         };
       },
