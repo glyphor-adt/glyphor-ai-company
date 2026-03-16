@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 const POLL_INTERVAL = 60_000;
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
@@ -500,8 +501,28 @@ function useConsolidationActivity(days = 30) {
 
 type Tab = 'overview' | 'history' | 'delegation';
 
+type OperationsFocus = 'incident' | 'briefing' | null;
+
+function parseTab(value: string | null): Tab {
+  if (value === 'history' || value === 'delegation') return value;
+  return 'overview';
+}
+
+function parseFocus(value: string | null): OperationsFocus {
+  if (value === 'incident' || value === 'briefing') return value;
+  return null;
+}
+
 export default function Operations() {
-  const [tab, setTab] = useState<Tab>('overview');
+  const [searchParams] = useSearchParams();
+  const requestedTab = parseTab(searchParams.get('tab'));
+  const focus = parseFocus(searchParams.get('focus'));
+  const focusId = searchParams.get('id');
+  const [tab, setTab] = useState<Tab>(requestedTab);
+
+  useEffect(() => {
+    setTab(requestedTab);
+  }, [requestedTab]);
 
   return (
     <div className="space-y-6">
@@ -518,12 +539,12 @@ export default function Operations() {
         active={tab}
         onChange={setTab}
       />
-      {tab === 'history' ? <Activity /> : tab === 'delegation' ? <DelegationOverview /> : <OperationsOverview />}
+      {tab === 'history' ? <Activity /> : tab === 'delegation' ? <DelegationOverview /> : <OperationsOverview focus={focus} focusId={focusId} />}
     </div>
   );
 }
 
-function OperationsOverview() {
+function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusId: string | null }) {
   const { data: agents, loading: agentsLoading, refresh: refreshAgents } = useAgentRuns();
   const { data: reflections, loading: reflectionsLoading } = useReflections(14);
   const { data: recentRuns, loading: recentRunsLoading } = useRecentRuns(48);
@@ -537,6 +558,9 @@ function OperationsOverview() {
 
   const loading = agentsLoading || reflectionsLoading || recentRunsLoading;
   const lastRefresh = useRef(new Date());
+  const didAutoFocusRef = useRef(false);
+  const dataSyncRef = useRef<HTMLDivElement>(null);
+  const incidentLogRef = useRef<HTMLDivElement>(null);
 
   const handleRefresh = useCallback(() => {
     lastRefresh.current = new Date();
@@ -597,6 +621,20 @@ function OperationsOverview() {
   const avgScore = agents.length > 0
     ? Math.round(agents.reduce((s, a) => s + (a.performance_score ?? 0), 0) / agents.length * 100)
     : 0;
+
+  useEffect(() => {
+    if (didAutoFocusRef.current) return;
+    if (focus === 'incident') {
+      if (incidentsLoading) return;
+      didAutoFocusRef.current = true;
+      incidentLogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (focus === 'briefing') {
+      didAutoFocusRef.current = true;
+      dataSyncRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [focus, incidentsLoading]);
 
   return (
     <div className="space-y-8">
@@ -718,7 +756,8 @@ function OperationsOverview() {
 
       {/* Data Sync Status + Incident Log */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
+        <div ref={dataSyncRef}>
+        <Card className={focus === 'briefing' ? 'ring-1 ring-cyan/40' : ''}>
           <SectionHeader title="Data Sync Status" />
           {syncsLoading ? (
             <Skeleton className="h-40" />
@@ -756,19 +795,29 @@ function OperationsOverview() {
             </div>
           )}
         </Card>
+        </div>
 
-        <Card>
-          <SectionHeader title="Incident Log" />
+        <div ref={incidentLogRef}>
+        <Card className={focus === 'incident' ? 'ring-1 ring-cyan/40' : ''}>
+          <SectionHeader
+            title="Incident Log"
+            subtitle={focus === 'incident' ? 'Focused from Action Center review' : undefined}
+          />
           {incidentsLoading ? (
             <Skeleton className="h-40" />
           ) : incidents.length === 0 ? (
             <p className="py-4 text-center text-sm text-txt-faint">No incidents recorded</p>
           ) : (
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              {incidents.map((inc) => (
+              {incidents.map((inc) => {
+                const isFocusedIncident = focus === 'incident' && focusId === inc.id;
+                return (
                 <div
                   key={inc.id}
                   className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                    isFocusedIncident
+                      ? 'border-cyan/60 bg-cyan/10 ring-1 ring-cyan/40'
+                      :
                     inc.status === 'open'
                       ? 'border-prism-critical/20 bg-prism-critical/5'
                       : 'border-border bg-raised'
@@ -795,10 +844,12 @@ function OperationsOverview() {
                   </div>
                   <span className="text-[10px] text-txt-faint">{timeAgo(inc.created_at)}</span>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>
+        </div>
       </div>
 
       {/* Agent Health Matrix */}

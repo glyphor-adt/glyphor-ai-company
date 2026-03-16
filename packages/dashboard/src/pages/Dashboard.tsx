@@ -186,6 +186,22 @@ function buildIncidentContext(title: string, description: string | null): { cont
   };
 }
 
+function buildOraActionPrompt(item: ActionCenterItem): string {
+  return [
+    'Action Center escalation needs a decision.',
+    `Type: ${item.kind}`,
+    `Priority: ${item.priority}`,
+    `Title: ${item.title}`,
+    `Context: ${item.context}`,
+    `Recommended next step: ${item.recommendation}`,
+    '',
+    'Please help me with:',
+    '1) Impact and urgency assessment',
+    '2) Immediate next action I should take',
+    '3) A short founder-ready response I can use right now',
+  ].join('\n');
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { data: pulse, loading: pulseLoading } = useCompanyPulse();
@@ -272,7 +288,7 @@ export default function Dashboard() {
         context: detail.context,
         recommendation: detail.recommendation,
         timestamp: incident.created_at,
-        reviewTo: '/operations',
+        reviewTo: `/operations?tab=overview&focus=incident&id=${encodeURIComponent(incident.id)}`,
       };
     });
 
@@ -308,7 +324,7 @@ export default function Dashboard() {
           title: 'Agent briefing is stale',
           context: `The latest company pulse was updated ${pulse?.updated_at ? timeAgo(pulse.updated_at) : 'a while ago'}, which means your briefing surface is drifting out of date.`,
           recommendation: 'Confirm Sarah’s scheduled briefing run is landing, then check channel delivery and company pulse writes.',
-          reviewTo: '/operations',
+          reviewTo: '/operations?tab=overview&focus=briefing',
         }]
       : [];
 
@@ -390,9 +406,19 @@ export default function Dashboard() {
                       </button>
                     </>
                   ) : (
-                    <Link to="/ora" className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-txt-muted transition-colors hover:border-cyan/30 hover:text-cyan">
-                      Ask Ora
-                    </Link>
+                    (item.kind === 'incident' || item.kind === 'briefing') ? (
+                      <Link
+                        to="/ora"
+                        state={{
+                          origin: 'action-center',
+                          actionItemId: item.id,
+                          prefillPrompt: buildOraActionPrompt(item),
+                        }}
+                        className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-txt-muted transition-colors hover:border-cyan/30 hover:text-cyan"
+                      >
+                        Discuss with Ora
+                      </Link>
+                    ) : null
                   )}
                 </div>
               </HomeInnerCard>

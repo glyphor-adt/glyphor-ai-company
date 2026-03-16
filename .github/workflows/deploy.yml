@@ -28,6 +28,49 @@ jobs:
       - run: npm ci
       - run: npx turbo build
 
+  # ─── Apply pending database migrations ────────────────────
+  migrate:
+    needs: [typecheck]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Start Cloud SQL Proxy
+        run: |
+          gcloud components install cloud-sql-proxy --quiet 2>/dev/null || true
+          cloud-sql-proxy ${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db \
+            --port=5432 --quiet &
+          sleep 3
+
+      - name: Apply pending migrations
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '5432'
+          DB_NAME: glyphor
+          DB_USER: glyphor_system_user
+        run: |
+          DB_PASSWORD=$(gcloud secrets versions access latest --secret=db-system-password --project=${{ env.GCP_PROJECT_ID }})
+          export DB_PASSWORD
+          npx tsx scripts/apply-pending-migrations.ts --source ci-deploy
+
   # ─── Detect which services need deploying ──────────────────
   changes:
     runs-on: ubuntu-latest
@@ -118,7 +161,7 @@ jobs:
 
   # ─── Deploy Scheduler ─────────────────────────────────────
   deploy-scheduler:
-    needs: [typecheck, changes]
+    needs: [typecheck, changes, migrate]
     if: needs.changes.outputs.scheduler == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -170,7 +213,7 @@ jobs:
 
   # ─── Deploy Dashboard ──────────────────────────────────────
   deploy-dashboard:
-    needs: [typecheck, changes]
+    needs: [typecheck, changes, migrate]
     if: needs.changes.outputs.dashboard == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -223,7 +266,7 @@ jobs:
 
   # ─── Deploy Worker ──────────────────────────────────────────
   deploy-worker:
-    needs: [typecheck, changes]
+    needs: [typecheck, changes, migrate]
     if: needs.changes.outputs.worker == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -278,7 +321,7 @@ jobs:
 
   # ─── Deploy MCP Data Server ─────────────────────────────────
   deploy-mcp-data:
-    needs: [typecheck, changes]
+    needs: [typecheck, changes, migrate]
     if: needs.changes.outputs.mcp-data == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -331,7 +374,7 @@ jobs:
 
   # ─── Deploy MCP Marketing Server ───────────────────────────
   deploy-mcp-marketing:
-    needs: [typecheck, changes]
+    needs: [typecheck, changes, migrate]
     if: needs.changes.outputs.mcp-marketing == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -384,7 +427,7 @@ jobs:
 
   # ─── Deploy MCP Engineering Server ─────────────────────────
   deploy-mcp-engineering:
-    needs: [typecheck, changes]
+    needs: [typecheck, changes, migrate]
     if: needs.changes.outputs.mcp-engineering == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -437,7 +480,7 @@ jobs:
 
   # ─── Deploy MCP Design Server ──────────────────────────────
   deploy-mcp-design:
-    needs: [typecheck, changes]
+    needs: [typecheck, changes, migrate]
     if: needs.changes.outputs.mcp-design == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
@@ -490,7 +533,7 @@ jobs:
 
   # ─── Deploy MCP Finance Server ─────────────────────────────
   deploy-mcp-finance:
-    needs: [typecheck, changes]
+    needs: [typecheck, changes, migrate]
     if: needs.changes.outputs.mcp-finance == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:

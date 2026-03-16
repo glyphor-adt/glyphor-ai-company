@@ -8,6 +8,7 @@ import { Card } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { getModelLabel, getModelsByProvider, PROVIDER_LABELS, getReasoningSupport, normalizeReasoningLevel, type ReasoningLevel } from '../lib/models';
 import { useAuth, getEmailAliases } from '../lib/auth';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 /* ── Triangulation types (mirrored from @glyphor/shared) ───── */
 
@@ -139,6 +140,10 @@ interface Features {
   webSearch: boolean;
   knowledgeBase: boolean;
   deepResearch: boolean;
+}
+
+interface OraNavigationState {
+  prefillPrompt?: string;
 }
 
 type MenuFlyout = 'model' | 'type' | null;
@@ -452,6 +457,8 @@ const FOUNDERS = [
 ];
 
 export default function OraChat() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const userEmail = (user?.email ?? 'unknown').toLowerCase();
   const userAliases = useMemo(() => getEmailAliases(userEmail), [userEmail]);
@@ -527,6 +534,23 @@ export default function OraChat() {
       setMenuFlyout(null);
     }
   }, [menuOpen]);
+
+  useEffect(() => {
+    const state = location.state as OraNavigationState | null;
+    const prefillPrompt = typeof state?.prefillPrompt === 'string' ? state.prefillPrompt.trim() : '';
+    if (!prefillPrompt) return;
+
+    setInput((current) => (current.trim().length > 0 ? current : prefillPrompt));
+    window.setTimeout(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    }, 0);
+
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [location.pathname, location.search, location.state, navigate]);
 
   const copyMessage = useCallback(async (messageId: string, content: string) => {
     try {
