@@ -131,6 +131,34 @@ export function createCommunicationTools(
           return { success: false, error: `Rate limit exceeded (${MESSAGE_RATE_LIMIT}/hr)` };
         }
 
+        // Deduplicate: suppress if this agent already sent a message to the same
+        // recipient about the same topic (same assignment ID or >60% word overlap)
+        // within the last 2 hours. Prevents blocker cascade loops.
+        const recentDupes = await systemQuery<{ id: string; message: string }>(
+          `SELECT id, message FROM agent_messages
+           WHERE from_agent = $1 AND to_agent = $2
+             AND created_at > NOW() - interval '2 hours'
+           ORDER BY created_at DESC LIMIT 5`,
+          [fromAgent, toAgent],
+        );
+        if (recentDupes.length > 0) {
+          const newMsg = (params.message as string).toLowerCase();
+          for (const prev of recentDupes) {
+            const prevMsg = (prev.message as string).toLowerCase();
+            // Check for assignment ID overlap (UUID pattern)
+            const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+            const newIds = new Set(newMsg.match(uuidPattern) ?? []);
+            const prevIds = new Set(prevMsg.match(uuidPattern) ?? []);
+            const sharedIds = [...newIds].filter(id => prevIds.has(id));
+            if (sharedIds.length > 0) {
+              return {
+                success: false,
+                error: `Duplicate message suppressed — you already messaged ${toAgent} about assignment ${sharedIds[0]} within the last 2 hours. Do not re-escalate the same issue. Wait for their response or use a different approach.`,
+              };
+            }
+          }
+        }
+
         const threadId = (params.thread_id as string) || crypto.randomUUID();
 
         const messageType = (params.message_type as string) ?? 'info';
