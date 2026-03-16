@@ -424,9 +424,11 @@ export class ToolRetriever {
     const modelCap = Math.max(1, request.maxTools ?? getModelCap(request.model));
     const bm25Weight = request.bm25Weight ?? DEFAULT_BM25_WEIGHT;
 
+    // Role-specific pins first — they are the agent's bread-and-butter tools
+    // and must survive the model cap slice before generic core pins.
     const pinnedNames = new Set<string>([
-      ...CORE_PINNED_TOOLS,
       ...getAlwaysLoadedTools(request.role),
+      ...CORE_PINNED_TOOLS,
     ]);
 
     const department = inferDepartment(request.role, request.department);

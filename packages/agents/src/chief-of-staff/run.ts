@@ -338,7 +338,20 @@ Constraints:
     }
 
     case 'on_demand':
-      initialMessage = params.message || 'Provide a status summary of the company.';
+      initialMessage = params.message
+        ? `${params.message}
+
+---
+[SYSTEM INSTRUCTION — On-Demand Chat Protocol]
+You are in an interactive conversation with a founder. CRITICAL RULES:
+1. NEVER guess or assume — ALWAYS use your tools to look things up before answering.
+2. If asked about a directive → call read_founder_directives(status='all') immediately.
+3. If asked about an email → call read_inbox or list_emails immediately.
+4. If asked about a file/document → call search_sharepoint with the specific search term.
+5. If asked "did you see X" → VERIFY with the relevant tool, don't just say yes.
+6. If prior messages reference something specific (a site name, a file name, an email subject), USE that detail in your tool calls.
+7. Keep answers concise. Act first, report results.`
+        : 'Provide a status summary of the company.';
       break;
 
     default:
