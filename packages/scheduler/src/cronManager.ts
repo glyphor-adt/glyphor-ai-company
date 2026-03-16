@@ -53,7 +53,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cos-orchestrate',
     agentRole: 'chief-of-staff',
-    schedule: '0 */4 * * *',   // every 4 hours — periodic directive sweep
+    schedule: '0 * * * *',   // every hour — periodic directive sweep (matches Cloud Scheduler)
     timezone: 'UTC',
     task: 'orchestrate',
     payload: {},

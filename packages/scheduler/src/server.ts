@@ -1369,7 +1369,6 @@ const heartbeatManager = new HeartbeatManager(trackedAgentExecutor, wakeRouter);
 const strategyModelClient = new ModelClient({
   geminiApiKey: process.env.GOOGLE_AI_API_KEY,
   openaiApiKey: process.env.OPENAI_API_KEY,
-  vertexProjectId: process.env.GCP_PROJECT_ID || 'ai-glyphor-company',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
 });
 const analysisEngine = new AnalysisEngine(strategyModelClient);
@@ -3184,6 +3183,15 @@ const server = createServer(async (req, res) => {
         );
         // Invalidate directive/context caches
         getRedisCache().invalidatePattern('jit:directives:*').catch(() => {});
+
+        // Queue a wake for CoS so the directive is picked up on the next heartbeat (~10 min)
+        try {
+          await systemQuery(
+            'INSERT INTO agent_wake_queue (agent_role, task, reason, context, status) VALUES ($1,$2,$3,$4,$5)',
+            ['chief-of-staff', 'orchestrate', 'new_directive_created', JSON.stringify({ directive_id: data.id, title: data.title, priority: data.priority }), 'pending'],
+          );
+        } catch { /* wake queue is best-effort */ }
+
         json(res, 201, data);
       } catch (error) {
         json(res, 500, { error: (error as Error).message });

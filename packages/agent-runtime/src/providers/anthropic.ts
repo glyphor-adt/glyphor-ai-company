@@ -1,12 +1,11 @@
 /**
  * Anthropic Provider Adapter — Maps Anthropic API to unified types.
  *
- * Uses the direct Anthropic API as primary, with Vertex AI on GCP as fallback.
+ * Uses the direct Anthropic API.
  * Supports Claude 3.5+, Claude Sonnet 4, Haiku 4, and Opus 4 with
  * extended thinking (manual or adaptive depending on model).
  */
 
-import { AnthropicVertex } from '@anthropic-ai/vertex-sdk';
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse } from './types.js';
@@ -21,16 +20,12 @@ import { shouldUseAnthropicToolSearch } from '../toolSearchConfig.js';
 export class AnthropicAdapter implements ProviderAdapter {
   readonly provider = 'anthropic' as const;
   private client: Anthropic;
-  private vertexClient: AnthropicVertex | null;
 
-  constructor(projectId: string, region = 'us-east5', anthropicApiKey?: string) {
+  constructor(anthropicApiKey: string) {
     if (!anthropicApiKey) {
       throw new Error('ANTHROPIC_API_KEY is required — set it in your environment');
     }
     this.client = new Anthropic({ apiKey: anthropicApiKey });
-    this.vertexClient = projectId
-      ? new AnthropicVertex({ projectId, region })
-      : null;
   }
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
@@ -131,38 +126,19 @@ export class AnthropicAdapter implements ProviderAdapter {
     }
 
     const directCreateParams = createParams as unknown as Parameters<Anthropic['messages']['create']>[0];
-    const vertexCreateParams = createParams as unknown as Parameters<AnthropicVertex['messages']['create']>[0];
-
-    let response: Anthropic.Message;
-    try {
-      response = await this.createMessage(
-        this.client,
-        directCreateParams,
-        contextManagement,
-        compactionBetas,
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const isQuota = /429|rate.?limit|quota|resource.?exhausted|too many requests/i.test(msg);
-      if (isQuota && this.vertexClient) {
-        console.log(`[AnthropicAdapter] Direct API quota hit for ${request.model}, falling back to Vertex AI`);
-        response = await this.createMessage(
-          this.vertexClient,
-          vertexCreateParams,
-          contextManagement,
-          compactionBetas,
-        );
-      } else {
-        throw err;
-      }
-    }
+    const response = await this.createMessage(
+      this.client,
+      directCreateParams,
+      contextManagement,
+      compactionBetas,
+    );
 
     return this.mapResponse(response);
   }
 
   private async createMessage(
-    client: Anthropic | AnthropicVertex,
-    params: Parameters<Anthropic['messages']['create']>[0] | Parameters<AnthropicVertex['messages']['create']>[0],
+    client: Anthropic,
+    params: Parameters<Anthropic['messages']['create']>[0],
     contextManagement?: Record<string, unknown>,
     compactionBetas?: string[],
   ): Promise<Anthropic.Message> {

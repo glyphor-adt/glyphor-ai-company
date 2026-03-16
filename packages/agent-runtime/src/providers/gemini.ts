@@ -12,16 +12,11 @@ import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, ImageR
 export interface GeminiAdapterConfig {
   /** Google AI Studio API key (direct access). */
   apiKey?: string;
-  /** GCP project ID for Vertex AI. When set, Vertex AI is preferred over apiKey. */
-  vertexProjectId?: string;
-  /** GCP region for Vertex AI Gemini. Defaults to us-central1. */
-  vertexLocation?: string;
 }
 
 export class GeminiAdapter implements ProviderAdapter {
   readonly provider = 'gemini' as const;
   private client: GoogleGenAI;
-  private fallbackClient?: GoogleGenAI;
 
   constructor(config: string | GeminiAdapterConfig) {
     if (typeof config === 'string') {
@@ -29,19 +24,10 @@ export class GeminiAdapter implements ProviderAdapter {
       this.client = new GoogleGenAI({ apiKey: config });
       return;
     }
-    if (config.vertexProjectId) {
-      this.client = new GoogleGenAI({
-        vertexai: true,
-        project: config.vertexProjectId,
-        location: config.vertexLocation ?? 'us-central1',
-      });
-      if (config.apiKey) {
-        this.fallbackClient = new GoogleGenAI({ apiKey: config.apiKey });
-      }
-    } else if (config.apiKey) {
+    if (config.apiKey) {
       this.client = new GoogleGenAI({ apiKey: config.apiKey });
     } else {
-      throw new Error('GeminiAdapter requires either vertexProjectId or apiKey');
+      throw new Error('GeminiAdapter requires apiKey');
     }
   }
 
@@ -133,19 +119,8 @@ export class GeminiAdapter implements ProviderAdapter {
       },
     };
 
-    let response: unknown;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      response = await this.client.models.generateContent(requestPayload as any);
-    } catch (error) {
-      const msg = (error as Error).message ?? String(error);
-      const shouldFallback = Boolean(this.fallbackClient)
-        && /(not found|does not have access|permission|forbidden|404|publisher model)/i.test(msg);
-      if (!shouldFallback) throw error;
-      console.warn(`[Gemini] ${request.model}: Vertex call failed, retrying via direct API key`);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      response = await this.fallbackClient!.models.generateContent(requestPayload as any);
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await this.client.models.generateContent(requestPayload as any);
 
     return this.mapResponse(response);
   }

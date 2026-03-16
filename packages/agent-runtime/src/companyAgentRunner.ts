@@ -1561,7 +1561,7 @@ export class CompanyAgentRunner {
           );
           history.push({
             role: 'user',
-            content: memoryContext,
+            content: `[CONTEXT — Do NOT respond to this message; wait for the user's actual message.]\n\n${memoryContext}`,
             timestamp: Date.now(),
           });
         }
@@ -1575,7 +1575,7 @@ export class CompanyAgentRunner {
         const msgContext = buildPendingMessageContext(pendingMessages);
         history.push({
           role: 'user',
-          content: msgContext,
+          content: `[CONTEXT — Do NOT respond to this message; wait for the user's actual message.]\n\n${msgContext}`,
           timestamp: Date.now(),
         });
       }
@@ -1585,7 +1585,7 @@ export class CompanyAgentRunner {
         const assignContext = buildPendingAssignmentContext(pendingAssignments);
         history.push({
           role: 'user',
-          content: assignContext,
+          content: `[CONTEXT — Do NOT respond to this message; wait for the user's actual message.]\n\n${assignContext}`,
           timestamp: Date.now(),
         });
         // Detect delegated directive context — any assignment linked to a directive
@@ -1596,7 +1596,7 @@ export class CompanyAgentRunner {
       if (ciContext) {
         history.push({
           role: 'user',
-          content: ciContext,
+          content: `[CONTEXT — Do NOT respond to this message; wait for the user's actual message.]\n\n${ciContext}`,
           timestamp: Date.now(),
         });
       }
@@ -1618,7 +1618,7 @@ export class CompanyAgentRunner {
           : '\n\nUse this context to build on your previous work and avoid repeating completed tasks.';
         history.push({
           role: 'user',
-          content: `${preamble}${workingMemory.summary}${suffix}`,
+          content: `[CONTEXT — Do NOT respond to this message; wait for the user's actual message.]\n\n${preamble}${workingMemory.summary}${suffix}`,
           timestamp: Date.now(),
         });
       }
@@ -1659,7 +1659,7 @@ export class CompanyAgentRunner {
         if (jitSections.length > 0) {
           history.push({
             role: 'user',
-            content: `# Task-Relevant Context (JIT Retrieved)\n\n${jitSections.join('\n\n')}`,
+            content: `[CONTEXT — Do NOT respond to this message; wait for the user's actual message.]\n\n# Task-Relevant Context (JIT Retrieved)\n\n${jitSections.join('\n\n')}`,
             timestamp: Date.now(),
           });
         }

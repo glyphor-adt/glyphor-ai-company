@@ -33,13 +33,10 @@ function truncate(input: string, max = 260): string {
 async function main(): Promise<void> {
   const client = new ModelClient({
     geminiApiKey: env('GOOGLE_AI_API_KEY') ?? env('GEMINI_API_KEY'),
-    vertexProjectId: env('GCP_PROJECT_ID'),
-    vertexLocation: env('VERTEX_LOCATION'),
     openaiApiKey: env('OPENAI_API_KEY'),
     azureFoundryEndpoint: env('AZURE_FOUNDRY_ENDPOINT') ?? env('AZURE_OPENAI_ENDPOINT'),
     azureFoundryApi: env('AZURE_FOUNDRY_API') ?? env('AZURE_OPENAI_API_KEY'),
     azureFoundryApiVersion: env('AZURE_FOUNDRY_API_VERSION') ?? env('AZURE_OPENAI_API_VERSION'),
-    vertexRegion: env('VERTEX_REGION') ?? 'us-east5',
     anthropicApiKey: env('ANTHROPIC_API_KEY'),
   });
 

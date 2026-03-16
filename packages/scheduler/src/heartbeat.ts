@@ -167,6 +167,11 @@ export class HeartbeatManager {
       console.warn(`[Heartbeat] Change request processing failed:`, (err as Error).message);
     }
 
+    // ── Phase 0c: DIRECTIVE DETECTION — runs EVERY cycle (~10 min) ──
+    // This is outside the tier-gated agent loop so new directives are
+    // detected within ~10 minutes regardless of CoS's exec-tier cadence.
+    const directiveWake = await this.checkDirectiveNeeds();
+
     const allAgentsForCycle = this.getAgentsForCycle(this.cycle);
 
     // Filter out paused / inactive / retired agents before doing any work
@@ -178,7 +183,16 @@ export class HeartbeatManager {
     // ── Phase 1: SCAN — check all agents for work (fast DB reads) ──
     const wakeList: WaveAgent[] = [];
 
+    // Inject the directive wake if detected (before agent loop so CoS
+    // doesn't get added twice via checkAgentNeeds)
+    if (directiveWake) {
+      wakeList.push(directiveWake);
+    }
+
     for (const agentRole of agentsToCheck) {
+      // Skip if agent was already added by directive detection above
+      if (agentRole === 'chief-of-staff' && directiveWake) continue;
+
       // Skip if agent ran recently
       const lastRun = lastRuns.get(agentRole);
       const gap = agentRole === 'ops' ? OPS_RUN_GAP_MS : MIN_RUN_GAP_MS;
@@ -349,138 +363,8 @@ export class HeartbeatManager {
       };
     }
 
-    // Check 1.5 (CoS only): Detect new directives needing orchestration
-    // Runs every heartbeat cycle (~10 min) so Sarah picks up directives in near real-time
-    if (agentRole === 'chief-of-staff') {
-      try {
-        const rows = await systemQuery<{
-          id: string;
-          title: string;
-          priority: string | null;
-          due_date: string | null;
-          created_at: string;
-          wa_id: string | null;
-          wa_status: string | null;
-        }>(
-          `SELECT fd.id, fd.title, fd.priority, fd.due_date, fd.created_at, wa.id as wa_id, wa.status as wa_status
-             FROM founder_directives fd
-             LEFT JOIN work_assignments wa ON wa.directive_id = fd.id
-            WHERE fd.status=$1`,
-          ['active'],
-        );
-
-        // Group by directive; directives with no assignments have wa_id = null
-        const directiveMap = new Map<string, {
-          id: string;
-          title: string;
-          priority: string | null;
-          dueDate: string | null;
-          createdAt: string;
-          totalAssignments: number;
-          actionableAssignments: number;
-        }>();
-        for (const row of rows) {
-          const existing = directiveMap.get(row.id);
-          if (existing) {
-            if (row.wa_id) {
-              existing.totalAssignments += 1;
-              if (row.wa_status && ACTIONABLE_ASSIGNMENT_STATUSES.has(row.wa_status)) {
-                existing.actionableAssignments += 1;
-              }
-            }
-          } else {
-            directiveMap.set(row.id, {
-              id: row.id,
-              title: row.title,
-              priority: row.priority,
-              dueDate: row.due_date,
-              createdAt: row.created_at,
-              totalAssignments: row.wa_id ? 1 : 0,
-              actionableAssignments:
-                row.wa_id && row.wa_status && ACTIONABLE_ASSIGNMENT_STATUSES.has(row.wa_status)
-                  ? 1
-                  : 0,
-            });
-          }
-        }
-        const newDirectives = [...directiveMap.values()]
-          .filter((d) => d.actionableAssignments === 0)
-          .sort((a, b) => {
-            const byPriority = directivePriorityRank(a.priority) - directivePriorityRank(b.priority);
-            if (byPriority !== 0) return byPriority;
-            const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY;
-            const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY;
-            if (aDue !== bDue) return aDue - bDue;
-            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-          });
-
-        if (newDirectives.length > 0) {
-          const directive = newDirectives[0];
-          const directiveLabel = `"${directive.title}" (${directive.id})`;
-          const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-          const [recentRun] = await systemQuery<{status: string; error: string | null; started_at: string}>(
-            `SELECT status, error, started_at
-             FROM agent_runs
-             WHERE agent_id = $1
-               AND task LIKE $2
-               AND started_at >= $3
-             ORDER BY started_at DESC
-             LIMIT 1`,
-            ['chief-of-staff', 'orchestrate%', fifteenMinAgo],
-          );
-
-          if (recentRun?.status === 'running') {
-            console.log('[Heartbeat] CoS: orchestration currently running; not dispatching duplicate directive wake');
-            return { shouldWake: false, reason: '', context: {} };
-          }
-
-          if (recentRun && (recentRun.status === 'failed' || recentRun.status === 'aborted')) {
-            console.log(`[Heartbeat] CoS: retrying directive decomposition for ${directiveLabel} with reduced scope`);
-            return {
-              shouldWake: true,
-              reason: 'new_directives_retry:1',
-              context: {
-                task: 'orchestrate',
-                contextTier: 'standard',
-                message: `SINGLE DIRECTIVE FOCUS: Process ONLY directive ${directiveLabel}. Decompose it into concrete assignments, dispatch the work, and do not process other directives this run unless this directive is fully handled.`,
-              },
-            };
-          }
-
-          if (recentRun?.status === 'completed') {
-            console.log(`[Heartbeat] CoS: unresolved directive still has no assignments after completed orchestrate run; forcing focused retry for ${directiveLabel}`);
-            return {
-              shouldWake: true,
-              reason: 'new_directives_persistent:1',
-              context: {
-                task: 'orchestrate',
-                contextTier: 'standard',
-                message: `UNRESOLVED DIRECTIVE: ${directiveLabel} still has zero assignments after your latest orchestration pass. Do this FIRST. Create and dispatch at least one concrete assignment for this directive before touching any other directive.`,
-              },
-            };
-          }
-
-          if (!recentRun) {
-            console.log(
-              `[Heartbeat] CoS: ${newDirectives.length} unresolved directive(s) detected: ` +
-              newDirectives.map((d: any) => `"${d.title}"`).join(', '),
-            );
-            return {
-              shouldWake: true,
-              reason: `unresolved_directives:${newDirectives.length}`,
-              context: {
-                task: 'orchestrate',
-                message: `${newDirectives.length} active directive(s) have no actionable assignments: ${newDirectives.map((d: any) => `"${d.title}"`).join(', ')}. Start with highest urgency: ${directiveLabel}. Create and dispatch work assignments now.`,
-              },
-            };
-          }
-
-          console.log('[Heartbeat] CoS: Skipping directive wake — orchestrate already ran recently');
-        }
-      } catch (err) {
-        console.warn('[Heartbeat] CoS directive check failed:', (err as Error).message);
-      }
-    }
+    // Check 1.5 (CoS directive detection) is now in checkDirectiveNeeds()
+    // which runs every heartbeat cycle, outside the tier-gated loop.
 
     // Check 1.6: Executive directive detection — wake executives with delegated directives
     // For each executive with can_decompose=true, check for active delegated directives
@@ -632,6 +516,161 @@ export class HeartbeatManager {
       }
     } catch (err) {
       console.warn('[Heartbeat] Failed to deactivate expired grants:', (err as Error).message);
+    }
+  }
+
+  /**
+   * CoS directive detection — runs EVERY heartbeat cycle (~10min).
+   * Returns a WaveAgent if there are unresolved directives needing orchestration.
+   * Extracted from checkAgentNeeds so it is NOT gated behind exec-tier cadence.
+   */
+  private async checkDirectiveNeeds(): Promise<WaveAgent | null> {
+    try {
+      // Verify CoS is active before doing directive queries
+      const [cosAgent] = await systemQuery<{ status: string }>(
+        'SELECT status FROM company_agents WHERE role = $1',
+        ['chief-of-staff'],
+      );
+      if (!cosAgent || cosAgent.status !== 'active') return null;
+
+      // Check recent run cooldown
+      const lastRunRows = await systemQuery<{ started_at: string }>(
+        'SELECT started_at FROM agent_runs WHERE agent_id = $1 ORDER BY started_at DESC LIMIT 1',
+        ['chief-of-staff'],
+      );
+      if (lastRunRows.length > 0) {
+        const lastRunTime = new Date(lastRunRows[0].started_at).getTime();
+        if (Date.now() - lastRunTime < MIN_RUN_GAP_MS) return null;
+      }
+
+      const rows = await systemQuery<{
+        id: string;
+        title: string;
+        priority: string | null;
+        due_date: string | null;
+        created_at: string;
+        wa_id: string | null;
+        wa_status: string | null;
+      }>(
+        `SELECT fd.id, fd.title, fd.priority, fd.due_date, fd.created_at, wa.id as wa_id, wa.status as wa_status
+           FROM founder_directives fd
+           LEFT JOIN work_assignments wa ON wa.directive_id = fd.id
+          WHERE fd.status=$1`,
+        ['active'],
+      );
+
+      const directiveMap = new Map<string, {
+        id: string;
+        title: string;
+        priority: string | null;
+        dueDate: string | null;
+        createdAt: string;
+        totalAssignments: number;
+        actionableAssignments: number;
+      }>();
+      for (const row of rows) {
+        const existing = directiveMap.get(row.id);
+        if (existing) {
+          if (row.wa_id) {
+            existing.totalAssignments += 1;
+            if (row.wa_status && ACTIONABLE_ASSIGNMENT_STATUSES.has(row.wa_status)) {
+              existing.actionableAssignments += 1;
+            }
+          }
+        } else {
+          directiveMap.set(row.id, {
+            id: row.id,
+            title: row.title,
+            priority: row.priority,
+            dueDate: row.due_date,
+            createdAt: row.created_at,
+            totalAssignments: row.wa_id ? 1 : 0,
+            actionableAssignments:
+              row.wa_id && row.wa_status && ACTIONABLE_ASSIGNMENT_STATUSES.has(row.wa_status)
+                ? 1
+                : 0,
+          });
+        }
+      }
+
+      const newDirectives = [...directiveMap.values()]
+        .filter((d) => d.actionableAssignments === 0)
+        .sort((a, b) => {
+          const byPriority = directivePriorityRank(a.priority) - directivePriorityRank(b.priority);
+          if (byPriority !== 0) return byPriority;
+          const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY;
+          const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY;
+          if (aDue !== bDue) return aDue - bDue;
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        });
+
+      if (newDirectives.length === 0) return null;
+
+      const directive = newDirectives[0];
+      const directiveLabel = `"${directive.title}" (${directive.id})`;
+      const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      const [recentRun] = await systemQuery<{ status: string; error: string | null; started_at: string }>(
+        `SELECT status, error, started_at
+         FROM agent_runs
+         WHERE agent_id = $1
+           AND task LIKE $2
+           AND started_at >= $3
+         ORDER BY started_at DESC
+         LIMIT 1`,
+        ['chief-of-staff', 'orchestrate%', fifteenMinAgo],
+      );
+
+      if (recentRun?.status === 'running') {
+        console.log('[Heartbeat] CoS: orchestration currently running; skipping directive wake');
+        return null;
+      }
+
+      let reason: string;
+      let context: Record<string, unknown>;
+
+      if (recentRun && (recentRun.status === 'failed' || recentRun.status === 'aborted')) {
+        console.log(`[Heartbeat] CoS: retrying directive decomposition for ${directiveLabel}`);
+        reason = 'new_directives_retry:1';
+        context = {
+          task: 'orchestrate',
+          contextTier: 'standard',
+          message: `SINGLE DIRECTIVE FOCUS: Process ONLY directive ${directiveLabel}. Decompose it into concrete assignments, dispatch the work, and do not process other directives this run unless this directive is fully handled.`,
+        };
+      } else if (recentRun?.status === 'completed') {
+        console.log(`[Heartbeat] CoS: unresolved directive after completed run; forcing retry for ${directiveLabel}`);
+        reason = 'new_directives_persistent:1';
+        context = {
+          task: 'orchestrate',
+          contextTier: 'standard',
+          message: `UNRESOLVED DIRECTIVE: ${directiveLabel} still has zero assignments after your latest orchestration pass. Do this FIRST. Create and dispatch at least one concrete assignment for this directive before touching any other directive.`,
+        };
+      } else if (!recentRun) {
+        console.log(
+          `[Heartbeat] CoS: ${newDirectives.length} unresolved directive(s): ` +
+          newDirectives.map((d) => `"${d.title}"`).join(', '),
+        );
+        reason = `unresolved_directives:${newDirectives.length}`;
+        context = {
+          task: 'orchestrate',
+          message: `${newDirectives.length} active directive(s) have no actionable assignments: ${newDirectives.map((d) => `"${d.title}"`).join(', ')}. Start with highest urgency: ${directiveLabel}. Create and dispatch work assignments now.`,
+        };
+      } else {
+        // Recent completed/running covered above — skip
+        return null;
+      }
+
+      return {
+        role: 'chief-of-staff' as CompanyAgentRole,
+        task: (context.task as string) || 'orchestrate',
+        context: {
+          wake_reason: reason,
+          priority: 'heartbeat',
+          ...context,
+        },
+      };
+    } catch (err) {
+      console.warn('[Heartbeat] Directive detection failed:', (err as Error).message);
+      return null;
     }
   }
 
