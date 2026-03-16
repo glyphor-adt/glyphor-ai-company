@@ -19,7 +19,7 @@
     "skills:test": "tsx scripts/test-skills.ts",
     "skills:canary-report": "tsx scripts/skill-canary-report.ts",
     "web-template:bootstrap": "tsx scripts/bootstrap-web-template-react.ts",
-    "directives:web-creation:dispatch": "tsx scripts/dispatch-web-creation-implementation-directive.ts",
+    "directives:web-creation:dispatch": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/dispatch-web-creation-implementation-directive.ts",
     "decisions:cleanup-orphaned": "tsx scripts/cleanup-orphaned-decisions.ts",
     "seed": "bash infra/scripts/seed-memory.sh",
     "cos:briefing": "tsx packages/agents/src/chief-of-staff/run.ts briefing",

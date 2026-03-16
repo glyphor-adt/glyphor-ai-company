@@ -1,34 +1,130 @@
-import { Pool, PoolClient, types } from 'pg';
+import { Pool, PoolClient, types, type PoolConfig } from 'pg';
 
 // PostgreSQL NUMERIC (OID 1700) returns strings by default.
 // Parse as floats so dashboard code can call .toFixed() etc.
 types.setTypeParser(1700, (val: string) => parseFloat(val));
 
-const pool = new Pool(
-  process.env.DATABASE_URL
-    ? {
-        connectionString: process.env.DATABASE_URL,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
-      }
-    : {
-        host: process.env.DB_HOST,
-        database: process.env.DB_NAME,
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
-      },
-);
+function firstDefined(...values: Array<string | undefined>): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.length > 0) return value;
+  }
+  return undefined;
+}
+
+function basePoolConfig(): Pick<PoolConfig, 'max' | 'idleTimeoutMillis' | 'connectionTimeoutMillis'> {
+  return {
+    max: 20,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 5_000,
+  };
+}
+
+function readUrlPassword(connectionString: string): string | undefined {
+  try {
+    const parsed = new URL(connectionString);
+    return parsed.password ? decodeURIComponent(parsed.password) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function readUrlUser(connectionString: string): string | undefined {
+  try {
+    const parsed = new URL(connectionString);
+    return parsed.username ? decodeURIComponent(parsed.username) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function resolvedDbUser(): string | undefined {
+  return firstDefined(
+    process.env.DB_USER,
+    process.env.PGUSER,
+    process.env.DATABASE_URL ? readUrlUser(process.env.DATABASE_URL) : undefined
+  );
+}
+
+function buildPoolConfig(): PoolConfig {
+  const connectionString = process.env.DATABASE_URL?.trim();
+  const fallbackPassword = firstDefined(process.env.DB_PASSWORD, process.env.PGPASSWORD);
+
+  if (connectionString) {
+    const passwordFromUrl = readUrlPassword(connectionString);
+
+    return {
+      connectionString,
+      // Prefer explicit env password so rotated secrets can override stale DATABASE_URL values.
+      // Ensure SCRAM auth always receives a string even if env setup is partial.
+      password: fallbackPassword ?? passwordFromUrl ?? '',
+      ...basePoolConfig(),
+    };
+  }
+
+  return {
+    host: firstDefined(process.env.DB_HOST, process.env.PGHOST),
+    database: firstDefined(process.env.DB_NAME, process.env.PGDATABASE),
+    user: firstDefined(process.env.DB_USER, process.env.PGUSER),
+    // Empty string yields a standard auth failure instead of opaque type error.
+    password: fallbackPassword ?? '',
+    ...basePoolConfig(),
+  };
+}
+
+function buildPasswordGuidance(): string {
+  if (process.env.DATABASE_URL?.trim()) {
+    return 'DATABASE_URL is set but missing a usable password. Provide postgres://user:pass@host/db or set DB_PASSWORD/PGPASSWORD.';
+  }
+  return 'Set DB_PASSWORD (or PGPASSWORD). If you rely on .env, run with node --env-file-if-exists=.env.';
+}
+
+function buildAuthFailureGuidance(): string {
+  const user = resolvedDbUser();
+  const connectionString = process.env.DATABASE_URL?.trim();
+  const hasExplicitPassword = Boolean(firstDefined(process.env.DB_PASSWORD, process.env.PGPASSWORD));
+  const hasUrlPassword = Boolean(connectionString && readUrlPassword(connectionString));
+
+  const hints: string[] = [];
+  hints.push(`Database authentication failed${user ? ` for user \"${user}\"` : ''}.`);
+
+  if (connectionString && hasExplicitPassword && hasUrlPassword) {
+    hints.push('Both DATABASE_URL and DB_PASSWORD/PGPASSWORD are set; DB_PASSWORD/PGPASSWORD is used as override. Ensure it matches the active DB user password.');
+  } else if (connectionString && hasUrlPassword) {
+    hints.push('Using password from DATABASE_URL. If the password was rotated, update DATABASE_URL or provide DB_PASSWORD/PGPASSWORD to override it.');
+  } else {
+    hints.push('Set DB_PASSWORD/PGPASSWORD (or include the password in DATABASE_URL).');
+  }
+
+  if (user === 'glyphor_system_user') {
+    hints.push('For local/cloud consistency, pair glyphor_system_user with the db-system-password secret value.');
+  }
+
+  return hints.join(' ');
+}
+
+const pool = new Pool(buildPoolConfig());
+
+async function connectClient(): Promise<PoolClient> {
+  try {
+    return await pool.connect();
+  } catch (error) {
+    const message = (error as Error).message ?? '';
+    if (message.includes('client password must be a string')) {
+      throw new Error(`Database auth configuration invalid: ${buildPasswordGuidance()}`);
+    }
+    if (message.includes('password authentication failed for user')) {
+      throw new Error(buildAuthFailureGuidance());
+    }
+    throw error;
+  }
+}
 
 export async function tenantQuery<T = any>(
   tenantId: string,
   sql: string,
   params?: any[]
 ): Promise<T[]> {
-  const client = await pool.connect();
+  const client = await connectClient();
   try {
     await client.query(`SET app.current_tenant = $1`, [tenantId]).catch(() => {});
     const result = await client.query(sql, params);
@@ -42,7 +138,7 @@ export async function systemQuery<T = any>(
   sql: string,
   params?: any[]
 ): Promise<T[]> {
-  const client = await pool.connect();
+  const client = await connectClient();
   try {
     await client.query('SET ROLE glyphor_system').catch(() => {});
     const result = await client.query(sql, params);
@@ -57,7 +153,7 @@ export async function tenantTransaction<T>(
   tenantId: string,
   fn: (client: PoolClient) => Promise<T>
 ): Promise<T> {
-  const client = await pool.connect();
+  const client = await connectClient();
   try {
     await client.query('BEGIN');
     await client.query(`SET app.current_tenant = $1`, [tenantId]).catch(() => {});
@@ -75,7 +171,7 @@ export async function tenantTransaction<T>(
 export async function systemTransaction<T>(
   fn: (client: PoolClient) => Promise<T>
 ): Promise<T> {
-  const client = await pool.connect();
+  const client = await connectClient();
   try {
     await client.query('BEGIN');
     await client.query('SET ROLE glyphor_system').catch(() => {});

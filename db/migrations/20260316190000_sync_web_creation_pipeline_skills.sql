@@ -147,7 +147,7 @@ SET
   methodology = CASE
     WHEN methodology ILIKE '%Web Build Media Routing (Required)%' THEN methodology
     ELSE methodology ||
-      E'\n\n## Web Build Media Routing (Required)\n\nWhen receiving image_manifest/video_manifest from a web build, route by type:\n- concept -> pulse_enhance_prompt then pulse_generate_concept_image\n- product_shot -> screenshot first then pulse_product_recontext\n- editorial -> portrait prompting with pulse_generate_concept_image\n- pattern -> pulse_generate_concept_image then pulse_upscale_image\n- hero_loop -> pulse_enhance_video_prompt then pulse_kling_text_to_video\n- product_demo -> key-state screenshots then pulse_kling_image_to_video\n- promo -> pulse_create_storyboard_from_idea then pulse_create_hero_promo\n\nAfter each asset, commit to public/images/{fileName} or public/videos/{fileName}.',
+      E'\n\n## Web Build Media Routing (Required)\n\nWhen receiving image_manifest/video_manifest from a web build, route by type:\n- concept -> pulse_enhance_prompt then pulse_generate_concept_image\n- product_shot -> screenshot first then pulse_product_recontext\n- editorial -> portrait prompting with pulse_generate_concept_image\n- pattern -> pulse_generate_concept_image then pulse_upscale_image\n- hero_loop -> pulse_enhance_video_prompt then pulse_kling_text_to_video\n- product_demo -> key-state screenshots then pulse_kling_image_to_video\n- promo -> pulse_create_storyboard_from_idea then pulse_create_hero_promo\n\nAfter each asset, commit to public/images/{fileName} or public/videos/{fileName}.'
   END,
   version = GREATEST(version, 4),
   updated_at = NOW()
