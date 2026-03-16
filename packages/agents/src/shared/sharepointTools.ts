@@ -23,9 +23,9 @@ export function createSharePointTools(): ToolDefinition[] {
         'Upload a new document to the company SharePoint knowledge base. ' +
         'The document is also automatically synced to the company_knowledge table in Cloud SQL. ' +
         'Use this to publish briefs, research findings, policies, or analysis reports. ' +
-        'Supports .md, .txt, and .docx files. When uploading a .docx file, the content is ' +
-        'automatically converted from markdown/text into a proper Word document with headings, ' +
-        'bold, italic, and list formatting.',
+        'Files with .md or .txt extensions are automatically converted to properly formatted ' +
+        'Word documents (.docx) with headings, bold, italic, and list formatting. ' +
+        'You can use any extension — .md, .txt, or .docx — the result will always be a Word doc.',
       parameters: {
         file_name: {
           type: 'string',

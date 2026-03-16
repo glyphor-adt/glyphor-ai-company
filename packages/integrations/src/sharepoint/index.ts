@@ -945,10 +945,17 @@ export async function uploadToSharePoint(
   content: string,
   options?: SharePointUploadOptions,
 ): Promise<{ webUrl: string; knowledgeId: string }> {
-  const target = await resolveUploadTarget(fileName, options);
+  // Auto-convert .md and .txt files to .docx so SharePoint gets proper Word docs
+  const lowerName = fileName.toLowerCase();
+  const effectiveName = lowerName.endsWith('.md')
+    ? fileName.slice(0, -3) + '.docx'
+    : lowerName.endsWith('.txt')
+      ? fileName.slice(0, -4) + '.docx'
+      : fileName;
 
-  // If filename is .docx, generate a proper Office Open XML document
-  // instead of uploading raw text (which corrupts the file).
+  const target = await resolveUploadTarget(effectiveName, options);
+
+  // Generate a proper Office Open XML document for .docx files
   const isDocx = target.safeName.toLowerCase().endsWith('.docx');
   let uploadBody: Buffer | string;
   let contentType: string;
