@@ -169,16 +169,8 @@ BEGIN
         active_users = 2,
         platform_status = 'degraded',
         company_mood = 'building',
-        highlights = ARRAY[
-          'AI Marketing Department is the only external product',
-          'Pre-revenue: $0 MRR, 0 customers',
-          '28 AI agents active, platform health stabilization in progress',
-          'Slack-first GTM, $500-750/month target pricing',
-          'Brand guide rollout and campaign preparation in progress',
-          'Competitive landscape research in progress',
-          'Bootstrapped: founder-funded, no external investors'
-        ],
+        highlights = '["AI Marketing Department is the only external product","Pre-revenue: $0 MRR, 0 customers","28 AI agents active, platform health stabilization in progress","Slack-first GTM, $500-750/month target pricing","Brand guide rollout and campaign preparation in progress","Competitive landscape research in progress","Bootstrapped: founder-funded, no external investors"]'::jsonb,
         updated_at = NOW()
-    WHERE id = 1;
+    WHERE id = '1';
   END IF;
 END $$;

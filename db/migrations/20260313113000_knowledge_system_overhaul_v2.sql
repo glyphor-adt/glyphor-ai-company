@@ -184,6 +184,38 @@ WHERE tenant_id = '00000000-0000-0000-0000-000000000000'
     'tax-strategy-specialist', 'vp-customer-success', 'ai-impact-analyst', 'org-analyst'
   ]);
 
+DELETE FROM agent_profiles
+WHERE agent_id = ANY(ARRAY[
+  'revenue-analyst', 'cost-analyst', 'support-triage', 'onboarding-specialist',
+  'lead-gen-specialist', 'enterprise-account-researcher', 'account-research',
+  'data-integrity-auditor', 'technical-research-analyst', 'industry-research-analyst',
+  'tax-strategy-specialist', 'vp-customer-success', 'ai-impact-analyst', 'org-analyst'
+]);
+
+DELETE FROM agent_skills
+WHERE agent_role = ANY(ARRAY[
+  'revenue-analyst', 'cost-analyst', 'support-triage', 'onboarding-specialist',
+  'lead-gen-specialist', 'enterprise-account-researcher', 'account-research',
+  'data-integrity-auditor', 'technical-research-analyst', 'industry-research-analyst',
+  'tax-strategy-specialist', 'vp-customer-success', 'ai-impact-analyst', 'org-analyst'
+]);
+
+DELETE FROM agent_reasoning_config
+WHERE agent_role = ANY(ARRAY[
+  'revenue-analyst', 'cost-analyst', 'support-triage', 'onboarding-specialist',
+  'lead-gen-specialist', 'enterprise-account-researcher', 'account-research',
+  'data-integrity-auditor', 'technical-research-analyst', 'industry-research-analyst',
+  'tax-strategy-specialist', 'vp-customer-success', 'ai-impact-analyst', 'org-analyst'
+]);
+
+DELETE FROM proposed_skills
+WHERE source_agent = ANY(ARRAY[
+  'revenue-analyst', 'cost-analyst', 'support-triage', 'onboarding-specialist',
+  'lead-gen-specialist', 'enterprise-account-researcher', 'account-research',
+  'data-integrity-auditor', 'technical-research-analyst', 'industry-research-analyst',
+  'tax-strategy-specialist', 'vp-customer-success', 'ai-impact-analyst', 'org-analyst'
+]);
+
 DELETE FROM company_agents
 WHERE role = ANY(ARRAY[
   'revenue-analyst', 'cost-analyst', 'support-triage', 'onboarding-specialist',

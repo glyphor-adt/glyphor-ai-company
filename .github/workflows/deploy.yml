@@ -65,9 +65,9 @@ jobs:
           DB_HOST: 127.0.0.1
           DB_PORT: '5432'
           DB_NAME: glyphor
-          DB_USER: glyphor_system_user
+          DB_USER: glyphor_app
         run: |
-          DB_PASSWORD=$(gcloud secrets versions access latest --secret=db-system-password --project=${{ env.GCP_PROJECT_ID }})
+          DB_PASSWORD=$(gcloud secrets versions access latest --secret=db-password --project=${{ env.GCP_PROJECT_ID }})
           export DB_PASSWORD
           npx tsx scripts/apply-pending-migrations.ts --source ci-deploy
 

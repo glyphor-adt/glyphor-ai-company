@@ -36,6 +36,26 @@ interface AgentAssignment {
   assigned_at: string;
 }
 
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string');
+}
+
+function normalizeSkill(raw: SkillDetail): SkillDetail {
+  return {
+    ...raw,
+    tools_granted: asStringArray((raw as unknown as { tools_granted?: unknown }).tools_granted),
+  };
+}
+
+function normalizeAssignment(raw: AgentAssignment): AgentAssignment {
+  return {
+    ...raw,
+    learned_refinements: asStringArray((raw as unknown as { learned_refinements?: unknown }).learned_refinements),
+    failure_modes: asStringArray((raw as unknown as { failure_modes?: unknown }).failure_modes),
+  };
+}
+
 const CATEGORY_META: Record<string, { label: string; color: string; icon: ReactNode }> = {
   finance:            { label: 'Finance',           color: '#0369A1', icon: <MdAttachMoney className="inline h-4 w-4" /> },
   engineering:        { label: 'Engineering',       color: '#2563EB', icon: <MdSettings className="inline h-4 w-4" /> },
@@ -78,15 +98,19 @@ export default function SkillDetailPage() {
     (async () => {
       setLoading(true);
 
-      const skillData = await apiCall<SkillDetail>(`/api/skills?slug=${slug}`).catch(() => null);
+      const skillData = await apiCall<SkillDetail | SkillDetail[]>(`/api/skills?slug=eq.${encodeURIComponent(slug)}&limit=1`).catch(() => null);
+      const resolvedSkill = Array.isArray(skillData) ? skillData[0] ?? null : skillData;
 
-      if (skillData) {
-        const typed = skillData;
+      if (resolvedSkill) {
+        const typed = normalizeSkill(resolvedSkill);
         setSkill(typed);
 
         const agentSkills = await apiCall<AgentAssignment[]>(`/api/agent-skills?skill_id=${typed.id}`).catch(() => []);
 
-        setAssignments(agentSkills ?? []);
+        setAssignments((agentSkills ?? []).map(normalizeAssignment));
+      } else {
+        setSkill(null);
+        setAssignments([]);
       }
 
       setLoading(false);
@@ -119,8 +143,9 @@ export default function SkillDetailPage() {
   const overallSuccessRate = totalUsage > 0 ? ((totalSuccesses / totalUsage) * 100).toFixed(1) : '—';
 
   // Collect all unique refinements and failure modes across agents
-  const allRefinements = [...new Set(assignments.flatMap((a) => a.learned_refinements))];
-  const allFailureModes = [...new Set(assignments.flatMap((a) => a.failure_modes))];
+  const toolsGranted = skill.tools_granted ?? [];
+  const allRefinements = [...new Set(assignments.flatMap((a) => a.learned_refinements ?? []))];
+  const allFailureModes = [...new Set(assignments.flatMap((a) => a.failure_modes ?? []))];
 
   return (
     <div className="space-y-6">
@@ -172,10 +197,10 @@ export default function SkillDetailPage() {
       {/* Tools granted */}
       <Card>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">
-          Tools Granted ({skill.tools_granted.length})
+          Tools Granted ({toolsGranted.length})
         </h3>
         <div className="flex flex-wrap gap-2">
-          {skill.tools_granted.map((t) => (
+          {toolsGranted.map((t) => (
             <span key={t} className="rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-1.5 font-mono text-[12px] text-cyan/80">
               {t}
             </span>

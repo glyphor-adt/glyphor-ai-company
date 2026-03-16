@@ -91,7 +91,7 @@ Proactive compliance prevents expensive reactive enforcement.
       'ip-management',
       'ip-management',
       'legal',
-      'Manage patents, trademarks, trade secrets, and copyright strategy to protect Glyphor\'s defensible technology, brand, and creative assets.',
+      'Manage patents, trademarks, trade secrets, and copyright strategy to protect Glyphor''s defensible technology, brand, and creative assets.',
       $ip_management$
 # IP Management
 
