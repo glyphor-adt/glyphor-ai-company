@@ -78,6 +78,27 @@ function isDisabledMailTool(tool: McpClientTool, serverName: string): boolean {
 const MAIL_BODY_FIELDS = new Set(['body', 'content', 'html_content', 'htmlContent', 'Body', 'Content']);
 const FOUNDER_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai'] as const;
 
+function extractMcpContentText(content: unknown): string {
+  if (!Array.isArray(content)) return String(content ?? '');
+
+  const parts = content.map((entry) => {
+    if (!entry || typeof entry !== 'object') return String(entry ?? '');
+    const block = entry as { text?: string };
+    if (typeof block.text === 'string' && block.text.trim()) return block.text;
+    try {
+      return JSON.stringify(entry);
+    } catch {
+      return String(entry);
+    }
+  });
+
+  return parts.join('\n').trim();
+}
+
+function isRetriableMailTransportError(message: string): boolean {
+  return /AADSTS500133|AADSTS700024|expired|not within its valid time|401|upload session/i.test(message);
+}
+
 function normalizeEmail(raw: string): string {
   const trimmed = raw.trim().toLowerCase();
   const match = trimmed.match(/<([^>]+)>/);
@@ -200,6 +221,21 @@ function sanitizeMailToolParams(params: Record<string, unknown>): Record<string,
       sanitized[key] = stripMarkdownFromText(value);
     }
   }
+
+  const attachmentUris = sanitized.attachmentUris;
+  if (Array.isArray(attachmentUris)) {
+    sanitized.attachmentUris = attachmentUris.map((uri) => {
+      if (typeof uri !== 'string') return uri;
+      const trimmed = uri.trim();
+      if (!/^https?:\/\//i.test(trimmed)) return trimmed;
+      try {
+        return encodeURI(trimmed);
+      } catch {
+        return trimmed;
+      }
+    });
+  }
+
   return enforceFounderCc(sanitized);
 }
 
@@ -457,19 +493,15 @@ function mcpToolToToolDefinition(
 
         // MCP results have .content (array of content blocks) and .isError
         if (result.isError) {
-          const errorText = Array.isArray(result.content)
-            ? result.content.map((c: { text?: string }) => c.text ?? '').join('\n')
-            : String(result.content);
+          const errorText = extractMcpContentText(result.content);
 
           // Detect token expiry — reconnect and retry once
-          if (/AADSTS500133|AADSTS700024|expired|not within its valid time/i.test(errorText)) {
-            console.warn(`[Agent365] Token expired during ${serverName}/${mcpTool.name}, reconnecting...`);
+          if (isRetriableMailTransportError(errorText)) {
+            console.warn(`[Agent365] Retriable MCP error during ${serverName}/${mcpTool.name}, reconnecting...`);
             activeConn = await reconnect(activeConn);
             const retry = await activeConn.client.callTool({ name: mcpTool.name, arguments: sanitizedParams });
             if (retry.isError) {
-              const retryErr = Array.isArray(retry.content)
-                ? retry.content.map((c: { text?: string }) => c.text ?? '').join('\n')
-                : String(retry.content);
+              const retryErr = extractMcpContentText(retry.content);
               return { success: false, error: retryErr };
             }
             const retryData = Array.isArray(retry.content)
@@ -494,15 +526,16 @@ function mcpToolToToolDefinition(
       } catch (err) {
         const message = (err as Error).message;
         // Catch transport-level auth failures
-        if (/AADSTS500133|AADSTS700024|expired|not within its valid time|401/i.test(message)) {
+        if (isRetriableMailTransportError(message)) {
           console.warn(`[Agent365] Auth error during ${serverName}/${mcpTool.name}, reconnecting: ${message.slice(0, 200)}`);
           try {
             activeConn = await reconnect(activeConn);
-            const retry = await activeConn.client.callTool({ name: mcpTool.name, arguments: callParams });
+            const retryCallParams = serverName === 'mcp_MailTools'
+              ? sanitizeMailToolParams(callParams)
+              : callParams;
+            const retry = await activeConn.client.callTool({ name: mcpTool.name, arguments: retryCallParams });
             if (retry.isError) {
-              const retryErr = Array.isArray(retry.content)
-                ? retry.content.map((c: { text?: string }) => c.text ?? '').join('\n')
-                : String(retry.content);
+              const retryErr = extractMcpContentText(retry.content);
               return { success: false, error: retryErr };
             }
             const retryData = Array.isArray(retry.content)

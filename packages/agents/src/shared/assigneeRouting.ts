@@ -7,6 +7,31 @@ const ASSIGNEE_ROLE_ALIASES: Record<string, string> = {
   vp_cs: 'vp-cs',
   competitive_intel: 'competitive-research-analyst',
   'competitive-intel': 'competitive-research-analyst',
+  // Common role aliases used by model outputs
+  cos: 'chief-of-staff',
+  ctos: 'cto',
+  ops_lead: 'ops',
+  // Human-name slug aliases used in prompts/briefs
+  'sarah-chen': 'chief-of-staff',
+  sarah: 'chief-of-staff',
+  'marcus-reeves': 'cto',
+  marcus: 'cto',
+  'elena-vasquez': 'cpo',
+  elena: 'cpo',
+  'maya-brooks': 'cmo',
+  maya: 'cmo',
+  'nadia-okafor': 'cfo',
+  nadia: 'cfo',
+  'victoria-chase': 'clo',
+  victoria: 'clo',
+  'atlas-vega': 'ops',
+  atlas: 'ops',
+  'sophia-lin': 'vp-research',
+  sophia: 'vp-research',
+  'rachel-kim': 'vp-sales',
+  rachel: 'vp-sales',
+  'mia-tanaka': 'vp-design',
+  mia: 'vp-design',
 };
 
 export function normalizeAssigneeRole(rawRole: string): string {

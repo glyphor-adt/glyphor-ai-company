@@ -1962,27 +1962,44 @@ export function createOrchestrationTools(
             `This is a founder-level priority. Act, don't just analyze.`,
             'request', assignment.priority === 'urgent' ? 'urgent' : 'normal', 'pending']);
 
-        // 3. Schedule the agent to run
-        try {
-          await fetch(`${schedulerUrl}/run`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              agentRole: assignment.assigned_to,
-              task: assignment.task_type,
-              message: assignment.task_description,
-              payload: { directiveAssignmentId: assignmentId },
-            }),
-          });
-        } catch (e) {
-          console.warn(`[Orchestration] Could not immediately dispatch to ${assignment.assigned_to}:`, e);
-        }
-
-        // 4. Update assignment status
+        // 3. Update assignment status immediately so scheduler slowness cannot
+        // block orchestration progress or trip the ToolExecutor timeout.
         await systemQuery('UPDATE work_assignments SET status = $1, dispatched_at = $2 WHERE id = $3',
           ['dispatched', new Date().toISOString(), assignmentId]);
 
-        return { success: true, data: { dispatched: true, agent: assignment.assigned_to } };
+        // 4. Trigger scheduler run asynchronously with a short request timeout.
+        const runPayload = {
+          agentRole: assignment.assigned_to,
+          task: assignment.task_type,
+          message: assignment.task_description,
+          payload: { directiveAssignmentId: assignmentId },
+        };
+
+        void fetch(`${schedulerUrl}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(runPayload),
+          signal: AbortSignal.timeout(8000),
+        })
+          .then(async (response) => {
+            if (response.ok) return;
+            const body = await response.text().catch(() => '');
+            console.warn(
+              `[Orchestration] Scheduler dispatch returned ${response.status} for ${assignment.assigned_to}: ${body.slice(0, 200)}`,
+            );
+          })
+          .catch((e) => {
+            console.warn(`[Orchestration] Could not immediately dispatch to ${assignment.assigned_to}:`, e);
+          });
+
+        return {
+          success: true,
+          data: {
+            dispatched: true,
+            agent: assignment.assigned_to,
+            scheduler_trigger: 'queued',
+          },
+        };
       },
     },
 

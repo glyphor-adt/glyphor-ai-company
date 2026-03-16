@@ -3237,6 +3237,60 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // ── Quick Assign — direct founder-to-agent tracked assignment ──────
+    if (method === 'POST' && url === '/quick-assign') {
+      const body = JSON.parse(await readBody(req));
+      const agentRole = body.agentRole as string | undefined;
+      const taskDescription = body.taskDescription as string | undefined;
+      const priority = (body.priority as string) || 'normal';
+      const expectedOutput = (body.expectedOutput as string) || null;
+      const assignedBy = (body.assignedBy as string) || 'founder';
+
+      if (!agentRole || !taskDescription) {
+        json(res, 400, { error: 'agentRole and taskDescription are required' });
+        return;
+      }
+
+      // Validate priority
+      if (!['urgent', 'high', 'normal', 'low'].includes(priority)) {
+        json(res, 400, { error: 'priority must be urgent, high, normal, or low' });
+        return;
+      }
+
+      // Validate agent exists and is active
+      const [agent] = await systemQuery(
+        "SELECT role FROM company_agents WHERE role = $1 AND status = 'active'",
+        [agentRole],
+      );
+      if (!agent) {
+        json(res, 404, { error: `Agent "${agentRole}" not found or not active` });
+        return;
+      }
+
+      try {
+        // 1. Create tracked work_assignment (no directive)
+        const [assignment] = await systemQuery(
+          `INSERT INTO work_assignments
+            (assigned_to, assigned_by, task_description, task_type, expected_output, priority, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING id, assigned_to, status, priority, created_at`,
+          [agentRole, assignedBy, taskDescription, 'on_demand', expectedOutput, priority, 'pending'],
+        );
+
+        // 2. Wake the agent so they pick it up on next heartbeat
+        await systemQuery(
+          'INSERT INTO agent_wake_queue (agent_role, task, reason, context, status) VALUES ($1,$2,$3,$4,$5)',
+          [agentRole, 'work_loop', 'quick_assign', JSON.stringify({ assignment_id: assignment.id }), 'pending'],
+        );
+
+        console.log(`[QuickAssign] Created assignment ${assignment.id} for ${agentRole} (priority: ${priority}, by: ${assignedBy})`);
+        json(res, 201, assignment);
+      } catch (error) {
+        json(res, 500, { error: (error as Error).message });
+      }
+      return;
+    }
+
     // ── Workflow Orchestrator endpoints ──────────────────────────────
 
     // List workflows (filterable by status, type)

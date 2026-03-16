@@ -161,6 +161,12 @@ export default function AgentProfile() {
   const [showDelete, setShowDelete] = useState(false);
   const [deleteText, setDeleteText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [showQuickAssign, setShowQuickAssign] = useState(false);
+  const [qaTask, setQaTask] = useState('');
+  const [qaExpected, setQaExpected] = useState('');
+  const [qaPriority, setQaPriority] = useState<'normal' | 'high' | 'urgent' | 'low'>('normal');
+  const [qaSubmitting, setQaSubmitting] = useState(false);
+  const [qaResult, setQaResult] = useState<{ success: boolean; message: string } | null>(null);
   const navigate = useNavigate();
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -330,6 +336,12 @@ export default function AgentProfile() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setShowQuickAssign(true); setQaResult(null); }}
+            className="rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-medium text-cyan transition-colors hover:bg-cyan/20"
+          >
+            Quick Assign
+          </button>
           <Link to={`/chat/${agent.role}`} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan">
             Chat
           </Link>
@@ -404,6 +416,100 @@ export default function AgentProfile() {
             </button>
             <button
               onClick={() => { setShowDelete(false); setDeleteText(''); }}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary hover:text-txt-primary transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Assign modal */}
+      {showQuickAssign && (
+        <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-txt-primary">Quick Assign to {displayName}</h3>
+          <p className="text-xs text-txt-faint">
+            Creates a tracked work assignment directly. {displayName} picks it up at P2 priority on their next heartbeat — no directive needed.
+          </p>
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-txt-muted">Task Description *</label>
+            <textarea
+              value={qaTask}
+              onChange={(e) => setQaTask(e.target.value)}
+              placeholder="What should this agent do? Be specific about the desired outcome."
+              rows={3}
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/60 resize-none"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-txt-muted">Expected Output</label>
+            <input
+              type="text"
+              value={qaExpected}
+              onChange={(e) => setQaExpected(e.target.value)}
+              placeholder="e.g., A summary report, a code fix, a Slack message"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/60"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-txt-muted">Priority</label>
+            <select
+              value={qaPriority}
+              onChange={(e) => setQaPriority(e.target.value as typeof qaPriority)}
+              className="rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/60"
+            >
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+          {qaResult && (
+            <p className={`text-xs ${qaResult.success ? 'text-tier-green' : 'text-tier-red'}`}>
+              {qaResult.message}
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                if (!qaTask.trim()) return;
+                setQaSubmitting(true);
+                setQaResult(null);
+                try {
+                  const resp = await fetch(`${SCHEDULER_URL}/quick-assign`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      agentRole: agent.role,
+                      taskDescription: qaTask.trim(),
+                      expectedOutput: qaExpected.trim() || undefined,
+                      priority: qaPriority,
+                      assignedBy: 'founder',
+                    }),
+                  });
+                  if (resp.ok) {
+                    const data = await resp.json();
+                    setQaResult({ success: true, message: `Assignment created (${data.id?.slice(0, 8)}…). ${displayName} will pick this up on their next heartbeat.` });
+                    setQaTask('');
+                    setQaExpected('');
+                    setQaPriority('normal');
+                  } else {
+                    const err = await resp.json().catch(() => ({ error: 'Unknown error' }));
+                    setQaResult({ success: false, message: err.error || `Failed (${resp.status})` });
+                  }
+                } catch (err) {
+                  setQaResult({ success: false, message: (err as Error).message });
+                } finally {
+                  setQaSubmitting(false);
+                }
+              }}
+              disabled={!qaTask.trim() || qaSubmitting}
+              className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            >
+              {qaSubmitting ? 'Assigning…' : 'Assign'}
+            </button>
+            <button
+              onClick={() => { setShowQuickAssign(false); setQaTask(''); setQaExpected(''); setQaPriority('normal'); setQaResult(null); }}
               className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary hover:text-txt-primary transition-colors"
             >
               Cancel
