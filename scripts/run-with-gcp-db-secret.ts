@@ -2,13 +2,97 @@ import { execFileSync, spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 
-function requiredProjectId(): string {
-  const explicitSecretProject = process.env.DB_PASSWORD_SECRET_PROJECT?.trim();
+interface WrapperOptions {
+  dbUser?: string;
+  dbPasswordSecretName?: string;
+  dbHost?: string;
+  dbPort?: string;
+  dbName?: string;
+  dbInstanceName?: string;
+  gcpProjectId?: string;
+  dbPasswordSecretProject?: string;
+}
+
+interface WrapperArgs {
+  options: WrapperOptions;
+  targetScript: string;
+  forwardedArgs: string[];
+}
+
+function parseWrapperArgs(argv: string[]): WrapperArgs {
+  const options: WrapperOptions = {};
+  let index = 0;
+
+  while (index < argv.length) {
+    const arg = argv[index];
+    if (arg === '--') {
+      index += 1;
+      break;
+    }
+    if (!arg.startsWith('--')) {
+      break;
+    }
+
+    const value = argv[index + 1];
+    if (!value || value.startsWith('--')) {
+      throw new Error(`Missing value for option ${arg}.`);
+    }
+
+    switch (arg) {
+      case '--db-user':
+        options.dbUser = value;
+        break;
+      case '--db-password-secret':
+        options.dbPasswordSecretName = value;
+        break;
+      case '--db-host':
+        options.dbHost = value;
+        break;
+      case '--db-port':
+        options.dbPort = value;
+        break;
+      case '--db-name':
+        options.dbName = value;
+        break;
+      case '--db-instance':
+        options.dbInstanceName = value;
+        break;
+      case '--gcp-project':
+        options.gcpProjectId = value;
+        break;
+      case '--secret-project':
+        options.dbPasswordSecretProject = value;
+        break;
+      default:
+        throw new Error(`Unknown option ${arg}.`);
+    }
+
+    index += 2;
+  }
+
+  const targetScript = argv[index];
+  if (!targetScript) {
+    throw new Error(
+      'Usage: tsx scripts/run-with-gcp-db-secret.ts [options] <script-path> [...args]',
+    );
+  }
+
+  return {
+    options,
+    targetScript,
+    forwardedArgs: argv.slice(index + 1),
+  };
+}
+
+function requiredProjectId(options: WrapperOptions): string {
+  const explicitSecretProject =
+    options.dbPasswordSecretProject?.trim() ?? process.env.DB_PASSWORD_SECRET_PROJECT?.trim();
   if (explicitSecretProject) {
     return explicitSecretProject;
   }
 
   const envProjectId =
+    options.gcpProjectId?.trim() ??
     process.env.GCP_PROJECT_ID ??
     process.env.GOOGLE_CLOUD_PROJECT ??
     process.env.GCLOUD_PROJECT;
@@ -129,18 +213,18 @@ function resolveGcloudBinary(): string {
 }
 
 function main(): void {
-  const [targetScript, ...forwardedArgs] = process.argv.slice(2);
-  if (!targetScript) {
-    throw new Error('Usage: tsx scripts/run-with-gcp-db-secret.ts <script-path> [...args]');
-  }
+  const { options, targetScript, forwardedArgs } = parseWrapperArgs(process.argv.slice(2));
 
-  const projectId = requiredProjectId();
-  const secretName = process.env.DB_PASSWORD_SECRET_NAME?.trim() || 'db-system-password';
+  const projectId = requiredProjectId(options);
+  const secretName =
+    options.dbPasswordSecretName?.trim() ??
+    process.env.DB_PASSWORD_SECRET_NAME?.trim() ??
+    'db-system-password';
   const dbPassword = readSecret(projectId, secretName);
-  const dbHost = resolveDbHost(projectId);
-  const dbPort = process.env.DB_PORT?.trim() || '5432';
-  const dbName = process.env.DB_NAME?.trim() || 'glyphor';
-  const dbUser = process.env.DB_USER?.trim() || 'glyphor_system_user';
+  const dbHost = resolveDbHost(projectId, options);
+  const dbPort = options.dbPort?.trim() ?? process.env.DB_PORT?.trim() ?? '5432';
+  const dbName = options.dbName?.trim() ?? process.env.DB_NAME?.trim() ?? 'glyphor';
+  const dbUser = options.dbUser?.trim() ?? process.env.DB_USER?.trim() ?? 'glyphor_system_user';
   const encodedUser = encodeURIComponent(dbUser);
   const encodedPassword = encodeURIComponent(dbPassword);
   const encodedHost = dbHost.includes(':') && !dbHost.startsWith('[') ? `[${dbHost}]` : dbHost;
@@ -173,13 +257,13 @@ function main(): void {
   });
 }
 
-function resolveDbHost(projectId: string): string {
-  const explicitHost = process.env.DB_HOST?.trim();
+function resolveDbHost(projectId: string, options: WrapperOptions): string {
+  const explicitHost = options.dbHost?.trim() ?? process.env.DB_HOST?.trim();
   if (explicitHost) {
     return explicitHost;
   }
 
-  const instanceName = process.env.DB_INSTANCE_NAME?.trim() || 'glyphor-db';
+  const instanceName = options.dbInstanceName?.trim() ?? process.env.DB_INSTANCE_NAME?.trim() ?? 'glyphor-db';
   const output = runGcloud(
     resolveGcloudBinary(),
     [
