@@ -10,13 +10,17 @@
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { isKnownToolAsync, invalidateGrantCache } from '@glyphor/agent-runtime';
+import { isKnownToolAsync, invalidateGrantCache, refreshDynamicToolCache } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 
 const KNOWLEDGE_ARTIFACT_PATTERN = /(sharepoint|toolkit|playbook|guide|guidelines|primer|document|deck|brief|policy|template|style\s*guide|brand\s*guide|asset\s*library)/i;
 
 function looksLikeKnowledgeArtifact(value: string): boolean {
   return KNOWLEDGE_ARTIFACT_PATTERN.test(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function createToolRequestTools(): ToolDefinition[] {
@@ -345,6 +349,74 @@ export function createToolRequestTools(): ToolDefinition[] {
             'pending',
           ],
         );
+
+        // Fast path: allow agents to self-bootstrap API-backed tools immediately
+        // when they provide executable config + parameter schema.
+        const autoBuildEnabled = process.env.ENABLE_AGENT_SELF_TOOL_BUILD !== 'false';
+        const suggestedApiConfig = params.suggested_api_config;
+        const suggestedParameters = params.suggested_parameters;
+        const autoBuildEligible = autoBuildEnabled
+          && isRecord(suggestedApiConfig)
+          && isRecord(suggestedParameters);
+
+        if (autoBuildEligible) {
+          try {
+            await systemQuery(
+              'INSERT INTO tool_registry (name, description, category, parameters, api_config, created_by, approved_by, is_active, tags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+              [
+                toolName,
+                description,
+                (params.suggested_category as string) ?? 'integration',
+                suggestedParameters,
+                suggestedApiConfig,
+                ctx.agentRole,
+                'self-service-auto',
+                true,
+                ['self-service', 'auto-built'],
+              ],
+            );
+
+            await refreshDynamicToolCache();
+
+            await systemQuery(
+              `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (agent_role, tool_name) DO UPDATE
+                 SET is_active = true, granted_by = EXCLUDED.granted_by, reason = EXCLUDED.reason, updated_at = NOW()`,
+              [ctx.agentRole, toolName, 'self-service-auto', `Auto-built via request_new_tool: ${justification}`],
+            );
+            invalidateGrantCache(ctx.agentRole);
+
+            await systemQuery(
+              'UPDATE tool_requests SET status = $1, reviewed_by = $2, review_notes = $3, built_by = $4 WHERE id = $5',
+              [
+                'completed',
+                'self-service-auto',
+                'Auto-built from suggested_api_config + suggested_parameters.',
+                ctx.agentRole,
+                request.id,
+              ],
+            );
+
+            return {
+              success: true,
+              data: {
+                request_id: request.id,
+                tool_name: toolName,
+                status: 'completed',
+                auto_registered: true,
+                message:
+                  `Tool "${toolName}" was auto-built and access was granted to ${ctx.agentRole}. ` +
+                  'Retry your original task now using this tool.',
+              },
+            };
+          } catch (autoBuildErr) {
+            console.warn(
+              `[ToolRequest] Auto-build failed for ${toolName}; falling back to CTO review:`,
+              (autoBuildErr as Error).message,
+            );
+          }
+        }
 
         // Auto-file a Yellow decision for CTO review
         try {

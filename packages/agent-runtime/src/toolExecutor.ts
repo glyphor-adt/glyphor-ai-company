@@ -583,7 +583,15 @@ export class ToolExecutor {
         console.warn(`[ToolExecutor] Dynamic tool lookup failed for ${toolName}:`, (dynErr as Error).message);
       }
 
-      return { success: false, error: `Unknown tool: ${toolName}`, filesWritten: 0, memoryKeysWritten: 0 };
+      return {
+        success: false,
+        error:
+          `Unknown tool: ${toolName}. ` +
+          'If this capability exists, call tool_search/list_my_tools and then request_tool_access with the exact tool name. ' +
+          'If it does not exist, call request_new_tool and include suggested_api_config plus suggested_parameters so it can be auto-built immediately.',
+        filesWritten: 0,
+        memoryKeysWritten: 0,
+      };
     }
 
     if (context.abortSignal.aborted) {
