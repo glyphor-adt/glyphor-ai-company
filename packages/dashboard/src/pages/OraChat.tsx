@@ -1088,7 +1088,7 @@ export default function OraChat() {
     <div className="flex h-[calc(100dvh-10rem-var(--sat))] md:h-[calc(100vh-6rem)] gap-2 md:gap-5">
       {/* Session Sidebar — mobile overlay backdrop */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 z-50 bg-slate-900/35 dark:bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
       {/* Session Sidebar — responsive: fixed overlay on mobile, inline on desktop */}
       {sidebarOpen && (

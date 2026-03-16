@@ -348,7 +348,7 @@ export default function AgentSettings() {
             <button
               onClick={() => avatarInputRef.current?.click()}
               disabled={uploadingAvatar}
-              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute inset-0 flex items-center justify-center rounded-full bg-slate-900/35 dark:bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
               title="Change profile image"
             >
               {uploadingAvatar ? (

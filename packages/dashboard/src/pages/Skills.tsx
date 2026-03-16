@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   MdAttachMoney, MdSettings, MdCampaign, MdExplore, MdHandshake,
   MdTrackChanges, MdPalette, MdStars, MdBarChart, MdTrendingUp,
-  MdAdd, MdClose, MdUploadFile,
+  MdAdd, MdClose, MdUploadFile, MdGavel, MdBadge, MdManageSearch,
 } from 'react-icons/md';
 import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
@@ -105,7 +105,14 @@ const CATEGORY_META: Record<string, { label: string; color: string; icon: ReactN
   leadership:         { label: 'Leadership',        color: '#7C3AED', icon: <MdStars className="inline h-4 w-4" /> },
   operations:         { label: 'Operations',        color: '#EA580C', icon: <MdBarChart className="inline h-4 w-4" /> },
   analytics:          { label: 'Analytics',         color: '#059669', icon: <MdTrendingUp className="inline h-4 w-4" /> },
+  legal:              { label: 'Legal',             color: '#4F46E5', icon: <MdGavel className="inline h-4 w-4" /> },
+  hr:                 { label: 'HR',                color: '#0F766E', icon: <MdBadge className="inline h-4 w-4" /> },
+  'human-resources':  { label: 'HR',                color: '#0F766E', icon: <MdBadge className="inline h-4 w-4" /> },
+  human_resources:    { label: 'HR',                color: '#0F766E', icon: <MdBadge className="inline h-4 w-4" /> },
+  research:           { label: 'Research',          color: '#6D28D9', icon: <MdManageSearch className="inline h-4 w-4" /> },
 };
+
+const ACTION_BTN_CLS = 'flex h-10 w-40 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-4 text-sm font-semibold transition-all';
 
 const PROFICIENCY_COLOR: Record<string, string> = {
   learning:  'bg-prism-moderate/15 text-prism-moderate',
@@ -244,13 +251,13 @@ export default function Skills() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowUpload(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-prism-fill-3/10 border border-prism-fill-3/40 px-3 py-1.5 text-sm font-semibold text-prism-fill-3 transition-all hover:bg-prism-fill-3/20"
+            className={`${ACTION_BTN_CLS} bg-prism-fill-3/10 border border-prism-fill-3/40 text-prism-fill-3 hover:bg-prism-fill-3/20`}
           >
             <MdUploadFile className="h-4 w-4" /> Upload Skill File
           </button>
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-1.5 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20"
+            className={`${ACTION_BTN_CLS} bg-cyan/10 border border-cyan/40 text-cyan hover:bg-cyan/20`}
           >
             <MdAdd className="h-4 w-4" /> New Skill
           </button>
@@ -368,7 +375,7 @@ export default function Skills() {
 /* ════════════════════════════════════════════════════════════
    CREATE SKILL MODAL
    ════════════════════════════════════════════════════════════ */
-const INPUT_CLS = 'w-full rounded-lg border border-primary/30 bg-black/30 backdrop-blur-[10px] px-3 py-2 text-sm text-txt-secondary outline-none focus:border-primary/60 focus:bg-black/40 focus:shadow-[var(--glow-cyan-lg)] transition-all';
+const INPUT_CLS = 'w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint outline-none focus:border-cyan/40 focus:bg-surface focus:shadow-[var(--glow-cyan-lg)] transition-all dark:bg-black/30 dark:backdrop-blur-[10px] dark:text-txt-secondary dark:focus:border-primary/60 dark:focus:bg-black/40';
 
 function CreateSkillModal({
   categories,

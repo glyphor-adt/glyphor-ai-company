@@ -112,7 +112,7 @@ export default function Layout() {
       {/* ── Mobile Drawer Overlay ───────────── */}
       {drawerOpen && (
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setDrawerOpen(false)}>
-          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-slate-900/35 dark:bg-black/50" />
           <aside
             className={`dashboard-sidebar sidebar-glass absolute bottom-0 left-0 top-0 flex w-[280px] flex-col shadow-xl ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}
             onClick={(e) => e.stopPropagation()}

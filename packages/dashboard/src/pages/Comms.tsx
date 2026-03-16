@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Chat from './Chat';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
@@ -59,7 +60,7 @@ function uniqueAgents(messages: AgentMessage[]): string[] {
   return Array.from(set).sort((a, b) => agentName(a).localeCompare(agentName(b)));
 }
 
-type Tab = 'feed' | 'email' | 'chat';
+type Tab = 'feed' | 'email' | 'assign' | 'chat';
 
 /* ─── Inter-Agent Feed ──────────────────────── */
 function InterAgentFeed() {
@@ -192,7 +193,7 @@ function InterAgentFeed() {
       </div>
 
       {/* Message feed */}
-      <Card className="max-h-[60vh] overflow-y-auto">
+      <Card>
         {filtered.length === 0 ? (
           <p className="text-sm text-txt-faint py-8 text-center">No messages match these filters</p>
         ) : (
@@ -317,7 +318,7 @@ function EmailActivityFeed() {
         </span>
       </div>
 
-      <Card className="max-h-[65vh] overflow-y-auto">
+      <Card>
         {filtered.length === 0 ? (
           <p className="text-sm text-txt-faint py-8 text-center">No email activity found</p>
         ) : (
@@ -536,7 +537,8 @@ export default function Comms() {
             tabs={[
               { key: 'feed' as Tab, label: 'Inter-Agent Feed' },
               { key: 'email' as Tab, label: 'Email Activity' },
-              { key: 'chat' as Tab, label: 'Quick Assign' },
+              { key: 'assign' as Tab, label: 'Quick Assign' },
+              { key: 'chat' as Tab, label: 'Agent Chat' },
             ]}
             active={tab}
             onChange={setTab}
@@ -546,7 +548,8 @@ export default function Comms() {
       <div className="flex-1 min-h-0 mt-3 overflow-y-auto">
         {tab === 'feed' ? <InterAgentFeed />
           : tab === 'email' ? <EmailActivityFeed />
-          : <QuickAssign />}
+          : tab === 'assign' ? <QuickAssign />
+          : <Chat embedded />}
       </div>
     </div>
   );

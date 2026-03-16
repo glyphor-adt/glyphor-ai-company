@@ -297,7 +297,7 @@ export default function AgentProfile() {
             <button
               onClick={() => avatarInputRef.current?.click()}
               disabled={uploadingAvatar}
-              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute inset-0 flex items-center justify-center rounded-full bg-slate-900/35 dark:bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
               title="Change profile image"
             >
               {uploadingAvatar ? (
@@ -691,7 +691,7 @@ function OverviewTab({
               const pm = getToolPlatformMeta(t);
               return (
                 <span key={t} className={`inline-flex items-center gap-1.5 rounded-lg border ${pm.borderColor} ${pm.bgColor} px-3 py-1.5 font-mono text-[12px] ${pm.color} transition-colors hover:opacity-80`}>
-                  <span className="rounded bg-black/20 px-1 py-px text-[9px] font-semibold uppercase tracking-wider opacity-70">{pm.label}</span>
+                  <span className="rounded bg-surface dark:bg-black/20 px-1 py-px text-[9px] font-semibold uppercase tracking-wider opacity-70">{pm.label}</span>
                   {t}
                 </span>
               );
@@ -799,7 +799,7 @@ function OverviewTab({
           {effectiveReportsTo && (
             <div className="mb-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint mb-2">Reports To</p>
-              <Link to={`/agents/${effectiveReportsTo}`} className="flex items-center gap-3 rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] px-3 py-2 transition-colors hover:border-cyan/30">
+              <Link to={`/agents/${effectiveReportsTo}`} className="flex items-center gap-3 rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] px-3 py-2 transition-colors hover:border-cyan/30">
                 <AgentAvatar role={effectiveReportsTo} size={28} />
                 <div>
                   <p className="text-sm font-medium text-txt-primary">{DISPLAY_NAME_MAP[effectiveReportsTo] ?? effectiveReportsTo}</p>
@@ -1583,7 +1583,7 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
                     const pm = getToolPlatformMeta(t);
                     return (
                       <span key={t} className={`inline-flex items-center gap-1.5 rounded-lg border ${pm.borderColor} ${pm.bgColor} px-3 py-1.5 font-mono text-[12px] ${pm.color}`}>
-                        <span className="rounded bg-black/20 px-1 py-px text-[9px] font-semibold uppercase tracking-wider opacity-70">{pm.label}</span>
+                        <span className="rounded bg-surface dark:bg-black/20 px-1 py-px text-[9px] font-semibold uppercase tracking-wider opacity-70">{pm.label}</span>
                         {t}
                       </span>
                     );
@@ -2149,7 +2149,7 @@ function SettingsTab({
               <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Communication Traits</p>
               <div className="mt-1.5 flex flex-wrap gap-2">
                 {profile.communication_traits.map((t, i) => (
-                  <span key={i} className="rounded-full border border-primary/20 bg-black/25 backdrop-blur-[8px] px-3 py-1 text-[12px] text-txt-secondary">{t}</span>
+                  <span key={i} className="rounded-full border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] px-3 py-1 text-[12px] text-txt-secondary">{t}</span>
                 ))}
               </div>
             </div>
@@ -2527,7 +2527,7 @@ function SettingsTab({
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-txt-primary">Voice Calibration Examples</h3>
           <div className="space-y-4">
             {profile.voice_examples.map((ex, i) => (
-              <details key={i} className="group glass-raised glass-inner-card rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] overflow-hidden">
+              <details key={i} className="group glass-raised glass-inner-card rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] overflow-hidden">
                 <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-txt-primary hover:text-cyan transition-colors">
                   <span>{ex.situation}</span>
                   <span className="text-txt-faint transition-transform group-open:rotate-90">▸</span>

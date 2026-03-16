@@ -108,7 +108,7 @@ function ToolHealthOverview({
               className={`rounded-xl border p-4 text-left transition-colors ${
                 isActive
                   ? 'border-cyan/40 bg-cyan/8 ring-1 ring-cyan/20'
-                  : 'border-primary/20 bg-black/25 backdrop-blur-[8px]'
+                  : 'border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px]'
               } ${isClickable ? 'cursor-pointer hover:border-border-hover' : 'cursor-default'}`}
             >
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">{card.label}</p>
@@ -223,7 +223,7 @@ function ToolReputationBoard({
                       <button
                         type="button"
                         onClick={() => onOpenSurface('access-control')}
-                        className="rounded-full border border-primary/20 bg-black/20 px-2.5 py-1 text-[11px] text-txt-secondary transition-colors hover:border-primary/30 hover:text-txt-primary"
+                        className="rounded-full border border-primary/20 bg-surface dark:bg-black/20 px-2.5 py-1 text-[11px] text-txt-secondary transition-colors hover:border-primary/30 hover:text-txt-primary"
                       >
                         {tool.activeGrantCount} active grant{tool.activeGrantCount === 1 ? '' : 's'}
                       </button>
@@ -259,7 +259,7 @@ function TelemetryGaps({
       />
       <div className="space-y-3">
         {items.map((item) => (
-          <div key={item.toolName} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
+          <div key={item.toolName} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
             <div>
               <p className="text-sm font-semibold text-txt-primary">{toHumanWords(item.toolName)}</p>
               <p className="mt-1 text-[12px] text-txt-muted">
@@ -269,7 +269,7 @@ function TelemetryGaps({
             <button
               type="button"
               onClick={() => onOpenSurface('access-control')}
-              className="rounded-lg border border-primary/20 bg-black/20 px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:border-primary/30 hover:text-txt-primary"
+              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:border-primary/30 hover:text-txt-primary"
             >
               Manage grants
             </button>
@@ -418,7 +418,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
                   }
 
                   return (
-                    <div key={result.key} className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
+                    <div key={result.key} className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
                       <div className="flex items-center gap-2">
                         <span className="rounded-full border border-prism-sky/30 bg-prism-sky/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-prism-sky">
                           agent
@@ -462,7 +462,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
                 const toolName = result.key.replace('tool:', '');
                 const toolPm = getToolPlatformMeta(toolName);
                 return (
-                  <div key={result.key} className="rounded-xl border border-primary/20 bg-black/25 backdrop-blur-[8px] p-4">
+                  <div key={result.key} className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
                     <div className="flex items-center gap-2">
                       <span className={`rounded-full border ${toolPm.borderColor} ${toolPm.bgColor} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${toolPm.color}`}>
                         {toolPm.label}
@@ -475,7 +475,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
                       {result.agents.map((role) => (
                         <div
                           key={role}
-                          className="rounded-lg border border-primary/20 bg-black/20 px-2.5 py-1.5 text-[11px]"
+                          className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-2.5 py-1.5 text-[11px]"
                         >
                           <span className="text-txt-primary">{getDisplayName(role)}</span>
                         </div>

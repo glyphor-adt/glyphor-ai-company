@@ -50,8 +50,8 @@
   --prism-moderate: 100 110 135;  /* #646e87 */
 
   /* ── Shadows ──────────────────────────────── */
-  --prism-shadow:    0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
-  --prism-shadow-lg: 0 4px 12px rgba(0,0,0,0.08), 0 12px 40px rgba(0,0,0,0.06);
+  --prism-shadow:    0 1px 4px rgba(15,23,42,0.06), 0 4px 16px rgba(15,23,42,0.04);
+  --prism-shadow-lg: 0 4px 12px rgba(15,23,42,0.08), 0 12px 40px rgba(15,23,42,0.06);
 
   /* ── Gauge track ──────────────────────────── */
   --prism-track:  230 233 240;    /* #e6e9f0 */
@@ -104,8 +104,8 @@
   --prism-moderate: 110 120 150;  /* #6e7896 */
 
   /* ── Shadows ──────────────────────────────── */
-  --prism-shadow:    0 10px 30px rgba(0,0,0,0.26), 0 0 0 1px rgba(255,255,255,0.04);
-  --prism-shadow-lg: 0 24px 80px rgba(0,0,0,0.5), 0 0 1px rgba(255,255,255,0.1);
+  --prism-shadow:    0 10px 30px rgba(7,9,15,0.26), 0 0 0 1px rgba(255,255,255,0.04);
+  --prism-shadow-lg: 0 24px 80px rgba(7,9,15,0.5), 0 0 1px rgba(255,255,255,0.1);
 
   /* ── Gauge track ──────────────────────────── */
   --prism-track:  32  34  42;

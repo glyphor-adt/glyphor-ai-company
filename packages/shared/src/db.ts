@@ -172,17 +172,27 @@ export async function systemTransaction<T>(
   fn: (client: PoolClient) => Promise<T>
 ): Promise<T> {
   const client = await connectClient();
+  let roleWasEscalated = false;
   try {
+    // Avoid poisoning the transaction state when runtime DB users cannot SET ROLE.
+    try {
+      await client.query('SET ROLE glyphor_system');
+      roleWasEscalated = true;
+    } catch {
+      roleWasEscalated = false;
+    }
+
     await client.query('BEGIN');
-    await client.query('SET ROLE glyphor_system').catch(() => {});
     const result = await fn(client);
     await client.query('COMMIT');
     return result;
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     throw error;
   } finally {
-    await client.query('RESET ROLE').catch(() => {});
+    if (roleWasEscalated) {
+      await client.query('RESET ROLE').catch(() => {});
+    }
     client.release();
   }
 }

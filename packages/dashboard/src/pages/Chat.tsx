@@ -944,7 +944,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
       {/* ── Mobile sidebar overlay ────────────── */}
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setMobileSidebarOpen(false)}>
-          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-slate-900/35 dark:bg-black/50" />
           <div className="sidebar-glass relative z-10 flex h-full w-72 flex-col overflow-hidden border-r border-border" onClick={(e) => e.stopPropagation()}>
             <SidebarContent
               recentChats={recentChats}

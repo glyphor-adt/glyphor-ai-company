@@ -27,6 +27,13 @@
   --color-shimmer: rgb(var(--prism-accent-1) / 0.08);
   --scrollbar-thumb: rgb(var(--prism-border));
   --scrollbar-hover: rgb(var(--prism-muted));
+  --glass-filter: blur(12px) saturate(140%);
+  --glass-bg: rgba(255, 255, 255, 0.9);
+  --sidebar-glass-bg: rgba(255, 255, 255, 0.94);
+  --sidebar-glass-border: rgba(15, 23, 42, 0.08);
+  --sidebar-glass-highlight: rgba(255, 255, 255, 0.6);
+  --glow-cyan-md: none;
+  --glow-cyan-lg: none;
   /* Accent colors – from Prism accents */
   --cyan: var(--prism-accent-1);
   --azure: var(--prism-accent-3);
@@ -295,7 +302,7 @@ button, a[role="button"], .glass-btn {
 
 .glass-tabs {
   background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(0, 0, 0, 0.08);
+  border-color: var(--color-border);
 }
 
 /* ─── Input Fields ───────────────────────────── */
@@ -305,7 +312,7 @@ input, textarea, select {
 
 input:focus, textarea:focus, select:focus {
   border-color: var(--color-border-hover) !important;
-  background: rgba(0, 0, 0, 0.40) !important;
+  background: var(--color-surface) !important;
   box-shadow: none;
   outline: none;
 }
@@ -394,10 +401,17 @@ input:focus, textarea:focus, select:focus {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(15, 23, 42, 0.10);
+  color: var(--color-txt-secondary);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+.dark .stat-card-icon-badge {
+  background: rgba(7, 9, 15, 0.45);
   color: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(7, 9, 15, 0.32);
 }
 
 /* Stat card variants — all use uniform glass */
@@ -405,7 +419,7 @@ input:focus, textarea:focus, select:focus {
 .stat-gradient-amber,
 .stat-gradient-teal,
 .stat-gradient-green {
-  background: rgba(0, 0, 0, 0.30);
+  background: var(--glass-bg);
 }
 
 /* Quick action card hover lift */
@@ -441,7 +455,7 @@ input:focus, textarea:focus, select:focus {
   box-shadow:
     inset 0 1px 0 var(--sidebar-glass-highlight),
     0 0 0 1px rgba(0, 224, 255, 0.05) inset,
-    0 8px 20px rgba(0, 0, 0, 0.3);
+    0 8px 20px rgba(7, 9, 15, 0.3);
 }
 
 .banner-inner {
@@ -459,15 +473,23 @@ input:focus, textarea:focus, select:focus {
 }
 
 .workforce-avatar-card {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .workforce-avatar-card:hover {
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--color-raised);
   border-color: var(--color-border-hover);
   box-shadow: none;
+}
+
+.dark .workforce-avatar-card {
+  background: rgba(7, 9, 15, 0.25);
+}
+
+.dark .workforce-avatar-card:hover {
+  background: rgba(7, 9, 15, 0.35);
 }
 
 .agent-bar {
@@ -650,7 +672,11 @@ input:focus, textarea:focus, select:focus {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(0,0,0,0.55);
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.dark .modal-shell {
+  background: rgba(7, 9, 15, 0.62);
 }
 
 .modal-panel {
@@ -823,7 +849,7 @@ input:focus, textarea:focus, select:focus {
 }
 /* Code blocks */
 .prose-chat pre {
-  background: rgba(0,0,0,0.3);
+  background: var(--color-raised);
   border-radius: 8px;
   padding: 1em;
   overflow-x: auto;
