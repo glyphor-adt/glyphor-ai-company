@@ -5,7 +5,7 @@ category: marketing
 description: Produce multi-format content — blog posts, video promos, social campaigns, email sequences, case studies, storyboarded product demos, and branded visual assets — that position Glyphor as the leader in autonomous AI operations. Use when any content needs producing across any medium (written, visual, video, audio), when the content calendar needs filling, when a product milestone needs announcing, when a campaign requires coordinated assets across channels, or when any published asset needs to carry the Glyphor voice and visual identity. This skill covers the full production pipeline from research through multi-format asset creation to publish, orchestrating the Pulse creative production engine for visual, video, and audio work.
 holders: cmo, content-creator
 tools_granted: web_search, web_fetch, save_memory, send_agent_message, draft_blog_post, draft_case_study, draft_email, draft_social_post, write_content, create_content_draft, update_content_draft, submit_content_for_review, approve_content_draft, reject_content_draft, publish_content, get_content_calendar, get_content_drafts, get_trending_topics, get_content_metrics, query_content_performance, query_top_performing_content, validate_brand_compliance, generate_content_image, pulse_generate_concept_image, pulse_edit_image, pulse_enhance_prompt, pulse_enhance_video_prompt, pulse_polish_scene_prompt, pulse_remove_background, pulse_upscale_image, pulse_expand_image, pulse_extract_image_text, pulse_replace_image_text, pulse_transform_viral_image, pulse_product_recontext, pulse_doodle_to_image, pulse_generate_video, pulse_poll_video_status, pulse_list_videos, pulse_remix_video, pulse_text_to_speech, pulse_generate_sound_effect, pulse_generate_music, pulse_create_storyboard_from_idea, pulse_list_storyboards, pulse_get_storyboard, pulse_generate_scene_images, pulse_suggest_scenes, pulse_storyboard_chat, pulse_generate_storyboard_script, pulse_generate_voiceover_script, pulse_kling_text_to_video, pulse_kling_image_to_video, pulse_kling_video_extend, pulse_kling_video_reference, pulse_kling_multi_shot, pulse_poll_multi_shot, pulse_kling_poll_task, pulse_kling_lip_sync, pulse_kling_motion_upload, pulse_kling_motion_create, pulse_kling_create_voice, pulse_create_hero_promo, pulse_create_multi_angle, pulse_create_product_showcase, pulse_generate_promo_scenes, pulse_analyze_brand_website, pulse_analyze_image_for_video, pulse_create_share_link, pulse_list_brand_kits
-version: 3
+version: 4
 ---
 
 # Content Creation
@@ -114,6 +114,32 @@ End-to-end production in a single call:
 ---
 
 ## Content Production Pipelines
+
+## Web Build Media Routing (Required)
+
+When Tyler receives an `image_manifest` or `video_manifest` from a web build, route each asset by `type`.
+
+| Asset type | Tool | Required pre-step |
+|-----------|------|-------------------|
+| `concept` | `pulse_generate_concept_image` | Run `pulse_enhance_prompt` first |
+| `product_shot` | `pulse_product_recontext` | Capture screenshot from deployed preview first |
+| `editorial` | `pulse_generate_concept_image` | Use portrait-specific prompting |
+| `pattern` | `pulse_generate_concept_image` | Run `pulse_upscale_image` after generation |
+| `hero_loop` (video) | `pulse_kling_text_to_video` | Run `pulse_enhance_video_prompt` first |
+| `product_demo` (video) | `pulse_kling_image_to_video` | Capture screenshots of key UI states first |
+| `promo` (video) | `pulse_create_hero_promo` | Build storyboard first with `pulse_create_storyboard_from_idea` |
+
+After every generated asset:
+
+1. Commit file to repo:
+- `public/images/{fileName}` for images
+- `public/videos/{fileName}` for videos
+
+2. Do not leave placeholders in production preview.
+
+3. Record the prompt and result metadata in memory for future reuse.
+
+This commit step is mandatory so preview redeploy picks up final media automatically.
 
 ### Blog Post (written + visual)
 

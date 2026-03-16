@@ -643,6 +643,8 @@ Per run: $0.05 | Daily: $0.50 | Monthly: $15
 
 ## MIA TANAKA — VP Design & Frontend
 
+Canonical web build orchestration for Mia, Leo, Ethan, Tyler, Sofia, Marcus, and Jordan is documented in `docs/WEB_CREATION_OPERATING_SYSTEM.md`.
+
 ### Skills
 - Output quality auditing — grading Fuse builds on a scale from F (AI smell) to A+ (agency-grade)
 - Design system governance — design tokens, component library, template registry

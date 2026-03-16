@@ -5,7 +5,7 @@
 | Agent | Role | Reports To | Skills |
 |-------|------|------------|--------|
 | Maya Brooks | CMO | Sarah Chen | `content-creation` (v2), `seo-optimization` (v2), `social-media-management` (v2), `brand-management` (shared w/ Design), `advanced-web-creation` (shared) |
-| Tyler Reed | Content Creator | Maya Brooks | `content-creation` (v2) |
+| Tyler Reed | Content Creator | Maya Brooks | `content-creation` (v4) |
 | Lisa Chen | SEO Analyst | Maya Brooks | `seo-optimization` (v2) |
 | Kai Johnson | Social Media Manager | Maya Brooks | `social-media-management` (v2) |
 | Zara Petrov | Marketing Intelligence Analyst | Maya Brooks | `competitive-intelligence` (NEW), `content-analytics` (NEW) |

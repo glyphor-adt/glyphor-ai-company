@@ -18,6 +18,8 @@
     "skills:it:generate-migration": "tsx scripts/generate-it-skill-migration.ts",
     "skills:test": "tsx scripts/test-skills.ts",
     "skills:canary-report": "tsx scripts/skill-canary-report.ts",
+    "web-template:bootstrap": "tsx scripts/bootstrap-web-template-react.ts",
+    "directives:web-creation:dispatch": "tsx scripts/dispatch-web-creation-implementation-directive.ts",
     "decisions:cleanup-orphaned": "tsx scripts/cleanup-orphaned-decisions.ts",
     "seed": "bash infra/scripts/seed-memory.sh",
     "cos:briefing": "tsx packages/agents/src/chief-of-staff/run.ts briefing",

@@ -120,6 +120,7 @@ See [docs/AUTHORITY_MODEL.md](docs/AUTHORITY_MODEL.md) for full details.
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Operating Manual](docs/OPERATING_MANUAL.md)
+- [Web Creation Operating System](docs/WEB_CREATION_OPERATING_SYSTEM.md)
 - [Memory Schema](docs/MEMORY_SCHEMA.md)
 - [Authority Model](docs/AUTHORITY_MODEL.md)
 - [Runbook](docs/RUNBOOK.md)

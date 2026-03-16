@@ -24,6 +24,7 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createFuseTools } from '../shared/fuseTools.js';
+import { createCodexTools } from '../shared/codexTools.js';
 
 export interface FrontendEngineerRunParams {
   task?: 'implement_component' | 'accessibility_audit' | 'on_demand';
@@ -50,6 +51,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createAuditTools(),
     ...createScaffoldTools(),
     ...createDeployPreviewTools(),
+    ...createCodexTools(),
     ...createFuseTools(memory, {
       allowBuild: true,
       allowIterate: true,

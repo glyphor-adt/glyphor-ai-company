@@ -184,6 +184,9 @@ const KNOWN_TOOLS = new Set([
   'invoke_fuse_build',
   'invoke_fuse_iterate',
   'invoke_fuse_upgrade',
+  'normalize_design_brief',
+  'codex',
+  'codex-reply',
   // figmaTools
   'get_figma_file',
   'export_figma_images',

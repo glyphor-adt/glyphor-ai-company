@@ -2,89 +2,99 @@
 name: advanced-web-creation
 slug: advanced-web-creation
 category: design
-description: Orchestrate Fuse for complete page and application builds while preserving precise control over brand direction and quality gates. Use when a request is larger than a component tweak and requires architecture, implementation, QA, and deployment as one flow.
+description: Execute Glyphor's end-to-end web creation pipeline from normalized brief to quality-gated ship. Use when asked to build a website, landing page, or web app where design direction, implementation, media generation, review, and iteration must run as one orchestrated system.
 holders: vp-design, frontend-engineer, ui-ux-designer, cto, cmo
-tools_granted: invoke_fuse_build, invoke_fuse_iterate, invoke_fuse_upgrade, screenshot_page, check_ai_smell, run_lighthouse_audit, run_lighthouse_batch, save_memory, send_agent_message
-version: 1
+tools_granted: normalize_design_brief, codex, codex-reply, deploy_preview, screenshot_page, check_ai_smell, run_accessibility_audit, save_memory, send_agent_message, invoke_fuse_build, invoke_fuse_iterate, invoke_fuse_upgrade
+version: 2
 ---
 
 # Advanced Web Creation
 
-This skill is about orchestration, not hand-building every file. Fuse is the fast path for complete deliverables. Use it to convert a strong brief into a running preview, then iterate with targeted edits until quality is ready.
+This skill is a mandatory operating pipeline, not optional guidance. When the ask is "build a website" or "ship a web app," execute the sequence below exactly.
 
-## Fuse vs Individual Tools
+## Mandatory Pipeline (Non-Negotiable)
 
-Use Fuse when:
-- You are asked to build an entire landing page, site section, or full app.
-- The request includes multiple sections, interactions, responsive behavior, and deployment expectations.
-- You need fast end-to-end output (architecture + implementation + QA + deploy signal) in one flow.
+1. Phase 1 - Brief normalization
+	- Run `normalize_design_brief` on the raw directive.
+	- Produce a design manifesto and asset manifest.
 
-Use individual tools when:
-- You are changing one component, one style token, one copy block, or one interaction.
-- You need surgical fixes in an existing codebase where full regeneration is unnecessary.
-- The ask is clearly a patch, not a rebuild.
+2. Phase 2 - Build from template with Codex
+	- Invoke `codex` against the approved template repo and feature branch.
+	- Pass the normalized brief as the primary prompt.
 
-Rule of thumb:
-- If it sounds like "build me a page/app", start with Fuse.
-- If it sounds like "change this thing", use direct file/component tools.
+3. Phase 3 - Preview and capture
+	- Deploy preview with `deploy_preview`.
+	- Capture screenshots at 1440, 1024, 768, 375 widths via `screenshot_page`.
 
-## Fuse Build Workflow
+4. Phase 4 - Automated gates
+	- Run `check_ai_smell`.
+	- Run `run_accessibility_audit` for WCAG AA.
 
-1. Define the brief with strategic clarity.
-2. Run `invoke_fuse_build` with the right tier.
-3. Review output quality with screenshots and AI-smell checks.
-4. Iterate with `invoke_fuse_iterate` when specific changes are needed.
-5. Upgrade prototypes with `invoke_fuse_upgrade` when production hardening is required.
+5. Phase 5 - Review handoff
+	- Submit artifacts and preview to design critic review.
 
-## Tier Strategy
+6. Phase 6 - Iteration loop
+	- Apply specific review feedback via `codex-reply`.
+	- Re-run preview + gates.
+	- Maximum 3 rounds.
 
-- `prototype`: fastest route to visual/structural validation.
-- `full_build`: production-oriented path with deeper verification and deploy metadata.
-- `iterate`: targeted edits to an existing Fuse project ID.
+7. Phase 7 - Ship
+	- Release only after review score is >= 90 and all gates pass.
 
-Start at prototype when direction is uncertain. Move to full build once structure and visual direction are approved.
+## Brief Requirements (Mia Output Contract)
 
-## Brief Quality Standard
+Every normalized brief must include all fields below:
 
-Every high-quality Fuse run starts with a high-quality brief. Include:
+1. Audience persona
+	- One specific person profile, never a generic segment.
 
-1. Purpose: what this page or app must accomplish.
-2. Audience: who it serves and their context.
-3. Required sections/flows: concrete structure.
-4. Visual direction: style, mood, references, constraints.
-5. Brand context: colors, typography, voice, motion preference.
-6. Functional requirements: forms, navigation, interactions, integrations.
-7. Technical constraints: framework hints, performance/SEO requirements, accessibility expectations.
+2. Primary conversion action
+	- One action only.
 
-Weak briefs cause generic output. Strong briefs produce strong first passes.
+3. Emotional target
+	- Concrete emotional outcome, never vague adjectives.
 
-## Iteration Style
+4. One-sentence memory
+	- The single message users should retain after closing the tab.
 
-Write change requests with surgical specificity:
-- Identify exact section/component.
-- Describe what to change and why.
-- Provide target outcome (layout, typography, hierarchy, behavior).
-- Include acceptance criteria when quality is subjective.
+5. Specific aesthetic direction
+	- Distinct visual stance; "clean and modern" is invalid.
 
-Good iterate request example:
-"Hero headline needs stronger hierarchy: increase heading scale to display size, reduce supporting copy width, and move social proof strip directly below CTA. Keep dark glass style and cyan accent." 
+6. Component inventory
+	- Ordered by priority from hero downward.
 
-## Quality Gates
+7. Asset manifest
+	- Each image/video with a `type` field suitable for Pulse routing.
 
-Before delivery:
-- Run visual review at multiple breakpoints.
-- Run `check_ai_smell` for generic-pattern detection.
-- Run Lighthouse audits when performance/accessibility confidence is required.
-- Confirm brand consistency and section ordering match the brief.
+## Codex Invocation Pattern
 
-If quality is below bar, iterate. Do not hand off first-pass output as final.
+Use this shape whenever Ethan executes a build:
 
-## Role-Specific Access Notes
+```ts
+codex({
+	prompt: normalizedBrief,
+	repo: "glyphor-adt/web-template-react",
+	branch: "feature/initial-build",
+	approval_policy: "never",
+	sandbox: "workspace-write",
+	skill: "ux-engineer"
+});
+```
 
-- VP Design: build + iterate + upgrade.
-- Frontend Engineer: build + iterate.
-- UI/UX Designer: prototype build only.
-- CTO: build for internal tools and dashboards.
-- CMO: prototype build for campaign pages.
+When review feedback arrives:
 
-If a requested Fuse action is outside your tool access, escalate through assignment routing rather than attempting manual workarounds.
+```ts
+codex-reply({
+	message: structuredFeedback,
+	repo: "glyphor-adt/web-template-react",
+	branch: "feature/initial-build"
+});
+```
+
+## Delivery Rules
+
+- Never skip the brief normalization phase.
+- Never ship without AI-smell and accessibility gates.
+- Never ship below the quality threshold.
+- Never exceed three review iterations without escalating creative direction.
+- Save final brief, score breakdown, and winning patterns to memory after ship.

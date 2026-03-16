@@ -59,6 +59,7 @@ interface ActiveMcpConnection {
   serverName: string;
   client: Client;
   transport: StreamableHTTPClientTransport;
+  connectedAt: number;
 }
 
 function isDisabledMailTool(tool: McpClientTool, serverName: string): boolean {
@@ -259,6 +260,16 @@ function convertSchemaProperty(
   return param;
 }
 
+// ── Token Lifetime ──────────────────────────────────────────────
+
+/** Agentic user tokens have a short TTL (~5 min). Reconnect proactively. */
+const TOKEN_LIFETIME_MS = 4 * 60_000; // assume 4 min usable lifetime
+const TOKEN_REFRESH_BUFFER_MS = 60_000; // refresh 1 min before assumed expiry
+
+function isConnectionExpired(conn: ActiveMcpConnection): boolean {
+  return Date.now() - conn.connectedAt > TOKEN_LIFETIME_MS - TOKEN_REFRESH_BUFFER_MS;
+}
+
 // ── Token Acquisition ────────────────────────────────────────────
 
 /** Singleton token provider — reused across calls for built-in caching */
@@ -366,7 +377,7 @@ async function connectToMcpServer(
   serverConfig: MCPServerConfig,
   authToken: string,
   agenticAppId?: string,
-): Promise<{ client: Client; transport: StreamableHTTPClientTransport; tools: McpClientTool[] }> {
+): Promise<{ client: Client; transport: StreamableHTTPClientTransport; tools: McpClientTool[]; connectedAt: number }> {
   if (!serverConfig.url) {
     throw new Error(`MCP Server URL missing for ${serverConfig.mcpServerName}`);
   }
@@ -395,17 +406,19 @@ async function connectToMcpServer(
   const toolsResult = await client.listTools();
   const tools = toolsResult.tools as McpClientTool[];
 
-  return { client, transport, tools };
+  return { client, transport, tools, connectedAt: Date.now() };
 }
 
 /**
  * Convert a single MCP tool into a Glyphor ToolDefinition,
  * routing execute() calls through the connected MCP client.
+ * Handles token expiry by reconnecting when auth errors occur.
  */
 function mcpToolToToolDefinition(
   mcpTool: McpClientTool,
-  mcpClient: Client,
+  connection: ActiveMcpConnection,
   serverName: string,
+  reconnect: (conn: ActiveMcpConnection) => Promise<ActiveMcpConnection>,
 ): ToolDefinition {
   const params = convertJsonSchemaToToolParams(
     mcpTool.inputSchema.properties as Record<string, Record<string, unknown>> | undefined,
@@ -414,18 +427,30 @@ function mcpToolToToolDefinition(
 
   const baseDescription = (mcpTool.description ?? mcpTool.name).trim();
 
+  // Mutable ref so reconnect can swap in a new client
+  let activeConn = connection;
+
   return {
     name: mcpTool.name,
     description: `[Agent365 ${serverName}] ${baseDescription}`,
     parameters: params,
     execute: async (callParams: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
+      // Proactively reconnect if token is nearing expiry
+      if (isConnectionExpired(activeConn)) {
+        try {
+          activeConn = await reconnect(activeConn);
+        } catch (err) {
+          console.error(`[Agent365] Proactive reconnect failed for ${serverName}:`, (err as Error).message);
+        }
+      }
+
       try {
         // Strip markdown from email body fields for Mail tools
         const sanitizedParams = serverName === 'mcp_MailTools'
           ? sanitizeMailToolParams(callParams)
           : callParams;
 
-        const result = await mcpClient.callTool({
+        const result = await activeConn.client.callTool({
           name: mcpTool.name,
           arguments: sanitizedParams,
         });
@@ -435,6 +460,24 @@ function mcpToolToToolDefinition(
           const errorText = Array.isArray(result.content)
             ? result.content.map((c: { text?: string }) => c.text ?? '').join('\n')
             : String(result.content);
+
+          // Detect token expiry — reconnect and retry once
+          if (/AADSTS500133|AADSTS700024|expired|not within its valid time/i.test(errorText)) {
+            console.warn(`[Agent365] Token expired during ${serverName}/${mcpTool.name}, reconnecting...`);
+            activeConn = await reconnect(activeConn);
+            const retry = await activeConn.client.callTool({ name: mcpTool.name, arguments: sanitizedParams });
+            if (retry.isError) {
+              const retryErr = Array.isArray(retry.content)
+                ? retry.content.map((c: { text?: string }) => c.text ?? '').join('\n')
+                : String(retry.content);
+              return { success: false, error: retryErr };
+            }
+            const retryData = Array.isArray(retry.content)
+              ? retry.content.map((c: { type?: string; text?: string }) => c.type === 'text' ? c.text : JSON.stringify(c)).join('\n')
+              : retry.content;
+            return { success: true, data: retryData };
+          }
+
           console.warn(`[Agent365] MCP tool error from ${serverName}/${mcpTool.name}: ${errorText.slice(0, 300)}`);
           return { success: false, error: errorText };
         }
@@ -449,10 +492,31 @@ function mcpToolToToolDefinition(
 
         return { success: true, data };
       } catch (err) {
-        console.error(`[Agent365] MCP call failed for ${serverName}/${mcpTool.name}:`, (err as Error).message);
+        const message = (err as Error).message;
+        // Catch transport-level auth failures
+        if (/AADSTS500133|AADSTS700024|expired|not within its valid time|401/i.test(message)) {
+          console.warn(`[Agent365] Auth error during ${serverName}/${mcpTool.name}, reconnecting: ${message.slice(0, 200)}`);
+          try {
+            activeConn = await reconnect(activeConn);
+            const retry = await activeConn.client.callTool({ name: mcpTool.name, arguments: callParams });
+            if (retry.isError) {
+              const retryErr = Array.isArray(retry.content)
+                ? retry.content.map((c: { text?: string }) => c.text ?? '').join('\n')
+                : String(retry.content);
+              return { success: false, error: retryErr };
+            }
+            const retryData = Array.isArray(retry.content)
+              ? retry.content.map((c: { type?: string; text?: string }) => c.type === 'text' ? c.text : JSON.stringify(c)).join('\n')
+              : retry.content;
+            return { success: true, data: retryData };
+          } catch (reconnErr) {
+            return { success: false, error: `Agent 365 MCP tool ${mcpTool.name} failed after reconnect: ${(reconnErr as Error).message}` };
+          }
+        }
+        console.error(`[Agent365] MCP call failed for ${serverName}/${mcpTool.name}:`, message);
         return {
           success: false,
-          error: `Agent 365 MCP tool ${mcpTool.name} failed: ${(err as Error).message}`,
+          error: `Agent 365 MCP tool ${mcpTool.name} failed: ${message}`,
         };
       }
     },
@@ -502,13 +566,35 @@ export async function createAgent365Tools(
   // Connect to each server and discover tools
   for (const serverConfig of serverConfigs) {
     try {
-      const { client, transport, tools } = await connectToMcpServer(serverConfig, authToken, agenticAppId);
+      const { client, transport, tools, connectedAt } = await connectToMcpServer(serverConfig, authToken, agenticAppId);
 
-      connections.push({
+      const conn: ActiveMcpConnection = {
         serverName: serverConfig.mcpServerName,
         client,
         transport,
-      });
+        connectedAt,
+      };
+      connections.push(conn);
+
+      // Reconnect helper — closes old connection, gets fresh token, reconnects
+      const reconnect = async (staleConn: ActiveMcpConnection): Promise<ActiveMcpConnection> => {
+        try { await staleConn.client.close(); } catch { /* ignore */ }
+        // Reset token provider to force fresh token acquisition
+        tokenProvider = null;
+        const freshToken = await acquireToken(config);
+        const fresh = await connectToMcpServer(serverConfig, freshToken, agenticAppId);
+        const newConn: ActiveMcpConnection = {
+          serverName: serverConfig.mcpServerName,
+          client: fresh.client,
+          transport: fresh.transport,
+          connectedAt: fresh.connectedAt,
+        };
+        // Update the connections array so close() cleans up the right client
+        const idx = connections.indexOf(staleConn);
+        if (idx >= 0) connections[idx] = newConn;
+        console.log(`[Agent365] Reconnected to ${serverConfig.mcpServerName} with fresh token`);
+        return newConn;
+      };
 
       // Convert each MCP tool to a Glyphor ToolDefinition
       for (const mcpTool of tools) {
@@ -516,7 +602,7 @@ export async function createAgent365Tools(
           console.warn(`[Agent365] Skipping unstable MailTools search tool: ${mcpTool.name}`);
           continue;
         }
-        allTools.push(mcpToolToToolDefinition(mcpTool, client, serverConfig.mcpServerName));
+        allTools.push(mcpToolToToolDefinition(mcpTool, conn, serverConfig.mcpServerName, reconnect));
       }
 
       console.log(`[Agent365] Connected to ${serverConfig.mcpServerName}: ${tools.length} tools available`);

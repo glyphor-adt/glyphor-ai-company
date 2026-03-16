@@ -24,6 +24,7 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createFuseTools } from '../shared/fuseTools.js';
+import { createDesignBriefTools } from '../shared/designBriefTools.js';
 
 export interface UiUxDesignerRunParams {
   task?: 'component_spec' | 'design_token_review' | 'on_demand';
@@ -48,6 +49,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createFrontendCodeTools(),
     ...createScreenshotTools(),
     ...createDesignSystemTools(),
+    ...createDesignBriefTools(),
     ...createAssetTools(glyphorEventBus),
     ...createFuseTools(memory, {
       allowBuild: true,

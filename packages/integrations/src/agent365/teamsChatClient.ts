@@ -129,12 +129,17 @@ function loadServerConfigsFromManifest(): MCPServerConfig[] {
   }
 }
 
+/** Tokens from the 3-step agentic user flow expire quickly (~5 min). */
+const TOKEN_REFRESH_BUFFER_MS = 60_000; // refresh 1 min before expiry
+const DEFAULT_TOKEN_LIFETIME_MS = 4 * 60_000; // assume 4 min if we can't parse
+
 export class A365TeamsChatClient {
   private mcpClient: Client | null = null;
   private transport: StreamableHTTPClientTransport | null = null;
   private tokenProvider: MsalTokenProvider;
   private audience: string;
   private readonly chatCache = new Map<string, string>();
+  private connectedAt = 0; // timestamp when current connection was established
 
   private readonly defaultAgentRole?: string;
 
@@ -215,17 +220,54 @@ export class A365TeamsChatClient {
   }
 
   private async callTool(name: string, args: Record<string, unknown>, agentRole?: string): Promise<unknown> {
-    const client = await this.ensureConnected(agentRole);
-    const result = await client.callTool({ name, arguments: args });
+    let client = await this.ensureConnected(agentRole);
 
-    if (result.isError) {
-      const errorText = Array.isArray(result.content)
-        ? (result.content as Array<{ text?: string }>).map((c) => c.text ?? '').join('\n')
-        : String(result.content);
-      throw new Error(`[A365Teams] ${name} failed: ${errorText}`);
+    try {
+      const result = await client.callTool({ name, arguments: args });
+
+      if (result.isError) {
+        const errorText = Array.isArray(result.content)
+          ? (result.content as Array<{ text?: string }>).map((c) => c.text ?? '').join('\n')
+          : String(result.content);
+
+        // Detect token expiry errors — reconnect and retry once
+        if (/AADSTS500133|AADSTS700024|expired|not within its valid time/i.test(errorText)) {
+          console.warn(`[A365Teams] Token expired during ${name}, reconnecting...`);
+          await this.close();
+          client = await this.ensureConnected(agentRole);
+          const retry = await client.callTool({ name, arguments: args });
+          if (retry.isError) {
+            const retryErr = Array.isArray(retry.content)
+              ? (retry.content as Array<{ text?: string }>).map((c) => c.text ?? '').join('\n')
+              : String(retry.content);
+            throw new Error(`[A365Teams] ${name} failed after reconnect: ${retryErr}`);
+          }
+          return this.parseContent(retry.content);
+        }
+
+        throw new Error(`[A365Teams] ${name} failed: ${errorText}`);
+      }
+
+      return this.parseContent(result.content);
+    } catch (err) {
+      const message = (err as Error).message;
+      // Catch transport-level auth failures too (e.g. 401 from the MCP server)
+      if (/AADSTS500133|AADSTS700024|expired|not within its valid time|401/i.test(message)
+          && !message.includes('after reconnect')) {
+        console.warn(`[A365Teams] Auth error during ${name}, reconnecting: ${message.slice(0, 200)}`);
+        await this.close();
+        client = await this.ensureConnected(agentRole);
+        const retry = await client.callTool({ name, arguments: args });
+        if (retry.isError) {
+          const retryErr = Array.isArray(retry.content)
+            ? (retry.content as Array<{ text?: string }>).map((c) => c.text ?? '').join('\n')
+            : String(retry.content);
+          throw new Error(`[A365Teams] ${name} failed after reconnect: ${retryErr}`);
+        }
+        return this.parseContent(retry.content);
+      }
+      throw err;
     }
-
-    return this.parseContent(result.content);
   }
 
   private extractChatId(data: unknown): string | null {
@@ -422,6 +464,14 @@ export class A365TeamsChatClient {
     if (this.mcpClient && role !== this.lastAgentRole) {
       await this.close();
     }
+
+    // Proactively reconnect if the token is likely expired or about to expire.
+    // The agentic user token has a short TTL (~5 min).
+    if (this.mcpClient && Date.now() - this.connectedAt > DEFAULT_TOKEN_LIFETIME_MS - TOKEN_REFRESH_BUFFER_MS) {
+      console.log(`[A365Teams] Token nearing expiry, proactively reconnecting as ${role ?? 'shared'}`);
+      await this.close();
+    }
+
     if (this.mcpClient) return this.mcpClient;
 
     const authToken = await this.getToken(role);
@@ -450,6 +500,7 @@ export class A365TeamsChatClient {
     });
 
     await this.mcpClient.connect(this.transport);
+    this.connectedAt = Date.now();
     console.log(`[A365Teams] Connected to mcp_TeamsServer as ${role ?? 'shared'}`);
     return this.mcpClient;
   }

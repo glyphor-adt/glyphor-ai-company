@@ -6,7 +6,7 @@
 |-------|------|------------|--------|
 | Mia Tanaka | VP Design & Frontend | Sarah Chen | `design-review` (v2), `design-system-management` (v2), `brand-management` (NEW), `ui-development` (NEW), `advanced-web-creation` (NEW) |
 | Leo Vargas | UI/UX Designer | Mia Tanaka | `design-review` (v2), `design-system-management` (v2), `ux-design` (NEW), `advanced-web-creation` (NEW) |
-| Sofia Marchetti | Design Critic | Mia Tanaka | `design-review` (v2) |
+| Sofia Marchetti | Design Critic | Mia Tanaka | `design-review` (v2), `elite-design-review` (NEW) |
 | Ryan Park | Template Architect | Mia Tanaka | `design-system-management` (v2) |
 | Ava Chen | Frontend Engineer | Mia Tanaka | `design-system-management` (v2), `frontend-development` (see IT team skills), `advanced-web-creation` (NEW) |
 
@@ -35,6 +35,7 @@ All skills reference the correct infrastructure:
 | ui-development | (didn't exist) | ~125 lines, 33 tools |
 | ux-design | (didn't exist) | ~145 lines, 21 tools |
 | advanced-web-creation | (didn't exist) | ~120 lines, 9 tools |
+| elite-design-review | (didn't exist) | rubric-driven quality gate with automated pre-checks |
 
 ## Key Design Decisions
 
@@ -58,5 +59,6 @@ skills/design/
 ├── ui-development.md          # NEW — Mia
 ├── ux-design.md               # NEW — Leo
 ├── advanced-web-creation.md   # NEW — Mia, Ava, Leo, Marcus, Maya
+├── elite-design-review.md     # NEW — Sofia, Mia, Leo
 └── INDEX.md                   # This file
 ```

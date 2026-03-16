@@ -39,6 +39,9 @@ COPY packages/scheduler/package.json ./packages/scheduler/package.json
 
 RUN npm ci --omit=dev
 
+# Codex CLI for web build orchestration tools.
+RUN npm install -g @openai/codex
+
 # Copy built output
 COPY --from=builder /app/packages/agent-runtime/dist packages/agent-runtime/dist
 COPY --from=builder /app/packages/company-memory/dist packages/company-memory/dist
