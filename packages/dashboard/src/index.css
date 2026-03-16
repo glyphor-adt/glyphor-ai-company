@@ -50,7 +50,7 @@
   --scrollbar-hover: rgba(255, 255, 255, 0.2);
   --glass-filter: blur(20px) saturate(165%);
   --glass-bg: rgba(18, 24, 42, 0.34);
-  --sidebar-glass-bg: rgba(17, 25, 40, 0.52);
+  --sidebar-glass-bg: rgba(17, 25, 40, 0.44);
   --sidebar-glass-border: rgba(255, 255, 255, 0.125);
   --sidebar-glass-highlight: rgba(255, 255, 255, 0.08);
   /* Accent colors – bright shades from Prism */
@@ -133,28 +133,14 @@ body {
 
 .dark .dashboard-main {
   position: relative;
-  isolation: isolate;
+  isolation: auto;
   z-index: 0;
   background-color: #07090f;
   background-image: url('/freepik__talk__14219.png');
   background-position: center center;
   background-size: cover;
   background-repeat: no-repeat;
-  background-attachment: fixed;
-}
-
-.dark .dashboard-main::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-color: #07090f;
-  background-image: url('/freepik__talk__14219.png');
-  background-position: center center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  opacity: 0.55;
-  pointer-events: none;
+  background-attachment: scroll;
 }
 
 .dashboard-sidebar {
@@ -193,7 +179,6 @@ body {
 .dashboard-content {
   position: relative;
   background: transparent;
-  z-index: 1;
 }
 
 .dashboard-home,
