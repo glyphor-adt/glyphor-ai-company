@@ -1402,8 +1402,9 @@ export class CompanyAgentRunner {
         : Promise.resolve(null);
 
       // Skill context (matched skills for this task).
-      // Normally full-tier only, but allow explicit skill_test runs at standard tier.
-      const shouldLoadSkills = tier === 'full' || task === 'skill_test';
+      // Load for all tiers except light (quick chat). Skills provide methodology
+      // that agents need for work_loop, scheduled tasks, and on_demand analysis.
+      const shouldLoadSkills = tier !== 'light' || task === 'skill_test';
       const skillPromise = (shouldLoadSkills && deps?.skillContextLoader)
         ? deps.skillContextLoader(config.role, initialMessage).catch(err => {
             console.warn(`[CompanyAgentRunner] Skill context load failed for ${config.role}:`, (err as Error).message);

@@ -362,6 +362,38 @@ export abstract class BaseAgentRunner {
       }
     }
 
+    // ─── Load skill context ────────────────────────────────────
+    // Skills provide structured methodology and domain expertise.
+    // Load for all archetype runners so task agents benefit from playbooks.
+    if (safeDeps.skillContextLoader) {
+      try {
+        const skillCtx = await safeDeps.skillContextLoader(config.role, initialMessage);
+        if (skillCtx && skillCtx.skills.length > 0) {
+          const skillParts: string[] = ['# Your Skills\n\nFollow the methodology precisely.\n'];
+          for (const skill of skillCtx.skills) {
+            skillParts.push(`## ${skill.name} (${skill.proficiency})`);
+            skillParts.push(`Category: ${skill.category}`);
+            skillParts.push(`\n**Methodology:**\n${skill.methodology}`);
+            if (skill.learned_refinements.length > 0) {
+              skillParts.push('\n**Learned refinements:**');
+              for (const r of skill.learned_refinements) skillParts.push(`- ${r}`);
+            }
+            if (skill.failure_modes.length > 0) {
+              skillParts.push('\n**Known failure modes (avoid):**');
+              for (const f of skill.failure_modes) skillParts.push(`- [!] ${f}`);
+            }
+            if (skill.tools_granted.length > 0) {
+              skillParts.push(`\nTools available: ${skill.tools_granted.join(', ')}`);
+            }
+            skillParts.push('');
+          }
+          history.push({ role: 'user', content: skillParts.join('\n'), timestamp: Date.now() });
+        }
+      } catch (err) {
+        console.warn(`[${this.archetype}Runner] Skill context load failed for ${config.role}:`, (err as Error).message);
+      }
+    }
+
     // ─── Pre-load constitution for prompt injection ───────────
     if (safeDeps.constitutionalGovernor) {
       try {

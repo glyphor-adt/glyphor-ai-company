@@ -20,7 +20,7 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface ContentCreatorRunParams {
-  task?: 'blog_draft' | 'social_batch' | 'performance_review' | 'on_demand';
+  task?: 'blog_draft' | 'social_batch' | 'performance_review' | 'work_loop' | 'proactive' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
 }
@@ -59,6 +59,10 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
       break;
     case 'performance_review':
       initialMessage = `Analyze content performance over the last 30 days. Identify top performing pieces, underperforming content, and trends. Recommend topics and formats for next sprint.`;
+      break;
+    case 'work_loop':
+    case 'proactive':
+      initialMessage = params.message || `You have been activated for your work loop. Check your pending assignments and messages, then take action. Produce content deliverables — do not just acknowledge. Use your tools to draft, create, and submit work.`;
       break;
     case 'on_demand':
       initialMessage = params.message || 'Create content as directed.';
