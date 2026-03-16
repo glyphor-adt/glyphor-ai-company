@@ -54,7 +54,7 @@ export const CACHE_TTL = {
   reasoning: 120,      // 2 min — reasoning results
   value: 300,          // 5 min — value assessments
   wave: 600,           // 10 min — wave dispatch context
-  pulse: 120,          // 2 min — company pulse
+  vitals: 120,         // 2 min — company vitals
   kb: 600,             // 10 min — knowledge base
   bulletins: 300,      // 5 min — founder bulletins
   reasoningConfig: 600, // 10 min — per-agent reasoning config

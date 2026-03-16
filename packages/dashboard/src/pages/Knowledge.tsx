@@ -112,7 +112,7 @@ function KnowledgeBase() {
     const [kbData, bulData, pulseData, nodesData, edgesData] = await Promise.all([
       apiCall<KBSection[]>('/api/company-knowledge-base?is_active=true'),
       apiCall<Bulletin[]>('/api/founder-bulletins?is_active=true'),
-      apiCall<Pulse>('/api/company-pulse'),
+      apiCall<Pulse>('/api/company-vitals'),
       apiCall<{ node_type: string }[]>('/api/kg-nodes?fields=node_type'),
       apiCall<{ count: number }>('/api/kg-edges?count=true'),
     ]);
@@ -157,7 +157,7 @@ function KnowledgeBase() {
       {/* ─── Health Summary ──────────── */}
       <HealthSummary sections={sections} bulletins={bulletins} pulse={pulse} kgStats={kgStats} />
 
-      {/* ─── Company Heartbeat ────────── */}
+      {/* ─── Company Vitals ────────── */}
       <PulseWidget pulse={pulse} onRefresh={refresh} />
 
       {/* ─── Founder Bulletins ────────── */}
@@ -241,7 +241,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
   async function handleSave() {
     setSaving(true);
     try {
-      await apiCall('/api/company-pulse/current', {
+      await apiCall('/api/company-vitals/current', {
         method: 'PATCH',
         body: JSON.stringify({
           mrr: form.mrr,
@@ -262,8 +262,8 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
   if (!pulse) {
     return (
       <Card>
-        <SectionHeader title="Company Heartbeat" />
-        <p className="text-sm text-txt-faint">No heartbeat data available. Run the migration to seed initial values.</p>
+        <SectionHeader title="Company Vitals" />
+        <p className="text-sm text-txt-faint">No vitals data available. Run the migration to seed initial values.</p>
       </Card>
     );
   }
@@ -274,7 +274,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
   return (
     <Card>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-txt-primary">Company Heartbeat</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Company Vitals</h2>
         <div className="flex items-center gap-3">
           <span className="text-[11px] text-txt-faint">Updated {timeAgo(pulse.updated_at)}</span>
           <button

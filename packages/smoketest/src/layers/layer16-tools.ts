@@ -108,7 +108,9 @@ interface FactoryEntry {
 
 const MOCK_COLLECTIVE_INTELLIGENCE = {
   getPulse: async () => ({}),
+  getVitals: async () => ({}),
   updatePulse: async (_updates: Record<string, unknown>) => {},
+  updateVitals: async (_updates: Record<string, unknown>) => {},
   saveCompanyKnowledge: async (_input: Record<string, unknown>) => 'ci-knowledge-1',
   getCompanyKnowledge: async (_opts?: Record<string, unknown>) => [],
   getKnowledgeBaseSections: async () => [],

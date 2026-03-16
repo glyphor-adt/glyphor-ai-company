@@ -98,7 +98,7 @@ export function useRealtimeActivity(onNew: (entry: ActivityEntry) => void) {
   }, [onNew]);
 }
 
-/* ─── Company Pulse (singleton) ───────────── */
+/* ─── Company Vitals (singleton) ───────────── */
 export function useCompanyPulse() {
   const [data, setData] = useState<CompanyPulse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,7 +106,7 @@ export function useCompanyPulse() {
   useEffect(() => {
     (async () => {
       try {
-        const row = await apiCall<CompanyPulse>('/api/company-pulse');
+        const row = await apiCall<CompanyPulse>('/api/company-vitals');
         setData(row ?? null);
       } catch {
         setData(null);

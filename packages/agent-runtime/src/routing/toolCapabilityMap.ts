@@ -242,9 +242,9 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   send_briefing: ['simple_tool_calling'],
 
   // Collective intelligence + graph
-  get_company_pulse: ['structured_extraction'],
-  update_company_pulse: ['structured_extraction'],
-  update_pulse_highlights: ['simple_tool_calling'],
+  get_company_vitals: ['structured_extraction'],
+  update_company_vitals: ['structured_extraction'],
+  update_vitals_highlights: ['simple_tool_calling'],
   contribute_knowledge: ['simple_tool_calling'],
   promote_to_org_knowledge: ['simple_tool_calling'],
   get_org_knowledge: ['structured_extraction'],

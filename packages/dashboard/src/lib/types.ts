@@ -157,8 +157,6 @@ export type CompanyPulse = {
   mrr: number | null;
   mrr_change_pct: number | null;
   active_users: number | null;
-  new_users_today: number | null;
-  churn_events_today: number | null;
   platform_status: string;
   active_incidents: number | null;
   decisions_pending: number | null;
@@ -686,7 +684,7 @@ const _toolReq = ['request_tool_access', 'request_new_tool'] as const;
 const _toolGrant = ['grant_tool_access', 'revoke_tool_access'] as const;
 const _graph = ['trace_causes', 'trace_impact', 'query_knowledge_graph', 'add_knowledge'] as const;
 const _sp    = ['upload_to_sharepoint'] as const;
-const _ci    = ['get_company_pulse', 'update_company_pulse', 'update_pulse_highlights', 'promote_to_org_knowledge', 'get_org_knowledge', 'create_knowledge_route', 'get_knowledge_routes', 'detect_contradictions', 'record_process_pattern', 'get_process_patterns', 'propose_authority_change', 'get_authority_proposals'] as const;
+const _ci    = ['get_company_vitals', 'update_company_vitals', 'update_vitals_highlights', 'promote_to_org_knowledge', 'get_org_knowledge', 'create_knowledge_route', 'get_knowledge_routes', 'detect_contradictions', 'record_process_pattern', 'get_process_patterns', 'propose_authority_change', 'get_authority_proposals'] as const;
 const _agentCreate = ['create_specialist_agent', 'list_my_created_agents', 'retire_created_agent'] as const;
 const _agentDir = ['get_agent_directory', 'who_handles'] as const;
 const _core  = [..._mem, ..._comm, ..._dm, ..._event, ..._assign, ..._toolReq] as const;

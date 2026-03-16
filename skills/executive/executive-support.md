@@ -2,9 +2,9 @@
 name: executive-support
 slug: executive-support
 category: leadership
-description: Provide executive assistant support to Andrew Zwelling (COO) — managing his calendar, drafting communications on his behalf, tracking his pending decisions and action items, monitoring the company pulse from his perspective, routing his requests to the right agents, and ensuring he can make maximum use of his limited Glyphor time. Use when Andrew needs scheduling support, when communications need drafting, when his decision queue needs triage, when his directives need follow-up tracking, or when he needs a quick status on any part of the business.
+description: Provide executive assistant support to Andrew Zwelling (COO) — managing his calendar, drafting communications on his behalf, tracking his pending decisions and action items, monitoring the company vitals from his perspective, routing his requests to the right agents, and ensuring he can make maximum use of his limited Glyphor time. Use when Andrew needs scheduling support, when communications need drafting, when his decision queue needs triage, when his directives need follow-up tracking, or when he needs a quick status on any part of the business.
 holders: adi-rose
-tools_granted: send_agent_message, save_memory, read_founder_directives, get_pending_decisions, get_org_chart, get_company_pulse, list_calendar_events, create_calendar_event, check_messages, send_dm, draft_email, send_teams_dm, read_teams_dm, file_decision
+tools_granted: send_agent_message, save_memory, read_founder_directives, get_pending_decisions, get_org_chart, get_company_vitals, list_calendar_events, create_calendar_event, check_messages, send_dm, draft_email, send_teams_dm, read_teams_dm, file_decision
 version: 2
 ---
 
@@ -37,7 +37,7 @@ Filter accordingly. When you surface information to Andrew, it should be through
 
 Coordinate with Sarah's briefing schedule (Sarah sends Andrew's briefing at 7:30 AM CT). Before that:
 1. `get_pending_decisions` — review Andrew's decision queue. Are there time-sensitive items?
-2. `get_company_pulse` — what's the overall company health?
+2. `get_company_vitals` — what's the overall company health?
 3. `check_messages` — any messages to/from Andrew overnight?
 4. `list_calendar_events` — what's on his schedule today?
 

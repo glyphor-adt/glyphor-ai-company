@@ -225,13 +225,13 @@ Log your findings as an activity.`;
       initialMessage = `Perform the weekly collective intelligence review for the week ending ${today}.
 
 Steps:
-1. Use get_company_pulse to review the current company pulse
+1. Use get_company_vitals to review the current company vitals
 2. Use get_org_knowledge to review recent org-level knowledge entries
 3. Use get_process_patterns to check for recurring patterns across teams
 4. Use detect_contradictions to find conflicting beliefs between agents
 5. Use get_authority_proposals to review any pending governance changes
 6. Promote the most important learnings from the week to org knowledge using promote_to_org_knowledge
-7. Update the company pulse with current highlights using update_pulse_highlights
+7. Update the company vitals with current highlights using update_vitals_highlights
 8. Use get_knowledge_routes to verify routing rules are working well
 
 ## WEEKLY OPS DIGEST — Voice & World Model Health
@@ -259,13 +259,13 @@ Goal: Ensure the collective intelligence of the organization is healthy, contrad
       initialMessage = `Conduct the monthly collective intelligence retrospective for ${today}.
 
 Steps:
-1. Use get_company_pulse to review current organizational state
+1. Use get_company_vitals to review current organizational state
 2. Use get_process_patterns to identify workflow patterns, bottlenecks, and successful collaborations from the past month
 3. Use detect_contradictions to find any persistent cross-agent disagreements
 4. Use get_authority_proposals to review and resolve pending governance proposals
 5. Record new process patterns you observe using record_process_pattern
 6. If any authority levels need adjustment based on evidence, use propose_authority_change
-7. Update the company pulse with a monthly summary using update_company_pulse
+7. Update the company vitals with a monthly summary using update_company_vitals
 
 Goal: Drive organizational learning — identify what worked, what didn't, and how the company's collective decision-making can improve.`;
       break;
@@ -323,7 +323,7 @@ Steps:
 1. Use read_company_doctrine to load the current doctrine and operating principles
 2. Use read_initiatives to review proposed, approved, active, and completed initiatives
 3. Use read_founder_directives to inspect active directives and execution progress
-4. Use get_company_pulse to ground decisions in current company state
+4. Use get_company_vitals to ground decisions in current company state
 5. Use get_deliverables to review recent published artifacts tied to strategic work
 6. Identify doctrine gaps that are not already covered by active or approved work
 7. Propose at most 5 high-value initiatives using propose_initiative

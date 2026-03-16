@@ -102,7 +102,7 @@ Steps:
 8. IMPORTANT: Update the company knowledge base "Current Metrics" section with the latest numbers:
    a. Use read_company_doctrine with section_filter "metrics" to get the section ID
    b. Use update_doctrine_section with the section ID and updated content including current MRR, paying users, build success rates, infrastructure cost MTD, gross margin, and active agent count
-   c. Also update the company pulse via update_company_pulse with mrr and mrr_change_pct`;
+   c. Also update the company vitals via update_company_vitals with mrr and mrr_change_pct`;
       break;
 
     case 'weekly_financial_summary':

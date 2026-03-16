@@ -220,7 +220,7 @@ Full list from packages/agent-runtime/src/toolRegistry.ts KNOWN_TOOLS:
 - get_code_coverage
 - get_cohort_retention
 - get_color_palette
-- get_company_pulse
+- get_company_vitals
 - get_competitor_profile
 - get_compliance_status
 - get_component_library
@@ -589,7 +589,7 @@ Full list from packages/agent-runtime/src/toolRegistry.ts KNOWN_TOOLS:
 - track_regulatory_changes
 - trigger_agent_run
 - update_agent_profile
-- update_company_pulse
+- update_company_vitals
 - update_competitor_profile
 - update_compliance_item
 - update_content_draft
@@ -597,7 +597,7 @@ Full list from packages/agent-runtime/src/toolRegistry.ts KNOWN_TOOLS:
 - update_directive_progress
 - update_doctrine_section
 - update_growth_areas
-- update_pulse_highlights
+- update_vitals_highlights
 - update_roadmap_item
 - update_seo_data
 - update_template_status

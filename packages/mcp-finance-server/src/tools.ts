@@ -180,16 +180,16 @@ export const tools: ToolDefinition[] = [
     },
   },
 
-  // ── Company Pulse ────────────────────────────────────────
+  // ── Company Vitals ────────────────────────────────────────
   {
-    name: 'query_company_pulse',
-    description: 'Get the current company pulse snapshot including MRR, active users, platform status, and mood.',
+    name: 'query_company_vitals',
+    description: 'Get the current company vitals snapshot including MRR, active users, and mood.',
     inputSchema: {
       type: 'object',
       properties: {},
     },
     async handler(pool) {
-      const { rows } = await pool.query(`SELECT * FROM company_pulse ORDER BY updated_at DESC LIMIT 1`);
+      const { rows } = await pool.query(`SELECT * FROM company_vitals ORDER BY updated_at DESC LIMIT 1`);
       return rows;
     },
   },

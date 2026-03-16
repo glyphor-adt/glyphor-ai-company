@@ -72,7 +72,7 @@ const TOOL_PLATFORM_MAP: Record<string, ToolPlatform> = {
   get_agent_directory: 'core', who_handles: 'core',
 
   // Governance & Company Intelligence
-  get_company_pulse: 'governance', update_company_pulse: 'governance', update_pulse_highlights: 'governance',
+  get_company_vitals: 'governance', update_company_vitals: 'governance', update_vitals_highlights: 'governance',
   promote_to_org_knowledge: 'governance', get_org_knowledge: 'governance',
   create_knowledge_route: 'governance', get_knowledge_routes: 'governance',
   detect_contradictions: 'governance', record_process_pattern: 'governance', get_process_patterns: 'governance',

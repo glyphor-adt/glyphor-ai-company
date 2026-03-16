@@ -119,7 +119,7 @@ export class SharedMemoryLoader {
   // ─── Layer 1: Working Memory ────────────────────────────────
 
   private async getWorkingMemory(): Promise<SharedMemoryContext['working']> {
-    const [countResult, alertResult, pulseResult] = await Promise.all([
+    const [countResult, alertResult, vitalsResult] = await Promise.all([
       systemQuery<{ count: string }>(
         "SELECT COUNT(*) as count FROM work_assignments WHERE status = ANY($1)",
         [['pending', 'dispatched', 'in_progress']],
@@ -129,14 +129,14 @@ export class SharedMemoryLoader {
         ['alert.triggered', new Date(Date.now() - 10 * 60 * 1000).toISOString()],
       ),
       systemQuery<any>(
-        'SELECT * FROM company_pulse ORDER BY updated_at DESC LIMIT 1',
+        'SELECT * FROM company_vitals ORDER BY updated_at DESC LIMIT 1',
       ),
     ]);
 
     return {
       activeAssignments: Number(countResult[0]?.count ?? 0),
       alerts: alertResult.map((e: any) => e.payload?.message ?? 'Alert'),
-      companyPulse: pulseResult[0] ?? undefined,
+      companyPulse: vitalsResult[0] ?? undefined,
     };
   }
 

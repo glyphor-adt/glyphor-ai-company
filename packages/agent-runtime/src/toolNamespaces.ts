@@ -33,7 +33,7 @@ export const TOOL_NAMESPACES: ToolNamespaceConfig[] = [
   {
     name: 'operations',
     description: 'Agent health, run operations, retries, incidents, and operational reporting.',
-    toolPrefixes: ['query_agent', 'get_agent', 'rollup_agent', 'trigger_agent', 'pause_agent', 'resume_agent', 'retry_failed', 'retry_data_sync', 'get_event_bus', 'check_tool_health', 'get_platform_health', 'get_system_cost', 'post_system_status', 'get_process_patterns', 'record_process', 'get_company_pulse', 'update_company_pulse', 'write_health_report', 'create_incident', 'resolve_incident'],
+    toolPrefixes: ['query_agent', 'get_agent', 'rollup_agent', 'trigger_agent', 'pause_agent', 'resume_agent', 'retry_failed', 'retry_data_sync', 'get_event_bus', 'check_tool_health', 'get_platform_health', 'get_system_cost', 'post_system_status', 'get_process_patterns', 'record_process', 'get_company_vitals', 'update_company_vitals', 'write_health_report', 'create_incident', 'resolve_incident'],
   },
   {
     name: 'legal',

@@ -4,7 +4,7 @@ slug: decision-routing
 category: leadership
 description: Classify, route, and track decisions through Glyphor's three-tier authority model (Green/Yellow/Red) — determining which decisions agents can make autonomously, which need one founder's review, and which require both founders. Use when any agent files a decision, when decisions are pending in the queue, when founders need to be briefed on pending approvals, when decision patterns need analysis for authority adjustments, or when the governance system itself needs tuning. This is the mechanism that balances agent autonomy with founder oversight.
 holders: chief-of-staff
-tools_granted: file_decision, get_pending_decisions, send_agent_message, read_founder_directives, get_company_pulse, get_authority_proposals, propose_authority_change, save_memory, send_briefing, send_teams_dm
+tools_granted: file_decision, get_pending_decisions, send_agent_message, read_founder_directives, get_company_vitals, get_authority_proposals, propose_authority_change, save_memory, send_briefing, send_teams_dm
 version: 2
 ---
 

@@ -64,7 +64,7 @@ export default function FounderBriefing() {
       />
 
       <div className="space-y-5">
-        {/* ── Company Pulse ─────────────────── */}
+        {/* ── Company Vitals ─────────────────── */}
         {pulse && (
           <div className="rounded-lg border border-border bg-raised/50 p-3.5">
             <div className="flex items-center gap-2 mb-3">
@@ -72,9 +72,9 @@ export default function FounderBriefing() {
               <span className="text-[13px] font-semibold text-txt-primary capitalize">
                 {pulse.company_mood}
               </span>
-              {pulse.platform_status && pulse.platform_status !== 'green' && (
+              {pulse.platform_status && pulse.platform_status !== 'green' && pulse.platform_status !== 'healthy' && (
                 <span className={`ml-auto text-[11px] font-medium ${
-                  pulse.platform_status === 'red' ? 'text-prism-critical' : 'text-prism-elevated'
+                  pulse.platform_status === 'red' || pulse.platform_status === 'critical' ? 'text-prism-critical' : 'text-prism-elevated'
                 }`}>
                   Platform {pulse.platform_status}
                 </span>
@@ -90,16 +90,6 @@ export default function FounderBriefing() {
               )}
               {pulse.active_users != null && (
                 <PulseMetric label="Active Users" value={String(pulse.active_users)} />
-              )}
-              {pulse.new_users_today != null && (
-                <PulseMetric label="New Today" value={`+${pulse.new_users_today}`} />
-              )}
-              {pulse.churn_events_today != null && (
-                <PulseMetric
-                  label="Churn Events"
-                  value={String(pulse.churn_events_today)}
-                  alert={pulse.churn_events_today > 0}
-                />
               )}
             </div>
           </div>

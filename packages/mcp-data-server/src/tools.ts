@@ -106,14 +106,14 @@ export const tools: ToolDefinition[] = [
     },
   },
   {
-    name: 'query_company_pulse',
-    description: 'Query the latest company pulse snapshot.',
+    name: 'query_company_vitals',
+    description: 'Query the latest company vitals snapshot.',
     inputSchema: {
       type: 'object',
       properties: {},
     },
     async handler(pool) {
-      const { rows } = await pool.query(`SELECT * FROM company_pulse ORDER BY updated_at DESC LIMIT 1`);
+      const { rows } = await pool.query(`SELECT * FROM company_vitals ORDER BY updated_at DESC LIMIT 1`);
       return rows;
     },
   },

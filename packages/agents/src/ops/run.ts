@@ -204,7 +204,7 @@ Goal: Keep the organization's collective knowledge consistent and flag disagreem
       initialMessage = `Perform knowledge hygiene maintenance for ${today}.
 
 Steps:
-1. Use get_company_pulse to review current organizational state
+1. Use get_company_vitals to review current organizational state
 2. Use get_knowledge_routes to verify all routing rules are still relevant
 3. Use get_org_knowledge to check for stale or outdated org-level knowledge
 4. Use get_process_patterns to identify patterns that may need attention

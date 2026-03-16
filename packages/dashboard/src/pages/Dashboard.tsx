@@ -322,8 +322,8 @@ export default function Dashboard() {
           kind: 'briefing',
           priority: 'high',
           title: 'Agent briefing is stale',
-          context: `The latest company pulse was updated ${pulse?.updated_at ? timeAgo(pulse.updated_at) : 'a while ago'}, which means your briefing surface is drifting out of date.`,
-          recommendation: 'Confirm Sarah’s scheduled briefing run is landing, then check channel delivery and company pulse writes.',
+          context: `The latest company vitals were updated ${pulse?.updated_at ? timeAgo(pulse.updated_at) : 'a while ago'}, which means your briefing surface is drifting out of date.`,
+          recommendation: 'Confirm Sarah's scheduled briefing run is landing, then check channel delivery and company vitals writes.',
           reviewTo: '/operations?tab=overview&focus=briefing',
         }]
       : [];
@@ -429,7 +429,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.3fr_0.9fr]">
         <HomeCard>
-          <SectionHeader title="Company Pulse" action={<Link to="/operations" className="text-[11px] text-cyan hover:underline">View all activity</Link>} />
+          <SectionHeader title="Company Vitals" action={<Link to="/operations" className="text-[11px] text-cyan hover:underline">View all activity</Link>} />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <PulseStat label="Runs completed" value={String(runsToday.length)} />
             <PulseStat label="Assignments active" value={String(activeAssignments)} />

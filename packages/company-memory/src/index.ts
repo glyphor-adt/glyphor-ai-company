@@ -3,6 +3,8 @@ export { EmbeddingClient } from './embeddingClient.js';
 export { NAMESPACES, GCS_PATHS } from './namespaces.js';
 export {
   CollectiveIntelligenceStore,
+  type CompanyVitals,
+  type VitalsHighlight,
   type CompanyPulse,
   type PulseHighlight,
   type CompanyKnowledgeEntry,

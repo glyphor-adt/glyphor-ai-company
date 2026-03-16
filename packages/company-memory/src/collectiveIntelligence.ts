@@ -2,7 +2,7 @@
  * Collective Intelligence — Organizational Cognition Layer
  *
  * Implements the three layers of collective intelligence:
- * Layer 1: Shared Situational Awareness (Company Pulse)
+ * Layer 1: Shared Situational Awareness (Company Vitals)
  * Layer 2: Knowledge Circulation (Routes, Inbox, Org Knowledge)
  * Layer 3: Organizational Learning (Process Patterns, Authority Proposals)
  */
@@ -15,29 +15,30 @@ import type { EmbeddingClient } from './embeddingClient.js';
 // TYPES
 // ═══════════════════════════════════════════════════════════════════
 
-export interface CompanyPulse {
+export interface CompanyVitals {
+  // Stored fields (writable by agents)
   mrr: number | null;
   mrr_change_pct: number | null;
   active_users: number | null;
-  new_users_today: number | null;
-  churn_events_today: number | null;
-  platform_status: string;
-  uptime_streak_days: number;
-  active_incidents: number;
-  avg_build_time_ms: number | null;
-  decisions_pending: number;
-  meetings_today: number;
-  messages_today: number;
-  highlights: PulseHighlight[];
+  highlights: VitalsHighlight[];
   company_mood: string;
   updated_at: string;
+  // Computed fields (live-queried, not stored)
+  platform_status: string;
+  active_incidents: number;
+  decisions_pending: number;
 }
 
-export interface PulseHighlight {
+export interface VitalsHighlight {
   agent: string;
   type: 'positive' | 'alert' | 'neutral';
   text: string;
 }
+
+/** @deprecated Use CompanyVitals instead */
+export type CompanyPulse = CompanyVitals;
+/** @deprecated Use VitalsHighlight instead */
+export type PulseHighlight = VitalsHighlight;
 
 export interface CompanyKnowledgeEntry {
   id: string;
@@ -285,51 +286,96 @@ export class CollectiveIntelligenceStore {
     );
   }
 
-  // ─── LAYER 1: COMPANY PULSE ─────────────────────────────────
+  // ─── LAYER 1: COMPANY VITALS ─────────────────────────────────
 
-  async getPulse(): Promise<CompanyPulse | null> {
-    const rows = await systemQuery<CompanyPulse>(
-      "SELECT * FROM company_pulse WHERE id = 'current'",
-    );
-    return rows[0] as CompanyPulse | null ?? null;
+  async getVitals(): Promise<CompanyVitals | null> {
+    // Fetch stored fields + compute live fields in parallel
+    const [storedRows, incidentRows, decisionRows, statusRows] = await Promise.all([
+      systemQuery<Record<string, unknown>>(
+        "SELECT * FROM company_vitals WHERE id = 'current'",
+      ),
+      systemQuery<{ count: string }>(
+        "SELECT COUNT(*)::text as count FROM incidents WHERE resolved_at IS NULL",
+      ),
+      systemQuery<{ count: string }>(
+        "SELECT COUNT(*)::text as count FROM decisions WHERE status = 'pending'",
+      ),
+      systemQuery<{ status: string }>(
+        "SELECT status FROM system_status ORDER BY created_at DESC LIMIT 1",
+      ),
+    ]);
+
+    const stored = storedRows[0];
+    if (!stored) return null;
+
+    return {
+      mrr: stored.mrr as number | null,
+      mrr_change_pct: stored.mrr_change_pct as number | null,
+      active_users: stored.active_users as number | null,
+      highlights: (stored.highlights ?? []) as VitalsHighlight[],
+      company_mood: (stored.company_mood as string) ?? 'steady',
+      updated_at: (stored.updated_at as string) ?? new Date().toISOString(),
+      // Computed live
+      platform_status: (statusRows[0]?.status as string) ?? 'healthy',
+      active_incidents: Number(incidentRows[0]?.count ?? 0),
+      decisions_pending: Number(decisionRows[0]?.count ?? 0),
+    };
   }
 
-  async updatePulse(updates: Partial<CompanyPulse>): Promise<void> {
+  /** @deprecated Use getVitals() */
+  async getPulse(): Promise<CompanyVitals | null> {
+    return this.getVitals();
+  }
+
+  async updateVitals(updates: Partial<CompanyVitals>): Promise<void> {
+    // Filter out computed fields — they can't be written
+    const { platform_status: _ps, active_incidents: _ai, decisions_pending: _dp, ...writableUpdates } = updates;
     const fields: string[] = [];
     const params: any[] = [];
 
-    for (const [key, value] of Object.entries({ ...updates, updated_at: new Date().toISOString() })) {
+    for (const [key, value] of Object.entries({ ...writableUpdates, updated_at: new Date().toISOString() })) {
       params.push(typeof value === 'object' && value !== null ? JSON.stringify(value) : value);
       fields.push(`${key} = $${params.length}`);
     }
 
+    if (fields.length === 0) return;
+
     await systemQuery(
-      `UPDATE company_pulse SET ${fields.join(', ')} WHERE id = 'current'`,
+      `UPDATE company_vitals SET ${fields.join(', ')} WHERE id = 'current'`,
       params,
     );
   }
 
-  /**
-   * Format company pulse as a concise context string for agent injection.
-   */
-  async formatPulseContext(): Promise<string> {
-    const pulse = await this.getPulse();
-    if (!pulse) return '';
+  /** @deprecated Use updateVitals() */
+  async updatePulse(updates: Partial<CompanyVitals>): Promise<void> {
+    return this.updateVitals(updates);
+  }
 
-    const mrrStr = pulse.mrr != null
-      ? `$${pulse.mrr}${pulse.mrr_change_pct != null ? ` (${pulse.mrr_change_pct > 0 ? '+' : ''}${pulse.mrr_change_pct}%)` : ''}`
+  /**
+   * Format company vitals as a concise context string for agent injection.
+   */
+  async formatVitalsContext(): Promise<string> {
+    const vitals = await this.getVitals();
+    if (!vitals) return '';
+
+    const mrrStr = vitals.mrr != null
+      ? `$${vitals.mrr}${vitals.mrr_change_pct != null ? ` (${vitals.mrr_change_pct > 0 ? '+' : ''}${vitals.mrr_change_pct}%)` : ''}`
       : 'unknown';
 
-    const highlights = (pulse.highlights ?? [])
-      .map((h: PulseHighlight) =>
+    const highlights = (vitals.highlights ?? [])
+      .map((h: VitalsHighlight) =>
         `${h.type === 'alert' ? '[!]' : h.type === 'positive' ? '+' : '-'} ${h.text}`)
       .join('\n');
 
-    return `## Company Pulse (as of ${pulse.updated_at})
-MRR: ${mrrStr} · Users: ${pulse.active_users ?? '?'} · Platform: ${pulse.platform_status} · Uptime: Day ${pulse.uptime_streak_days} · Mood: ${pulse.company_mood}
-Pending decisions: ${pulse.decisions_pending} · Incidents: ${pulse.active_incidents}
+    return `## Company Vitals (as of ${vitals.updated_at})
+MRR: ${mrrStr} · Users: ${vitals.active_users ?? '?'} · Platform: ${vitals.platform_status} · Mood: ${vitals.company_mood}
+Pending decisions: ${vitals.decisions_pending} · Incidents: ${vitals.active_incidents}
 ${highlights || '(no highlights)'}`;
   }
+
+  /** @deprecated Use formatVitalsContext() */
+  async formatPulseContext(): Promise<string> {
+    return this.formatVitalsContext();
 
   // ─── LAYER 2: KNOWLEDGE CIRCULATION ─────────────────────────
 

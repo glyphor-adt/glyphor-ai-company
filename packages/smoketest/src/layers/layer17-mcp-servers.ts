@@ -33,7 +33,7 @@ const MCP_SERVERS: McpServerDef[] = [
     expectedMinTools: 12,
     expectedToolNames: [
       'query_content_drafts', 'query_content_metrics', 'query_seo_data',
-      'query_financials', 'query_company_pulse', 'query_analytics_events',
+      'query_financials', 'query_company_vitals', 'query_analytics_events',
       'query_support_tickets', 'query_company_research', 'query_agent_runs',
       'query_agent_activities', 'query_incidents', 'query_data_sync_status',
     ],
@@ -45,7 +45,7 @@ const MCP_SERVERS: McpServerDef[] = [
     expectedToolNames: [
       'query_stripe_data', 'query_gcp_billing', 'query_cost_metrics',
       'query_api_billing', 'query_infrastructure_costs', 'query_financials',
-      'query_company_pulse',
+      'query_company_vitals',
     ],
   },
   {

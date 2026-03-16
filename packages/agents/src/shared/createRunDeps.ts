@@ -158,9 +158,9 @@ export function createRunDeps(
       }
       const parts: string[] = [];
 
-      // Layer 1: Company Pulse
-      const pulseCtx = await ci.formatPulseContext();
-      if (pulseCtx) parts.push(pulseCtx);
+      // Layer 1: Company Vitals
+      const vitalsCtx = await ci.formatVitalsContext();
+      if (vitalsCtx) parts.push(vitalsCtx);
 
       // Layer 2a: Knowledge Inbox (routed knowledge from colleagues)
       const inboxCtx = await ci.formatKnowledgeInboxContext(role);

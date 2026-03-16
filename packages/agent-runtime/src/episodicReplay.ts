@@ -115,8 +115,8 @@ export class EpisodicReplay {
         }
       }
 
-      // 5. Update pulse highlights
-      await this.updatePulseHighlights(patterns);
+      // 5. Update vitals highlights
+      await this.updateVitalsHighlights(patterns);
 
     } catch (err) {
       result.errors.push(`Replay cycle failed: ${(err as Error).message}`);
@@ -284,7 +284,7 @@ If no clear patterns, return [].`,
     );
   }
 
-  private async updatePulseHighlights(patterns: ExtractedPattern[]): Promise<void> {
+  private async updateVitalsHighlights(patterns: ExtractedPattern[]): Promise<void> {
     const highlights = patterns
       .filter(p => p.sentiment !== 'neutral')
       .slice(0, 3)
@@ -296,17 +296,17 @@ If no clear patterns, return [].`,
 
     if (highlights.length === 0) return;
 
-    // Merge with existing pulse highlights (keep last 10)
-    const [pulse] = await systemQuery<{ highlights: unknown }>(
-      'SELECT highlights FROM company_pulse LIMIT 1',
+    // Merge with existing vitals highlights (keep last 10)
+    const [vitals] = await systemQuery<{ highlights: unknown }>(
+      'SELECT highlights FROM company_vitals LIMIT 1',
       [],
     );
 
-    const existing = Array.isArray(pulse?.highlights) ? pulse.highlights : [];
+    const existing = Array.isArray(vitals?.highlights) ? vitals.highlights : [];
     const merged = [...highlights, ...existing].slice(0, 10);
 
     await systemQuery(
-      'UPDATE company_pulse SET highlights = $1, updated_at = $2 WHERE id IS NOT NULL',
+      'UPDATE company_vitals SET highlights = $1, updated_at = $2 WHERE id IS NOT NULL',
       [JSON.stringify(merged), new Date().toISOString()],
     );
   }

@@ -30,9 +30,9 @@ const KNOWN_TOOLS = new Set([
   'who_handles',
 
   // ── Collective Intelligence tools ──
-  'get_company_pulse',
-  'update_company_pulse',
-  'update_pulse_highlights',
+  'get_company_vitals',
+  'update_company_vitals',
+  'update_vitals_highlights',
   'contribute_knowledge',
   'promote_to_org_knowledge',
   'get_org_knowledge',

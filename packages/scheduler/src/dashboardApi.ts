@@ -83,7 +83,7 @@ const TABLE_MAP: Record<string, string> = {
   'dashboard-users': 'dashboard_users',
   'company-knowledge-base': 'company_knowledge_base',
   'company_knowledge': 'company_knowledge',
-  'company-pulse': 'company_pulse',
+  'company-vitals': 'company_vitals',
   'kg-nodes': 'kg_nodes',
   'kg-edges': 'kg_edges',
   'incidents': 'incidents',
@@ -515,28 +515,39 @@ export async function handleDashboardApi(
   try {
     // ── Special endpoints ───────────────────────────────────────
 
-    // GET /api/company-pulse → return latest single row (not array)
-    if (tableName === 'company_pulse' && method === 'GET' && !resourceId) {
-      const rows = await systemQuery('SELECT * FROM company_pulse ORDER BY updated_at DESC LIMIT 1');
-      jsonResponse(res, 200, rows[0] ?? null);
+    // GET /api/company-vitals → return latest row with live-computed fields
+    if ((tableName === 'company_vitals' || tableName === 'company_pulse') && method === 'GET' && !resourceId) {
+      const [storedRows, incidentRows, decisionRows, statusRows] = await Promise.all([
+        systemQuery('SELECT * FROM company_vitals ORDER BY updated_at DESC LIMIT 1'),
+        systemQuery<{ count: string }>("SELECT COUNT(*)::text as count FROM incidents WHERE resolved_at IS NULL"),
+        systemQuery<{ count: string }>("SELECT COUNT(*)::text as count FROM decisions WHERE status = 'pending'"),
+        systemQuery<{ status: string }>("SELECT status FROM system_status ORDER BY created_at DESC LIMIT 1"),
+      ]);
+      const stored = storedRows[0] ?? null;
+      if (stored) {
+        (stored as any).platform_status = (statusRows[0]?.status as string) ?? 'healthy';
+        (stored as any).active_incidents = Number(incidentRows[0]?.count ?? 0);
+        (stored as any).decisions_pending = Number(decisionRows[0]?.count ?? 0);
+      }
+      jsonResponse(res, 200, stored);
       return true;
     }
 
-    if (tableSlug === 'company-pulse' && resourceId === 'current') {
+    if ((tableSlug === 'company-vitals' || tableSlug === 'company-pulse') && resourceId === 'current') {
       if (method === 'POST') {
         const body = JSON.parse(await readBody(req));
         const existing = await systemQuery<{ id: string }>(
-          'SELECT id FROM company_pulse ORDER BY updated_at DESC LIMIT 1',
+          'SELECT id FROM company_vitals ORDER BY updated_at DESC LIMIT 1',
         );
         if (existing.length > 0) {
           await systemQuery(
-            'UPDATE company_pulse SET summary = $1, highlights = $2, updated_at = NOW() WHERE id = $3',
-            [body.summary, JSON.stringify(body.highlights), existing[0].id],
+            'UPDATE company_vitals SET highlights = $1, updated_at = NOW() WHERE id = $2',
+            [JSON.stringify(body.highlights), existing[0].id],
           );
         } else {
           await systemQuery(
-            'INSERT INTO company_pulse (summary, highlights) VALUES ($1, $2)',
-            [body.summary, JSON.stringify(body.highlights)],
+            'INSERT INTO company_vitals (highlights) VALUES ($1)',
+            [JSON.stringify(body.highlights)],
           );
         }
         jsonResponse(res, 200, { success: true });

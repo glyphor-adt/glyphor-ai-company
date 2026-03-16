@@ -4,7 +4,7 @@ slug: cross-team-coordination
 category: leadership
 description: Orchestrate work across departments by decomposing founder directives into work assignments, routing them to the right agents, tracking progress through completion, resolving cross-team conflicts and dependencies, and synthesizing multi-agent output into coherent executive deliverables. Use when a new directive arrives, when work needs to flow between departments, when an assignment is blocked on another team's output, when agents need coordination for a multi-step initiative, or when the founders need a synthesized cross-functional view. This is the central nervous system of the autonomous organization.
 holders: chief-of-staff, adi-rose
-tools_granted: send_agent_message, create_work_assignments, dispatch_assignment, evaluate_assignment, review_team_output, read_founder_directives, update_directive_progress, get_pending_decisions, get_org_chart, get_agent_directory, get_company_pulse, update_company_pulse, trigger_agent_run, get_deliverables, read_initiatives, propose_initiative, propose_directive, send_briefing, read_company_memory, write_company_memory, file_decision, save_memory
+tools_granted: send_agent_message, create_work_assignments, dispatch_assignment, evaluate_assignment, review_team_output, read_founder_directives, update_directive_progress, get_pending_decisions, get_org_chart, get_agent_directory, get_company_vitals, update_company_vitals, trigger_agent_run, get_deliverables, read_initiatives, propose_initiative, propose_directive, send_briefing, read_company_memory, write_company_memory, file_decision, save_memory
 version: 2
 ---
 
@@ -160,11 +160,11 @@ When all assignments for a directive are complete, you synthesize:
 5. Update the directive as complete via `update_directive_progress`
 6. Deliver to founders via appropriate channel (briefing, Teams, or direct message)
 
-## Company Pulse
+## Company Vitals
 
-You maintain the company pulse — the at-a-glance health score visible in the dashboard.
+You maintain the Company Vitals — the at-a-glance health score visible in the dashboard.
 
-`get_company_pulse` → assess → `update_company_pulse`
+`get_company_vitals` → assess → `update_company_vitals`
 
 The pulse should reflect:
 - System health (from Ops)

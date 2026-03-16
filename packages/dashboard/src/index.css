@@ -585,11 +585,15 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .bg-raised {
-  background-color: rgba(7, 11, 19, 0.84) !important;
+  background-color: rgba(17, 25, 40, 0.62) !important;
+  backdrop-filter: var(--glass-filter) !important;
+  -webkit-backdrop-filter: var(--glass-filter) !important;
 }
 
 .dark .bg-surface {
-  background-color: rgba(9, 13, 22, 0.88) !important;
+  background-color: rgba(17, 25, 40, 0.72) !important;
+  backdrop-filter: var(--glass-filter) !important;
+  -webkit-backdrop-filter: var(--glass-filter) !important;
 }
 
 .dark .glass-panel .text-txt-secondary {

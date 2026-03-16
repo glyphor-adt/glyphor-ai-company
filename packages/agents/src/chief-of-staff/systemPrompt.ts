@@ -580,7 +580,7 @@ Before proposing anything, ground yourself in all five inputs:
 1. Company doctrine and operating principles — use read_company_doctrine
 2. Current initiatives and status — use read_initiatives
 3. Active directives and execution progress — use read_founder_directives
-4. Company pulse — use get_company_pulse
+4. company vitals — use get_company_vitals
 5. Recent shared artifacts — use get_deliverables
 
 ### Your Planning Workflow
@@ -604,7 +604,7 @@ Before proposing anything, ground yourself in all five inputs:
    - success_criteria
    - target_date
    - initial_directives (2-5 strong directive drafts when possible)
-   - reasoning grounded in doctrine, current execution state, and company pulse
+   - reasoning grounded in doctrine, current execution state, and company vitals
 
 4. **Sequence intelligently**
    Order initiatives by dependency chain and doctrine priority:

@@ -79,11 +79,11 @@ READ:  activity_log, decisions, agent_reflections, agent_memory,
        company_agents, events, financials (summary only),
        customer_health (summary only), competitive_intel (summary only),
        revenue (MRR total only), infrastructure_costs (total only),
-       company_pulse, company_knowledge, knowledge_inbox, knowledge_routes,
+       company_vitals, company_knowledge, knowledge_inbox, knowledge_routes,
        agent_messages, agent_meetings, kg_nodes, kg_edges, process_patterns,
        authority_proposals, agent_profiles, chat_messages
 WRITE: decisions, activity_log, weekly_agendas,
-       company_pulse, company_knowledge, knowledge_routes, knowledge_inbox
+       company_vitals, company_knowledge, knowledge_routes, knowledge_inbox
 ```
 
 ### Governance
@@ -1475,7 +1475,7 @@ Every agent receives the following tool modules via the `createRunDeps` factory 
 
 Available to **Chief of Staff** and **Ops** agents only. 12 tools across 6 domains:
 
-- **Pulse**: `get_company_pulse`, `record_pulse_snapshot` — real-time health readings
+- **Vitals**: `get_company_vitals`, `record_vitals_snapshot` — real-time health readings
 - **Knowledge**: `search_collective_knowledge`, `add_collective_knowledge` — shared knowledge base
 - **Routing**: `find_expert_for_task`, `get_team_capabilities` — skill-based task routing
 - **Contradictions**: `detect_contradictions`, `resolve_contradiction` — cross-agent conflict detection
@@ -1498,7 +1498,7 @@ The `createRunDeps` factory wires every agent run with these context loaders:
 | `agentProfileLoader` | Agent identity, persona, display name, avatar |
 | `pendingMessageLoader` | Unread inter-agent messages |
 | `dynamicBriefLoader` | Latest company brief for the agent's role |
-| `collectiveIntelligenceLoader` | Company pulse, graph context, recent patterns |
+| `collectiveIntelligenceLoader` | Company vitals, graph context, recent patterns |
 | `knowledgeRouter` | Routes tasks to agents with matching skills |
 | `workingMemoryLoader` | Short-term scratchpad from `working_memory` table |
 | `graphWriter` | Writes knowledge graph nodes/edges after each run |

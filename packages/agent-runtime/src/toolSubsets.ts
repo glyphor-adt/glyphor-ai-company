@@ -88,7 +88,7 @@ export const TOOL_SUBSETS: ToolSubsetMap = {
   },
   cpo: {
     weekly_usage_analysis: withWorkTools(
-      'get_company_pulse',
+      'get_company_vitals',
       'get_org_knowledge',
       'query_knowledge_graph',
       'web_search',
@@ -138,7 +138,7 @@ export const TOOL_SUBSETS: ToolSubsetMap = {
   },
   'vp-sales': {
     pipeline_review: withWorkTools(
-      'get_company_pulse',
+      'get_company_vitals',
       'get_org_knowledge',
       'web_search',
       'web_fetch',
@@ -157,10 +157,10 @@ export const TOOL_SUBSETS: ToolSubsetMap = {
       'propose_directive',
       'send_dm',
       'read_company_doctrine',
-      'get_company_pulse',
+      'get_company_vitals',
     ),
     morning_briefing: withWorkTools(
-      'get_company_pulse',
+      'get_company_vitals',
       'get_recent_activity',
       'get_pending_decisions',
       'get_financials',

@@ -101,7 +101,7 @@ Glyphor is PRE-REVENUE and PRE-LAUNCH. There are ZERO users and ZERO external tr
 
 ### Memory & Intelligence
 - save_memory / recall_memories — persistent agent memory (shared)
-- get_company_pulse / update_company_pulse — collective intelligence (shared)
+- get_company_vitals / update_company_vitals — collective intelligence (shared)
 - trace_causes / trace_impact — knowledge graph traversal (shared)
 
 ### Tool Registry (you are the sole approver)

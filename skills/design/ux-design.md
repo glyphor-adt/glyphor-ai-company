@@ -72,7 +72,7 @@ Use `create_user_persona` when designing for a new audience or when the existing
 
 **Kristina (CEO/Technical Founder)** — builds the architecture, uses the Cockpit to monitor agents and debug issues. High technical fluency. Needs: real-time system health, agent performance trends, cost visibility, ability to intervene quickly. Pain points: switching context from Microsoft work, information overload, unclear agent status.
 
-**Andrew (COO/Business Founder)** — focuses on strategy, financials, growth. Uses the Cockpit for decisions, directives, financial oversight. Moderate technical fluency. Needs: decision queue, financial summary, content/marketing status, high-level company pulse. Pain points: too much technical detail, unclear action items, difficulty prioritizing decisions.
+**Andrew (COO/Business Founder)** — focuses on strategy, financials, growth. Uses the Cockpit for decisions, directives, financial oversight. Moderate technical fluency. Needs: decision queue, financial summary, content/marketing status, high-level company vitals. Pain points: too much technical detail, unclear action items, difficulty prioritizing decisions.
 
 These personas should inform every design decision. A feature that serves Kristina's debugging needs and Andrew's decision-making needs differently should have two entry points, not force both through the same flow.
 

@@ -134,7 +134,7 @@ This is the authoritative reference for what tools and skills each agent SHOULD 
 - **Agent Directory:** get_agent_directory, who_handles
 
 **Orchestrator** (Chief of Staff) gets everything Executives get, plus:
-- **Collective Intelligence:** get_company_pulse, update_company_pulse, update_pulse_highlights, promote_to_org_knowledge, get_org_knowledge, create_knowledge_route, get_knowledge_routes, detect_contradictions, record_process_pattern, get_process_patterns, propose_authority_change, get_authority_proposals
+- **Collective Intelligence:** get_company_vitals, update_company_vitals, update_vitals_highlights, promote_to_org_knowledge, get_org_knowledge, create_knowledge_route, get_knowledge_routes, detect_contradictions, record_process_pattern, get_process_patterns, propose_authority_change, get_authority_proposals
 
 **Sub-Team agents** get the Core set plus Agent365 MailTools (most of them). They do NOT get Tool Grants, Agent Creation, Agent Directory, or Collective Intelligence by default.
 

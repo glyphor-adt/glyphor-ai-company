@@ -302,7 +302,7 @@ export function createCashFlowTools(): ToolDefinition[] {
             ),
             systemQuery<{ metric: string; value: number }>(
               `SELECT metric, value
-               FROM company_pulse
+               FROM company_vitals
                WHERE recorded_at >= NOW() - INTERVAL '${interval}'
                ORDER BY recorded_at DESC`,
             ),

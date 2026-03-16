@@ -67,25 +67,25 @@ export function createCollectiveIntelligenceTools(
   const ci = memory.getCollectiveIntelligence();
 
   return [
-    // ─── COMPANY PULSE (Layer 1) ────────────────────────────────
+    // ─── COMPANY VITALS (Layer 1) ────────────────────────────────
 
     {
-      name: 'get_company_pulse',
-      description: 'Get the current company pulse — real-time vitals including MRR, platform status, highlights, and mood.',
+      name: 'get_company_vitals',
+      description: 'Get the current company vitals — real-time metrics including MRR, platform status (live-computed), highlights, and mood.',
       parameters: {},
       execute: async (): Promise<ToolResult> => {
-        const pulse = await ci.getPulse();
-        return { success: true, data: pulse };
+        const vitals = await ci.getVitals();
+        return { success: true, data: vitals };
       },
     },
 
     {
-      name: 'update_company_pulse',
-      description: 'Update specific fields of the company pulse. Only update fields you are responsible for.',
+      name: 'update_company_vitals',
+      description: 'Update specific fields of company vitals. Only update fields you are responsible for. platform_status, active_incidents, and decisions_pending are computed live and cannot be overwritten.',
       parameters: {
         updates: {
           type: 'object',
-          description: 'Key-value pairs to update on the pulse (e.g., { mrr: 3247, mrr_change_pct: 2.1 })',
+          description: 'Key-value pairs to update on vitals (e.g., { mrr: 3247, mrr_change_pct: 2.1 })',
           required: true,
         },
       },
@@ -94,14 +94,14 @@ export function createCollectiveIntelligenceTools(
         if (!updates || typeof updates !== 'object' || Array.isArray(updates) || Object.keys(updates).length === 0) {
           return { success: false, error: 'updates is required and must be a non-empty object' };
         }
-        await ci.updatePulse(updates);
+        await ci.updateVitals(updates);
         return { success: true, data: { updated: Object.keys(updates) } };
       },
     },
 
     {
-      name: 'update_pulse_highlights',
-      description: 'Update the company pulse top-3 highlights. Each highlight has agent, type (positive/alert/neutral), and text.',
+      name: 'update_vitals_highlights',
+      description: 'Update the company vitals top-3 highlights. Each highlight has agent, type (positive/alert/neutral), and text.',
       parameters: {
         highlights: {
           type: 'array',
@@ -131,7 +131,7 @@ export function createCollectiveIntelligenceTools(
           type: h.type as 'positive' | 'alert' | 'neutral',
           text: h.text,
         })).slice(0, 3);
-        await ci.updatePulse({ highlights });
+        await ci.updateVitals({ highlights });
         return { success: true, data: { highlights_count: highlights.length } };
       },
     },
