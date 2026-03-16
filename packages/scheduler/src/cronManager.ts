@@ -405,30 +405,6 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/cascade/evaluate',
     enabled: true,
   },
-  // Policy proposal collection — twice-daily collection from all sources
-  {
-    id: 'policy-proposal-collection',
-    schedule: '0 3,15 * * *',  // 3:00 AM & 3:00 PM UTC (1hr after batch eval)
-    timezone: 'UTC',
-    endpoint: '/policy/collect',
-    enabled: true,
-  },
-  // Policy replay evaluation — daily offline evaluation of draft policies
-  {
-    id: 'policy-replay-eval',
-    schedule: '0 5 * * *',     // 5:00 UTC daily (2hrs after proposal collection)
-    timezone: 'UTC',
-    endpoint: '/policy/evaluate',
-    enabled: true,
-  },
-  // Policy canary check — every 4 hours canary lifecycle management
-  {
-    id: 'policy-canary-check',
-    schedule: '0 */4 * * *',   // every 4 hours (2hrs after replay eval)
-    timezone: 'UTC',
-    endpoint: '/policy/canary-check',
-    enabled: true,
-  },
   // Canary evaluation — weekly executive orchestration rollout check
   {
     id: 'canary-evaluation',

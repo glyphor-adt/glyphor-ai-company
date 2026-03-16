@@ -54,9 +54,6 @@ import { consolidateMemory } from './memoryConsolidator.js';
 import { archiveExpiredMemory } from './memoryArchiver.js';
 import { evaluateBatch } from './batchOutcomeEvaluator.js';
 import { evaluateCascadePredictions } from './cascadePredictionEvaluator.js';
-import { collectProposals } from './policyProposalCollector.js';
-import { evaluateDraftPolicies } from './policyReplayEvaluator.js';
-import { manageCanaries } from './policyCanaryManager.js';
 import { expireTools } from './toolExpirationManager.js';
 import { evaluateCanary } from './canaryEvaluator.js';
 import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
@@ -1954,45 +1951,6 @@ const server = createServer(async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[MemoryArchiver] Endpoint error:', message);
-        json(res, 500, { success: false, error: message });
-      }
-      return;
-    }
-
-    // Policy proposal collection endpoint — twice-daily collection (Cloud Scheduler: 0 3,15 * * *)
-    if (method === 'POST' && url === '/policy/collect') {
-      try {
-        const report = await collectProposals();
-        json(res, 200, { success: true, ...report });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error('[PolicyProposalCollector] Endpoint error:', message);
-        json(res, 500, { success: false, error: message });
-      }
-      return;
-    }
-
-    // Policy replay evaluation endpoint — daily offline eval of draft policies (Cloud Scheduler: 0 5 * * *)
-    if (method === 'POST' && url === '/policy/evaluate') {
-      try {
-        const report = await evaluateDraftPolicies();
-        json(res, 200, { success: true, ...report });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error('[PolicyReplayEvaluator] Endpoint error:', message);
-        json(res, 500, { success: false, error: message });
-      }
-      return;
-    }
-
-    // Policy canary check endpoint — every 4 hours canary lifecycle (Cloud Scheduler: 0 */4 * * *)
-    if (method === 'POST' && url === '/policy/canary-check') {
-      try {
-        const report = await manageCanaries(glyphorEventBus);
-        json(res, 200, { success: true, ...report });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error('[PolicyCanaryManager] Endpoint error:', message);
         json(res, 500, { success: false, error: message });
       }
       return;

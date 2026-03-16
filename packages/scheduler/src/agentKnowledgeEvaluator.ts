@@ -42,7 +42,7 @@ interface EvalOptions {
 
 const LOCK_KEY = 'agent-knowledge-eval-lock';
 const LOCK_TTL_SECONDS = 60 * 60;
-const JUDGE_MODEL = 'gpt-4.1-mini';
+const JUDGE_MODEL = 'gpt-5-nano';
 const LOG_PREFIX = '[AgentKnowledgeEvaluator]';
 const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000000';
 

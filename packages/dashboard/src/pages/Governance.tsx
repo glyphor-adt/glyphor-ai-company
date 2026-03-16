@@ -2,21 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, PageTabs, SectionHeader, Skeleton } from '../components/ui';
 import AccessControl from '../components/governance/AccessControl';
-import PolicyLab from '../components/governance/PolicyLab';
 import ToolView from '../components/governance/ToolView';
 import {
   ADMIN_EMAILS,
   AccessPostureResponse,
-  AmendmentProposal,
-  ComplianceHeatmapCell,
   GovernanceAction,
   GovernanceChangeItem,
   GovernanceSurface,
   IAMState,
   LeastPrivilegeGrant,
   PendingApproval,
-  PolicyImpactItem,
-  PolicyVersion,
   RiskSummaryItem,
   SecretRotation,
   ToolGrant,
@@ -27,7 +22,7 @@ import {
   toHumanWords,
 } from '../components/governance/shared';
 import { useAuth } from '../lib/auth';
-import { apiCall, SCHEDULER_URL } from '../lib/firebase';
+import { apiCall } from '../lib/firebase';
 import { ROLE_DEPARTMENT } from '../lib/types';
 
 type UnknownRecord = Record<string, unknown>;
@@ -44,10 +39,6 @@ interface GovernanceData {
   grants: ToolGrant[];
   toolReputation: ToolReputation[];
   pendingApprovals: PendingApproval[];
-  policyImpact: PolicyImpactItem[];
-  complianceHeatmap: ComplianceHeatmapCell[];
-  amendments: AmendmentProposal[];
-  policyVersions: PolicyVersion[];
 }
 
 const INITIAL_DATA: GovernanceData = {
@@ -62,18 +53,14 @@ const INITIAL_DATA: GovernanceData = {
   grants: [],
   toolReputation: [],
   pendingApprovals: [],
-  policyImpact: [],
-  complianceHeatmap: [],
-  amendments: [],
-  policyVersions: [],
 };
 
 const RISK_CARD_DEFAULTS = [
   { key: 'trust-alerts', title: 'Trust Alerts', anchor: 'action-queue' },
   { key: 'drift-alerts', title: 'Drift Alerts', anchor: 'action-queue' },
   { key: 'access-risk', title: 'Access Risk', anchor: 'access-control' },
-  { key: 'policy-health', title: 'Policy Health', anchor: 'policy-lab' },
-  { key: 'compliance', title: 'Compliance', anchor: 'policy-lab' },
+  { key: 'policy-health', title: 'Policy Health', anchor: 'action-queue' },
+  { key: 'compliance', title: 'Compliance', anchor: 'action-queue' },
 ];
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -101,11 +88,6 @@ function asBoolean(value: unknown): boolean | null {
     if (value === 'true') return true;
     if (value === 'false') return false;
   }
-  return null;
-}
-
-function asDisplayValue(value: unknown): string | number | null {
-  if (typeof value === 'string' || typeof value === 'number') return value;
   return null;
 }
 
@@ -324,50 +306,6 @@ function normalizeLeastPrivilege(raw: unknown): LeastPrivilegeGrant[] {
   });
 }
 
-function normalizePolicyImpact(raw: unknown): PolicyImpactItem[] {
-  return getRecordList(raw).map((item, index) => ({
-    id: asString(getValue(item, ['id', 'policy_id'])) ?? `policy-impact-${index}`,
-    policyType: asString(getValue(item, ['policy_type', 'type'])) ?? 'policy',
-    agentRole: asString(getValue(item, ['agent_role', 'role'])),
-    version: asNumber(getValue(item, ['version'])),
-    status: asString(getValue(item, ['status'])) ?? 'unknown',
-    evalScore: asNumber(getValue(item, ['eval_score', 'score'])),
-    source: asString(getValue(item, ['source'])),
-    promotedAt: asString(getValue(item, ['promoted_at', 'activated_at'])),
-    createdAt: asString(getValue(item, ['created_at'])),
-    metricLabel: asString(getValue(item, ['metric_label', 'metric', 'metric_name'])),
-    beforeValue: asDisplayValue(getValue(item, ['before_value', 'before', 'baseline'])),
-    afterValue: asDisplayValue(getValue(item, ['after_value', 'after', 'current'])),
-    deltaPct: asNumber(getValue(item, ['delta_pct', 'delta_percent'])),
-    impactSummary: asString(getValue(item, ['impact_summary', 'summary', 'description'])),
-    affectedAgents: Array.isArray(item.affected_agents)
-      ? item.affected_agents.map(asString).filter((value): value is string => Boolean(value))
-      : [],
-    rollbackReason: asString(getValue(item, ['rollback_reason'])),
-  }));
-}
-
-function normalizeComplianceHeatmap(raw: unknown): ComplianceHeatmapCell[] {
-  return getRecordList(raw).map((item) => ({
-    department: asString(getValue(item, ['department'])) ?? 'Other',
-    principle: asString(getValue(item, ['principle', 'category'])) ?? 'general',
-    avgScore: asNumber(getValue(item, ['avg_score', 'score', 'value'])) ?? 0,
-  }));
-}
-
-function normalizeAmendments(raw: unknown): AmendmentProposal[] {
-  return getRecordList(raw).map((item, index) => ({
-    id: asString(getValue(item, ['id', 'amendment_id'])) ?? `amendment-${index}`,
-    agentRole: asString(getValue(item, ['agent_role', 'role', 'proposed_by'])) ?? 'unknown',
-    action: asString(getValue(item, ['action'])) ?? (isRecord(item.metadata) ? asString(getValue(item.metadata, ['action'])) : null) ?? 'modify',
-    principleText: asString(getValue(item, ['proposed_change', 'principle_text', 'principle_name', 'title', 'summary'])) ?? 'Proposed constitutional amendment',
-    rationale: asString(getValue(item, ['rationale', 'reason'])),
-    status: asString(getValue(item, ['status'])) ?? 'proposed',
-    createdAt: asString(getValue(item, ['created_at', 'proposed_at'])),
-    failedEvalCount: asNumber(getValue(item, ['failed_eval_count', 'failed_evals', 'failed_evals_count'])),
-  }));
-}
-
 function normalizeIamState(raw: unknown): IAMState[] {
   return getRecordList(raw).map((item, index) => ({
     id: asString(getValue(item, ['id'])) ?? `iam-${index}`,
@@ -446,22 +384,6 @@ function normalizePendingApprovals(raw: unknown): PendingApproval[] {
   }));
 }
 
-function normalizePolicyVersions(raw: unknown): PolicyVersion[] {
-  return getRecordList(raw).map((item, index) => ({
-    id: asString(getValue(item, ['id'])) ?? `policy-${index}`,
-    policy_type: asString(getValue(item, ['policy_type', 'type'])) ?? 'policy',
-    agent_role: asString(getValue(item, ['agent_role'])),
-    version: asNumber(getValue(item, ['version'])) ?? 1,
-    status: (asString(getValue(item, ['status'])) as PolicyVersion['status']) ?? 'draft',
-    eval_score: asNumber(getValue(item, ['eval_score'])),
-    source: asString(getValue(item, ['source'])),
-    rollback_reason: asString(getValue(item, ['rollback_reason'])),
-    promoted_at: asString(getValue(item, ['promoted_at'])),
-    created_at: asString(getValue(item, ['created_at'])) ?? new Date(0).toISOString(),
-    content: isRecord(item.content) ? item.content : null,
-  }));
-}
-
 async function fetchWithFallback(paths: string[]): Promise<unknown> {
   let lastError: unknown = null;
   for (const path of paths) {
@@ -497,10 +419,6 @@ export default function Governance() {
   const [data, setData] = useState<GovernanceData>(INITIAL_DATA);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [collectingPolicy, setCollectingPolicy] = useState(false);
-  const [evaluatingPolicy, setEvaluatingPolicy] = useState(false);
-  const [collectResult, setCollectResult] = useState<string | null>(null);
-  const [evalResult, setEvalResult] = useState<string | null>(null);
   const [busyDecisionId, setBusyDecisionId] = useState<string | null>(null);
 
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
@@ -525,10 +443,6 @@ export default function Governance() {
         grantsRaw,
         toolReputationRaw,
         approvalsRaw,
-        policyImpactRaw,
-        complianceRaw,
-        amendmentsRaw,
-        policyVersionsRaw,
       ] = await Promise.all([
         fetchWithFallback(['/api/governance/risk-summary']).catch(() => null),
         fetchWithFallback(['/api/governance/action-queue']).catch(() => null),
@@ -541,10 +455,6 @@ export default function Governance() {
         apiCallWithTimeout('/api/agent-tool-grants?order=agent_role.asc,tool_name.asc&limit=5000').catch(() => null),
         apiCallWithTimeout('/api/tool-reputation?order=updated_at.desc&limit=200').catch(() => null),
         apiCallWithTimeout('/api/decisions?status=pending&order=created_at.desc&limit=20').catch(() => null),
-        fetchWithFallback(['/api/governance/policy-impact']).catch(() => null),
-        fetchWithFallback(['/api/governance/compliance-heatmap']).catch(() => null),
-        fetchWithFallback(['/api/governance/amendments']).catch(() => null),
-        apiCallWithTimeout('/api/policy_versions?limit=200').catch(() => null),
       ]);
 
       setData({
@@ -559,10 +469,6 @@ export default function Governance() {
         grants: normalizeGrants(grantsRaw),
         toolReputation: normalizeToolReputation(toolReputationRaw),
         pendingApprovals: normalizePendingApprovals(approvalsRaw),
-        policyImpact: normalizePolicyImpact(policyImpactRaw),
-        complianceHeatmap: normalizeComplianceHeatmap(complianceRaw),
-        amendments: normalizeAmendments(amendmentsRaw),
-        policyVersions: normalizePolicyVersions(policyVersionsRaw),
       });
     } finally {
       setLoading(false);
@@ -610,38 +516,10 @@ export default function Governance() {
     await refresh();
   }, [refresh]);
 
-  const collectPolicies = useCallback(async () => {
-    setCollectingPolicy(true);
-    setCollectResult(null);
-    try {
-      await fetch(`${SCHEDULER_URL}/policy/collect`, { method: 'POST' });
-      setCollectResult('success');
-    } catch {
-      setCollectResult('error');
-    } finally {
-      setCollectingPolicy(false);
-      await refresh();
-    }
-  }, [refresh]);
-
-  const evaluatePolicies = useCallback(async () => {
-    setEvaluatingPolicy(true);
-    setEvalResult(null);
-    try {
-      await fetch(`${SCHEDULER_URL}/policy/evaluate`, { method: 'POST' });
-      setEvalResult('success');
-    } catch {
-      setEvalResult('error');
-    } finally {
-      setEvaluatingPolicy(false);
-      await refresh();
-    }
-  }, [refresh]);
-
   if (loading) {
     return (
       <div className="space-y-6">
-        <SectionHeader title="Governance Control Plane" subtitle="Loading command center, tool view, access posture, and policy lab surfaces…" />
+        <SectionHeader title="Governance Control Plane" subtitle="Loading command center, tool view, and access posture surfaces…" />
         {[1, 2, 3].map((index) => <Skeleton key={index} className="h-48 w-full" />)}
       </div>
     );
@@ -653,7 +531,7 @@ export default function Governance() {
         <div>
           <SectionHeader
             title="Governance Control Plane"
-            subtitle="Tool View, Access Control, and Policy Lab surfaces for managing agent tools, grants, and policies."
+            subtitle="Tool View and Access Control surfaces for managing agent tools and grants."
           />
           <Card className="max-w-3xl border-prism-sky/20 bg-prism-sky/5">
             <p className="text-[13px] text-txt-secondary">
@@ -680,7 +558,6 @@ export default function Governance() {
         tabs={[
           { key: 'tool-view', label: 'Tool View' },
           { key: 'access-control', label: 'Access Control' },
-          { key: 'policy-lab', label: 'Policy Lab' },
         ]}
         active={activeTab}
         onChange={setActiveTab}
@@ -714,24 +591,6 @@ export default function Governance() {
             onGrant={handleGrant}
             onRevoke={handleRevoke}
             onResolveApproval={handleResolveApproval}
-          />
-        </div>
-      )}
-
-      {activeTab === 'policy-lab' && (
-        <div id="policy-lab">
-          <PolicyLab
-            loading={false}
-            policyImpact={data.policyImpact}
-            complianceHeatmap={data.complianceHeatmap}
-            amendments={data.amendments}
-            policyVersions={data.policyVersions}
-            collecting={collectingPolicy}
-            evaluating={evaluatingPolicy}
-            collectResult={collectResult}
-            evalResult={evalResult}
-            onCollect={collectPolicies}
-            onEvaluate={evaluatePolicies}
           />
         </div>
       )}

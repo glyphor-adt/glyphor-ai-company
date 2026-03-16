@@ -19,9 +19,6 @@ const GOVERNANCE_RESOURCES = [
   'least-privilege',
   'least-privilege-analysis',
   'access-posture',
-  'policy-impact',
-  'compliance-heatmap',
-  'amendments',
 ] as const;
 
 function asObject(value: unknown): Record<string, unknown> | null {

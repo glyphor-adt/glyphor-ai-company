@@ -79,7 +79,7 @@ export function resolveModelConfig(
     };
   } else if (selected.has('financial_computation')) {
     decision = {
-      model: selected.has('high_complexity') ? 'gemini-2.5-pro' : 'gemini-2.5-flash',
+      model: selected.has('high_complexity') ? 'gemini-3.1-pro-preview' : 'gemini-3.1-flash-lite-preview',
       routingRule: 'financial_compute',
       capabilities,
       reasoningEffort: selected.has('high_complexity') ? 'high' : 'medium',

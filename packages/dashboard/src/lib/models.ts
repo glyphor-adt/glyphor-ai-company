@@ -38,11 +38,7 @@ export const PROVIDER_LABELS: Record<ModelProvider, string> = {
 export const MODELS: ModelOption[] = [
   // ── Google Gemini ──
   { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',         provider: 'gemini', inputPer1M: 2.00, outputPer1M: 12.0 },
-  { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash',         provider: 'gemini', inputPer1M: 0.50, outputPer1M: 3.00 },
   { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', inputPer1M: 0.25, outputPer1M: 1.50 },
-  { value: 'gemini-2.5-flash',       label: 'Gemini 2.5 Flash',       provider: 'gemini', inputPer1M: 0.30, outputPer1M: 2.50 },
-  { value: 'gemini-2.5-flash-lite',  label: 'Gemini 2.5 Flash Lite',  provider: 'gemini', inputPer1M: 0.10, outputPer1M: 0.40 },
-  { value: 'gemini-2.5-pro',         label: 'Gemini 2.5 Pro',         provider: 'gemini', inputPer1M: 1.25, outputPer1M: 10.0 },
 
   // ── OpenAI ──
   { value: 'gpt-5.4',     label: 'GPT-5.4',       provider: 'openai', inputPer1M: 2.50, outputPer1M: 15.0 },
@@ -54,8 +50,7 @@ export const MODELS: ModelOption[] = [
   { value: 'gpt-5-mini',  label: 'GPT-5 Mini',    provider: 'openai', inputPer1M: 0.25, outputPer1M: 2.00 },
   { value: 'gpt-5-mini-2025-08-07', label: 'GPT-5 Mini (Aug 2025)', provider: 'openai', inputPer1M: 0.25, outputPer1M: 2.00, default: true },
   { value: 'gpt-5-nano',  label: 'GPT-5 Nano',    provider: 'openai', inputPer1M: 0.05, outputPer1M: 0.40 },
-  { value: 'gpt-4.1',     label: 'GPT-4.1',       provider: 'openai', inputPer1M: 2.00, outputPer1M: 8.00 },
-  { value: 'gpt-4.1-mini',label: 'GPT-4.1 Mini',  provider: 'openai', inputPer1M: 0.40, outputPer1M: 1.60 },
+
   { value: 'o3',           label: 'o3',            provider: 'openai', inputPer1M: 2.00, outputPer1M: 8.00 },
   { value: 'o4-mini',      label: 'o4-mini',       provider: 'openai', inputPer1M: 1.10, outputPer1M: 4.40 },
   { value: 'o3-deep-research',      label: 'o3 Deep Research',      provider: 'openai', inputPer1M: 2.00, outputPer1M: 8.00 },
@@ -65,7 +60,7 @@ export const MODELS: ModelOption[] = [
   { value: 'claude-opus-4-6',   label: 'Claude Opus 4.6',   provider: 'anthropic', inputPer1M: 5.00, outputPer1M: 25.0 },
   { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', provider: 'anthropic', inputPer1M: 3.00, outputPer1M: 15.0 },
   { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5', provider: 'anthropic', inputPer1M: 3.00, outputPer1M: 15.0 },
-  { value: 'claude-haiku-4-5',  label: 'Claude Haiku 4.5',  provider: 'anthropic', inputPer1M: 1.00, outputPer1M: 5.00 },
+
 ];
 
 export const DEFAULT_MODEL = MODELS.find(m => m.default)?.value ?? 'gpt-5-mini-2025-08-07';
@@ -112,7 +107,7 @@ export function normalizeReasoningLevel(modelValue: string, requested?: Reasonin
 }
 
 /** Verification models available for reasoning engine config */
-export const VERIFICATION_MODELS = ['gemini-3-flash-preview', 'gpt-5-mini', 'claude-sonnet-4-6'] as const;
+export const VERIFICATION_MODELS = ['gemini-3.1-flash-lite-preview', 'gpt-5-mini', 'claude-sonnet-4-6'] as const;
 
 /** Check if a model value is recognized. Unrecognized = likely deprecated. */
 export function isKnownModel(value: string): boolean {

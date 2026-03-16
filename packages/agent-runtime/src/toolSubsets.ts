@@ -41,6 +41,12 @@ const PINNED_CAP_TOOLS = new Set<string>([
   'list_messages',
   'list_inbox',
   'list_mail_folders',
+  // SharePoint search tools use app-level permissions (Sites.Read.All) and
+  // must survive the cap so agents don't fall back to mcp_ODSPRemoteServer
+  // whose agentic-user tokens often lack site membership.
+  'search_sharepoint',
+  'read_sharepoint_document',
+  'upload_to_sharepoint',
 ]);
 
 const ROLE_PINNED_AGENT365_SERVERS: Partial<Record<CompanyAgentRole, readonly string[]>> = {

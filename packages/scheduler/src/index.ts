@@ -47,18 +47,6 @@ export {
   type BatchEvalResult,
 } from './batchOutcomeEvaluator.js';
 export {
-  collectProposals,
-  type CollectionReport,
-} from './policyProposalCollector.js';
-export {
-  evaluateDraftPolicies,
-  type EvalReport,
-} from './policyReplayEvaluator.js';
-export {
-  manageCanaries,
-  type CanaryReport,
-} from './policyCanaryManager.js';
-export {
   expireTools,
   type ExpirationReport,
 } from './toolExpirationManager.js';

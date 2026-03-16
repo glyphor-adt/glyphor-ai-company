@@ -62,15 +62,11 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // Gemini cached input = 10% of input price (90% off). Thinking tokens billed at output rate.
   // Prices are for prompts ≤200K tokens. >200K prompts cost 2× input and 1.5× output for Pro/Flash models.
   // Source: https://ai.google.dev/gemini-api/docs/pricing (verified 2026-02-26)
-  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',         provider: 'gemini',    tier: 'flagship',  inputPer1M: 2.00,  outputPer1M: 12.0,  thinkingPer1M: 12.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash',         provider: 'gemini',    tier: 'standard',  inputPer1M: 0.50,  outputPer1M: 3.00,  thinkingPer1M: 3.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
-  { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', tier: 'economy', inputPer1M: 0.25, outputPer1M: 1.50, thinkingPer1M: 1.50, cachedInputDiscount: 0.10, selectable: true, verifier: false },
-  { id: 'gemini-2.5-flash',       label: 'Gemini 2.5 Flash',       provider: 'gemini',    tier: 'economy',   inputPer1M: 0.30,  outputPer1M: 2.50,  thinkingPer1M: 2.50,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
-  { id: 'gemini-2.5-flash-lite',  label: 'Gemini 2.5 Flash Lite',  provider: 'gemini',    tier: 'economy',   inputPer1M: 0.10,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gemini-2.5-pro',         label: 'Gemini 2.5 Pro',         provider: 'gemini',    tier: 'flagship',  inputPer1M: 1.25,  outputPer1M: 10.0,  thinkingPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',         provider: 'gemini',    tier: 'flagship',  inputPer1M: 2.00,  outputPer1M: 12.0,  thinkingPer1M: 12.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', tier: 'economy', inputPer1M: 0.25, outputPer1M: 1.50, thinkingPer1M: 1.50, cachedInputDiscount: 0.10, selectable: true, verifier: true  },
 
   // ── OpenAI ─────────────────────────────────────────────────
-  // GPT-5.x cached input = 10% of input price. GPT-4.1/o-series cached = 25% of input price.
+  // GPT-5.x cached input = 10% of input price. o-series cached = 25% of input price.
   // Reasoning tokens (o-series) billed at output rate.
   // Source: https://developers.openai.com/api/docs/pricing (verified 2026-02-26)
   { id: 'gpt-5.4',                label: 'GPT-5.4',                provider: 'openai',    tier: 'flagship',  inputPer1M: 2.50,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
@@ -82,8 +78,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'gpt-5-mini',             label: 'GPT-5 Mini',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'gpt-5-mini-2025-08-07',   label: 'GPT-5 Mini (Aug 2025)',  provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'gpt-5-nano',             label: 'GPT-5 Nano',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.05,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-4.1',                label: 'GPT-4.1',                provider: 'openai',    tier: 'economy',   inputPer1M: 2.00,  outputPer1M: 8.00,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
-  { id: 'gpt-4.1-mini',           label: 'GPT-4.1 Mini',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.40,  outputPer1M: 1.60,  cachedInputDiscount: 0.25, selectable: true,  verifier: false },
+
   { id: 'o3',                     label: 'o3',                     provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
   { id: 'o4-mini',                label: 'o4-mini',                provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
   { id: 'o3-deep-research',       label: 'o3 Deep Research',       provider: 'openai',    tier: 'specialized', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: false, verifier: false },
@@ -95,7 +90,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6',        provider: 'anthropic', tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'claude-sonnet-4-5',      label: 'Claude Sonnet 4.5',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'claude-haiku-4-5',       label: 'Claude Haiku 4.5',       provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+
 
   // ── Specialized (not selectable for general agent assignment) ─
   { id: 'gemini-embedding-001',       label: 'Gemini Embedding',       provider: 'gemini',    tier: 'specialized', inputPer1M: 0.15, outputPer1M: 0,    selectable: false, verifier: false },
@@ -110,32 +105,39 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
 
 export const DEPRECATED_MODELS: Record<string, string> = {
   // Gemini 2.x and older
-  'gemini-2.0-flash-001':       'gemini-2.5-flash',
-  'gemini-2.0-flash':           'gemini-2.5-flash',
-  'gemini-2.0-flash-exp':       'gemini-2.5-flash',
-  'gemini-2.0-pro':             'gemini-2.5-pro',
-  'gemini-1.5-flash':           'gemini-2.5-flash',
-  'gemini-1.5-pro':             'gemini-2.5-pro',
-  'gemini-3.0-flash-preview':   'gemini-3-flash-preview',  // version typo in seed-memory.sh
+  'gemini-2.0-flash-001':       'gemini-3.1-flash-lite-preview',
+  'gemini-2.0-flash':           'gemini-3.1-flash-lite-preview',
+  'gemini-2.0-flash-exp':       'gemini-3.1-flash-lite-preview',
+  'gemini-2.0-pro':             'gemini-3.1-pro-preview',
+  'gemini-1.5-flash':           'gemini-3.1-flash-lite-preview',
+  'gemini-1.5-pro':             'gemini-3.1-pro-preview',
+  'gemini-3.0-flash-preview':   'gemini-3.1-flash-lite-preview',
   'gemini-3-pro-preview':       'gemini-3.1-pro-preview',
+  'gemini-3-flash-preview':     'gemini-3.1-flash-lite-preview',
+  'gemini-2.5-flash':           'gemini-3.1-flash-lite-preview',
+  'gemini-2.5-flash-lite':      'gemini-3.1-flash-lite-preview',
+  'gemini-2.5-pro':             'gemini-3.1-pro-preview',
 
   // OpenAI legacy
   'gpt-4o':                     'gpt-5-mini',
   'gpt-4o-mini':                'gpt-5-nano',
-  'gpt-4-turbo':                'gpt-4.1',
-  'gpt-4':                      'gpt-4.1',
-  'gpt-3.5-turbo':              'gpt-4.1-mini',
-  'gpt-4.1-nano':               'gpt-4.1-mini',
+  'gpt-4-turbo':                'gpt-5-mini-2025-08-07',
+  'gpt-4':                      'gpt-5-mini-2025-08-07',
+  'gpt-3.5-turbo':              'gpt-5-nano',
+  'gpt-4.1-nano':               'gpt-5-nano',
+  'gpt-4.1':                    'gpt-5-mini-2025-08-07',
+  'gpt-4.1-mini':               'gpt-5-nano',
   'gpt-image-1.5-2025-12-16':   'gpt-image-1',
 
   // Anthropic legacy
   'claude-sonnet-4-20250514':   'claude-sonnet-4-6',
   'claude-3-5-sonnet-20241022': 'claude-sonnet-4-6',
   'claude-3-5-sonnet-latest':   'claude-sonnet-4-6',
-  'claude-3-5-haiku-20241022':  'claude-haiku-4-5',
-  'claude-3-5-haiku-latest':    'claude-haiku-4-5',
+  'claude-3-5-haiku-20241022':  'claude-sonnet-4-5',
+  'claude-3-5-haiku-latest':    'claude-sonnet-4-5',
   'claude-3-opus-20240229':     'claude-opus-4-6',
-  'claude-3-haiku-20240307':    'claude-haiku-4-5',
+  'claude-3-haiku-20240307':    'claude-sonnet-4-5',
+  'claude-haiku-4-5':           'claude-sonnet-4-5',
   'claude-opus-4-20250514':     'claude-opus-4-6',
   'claude-opus-4-6-20260205':   'claude-opus-4-6',
   'claude-sonnet-4-6-20260217': 'claude-sonnet-4-6',
@@ -169,36 +171,29 @@ export const GRAPHRAG_MODEL = 'gpt-5-mini-2025-08-07';
 // try the next model in the chain. Each chain crosses providers.
 
 export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
-  // Gemini primary → try another Gemini tier first, then cheapest cross-provider
-  'gemini-3.1-pro-preview': ['gemini-3-flash-preview', 'gpt-5-mini'],
-  'gemini-3-flash-preview': ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
-  'gemini-3.1-flash-lite-preview': ['gemini-2.5-flash', 'gpt-5-mini-2025-08-07'],
-  'gemini-2.5-flash':       ['gemini-3-flash-preview', 'gpt-5-mini'],
-  'gemini-2.5-flash-lite':  ['gemini-2.5-flash', 'gpt-5-nano'],
-  'gemini-2.5-pro':         ['gemini-3.1-pro-preview', 'gpt-5-mini'],
+  // Gemini primary → try the other Gemini tier first, then cheapest cross-provider
+  'gemini-3.1-pro-preview': ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
+  'gemini-3.1-flash-lite-preview': ['gemini-3.1-pro-preview', 'gpt-5-mini-2025-08-07'],
 
   // OpenAI primary → try Gemini first (GCP-resident, cheapest), then economy cross-provider
-  'gpt-5.4':                ['gemini-3-flash-preview', 'claude-haiku-4-5'],
-  'gpt-5.4-pro':            ['gemini-3-flash-preview', 'claude-haiku-4-5'],
-  'gpt-5.2':                ['gemini-3-flash-preview', 'claude-haiku-4-5'],
-  'gpt-5.2-pro':            ['gemini-3-flash-preview', 'claude-haiku-4-5'],
-  'gpt-5.1':                ['gemini-2.5-flash', 'claude-haiku-4-5'],
-  'gpt-5':                  ['gemini-2.5-flash', 'claude-haiku-4-5'],
-  'gpt-5-mini':             ['gemini-2.5-flash', 'claude-haiku-4-5'],
-  'gpt-5-mini-2025-08-07':  ['gemini-2.5-flash', 'claude-haiku-4-5'],
-  'gpt-5-nano':             ['gemini-2.5-flash-lite', 'claude-haiku-4-5'],
-  'gpt-4.1':                ['gemini-2.5-flash', 'claude-haiku-4-5'],
-  'gpt-4.1-mini':           ['gemini-2.5-flash-lite', 'claude-haiku-4-5'],
-  'o3':                     ['gemini-3-flash-preview', 'claude-haiku-4-5'],
-  'o4-mini':                ['gemini-2.5-flash', 'claude-haiku-4-5'],
+  'gpt-5.4':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'gpt-5.4-pro':            ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'gpt-5.2':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'gpt-5.2-pro':            ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'gpt-5.1':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'gpt-5':                  ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'gpt-5-mini':             ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'gpt-5-mini-2025-08-07':  ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'gpt-5-nano':             ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'o3':                     ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'o4-mini':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
   'o3-deep-research':       ['o3', 'gpt-5-mini-2025-08-07'],
   'o4-mini-deep-research':  ['o4-mini', 'gpt-5-mini-2025-08-07'],
 
   // Anthropic primary → try Gemini first (GCP-resident), then cheapest OpenAI
-  'claude-opus-4-6':        ['gemini-3-flash-preview', 'gpt-5-mini'],
-  'claude-sonnet-4-6':      ['gemini-2.5-flash', 'gpt-5-mini'],
-  'claude-sonnet-4-5':      ['gemini-2.5-flash', 'gpt-5-mini'],
-  'claude-haiku-4-5':       ['gemini-2.5-flash', 'gpt-5-nano'],
+  'claude-opus-4-6':        ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
+  'claude-sonnet-4-6':      ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
+  'claude-sonnet-4-5':      ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
 };
 
 // ─── Provider-local fallback chains ─────────────────────────
@@ -207,28 +202,25 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
 
 export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> = {
   // Gemini
-  'gemini-3.1-pro-preview': ['gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-2.5-flash'],
-  'gemini-3-flash-preview': ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
-  'gemini-3.1-flash-lite-preview': ['gemini-2.5-flash-lite'],
-  'gemini-2.5-pro':         ['gemini-2.5-flash', 'gemini-2.5-flash-lite'],
-  'gemini-2.5-flash':       ['gemini-2.5-flash-lite'],
+  'gemini-3.1-pro-preview': ['gemini-3.1-flash-lite-preview'],
+  'gemini-3.1-flash-lite-preview': ['gemini-3.1-pro-preview'],
 
   // OpenAI
   'gpt-5.4-pro':            ['gpt-5.4', 'gpt-5.2', 'gpt-5-mini-2025-08-07'],
   'gpt-5.4':                ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
   'gpt-5.2-pro':            ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
   'gpt-5.2':                ['gpt-5.1', 'gpt-5-mini-2025-08-07'],
-  'gpt-5.1':                ['gpt-5-mini-2025-08-07', 'gpt-4.1-mini'],
-  'gpt-5':                  ['gpt-5-mini-2025-08-07', 'gpt-4.1-mini'],
+  'gpt-5.1':                ['gpt-5-mini-2025-08-07', 'gpt-5-nano'],
+  'gpt-5':                  ['gpt-5-mini-2025-08-07', 'gpt-5-nano'],
   'o3':                     ['gpt-5.1', 'gpt-5-mini-2025-08-07'],
-  'o4-mini':                ['gpt-5-mini-2025-08-07', 'gpt-4.1-mini'],
+  'o4-mini':                ['gpt-5-mini-2025-08-07', 'gpt-5-nano'],
   'o3-deep-research':       ['o3', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
-  'o4-mini-deep-research':  ['o4-mini', 'gpt-5-mini-2025-08-07', 'gpt-4.1-mini'],
+  'o4-mini-deep-research':  ['o4-mini', 'gpt-5-mini-2025-08-07'],
 
   // Anthropic
-  'claude-opus-4-6':        ['claude-sonnet-4-6', 'claude-sonnet-4-5', 'claude-haiku-4-5'],
-  'claude-sonnet-4-6':      ['claude-sonnet-4-5', 'claude-haiku-4-5'],
-  'claude-sonnet-4-5':      ['claude-haiku-4-5'],
+  'claude-opus-4-6':        ['claude-sonnet-4-6', 'claude-sonnet-4-5'],
+  'claude-sonnet-4-6':      ['claude-sonnet-4-5'],
+  'claude-sonnet-4-5':      [],
 };
 
 // ─── Cross-model verifier mapping ────────────────────────────
@@ -238,34 +230,29 @@ export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> =
 export const VERIFIER_MAP: Record<string, string> = {
   // Gemini primary → cheapest cross-provider verifier
   'gemini-3.1-pro-preview': 'gpt-5-mini',
-  'gemini-3-flash-preview': 'gpt-5-mini',
   'gemini-3.1-flash-lite-preview': 'gpt-5-nano',
-  'gemini-2.5-flash':       'gpt-5-mini',
-  'gemini-2.5-flash-lite':  'gpt-5-nano',
-  'gemini-2.5-pro':         'gpt-5-mini',
 
   // OpenAI primary → Gemini verifier (GCP-native, cheap)
-  'gpt-5.4-pro':            'gemini-3-flash-preview',
-  'gpt-5.4':                'gemini-2.5-flash',
-  'gpt-5.2':                'gemini-2.5-flash',
-  'gpt-5.2-pro':            'gemini-3-flash-preview',
-  'gpt-5.1':                'gemini-2.5-flash',
-  'gpt-5':                  'gemini-2.5-flash',
-  'gpt-5-mini':             'gemini-2.5-flash',
-  'gpt-5-mini-2025-08-07':  'gemini-2.5-flash',
-  'gpt-5-nano':             'gemini-2.5-flash-lite',
-  'gpt-4.1':                'gemini-2.5-flash',
-  'gpt-4.1-mini':           'gemini-2.5-flash-lite',
-  'o3':                     'gemini-2.5-flash',
-  'o4-mini':                'gemini-2.5-flash',
-  'o3-deep-research':       'gemini-2.5-flash',
-  'o4-mini-deep-research':  'gemini-2.5-flash',
+  'gpt-5.4-pro':            'gemini-3.1-flash-lite-preview',
+  'gpt-5.4':                'gemini-3.1-flash-lite-preview',
+  'gpt-5.2':                'gemini-3.1-flash-lite-preview',
+  'gpt-5.2-pro':            'gemini-3.1-flash-lite-preview',
+  'gpt-5.1':                'gemini-3.1-flash-lite-preview',
+  'gpt-5':                  'gemini-3.1-flash-lite-preview',
+  'gpt-5-mini':             'gemini-3.1-flash-lite-preview',
+  'gpt-5-mini-2025-08-07':  'gemini-3.1-flash-lite-preview',
+  'gpt-5-nano':             'gemini-3.1-flash-lite-preview',
+
+  'o3':                     'gemini-3.1-flash-lite-preview',
+  'o4-mini':                'gemini-3.1-flash-lite-preview',
+  'o3-deep-research':       'gemini-3.1-flash-lite-preview',
+  'o4-mini-deep-research':  'gemini-3.1-flash-lite-preview',
 
   // Claude primary → Gemini verifier (GCP-native, cheap)
-  'claude-opus-4-6':        'gemini-2.5-flash',
-  'claude-sonnet-4-6':      'gemini-2.5-flash',
-  'claude-sonnet-4-5':      'gemini-2.5-flash',
-  'claude-haiku-4-5':       'gemini-2.5-flash-lite',
+  'claude-opus-4-6':        'gemini-3.1-flash-lite-preview',
+  'claude-sonnet-4-6':      'gemini-3.1-flash-lite-preview',
+  'claude-sonnet-4-5':      'gemini-3.1-flash-lite-preview',
+
 };
 
 // ─── Deep dive research models ──────────────────────────────
@@ -273,28 +260,28 @@ export const VERIFIER_MAP: Record<string, string> = {
 // infra), with select areas using OpenAI/Anthropic for perspective diversity.
 
 export const DEEP_DIVE_MODELS: Record<string, string> = {
-  overview:             'gemini-2.5-flash',
-  financials:           'gemini-2.5-flash',
-  technology:           'gemini-2.5-flash',
-  market:               'gemini-2.5-flash',
-  competitive:          'gemini-2.5-flash',
-  leadership:           'gemini-2.5-flash',
-  customers:            'gemini-2.5-flash',
-  risks:                'gemini-2.5-flash',
-  company_profile:      'gemini-2.5-flash',
-  strategic_direction:  'gemini-2.5-flash',
-  segment_analysis:     'gemini-2.5-flash',
-  ma_activity:          'gemini-2.5-flash',
-  ai_impact:            'gemini-2.5-flash',
-  talent_assessment:    'gemini-2.5-flash',
-  regulatory_landscape: 'gemini-2.5-flash',
+  overview:             'gemini-3.1-flash-lite-preview',
+  financials:           'gemini-3.1-flash-lite-preview',
+  technology:           'gemini-3.1-flash-lite-preview',
+  market:               'gemini-3.1-flash-lite-preview',
+  competitive:          'gemini-3.1-flash-lite-preview',
+  leadership:           'gemini-3.1-flash-lite-preview',
+  customers:            'gemini-3.1-flash-lite-preview',
+  risks:                'gemini-3.1-flash-lite-preview',
+  company_profile:      'gemini-3.1-flash-lite-preview',
+  strategic_direction:  'gemini-3.1-flash-lite-preview',
+  segment_analysis:     'gemini-3.1-flash-lite-preview',
+  ma_activity:          'gemini-3.1-flash-lite-preview',
+  ai_impact:            'gemini-3.1-flash-lite-preview',
+  talent_assessment:    'gemini-3.1-flash-lite-preview',
+  regulatory_landscape: 'gemini-3.1-flash-lite-preview',
 };
 
 /** The two models used for cross-model deep dive verification (Gemini-first, cost-optimised) */
-export const DEEP_DIVE_VERIFICATION_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash'] as const;
+export const DEEP_DIVE_VERIFICATION_MODELS = ['gemini-3.1-flash-lite-preview', 'gemini-3.1-flash-lite-preview'] as const;
 
 /** The two models used for reasoning engine verification (Gemini-first, cost-optimised) */
-export const REASONING_VERIFICATION_MODELS = ['gemini-2.5-flash', 'gpt-5-mini'] as const;
+export const REASONING_VERIFICATION_MODELS = ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'] as const;
 
 // ─── Helper functions ────────────────────────────────────────
 
@@ -374,10 +361,10 @@ export function getVerifierFor(primaryModel: string): string {
 
   // Prefix-based fallback — always cross-provider, cheapest viable
   if (primaryModel.startsWith('gemini-')) return 'gpt-5-mini';
-  if (primaryModel.startsWith('gpt-') || /^o[134](-|$)/.test(primaryModel)) return 'gemini-2.5-flash';
-  if (primaryModel.startsWith('claude-')) return 'gemini-2.5-flash';
+  if (primaryModel.startsWith('gpt-') || /^o[134](-|$)/.test(primaryModel)) return 'gemini-3.1-flash-lite-preview';
+  if (primaryModel.startsWith('claude-')) return 'gemini-3.1-flash-lite-preview';
 
-  return 'gemini-2.5-flash';
+  return 'gemini-3.1-flash-lite-preview';
 }
 
 /**

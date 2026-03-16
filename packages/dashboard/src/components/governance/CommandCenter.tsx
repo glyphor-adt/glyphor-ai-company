@@ -53,7 +53,7 @@ function getActionTarget(
   if (normalized.includes('reject') && item.decisionId) return { approve: false };
   if (normalized.includes('review agent') && item.agentRole) return { href: `/agents/${item.agentRole}` };
   if (normalized.includes('policy') || normalized.includes('amendment') || normalized.includes('revision')) {
-    return { surface: 'policy-lab' };
+    return { surface: 'access-control' };
   }
   if (
     normalized.includes('rotation')

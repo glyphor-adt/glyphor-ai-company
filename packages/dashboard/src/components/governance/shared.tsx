@@ -3,7 +3,7 @@ import { MdChevronRight, MdExpandMore } from 'react-icons/md';
 import { Card } from '../ui';
 import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../../lib/types';
 
-export type GovernanceSurface = 'tool-view' | 'access-control' | 'policy-lab';
+export type GovernanceSurface = 'tool-view' | 'access-control';
 export type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info' | 'good' | 'warning';
 
@@ -66,42 +66,6 @@ export interface LeastPrivilegeGrant {
   usesLast30d: number;
   daysSinceUse: number | null;
   recommendation: string | null;
-}
-
-export interface PolicyImpactItem {
-  id: string;
-  policyType: string;
-  agentRole: string | null;
-  version: number | null;
-  status: string;
-  evalScore: number | null;
-  source: string | null;
-  promotedAt: string | null;
-  createdAt: string | null;
-  metricLabel: string | null;
-  beforeValue: number | string | null;
-  afterValue: number | string | null;
-  deltaPct: number | null;
-  impactSummary: string | null;
-  affectedAgents: string[];
-  rollbackReason: string | null;
-}
-
-export interface ComplianceHeatmapCell {
-  department: string;
-  principle: string;
-  avgScore: number;
-}
-
-export interface AmendmentProposal {
-  id: string;
-  agentRole: string;
-  action: string;
-  principleText: string;
-  rationale: string | null;
-  status: string;
-  createdAt: string | null;
-  failedEvalCount: number | null;
 }
 
 export interface IAMState {
@@ -170,20 +134,6 @@ export interface PendingApproval {
   proposed_by: string;
   data: Record<string, unknown> | null;
   created_at: string;
-}
-
-export interface PolicyVersion {
-  id: string;
-  policy_type: string;
-  agent_role: string | null;
-  version: number;
-  status: 'draft' | 'candidate' | 'canary' | 'active' | 'archived' | 'rolled_back' | 'superseded';
-  eval_score: number | null;
-  source: string | null;
-  rollback_reason: string | null;
-  promoted_at: string | null;
-  created_at: string;
-  content?: Record<string, unknown> | null;
 }
 
 export const ADMIN_EMAILS = [

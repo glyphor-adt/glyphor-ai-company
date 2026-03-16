@@ -4,11 +4,8 @@ import type {
   GovernanceAction,
   GovernanceAccessIssue,
   GovernanceAccessPosture,
-  GovernanceAmendmentProposal,
   GovernanceChangeLogEvent,
-  GovernanceComplianceHeatmapCell,
   GovernanceLeastPrivilegeDepartment,
-  GovernancePolicyImpactCard,
   GovernanceRiskSummary,
   GovernanceTrendDirection,
   GovernanceTrustMapEntry,
@@ -20,8 +17,6 @@ type ScoreHistoryEntry = {
   score?: number;
   timestamp?: string;
 };
-
-type PolicyMetricName = 'duration_ms' | 'cost' | 'reasoning_confidence' | 'tool_calls';
 
 const ACTION_SEVERITY_ORDER: Record<GovernanceAction['severity'], number> = {
   critical: 0,
@@ -35,15 +30,6 @@ const ACCESS_SEVERITY_ORDER: Record<GovernanceAccessIssue['severity'], number> =
   high: 1,
   medium: 2,
   low: 3,
-};
-
-const POLICY_METRIC_MAP: Record<string, PolicyMetricName> = {
-  routing: 'duration_ms',
-  model_selection: 'cost',
-  prompt: 'reasoning_confidence',
-  rubric: 'reasoning_confidence',
-  constitution: 'reasoning_confidence',
-  shared_procedures: 'tool_calls',
 };
 
 function jsonResponse(res: ServerResponse, status: number, data: unknown) {
@@ -1164,172 +1150,6 @@ async function getAccessPosture(): Promise<GovernanceAccessPosture> {
   };
 }
 
-async function getPolicyImpact(): Promise<GovernancePolicyImpactCard[]> {
-  const policies = await systemQuery<{
-    id: string;
-    policy_type: string;
-    agent_role: string | null;
-    version: number;
-    status: 'active' | 'canary' | 'rolled_back';
-    eval_score: number | null;
-    promoted_at: string | null;
-    rolled_back_at: string | null;
-    created_at: string;
-    content: unknown;
-  }>(
-    `SELECT id, policy_type, agent_role, version, status, eval_score, promoted_at, rolled_back_at, created_at, content
-     FROM policy_versions
-     WHERE status IN ('active', 'canary', 'rolled_back')
-       AND COALESCE(promoted_at, rolled_back_at, created_at) >= NOW() - INTERVAL '90 days'
-     ORDER BY COALESCE(promoted_at, rolled_back_at, created_at) DESC`,
-  );
-
-  const results: GovernancePolicyImpactCard[] = [];
-
-  for (const policy of policies) {
-    const metricName = POLICY_METRIC_MAP[policy.policy_type] ?? 'tool_calls';
-    const anchor = policy.promoted_at ?? policy.rolled_back_at ?? policy.created_at;
-    const content = safeJsonMap(policy.content);
-    const metricQuery = `
-      SELECT AVG(${metricName})::float AS avg_value
-      FROM agent_runs
-      WHERE started_at >= $1
-        AND started_at < $2
-        AND status = 'completed'
-        ${policy.agent_role ? 'AND agent_id = $3' : ''}
-    `;
-    const beforeParams: unknown[] = [
-      new Date(new Date(anchor).getTime() - 14 * 86_400_000).toISOString(),
-      anchor,
-      ...(policy.agent_role ? [policy.agent_role] : []),
-    ];
-    const afterParams: unknown[] = [
-      anchor,
-      new Date(new Date(anchor).getTime() + 14 * 86_400_000).toISOString(),
-      ...(policy.agent_role ? [policy.agent_role] : []),
-    ];
-    const [beforeRows, afterRows] = await Promise.all([
-      systemQuery<{ avg_value: number | null }>(metricQuery, beforeParams),
-      systemQuery<{ avg_value: number | null }>(metricQuery, afterParams),
-    ]);
-
-    const beforeAvg = round(toNumber(beforeRows[0]?.avg_value));
-    const afterAvg = round(toNumber(afterRows[0]?.avg_value));
-    const deltaPct = beforeAvg && afterAvg != null && beforeAvg !== 0
-      ? round(((afterAvg - beforeAvg) / beforeAvg) * 100)
-      : null;
-    const sourcePatternId = content?.source_pattern_id ?? content?.pattern_id ?? content?.sourcePatternId;
-
-    results.push({
-      policy_id: policy.id,
-      name: formatPolicyName(policy.content, policy.policy_type, policy.version),
-      status: policy.status,
-      eval_score: round(toNumber(policy.eval_score)),
-      promoted_at: toIsoString(anchor),
-      metric_name: metricName,
-      before_avg: beforeAvg,
-      after_avg: afterAvg,
-      delta_pct: deltaPct,
-      affected_agents: policy.agent_role ? [policy.agent_role] : ['all-agents'],
-      ...(typeof sourcePatternId === 'string' && sourcePatternId.trim().length > 0
-        ? { source_pattern_id: sourcePatternId }
-        : {}),
-    });
-  }
-
-  return results;
-}
-
-async function getComplianceHeatmap(): Promise<GovernanceComplianceHeatmapCell[]> {
-  return systemQuery<GovernanceComplianceHeatmapCell>(
-    `SELECT
-       COALESCE(ca.department, 'Unassigned') AS department,
-       COALESCE(principle.value->>'category', score.value->>'principleId') AS principle,
-       AVG((score.value->>'score')::numeric)::float AS avg_score,
-       COUNT(*)::int AS evaluation_count
-     FROM constitutional_evaluations ce
-     JOIN company_agents ca ON ca.role = ce.agent_role
-     JOIN LATERAL jsonb_array_elements(COALESCE(ce.principle_scores, '[]'::jsonb)) AS score(value) ON true
-     LEFT JOIN agent_constitutions ac
-       ON ac.agent_role = ce.agent_role
-      AND ac.active = true
-     LEFT JOIN LATERAL (
-       SELECT p.value
-       FROM jsonb_array_elements(COALESCE(ac.principles, '[]'::jsonb)) AS p(value)
-       WHERE p.value->>'id' = score.value->>'principleId'
-       LIMIT 1
-     ) AS principle ON true
-     WHERE ce.evaluated_at >= NOW() - INTERVAL '30 days'
-     GROUP BY COALESCE(ca.department, 'Unassigned'), COALESCE(principle.value->>'category', score.value->>'principleId')
-     ORDER BY COALESCE(ca.department, 'Unassigned'), COALESCE(principle.value->>'category', score.value->>'principleId')`,
-  );
-}
-
-async function getAmendments(): Promise<GovernanceAmendmentProposal[]> {
-  const rows = await systemQuery<{
-    id: string;
-    agent_role: string;
-    action: string;
-    principle_text: string;
-    rationale: string | null;
-    source: string;
-    status: string;
-    created_at: string;
-    reviewed_at: string | null;
-    failed_evals_count: number;
-  }>(
-    `SELECT
-       pca.id,
-       pca.agent_role,
-       pca.action,
-       pca.principle_text,
-       pca.rationale,
-       pca.source,
-       pca.status,
-       pca.created_at,
-       pca.reviewed_at,
-       (
-         SELECT COUNT(*)::int
-         FROM constitutional_evaluations ce
-         WHERE ce.agent_role = pca.agent_role
-           AND ce.overall_adherence < 0.7
-           AND ce.evaluated_at >= NOW() - INTERVAL '30 days'
-       ) AS failed_evals_count
-     FROM proposed_constitutional_amendments pca
-     WHERE pca.status IN ('proposed', 'pending')
-     ORDER BY pca.created_at DESC`,
-  );
-
-  return rows.map(row => {
-    const shortName = row.principle_text.length > 80
-      ? `${row.principle_text.slice(0, 77)}...`
-      : row.principle_text;
-    const currentRule = row.action === 'deprecate'
-      ? row.principle_text
-      : (row.action === 'add' ? 'No current rule exists.' : 'Existing rule under review.');
-    const proposedChange = row.action === 'deprecate'
-      ? 'Deprecate the existing rule.'
-      : row.principle_text;
-
-    return {
-      amendment_id: row.id,
-      proposed_by: row.agent_role,
-      proposed_at: toIsoString(row.created_at),
-      principle_name: shortName,
-      current_rule: currentRule,
-      proposed_change: proposedChange,
-      reason: row.rationale ?? 'No rationale provided.',
-      failed_evals_count: row.failed_evals_count,
-      status: 'pending',
-      metadata: {
-        action: row.action,
-        source: row.source,
-        reviewed_at: row.reviewed_at,
-      },
-    };
-  });
-}
-
 export async function handleGovernanceApi(
   _req: IncomingMessage,
   res: ServerResponse,
@@ -1369,15 +1189,6 @@ export async function handleGovernanceApi(
         return true;
       case 'access-posture':
         jsonResponse(res, 200, await getAccessPosture());
-        return true;
-      case 'policy-impact':
-        jsonResponse(res, 200, await getPolicyImpact());
-        return true;
-      case 'compliance-heatmap':
-        jsonResponse(res, 200, await getComplianceHeatmap());
-        return true;
-      case 'amendments':
-        jsonResponse(res, 200, await getAmendments());
         return true;
       default:
         jsonResponse(res, 404, { error: `Unknown governance API resource: ${resource}` });

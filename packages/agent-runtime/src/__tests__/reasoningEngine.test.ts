@@ -42,7 +42,7 @@ function defaultConfig(overrides?: Partial<ReasoningConfig>): ReasoningConfig {
     maxReasoningBudget: 0.05,
     crossModelEnabled: false,
     valueGateEnabled: true,
-    verificationModels: ['gemini-3-flash-preview'],
+    verificationModels: ['gemini-3.1-flash-lite-preview'],
     ...overrides,
   };
 }
@@ -262,7 +262,7 @@ describe('ReasoningEngine', () => {
         maxReasoningBudget: 0.02,
         crossModelEnabled: false,
         valueGateEnabled: true,
-        verificationModels: ['gemini-3-flash-preview'],
+        verificationModels: ['gemini-3.1-flash-lite-preview'],
       };
       cache.get = vi.fn().mockResolvedValue(cachedConfig);
 

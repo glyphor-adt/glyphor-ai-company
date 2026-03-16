@@ -15,7 +15,7 @@ export const TRIANGULATION_MODELS = {
   validator1: 'gemini-3.1-pro-preview',
   validator2: 'gpt-5.4',
   judge: 'gemini-3.1-flash-lite-preview',
-  router: 'gemini-3-flash-preview',
+  router: 'gemini-3.1-flash-lite-preview',
 } as const;
 
 export interface TriangulationModelSelection {
