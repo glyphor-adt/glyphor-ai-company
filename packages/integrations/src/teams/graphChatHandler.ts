@@ -70,10 +70,16 @@ export interface ChatMember {
   roles: string[];
 }
 
+export interface ConversationTurn {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp?: number;
+}
+
 export type AgentRunner = (
   agentRole: string,
   task: string,
-  payload: { message: string },
+  payload: { message: string; conversationHistory?: ConversationTurn[] },
 ) => Promise<{ output?: string | null; error?: string | null } | undefined>;
 
 // ─── REVERSE LOOKUP ─────────────────────────────────────────────
@@ -256,11 +262,15 @@ export class GraphChatHandler {
       `[GraphChat] ${senderName} → ${displayName} (${agentRole}): "${messageText.substring(0, 100)}"`,
     );
 
+    // Fetch recent chat history for conversation continuity
+    const conversationHistory = await this.fetchChatHistory(token, chatId, messageId);
+
     // Run the agent
     let responseText: string;
     try {
       const result = await this.agentRunner(agentRole, 'on_demand', {
         message: `${identity}\n${messageText}`,
+        conversationHistory,
       });
 
       if (result?.output) {
@@ -420,6 +430,53 @@ export class GraphChatHandler {
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Graph reply failed (${res.status}): ${text.substring(0, 200)}`);
+    }
+  }
+
+  /**
+   * Fetch recent messages from a chat thread to provide conversation context.
+   * Returns up to 10 recent messages (excluding the current one) as ConversationTurns.
+   */
+  private async fetchChatHistory(
+    token: string,
+    chatId: string,
+    currentMessageId: string,
+  ): Promise<ConversationTurn[]> {
+    try {
+      const url = `https://graph.microsoft.com/v1.0/chats/${encodeURIComponent(chatId)}/messages?$top=11&$orderby=createdDateTime desc`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return [];
+
+      const data = (await res.json()) as { value: ChatMessage[] };
+      const turns: ConversationTurn[] = [];
+
+      for (const msg of data.value) {
+        // Skip the current message (it's passed as the main message)
+        if (msg.id === currentMessageId) continue;
+        // Skip system messages
+        if (msg.messageType !== 'message') continue;
+
+        const text = this.extractText(msg);
+        if (!text) continue;
+
+        const isAgent = !!(msg.from?.user?.id && AGENT_USER_IDS.has(msg.from.user.id))
+          || !!(msg.from?.application);
+
+        turns.push({
+          role: isAgent ? 'assistant' : 'user',
+          content: text,
+          timestamp: new Date(msg.createdDateTime).getTime(),
+        });
+      }
+
+      // Reverse to chronological order (API returns newest first)
+      return turns.reverse();
+    } catch (err) {
+      console.warn(`[GraphChat] Failed to fetch chat history: ${(err as Error).message}`);
+      return [];
     }
   }
 
