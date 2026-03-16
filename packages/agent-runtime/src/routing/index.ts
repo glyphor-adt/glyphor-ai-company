@@ -7,3 +7,5 @@ export { resolveModelConfig } from './resolveModel.js';
 export type { RoutingDecision } from './resolveModel.js';
 export { PRE_CHECK_REGISTRY, runDeterministicPreCheck } from './preChecks.js';
 export type { DeterministicPreCheckContext, DeterministicPreCheckResult, DeterministicPreCheck } from './preChecks.js';
+export { ToolRetriever, getToolRetriever, initializeToolRetriever, buildToolTaskContext } from './toolRetriever.js';
+export type { ToolRetrieverRequest, ToolRetrieverResult, ToolRetrieverTrace } from './toolRetriever.js';

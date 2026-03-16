@@ -32,7 +32,7 @@ import { estimateModelCost } from '@glyphor/shared/models';
 import { systemQuery } from '@glyphor/shared/db';
 import { extractTaskFromConfigId } from './taskIdentity.js';
 import { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
-import { filterToolDeclarations, getToolSubset } from './toolSubsets.js';
+import { buildToolTaskContext, getToolRetriever } from './routing/toolRetriever.js';
 import { runDeterministicPreCheck } from './routing/index.js';
 import type { RoutingDecision } from './routing/index.js';
 import type { TrustScorer } from './trustScorer.js';
@@ -1300,6 +1300,11 @@ export class CompanyAgentRunner {
     if (staticToolNames.length === 0) {
       console.warn(`[ToolInventory] WARNING: ${config.role} has ZERO tools — check run.ts wiring`);
     }
+    try {
+      await getToolRetriever().warm(toolExecutor.getDeclarations());
+    } catch (err) {
+      console.warn(`[ToolRetriever] Warm-up failed for ${config.role}:`, (err as Error).message);
+    }
 
     // ─── AUTO-SYNC GRANTS ──────────────────────────────────────
     // Bulk-sync static tools to agent_tool_grants (fire-and-forget)
@@ -1815,6 +1820,7 @@ export class CompanyAgentRunner {
                   metadata: {
                     previousResponseId,
                     modelConfig: routedModel,
+                    agentRole: config.role,
                   },
                 });
                 if (synthResponse.text) {
@@ -1953,12 +1959,33 @@ export class CompanyAgentRunner {
           );
 
           if (effectiveTools) {
-            if (!useProviderToolSearch) {
-              effectiveTools = filterToolDeclarations(effectiveTools, getToolSubset(config.role, task), config.role);
-            } else if (turnNumber === 1) {
+            const retrieval = await getToolRetriever().retrieve(effectiveTools, {
+              model: modelForTurn,
+              role: config.role,
+              department: routingDepartment,
+              taskContext: buildToolTaskContext({
+                message: initialMessage,
+                task,
+                role: config.role,
+                department: routingDepartment,
+                recentTools: actionReceipts.map((receipt) => receipt.tool),
+              }),
+            });
+
+            effectiveTools = retrieval.tools;
+
+            if (turnNumber === 1 || turnNumber % 3 === 0) {
+              console.log(
+                `[ToolRetriever] ${config.role} turn=${turnNumber}: ` +
+                `candidates=${retrieval.trace.totalCandidates}, pinned=${retrieval.trace.pinnedTools.length}, ` +
+                `selected=${effectiveTools.length}, cap=${retrieval.trace.modelCap}, model=${retrieval.trace.model}`,
+              );
+            }
+
+            if (useProviderToolSearch && turnNumber === 1) {
               console.log(
                 `[ToolSearch] ${config.role}: provider=${providerForTurn} tool_search enabled; ` +
-                `declaring ${effectiveTools.length} tools with deferred loading.`,
+                `declaring ${effectiveTools.length} retrieved tools with deferred loading.`,
               );
             }
           }

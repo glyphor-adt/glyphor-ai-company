@@ -43,8 +43,8 @@ import { harvestTaskOutcome } from './taskOutcomeHarvester.js';
 import type { ActionReceipt } from './types.js';
 import { extractTaskFromConfigId } from './taskIdentity.js';
 import { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
-import { filterToolDeclarations, getToolSubset } from './toolSubsets.js';
 import { runDeterministicPreCheck } from './routing/index.js';
+import { buildToolTaskContext, getToolRetriever } from './routing/toolRetriever.js';
 import type { RoutingDecision } from './routing/index.js';
 import { determineVerificationTier } from './verificationPolicy.js';
 import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from './subtaskRouter.js';
@@ -206,6 +206,11 @@ export abstract class BaseAgentRunner {
     // ─── Load shared memory + JIT context in parallel ───────────
     const taskForContext = extractTaskFromConfigId(config.id);
     const initialToolNames = toolExecutor.getToolNames();
+    try {
+      await getToolRetriever().warm(toolExecutor.getDeclarations());
+    } catch (err) {
+      console.warn(`[${this.archetype}Runner] Tool retriever warm-up failed for ${config.role}:`, (err as Error).message);
+    }
     let trustScore: number | null = null;
     if (safeDeps.trustScorer) {
       try {
@@ -440,11 +445,32 @@ ${memPrompt}`, timestamp: Date.now() });
 
           // Strip tools on last turn to force text response
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
-          const allowedToolNames = getToolSubset(config.role, taskForContext);
-          if (effectiveTools) {
-            effectiveTools = filterToolDeclarations(effectiveTools, allowedToolNames, config.role);
-          }
           if (turnNumber >= supervisor.config.maxTurns) effectiveTools = undefined;
+          if (effectiveTools) {
+              const modelForRetrieval = routedModel.model === '__deterministic__'
+                ? config.model
+                : routedModel.model;
+              const retriever = getToolRetriever();
+              const retrieval = await retriever.retrieve(effectiveTools, {
+                model: modelForRetrieval,
+                role: config.role,
+                taskContext: buildToolTaskContext({
+                  message: initialMessage,
+                  task: taskForContext,
+                  role: config.role,
+                  recentTools: actionReceipts.map((receipt) => receipt.tool),
+                }),
+              });
+              effectiveTools = retrieval.tools;
+
+              if (turnNumber === 1 || turnNumber % 3 === 0) {
+                console.log(
+                  `[ToolRetriever] ${config.role} turn=${turnNumber}: ` +
+                  `candidates=${retrieval.trace.totalCandidates}, pinned=${retrieval.trace.pinnedTools.length}, ` +
+                  `selected=${effectiveTools.length}, cap=${retrieval.trace.modelCap}, model=${retrieval.trace.model}`,
+                );
+              }
+          }
 
           routingAudit = routeSubtask({
             role: config.role,
@@ -494,6 +520,7 @@ ${memPrompt}`, timestamp: Date.now() });
             metadata: {
               previousResponseId,
               modelConfig: routedModel,
+              agentRole: config.role,
             },
           });
           previousResponseId = response.responseId;

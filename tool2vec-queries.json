@@ -1,0 +1,122 @@
+{
+  "search_sharepoint": [
+    "find the Q3 marketing deck on SharePoint",
+    "search our SharePoint site for the onboarding document",
+    "look up the latest policy PDF in our document library",
+    "find all files related to Project Tempest on SharePoint",
+    "search for the board meeting minutes from last month",
+    "where is the employee handbook stored",
+    "pull the investor deck from our SharePoint",
+    "search internal documents for compliance guidelines"
+  ],
+  "upload_to_sharepoint": [
+    "upload this report to the marketing SharePoint folder",
+    "save this document to our SharePoint site",
+    "put this file in the shared documents library",
+    "upload the updated policy to SharePoint",
+    "store this presentation in our team drive on SharePoint",
+    "push the quarterly review to the executive folder",
+    "add this PDF to the SharePoint document library",
+    "save the analysis to our internal file share"
+  ],
+  "findFileOrFolder": [
+    "find a specific file in OneDrive by name",
+    "search OneDrive for a folder called project assets",
+    "locate a file in my personal OneDrive storage",
+    "find the exact path to a document in OneDrive or SharePoint",
+    "look up a file by its filename across Microsoft 365",
+    "search for a folder in the organization's OneDrive",
+    "find where a specific document is stored in M365",
+    "locate the file named annual-report.xlsx"
+  ],
+  "getFolderChildren": [
+    "list all files in a specific OneDrive folder",
+    "show me what's inside the marketing assets folder",
+    "browse the contents of a SharePoint directory",
+    "list the files in the root of my OneDrive",
+    "what files are in the shared documents folder",
+    "show folder contents for the engineering team drive",
+    "enumerate the items in this specific folder path",
+    "list all subfolders under the projects directory"
+  ],
+  "memory_recall": [
+    "what do I know about this client",
+    "recall our previous conversation context",
+    "check my memory for relevant background information",
+    "what have I stored about this project",
+    "look up what I remember about this topic",
+    "retrieve context from my knowledge store",
+    "what background do I have on this person",
+    "recall stored information about this account"
+  ],
+  "memory_store": [
+    "remember this for later",
+    "save this insight to my memory",
+    "store this context for future reference",
+    "remember that the client prefers email communication",
+    "save the key takeaways from this conversation",
+    "store this decision for the project record",
+    "keep track of this preference going forward",
+    "save this data point about the account"
+  ],
+  "send_message": [
+    "send a Slack message to the marketing channel",
+    "message the team about the deadline change",
+    "notify the engineering lead about the deployment",
+    "send an update to the project channel",
+    "DM the CEO about the board meeting",
+    "post an announcement in the general channel",
+    "send a Teams message to the finance department",
+    "alert the team about the production issue"
+  ],
+  "assign_task": [
+    "create a task for the design team to review the mockups",
+    "assign this action item to the engineering lead",
+    "delegate this work to the marketing coordinator",
+    "create a follow-up task from this meeting",
+    "assign someone to update the documentation",
+    "create a task to investigate the bug report",
+    "delegate the client outreach to the sales rep",
+    "assign the presentation prep to the analyst"
+  ],
+  "canva_generate": [
+    "create a social media graphic for the product launch",
+    "design a banner for the blog post",
+    "generate a visual for the marketing campaign",
+    "create an Instagram post image",
+    "design a thumbnail for the YouTube video",
+    "make a promotional graphic for the newsletter",
+    "create visual content for the social campaign",
+    "design a header image for the landing page"
+  ],
+  "seo_audit": [
+    "run an SEO analysis on our homepage",
+    "check the search optimization of our blog posts",
+    "audit our website for SEO issues",
+    "analyze our keyword rankings and opportunities",
+    "check our meta tags and page structure for SEO",
+    "evaluate our site's search engine performance",
+    "identify SEO improvements for our product pages",
+    "review our technical SEO health"
+  ],
+  "revenue_lookup": [
+    "what was our revenue last quarter",
+    "check the current MRR numbers",
+    "look up revenue by product line",
+    "how much revenue did we generate in January",
+    "pull the ARR growth data",
+    "what are the revenue numbers for the enterprise segment",
+    "check our revenue run rate",
+    "look up the revenue actuals vs forecast"
+  ],
+  "create_social_post": [
+    "draft a LinkedIn post about our new feature",
+    "create a tweet announcing the partnership",
+    "write a social media post for the product update",
+    "compose an Instagram caption for the team photo",
+    "draft a Facebook post about the company milestone",
+    "create social content for the thought leadership piece",
+    "write a LinkedIn article teaser post",
+    "compose a Twitter thread about our industry insights"
+  ]
+}

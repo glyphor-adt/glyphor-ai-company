@@ -70,7 +70,7 @@ export function resolveModelConfig(
     };
   } else if (selected.has('code_generation')) {
     decision = {
-      model: DEFAULT_MODEL,
+      model: 'gpt-5.4',
       routingRule: 'code_read_only',
       capabilities,
       reasoningEffort: selected.has('high_complexity') ? 'medium' : 'low',
@@ -141,7 +141,7 @@ export function resolveModelConfig(
     };
   } else if (currentModel === DEFAULT_MODEL) {
     decision = {
-      model: DEFAULT_MODEL,
+      model: 'gemini-3.1-flash-lite-preview',
       routingRule: 'default_generalist',
       capabilities,
       reasoningEffort: 'low',
