@@ -42,7 +42,11 @@ export class GeminiAdapter implements ProviderAdapter {
     // the shared tool references get corrupted for cross-provider fallbacks.
     const geminiTools: Array<Record<string, unknown>> = [];
     if (request.tools?.length) {
-      geminiTools.push({ functionDeclarations: structuredClone(request.tools) });
+      const cleaned = structuredClone(request.tools).map((tool) => {
+        const { name, description, parameters } = tool;
+        return { name, description, parameters };
+      });
+      geminiTools.push({ functionDeclarations: cleaned });
     }
     const hasFunctionDeclarations = geminiTools.some((tool) => Array.isArray((tool as { functionDeclarations?: unknown }).functionDeclarations));
 
