@@ -44,7 +44,7 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cos-midday-digest',
     agentRole: 'chief-of-staff',
-    schedule: '30 17 * * 1-5',  // 17:30 UTC = 12:30 PM CT, weekdays
+    schedule: '0 12 * * 1-5',  // 12:00 PM CT, weekdays
     timezone: 'America/Chicago',
     task: 'midday_digest',
     payload: { founder: 'both' },
@@ -53,10 +53,10 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cos-eod-summary',
     agentRole: 'chief-of-staff',
-    schedule: '0 23 * * *',  // 23:00 UTC = 6:00 PM CT, daily
+    schedule: '0 18 * * 1-5',  // 6:00 PM CT, weekdays
     timezone: 'America/Chicago',
     task: 'eod_summary',
-    payload: {},
+    payload: { founder: 'both' },
     enabled: true,
   },
   {
@@ -69,10 +69,28 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     enabled: true,
   },
   {
+    id: 'cos-weekly-review',
+    agentRole: 'chief-of-staff',
+    schedule: '0 9 * * 1',  // Monday 9:00 AM CT
+    timezone: 'America/Chicago',
+    task: 'weekly_review',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'cos-monthly-retrospective',
+    agentRole: 'chief-of-staff',
+    schedule: '0 10 1 * *',  // 1st of month, 10:00 AM CT
+    timezone: 'America/Chicago',
+    task: 'monthly_retrospective',
+    payload: {},
+    enabled: true,
+  },
+  {
     id: 'cos-strategic-planning',
     agentRole: 'chief-of-staff',
-    schedule: '0 22 * * 0',  // Sunday 10:00 PM UTC — weekly doctrine-backed planning cycle
-    timezone: 'UTC',
+    schedule: '0 14 * * 1',  // Monday 2:00 PM CT
+    timezone: 'America/Chicago',
     task: 'strategic_planning',
     payload: {},
     enabled: true,

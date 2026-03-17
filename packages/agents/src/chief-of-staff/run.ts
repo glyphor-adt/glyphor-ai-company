@@ -397,7 +397,7 @@ You are in an interactive conversation with a founder. CRITICAL RULES:
     systemPrompt,
     model: agentCfg.model,
     tools,
-    maxTurns: task === 'orchestrate' || task === 'strategic_planning' ? 15 : agentCfg.maxTurns,
+    maxTurns: task === 'orchestrate' || task === 'strategic_planning' ? 25 : agentCfg.maxTurns,
     maxStallTurns: task === 'orchestrate' || task === 'strategic_planning' ? 10 : 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
@@ -426,9 +426,7 @@ You are in an interactive conversation with a founder. CRITICAL RULES:
 
   const durationMs = Date.now() - startTime;
 
-  // Estimate cost (Flash: ~$0.15/1M input, ~$0.60/1M output)
-  const lastEvent = result.conversationHistory.length;
-  const estimatedCost = (lastEvent * 0.0001); // Very rough estimate
+  const estimatedCost = result.estimatedCostUsd ?? result.cost ?? 0;
 
   // Record run in agent tracking
   try {

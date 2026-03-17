@@ -31,6 +31,7 @@ import type { RunDependencies, AgentProfileData, SkillContext } from './companyA
 import type { ReasoningEngine } from './reasoningEngine.js';
 import type { JitContextRetriever, JitContext } from './jitContextRetriever.js';
 import { estimateModelCost } from '@glyphor/shared/models';
+import { systemQuery } from '@glyphor/shared/db';
 
 const DB_RUN_ID_TURN_PREFIX = '__db_run_id__:';
 import type { RedisCache } from './redisCache.js';
@@ -206,6 +207,34 @@ export abstract class BaseAgentRunner {
     // ─── Load shared memory + JIT context in parallel ───────────
     const taskForContext = extractTaskFromConfigId(config.id);
     const initialToolNames = toolExecutor.getToolNames();
+
+    // Best-effort mirror sync of statically loaded tools.
+    // Keeps agent_tool_grants freshness data accurate for pre-dispatch checks.
+    if (initialToolNames.length > 0) {
+      (async () => {
+        try {
+          const values = initialToolNames
+            .map((_, i) => `($1, $${i + 2}, 'system', 'auto-synced from static tool array', NOW())`)
+            .join(', ');
+
+          await systemQuery(
+            `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
+             VALUES ${values}
+             ON CONFLICT (agent_role, tool_name) DO UPDATE
+             SET granted_by = EXCLUDED.granted_by,
+                 reason = EXCLUDED.reason,
+                 is_active = true,
+                 expires_at = NULL,
+                 last_synced_at = NOW(),
+                 updated_at = NOW()`,
+            [config.role, ...initialToolNames],
+          );
+        } catch {
+          // Best-effort sync only.
+        }
+      })();
+    }
+
     try {
       await getToolRetriever().warm(toolExecutor.getDeclarations());
     } catch (err) {

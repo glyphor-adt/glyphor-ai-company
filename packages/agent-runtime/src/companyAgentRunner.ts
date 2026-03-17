@@ -141,7 +141,10 @@ const FULL_CONTEXT_TASKS = new Set([
 /** Regex: if an on_demand message matches these, auto-upgrade from light → standard. */
 const TASK_KEYWORDS = /\b(report|analys[ei]s|briefing|review|strategy|budget|cost|revenue|metric|quarterly|monthly|roadmap|competitive|pricing|audit|campaign|pipeline)\b/i;
 
-function resolveContextTier(task: string, message: string): ContextTier {
+function resolveContextTier(role: CompanyAgentRole, task: string, message: string): ContextTier {
+  // CoS must retain identity/relationship context even during task-loop execution.
+  if (role === 'chief-of-staff' && task === 'work_loop') return 'standard';
+
   if (FULL_CONTEXT_TASKS.has(task)) return 'full';
   if (task === 'work_loop') return 'task';
   if (task === 'on_demand') {
@@ -1337,16 +1340,17 @@ export class CompanyAgentRunner {
       (async () => {
         try {
           const values = staticToolNames.map((_, i) =>
-            `($1, $${i + 2}, 'system', 'auto-synced from static tool array')`
+            `($1, $${i + 2}, 'system', 'auto-synced from static tool array', NOW())`
           ).join(', ');
            await systemQuery(
-             `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
+             `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
               VALUES ${values}
              ON CONFLICT (agent_role, tool_name) DO UPDATE
              SET granted_by = EXCLUDED.granted_by,
                  reason = EXCLUDED.reason,
                  is_active = true,
                  expires_at = NULL,
+                 last_synced_at = NOW(),
                  updated_at = NOW()`,
              [config.role, ...staticToolNames],
            );
@@ -1375,7 +1379,7 @@ export class CompanyAgentRunner {
 
     {
       const task = extractTask(config.id);
-      const tier = resolveContextTier(task, initialMessage);
+      const tier = resolveContextTier(config.role, task, initialMessage);
 
       // Memory retrieval — standard+ only (skip for light and task tiers)
       const memoryPromise = (tier !== 'light' && tier !== 'task' && deps?.agentMemoryStore)

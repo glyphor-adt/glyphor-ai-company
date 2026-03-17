@@ -140,7 +140,7 @@ body {
 
 .dark .mesh-gradient {
   background-color: #07090f;
-  background-image: url('/3d-render.jpg');
+  background-image: none;
   background-position: center center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -148,11 +148,11 @@ body {
 
 .dark .dashboard-main {
   position: relative;
-  /* Background lives on .mesh-gradient (the shell). Keeping it here too
-     would create an opaque layer that blocks backdrop-filter blur on cards. */
-  /* Avoid forcing a stacking context here (e.g. via z-index), because
-     Chromium may stop sampling the shell backdrop for descendant glass cards. */
-  background: transparent;
+  background-image: url('/3d-render.jpg');
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-color: transparent;
 }
 
 .dashboard-sidebar {

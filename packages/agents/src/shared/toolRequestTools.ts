@@ -153,7 +153,7 @@ export function createToolRequestTools(): ToolDefinition[] {
     {
       name: 'check_tool_access',
       description:
-        'Pre-dispatch access check. Verifies whether tools exist in the system and whether an agent currently has an active self-service grant row for each tool.',
+        'Pre-dispatch access check. Verifies active grants, grant freshness, and whether each tool exists in the system.',
       parameters: {
         agent_role: {
           type: 'string',
@@ -177,38 +177,63 @@ export function createToolRequestTools(): ToolDefinition[] {
           return { success: false, error: 'tool_names must contain at least one tool name.' };
         }
 
-        const grants = await systemQuery<{ tool_name: string }>(
-          `SELECT tool_name
+        const grants = await systemQuery<{ tool_name: string; last_synced_at: string | null; granted_by: string | null }>(
+          `SELECT tool_name, last_synced_at, granted_by
              FROM agent_tool_grants
-            WHERE agent_role = $1 AND is_active = true`,
-          [agentRole],
+            WHERE agent_role = $1
+              AND tool_name = ANY($2::text[])
+              AND is_active = true`,
+          [agentRole, toolNames],
         );
-        const grantSet = new Set(grants.map((row) => row.tool_name));
+        const grantByTool = new Map(grants.map((row) => [row.tool_name, row]));
 
         const checks = await Promise.all(
           toolNames.map(async (toolName) => {
-            const knownInRegistry = await isKnownToolAsync(toolName);
-            const hasGrant = grantSet.has(toolName);
-            const exists = knownInRegistry || hasGrant;
-            const likelyAccessible = exists;
+            const grantRow = grantByTool.get(toolName);
+            const existsInSystem = await isKnownToolAsync(toolName);
+            const isFresh = Boolean(
+              grantRow?.last_synced_at &&
+              (Date.now() - new Date(grantRow.last_synced_at).getTime()) < 24 * 60 * 60 * 1000,
+            );
+
+            let accessible: 'yes' | 'no' | 'unknown';
+            let source: 'active_grant_fresh' | 'active_grant_stale' | 'exists_in_system_only' | 'not_found';
+
+            if (grantRow && isFresh) {
+              accessible = 'yes';
+              source = 'active_grant_fresh';
+            } else if (grantRow && !isFresh) {
+              accessible = 'unknown';
+              source = 'active_grant_stale';
+            } else if (existsInSystem) {
+              accessible = 'unknown';
+              source = 'exists_in_system_only';
+            } else {
+              accessible = 'no';
+              source = 'not_found';
+            }
 
             return {
               tool_name: toolName,
-              exists,
-              active_grant: hasGrant,
-              likely_accessible: likelyAccessible,
-              recommendation: exists
-                ? (hasGrant
-                    ? (knownInRegistry
-                        ? 'Tool appears available. Dispatch is safe; if runtime still fails, check MCP health/auth and task subset filters.'
-                        : 'Tool has an active grant but is not in registry metadata. It may still be code-loaded (for example, a fallback). Dispatch directly; if runtime fails with Unknown tool, request_new_tool.')
-                    : 'Tool exists. If dispatch fails due access, call request_tool_access then retry.')
-                : 'Tool does not exist in registry and has no active grant. Use request_new_tool.',
+              agent_role: agentRole,
+              accessible,
+              source,
+              active_grant: Boolean(grantRow),
+              last_synced_at: grantRow?.last_synced_at ?? null,
+              granted_by: grantRow?.granted_by ?? null,
+              exists_in_system: existsInSystem,
+              recommendation:
+                accessible === 'unknown'
+                  ? 'Grant this tool preemptively before dispatching - use grant_tool_access. The grant is idempotent (no-op if the agent already has it).'
+                  : accessible === 'no'
+                    ? 'This tool does not exist. Check the tool name or request it via request_new_tool.'
+                    : 'Tool confirmed accessible.',
             };
           }),
         );
 
-        const missing = checks.filter((c) => !c.exists).map((c) => c.tool_name);
+        const missing = checks.filter((c) => !c.exists_in_system).map((c) => c.tool_name);
+        const unknown = checks.filter((c) => c.accessible === 'unknown').map((c) => c.tool_name);
         return {
           success: true,
           data: {
@@ -216,6 +241,8 @@ export function createToolRequestTools(): ToolDefinition[] {
             checks,
             all_tools_exist: missing.length === 0,
             missing_tools: missing,
+            unknown_tools: unknown,
+            all_tools_confirmed_accessible: checks.every((c) => c.accessible === 'yes'),
           },
         };
       },

@@ -849,7 +849,7 @@ resource "google_cloud_scheduler_job" "briefing_andrew" {
 # ─── Cloud Scheduler: CoS Midday Status Digest ──────────────
 resource "google_cloud_scheduler_job" "cos_midday_digest" {
   name      = "cos-midday-digest"
-  schedule  = "30 12 * * 1-5"
+  schedule  = "0 12 * * 1-5"
   time_zone = "America/Chicago"
   region    = var.region
 
@@ -888,8 +888,8 @@ resource "google_cloud_scheduler_job" "cos_orchestrate" {
 # ─── Cloud Scheduler: CoS EOD Summary ───────────────────────
 resource "google_cloud_scheduler_job" "cos_eod_summary" {
   name      = "cos-eod-summary"
-  schedule  = "0 23 * * *"
-  time_zone = "UTC"
+  schedule  = "0 18 * * 1-5"
+  time_zone = "America/Chicago"
   region    = var.region
 
   pubsub_target {
@@ -897,6 +897,63 @@ resource "google_cloud_scheduler_job" "cos_eod_summary" {
     data = base64encode(jsonencode({
       agentRole = "chief-of-staff"
       task      = "eod_summary"
+      payload   = { founder = "both" }
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+# ─── Cloud Scheduler: CoS Weekly Review ─────────────────────
+resource "google_cloud_scheduler_job" "cos_weekly_review" {
+  name      = "cos-weekly-review"
+  schedule  = "0 9 * * 1"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "chief-of-staff"
+      task      = "weekly_review"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+# ─── Cloud Scheduler: CoS Monthly Retrospective ─────────────
+resource "google_cloud_scheduler_job" "cos_monthly_retrospective" {
+  name      = "cos-monthly-retrospective"
+  schedule  = "0 10 1 * *"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "chief-of-staff"
+      task      = "monthly_retrospective"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+# ─── Cloud Scheduler: CoS Strategic Planning ────────────────
+resource "google_cloud_scheduler_job" "cos_strategic_planning" {
+  name      = "cos-strategic-planning"
+  schedule  = "0 14 * * 1"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "chief-of-staff"
+      task      = "strategic_planning"
       payload   = {}
     }))
   }

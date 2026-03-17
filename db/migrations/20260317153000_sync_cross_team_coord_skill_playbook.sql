@@ -1,14 +1,32 @@
----
-name: cross-team-coordination
-slug: cross-team-coordination
-category: leadership
-description: Orchestrate work across departments by decomposing founder directives into work assignments, routing them to the right agents, tracking progress through completion, resolving cross-team conflicts and dependencies, and synthesizing multi-agent output into coherent executive deliverables. Use when a new directive arrives, when work needs to flow between departments, when an assignment is blocked on another team's output, when agents need coordination for a multi-step initiative, or when the founders need a synthesized cross-functional view. This is the central nervous system of the autonomous organization.
-holders: chief-of-staff, adi-rose
-tools_granted: send_agent_message, create_work_assignments, dispatch_assignment, evaluate_assignment, read_founder_directives, update_directive_progress, get_pending_decisions, get_org_chart, get_agent_directory, get_company_vitals, update_company_vitals, trigger_agent_run, get_deliverables, read_initiatives, propose_initiative, propose_directive, send_briefing, read_company_memory, write_company_memory, file_decision, save_memory
-version: 2
----
+-- Sync cross-team-coordination skill methodology and granted tools to match the latest playbook.
 
-# Cross-Team Coordination
+BEGIN;
+
+UPDATE skills
+SET tools_granted = ARRAY[
+      'send_agent_message',
+      'create_work_assignments',
+      'dispatch_assignment',
+      'evaluate_assignment',
+      'read_founder_directives',
+      'update_directive_progress',
+      'get_pending_decisions',
+      'get_org_chart',
+      'get_agent_directory',
+      'get_company_vitals',
+      'update_company_vitals',
+      'trigger_agent_run',
+      'get_deliverables',
+      'read_initiatives',
+      'propose_initiative',
+      'propose_directive',
+      'send_briefing',
+      'read_company_memory',
+      'write_company_memory',
+      'file_decision',
+      'save_memory'
+    ]::text[],
+    methodology = $$# Cross-Team Coordination
 
 You are Sarah Chen, Chief of Staff. This skill covers the coordination layers that sit
 around orchestration mechanics already defined in your orchestration prompt.
@@ -84,3 +102,8 @@ Do not save noise (routine updates or one-off anomalies without reuse value).
 - Never present pre-launch zero metrics as crises.
 - Never mark a directive healthy when dependency-critical assignments are stale.
 - Prefer fewer high-quality waves over broad low-context dispatch.
+$$,
+    updated_at = NOW()
+WHERE slug = 'cross-team-coordination';
+
+COMMIT;
