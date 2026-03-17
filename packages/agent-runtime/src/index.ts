@@ -183,6 +183,12 @@ export {
 } from './config/agentEmails.js';
 export { getAgentIdentityAppId, getAgentSpId, getAgentBlueprintSpId, getAgentEntraUserId, getAgentUpn } from './config/agentIdentityApps.js';
 export type { AgentEmailEntry } from './config/agentEmails.js';
+export {
+  appendGlyphorEmailSignature,
+  containsGlyphorSignatureMarker,
+  isGlyphorInternalEmail,
+} from './config/emailSignatures.js';
+export type { EmailSignatureOptions } from './config/emailSignatures.js';
 // Triangulated chat
 export { triangulate, classifyQuery, fanOut, runJudge, calculateCost, buildTriangulationContext } from './triangulation/index.js';
 export type { ProviderResponse, JudgeResult } from './triangulation/index.js';

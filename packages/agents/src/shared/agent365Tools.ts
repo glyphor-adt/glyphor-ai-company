@@ -11,7 +11,13 @@
  *   AGENT365_<ROLE>_TENANT_ID
  */
 
-import { type ToolDefinition, type CompanyAgentRole, AGENT_EMAIL_MAP } from '@glyphor/agent-runtime';
+import {
+  type ToolDefinition,
+  type CompanyAgentRole,
+  AGENT_EMAIL_MAP,
+  appendGlyphorEmailSignature,
+  isGlyphorInternalEmail,
+} from '@glyphor/agent-runtime';
 import { getAgentBlueprintSpId, getAgentEntraUserId } from '@glyphor/agent-runtime';
 import type { Agent365ToolBridge } from '@glyphor/integrations';
 import { createAgent365Tools as initAgent365Bridge, getM365Token } from '@glyphor/integrations';
@@ -131,6 +137,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
   const MCP_INIT_TIMEOUT_MS = 30_000;
 
   try {
+    const senderMailbox = agentRole ? AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email : undefined;
     const bridgePromise = initAgent365Bridge({
       clientId: credentials.clientId,
       clientSecret: credentials.clientSecret,
@@ -138,6 +145,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       agenticAppId: process.env.AGENT365_BLUEPRINT_ID,
       agentAppInstanceId,
       agenticUserId,
+      senderEmail: senderMailbox,
     }, serverFilter);
 
     // Timeout guard: if MCP init hangs beyond 15s, fall back to core tools only
@@ -501,13 +509,23 @@ function createSendEmailWithAttachmentTool(senderMailbox: string): ToolDefinitio
             }))
           : [];
 
+        const allRecipients = [
+          ...toRecipients.map((r) => r.emailAddress.address),
+          ...ccRecipients.map((r) => r.emailAddress.address),
+        ];
+        const internalOnly = allRecipients.length > 0 && allRecipients.every((email) => isGlyphorInternalEmail(email));
+        const signedBody = appendGlyphorEmailSignature(params.body as string, senderMailbox, {
+          format: 'html',
+          internal: internalOnly,
+        });
+
         // Build Graph API sendMail payload
         const payload = {
           message: {
             subject: params.subject as string,
             body: {
-              contentType: 'Text',
-              content: params.body as string,
+              contentType: 'HTML',
+              content: signedBody,
             },
             toRecipients,
             ...(ccRecipients.length > 0 && { ccRecipients }),

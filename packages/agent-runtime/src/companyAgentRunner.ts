@@ -927,8 +927,9 @@ function buildSystemPrompt(
   try {
     const knowledgeDir = join(__dirname, '../../company-knowledge');
 
-    // On-demand chat uses a slim prompt — skip KB and context files to keep
-    // the model call fast and focused on the user's question.
+    // On-demand chat uses a slim prompt — skip heavy DB KB and department
+    // context files, but always include CORE.md so agents can answer basic
+    // company identity questions (legal name, EIN, address, billing IDs).
     let companyKnowledgeBase = '';
     let departmentContext = '';
     if (!isOnDemand) {
@@ -953,6 +954,13 @@ function buildSystemPrompt(
         }
       }
       departmentContext = contextBlocks.join('\n\n---\n\n');
+    } else {
+      // On-demand: still load core company facts (lightweight file read)
+      try {
+        companyKnowledgeBase = readFileSync(join(knowledgeDir, 'CORE.md'), 'utf-8');
+      } catch {
+        // CORE.md missing — not critical
+      }
     }
 
     // If a DB system prompt override exists (from dashboard edits), use it
@@ -983,7 +991,7 @@ function buildSystemPrompt(
     }
 
     const parts: string[] = [];
-    if (!isOnDemand && companyKnowledgeBase) {
+    if (companyKnowledgeBase) {
       parts.push(companyKnowledgeBase);
     }
 
@@ -1067,14 +1075,24 @@ function buildSystemPrompt(
 
 /**
  * Build a minimal system prompt for the 'task' context tier.
- * Only includes personality + work protocol + cost awareness.
- * No KB, no brief, no memories, no reasoning protocol, no skills.
+ * Only includes personality + work protocol + cost awareness + core company facts.
+ * No brief, no memories, no reasoning protocol, no skills.
  */
 function buildTaskTierSystemPrompt(
   profile: AgentProfileData | null,
   doctrineContext?: string | null,
 ): string {
   const parts: string[] = [];
+
+  // Always include core company facts — agents need basic identity info
+  // (legal name, address, billing IDs) even in narrow task execution.
+  try {
+    const knowledgeDir = join(__dirname, '../../company-knowledge');
+    const coreKB = readFileSync(join(knowledgeDir, 'CORE.md'), 'utf-8');
+    parts.push(coreKB);
+  } catch {
+    // CORE.md missing — not critical, continue without it
+  }
 
   if (doctrineContext?.trim()) {
     parts.push(buildCanonicalDoctrineBlock(doctrineContext));

@@ -14,6 +14,7 @@
  */
 
 import type { GraphTeamsClient } from './graphClient.js';
+import { appendGlyphorEmailSignature, isGlyphorInternalEmail } from '@glyphor/agent-runtime';
 
 // ─── TYPES ──────────────────────────────────────────────────────
 
@@ -116,13 +117,20 @@ export class GraphEmailClient {
       contentType: a.contentType,
       contentBytes: a.contentBytes,
     }));
+    const recipients = [...options.to, ...(options.cc ?? [])].map((r) => r.email);
+    const internalOnly = recipients.length > 0 && recipients.every((email) => isGlyphorInternalEmail(email));
+    const senderIdentity = process.env.GLYPHOR_MAIL_SENDER_EMAIL ?? this.senderUserId;
+    const signedBody = appendGlyphorEmailSignature(options.body, senderIdentity, {
+      format: 'html',
+      internal: internalOnly,
+    });
 
     const payload = {
       message: {
         subject: options.subject,
         body: {
           contentType: 'HTML',
-          content: options.body,
+          content: signedBody,
         },
         toRecipients,
         ...(ccRecipients.length > 0 && { ccRecipients }),
@@ -172,11 +180,17 @@ export class GraphEmailClient {
       contentType: a.contentType,
       contentBytes: a.contentBytes,
     }));
+    const recipients = [...options.to, ...(options.cc ?? [])].map((r) => r.email);
+    const internalOnly = recipients.length > 0 && recipients.every((email) => isGlyphorInternalEmail(email));
+    const signedBody = appendGlyphorEmailSignature(options.body, senderEmail, {
+      format: 'html',
+      internal: internalOnly,
+    });
 
     const payload = {
       message: {
         subject: options.subject,
-        body: { contentType: 'HTML', content: options.body },
+        body: { contentType: 'HTML', content: signedBody },
         toRecipients,
         ...(ccRecipients.length > 0 && { ccRecipients }),
         importance: options.importance ?? 'normal',
@@ -299,6 +313,10 @@ export class GraphEmailClient {
   async replyToEmail(mailboxEmail: string, options: ReplyOptions): Promise<void> {
     const token = await this.getGraphToken();
     const endpoint = options.replyAll ? 'replyAll' : 'reply';
+    const signedBody = appendGlyphorEmailSignature(options.body, mailboxEmail, {
+      format: 'text',
+      internal: isGlyphorInternalEmail(mailboxEmail),
+    });
 
     const response = await fetch(
       `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailboxEmail)}/messages/${encodeURIComponent(options.messageId)}/${endpoint}`,
@@ -309,7 +327,7 @@ export class GraphEmailClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          comment: options.body,
+          comment: signedBody,
         }),
       },
     );

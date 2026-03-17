@@ -25,7 +25,14 @@ import { McpToolServerConfigurationService } from '@microsoft/agents-a365-toolin
 import { MsalTokenProvider } from '@microsoft/agents-hosting';
 import type { AuthConfiguration } from '@microsoft/agents-hosting';
 import type { MCPServerConfig, McpClientTool } from '@microsoft/agents-a365-tooling';
-import type { ToolDefinition, ToolParameter, ToolResult, ToolContext } from '@glyphor/agent-runtime';
+import {
+  appendGlyphorEmailSignature,
+  isGlyphorInternalEmail,
+  type ToolDefinition,
+  type ToolParameter,
+  type ToolResult,
+  type ToolContext,
+} from '@glyphor/agent-runtime';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -46,6 +53,8 @@ export interface Agent365Config {
   agenticUserId?: string;
   /** Agent Identity Blueprint ID for gateway discovery (defaults to clientId if not set) */
   agenticAppId?: string;
+  /** Sender mailbox email used for signature personalization when tool params omit sender */
+  senderEmail?: string;
 }
 
 export interface Agent365ToolBridge {
@@ -140,6 +149,62 @@ function getRecipientEmails(params: Record<string, unknown>, keys: string[]): st
   return Array.from(new Set(emails));
 }
 
+function isOutboundMailTool(toolName: string): boolean {
+  const name = toolName.toLowerCase();
+  return (
+    name.includes('send')
+    || name.includes('reply')
+    || name.includes('forward')
+    || name.includes('draft')
+  );
+}
+
+function inferMailBodyFormat(
+  toolName: string,
+  bodyField: string,
+  params: Record<string, unknown>,
+): 'html' | 'text' {
+  const explicitContentType = [
+    params.contentType,
+    params.ContentType,
+    params.bodyType,
+    params.BodyType,
+  ].find((v) => typeof v === 'string') as string | undefined;
+
+  if (explicitContentType) {
+    if (/html/i.test(explicitContentType)) return 'html';
+    if (/text/i.test(explicitContentType)) return 'text';
+  }
+
+  if (/html/i.test(bodyField)) return 'html';
+
+  const tool = toolName.toLowerCase();
+  if (tool.includes('send') || tool.includes('forward') || tool.includes('draft')) {
+    return 'html';
+  }
+
+  return 'text';
+}
+
+function resolveSenderEmail(
+  params: Record<string, unknown>,
+  defaultSenderEmail?: string,
+): string | null {
+  const candidates = getRecipientEmails(params, [
+    'from',
+    'From',
+    'sender',
+    'Sender',
+    'senderEmail',
+    'mailbox',
+    'Mailbox',
+    'user',
+    'userEmail',
+  ]);
+  if (candidates.length > 0) return candidates[0] ?? null;
+  return defaultSenderEmail?.trim() || null;
+}
+
 function enforceFounderCc(params: Record<string, unknown>): Record<string, unknown> {
   const toEmails = getRecipientEmails(params, ['to', 'To', 'toRecipients', 'ToRecipients', 'recipients']);
   const ccEmails = getRecipientEmails(params, ['cc', 'Cc', 'ccRecipients', 'CcRecipients']);
@@ -214,11 +279,35 @@ function stripMarkdownFromText(text: string): string {
  * Sanitize MCP Mail tool arguments — strip markdown from email body fields.
  * Returns a new params object (does not mutate the original).
  */
-function sanitizeMailToolParams(params: Record<string, unknown>): Record<string, unknown> {
+function sanitizeMailToolParams(
+  params: Record<string, unknown>,
+  options: { toolName: string; defaultSenderEmail?: string },
+): Record<string, unknown> {
   const sanitized = { ...params };
+  const recipientEmails = getRecipientEmails(sanitized, [
+    'to',
+    'To',
+    'toRecipients',
+    'ToRecipients',
+    'recipients',
+    'cc',
+    'Cc',
+    'ccRecipients',
+    'CcRecipients',
+  ]);
+  const internalOnly = recipientEmails.length > 0 && recipientEmails.every((email) => isGlyphorInternalEmail(email));
+  const senderEmail = resolveSenderEmail(sanitized, options.defaultSenderEmail);
+  const shouldAttachSignature = isOutboundMailTool(options.toolName);
+
   for (const [key, value] of Object.entries(sanitized)) {
     if (MAIL_BODY_FIELDS.has(key) && typeof value === 'string') {
-      sanitized[key] = stripMarkdownFromText(value);
+      const stripped = stripMarkdownFromText(value);
+      sanitized[key] = shouldAttachSignature
+        ? appendGlyphorEmailSignature(stripped, senderEmail, {
+            format: inferMailBodyFormat(options.toolName, key, sanitized),
+            internal: internalOnly,
+          })
+        : stripped;
     }
   }
 
@@ -455,6 +544,7 @@ function mcpToolToToolDefinition(
   connection: ActiveMcpConnection,
   serverName: string,
   reconnect: (conn: ActiveMcpConnection) => Promise<ActiveMcpConnection>,
+  defaultSenderEmail?: string,
 ): ToolDefinition {
   const params = convertJsonSchemaToToolParams(
     mcpTool.inputSchema.properties as Record<string, Record<string, unknown>> | undefined,
@@ -483,7 +573,7 @@ function mcpToolToToolDefinition(
       try {
         // Strip markdown from email body fields for Mail tools
         const sanitizedParams = serverName === 'mcp_MailTools'
-          ? sanitizeMailToolParams(callParams)
+          ? sanitizeMailToolParams(callParams, { toolName: mcpTool.name, defaultSenderEmail })
           : callParams;
 
         const result = await activeConn.client.callTool({
@@ -531,7 +621,7 @@ function mcpToolToToolDefinition(
           try {
             activeConn = await reconnect(activeConn);
             const retryCallParams = serverName === 'mcp_MailTools'
-              ? sanitizeMailToolParams(callParams)
+              ? sanitizeMailToolParams(callParams, { toolName: mcpTool.name, defaultSenderEmail })
               : callParams;
             const retry = await activeConn.client.callTool({ name: mcpTool.name, arguments: retryCallParams });
             if (retry.isError) {
@@ -635,7 +725,7 @@ export async function createAgent365Tools(
           console.warn(`[Agent365] Skipping unstable MailTools search tool: ${mcpTool.name}`);
           continue;
         }
-        allTools.push(mcpToolToToolDefinition(mcpTool, conn, serverConfig.mcpServerName, reconnect));
+        allTools.push(mcpToolToToolDefinition(mcpTool, conn, serverConfig.mcpServerName, reconnect, config.senderEmail));
       }
 
       console.log(`[Agent365] Connected to ${serverConfig.mcpServerName}: ${tools.length} tools available`);
