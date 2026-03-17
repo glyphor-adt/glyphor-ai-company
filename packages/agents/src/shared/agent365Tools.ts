@@ -349,6 +349,9 @@ async function downloadSharePointFileForAttachment(
   const spUrlMatch = decoded.match(/\/Shared\s+Documents\/(.+)$/i);
   if (spUrlMatch) {
     filePath = spUrlMatch[1]; // already decoded
+    console.log(`[downloadSharePointFile] Extracted path from URL: "${filePath}"`);
+  } else {
+    console.log(`[downloadSharePointFile] Using raw path: "${filePath}"`);
   }
 
   // Encode site ID preserving commas
@@ -419,8 +422,8 @@ function createSendEmailWithAttachmentTool(senderMailbox: string): ToolDefinitio
   return {
     name: 'reply_email_with_attachments',
     description:
-      'Send an email with file attachments from SharePoint. Use this when you need to ' +
-      'reply to an email with attached documents, or send a new email with attachments. ' +
+      'Send an email with file attachments from SharePoint. This is the ONLY tool that ' +
+      'can attach files to emails — send_email and reply_to_email CANNOT attach files. ' +
       'For replies, set subject to "RE: <original subject>". ' +
       'Provide SharePoint file paths or webUrls and this tool downloads the files and ' +
       'attaches them to the email. Do NOT use markdown in the body.',
@@ -441,12 +444,11 @@ function createSendEmailWithAttachmentTool(senderMailbox: string): ToolDefinitio
         required: true,
       },
       file_paths: {
-        type: 'array',
+        type: 'string',
         description:
-          'SharePoint file paths or webUrls to attach. ' +
-          'Examples: "Legal/Articles of Incorporation.pdf" or full SharePoint webUrl.',
+          'SharePoint file path(s) or webUrl(s) to attach, comma-separated if multiple. ' +
+          'Examples: "Legal/Articles of Incorporation.pdf" or a full SharePoint webUrl.',
         required: true,
-        items: { type: 'string', description: 'SharePoint file path or webUrl' },
       },
       cc: {
         type: 'string',
@@ -456,17 +458,31 @@ function createSendEmailWithAttachmentTool(senderMailbox: string): ToolDefinitio
     },
     execute: async (params) => {
       try {
-        const filePaths = params.file_paths as string[];
-        if (!filePaths || filePaths.length === 0) {
-          return { success: false, error: 'file_paths is required and must contain at least one path' };
+        // Accept both array and comma-separated string
+        let filePaths: string[];
+        if (Array.isArray(params.file_paths)) {
+          filePaths = params.file_paths as string[];
+        } else if (typeof params.file_paths === 'string') {
+          filePaths = (params.file_paths as string).split(',').map((s) => s.trim()).filter(Boolean);
+        } else {
+          return { success: false, error: 'file_paths is required' };
         }
+        if (filePaths.length === 0) {
+          return { success: false, error: 'file_paths must contain at least one path' };
+        }
+
+        console.log(`[reply_email_with_attachments] Sending from ${senderMailbox} to ${params.to} with ${filePaths.length} files: ${filePaths.join('; ')}`);
 
         // Download all files from SharePoint
         const attachments = await Promise.all(
           filePaths.map(async (fp) => {
             try {
-              return await downloadSharePointFileForAttachment(fp);
+              console.log(`[reply_email_with_attachments] Downloading: ${fp}`);
+              const result = await downloadSharePointFileForAttachment(fp);
+              console.log(`[reply_email_with_attachments] Downloaded: ${result.name} (${result.contentType}, ${Math.round(result.contentBytes.length * 3 / 4 / 1024)}KB)`);
+              return result;
             } catch (err) {
+              console.error(`[reply_email_with_attachments] Download failed for "${fp}":`, (err as Error).message);
               throw new Error(`Failed to download "${fp}": ${(err as Error).message}`);
             }
           }),
@@ -521,10 +537,12 @@ function createSendEmailWithAttachmentTool(senderMailbox: string): ToolDefinitio
 
         if (!response.ok) {
           const text = await response.text();
+          console.error(`[reply_email_with_attachments] Send failed (${response.status}): ${text.slice(0, 500)}`);
           return { success: false, error: `Failed to send email (${response.status}): ${text}` };
         }
 
         const fileNames = attachments.map((a) => a.name).join(', ');
+        console.log(`[reply_email_with_attachments] SUCCESS: sent to ${toStr} with ${fileNames}`);
         return {
           success: true,
           data: `Email sent from ${senderMailbox} to ${toStr} with attachments: ${fileNames}`,
