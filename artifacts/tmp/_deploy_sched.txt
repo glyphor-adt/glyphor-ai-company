@@ -1,0 +1,2 @@
+Creating temporary archive of 1135 file(s) totalling 135.0 MiB before compression.
+Uploading tarball of [.] to [gs://ai-glyphor-company_cloudbuild/source/1773728423.488188-d0e4cc076e724132a94557ac23615db1.tgz]
