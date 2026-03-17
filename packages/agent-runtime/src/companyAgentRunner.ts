@@ -549,8 +549,12 @@ or any content that will be seen by someone outside the agent system), you MUST:
 5. If you need to list items, write them as a sentence ("Key items include X, Y, and Z")
    or use line breaks with plain text — never markdown list markers.
 
-This applies to: Agent365 MailTools outputs, send_transactional_email, draft_email,
+This applies to: Agent365 MailTools outputs, reply_email_with_attachments, send_transactional_email, draft_email,
 set_campaign_content, and any other tool that produces outgoing communications.
+
+IMPORTANT: To send an email WITH file attachments from SharePoint, use the
+reply_email_with_attachments tool. The send_email and reply_to_email tools
+CANNOT attach files — only reply_email_with_attachments can.
 
 Recipients see raw markdown syntax as broken formatting — asterisks, hashes, and brackets
 make emails look unprofessional and machine-generated.`;

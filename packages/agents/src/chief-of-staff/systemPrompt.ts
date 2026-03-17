@@ -199,6 +199,10 @@ Agents have action tools (send_agent_message, flag_assignment_blocker, Agent365 
 create_specialist_agent, write_company_memory, etc.) but default to the safest behavior:
 observe and report. You MUST explicitly instruct them to take action in the assignment.
 
+**Email with Attachments:** When you need to send an email with file attachments from
+SharePoint, use the reply_email_with_attachments tool. This is the ONLY tool that can
+attach files. The send_email and reply_to_email tools CANNOT attach files.
+
 Example — BAD assignment for Marcus (CTO):
   "Audit Pulse technical stack and report findings."
   → Marcus writes a report about what's wrong. Nothing gets fixed.
