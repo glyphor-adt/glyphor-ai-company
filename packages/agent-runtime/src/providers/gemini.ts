@@ -124,7 +124,31 @@ export class GeminiAdapter implements ProviderAdapter {
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await this.client.models.generateContent(requestPayload as any);
+    let response: unknown;
+    try {
+      response = await this.client.models.generateContent(requestPayload as any);
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      // Gemini 3+ requires thought_signature on all function call parts.
+      // If signatures were lost (SDK bug, response parsing issue), retry
+      // with thinking disabled so signatures are not required.
+      if (/thought_signature/i.test(msg) && thinkingConfig) {
+        console.warn(`[Gemini] thought_signature error — retrying ${request.model} with thinking disabled`);
+        const retryContents = this.stripToolCallHistory(geminiContents as Record<string, unknown>[]);
+        const retryPayload = {
+          ...requestPayload,
+          contents: retryContents,
+          config: {
+            ...(requestPayload.config as Record<string, unknown>),
+            thinkingConfig: { includeThoughts: false },
+          },
+        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        response = await this.client.models.generateContent(retryPayload as any);
+        return this.mapResponse(response);
+      }
+      throw err;
+    }
 
     return this.mapResponse(response);
   }
@@ -244,6 +268,53 @@ export class GeminiAdapter implements ProviderAdapter {
     return contents;
   }
 
+  /**
+   * Strip function call and function response turns from Gemini contents.
+   * Used as a fallback when thought_signature errors prevent replaying
+   * tool call history. Collapses tool interactions into text summaries
+   * so the model has context without needing signatures.
+   */
+  private stripToolCallHistory(contents: Record<string, unknown>[]): Record<string, unknown>[] {
+    const result: Record<string, unknown>[] = [];
+
+    for (const content of contents) {
+      const parts = content.parts as Array<Record<string, unknown>> | undefined;
+      if (!parts) { result.push(content); continue; }
+
+      const hasFunctionCall = parts.some((p) => p.functionCall);
+      const hasFunctionResponse = parts.some((p) => p.functionResponse);
+
+      if (hasFunctionCall) {
+        // Convert function calls into a text summary
+        const names = parts
+          .filter((p) => p.functionCall)
+          .map((p) => (p.functionCall as { name: string }).name);
+        result.push({
+          role: 'model',
+          parts: [{ text: `[Previously called tools: ${names.join(', ')}]` }],
+        });
+      } else if (hasFunctionResponse) {
+        // Convert function responses into a text summary
+        const summaries = parts
+          .filter((p) => p.functionResponse)
+          .map((p) => {
+            const fr = p.functionResponse as { name: string; response: unknown };
+            const resultStr = JSON.stringify(fr.response);
+            const truncated = resultStr.length > 500 ? resultStr.slice(0, 500) + '...' : resultStr;
+            return `${fr.name}: ${truncated}`;
+          });
+        result.push({
+          role: 'user',
+          parts: [{ text: `[Tool results]\n${summaries.join('\n')}` }],
+        });
+      } else {
+        result.push(content);
+      }
+    }
+
+    return result;
+  }
+
   /** Normalize Gemini finish reasons to a consistent set: stop | tool_use | length */
   private normalizeFinishReason(reason?: string): string {
     if (!reason) return 'stop';
@@ -281,11 +352,16 @@ export class GeminiAdapter implements ProviderAdapter {
 
     const toolCalls = parts
       .filter((p) => p.functionCall)
-      .map((p) => ({
-        name: p.functionCall!.name,
-        args: p.functionCall!.args || {},
-        thoughtSignature: p.thoughtSignature,
-      }));
+      .map((p) => {
+        if (p.functionCall && !p.thoughtSignature) {
+          console.warn(`[Gemini] Function call '${p.functionCall.name}' returned WITHOUT thoughtSignature`);
+        }
+        return {
+          name: p.functionCall!.name,
+          args: p.functionCall!.args || {},
+          thoughtSignature: p.thoughtSignature,
+        };
+      });
 
     const usage = r.usageMetadata;
     const thinkingTokens = usage?.thoughtsTokenCount ?? 0;
