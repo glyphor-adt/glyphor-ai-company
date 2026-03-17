@@ -1,0 +1,2 @@
+Error: connect ECONNREFUSED 127.0.0.1:5434
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)

@@ -10,14 +10,35 @@ function requiredEnv(name: string): string {
   return value;
 }
 
+function firstDefinedEnv(...names: string[]): string | null {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
 function getTenantUrl(): string {
-  return requiredEnv('SPO_TENANT_URL').replace(/\/$/, '');
+  const explicitTenantUrl = firstDefinedEnv('SPO_TENANT_URL', 'SHAREPOINT_TENANT_URL');
+  if (explicitTenantUrl) {
+    return explicitTenantUrl.replace(/\/$/, '');
+  }
+
+  const siteId = process.env.SHAREPOINT_SITE_ID?.trim();
+  if (siteId) {
+    const host = siteId.split(',')[0]?.trim();
+    if (host && host.includes('.')) {
+      return `https://${host}`;
+    }
+  }
+
+  throw new Error('Missing required environment variable: SPO_TENANT_URL (or SHAREPOINT_SITE_ID for hostname fallback)');
 }
 
 function createMsalClient(): ConfidentialClientApplication {
-  const tenantId = requiredEnv('AZURE_TENANT_ID');
-  const clientId = requiredEnv('SPO_CLIENT_ID');
-  const clientSecret = requiredEnv('SPO_CLIENT_SECRET');
+  const tenantId = firstDefinedEnv('AZURE_TENANT_ID', 'AGENT365_TENANT_ID') ?? requiredEnv('AZURE_TENANT_ID');
+  const clientId = firstDefinedEnv('SPO_CLIENT_ID', 'AGENT365_CLIENT_ID') ?? requiredEnv('SPO_CLIENT_ID');
+  const clientSecret = firstDefinedEnv('SPO_CLIENT_SECRET', 'AGENT365_CLIENT_SECRET') ?? requiredEnv('SPO_CLIENT_SECRET');
 
   return new ConfidentialClientApplication({
     auth: {
