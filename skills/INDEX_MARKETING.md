@@ -4,7 +4,7 @@
 
 | Agent | Role | Reports To | Skills |
 |-------|------|------------|--------|
-| Maya Brooks | CMO | Sarah Chen | `content-creation` (v2), `seo-optimization` (v2), `social-media-management` (v2), `brand-management` (shared w/ Design), `advanced-web-creation` (shared) |
+| Maya Brooks | CMO | Sarah Chen | `content-creation` (v2), `seo-optimization` (v2), `social-media-management` (v2), `brand-management` (shared w/ Design), `advanced-web-creation` (shared), `sharepoint-site-management` (NEW, shared w/ IT) |
 | Tyler Reed | Content Creator | Maya Brooks | `content-creation` (v4) |
 | Lisa Chen | SEO Analyst | Maya Brooks | `seo-optimization` (v2) |
 | Kai Johnson | Social Media Manager | Maya Brooks | `social-media-management` (v2) |
@@ -82,5 +82,6 @@ skills/marketing/
 ## Cross-Team Notes
 
 - `brand-management` is in the Design skill set (shared with VP Design). Maya holds it as the marketing-facing brand guardian.
+- `sharepoint-site-management` is in the Operations skill set (shared with M365 Admin). Maya uses it for marketing hubs, campaign pages, and intranet communications pages.
 - `competitive-intelligence` is categorized as `research` because Lena Park (Research team) also holds it. Both skills directories should reference it.
 - Zara Petrov needs department reassignment from `(unassigned)` to `Marketing`.

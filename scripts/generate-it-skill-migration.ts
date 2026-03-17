@@ -28,6 +28,7 @@ const IT_SKILL_FILES = [
   'skills/engineering/frontend-development.md',
   'skills/operations/access-management.md',
   'skills/operations/tenant-administration.md',
+  'skills/operations/sharepoint-site-management.md',
 ] as const;
 
 const TASK_MAPPINGS: TaskMapping[] = [
@@ -40,6 +41,7 @@ const TASK_MAPPINGS: TaskMapping[] = [
   { task_regex: '(frontend implementation|frontend development|ui implementation|component build|react component|next\\.js ui)', skill_slug: 'frontend-development', priority: 14 },
   { task_regex: '(access audit|permission review|tool grant|least privilege|iam role|service account access)', skill_slug: 'access-management', priority: 17 },
   { task_regex: '(entra|m365|microsoft 365|tenant admin|license assignment|directory role|group membership)', skill_slug: 'tenant-administration', priority: 17 },
+  { task_regex: '(sharepoint|share point|site page|site design|site script|intranet|department hub|communication site|team site)', skill_slug: 'sharepoint-site-management', priority: 19 },
 ];
 
 function parseSkillFile(repoRoot: string, filePath: string): ParsedSkill {

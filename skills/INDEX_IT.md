@@ -25,7 +25,7 @@ These skills are written for the actual Glyphor infrastructure:
 | Sam DeLuca | Quality Engineer | Marcus Reeves | `quality-assurance` (NEW), `tech-spec-writing` (v2) |
 | Jordan Hayes | DevOps Engineer | Marcus Reeves | `infrastructure-ops` (NEW), `incident-response` (v2), `platform-monitoring` (v2) |
 | Ava Chen | Frontend Engineer | Mia Tanaka | `frontend-development` (NEW), `design-system-management` (existing), `advanced-web-creation` (shared) |
-| Riley Morgan | M365 Administrator | Marcus Reeves | `tenant-administration` (NEW) |
+| Riley Morgan | M365 Administrator | Marcus Reeves | `tenant-administration` (NEW), `sharepoint-site-management` (NEW, shared w/ CMO) |
 | Morgan Blake | Global Administrator | Sarah Chen | `access-management` (NEW) |
 
 ## What Changed From the Old Skills
@@ -52,6 +52,7 @@ The old skills were 6-line numbered checklists with 2-3 tools_granted. The new s
 | frontend-development | (didn't exist) | 122 lines, 31 tools |
 | access-management | (didn't exist) | 101 lines, 20 tools |
 | tenant-administration | (didn't exist) | 110 lines, 22 tools |
+| sharepoint-site-management | (didn't exist) | ~390 lines, 25 tools |
 
 ## Implementation Steps
 
@@ -99,6 +100,7 @@ skills/
 │   └── frontend-development.md # NEW — Frontend Engineer
 ├── operations/
 │   ├── access-management.md    # NEW — Global Admin
-│   └── tenant-administration.md # NEW — M365 Admin
+│   ├── tenant-administration.md # NEW — M365 Admin
+│   └── sharepoint-site-management.md # NEW — M365 Admin, CMO (shared)
 └── INDEX.md                    # This file
 ```
