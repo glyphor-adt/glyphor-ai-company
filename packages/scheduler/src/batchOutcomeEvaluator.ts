@@ -31,6 +31,7 @@ interface TaskRunOutcome {
   revision_count: number | null;
   was_accepted: boolean | null;
   downstream_agent_succeeded: boolean | null;
+  per_run_quality_score: number | null;
 }
 
 // ─── Configuration ──────────────────────────────────────────────
@@ -59,7 +60,7 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
     const outcomes = await systemQuery<TaskRunOutcome>(
       `SELECT id, agent_role, final_status, turn_count, tool_failure_count, had_partial_save,
               cost_usd, was_revised, revision_count, was_accepted,
-              downstream_agent_succeeded
+              downstream_agent_succeeded, per_run_quality_score
        FROM task_run_outcomes
        WHERE batch_evaluated_at IS NULL
          AND created_at < NOW() - INTERVAL '${COOLDOWN_HOURS} hours'
@@ -152,10 +153,53 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
 // ─── Scoring Logic ──────────────────────────────────────────────
 
 function computeQualityScore(o: TaskRunOutcome): { score: number; notes: string } {
-  let score = 3.0;
-  const signals: string[] = [];
+  // Use per_run_quality_score as baseline when present; it already accounts for
+  // deterministic signals (final_status, tool_failures, turn_count, cost).
+  // Fall back to 3.0 for older rows that predate per-run scoring.
+  let score = o.per_run_quality_score != null ? Number(o.per_run_quality_score) : 3.0;
+  const signals: string[] = o.per_run_quality_score != null
+    ? [`baseline=${o.per_run_quality_score} (per-run)`]
+    : [];
 
-  // Positive signals
+  if (o.per_run_quality_score == null) {
+    // Legacy path: deterministic signals not yet pre-computed, apply them now.
+    if (o.tool_failure_count === 0) {
+      score += 0.2;
+      signals.push('+0.2 no tool failures');
+    }
+
+    if (o.final_status === 'aborted' || o.final_status === 'failed') {
+      score -= 1.0;
+      signals.push('-1.0 ' + o.final_status);
+    }
+
+    if (o.final_status === 'flagged_blocker') {
+      score -= 0.5;
+      signals.push('-0.5 flagged_blocker');
+    }
+
+    if (o.tool_failure_count > 3) {
+      score -= 0.3;
+      signals.push('-0.3 high tool failures');
+    }
+
+    if (o.had_partial_save === true) {
+      score -= 0.2;
+      signals.push('-0.2 partial save');
+    }
+
+    if (o.turn_count > 15) {
+      score -= 0.2;
+      signals.push('-0.2 high turn count');
+    }
+
+    if (Number(o.cost_usd) > 0.50) {
+      score -= 0.1;
+      signals.push('-0.1 high cost');
+    }
+  }
+
+  // Delayed signals — only available after downstream processing; always applied.
   if (o.was_accepted === true && (o.revision_count ?? 0) === 0) {
     score += 1.0;
     signals.push('+1.0 first-time accept');
@@ -169,50 +213,14 @@ function computeQualityScore(o: TaskRunOutcome): { score: number; notes: string 
     signals.push('+0.3 downstream succeeded');
   }
 
-  if (o.tool_failure_count === 0) {
-    score += 0.2;
-    signals.push('+0.2 no tool failures');
-  }
-
   if (o.turn_count <= 5 && o.was_accepted === true) {
     score += 0.2;
     signals.push('+0.2 efficient + accepted');
   }
 
-  // Negative signals
-  if (o.final_status === 'aborted' || o.final_status === 'failed') {
-    score -= 1.0;
-    signals.push('-1.0 ' + o.final_status);
-  }
-
-  if (o.final_status === 'flagged_blocker') {
-    score -= 0.5;
-    signals.push('-0.5 flagged_blocker');
-  }
-
   if (o.was_revised === true && o.was_accepted == null) {
     score -= 0.5;
     signals.push('-0.5 revised but not accepted');
-  }
-
-  if (o.tool_failure_count > 3) {
-    score -= 0.3;
-    signals.push('-0.3 high tool failures');
-  }
-
-  if (o.had_partial_save === true) {
-    score -= 0.2;
-    signals.push('-0.2 partial save');
-  }
-
-  if (o.turn_count > 15) {
-    score -= 0.2;
-    signals.push('-0.2 high turn count');
-  }
-
-  if (Number(o.cost_usd) > 0.50) {
-    score -= 0.1;
-    signals.push('-0.1 high cost');
   }
 
   // Clamp to [1.0, 5.0]
