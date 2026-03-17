@@ -111,10 +111,14 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
   if (!agentAppInstanceId || !agenticUserId) {
     console.warn(`[Agent365] No identity found for agent ${agentRole ?? 'unknown'}. Set blueprintSpId/entraUserId in agentIdentities.json or AGENT365_APP_INSTANCE_ID/AGENT365_AGENTIC_USER_ID env vars. Skipping.`);
     if (agentRole) {
+      const fallbackTools: ToolDefinition[] = [];
       const fallbackTool = createReadInboxFallback(agentRole as CompanyAgentRole);
-      if (fallbackTool) {
-        console.log(`[Agent365] Identity missing for ${agentRole}; using Graph fallback read_inbox only.`);
-        return [fallbackTool];
+      if (fallbackTool) fallbackTools.push(fallbackTool);
+      const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
+      if (mailbox) fallbackTools.push(createSendEmailWithAttachmentTool(mailbox));
+      if (fallbackTools.length > 0) {
+        console.log(`[Agent365] Identity missing for ${agentRole}; using Graph fallback tools: ${fallbackTools.map(t => t.name).join(', ')}`);
+        return fallbackTools;
       }
     }
     return [];
@@ -177,10 +181,14 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
   } catch (err) {
     console.error('[Agent365] Failed to initialize MCP bridge (falling back to core tools):', (err as Error).message);
     if (agentRole) {
+      const fallbackTools: ToolDefinition[] = [];
       const fallbackTool = createReadInboxFallback(agentRole as CompanyAgentRole);
-      if (fallbackTool) {
-        console.log(`[Agent365] MCP init failed for ${agentRole}; using Graph fallback read_inbox only.`);
-        return [fallbackTool];
+      if (fallbackTool) fallbackTools.push(fallbackTool);
+      const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
+      if (mailbox) fallbackTools.push(createSendEmailWithAttachmentTool(mailbox));
+      if (fallbackTools.length > 0) {
+        console.log(`[Agent365] MCP init failed for ${agentRole}; using Graph fallback tools: ${fallbackTools.map(t => t.name).join(', ')}`);
+        return fallbackTools;
       }
     }
     return [];
@@ -321,11 +329,13 @@ async function downloadSharePointFileForAttachment(
   const siteId = (process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
-  // If it's a SharePoint webUrl, extract the file path from it
+  // If it's a SharePoint webUrl, extract the file path from it.
+  // URLs may have %20 for spaces, so decode first before matching.
   let filePath = filePathOrUrl;
-  const spUrlMatch = filePathOrUrl.match(/\/Shared\s+Documents\/(.+)$/i);
+  const decoded = decodeURIComponent(filePathOrUrl);
+  const spUrlMatch = decoded.match(/\/Shared\s+Documents\/(.+)$/i);
   if (spUrlMatch) {
-    filePath = decodeURIComponent(spUrlMatch[1]);
+    filePath = spUrlMatch[1]; // already decoded
   }
 
   // Encode site ID preserving commas
