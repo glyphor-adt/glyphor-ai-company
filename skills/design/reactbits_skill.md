@@ -1,21 +1,16 @@
 ---
 name: react-bits-pro
-description: >
-  Install and integrate React Bits Pro premium UI components and page blocks
-  into React/Next.js apps using the shadcn registry CLI. Use this skill when
-  the user wants to add animated components (WebGL shaders, GSAP animations,
-  3D effects, cursor trails, text animations, carousels, cards), full page
-  sections (hero, pricing, navigation, footer, FAQ, CTA, auth, stats, blog,
-  contact, features, social proof, 404, profile, about, waitlist, showcase,
-  how-it-works, download), or landing page templates from React Bits Pro.
-  Also use when the user mentions "react bits", "reactbits", or wants
-  premium animated React components even if they don't name the library
-  directly.
+slug: react-bits-pro
+category: design
+description: Install and integrate React Bits Pro premium components and page blocks via the authenticated shadcn registry flow for rapid design-to-code execution.
+holders: vp-design, ui-ux-designer, frontend-engineer, template-architect, design-critic
+tools_granted: read_frontend_file, write_frontend_file, search_frontend_code, list_frontend_files, create_or_update_file, get_file_contents, create_branch, create_github_pr, deploy_preview, save_memory, send_agent_message
+version: 1
 license: Proprietary
 compatibility: Requires Node.js 18+, React 18/19, Next.js 14+ (App Router recommended). Tailwind CSS 4 recommended.
 metadata:
   author: reactbits
-  version: "1.1"
+  source_version: "1.1"
 ---
 
 # React Bits Pro Integration

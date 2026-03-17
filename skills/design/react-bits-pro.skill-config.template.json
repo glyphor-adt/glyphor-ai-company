@@ -1,0 +1,10 @@
+{
+  "skills": {
+    "react-bits-pro": {
+      "url": "https://pro.reactbits.dev/api/r/starter/skills",
+      "headers": {
+        "Authorization": "Bearer YOUR_LICENSE_KEY"
+      }
+    }
+  }
+}

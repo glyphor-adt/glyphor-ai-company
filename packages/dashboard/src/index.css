@@ -1017,12 +1017,13 @@ input:focus, textarea:focus, select:focus {
     --font-sans: 'Geist Variable', sans-serif;
   }
   * {
-    @apply border-border;
+    border-color: var(--color-border);
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--color-base);
+    color: var(--color-txt-primary);
   }
   html {
-    @apply font-sans;
+    font-family: var(--font-sans);
   }
 }

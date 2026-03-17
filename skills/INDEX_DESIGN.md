@@ -4,11 +4,11 @@
 
 | Agent | Role | Reports To | Skills |
 |-------|------|------------|--------|
-| Mia Tanaka | VP Design & Frontend | Sarah Chen | `design-review` (v2), `design-system-management` (v2), `brand-management` (NEW), `ui-development` (NEW), `advanced-web-creation` (NEW) |
-| Leo Vargas | UI/UX Designer | Mia Tanaka | `design-review` (v2), `design-system-management` (v2), `ux-design` (NEW), `advanced-web-creation` (NEW) |
-| Sofia Marchetti | Design Critic | Mia Tanaka | `design-review` (v2), `elite-design-review` (NEW) |
-| Ryan Park | Template Architect | Mia Tanaka | `design-system-management` (v2) |
-| Ava Chen | Frontend Engineer | Mia Tanaka | `design-system-management` (v2), `frontend-development` (see IT team skills), `advanced-web-creation` (NEW) |
+| Mia Tanaka | VP Design & Frontend | Sarah Chen | `design-review` (v2), `design-system-management` (v2), `brand-management` (NEW), `ui-development` (NEW), `advanced-web-creation` (NEW), `react-bits-pro` (NEW) |
+| Leo Vargas | UI/UX Designer | Mia Tanaka | `design-review` (v2), `design-system-management` (v2), `ux-design` (NEW), `advanced-web-creation` (NEW), `react-bits-pro` (NEW) |
+| Sofia Marchetti | Design Critic | Mia Tanaka | `design-review` (v2), `elite-design-review` (NEW), `react-bits-pro` (NEW) |
+| Ryan Park | Template Architect | Mia Tanaka | `design-system-management` (v2), `react-bits-pro` (NEW) |
+| Ava Chen | Frontend Engineer | Mia Tanaka | `design-system-management` (v2), `frontend-development` (see IT team skills), `advanced-web-creation` (NEW), `react-bits-pro` (NEW) |
 
 > **Note:** Ava Chen's primary skill `frontend-development` is in the engineering skills set. She also holds `design-system-management` as the builder who implements system changes.
 
@@ -36,6 +36,7 @@ All skills reference the correct infrastructure:
 | ux-design | (didn't exist) | ~145 lines, 21 tools |
 | advanced-web-creation | (didn't exist) | ~120 lines, 9 tools |
 | elite-design-review | (didn't exist) | rubric-driven quality gate with automated pre-checks |
+| react-bits-pro | (didn't exist) | integration playbook for authenticated React Bits registries and shadcn install workflow |
 
 ## Key Design Decisions
 
@@ -60,5 +61,6 @@ skills/design/
 ├── ux-design.md               # NEW — Leo
 ├── advanced-web-creation.md   # NEW — Mia, Ava, Leo, Marcus, Maya
 ├── elite-design-review.md     # NEW — Sofia, Mia, Leo
+├── reactbits_skill.md         # NEW — Mia, Leo, Sofia, Ryan, Ava
 └── INDEX.md                   # This file
 ```
