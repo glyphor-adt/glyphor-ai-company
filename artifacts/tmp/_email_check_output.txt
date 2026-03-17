@@ -1,3 +1,9 @@
+=== Mon Mar 16 2026 21:05:45 GMT-0500 (Central Daylight Time) | orchestrate | aborted | tools: 23
+ERR: max_turns_exceeded
+
+=== Mon Mar 16 2026 21:00:41 GMT-0500 (Central Daylight Time) | orchestrate | failed | tools: 11
+ERR: [gemini] {"error":{"code":400,"message":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signature may lead to degraded model performance. Additional data, function call `default_api:check_assignment_status` , position 3. Please refer to https://ai.google.dev/gemini-api/docs/thought-signatures for more details.","status":"INVALID_ARGUMENT"}} (model: gemini-3.1-pro-preview)
+
 === Mon Mar 16 2026 20:50:12 GMT-0500 (Central Daylight Time) | orchestrate | failed | tools: 12
 ERR: [gemini] {"error":{"code":400,"message":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signature may lead to degraded model performance. Additional data, function call `default_api:check_assignment_status` , position 7. Please refer to https://ai.google.dev/gemini-api/docs/thought-signatures for more details.","status":"INVALID_ARGUMENT"}} (model: gemini-3.1-pro-preview)
 
@@ -30,11 +36,5 @@ Co-Founder, Glyphor
 https://glyphorai.sharepoint.com/sites/glyphor-knowledge/Shared%20Documents/Company-Agent-Knowledge/Legal/Approved%20Certificate%20of%20Incorporation%20(Articles%20of%20Incorporation).pdf
 
 — Sarah
-
-=== Mon Mar 16 2026 20:20:06 GMT-0500 (Central Daylight Time) | orchestrate | aborted | tools: 23
-ERR: max_turns_exceeded
-
-=== Mon Mar 16 2026 20:10:05 GMT-0500 (Central Daylight Time) | orchestrate | failed | tools: 23
-ERR: [gemini] {"error":{"code":400,"message":"Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly, and missing thought_signature may lead to degraded model performance. Additional data, function call `default_api:check_tool_access` , position 3. Please refer to https://ai.google.dev/gemini-api/docs/thought-signatures for more details.","status":"INVALID_ARGUMENT"}} (model: gemini-3.1-pro-preview)
 
 === TOOL CALL TABLES ===
