@@ -4,10 +4,13 @@
 
 ## Company Identity
 - **Legal Name:** Glyphor, Inc.
-- **Entity Type:** Delaware C-Corp (60/40 equity — Kristina/Andrew)
-- **Headquarters:** Dallas, TX
+- **Entity Type:** Delaware C Corporation (60/40 equity — Kristina/Andrew)
+- **EIN:** 39-3347175
+- **Incorporation Date:** Jul 21, 2025
+- **Delaware File Number:** 10262637
+- **Phone:** (213) 440-1720
+- **Company Address:** 1111b South Governors Avenue, STE 37628, Dover, DE 19904 US
 - **Website/Domain:** glyphor.ai
-- **Founded:** 2025
 - **Employees:** 0 W-2 employees. 28 AI agents + 2 human founders.
 
 ## Infrastructure IDs
