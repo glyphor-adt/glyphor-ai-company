@@ -30,6 +30,77 @@ export interface TaskRunOutcome {
   output_tokens: number;
 }
 
+// ─── Immediate quality scoring ──────────────────────────────────
+
+interface ImmediateScoreInput {
+  final_status: TaskRunOutcome['final_status'];
+  turn_count: number;
+  tool_failure_count: number;
+  had_partial_save: boolean;
+  cost_usd: number;
+}
+
+/**
+ * Compute a quality score (1.0–5.0) from signals available immediately at
+ * run completion, before any downstream acceptance or revision signals arrive.
+ * Mirrors the batch evaluator's logic for the subset of signals that are
+ * deterministic at run time.
+ */
+export function computePerRunQualityScore(o: ImmediateScoreInput): { score: number; notes: string } {
+  let score = 3.0;
+  const signals: string[] = [];
+
+  // Positive signals
+  if (o.final_status === 'submitted') {
+    score += 0.5;
+    signals.push('+0.5 submitted');
+  }
+
+  if (o.tool_failure_count === 0) {
+    score += 0.2;
+    signals.push('+0.2 no tool failures');
+  }
+
+  if (o.turn_count <= 5 && o.final_status === 'submitted') {
+    score += 0.2;
+    signals.push('+0.2 efficient submit');
+  }
+
+  // Negative signals
+  if (o.final_status === 'aborted' || o.final_status === 'failed') {
+    score -= 1.0;
+    signals.push('-1.0 ' + o.final_status);
+  }
+
+  if (o.final_status === 'flagged_blocker') {
+    score -= 0.5;
+    signals.push('-0.5 flagged_blocker');
+  }
+
+  if (o.tool_failure_count > 3) {
+    score -= 0.3;
+    signals.push('-0.3 high tool failures');
+  }
+
+  if (o.had_partial_save) {
+    score -= 0.2;
+    signals.push('-0.2 partial save');
+  }
+
+  if (o.turn_count > 15) {
+    score -= 0.2;
+    signals.push('-0.2 high turn count');
+  }
+
+  if (Number(o.cost_usd) > 0.50) {
+    score -= 0.1;
+    signals.push('-0.1 high cost');
+  }
+
+  score = Math.max(1.0, Math.min(5.0, Math.round(score * 10) / 10));
+  return { score, notes: signals.join('; ') || 'baseline' };
+}
+
 // ─── Status derivation ──────────────────────────────────────────
 
 function deriveFinalStatus(
@@ -86,12 +157,21 @@ export async function harvestTaskOutcome(
     output_tokens: result.outputTokens,
   };
 
+  const { score: perRunScore, notes: perRunNotes } = computePerRunQualityScore({
+    final_status: finalStatus,
+    turn_count: result.totalTurns,
+    tool_failure_count: toolFailureCount,
+    had_partial_save: hadPartialSave,
+    cost_usd: result.cost,
+  });
+
   await systemQuery(
     `INSERT INTO task_run_outcomes (
        run_id, agent_role, directive_id, assignment_id,
        final_status, turn_count, tool_call_count, tool_failure_count,
-       had_partial_save, elapsed_ms, cost_usd, input_tokens, output_tokens
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       had_partial_save, elapsed_ms, cost_usd, input_tokens, output_tokens,
+       per_run_quality_score, per_run_evaluation_notes
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      ON CONFLICT (run_id) DO NOTHING`,
     [
       outcome.run_id,
@@ -107,6 +187,8 @@ export async function harvestTaskOutcome(
       outcome.cost_usd,
       outcome.input_tokens,
       outcome.output_tokens,
+      perRunScore,
+      perRunNotes,
     ],
   );
 }

@@ -81,7 +81,7 @@ export { REFLECTION_SCHEMA } from './schemas/reflectionSchema.js';
 export { ASSIGNMENT_OUTPUT_SCHEMA } from './schemas/assignmentOutputSchema.js';
 export { EVALUATION_SCHEMA } from './schemas/evaluationSchema.js';
 // Learning Governor — Task Outcome Harvester
-export { harvestTaskOutcome, markOutcomeRevised, markOutcomeAccepted } from './taskOutcomeHarvester.js';
+export { harvestTaskOutcome, markOutcomeRevised, markOutcomeAccepted, computePerRunQualityScore } from './taskOutcomeHarvester.js';
 export type { TaskRunOutcome, HarvestRunMeta } from './taskOutcomeHarvester.js';
 export { recordToolCall, detectToolSource, incrementDownstreamDefects } from './toolReputationTracker.js';
 export type { ToolSource } from './toolReputationTracker.js';
