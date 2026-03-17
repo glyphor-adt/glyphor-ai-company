@@ -159,54 +159,16 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       }
     }
 
-    // Add reply_email_with_attachments composite tool — delegates to MCP send_email
-    // with reply formatting. The MCP reply_to_email tool does not support attachments
-    // (Graph API /messages/{id}/reply limitation), so agents should use send_email
-    // to compose a reply-formatted email with attachmentUris.
-    const mcpSendEmail = tools.find((t) => t.name === 'send_email');
-    if (mcpSendEmail) {
-      tools.push({
-        name: 'reply_email_with_attachments',
-        description:
-          '[Agent365 mcp_MailTools] Reply to an email AND attach files. ' +
-          'Use this instead of reply_to_email when you need to include file attachments. ' +
-          'Pass SharePoint/OneDrive file webUrls as attachmentUris. ' +
-          'Set subject to "RE: <original subject>" and to to the original sender. ' +
-          'The MCP server will download files from the provided URIs and attach them.',
-        parameters: {
-          to: {
-            type: 'string',
-            description: 'Recipient email address (the original sender you are replying to)',
-            required: true,
-          },
-          subject: {
-            type: 'string',
-            description: 'Email subject — use "RE: <original subject>" format for replies',
-            required: true,
-          },
-          body: {
-            type: 'string',
-            description: 'Reply body content. Plain text only, no markdown formatting.',
-            required: true,
-          },
-          attachmentUris: {
-            type: 'array',
-            description: 'SharePoint or OneDrive file URLs to attach to the email',
-            required: true,
-            items: { type: 'string', description: 'SharePoint/OneDrive file webUrl' },
-          },
-          cc: {
-            type: 'string',
-            description: 'CC recipient email addresses (comma-separated)',
-            required: false,
-          },
-        },
-        deferLoading: true,
-        execute: async (params, context) => {
-          return mcpSendEmail.execute(params, context);
-        },
-      });
-      console.log(`[Agent365] Added reply_email_with_attachments composite tool`);
+    // Add reply_email_with_attachments tool — bypasses MCP MailTools for attachments.
+    // The MCP send_email's attachmentUris and reply_to_email both fail with file attachments.
+    // This tool downloads files from SharePoint via Graph API (AZURE_FILES) and sends
+    // the email via Graph API sendMail (AZURE_MAIL) with inline base64 attachments.
+    if (agentRole) {
+      const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
+      if (mailbox) {
+        tools.push(createSendEmailWithAttachmentTool(mailbox));
+        console.log(`[Agent365] Added reply_email_with_attachments for ${agentRole} (${mailbox})`);
+      }
     }
 
     activeBridges.set(cacheKey, { ...bridge, tools });
@@ -339,6 +301,213 @@ function createReadInboxFallback(agentRole: CompanyAgentRole): ToolDefinition | 
         };
       } catch (err) {
         return { success: false, error: `Graph read_inbox fallback failed: ${(err as Error).message}` };
+      }
+    },
+  };
+}
+
+// ── Email with Attachments (Graph API bypass) ────────────────────
+
+const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
+
+/**
+ * Download a file from SharePoint by path or webUrl and return base64 bytes.
+ * Uses AZURE_FILES credentials (Sites.Selected scope).
+ */
+async function downloadSharePointFileForAttachment(
+  filePathOrUrl: string,
+): Promise<{ contentBytes: string; contentType: string; name: string }> {
+  const token = await getM365Token('read_sharepoint');
+  const siteId = (process.env.SHAREPOINT_SITE_ID ?? '').trim();
+  if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
+
+  // If it's a SharePoint webUrl, extract the file path from it
+  let filePath = filePathOrUrl;
+  const spUrlMatch = filePathOrUrl.match(/\/Shared\s+Documents\/(.+)$/i);
+  if (spUrlMatch) {
+    filePath = decodeURIComponent(spUrlMatch[1]);
+  }
+
+  // Encode site ID preserving commas
+  const encodedSiteId = siteId.split(',').map(encodeURIComponent).join(',');
+
+  // Get drive ID
+  const driveRes = await fetch(
+    `${GRAPH_BASE}/sites/${encodedSiteId}/drive`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!driveRes.ok) throw new Error(`Failed to get drive: ${await driveRes.text()}`);
+  const driveData = (await driveRes.json()) as { id: string };
+  const driveId = encodeURIComponent(driveData.id).replace(/%21/g, '!');
+
+  // Try to resolve the file metadata
+  const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+  const metaRes = await fetch(
+    `${GRAPH_BASE}/sites/${encodedSiteId}/drives/${driveId}/root:/${encodedPath}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+
+  if (!metaRes.ok) {
+    // Fallback: search by filename
+    const fileName = filePath.split('/').pop() ?? filePath;
+    const searchRes = await fetch(
+      `${GRAPH_BASE}/sites/${encodedSiteId}/drives/${driveId}/root/search(q='${encodeURIComponent(fileName)}')`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!searchRes.ok) throw new Error(`File not found: ${filePath}`);
+    const searchData = (await searchRes.json()) as { value: Array<{ id: string; name: string; file?: { mimeType?: string } }> };
+    const match = searchData.value.find(
+      (item) => item.name.toLowerCase() === fileName.toLowerCase(),
+    );
+    if (!match) throw new Error(`File not found in search: ${fileName}`);
+
+    const contentRes = await fetch(
+      `${GRAPH_BASE}/sites/${encodedSiteId}/drives/${driveId}/items/${encodeURIComponent(match.id)}/content`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!contentRes.ok) throw new Error(`Failed to download: ${await contentRes.text()}`);
+    const buffer = Buffer.from(await contentRes.arrayBuffer());
+    return {
+      contentBytes: buffer.toString('base64'),
+      contentType: match.file?.mimeType ?? 'application/octet-stream',
+      name: match.name,
+    };
+  }
+
+  const meta = (await metaRes.json()) as { id: string; name: string; file?: { mimeType?: string } };
+  const contentRes = await fetch(
+    `${GRAPH_BASE}/sites/${encodedSiteId}/drives/${driveId}/items/${encodeURIComponent(meta.id)}/content`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!contentRes.ok) throw new Error(`Failed to download: ${await contentRes.text()}`);
+  const buffer = Buffer.from(await contentRes.arrayBuffer());
+  return {
+    contentBytes: buffer.toString('base64'),
+    contentType: meta.file?.mimeType ?? 'application/octet-stream',
+    name: meta.name,
+  };
+}
+
+/**
+ * Create a tool that sends email with file attachments from SharePoint.
+ * Downloads files via Graph API (AZURE_FILES) and sends via Graph API (AZURE_MAIL).
+ */
+function createSendEmailWithAttachmentTool(senderMailbox: string): ToolDefinition {
+  return {
+    name: 'reply_email_with_attachments',
+    description:
+      'Send an email with file attachments from SharePoint. Use this when you need to ' +
+      'reply to an email with attached documents, or send a new email with attachments. ' +
+      'For replies, set subject to "RE: <original subject>". ' +
+      'Provide SharePoint file paths or webUrls and this tool downloads the files and ' +
+      'attaches them to the email. Do NOT use markdown in the body.',
+    parameters: {
+      to: {
+        type: 'string',
+        description: 'Recipient email address(es), comma-separated',
+        required: true,
+      },
+      subject: {
+        type: 'string',
+        description: 'Email subject. Use "RE: <original subject>" for replies.',
+        required: true,
+      },
+      body: {
+        type: 'string',
+        description: 'Email body content. Plain text, no markdown.',
+        required: true,
+      },
+      file_paths: {
+        type: 'array',
+        description:
+          'SharePoint file paths or webUrls to attach. ' +
+          'Examples: "Legal/Articles of Incorporation.pdf" or full SharePoint webUrl.',
+        required: true,
+        items: { type: 'string', description: 'SharePoint file path or webUrl' },
+      },
+      cc: {
+        type: 'string',
+        description: 'CC recipients, comma-separated (founders are auto-CC\'d on peer emails)',
+        required: false,
+      },
+    },
+    execute: async (params) => {
+      try {
+        const filePaths = params.file_paths as string[];
+        if (!filePaths || filePaths.length === 0) {
+          return { success: false, error: 'file_paths is required and must contain at least one path' };
+        }
+
+        // Download all files from SharePoint
+        const attachments = await Promise.all(
+          filePaths.map(async (fp) => {
+            try {
+              return await downloadSharePointFileForAttachment(fp);
+            } catch (err) {
+              throw new Error(`Failed to download "${fp}": ${(err as Error).message}`);
+            }
+          }),
+        );
+
+        // Parse recipients
+        const toStr = params.to as string;
+        const toRecipients = toStr.split(/[;,]/).map((e) => e.trim()).filter(Boolean).map((email) => ({
+          emailAddress: { address: email },
+        }));
+
+        const ccStr = (params.cc as string) ?? '';
+        const ccRecipients = ccStr
+          ? ccStr.split(/[;,]/).map((e) => e.trim()).filter(Boolean).map((email) => ({
+              emailAddress: { address: email },
+            }))
+          : [];
+
+        // Build Graph API sendMail payload
+        const payload = {
+          message: {
+            subject: params.subject as string,
+            body: {
+              contentType: 'Text',
+              content: params.body as string,
+            },
+            toRecipients,
+            ...(ccRecipients.length > 0 && { ccRecipients }),
+            attachments: attachments.map((a) => ({
+              '@odata.type': '#microsoft.graph.fileAttachment',
+              name: a.name,
+              contentType: a.contentType,
+              contentBytes: a.contentBytes,
+            })),
+          },
+          saveToSentItems: true,
+        };
+
+        // Send via Graph API using AZURE_MAIL credentials
+        const mailToken = await getM365Token('agent365_mail_send');
+        const response = await fetch(
+          `${GRAPH_BASE}/users/${encodeURIComponent(senderMailbox)}/sendMail`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${mailToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          },
+        );
+
+        if (!response.ok) {
+          const text = await response.text();
+          return { success: false, error: `Failed to send email (${response.status}): ${text}` };
+        }
+
+        const fileNames = attachments.map((a) => a.name).join(', ');
+        return {
+          success: true,
+          data: `Email sent from ${senderMailbox} to ${toStr} with attachments: ${fileNames}`,
+        };
+      } catch (err) {
+        return { success: false, error: `reply_email_with_attachments failed: ${(err as Error).message}` };
       }
     },
   };
