@@ -125,7 +125,8 @@ body {
 
 .dashboard-shell {
   position: relative;
-  isolation: isolate;
+  /* Keep shell non-isolated so backdrop-filter surfaces can sample
+     the full page backdrop across desktop browsers. */
 }
 
 .mesh-gradient {
@@ -147,7 +148,6 @@ body {
 
 .dark .dashboard-main {
   position: relative;
-  isolation: auto;
   /* Background lives on .mesh-gradient (the shell). Keeping it here too
      would create an opaque layer that blocks backdrop-filter blur on cards. */
   /* Avoid forcing a stacking context here (e.g. via z-index), because
@@ -171,7 +171,6 @@ body {
 
 .dashboard-main {
   position: relative;
-  isolation: auto;
   background: transparent;
 }
 
