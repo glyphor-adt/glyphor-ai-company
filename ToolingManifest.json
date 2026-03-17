@@ -127,6 +127,17 @@
         "Glyphor.Finance.Cost.Read",
         "Glyphor.Finance.Banking.Read"
       ]
+    },
+    {
+      "mcpServerName": "mcp_GlyphorSharePointSites",
+      "mcpServerUniqueName": "mcp_GlyphorSharePointSites",
+      "url": "https://glyphor-mcp-sharepoint-sites-610179349713.us-central1.run.app/mcp",
+      "audience": "5604df3b-a3a3-4c7e-a8c4-e6f9ed04ad6a",
+      "scopes": [
+        "Glyphor.Admin.Read",
+        "Glyphor.Marketing.Content.Write",
+        "Glyphor.Marketing.Publish"
+      ]
     }
   ]
 }

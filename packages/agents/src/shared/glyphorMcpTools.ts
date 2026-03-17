@@ -71,6 +71,7 @@ const GLYPHOR_MCP_SERVERS: Record<string, string> = {
   'mcp_GlyphorLegal': process.env.GLYPHOR_MCP_LEGAL_URL ?? '',
   'mcp_GlyphorHR': process.env.GLYPHOR_MCP_HR_URL ?? '',
   'mcp_GlyphorEmailMarketing': process.env.GLYPHOR_MCP_EMAIL_MARKETING_URL ?? '',
+  'mcp_GlyphorSharePointSites': process.env.GLYPHOR_MCP_SHAREPOINT_SITES_URL ?? '',
   'mcp_Codex': process.env.GLYPHOR_MCP_CODEX_URL ?? '',
 };
 
@@ -80,7 +81,10 @@ function getDefaultGlyphorServers(agentRole?: string): string[] {
     return ['mcp_GlyphorEngineering', 'mcp_GlyphorData', 'mcp_Codex'];
   }
   if (['cmo', 'content-creator', 'seo-analyst', 'social-media-manager'].includes(agentRole)) {
-    return ['mcp_GlyphorMarketing', 'mcp_GlyphorEmailMarketing', 'mcp_GlyphorData'];
+    return ['mcp_GlyphorMarketing', 'mcp_GlyphorEmailMarketing', 'mcp_GlyphorData', 'mcp_GlyphorSharePointSites'];
+  }
+  if (['m365-admin'].includes(agentRole)) {
+    return ['mcp_GlyphorSharePointSites', 'mcp_GlyphorData'];
   }
   if (['cfo', 'cost-analyst', 'revenue-analyst', 'ai-impact-analyst'].includes(agentRole)) {
     return ['mcp_GlyphorFinance', 'mcp_GlyphorData'];
