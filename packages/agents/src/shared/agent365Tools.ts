@@ -148,10 +148,23 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       ),
     ]);
 
-    const tools: ToolDefinition[] = bridge.tools.map((tool): ToolDefinition => ({
-      ...tool,
-      deferLoading: true,
-    }));
+    const tools: ToolDefinition[] = bridge.tools.map((tool): ToolDefinition => {
+      const mapped: ToolDefinition = { ...tool, deferLoading: true };
+      // Strip attachmentUris from MCP send_email — the MCP server can't resolve
+      // SharePoint URIs. Agents should use reply_email_with_attachments instead.
+      if (tool.name === 'send_email' && mapped.parameters && 'attachmentUris' in mapped.parameters) {
+        const { attachmentUris: _removed, ...rest } = mapped.parameters;
+        mapped.parameters = rest;
+        mapped.description = (mapped.description ?? '') +
+          ' NOTE: This tool cannot send attachments. For emails with attachments, use reply_email_with_attachments.';
+      }
+      // Annotate reply_to_email — it also can't handle attachments via MCP.
+      if (tool.name === 'reply_to_email') {
+        mapped.description = (mapped.description ?? '') +
+          ' NOTE: This tool does NOT support attachments. To reply with attachments, use reply_email_with_attachments.';
+      }
+      return mapped;
+    });
     if (agentRole) {
       const hasInboxReader = tools.some((tool) => tool.name.toLowerCase() === 'read_inbox');
       if (!hasInboxReader) {
