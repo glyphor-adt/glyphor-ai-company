@@ -145,3 +145,23 @@ DB_NAME=glyphor
 DB_USER=glyphor_app
 DB_PASSWORD=<from GCP Secret Manager>
 ```
+
+Canonical local bootstrap flow:
+
+```bash
+# Run any command with app-user DB env (default role)
+npm run db:local -- -Run node _run_queries.js "SELECT current_user, current_database()"
+
+# Run with system-user DB env (uses db-system-password)
+npm run db:local:system -- -Run node _run_queries.js "SELECT current_user"
+
+# Shortcut to run _run_queries.js with app-user DB env
+npm run db:local:query -- "SELECT now()"
+```
+
+What this does:
+- ensures `cloud-sql-proxy` is listening on `127.0.0.1:15432` (starts it if needed)
+- pairs DB role to the correct secret automatically
+  - `app` role -> `glyphor_app` + `db-password`
+  - `system` role -> `glyphor_system_user` + `db-system-password`
+- exports `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `PGPASSWORD` for the command
