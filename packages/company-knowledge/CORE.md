@@ -2,6 +2,21 @@
 
 > Essential fallback context injected into every agent. Department-specific detail lives in `context/*.md`.
 
+## Company Identity
+- **Legal Name:** Glyphor, Inc.
+- **Entity Type:** Delaware C-Corp (60/40 equity — Kristina/Andrew)
+- **Headquarters:** Dallas, TX
+- **Website/Domain:** glyphor.ai
+- **Founded:** 2025
+- **Employees:** 0 W-2 employees. 28 AI agents + 2 human founders.
+
+## Infrastructure IDs
+- **GCP Project:** ai-glyphor-company
+- **GCP Billing Account:** 012B03-F562EC-184CD8
+- **SharePoint:** glyphorai.sharepoint.com/sites/glyphor-knowledge
+- **M365 Tenant Domain:** glyphor.ai
+- **GitHub Org:** glyphor-adt
+
 ## What We Are
 Glyphor does not sell AI tools. Glyphor sells AI-powered departments that deliver outcomes.
 
