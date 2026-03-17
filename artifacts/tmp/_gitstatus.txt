@@ -1,0 +1,7 @@
+M  packages/agent-runtime/src/companyAgentRunner.ts
+A  packages/agent-runtime/src/config/emailSignatures.ts
+M  packages/agent-runtime/src/index.ts
+M  packages/agents/src/shared/agent365Tools.ts
+M  packages/integrations/src/agent365/index.ts
+M  packages/integrations/src/teams/email.ts
+?? artifacts/tmp/_gitstatus.txt
