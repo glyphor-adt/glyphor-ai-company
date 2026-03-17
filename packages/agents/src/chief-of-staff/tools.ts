@@ -1357,6 +1357,38 @@ export function createChiefOfStaffTools(
           ?? (recipient === 'kristina' ? 'kristina@glyphor.ai' : 'andrew@glyphor.ai');
         const imageUrl = params.image_url as string | undefined;
 
+        // ── Dedup: suppress if we already DMed this recipient with similar content recently ──
+        try {
+          const recentDms = await systemQuery<{ details: unknown }>(
+            `SELECT details FROM activity_log
+             WHERE agent_role = $1 AND action = 'alert'
+               AND summary = $2
+               AND details IS NOT NULL
+               AND created_at > NOW() - interval '4 hours'
+             ORDER BY created_at DESC LIMIT 5`,
+            [ctx.agentRole, `DM sent to ${recipient}`],
+          );
+          const newMsg = (params.message as string).toLowerCase();
+          const newWords = new Set(newMsg.split(/\s+/).filter(w => w.length > 3));
+          for (const prev of recentDms) {
+            try {
+              const prevContent = typeof prev.details === 'string' ? JSON.parse(prev.details) : prev.details;
+              const prevMsg = ((prevContent as Record<string, unknown>)?.message as string ?? '').toLowerCase();
+              const prevWords = new Set(prevMsg.split(/\s+/).filter((w: string) => w.length > 3));
+              if (newWords.size === 0 || prevWords.size === 0) continue;
+              const overlap = [...newWords].filter(w => prevWords.has(w)).length;
+              if (overlap / Math.max(newWords.size, prevWords.size) > 0.5) {
+                return {
+                  success: false,
+                  error: `Duplicate DM suppressed — you already sent a similar message to ${recipient} within the last 4 hours. Wait for their response instead of re-sending.`,
+                };
+              }
+            } catch { continue; }
+          }
+        } catch (err) {
+          console.warn('[send_dm] dedup check failed, proceeding:', (err as Error).message);
+        }
+
         const chatId = await a365Client.createOrGetOneOnOneChat(recipientUpn);
 
         let messageText = params.message as string;
@@ -1370,6 +1402,7 @@ export function createChiefOfStaffTools(
           action: 'alert',
           product: 'company',
           summary: `DM sent to ${recipient}`,
+          details: { message: messageText },
           createdAt: new Date().toISOString(),
         });
 

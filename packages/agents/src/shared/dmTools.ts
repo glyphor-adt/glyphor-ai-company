@@ -16,6 +16,7 @@ import {
   GraphTeamsClient,
   A365TeamsChatClient,
 } from '@glyphor/integrations';
+import { systemQuery } from '@glyphor/shared/db';
 
 /** Founder keys → email addresses */
 const FOUNDER_DIR: Record<string, string> = {
@@ -188,6 +189,40 @@ export function createDmTools(): ToolDefinition[] {
         const senderEmail = agentEntry?.email;
         const a365Client = getA365Client(role);
 
+        // ── Dedup: suppress if we already DMed this recipient with similar content recently ──
+        if (role) {
+          try {
+            const recentDms = await systemQuery<{ details: unknown }>(
+              `SELECT details FROM activity_log
+               WHERE agent_role = $1 AND action = 'alert'
+                 AND summary = $2
+                 AND details IS NOT NULL
+                 AND created_at > NOW() - interval '4 hours'
+               ORDER BY created_at DESC LIMIT 5`,
+              [role, `DM sent to ${recipientStr}`],
+            );
+            const newMsg = (params.message as string).toLowerCase();
+            const newWords = new Set(newMsg.split(/\s+/).filter(w => w.length > 3));
+            for (const prev of recentDms) {
+              try {
+                const prevContent = typeof prev.details === 'string' ? JSON.parse(prev.details) : prev.details;
+                const prevMsg = ((prevContent as Record<string, unknown>)?.message as string ?? '').toLowerCase();
+                const prevWords = new Set(prevMsg.split(/\s+/).filter((w: string) => w.length > 3));
+                if (newWords.size === 0 || prevWords.size === 0) continue;
+                const overlap = [...newWords].filter(w => prevWords.has(w)).length;
+                if (overlap / Math.max(newWords.size, prevWords.size) > 0.5) {
+                  return {
+                    success: false,
+                    error: `Duplicate DM suppressed — you already sent a similar message to ${recipientStr} within the last 4 hours. Wait for their response instead of re-sending.`,
+                  };
+                }
+              } catch { continue; }
+            }
+          } catch (err) {
+            console.warn('[send_teams_dm] dedup check failed, proceeding:', (err as Error).message);
+          }
+        }
+
         // ── A365 MCP (delegated permissions via mcp_TeamsServer) ─────
         // CreateChat accepts UPNs (emails) directly, no Graph userId lookup needed.
         if (a365Client) {
@@ -195,6 +230,15 @@ export function createDmTools(): ToolDefinition[] {
             const chatId = await a365Client.createOrGetOneOnOneChat(email, senderEmail);
 
             await a365Client.postChatMessage(chatId, params.message as string, role);
+
+            // Log for dedup tracking
+            try {
+              await systemQuery(
+                `INSERT INTO activity_log (agent_role, action, product, summary, details, tier, created_at)
+                 VALUES ($1, 'alert', 'company', $2, $3, 'green', NOW())`,
+                [role ?? 'system', `DM sent to ${recipientStr}`, JSON.stringify({ message: params.message as string })],
+              );
+            } catch { /* non-critical */ }
 
             return { success: true, data: { sent: true, recipient: recipientStr, email, via: 'a365-mcp' } };
           } catch (err) {

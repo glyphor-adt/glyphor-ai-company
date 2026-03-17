@@ -148,9 +148,10 @@ body {
 .dark .dashboard-main {
   position: relative;
   isolation: auto;
-  z-index: 0;
   /* Background lives on .mesh-gradient (the shell). Keeping it here too
      would create an opaque layer that blocks backdrop-filter blur on cards. */
+  /* Avoid forcing a stacking context here (e.g. via z-index), because
+     Chromium may stop sampling the shell backdrop for descendant glass cards. */
   background: transparent;
 }
 
