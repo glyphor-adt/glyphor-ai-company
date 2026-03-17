@@ -174,22 +174,6 @@ body {
   background: transparent;
 }
 
-/* Desktop: provide an in-context backdrop source for glass cards.
-   This avoids cross-layer sampling issues seen in some Chromium setups. */
-@media (min-width: 768px) {
-  .dark .dashboard-main::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background-image: url('/3d-render.jpg');
-    background-position: center center;
-    background-size: cover;
-    background-repeat: no-repeat;
-  }
-}
-
 /* Global tone-down: neutralize cyan border utility classes in dark mode */
 .dark [class*="border-cyan"],
 .dark [class*="border-primary"] {
@@ -204,7 +188,6 @@ body {
 
 .dashboard-content {
   position: relative;
-  z-index: 1;
   background: transparent;
 }
 
@@ -626,6 +609,29 @@ input:focus, textarea:focus, select:focus {
   background-color: rgba(17, 25, 40, 0.34) !important;
   border-color: rgba(255, 255, 255, 0.10) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Desktop-safe glass fallback:
+   render blur on a pseudo-layer per card to avoid compositor backdrop issues. */
+.dark .sidebar-glass.glass-card-layout,
+.dark .sidebar-glass.glass-inner-layout {
+  position: relative;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.dark .sidebar-glass.glass-card-layout::before,
+.dark .sidebar-glass.glass-inner-layout::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background-color: var(--sidebar-glass-bg);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 .dashboard-home-surface-content {
