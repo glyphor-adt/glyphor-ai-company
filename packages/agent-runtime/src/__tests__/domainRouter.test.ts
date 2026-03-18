@@ -54,8 +54,8 @@ describe('domain-aware runtime routing', () => {
       currentModel: 'gpt-5-mini-2025-08-07',
     });
 
-    expect(decision.routingRule).toBe('financial_compute');
-    expect(decision.model).toContain('gemini-3.1');
+    expect(decision.routingRule).toBe('financial_complex');
+    expect(decision.model).toContain('gemini-2.5');
     expect(decision.enableCodeExecution).toBe(true);
   });
 
