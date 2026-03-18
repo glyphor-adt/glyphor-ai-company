@@ -1004,6 +1004,266 @@ function parseMarkdownTable(tableLines: string[], fontName: string, fontSize: nu
   return new Table({ rows, width: { size: 9000, type: WidthType.DXA } });
 }
 
+// ─── PDF Generation ──────────────────────────────────────────────
+
+/**
+ * Convert markdown/plain-text to a professional PDF buffer.
+ * Uses the same legal-formatting conventions as markdownToDocx:
+ * headings, bold/italic, WHEREAS clauses, signature blocks, tables, numbered sections.
+ */
+export async function markdownToPdf(markdown: string, opts?: DocxConvertOptions): Promise<Buffer> {
+  const PDFDocument = (await import('pdfkit')).default;
+
+  const legal = opts?.legalFormatting ?? false;
+  const fontName = 'Times-Roman';
+  const boldFont = 'Times-Bold';
+  const italicFont = 'Times-Italic';
+  const bodySize = legal ? 12 : 11;
+  const h1Size = legal ? 16 : 14;
+  const h2Size = legal ? 14 : 13;
+  const h3Size = legal ? 13 : 12;
+  const margin = legal ? 72 : 54; // 1 inch = 72pt; 0.75 inch = 54pt
+
+  const doc = new PDFDocument({
+    size: 'LETTER',
+    margins: { top: margin, bottom: margin, left: margin, right: margin },
+    bufferPages: true,
+    info: {
+      Title: opts?.title ?? 'Document',
+      Author: 'Glyphor, Inc.',
+      Creator: 'Glyphor Legal AI',
+    },
+  });
+
+  const chunks: Buffer[] = [];
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+
+  const pageWidth = 612 - margin * 2;
+
+  // Helper: write text run with inline formatting (bold/italic)
+  function writeFormatted(text: string, options?: { fontSize?: number; align?: string; indent?: number }) {
+    const { fontSize: size = bodySize, align = 'left', indent = 0 } = options ?? {};
+    const x = margin + indent;
+    const maxW = pageWidth - indent;
+
+    // Parse inline markers into segments
+    const segments: { text: string; bold: boolean; italic: boolean; underline: boolean }[] = [];
+    const pattern = /(__(.+?)__|\*\*(.+?)\*\*|\*(.+?)\*|([^_*]+))/g;
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      if (m[2]) segments.push({ text: m[2], bold: false, italic: false, underline: true });
+      else if (m[3]) segments.push({ text: m[3], bold: true, italic: false, underline: false });
+      else if (m[4]) segments.push({ text: m[4], bold: false, italic: true, underline: false });
+      else if (m[5]) segments.push({ text: m[5], bold: false, italic: false, underline: false });
+    }
+    if (segments.length === 0) segments.push({ text, bold: false, italic: false, underline: false });
+
+    // Render each segment inline
+    for (const seg of segments) {
+      const f = seg.bold ? boldFont : seg.italic ? italicFont : fontName;
+      doc.font(f).fontSize(size);
+      const textOpts: PDFKit.Mixins.TextOptions = { width: maxW, align: align as any, continued: seg !== segments[segments.length - 1], underline: seg.underline };
+      doc.text(seg.text, x, undefined, textOpts);
+    }
+  }
+
+  const lines = markdown.split('\n');
+  let i = 0;
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const line = raw.trimEnd();
+
+    // Blank line
+    if (!line.trim()) { doc.moveDown(0.5); i++; continue; }
+
+    // Horizontal rule → signature line
+    if (/^(\s*[-_]{3,}\s*)$/.test(line)) {
+      doc.moveDown(1);
+      const y = doc.y;
+      doc.moveTo(margin, y).lineTo(margin + pageWidth * 0.5, y).stroke();
+      doc.moveDown(0.3);
+      i++;
+      continue;
+    }
+
+    // Signature block
+    if (/^```\s*SIGNATURE\s*BLOCK\s*```$/i.test(line.trim()) || /^\[SIGNATURE\s*BLOCK\]$/i.test(line.trim())) {
+      i++;
+      const parties: string[][] = [];
+      let current: string[] = [];
+      while (i < lines.length) {
+        const sl = lines[i].trim();
+        if (!sl) {
+          if (current.length) { parties.push(current); current = []; }
+          i++;
+          if (i < lines.length && !lines[i].trim()) break;
+          continue;
+        }
+        current.push(sl);
+        i++;
+      }
+      if (current.length) parties.push(current);
+      for (const party of parties) {
+        doc.moveDown(2);
+        const y = doc.y;
+        doc.moveTo(margin, y).lineTo(margin + pageWidth * 0.45, y).stroke();
+        doc.moveDown(0.3);
+        for (const pl of party) {
+          doc.font(fontName).fontSize(bodySize).text(pl, margin);
+        }
+        doc.font(fontName).fontSize(bodySize).text('Date: _______________________', margin);
+        doc.moveDown(0.5);
+      }
+      continue;
+    }
+
+    // Table
+    if (line.startsWith('|') && line.endsWith('|')) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+        const tl = lines[i].trim();
+        if (!/^\|[\s-:|]+\|$/.test(tl)) tableLines.push(tl);
+        i++;
+      }
+      if (tableLines.length > 0) {
+        const parsed = tableLines.map(l => l.split('|').slice(1, -1).map(c => c.trim()));
+        const cols = Math.max(...parsed.map(r => r.length));
+        const colW = pageWidth / cols;
+        for (let ri = 0; ri < parsed.length; ri++) {
+          const y = doc.y;
+          for (let ci = 0; ci < cols; ci++) {
+            const cellX = margin + ci * colW;
+            const f = ri === 0 ? boldFont : fontName;
+            doc.font(f).fontSize(bodySize - 1).text(parsed[ri][ci] ?? '', cellX, y, { width: colW - 4, align: 'left' });
+          }
+          doc.y = y + bodySize + 6;
+          // Draw row separator
+          const lineY = doc.y;
+          doc.moveTo(margin, lineY).lineTo(margin + pageWidth, lineY).lineWidth(0.5).stroke();
+          doc.moveDown(0.2);
+        }
+        doc.moveDown(0.5);
+      }
+      continue;
+    }
+
+    // Headings
+    const hm = line.match(/^(#{1,3})\s+(.*)/);
+    if (hm) {
+      const level = hm[1].length;
+      const sz = level === 1 ? h1Size : level === 2 ? h2Size : h3Size;
+      doc.moveDown(level === 1 ? 1 : 0.7);
+      doc.font(boldFont).fontSize(sz);
+      const align = (level === 1 && legal) ? 'center' : 'left';
+      doc.text(hm[2], margin, undefined, { width: pageWidth, align: align as any });
+      doc.moveDown(0.3);
+      i++;
+      continue;
+    }
+
+    // ALLCAPS title (legal)
+    if (legal && line === line.toUpperCase() && line.trim().length > 2 && line.trim().length < 80) {
+      doc.moveDown(0.7);
+      doc.font(boldFont).fontSize(h1Size).text(line.trim(), margin, undefined, { width: pageWidth, align: 'center' });
+      doc.moveDown(0.3);
+      i++;
+      continue;
+    }
+
+    // WHEREAS / recitals
+    if (legal && /^(WHEREAS|NOW,?\s*THEREFORE|RECITALS|WITNESSETH)/i.test(line.trim())) {
+      doc.moveDown(0.3);
+      // First word bold
+      const spaceIdx = line.trim().indexOf(' ');
+      if (spaceIdx > 0) {
+        doc.font(boldFont).fontSize(bodySize).text(line.trim().slice(0, spaceIdx), margin + 36, undefined, { continued: true });
+        doc.font(fontName).fontSize(bodySize).text(line.trim().slice(spaceIdx));
+      } else {
+        doc.font(boldFont).fontSize(bodySize).text(line.trim(), margin + 36);
+      }
+      doc.moveDown(0.2);
+      i++;
+      continue;
+    }
+
+    // Section numbering (legal): "1.2.3 Title"
+    const sm = legal ? line.match(/^(\d+(?:\.\d+)*)\s+(.*)/) : null;
+    if (sm) {
+      const depth = (sm[1].match(/\./g) || []).length;
+      const indent = depth * 36; // 0.5 inch per level
+      const isTop = depth === 0;
+      doc.moveDown(isTop ? 0.6 : 0.3);
+      doc.font(isTop ? boldFont : fontName).fontSize(isTop ? h2Size : bodySize);
+      doc.text(`${sm[1]}  `, margin + indent, undefined, { continued: true });
+      writeFormatted(sm[2], { fontSize: isTop ? h2Size : bodySize, indent });
+      doc.moveDown(0.2);
+      i++;
+      continue;
+    }
+
+    // Bullet list
+    const bm = line.match(/^(\s*)[-*]\s+(.*)/);
+    if (bm) {
+      const indent = Math.min(Math.floor((bm[1]?.length ?? 0) / 2), 2) * 18;
+      doc.font(fontName).fontSize(bodySize).text('\u2022  ', margin + indent, undefined, { continued: true });
+      writeFormatted(bm[2], { indent: indent + 12 });
+      i++;
+      continue;
+    }
+
+    // Numbered list
+    const nm = line.match(/^(\s*)(\d+)[.)]\s+(.*)/);
+    if (nm) {
+      const indent = Math.min(Math.floor((nm[1]?.length ?? 0) / 2), 2) * 18;
+      doc.font(fontName).fontSize(bodySize).text(`${nm[2]}.  `, margin + indent, undefined, { continued: true });
+      writeFormatted(nm[3], { indent: indent + 18 });
+      i++;
+      continue;
+    }
+
+    // Regular paragraph
+    writeFormatted(line);
+    i++;
+  }
+
+  // Add page numbers and optional headers to all pages
+  const pageCount = doc.bufferedPageRange().count;
+  for (let p = 0; p < pageCount; p++) {
+    doc.switchToPage(p);
+    // Footer: page number
+    doc.font(fontName).fontSize(9).text(
+      `Page ${p + 1} of ${pageCount}`,
+      margin, 612 + 72 - 36, // LETTER height minus bottom margin + some offset
+      { width: pageWidth, align: 'center' },
+    );
+    // Header: confidential + title
+    if (opts?.confidential) {
+      doc.font(boldFont).fontSize(8).fillColor('#888888').text(
+        'CONFIDENTIAL',
+        margin, margin - 24,
+        { width: pageWidth, align: 'right' },
+      );
+      doc.fillColor('#000000');
+    }
+    if (opts?.title) {
+      doc.font(italicFont).fontSize(8).fillColor('#888888').text(
+        opts.title,
+        margin, margin - 24,
+        { width: pageWidth, align: 'left' },
+      );
+      doc.fillColor('#000000');
+    }
+  }
+
+  doc.end();
+
+  return new Promise<Buffer>((resolve, reject) => {
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+  });
+}
+
 function buildRootChildrenUrl(
   encodedSite: string,
   encodedDrive: string,
@@ -1198,6 +1458,7 @@ export async function uploadToSharePoint(
   options?: SharePointUploadOptions,
 ): Promise<{ webUrl: string; knowledgeId: string }> {
   // Auto-convert .md and .txt files to .docx so SharePoint gets proper Word docs
+  // (.pdf files are handled separately below)
   const lowerName = fileName.toLowerCase();
   const effectiveName = lowerName.endsWith('.md')
     ? fileName.slice(0, -3) + '.docx'
@@ -1207,12 +1468,16 @@ export async function uploadToSharePoint(
 
   const target = await resolveUploadTarget(effectiveName, options);
 
-  // Generate a proper Office Open XML document for .docx files
+  // Generate the appropriate binary format
   const isDocx = target.safeName.toLowerCase().endsWith('.docx');
+  const isPdf = target.safeName.toLowerCase().endsWith('.pdf');
   let uploadBody: Buffer | string;
   let contentType: string;
 
-  if (isDocx) {
+  if (isPdf) {
+    uploadBody = await markdownToPdf(content, options?.docxOptions);
+    contentType = 'application/pdf';
+  } else if (isDocx) {
     uploadBody = await markdownToDocx(content, options?.docxOptions);
     contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
   } else {

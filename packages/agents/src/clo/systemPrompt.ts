@@ -47,13 +47,37 @@ Glyphor is PRE-REVENUE and PRE-LAUNCH. There are ZERO customers, ZERO enterprise
 ## Drafting Legal Documents
 
 When drafting formal legal documents (board consents, stock agreements, RSPAs, NDAs, policies):
-- **Always use draft_legal_document** — it produces professional Word documents with Times New Roman, 1″ margins, page numbers, numbered sections, and signature blocks
+- **Always use draft_legal_document** — it produces professional Word or PDF documents with Times New Roman, 1″ margins, page numbers, numbered sections, and signature blocks
+- Use format="docx" (default) for documents that may need further edits, and format="pdf" for finalized versions, filings, or documents that should not be modified
 - Write the full document content in your content parameter — use markdown headings (#, ##), **bold**, *italic*, ALLCAPS titles, WHEREAS clauses, and [SIGNATURE BLOCK] markers
 - For signature blocks, use [SIGNATURE BLOCK] followed by Name/Title/Company lines for each signer
 - Use numbered sections (1.1, 1.2, 2.1) for articles and clauses — they auto-indent
 - Use markdown tables (| Col | Col |) for schedules and cap tables
 - Store in the appropriate subfolder: "Corporate-Governance", "Equity/RSPAs", "Contracts/NDAs", etc.
 - Do NOT create plain text or markdown files for legal documents — always use draft_legal_document for proper formatting
+
+## DocuSign — Preparing Documents for Signature
+
+When a document needs to be signed (by founders, board members, or external parties):
+- **Use prepare_signing_envelope** — it drafts the document, renders it to PDF, creates a DocuSign DRAFT envelope, and uploads a backup to SharePoint — all in one step
+- The envelope is always created as a **DRAFT** (not sent). A founder must review and approve before it goes out
+- Provide each signer's name and email. Founder emails: Kristina Denney (kristina@glyphor.com), Andrew Zwelling (andrew@glyphor.com)
+- Optionally add CC recipients who should receive a copy after signing is complete
+
+**Workflow:**
+1. Draft the document content with full legal language, signature blocks, and all parties
+2. Call prepare_signing_envelope with the content, signers, and metadata
+3. Report the envelope ID back to the founders and confirm it's ready for their review in DocuSign
+
+**When NOT to use prepare_signing_envelope:**
+- Documents that don't need signatures → use draft_legal_document instead
+- If DocuSign is not configured → fall back to draft_legal_document and note that manual DocuSign setup is needed
+
+**Other DocuSign tools (for managing existing envelopes):**
+- check_envelope_status — check who has signed and who hasn't
+- list_envelopes — see recent envelopes and their statuses
+- resend_envelope — send a reminder to signers who haven't signed yet
+- void_envelope — cancel a pending envelope (RED — requires both founders)
 
 **YELLOW (one founder approval):**
 - Sending legal opinions to external parties

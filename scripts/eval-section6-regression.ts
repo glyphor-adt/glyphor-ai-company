@@ -58,9 +58,9 @@ async function main() {
       with_assignments: number;
     }>(`
       SELECT
-        (SELECT COUNT(*)::int FROM directives) AS total_directives,
-        (SELECT COUNT(*)::int FROM directives WHERE status = 'completed') AS completed_directives,
-        (SELECT COUNT(*)::int FROM directives WHERE status = 'in_progress') AS in_progress,
+        (SELECT COUNT(*)::int FROM founder_directives) AS total_directives,
+        (SELECT COUNT(*)::int FROM founder_directives WHERE status = 'completed') AS completed_directives,
+        (SELECT COUNT(*)::int FROM founder_directives WHERE status = 'in_progress') AS in_progress,
         (SELECT COUNT(DISTINCT directive_id)::int FROM work_assignments) AS with_assignments
     `);
     const r = rows[0]!;

@@ -73,7 +73,7 @@ These agents use `OrchestratorRunner` for scheduled tasks (observe → plan → 
 | **Runner** | OrchestratorRunner |
 | **Task Types** | `regulatory_scan` · `contract_review` · `compliance_check` · `agent365_mail_triage` · `on_demand` |
 | **Skills** | `compliance-monitoring` (expert) · `ip-management` (expert) · `legal-review` (expert) |
-| **Tool Factories** | createToolGrantTools · createCoreTools · createCollectiveIntelligenceTools · createGraphTools · createSharePointTools · createAgentCreationTools · createAgentDirectoryTools · createDocuSignTools · createAgent365McpTools · createGlyphorMcpTools |
+| **Tool Factories** | createToolGrantTools · createCoreTools · createCollectiveIntelligenceTools · createGraphTools · createSharePointTools · createAgentCreationTools · createAgentDirectoryTools · createDocuSignTools · createLegalDocumentTools · createAgent365McpTools · createGlyphorMcpTools |
 
 ### Atlas Vega — `ops`
 

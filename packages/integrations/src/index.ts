@@ -153,6 +153,7 @@ export {
   listSharePointFiles,
   readSharePointDocument,
   createSharePointPage,
+  markdownToPdf,
   type SharePointSyncOptions,
   type SharePointSyncResult,
   type SharePointUploadOptions,
