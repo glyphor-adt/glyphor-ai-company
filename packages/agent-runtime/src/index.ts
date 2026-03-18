@@ -34,6 +34,17 @@ export type { WorkLoopResult } from './workLoop.js';
 export { extractTaskFromConfigId } from './taskIdentity.js';
 export { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
 export type { HistoryCompressionConfig } from './historyManager.js';
+export { composeModelContext } from './context/contextComposer.js';
+export type { ContextComposerInput, ContextComposerResult } from './context/contextComposer.js';
+export { compressComposedHistory } from './context/historyCompressor.js';
+export type { ContextCompressionOptions, ContextCompressionResult } from './context/historyCompressor.js';
+export {
+  buildSystemFrameTurn,
+  isSyntheticContextTurn,
+  SYSTEM_FRAME_PREFIX,
+  REASONING_STATE_PREFIX,
+} from './context/systemFrame.js';
+export type { SystemFrameInput } from './context/systemFrame.js';
 export { ToolRetriever, getToolRetriever, initializeToolRetriever, buildToolTaskContext } from './routing/toolRetriever.js';
 export type { ToolRetrieverRequest, ToolRetrieverResult, ToolRetrieverTrace } from './routing/toolRetriever.js';
 export { applyPatchToGitHub } from './patchHarness.js';

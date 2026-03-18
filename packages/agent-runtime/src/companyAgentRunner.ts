@@ -31,7 +31,7 @@ import type {
 import { estimateModelCost } from '@glyphor/shared/models';
 import { systemQuery } from '@glyphor/shared/db';
 import { extractTaskFromConfigId } from './taskIdentity.js';
-import { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
+import { composeModelContext } from './context/contextComposer.js';
 import { buildToolTaskContext, getToolRetriever } from './routing/toolRetriever.js';
 import { runDeterministicPreCheck } from './routing/index.js';
 import type { RoutingDecision } from './routing/index.js';
@@ -103,6 +103,8 @@ const TASK_TIER_CALL_TIMEOUT_MS = 300_000;
 /** Scheduled tasks with thinking enabled get generous limits. */
 const SCHEDULED_THINKING_TIMEOUT_MS = 900_000;
 const SCHEDULED_CALL_TIMEOUT_MS = 300_000;
+const CONTEXT_COMPOSER_MAX_TOKENS = 12_000;
+const CONTEXT_COMPOSER_MAX_TOKENS_PROVIDER = 24_000;
 
 // ─── TIERED CONTEXT LOADING ───────────────────────────────────
 // light  → on_demand/chat: profile + pending messages + working memory only
@@ -1764,15 +1766,25 @@ export class CompanyAgentRunner {
     const requestSource: RequestSource = task === 'on_demand' ? 'on_demand' : 'scheduled';
     let compactionCount = 0;
     let compactionSummary: string | undefined;
-    const prepareHistoryForModel = async (
+    const composeHistoryForModel = (
       model: string,
       currentHistory: ConversationTurn[],
-    ): Promise<ConversationTurn[]> => {
+      turnForContext: number,
+    ) => {
       const provider = detectProvider(model);
-      if (!shouldUseClientSideHistoryCompression(provider, requestSource)) {
-        return currentHistory;
-      }
-      return compressHistory(currentHistory, DEFAULT_HISTORY_COMPRESSION, this.modelClient);
+      const shouldUseClientCompression = shouldUseClientSideHistoryCompression(provider, requestSource);
+      return composeModelContext({
+        history: currentHistory,
+        role: config.role,
+        task,
+        initialMessage,
+        turnNumber: turnForContext,
+        maxTokens: shouldUseClientCompression
+          ? CONTEXT_COMPOSER_MAX_TOKENS
+          : CONTEXT_COMPOSER_MAX_TOKENS_PROVIDER,
+        includeReasoningState: true,
+        keepRecentGroups: shouldUseClientCompression ? 2 : 3,
+      });
     };
 
     try {
@@ -1835,7 +1847,8 @@ export class CompanyAgentRunner {
                 const synthPrompt = 'You ran out of time. Using ONLY the tool results already in the conversation, give a clear, concise answer to the user. Do NOT apologize about running out of time. Just answer naturally.';
                 history.push({ role: 'user', content: synthPrompt, timestamp: Date.now() });
                 const synthModel = routedModel.model === '__deterministic__' ? config.model : routedModel.model;
-                const compressedSynthHistory = await prepareHistoryForModel(synthModel, history);
+                const composedSynthContext = composeHistoryForModel(synthModel, history, turnNumber + 1);
+                const compressedSynthHistory = composedSynthContext.history;
                 const synthResponse = await this.modelClient.generate({
                   model: synthModel,
                   systemInstruction: '',
@@ -1903,13 +1916,6 @@ export class CompanyAgentRunner {
         // 3. MODEL CALL
         let response: Awaited<ReturnType<ModelClient['generate']>>;
         try {
-          emitEvent({
-            type: 'model_request',
-            agentId: config.id,
-            turnNumber,
-            tokenEstimate: estimateTokens(history),
-          });
-
           // Task-level thinking override
           const isOnDemand = task === 'on_demand';
 
@@ -2019,12 +2025,25 @@ export class CompanyAgentRunner {
             }
           }
 
-          const compressedHistory = await prepareHistoryForModel(modelForTurn, history);
+          const composedContext = composeHistoryForModel(modelForTurn, history, turnNumber);
+          const compressedHistory = composedContext.history;
+
+          emitEvent({
+            type: 'model_request',
+            agentId: config.id,
+            turnNumber,
+            tokenEstimate: composedContext.tokenEstimate,
+          });
 
           if (turnNumber === 1 || turnNumber % 3 === 0) {
-            const rawEst = Math.ceil(history.reduce((t, h) => t + h.content.length, 0) / 3);
-            const compEst = Math.ceil(compressedHistory.reduce((t, h) => t + h.content.length, 0) / 3);
-            console.log(`[HistoryCompression] ${config.role} turn=${turnNumber}: raw=${history.length} items (~${rawEst} tok) → compressed=${compressedHistory.length} items (~${compEst} tok), tools=${effectiveTools?.length ?? 0}`);
+            const rawEstimate = Math.ceil(history.reduce((t, h) => t + h.content.length, 0) / 4);
+            console.log(
+              `[ContextComposer] ${config.role} turn=${turnNumber}: ` +
+              `raw=${history.length} (~${rawEstimate} tok) -> ` +
+              `composed=${compressedHistory.length} (~${composedContext.tokenEstimate} tok), ` +
+              `dropped_groups=${composedContext.droppedGroups}, dropped_turns=${composedContext.droppedTurns}, ` +
+              `tools=${effectiveTools?.length ?? 0}`,
+            );
           }
 
           routingAudit = routeSubtask({
@@ -2788,11 +2807,6 @@ For peerFeedback: If during this task you interacted with or observed the work o
       );
     }
   }
-}
-
-function estimateTokens(history: ConversationTurn[]): number {
-  const totalChars = history.reduce((sum, t) => sum + (t.content ?? '').length, 0);
-  return Math.ceil(totalChars / 4);
 }
 
 function buildMemoryContext(

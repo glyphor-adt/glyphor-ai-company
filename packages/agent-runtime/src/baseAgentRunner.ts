@@ -43,7 +43,7 @@ import type { DecisionChainTracker } from './decisionChainTracker.js';
 import { harvestTaskOutcome } from './taskOutcomeHarvester.js';
 import type { ActionReceipt } from './types.js';
 import { extractTaskFromConfigId } from './taskIdentity.js';
-import { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
+import { composeModelContext } from './context/contextComposer.js';
 import { runDeterministicPreCheck } from './routing/index.js';
 import { buildToolTaskContext, getToolRetriever } from './routing/toolRetriever.js';
 import type { RoutingDecision } from './routing/index.js';
@@ -51,14 +51,12 @@ import { determineVerificationTier } from './verificationPolicy.js';
 import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from './subtaskRouter.js';
 import { learnFromAgentRun } from './skillLearning.js';
 
+const CONTEXT_COMPOSITION_MAX_TOKENS = 12_000;
+
 // ─── Cost estimation (uses centralized model registry) ───────────────
 
 function estimateCost(model: string, inputTokens: number, outputTokens: number, thinkingTokens = 0, cachedInputTokens = 0): number {
   return estimateModelCost(model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens);
-}
-
-function estimateTokens(history: ConversationTurn[]): number {
-  return Math.ceil(history.reduce((s, t) => s + t.content.length, 0) / 4);
 }
 
 // ─── Extended RunDependencies with shared memory ────────────────
@@ -469,8 +467,34 @@ ${memPrompt}`, timestamp: Date.now() });
         // ── Model call ──────────────────────────────────────────
         let response: Awaited<ReturnType<ModelClient['generate']>>;
         try {
-          const compressedHistory = await compressHistory(history, DEFAULT_HISTORY_COMPRESSION, this.modelClient);
-          emitEvent({ type: 'model_request', agentId: config.id, turnNumber, tokenEstimate: estimateTokens(compressedHistory) });
+          const composedContext = composeModelContext({
+            history,
+            role: config.role,
+            task: taskForContext,
+            initialMessage,
+            turnNumber,
+            maxTokens: CONTEXT_COMPOSITION_MAX_TOKENS,
+            includeReasoningState: true,
+            keepRecentGroups: 2,
+          });
+          const composedHistory = composedContext.history;
+
+          emitEvent({
+            type: 'model_request',
+            agentId: config.id,
+            turnNumber,
+            tokenEstimate: composedContext.tokenEstimate,
+          });
+
+          if (turnNumber === 1 || turnNumber % 3 === 0) {
+            const rawEstimate = Math.ceil(history.reduce((s, t) => s + t.content.length, 0) / 4);
+            console.log(
+              `[ContextComposer] ${config.role} turn=${turnNumber}: ` +
+              `raw=${history.length} (~${rawEstimate} tok) -> ` +
+              `composed=${composedHistory.length} (~${composedContext.tokenEstimate} tok), ` +
+              `dropped_groups=${composedContext.droppedGroups}, dropped_turns=${composedContext.droppedTurns}`,
+            );
+          }
 
           // Strip tools on last turn to force text response
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
@@ -504,7 +528,7 @@ ${memPrompt}`, timestamp: Date.now() });
           routingAudit = routeSubtask({
             role: config.role,
             task: taskForContext,
-            history: compressedHistory,
+            history: composedHistory,
             toolNames: effectiveTools?.map((tool) => tool.name) ?? [],
             trustScore,
             currentModel: routedModel.model === '__deterministic__' ? config.model : routedModel.model,
@@ -536,7 +560,7 @@ ${memPrompt}`, timestamp: Date.now() });
           response = await this.modelClient.generate({
             model: modelForTurn,
             systemInstruction: systemPrompt,
-            contents: compressedHistory,
+            contents: composedHistory,
             tools: effectiveTools,
             temperature: effectiveTemp,
             topP: config.topP,
