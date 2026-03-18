@@ -1,10 +1,10 @@
 {
   "role": "global-admin",
-  "timestamp": "2026-03-18T00:55:54.455Z",
+  "timestamp": "2026-03-18T01:42:39.033Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\morgan-blake.md",
     "exists": true,
-    "tokenCount": 1383,
+    "tokenCount": 679,
     "hasRelationships": false,
     "hasAuthority": true,
     "hasAntiPatterns": false,
@@ -21,62 +21,27 @@
       },
       {
         "heading": "Your Identity",
-        "tokens": 339,
+        "tokens": 215,
         "classification": "identity"
       },
       {
         "heading": "Communication Style",
-        "tokens": 98,
+        "tokens": 56,
         "classification": "identity"
       },
       {
         "heading": "Key Responsibilities",
-        "tokens": 299,
+        "tokens": 210,
         "classification": "identity"
       },
       {
         "heading": "Authority Boundaries",
-        "tokens": 169,
+        "tokens": 104,
         "classification": "identity"
       },
       {
         "heading": "Founder Protection",
-        "tokens": 90,
-        "classification": "identity"
-      },
-      {
-        "heading": "Onboarding Checklist",
-        "tokens": 25,
-        "classification": "identity"
-      },
-      {
-        "heading": "1. Identity & Accounts",
-        "tokens": 65,
-        "classification": "identity"
-      },
-      {
-        "heading": "2. GCP Access",
-        "tokens": 57,
-        "classification": "identity"
-      },
-      {
-        "heading": "3. GitHub Access",
-        "tokens": 34,
-        "classification": "identity"
-      },
-      {
-        "heading": "4. Communication Channels",
-        "tokens": 34,
-        "classification": "identity"
-      },
-      {
-        "heading": "5. Verification & Documentation",
-        "tokens": 57,
-        "classification": "identity"
-      },
-      {
-        "heading": "Department → Channel Mapping (reference)",
-        "tokens": 78,
+        "tokens": 52,
         "classification": "identity"
       }
     ]
@@ -84,7 +49,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\global-admin\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 1759,
+    "tokenCount": 1782,
     "hasCrisisFabricationRules": false,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
@@ -209,12 +174,6 @@
     "missingCrons": []
   },
   "recommendations": [
-    {
-      "priority": "P1",
-      "category": "brief",
-      "description": "Brief is 1383 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
-      "effort": "small"
-    },
     {
       "priority": "P1",
       "category": "prompt",

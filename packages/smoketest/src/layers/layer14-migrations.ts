@@ -97,6 +97,50 @@ function parseMigrations(): MigrationSchema {
       if (!touchedTables.includes(tbl)) touchedTables.push(tbl);
     }
 
+    // ALTER TABLE <name> DROP COLUMN [IF EXISTS] <col>
+    const dropColumnRe =
+      /ALTER TABLE\s+(?:IF EXISTS\s+)?(\w+)\s+DROP COLUMN\s+(?:IF EXISTS\s+)?(\w+)/gi;
+    while ((m = dropColumnRe.exec(sql)) !== null) {
+      const tbl = m[1].toLowerCase();
+      const col = m[2].toLowerCase();
+      if (columns.has(tbl)) {
+        columns.get(tbl)!.delete(col);
+      }
+      if (!touchedTables.includes(tbl)) touchedTables.push(tbl);
+    }
+
+    // ALTER TABLE <old_name> RENAME TO <new_name>
+    const renameRe =
+      /ALTER TABLE\s+(?:IF EXISTS\s+)?(\w+)\s+RENAME TO\s+(\w+)/gi;
+    while ((m = renameRe.exec(sql)) !== null) {
+      const oldName = m[1].toLowerCase();
+      const newName = m[2].toLowerCase();
+
+      if (tables.has(oldName)) {
+        tables.delete(oldName);
+      }
+      tables.add(newName);
+
+      if (columns.has(oldName) && !columns.has(newName)) {
+        columns.set(newName, new Set(columns.get(oldName)));
+      }
+      columns.delete(oldName);
+
+      const oldIdx = touchedTables.indexOf(oldName);
+      if (oldIdx >= 0) touchedTables.splice(oldIdx, 1);
+      if (!touchedTables.includes(newName)) touchedTables.push(newName);
+    }
+
+    // DROP TABLE [IF EXISTS] <name>
+    const dropRe = /DROP TABLE\s+(?:IF EXISTS\s+)?(\w+)/gi;
+    while ((m = dropRe.exec(sql)) !== null) {
+      const tbl = m[1].toLowerCase();
+      tables.delete(tbl);
+      columns.delete(tbl);
+      const idx = touchedTables.indexOf(tbl);
+      if (idx >= 0) touchedTables.splice(idx, 1);
+    }
+
     if (touchedTables.length > 0) {
       fileMap.set(file, touchedTables);
     }
@@ -187,8 +231,10 @@ function buildAppliedSchema(schema: MigrationSchema, appliedMigrations: Set<stri
 
   for (const [file, touchedTables] of schema.fileMap.entries()) {
     if (!appliedMigrations.has(file)) continue;
-    fileMap.set(file, touchedTables);
-    for (const table of touchedTables) {
+    const appliedTables = touchedTables.filter((table) => schema.tables.has(table));
+    if (appliedTables.length === 0) continue;
+    fileMap.set(file, appliedTables);
+    for (const table of appliedTables) {
       tables.add(table);
       const expectedCols = schema.columns.get(table);
       if (!expectedCols) continue;

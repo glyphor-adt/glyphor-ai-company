@@ -1,6 +1,6 @@
 {
   "role": "clo",
-  "timestamp": "2026-03-18T00:55:48.166Z",
+  "timestamp": "2026-03-18T01:42:30.630Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\victoria-chase.md",
     "exists": true,
@@ -138,22 +138,22 @@
   },
   "runs": {
     "last30Days": {
-      "total": 257,
-      "completed": 235,
+      "total": 259,
+      "completed": 237,
       "aborted": 12,
       "timedOut": 0,
       "maxTurnsReached": 0,
-      "avgTurns": 3.272373540856031,
-      "avgDurationMs": 26885.252918287937,
-      "avgInputTokens": 65024.50972762646,
-      "avgOutputTokens": 378.42412451361866,
-      "estimatedCost30d": 5.094399999999999
+      "avgTurns": 3.2548262548262548,
+      "avgDurationMs": 26787.779922779922,
+      "avgInputTokens": 64526.3667953668,
+      "avgOutputTokens": 375.6254826254826,
+      "estimatedCost30d": 4.932099999999999
     },
     "taskBreakdown": {
       "on_demand": {
-        "count": 202,
-        "completionRate": 0.9306930693069307,
-        "avgTurns": 2.698019801980198
+        "count": 204,
+        "completionRate": 0.9313725490196079,
+        "avgTurns": 2.6813725490196076
       },
       "proactive": {
         "count": 52,

@@ -57,11 +57,21 @@ export function createToolGrantTools(
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const agentRole = params.agent_role as string;
-        const toolName = params.tool_name as string;
-        const reason = params.reason as string;
+        const agentRole = typeof params.agent_role === 'string' ? params.agent_role.trim() : '';
+        const toolName = typeof params.tool_name === 'string' ? params.tool_name.trim() : '';
+        const reason = typeof params.reason === 'string' ? params.reason.trim() : '';
         const directiveId = params.directive_id as string | undefined;
         const expiresInHours = params.expires_in_hours as number | undefined;
+
+        if (!agentRole) {
+          return { success: false, error: 'agent_role is required' };
+        }
+        if (!toolName) {
+          return { success: false, error: 'tool_name is required' };
+        }
+        if (!reason) {
+          return { success: false, error: 'reason is required' };
+        }
 
         if (!(await isKnownToolAsync(toolName))) {
           return {

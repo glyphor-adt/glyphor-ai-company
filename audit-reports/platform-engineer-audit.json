@@ -1,6 +1,6 @@
 {
   "role": "platform-engineer",
-  "timestamp": "2026-03-18T00:55:58.205Z",
+  "timestamp": "2026-03-18T01:42:43.357Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\alex-park.md",
     "exists": true,
@@ -46,7 +46,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\platform-engineer\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 473,
+    "tokenCount": 496,
     "hasCrisisFabricationRules": false,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
@@ -158,8 +158,8 @@
   },
   "assignments": {
     "last30Days": {
-      "received": 42,
-      "completed": 42,
+      "received": 43,
+      "completed": 43,
       "needsRevision": 0,
       "failed": 0,
       "avgQualityScore": 0,

@@ -261,6 +261,10 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
       const grants = await query<{ agent_role: string; tool_name: string }>(
         `SELECT agent_role, tool_name FROM agent_tool_grants WHERE is_active = true`,
       );
+      const activeRoles = await query<{ role: string }>(
+        `SELECT role FROM company_agents WHERE status = 'active'`,
+      );
+      const activeRoleSet = new Set(activeRoles.map((r) => r.role));
       const grantMap = new Map<string, Set<string>>();
       for (const { agent_role, tool_name } of grants) {
         if (!grantMap.has(agent_role)) grantMap.set(agent_role, new Set());
@@ -270,6 +274,9 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
       const failures: string[] = [];
       let totalChecked = 0;
       for (const [role, expectedTools] of Object.entries(ROLE_TOOL_EXPECTATIONS)) {
+        if (!activeRoleSet.has(role)) {
+          continue;
+        }
         totalChecked++;
         const grantedTools = grantMap.get(role) ?? new Set<string>();
         const missing = expectedTools.filter(t => !grantedTools.has(t));

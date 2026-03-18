@@ -1,6 +1,6 @@
 {
   "role": "m365-admin",
-  "timestamp": "2026-03-18T00:55:55.955Z",
+  "timestamp": "2026-03-18T01:42:40.590Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\riley-morgan.md",
     "exists": true,
@@ -49,7 +49,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\m365-admin\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 1196,
+    "tokenCount": 1219,
     "hasCrisisFabricationRules": true,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,

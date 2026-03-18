@@ -1,6 +1,6 @@
 {
   "role": "market-research-analyst",
-  "timestamp": "2026-03-18T00:55:56.670Z",
+  "timestamp": "2026-03-18T01:42:41.516Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\daniel-okafor.md",
     "exists": true,
@@ -51,7 +51,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\market-research-analyst\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 1247,
+    "tokenCount": 1270,
     "hasCrisisFabricationRules": false,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,

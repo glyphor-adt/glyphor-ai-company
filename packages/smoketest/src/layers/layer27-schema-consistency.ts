@@ -65,8 +65,10 @@ function parseMigrations(): MigrationSchema {
   }
 
   const createTableRe = /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?("?[\w.]+"?)/gi;
-  const createViewRe = /CREATE(?: MATERIALIZED)? VIEW\s+(?:IF NOT EXISTS\s+)?("?[\w.]+"?)/gi;
+  const createViewRe = /CREATE(?:\s+OR\s+REPLACE)?(?: MATERIALIZED)? VIEW\s+(?:IF NOT EXISTS\s+)?("?[\w.]+"?)/gi;
   const alterRe = /ALTER TABLE\s+(?:IF EXISTS\s+)?("?[\w.]+"?)/gi;
+  const renameRe = /ALTER TABLE\s+(?:IF EXISTS\s+)?("?[\w.]+"?)\s+RENAME TO\s+("?[\w.]+"?)/gi;
+  const dropRe = /DROP TABLE\s+(?:IF EXISTS\s+)?("?[\w.]+"?)/gi;
 
   for (const file of files) {
     const sql = readFileSync(join(migrationsDir, file), 'utf8');
@@ -79,6 +81,15 @@ function parseMigrations(): MigrationSchema {
     }
     while ((match = alterRe.exec(sql)) !== null) {
       tables.add(normalizeIdentifier(match[1]));
+    }
+    while ((match = renameRe.exec(sql)) !== null) {
+      const oldName = normalizeIdentifier(match[1]);
+      const newName = normalizeIdentifier(match[2]);
+      tables.delete(oldName);
+      tables.add(newName);
+    }
+    while ((match = dropRe.exec(sql)) !== null) {
+      tables.delete(normalizeIdentifier(match[1]));
     }
   }
 

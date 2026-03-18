@@ -1,6 +1,6 @@
 {
   "role": "quality-engineer",
-  "timestamp": "2026-03-18T00:55:58.949Z",
+  "timestamp": "2026-03-18T01:42:44.161Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sam-deluca.md",
     "exists": true,
@@ -44,7 +44,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\quality-engineer\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 656,
+    "tokenCount": 679,
     "hasCrisisFabricationRules": false,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,

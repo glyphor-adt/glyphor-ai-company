@@ -574,9 +574,15 @@ export function createToolRequestTools(): ToolDefinition[] {
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const toolName = params.tool_name as string;
-        const reason = params.reason as string;
+        const toolName = typeof params.tool_name === 'string' ? params.tool_name.trim() : '';
+        const reason = typeof params.reason === 'string' ? params.reason.trim() : '';
         const agentRole = ctx.agentRole;
+        if (!toolName) {
+          return { success: false, error: 'tool_name is required' };
+        }
+        if (!reason) {
+          return { success: false, error: 'reason is required' };
+        }
         const permissionPolicy = evaluateToolPermissionGate({
           toolName,
           contextText: [reason],

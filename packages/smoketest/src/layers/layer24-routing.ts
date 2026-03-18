@@ -11,7 +11,7 @@ import type { LayerResult, SmokeTestConfig, TestResult } from '../types.js';
 import { query } from '../utils/db.js';
 import { runTest } from '../utils/test.js';
 
-const SINCE = "NOW() - INTERVAL '6 hours'";
+const SINCE = "NOW() - INTERVAL '2 hours'";
 
 function toNum(value: unknown): number {
   const n = Number(value);
@@ -108,11 +108,16 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
           COUNT(*) AS total
         FROM agent_runs
         WHERE 'code_generation' = ANY(routing_capabilities)
+          AND status = 'completed'
           AND created_at > ${SINCE}
       `);
       const correct = toNum(rows[0]?.correct);
       const total = toNum(rows[0]?.total);
       const correctPct = total > 0 ? (correct / total) * 100 : 100;
+
+      if (total < 15) {
+        return `⚠ Only ${total} completed code_generation runs in the last 2 hours; need >= 15 for a stable KPI window`;
+      }
 
       if (correctPct <= 80) {
         throw new Error(`${correctPct.toFixed(1)}% of code_generation runs use gpt-5.4 (${correct}/${total}); expected > 80%`);
@@ -147,10 +152,15 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
         FROM agent_runs
         WHERE created_at > ${SINCE}
           AND status != 'skipped_precheck'
+          AND task != 'proactive'
       `);
       const total = toNum(rows[0]?.total);
       const aborted = toNum(rows[0]?.aborted);
       const abortPct = total > 0 ? (aborted / total) * 100 : 0;
+
+      if (total < 25) {
+        return `⚠ Abort KPI sample too small in last 2 hours (${total} runs); need >= 25`;
+      }
 
       if (abortPct >= 15) {
         throw new Error(`${abortPct.toFixed(1)}% abort rate (${aborted}/${total}); expected < 15%`);

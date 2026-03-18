@@ -306,7 +306,11 @@ export function createTeamOrchestrationTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const priority = (params.priority as string).toLowerCase();
+        const priorityInput = typeof params.priority === 'string' ? params.priority.trim() : '';
+        if (!priorityInput) {
+          return { success: false, error: 'priority is required' };
+        }
+        const priority = priorityInput.toLowerCase();
         const directiveId = params.directive_id as string | undefined;
         const dueDate = params.due_date as string | undefined;
 

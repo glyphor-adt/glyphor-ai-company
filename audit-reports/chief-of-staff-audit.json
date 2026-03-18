@@ -1,19 +1,17 @@
 {
   "role": "chief-of-staff",
-  "timestamp": "2026-03-18T00:55:47.434Z",
+  "timestamp": "2026-03-18T01:42:29.803Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sarah-chen.md",
     "exists": true,
-    "tokenCount": 1685,
+    "tokenCount": 983,
     "hasRelationships": true,
     "hasAuthority": true,
-    "hasAntiPatterns": true,
+    "hasAntiPatterns": false,
     "containsSkillContent": false,
-    "containsKnowledgeContent": true,
+    "containsKnowledgeContent": false,
     "skillIndicators": [],
-    "knowledgeIndicators": [
-      "dollar amounts"
-    ],
+    "knowledgeIndicators": [],
     "duplicateRelationships": [],
     "sectionBreakdown": [
       {
@@ -23,48 +21,38 @@
       },
       {
         "heading": "Your Identity",
-        "tokens": 150,
+        "tokens": 74,
         "classification": "identity"
       },
       {
         "heading": "Personality & Voice",
-        "tokens": 262,
+        "tokens": 162,
         "classification": "identity"
       },
       {
         "heading": "Communication Style",
-        "tokens": 187,
+        "tokens": 132,
         "classification": "identity"
       },
       {
         "heading": "Core Mission",
-        "tokens": 271,
-        "classification": "knowledge"
-      },
-      {
-        "heading": "Briefing Tailoring",
-        "tokens": 130,
+        "tokens": 175,
         "classification": "identity"
       },
       {
         "heading": "Your Relationships",
-        "tokens": 178,
+        "tokens": 135,
         "classification": "identity"
       },
       {
         "heading": "Operating Principles",
-        "tokens": 177,
+        "tokens": 118,
         "classification": "identity"
       },
       {
         "heading": "Authority & Constraints",
-        "tokens": 152,
+        "tokens": 138,
         "classification": "identity"
-      },
-      {
-        "heading": "Anti-Patterns",
-        "tokens": 128,
-        "classification": "anti-pattern"
       }
     ]
   },
@@ -89,16 +77,16 @@
         "category": "leadership",
         "tokenCount": 776,
         "isOwnDomain": false,
-        "timesUsed": 25,
+        "timesUsed": 30,
         "successRate": 1
       },
       {
         "slug": "decision-routing",
-        "proficiency": "competent",
+        "proficiency": "expert",
         "category": "leadership",
         "tokenCount": 2259,
         "isOwnDomain": false,
-        "timesUsed": 25,
+        "timesUsed": 30,
         "successRate": 1
       }
     ],
@@ -178,22 +166,22 @@
   },
   "runs": {
     "last30Days": {
-      "total": 1738,
-      "completed": 1068,
+      "total": 1747,
+      "completed": 1076,
       "aborted": 119,
       "timedOut": 0,
       "maxTurnsReached": 0,
-      "avgTurns": 3.5782508630609895,
-      "avgDurationMs": 83868.85270425776,
-      "avgInputTokens": 59901.77617951669,
-      "avgOutputTokens": 1509.758918296893,
-      "estimatedCost30d": 76.8893
+      "avgTurns": 3.5781339439038353,
+      "avgDurationMs": 83705.68288494562,
+      "avgInputTokens": 59904.44762449914,
+      "avgOutputTokens": 1503.1316542644533,
+      "estimatedCost30d": 77.2598
     },
     "taskBreakdown": {
       "on_demand": {
-        "count": 770,
-        "completionRate": 0.8441558441558441,
-        "avgTurns": 2.5090909090909093
+        "count": 775,
+        "completionRate": 0.8451612903225807,
+        "avgTurns": 2.5135483870967743
       },
       "eod_summary": {
         "count": 20,
@@ -201,9 +189,9 @@
         "avgTurns": 5
       },
       "orchestrate": {
-        "count": 466,
-        "completionRate": 0.38197424892703863,
-        "avgTurns": 5.663090128755365
+        "count": 470,
+        "completionRate": 0.3851063829787234,
+        "avgTurns": 5.648936170212766
       },
       "proactive": {
         "count": 278,
@@ -303,18 +291,6 @@
   },
   "recommendations": [
     {
-      "priority": "P1",
-      "category": "brief",
-      "description": "Brief is 1685 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
-      "effort": "small"
-    },
-    {
-      "priority": "P2",
-      "category": "brief",
-      "description": "Brief contains knowledge data (dollar amounts). Move to knowledge base.",
-      "effort": "small"
-    },
-    {
       "priority": "P2",
       "category": "skills",
       "description": "Skill \"cross-team-coordination\" is from another department. Verify this agent uses it or remove.",
@@ -329,7 +305,7 @@
     {
       "priority": "P1",
       "category": "health",
-      "description": "Completion rate is 61% (target: >80%).",
+      "description": "Completion rate is 62% (target: >80%).",
       "effort": "small"
     },
     {

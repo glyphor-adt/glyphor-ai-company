@@ -708,10 +708,12 @@ const KNOWN_TOOLS = new Set([
   'request_peer_work',
   'create_handoff',
   'peer_data_request',
+  'create_sub_team_assignment',
   'assign_team_task',
   'review_team_output',
   'check_team_status',
   'check_team_assignments',
+  'notify_founders',
   'escalate_to_sarah',
 ]);
 

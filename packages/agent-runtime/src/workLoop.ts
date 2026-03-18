@@ -36,41 +36,20 @@ SCOPE CONSTRAINT: Your task is defined above. Do not investigate, comment on, or
 /** Proactive cooldown per role in milliseconds.
  *  This is the autonomous baseline cadence when no higher-priority work exists. */
 export const PROACTIVE_COOLDOWNS: Record<string, number> = {
-  // Tier 1: Executives — every 2h
+  // Executive-tier roles — every 2h
   'chief-of-staff':      2 * 60 * 60 * 1000,
   'cto':                 2 * 60 * 60 * 1000,
   'cfo':                 2 * 60 * 60 * 1000,
   'cpo':                 2 * 60 * 60 * 1000,
   'cmo':                 2 * 60 * 60 * 1000,
+  'clo':                 2 * 60 * 60 * 1000,
   'vp-sales':            2 * 60 * 60 * 1000,
   'vp-design':           2 * 60 * 60 * 1000,
-  'clo':                 2 * 60 * 60 * 1000,
   'vp-research':         2 * 60 * 60 * 1000,
+  'head-of-hr':          2 * 60 * 60 * 1000,
+  'ops':                 2 * 60 * 60 * 1000,
 
-  // Tier 2: Sub-team — every 4h
-  'platform-engineer':   4 * 60 * 60 * 1000,
-  'quality-engineer':    4 * 60 * 60 * 1000,
-  'devops-engineer':     4 * 60 * 60 * 1000,
-  'm365-admin':          4 * 60 * 60 * 1000,
-  'user-researcher':     4 * 60 * 60 * 1000,
-  'competitive-intel':   4 * 60 * 60 * 1000,
-  'content-creator':     4 * 60 * 60 * 1000,
-  'seo-analyst':         4 * 60 * 60 * 1000,
-  'social-media-manager': 4 * 60 * 60 * 1000,
-  'ui-ux-designer':      4 * 60 * 60 * 1000,
-  'frontend-engineer':   4 * 60 * 60 * 1000,
-  'design-critic':       4 * 60 * 60 * 1000,
-  'template-architect':  4 * 60 * 60 * 1000,
-  'head-of-hr':          4 * 60 * 60 * 1000,
-
-  // Tier 3: Specialists — every 6h
-  'bob-the-tax-pro':                6 * 60 * 60 * 1000,
-  'marketing-intelligence-analyst': 6 * 60 * 60 * 1000,
-  'adi-rose':                       6 * 60 * 60 * 1000,
-
-  // Tier 4: Operations
-  'ops':            1 * 60 * 60 * 1000,
-  'global-admin':   4 * 60 * 60 * 1000,
+  // Non-executive roles do not run standalone proactive tasks.
 };
 
 async function getDirectReportsForExecutive(executiveRole: string): Promise<string[]> {

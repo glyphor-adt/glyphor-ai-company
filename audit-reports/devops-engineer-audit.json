@@ -1,6 +1,6 @@
 {
   "role": "devops-engineer",
-  "timestamp": "2026-03-18T00:55:52.952Z",
+  "timestamp": "2026-03-18T01:42:37.151Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\jordan-hayes.md",
     "exists": true,
@@ -46,7 +46,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\devops-engineer\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 717,
+    "tokenCount": 740,
     "hasCrisisFabricationRules": false,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,

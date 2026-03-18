@@ -54,7 +54,22 @@ export function createPeerCoordinationTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const requestedPeerRole = params.peer_role as string;
+        const requestedPeerRole = typeof params.peer_role === 'string' ? params.peer_role.trim() : '';
+        const requestDescription = typeof params.request_description === 'string'
+          ? params.request_description.trim()
+          : '';
+        const expectedDeliverable = typeof params.expected_deliverable === 'string'
+          ? params.expected_deliverable.trim()
+          : '';
+        if (!requestedPeerRole) {
+          return { success: false, error: 'peer_role is required' };
+        }
+        if (!requestDescription) {
+          return { success: false, error: 'request_description is required' };
+        }
+        if (!expectedDeliverable) {
+          return { success: false, error: 'expected_deliverable is required' };
+        }
         const peerRole = normalizeAssigneeRole(requestedPeerRole);
         const priority = (params.priority as string) || 'normal';
 
@@ -78,8 +93,8 @@ export function createPeerCoordinationTools(
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
             [
               peerRole, ctx.agentRole,
-              params.request_description as string, 'peer_request',
-              params.expected_deliverable as string, priority,
+              requestDescription, 'peer_request',
+              expectedDeliverable, priority,
               'pending', 'peer_request',
             ],
           );
@@ -91,8 +106,8 @@ export function createPeerCoordinationTools(
             [
               ctx.agentRole, peerRole,
               `**Peer Work Request from ${ctx.agentRole}**\n\n` +
-              `**Request:**\n${params.request_description}\n\n` +
-              `**Expected Deliverable:**\n${params.expected_deliverable}${contextStr}\n\n` +
+              `**Request:**\n${requestDescription}\n\n` +
+              `**Expected Deliverable:**\n${expectedDeliverable}${contextStr}\n\n` +
               `Assignment ID: ${assignment.id}`,
               'task', priority === 'urgent' ? 'urgent' : 'normal', 'pending',
             ],

@@ -1,6 +1,6 @@
 {
   "role": "ops",
-  "timestamp": "2026-03-18T00:55:57.456Z",
+  "timestamp": "2026-03-18T01:42:42.456Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\atlas-vega.md",
     "exists": true,
@@ -181,16 +181,16 @@
   },
   "runs": {
     "last30Days": {
-      "total": 3339,
-      "completed": 2328,
+      "total": 3343,
+      "completed": 2332,
       "aborted": 358,
       "timedOut": 0,
       "maxTurnsReached": 0,
-      "avgTurns": 4.159628631326744,
-      "avgDurationMs": 76140.8505540581,
-      "avgInputTokens": 82892.82869122492,
-      "avgOutputTokens": 1240.9323150643904,
-      "estimatedCost30d": 133.29830000000013
+      "avgTurns": 4.157343703260544,
+      "avgDurationMs": 76083.78103499851,
+      "avgInputTokens": 82839.99700867484,
+      "avgOutputTokens": 1239.7930002991325,
+      "estimatedCost30d": 133.59990000000013
     },
     "taskBreakdown": {
       "health_check": {
@@ -204,9 +204,9 @@
         "avgTurns": 3.0718232044198897
       },
       "on_demand": {
-        "count": 73,
-        "completionRate": 0.9452054794520548,
-        "avgTurns": 2.328767123287671
+        "count": 77,
+        "completionRate": 0.948051948051948,
+        "avgTurns": 2.324675324675325
       },
       "cost_check": {
         "count": 296,

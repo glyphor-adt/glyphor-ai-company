@@ -1,20 +1,18 @@
 {
   "role": "cmo",
-  "timestamp": "2026-03-18T00:55:48.993Z",
+  "timestamp": "2026-03-18T01:42:31.514Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\maya-brooks.md",
     "exists": true,
-    "tokenCount": 1879,
+    "tokenCount": 997,
     "hasRelationships": true,
     "hasAuthority": true,
-    "hasAntiPatterns": true,
+    "hasAntiPatterns": false,
     "containsSkillContent": false,
     "containsKnowledgeContent": false,
     "skillIndicators": [],
     "knowledgeIndicators": [],
-    "duplicateRelationships": [
-      "Rachel Kim"
-    ],
+    "duplicateRelationships": [],
     "sectionBreakdown": [
       {
         "heading": "Maya Brooks — Chief Marketing Officer",
@@ -23,65 +21,45 @@
       },
       {
         "heading": "Your Identity",
-        "tokens": 131,
+        "tokens": 126,
         "classification": "identity"
       },
       {
         "heading": "Personality & Voice",
-        "tokens": 255,
+        "tokens": 214,
         "classification": "identity"
       },
       {
         "heading": "Communication Style",
-        "tokens": 304,
+        "tokens": 140,
         "classification": "identity"
       },
       {
         "heading": "Core Mission",
-        "tokens": 240,
-        "classification": "identity"
-      },
-      {
-        "heading": "Content Calendar Structure",
-        "tokens": 98,
-        "classification": "identity"
-      },
-      {
-        "heading": "SEO Target Keywords",
-        "tokens": 111,
+        "tokens": 151,
         "classification": "identity"
       },
       {
         "heading": "Your Relationships",
-        "tokens": 201,
+        "tokens": 100,
         "classification": "identity"
       },
       {
         "heading": "Authority Boundaries",
-        "tokens": 93,
+        "tokens": 89,
         "classification": "identity"
       },
       {
         "heading": "Operating Principles",
-        "tokens": 184,
+        "tokens": 98,
         "classification": "identity"
-      },
-      {
-        "heading": "Output Example",
-        "tokens": 111,
-        "classification": "identity"
-      },
-      {
-        "heading": "Failure Modes to Avoid",
-        "tokens": 74,
-        "classification": "anti-pattern"
       }
     ]
   },
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\cmo\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 1680,
+    "tokenCount": 1743,
     "hasCrisisFabricationRules": true,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
@@ -158,8 +136,8 @@
     "taskTypes": []
   },
   "tools": {
-    "factoryCount": 20,
-    "estimatedToolCount": 100,
+    "factoryCount": 21,
+    "estimatedToolCount": 105,
     "factories": [
       "createCMOTools",
       "createCollectiveIntelligenceTools",
@@ -180,7 +158,8 @@
       "createAgent365McpTools",
       "createCoreTools",
       "createGlyphorMcpTools",
-      "createFuseTools"
+      "createFuseTools",
+      "createExecutiveOrchestrationTools"
     ],
     "hasOrchestrationTools": true,
     "hasAgent365": true,
@@ -209,16 +188,16 @@
   },
   "runs": {
     "last30Days": {
-      "total": 655,
-      "completed": 473,
+      "total": 658,
+      "completed": 476,
       "aborted": 53,
       "timedOut": 0,
       "maxTurnsReached": 2,
-      "avgTurns": 4.203053435114504,
-      "avgDurationMs": 130822.21679389312,
-      "avgInputTokens": 81659.49160305344,
-      "avgOutputTokens": 1687.6412213740457,
-      "estimatedCost30d": 48.34069999999999
+      "avgTurns": 4.214285714285714,
+      "avgDurationMs": 130499.54559270517,
+      "avgInputTokens": 81642.80547112462,
+      "avgOutputTokens": 1686.501519756839,
+      "estimatedCost30d": 48.644
     },
     "taskBreakdown": {
       "generate_content": {
@@ -232,9 +211,9 @@
         "avgTurns": 5.904761904761905
       },
       "proactive": {
-        "count": 38,
-        "completionRate": 0.6578947368421053,
-        "avgTurns": 5.2368421052631575
+        "count": 40,
+        "completionRate": 0.675,
+        "avgTurns": 5.325
       },
       "work_loop": {
         "count": 383,
@@ -242,9 +221,9 @@
         "avgTurns": 4.509138381201044
       },
       "on_demand": {
-        "count": 184,
-        "completionRate": 0.7989130434782609,
-        "avgTurns": 2.9565217391304346
+        "count": 185,
+        "completionRate": 0.8,
+        "avgTurns": 2.972972972972973
       },
       "content_creation": {
         "count": 4,
@@ -270,18 +249,6 @@
     "missingCrons": []
   },
   "recommendations": [
-    {
-      "priority": "P1",
-      "category": "brief",
-      "description": "Brief is 1879 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
-      "effort": "small"
-    },
-    {
-      "priority": "P2",
-      "category": "brief",
-      "description": "Duplicate relationship entries: Rachel Kim.",
-      "effort": "trivial"
-    },
     {
       "priority": "P2",
       "category": "skills",
@@ -321,7 +288,7 @@
     {
       "priority": "P2",
       "category": "tools",
-      "description": "Agent loads 20 tool factories (~100+ tools). Heavy reliance on ToolRetriever quality.",
+      "description": "Agent loads 21 tool factories (~105+ tools). Heavy reliance on ToolRetriever quality.",
       "effort": "medium"
     }
   ]

@@ -1,6 +1,6 @@
 {
   "role": "head-of-hr",
-  "timestamp": "2026-03-18T00:55:55.226Z",
+  "timestamp": "2026-03-18T01:42:39.822Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\jasmine-rivera.md",
     "exists": true,
@@ -54,7 +54,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\head-of-hr\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 4511,
+    "tokenCount": 4534,
     "hasCrisisFabricationRules": false,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,

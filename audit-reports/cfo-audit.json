@@ -1,20 +1,19 @@
 {
   "role": "cfo",
-  "timestamp": "2026-03-18T00:55:46.646Z",
+  "timestamp": "2026-03-18T01:42:28.554Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\nadia-okafor.md",
     "exists": true,
-    "tokenCount": 1830,
+    "tokenCount": 883,
     "hasRelationships": true,
     "hasAuthority": true,
-    "hasAntiPatterns": true,
+    "hasAntiPatterns": false,
     "containsSkillContent": false,
     "containsKnowledgeContent": true,
     "skillIndicators": [],
     "knowledgeIndicators": [
       "dollar amounts",
-      "percentages",
-      "current state claims"
+      "percentages"
     ],
     "duplicateRelationships": [],
     "sectionBreakdown": [
@@ -25,53 +24,38 @@
       },
       {
         "heading": "Your Identity",
-        "tokens": 137,
+        "tokens": 118,
         "classification": "identity"
       },
       {
         "heading": "Personality & Voice",
-        "tokens": 249,
+        "tokens": 158,
         "classification": "identity"
       },
       {
         "heading": "Communication Style",
-        "tokens": 244,
-        "classification": "knowledge"
+        "tokens": 133,
+        "classification": "identity"
       },
       {
         "heading": "Core Mission",
-        "tokens": 286,
-        "classification": "knowledge"
-      },
-      {
-        "heading": "Key Financial Formulas",
-        "tokens": 156,
+        "tokens": 140,
         "classification": "knowledge"
       },
       {
         "heading": "Your Relationships",
-        "tokens": 185,
+        "tokens": 97,
         "classification": "identity"
       },
       {
         "heading": "Authority Boundaries",
-        "tokens": 83,
+        "tokens": 71,
         "classification": "identity"
       },
       {
         "heading": "Operating Principles",
-        "tokens": 206,
+        "tokens": 103,
         "classification": "knowledge"
-      },
-      {
-        "heading": "Output Example",
-        "tokens": 153,
-        "classification": "knowledge"
-      },
-      {
-        "heading": "Failure Modes to Avoid",
-        "tokens": 68,
-        "classification": "anti-pattern"
       }
     ]
   },
@@ -94,7 +78,7 @@
         "category": "finance",
         "tokenCount": 814,
         "isOwnDomain": true,
-        "timesUsed": 10,
+        "timesUsed": 11,
         "successRate": 1
       },
       {
@@ -112,7 +96,7 @@
         "category": "finance",
         "tokenCount": 2241,
         "isOwnDomain": true,
-        "timesUsed": 8,
+        "timesUsed": 9,
         "successRate": 1
       }
     ],
@@ -124,17 +108,15 @@
     "taskTypes": []
   },
   "tools": {
-    "factoryCount": 16,
-    "estimatedToolCount": 80,
+    "factoryCount": 14,
+    "estimatedToolCount": 70,
     "factories": [
       "createCFOTools",
       "createCollectiveIntelligenceTools",
       "createGraphTools",
       "createSharePointTools",
-      "createTeamOrchestrationTools",
       "createPeerCoordinationTools",
       "createInitiativeTools",
-      "createAgentCreationTools",
       "createToolGrantTools",
       "createAgentDirectoryTools",
       "createRevenueTools",
@@ -144,7 +126,7 @@
       "createCoreTools",
       "createGlyphorMcpTools"
     ],
-    "hasOrchestrationTools": true,
+    "hasOrchestrationTools": false,
     "hasAgent365": true,
     "hasGlyphorMcp": true,
     "hasSharePoint": true,
@@ -160,7 +142,7 @@
     "hasActiveTeamMembers": true,
     "teamMemberCount": 1,
     "teamMembersWithRunners": 0,
-    "runnerMismatch": true,
+    "runnerMismatch": false,
     "temperatureOutlier": false
   },
   "taskRouting": {
@@ -171,16 +153,16 @@
   },
   "runs": {
     "last30Days": {
-      "total": 542,
-      "completed": 361,
+      "total": 547,
+      "completed": 366,
       "aborted": 34,
       "timedOut": 0,
       "maxTurnsReached": 0,
-      "avgTurns": 3.273062730627306,
-      "avgDurationMs": 60285.62177121771,
-      "avgInputTokens": 52005.29704797048,
-      "avgOutputTokens": 1147.0516605166051,
-      "estimatedCost30d": 17.4749
+      "avgTurns": 3.2559414990859232,
+      "avgDurationMs": 59806.83729433273,
+      "avgInputTokens": 51712.06398537477,
+      "avgOutputTokens": 1136.5667276051188,
+      "estimatedCost30d": 17.5054
     },
     "taskBreakdown": {
       "proactive": {
@@ -189,9 +171,9 @@
         "avgTurns": 3.911627906976744
       },
       "on_demand": {
-        "count": 225,
-        "completionRate": 0.7155555555555555,
-        "avgTurns": 2.3555555555555556
+        "count": 230,
+        "completionRate": 0.7217391304347827,
+        "avgTurns": 2.3347826086956522
       },
       "daily_cost_check": {
         "count": 42,
@@ -228,15 +210,9 @@
   },
   "recommendations": [
     {
-      "priority": "P1",
-      "category": "brief",
-      "description": "Brief is 1830 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
-      "effort": "small"
-    },
-    {
       "priority": "P2",
       "category": "brief",
-      "description": "Brief contains knowledge data (dollar amounts, percentages, current state claims). Move to knowledge base.",
+      "description": "Brief contains knowledge data (dollar amounts, percentages). Move to knowledge base.",
       "effort": "small"
     },
     {
@@ -250,18 +226,6 @@
       "category": "health",
       "description": "Completion rate is 67% (target: >80%).",
       "effort": "small"
-    },
-    {
-      "priority": "P1",
-      "category": "runner",
-      "description": "Has orchestration tools but uses TaskRunner. Has 1 team members (0 with runners) — promote to OrchestratorRunner.",
-      "effort": "large"
-    },
-    {
-      "priority": "P2",
-      "category": "tools",
-      "description": "Agent loads 16 tool factories (~80+ tools). Heavy reliance on ToolRetriever quality.",
-      "effort": "medium"
     }
   ]
 }

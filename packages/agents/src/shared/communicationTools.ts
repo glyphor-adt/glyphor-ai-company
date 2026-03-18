@@ -110,7 +110,14 @@ export function createCommunicationTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const requestedAgent = params.to_agent as string;
+        const requestedAgent = typeof params.to_agent === 'string' ? params.to_agent.trim() : '';
+        const message = typeof params.message === 'string' ? params.message.trim() : '';
+        if (!requestedAgent) {
+          return { success: false, error: 'to_agent is required' };
+        }
+        if (!message) {
+          return { success: false, error: 'message is required' };
+        }
         const toAgent = normalizeAssigneeRole(requestedAgent);
         const fromAgent = ctx.agentRole;
 
@@ -142,7 +149,7 @@ export function createCommunicationTools(
           [fromAgent, toAgent],
         );
         if (recentDupes.length > 0) {
-          const newMsg = (params.message as string).toLowerCase();
+          const newMsg = message.toLowerCase();
           for (const prev of recentDupes) {
             const prevMsg = (prev.message as string).toLowerCase();
             // Check for assignment ID overlap (UUID pattern)
@@ -166,7 +173,7 @@ export function createCommunicationTools(
 
         const [row] = await systemQuery(
           'INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-          [fromAgent, toAgent, threadId, params.message as string, messageType, priority, 'pending', { run_id: ctx.agentId }],
+          [fromAgent, toAgent, threadId, message, messageType, priority, 'pending', { run_id: ctx.agentId }],
         );
 
         // Emit event
@@ -226,7 +233,20 @@ export function createCommunicationTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const requestedAgent = params.to_agent as string;
+        const requestedAgent = typeof params.to_agent === 'string' ? params.to_agent.trim() : '';
+        const requestText = typeof params.request === 'string' ? params.request.trim() : '';
+        const expectedDeliverable = typeof params.expected_deliverable === 'string'
+          ? params.expected_deliverable.trim()
+          : '';
+        if (!requestedAgent) {
+          return { success: false, error: 'to_agent is required' };
+        }
+        if (!requestText) {
+          return { success: false, error: 'request is required' };
+        }
+        if (!expectedDeliverable) {
+          return { success: false, error: 'expected_deliverable is required' };
+        }
         const toAgent = normalizeAssigneeRole(requestedAgent);
         if (toAgent === ctx.agentRole) {
           return { success: false, error: 'Cannot create a peer work request for yourself' };
@@ -253,9 +273,9 @@ export function createCommunicationTools(
           [
             toAgent,
             ctx.agentRole,
-            params.request as string,
+              requestText,
             'peer_request',
-            params.expected_deliverable as string,
+              expectedDeliverable,
             priority,
             'pending',
             'peer_request',
@@ -268,7 +288,7 @@ export function createCommunicationTools(
             ctx.agentRole,
             toAgent,
             crypto.randomUUID(),
-            `Peer work request from ${ctx.agentRole}\n\nRequest:\n${params.request}\n\nExpected deliverable:\n${params.expected_deliverable}\n\nAssignment ID: ${assignment.id}`,
+            `Peer work request from ${ctx.agentRole}\n\nRequest:\n${requestText}\n\nExpected deliverable:\n${expectedDeliverable}\n\nAssignment ID: ${assignment.id}`,
             'request',
             priority === 'urgent' ? 'urgent' : 'normal',
             'pending',

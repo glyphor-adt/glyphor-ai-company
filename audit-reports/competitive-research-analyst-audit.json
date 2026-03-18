@@ -1,6 +1,6 @@
 {
   "role": "competitive-research-analyst",
-  "timestamp": "2026-03-18T00:55:49.861Z",
+  "timestamp": "2026-03-18T01:42:33.164Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\lena-park.md",
     "exists": true,
@@ -49,7 +49,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\competitive-research-analyst\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 1106,
+    "tokenCount": 1129,
     "hasCrisisFabricationRules": false,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,

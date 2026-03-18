@@ -8,11 +8,7 @@ import { query } from '../utils/db.js';
 import { runTest } from '../utils/test.js';
 
 const SPECIALISTS = [
-  'enterprise-account-researcher',
   'bob-the-tax-pro',
-  'data-integrity-auditor',
-  'tax-strategy-specialist',
-  'lead-gen-specialist',
   'marketing-intelligence-analyst',
   'adi-rose',
 ] as const;

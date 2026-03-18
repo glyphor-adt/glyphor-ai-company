@@ -1,6 +1,6 @@
 {
   "role": "template-architect",
-  "timestamp": "2026-03-18T00:56:00.458Z",
+  "timestamp": "2026-03-18T01:42:45.818Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\ryan-park.md",
     "exists": true,
@@ -46,7 +46,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\template-architect\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 515,
+    "tokenCount": 538,
     "hasCrisisFabricationRules": false,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
@@ -117,7 +117,7 @@
     "teamMemberCount": 0,
     "teamMembersWithRunners": 0,
     "runnerMismatch": false,
-    "temperatureOutlier": true
+    "temperatureOutlier": false
   },
   "taskRouting": {
     "taskTypes": [],
@@ -191,12 +191,6 @@
       "category": "health",
       "description": "Completion rate is 60% (target: >80%).",
       "effort": "small"
-    },
-    {
-      "priority": "P2",
-      "category": "config",
-      "description": "Temperature 0.7 is high for a precision role. Recommend 0.2-0.3.",
-      "effort": "trivial"
     }
   ]
 }

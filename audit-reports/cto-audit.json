@@ -1,18 +1,16 @@
 {
   "role": "cto",
-  "timestamp": "2026-03-18T00:55:51.445Z",
+  "timestamp": "2026-03-18T01:42:35.514Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\marcus-reeves.md",
     "exists": true,
-    "tokenCount": 1699,
+    "tokenCount": 957,
     "hasRelationships": true,
     "hasAuthority": true,
-    "hasAntiPatterns": true,
-    "containsSkillContent": true,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
     "containsKnowledgeContent": true,
-    "skillIndicators": [
-      "extended code examples"
-    ],
+    "skillIndicators": [],
     "knowledgeIndicators": [
       "dollar amounts",
       "percentages"
@@ -26,53 +24,38 @@
       },
       {
         "heading": "Your Identity",
-        "tokens": 143,
+        "tokens": 106,
         "classification": "identity"
       },
       {
         "heading": "Personality & Voice",
-        "tokens": 244,
+        "tokens": 170,
         "classification": "identity"
       },
       {
         "heading": "Communication Style",
-        "tokens": 207,
-        "classification": "identity"
-      },
-      {
-        "heading": "Core Mission",
-        "tokens": 254,
-        "classification": "identity"
-      },
-      {
-        "heading": "Technical Stack You Own",
         "tokens": 123,
         "classification": "identity"
       },
       {
+        "heading": "Core Mission",
+        "tokens": 158,
+        "classification": "identity"
+      },
+      {
         "heading": "Your Relationships",
-        "tokens": 146,
+        "tokens": 115,
         "classification": "identity"
       },
       {
         "heading": "Authority Boundaries",
-        "tokens": 116,
+        "tokens": 109,
         "classification": "identity"
       },
       {
         "heading": "Operating Principles",
-        "tokens": 133,
+        "tokens": 100,
         "classification": "identity"
-      },
-      {
-        "heading": "Output Example",
-        "tokens": 170,
-        "classification": "mixed"
-      },
-      {
-        "heading": "Failure Modes to Avoid",
-        "tokens": 87,
-        "classification": "anti-pattern"
       }
     ]
   },
@@ -95,7 +78,7 @@
         "category": "engineering",
         "tokenCount": 1505,
         "isOwnDomain": true,
-        "timesUsed": 3,
+        "timesUsed": 6,
         "successRate": 1
       },
       {
@@ -104,7 +87,7 @@
         "category": "engineering",
         "tokenCount": 2020,
         "isOwnDomain": true,
-        "timesUsed": 2,
+        "timesUsed": 5,
         "successRate": 1
       },
       {
@@ -113,7 +96,7 @@
         "category": "engineering",
         "tokenCount": 2717,
         "isOwnDomain": true,
-        "timesUsed": 7,
+        "timesUsed": 10,
         "successRate": 1
       },
       {
@@ -122,7 +105,7 @@
         "category": "design",
         "tokenCount": 162,
         "isOwnDomain": false,
-        "timesUsed": 1,
+        "timesUsed": 3,
         "successRate": 1
       },
       {
@@ -131,7 +114,7 @@
         "category": "engineering",
         "tokenCount": 2261,
         "isOwnDomain": true,
-        "timesUsed": 7,
+        "timesUsed": 10,
         "successRate": 1
       }
     ],
@@ -193,16 +176,16 @@
   },
   "runs": {
     "last30Days": {
-      "total": 1337,
-      "completed": 681,
-      "aborted": 121,
+      "total": 1346,
+      "completed": 689,
+      "aborted": 122,
       "timedOut": 0,
       "maxTurnsReached": 34,
-      "avgTurns": 3.279730740463725,
-      "avgDurationMs": 71784.30067314884,
-      "avgInputTokens": 57968.8750934929,
-      "avgOutputTokens": 1617.9214659685863,
-      "estimatedCost30d": 34.98890000000006
+      "avgTurns": 3.273402674591382,
+      "avgDurationMs": 71386.99628528974,
+      "avgInputTokens": 57814.260772659734,
+      "avgOutputTokens": 1607.1433878157504,
+      "estimatedCost30d": 35.080900000000064
     },
     "taskBreakdown": {
       "proactive": {
@@ -216,9 +199,9 @@
         "avgTurns": 2.7903225806451615
       },
       "on_demand": {
-        "count": 334,
-        "completionRate": 0.625748502994012,
-        "avgTurns": 2.9251497005988023
+        "count": 343,
+        "completionRate": 0.6326530612244898,
+        "avgTurns": 2.9096209912536444
       },
       "work_loop": {
         "count": 597,
@@ -249,18 +232,6 @@
     "missingCrons": []
   },
   "recommendations": [
-    {
-      "priority": "P1",
-      "category": "brief",
-      "description": "Brief is 1699 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
-      "effort": "small"
-    },
-    {
-      "priority": "P1",
-      "category": "brief",
-      "description": "Brief contains procedural content (extended code examples). Move to skill files.",
-      "effort": "medium"
-    },
     {
       "priority": "P2",
       "category": "brief",

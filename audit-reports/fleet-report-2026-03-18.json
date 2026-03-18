@@ -1,24 +1,23 @@
 {
-  "timestamp": "2026-03-18T00:56:03.492Z",
+  "timestamp": "2026-03-18T01:42:48.855Z",
   "agentCount": 21,
   "agents": [
     {
       "role": "cfo",
-      "timestamp": "2026-03-18T00:55:46.646Z",
+      "timestamp": "2026-03-18T01:42:28.554Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\nadia-okafor.md",
         "exists": true,
-        "tokenCount": 1830,
+        "tokenCount": 883,
         "hasRelationships": true,
         "hasAuthority": true,
-        "hasAntiPatterns": true,
+        "hasAntiPatterns": false,
         "containsSkillContent": false,
         "containsKnowledgeContent": true,
         "skillIndicators": [],
         "knowledgeIndicators": [
           "dollar amounts",
-          "percentages",
-          "current state claims"
+          "percentages"
         ],
         "duplicateRelationships": [],
         "sectionBreakdown": [
@@ -29,53 +28,38 @@
           },
           {
             "heading": "Your Identity",
-            "tokens": 137,
+            "tokens": 118,
             "classification": "identity"
           },
           {
             "heading": "Personality & Voice",
-            "tokens": 249,
+            "tokens": 158,
             "classification": "identity"
           },
           {
             "heading": "Communication Style",
-            "tokens": 244,
-            "classification": "knowledge"
+            "tokens": 133,
+            "classification": "identity"
           },
           {
             "heading": "Core Mission",
-            "tokens": 286,
-            "classification": "knowledge"
-          },
-          {
-            "heading": "Key Financial Formulas",
-            "tokens": 156,
+            "tokens": 140,
             "classification": "knowledge"
           },
           {
             "heading": "Your Relationships",
-            "tokens": 185,
+            "tokens": 97,
             "classification": "identity"
           },
           {
             "heading": "Authority Boundaries",
-            "tokens": 83,
+            "tokens": 71,
             "classification": "identity"
           },
           {
             "heading": "Operating Principles",
-            "tokens": 206,
+            "tokens": 103,
             "classification": "knowledge"
-          },
-          {
-            "heading": "Output Example",
-            "tokens": 153,
-            "classification": "knowledge"
-          },
-          {
-            "heading": "Failure Modes to Avoid",
-            "tokens": 68,
-            "classification": "anti-pattern"
           }
         ]
       },
@@ -98,7 +82,7 @@
             "category": "finance",
             "tokenCount": 814,
             "isOwnDomain": true,
-            "timesUsed": 10,
+            "timesUsed": 11,
             "successRate": 1
           },
           {
@@ -116,7 +100,7 @@
             "category": "finance",
             "tokenCount": 2241,
             "isOwnDomain": true,
-            "timesUsed": 8,
+            "timesUsed": 9,
             "successRate": 1
           }
         ],
@@ -128,17 +112,15 @@
         "taskTypes": []
       },
       "tools": {
-        "factoryCount": 16,
-        "estimatedToolCount": 80,
+        "factoryCount": 14,
+        "estimatedToolCount": 70,
         "factories": [
           "createCFOTools",
           "createCollectiveIntelligenceTools",
           "createGraphTools",
           "createSharePointTools",
-          "createTeamOrchestrationTools",
           "createPeerCoordinationTools",
           "createInitiativeTools",
-          "createAgentCreationTools",
           "createToolGrantTools",
           "createAgentDirectoryTools",
           "createRevenueTools",
@@ -148,7 +130,7 @@
           "createCoreTools",
           "createGlyphorMcpTools"
         ],
-        "hasOrchestrationTools": true,
+        "hasOrchestrationTools": false,
         "hasAgent365": true,
         "hasGlyphorMcp": true,
         "hasSharePoint": true,
@@ -164,7 +146,7 @@
         "hasActiveTeamMembers": true,
         "teamMemberCount": 1,
         "teamMembersWithRunners": 0,
-        "runnerMismatch": true,
+        "runnerMismatch": false,
         "temperatureOutlier": false
       },
       "taskRouting": {
@@ -175,16 +157,16 @@
       },
       "runs": {
         "last30Days": {
-          "total": 542,
-          "completed": 361,
+          "total": 547,
+          "completed": 366,
           "aborted": 34,
           "timedOut": 0,
           "maxTurnsReached": 0,
-          "avgTurns": 3.273062730627306,
-          "avgDurationMs": 60285.62177121771,
-          "avgInputTokens": 52005.29704797048,
-          "avgOutputTokens": 1147.0516605166051,
-          "estimatedCost30d": 17.4749
+          "avgTurns": 3.2559414990859232,
+          "avgDurationMs": 59806.83729433273,
+          "avgInputTokens": 51712.06398537477,
+          "avgOutputTokens": 1136.5667276051188,
+          "estimatedCost30d": 17.5054
         },
         "taskBreakdown": {
           "proactive": {
@@ -193,9 +175,9 @@
             "avgTurns": 3.911627906976744
           },
           "on_demand": {
-            "count": 225,
-            "completionRate": 0.7155555555555555,
-            "avgTurns": 2.3555555555555556
+            "count": 230,
+            "completionRate": 0.7217391304347827,
+            "avgTurns": 2.3347826086956522
           },
           "daily_cost_check": {
             "count": 42,
@@ -232,15 +214,9 @@
       },
       "recommendations": [
         {
-          "priority": "P1",
-          "category": "brief",
-          "description": "Brief is 1830 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
-          "effort": "small"
-        },
-        {
           "priority": "P2",
           "category": "brief",
-          "description": "Brief contains knowledge data (dollar amounts, percentages, current state claims). Move to knowledge base.",
+          "description": "Brief contains knowledge data (dollar amounts, percentages). Move to knowledge base.",
           "effort": "small"
         },
         {
@@ -254,37 +230,23 @@
           "category": "health",
           "description": "Completion rate is 67% (target: >80%).",
           "effort": "small"
-        },
-        {
-          "priority": "P1",
-          "category": "runner",
-          "description": "Has orchestration tools but uses TaskRunner. Has 1 team members (0 with runners) — promote to OrchestratorRunner.",
-          "effort": "large"
-        },
-        {
-          "priority": "P2",
-          "category": "tools",
-          "description": "Agent loads 16 tool factories (~80+ tools). Heavy reliance on ToolRetriever quality.",
-          "effort": "medium"
         }
       ]
     },
     {
       "role": "chief-of-staff",
-      "timestamp": "2026-03-18T00:55:47.434Z",
+      "timestamp": "2026-03-18T01:42:29.803Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sarah-chen.md",
         "exists": true,
-        "tokenCount": 1685,
+        "tokenCount": 983,
         "hasRelationships": true,
         "hasAuthority": true,
-        "hasAntiPatterns": true,
+        "hasAntiPatterns": false,
         "containsSkillContent": false,
-        "containsKnowledgeContent": true,
+        "containsKnowledgeContent": false,
         "skillIndicators": [],
-        "knowledgeIndicators": [
-          "dollar amounts"
-        ],
+        "knowledgeIndicators": [],
         "duplicateRelationships": [],
         "sectionBreakdown": [
           {
@@ -294,48 +256,38 @@
           },
           {
             "heading": "Your Identity",
-            "tokens": 150,
+            "tokens": 74,
             "classification": "identity"
           },
           {
             "heading": "Personality & Voice",
-            "tokens": 262,
+            "tokens": 162,
             "classification": "identity"
           },
           {
             "heading": "Communication Style",
-            "tokens": 187,
+            "tokens": 132,
             "classification": "identity"
           },
           {
             "heading": "Core Mission",
-            "tokens": 271,
-            "classification": "knowledge"
-          },
-          {
-            "heading": "Briefing Tailoring",
-            "tokens": 130,
+            "tokens": 175,
             "classification": "identity"
           },
           {
             "heading": "Your Relationships",
-            "tokens": 178,
+            "tokens": 135,
             "classification": "identity"
           },
           {
             "heading": "Operating Principles",
-            "tokens": 177,
+            "tokens": 118,
             "classification": "identity"
           },
           {
             "heading": "Authority & Constraints",
-            "tokens": 152,
+            "tokens": 138,
             "classification": "identity"
-          },
-          {
-            "heading": "Anti-Patterns",
-            "tokens": 128,
-            "classification": "anti-pattern"
           }
         ]
       },
@@ -360,16 +312,16 @@
             "category": "leadership",
             "tokenCount": 776,
             "isOwnDomain": false,
-            "timesUsed": 25,
+            "timesUsed": 30,
             "successRate": 1
           },
           {
             "slug": "decision-routing",
-            "proficiency": "competent",
+            "proficiency": "expert",
             "category": "leadership",
             "tokenCount": 2259,
             "isOwnDomain": false,
-            "timesUsed": 25,
+            "timesUsed": 30,
             "successRate": 1
           }
         ],
@@ -449,22 +401,22 @@
       },
       "runs": {
         "last30Days": {
-          "total": 1738,
-          "completed": 1068,
+          "total": 1747,
+          "completed": 1076,
           "aborted": 119,
           "timedOut": 0,
           "maxTurnsReached": 0,
-          "avgTurns": 3.5782508630609895,
-          "avgDurationMs": 83868.85270425776,
-          "avgInputTokens": 59901.77617951669,
-          "avgOutputTokens": 1509.758918296893,
-          "estimatedCost30d": 76.8893
+          "avgTurns": 3.5781339439038353,
+          "avgDurationMs": 83705.68288494562,
+          "avgInputTokens": 59904.44762449914,
+          "avgOutputTokens": 1503.1316542644533,
+          "estimatedCost30d": 77.2598
         },
         "taskBreakdown": {
           "on_demand": {
-            "count": 770,
-            "completionRate": 0.8441558441558441,
-            "avgTurns": 2.5090909090909093
+            "count": 775,
+            "completionRate": 0.8451612903225807,
+            "avgTurns": 2.5135483870967743
           },
           "eod_summary": {
             "count": 20,
@@ -472,9 +424,9 @@
             "avgTurns": 5
           },
           "orchestrate": {
-            "count": 466,
-            "completionRate": 0.38197424892703863,
-            "avgTurns": 5.663090128755365
+            "count": 470,
+            "completionRate": 0.3851063829787234,
+            "avgTurns": 5.648936170212766
           },
           "proactive": {
             "count": 278,
@@ -574,18 +526,6 @@
       },
       "recommendations": [
         {
-          "priority": "P1",
-          "category": "brief",
-          "description": "Brief is 1685 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
-          "effort": "small"
-        },
-        {
-          "priority": "P2",
-          "category": "brief",
-          "description": "Brief contains knowledge data (dollar amounts). Move to knowledge base.",
-          "effort": "small"
-        },
-        {
           "priority": "P2",
           "category": "skills",
           "description": "Skill \"cross-team-coordination\" is from another department. Verify this agent uses it or remove.",
@@ -600,7 +540,7 @@
         {
           "priority": "P1",
           "category": "health",
-          "description": "Completion rate is 61% (target: >80%).",
+          "description": "Completion rate is 62% (target: >80%).",
           "effort": "small"
         },
         {
@@ -619,7 +559,7 @@
     },
     {
       "role": "clo",
-      "timestamp": "2026-03-18T00:55:48.166Z",
+      "timestamp": "2026-03-18T01:42:30.630Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\victoria-chase.md",
         "exists": true,
@@ -757,22 +697,22 @@
       },
       "runs": {
         "last30Days": {
-          "total": 257,
-          "completed": 235,
+          "total": 259,
+          "completed": 237,
           "aborted": 12,
           "timedOut": 0,
           "maxTurnsReached": 0,
-          "avgTurns": 3.272373540856031,
-          "avgDurationMs": 26885.252918287937,
-          "avgInputTokens": 65024.50972762646,
-          "avgOutputTokens": 378.42412451361866,
-          "estimatedCost30d": 5.094399999999999
+          "avgTurns": 3.2548262548262548,
+          "avgDurationMs": 26787.779922779922,
+          "avgInputTokens": 64526.3667953668,
+          "avgOutputTokens": 375.6254826254826,
+          "estimatedCost30d": 4.932099999999999
         },
         "taskBreakdown": {
           "on_demand": {
-            "count": 202,
-            "completionRate": 0.9306930693069307,
-            "avgTurns": 2.698019801980198
+            "count": 204,
+            "completionRate": 0.9313725490196079,
+            "avgTurns": 2.6813725490196076
           },
           "proactive": {
             "count": 52,
@@ -819,21 +759,19 @@
     },
     {
       "role": "cmo",
-      "timestamp": "2026-03-18T00:55:48.993Z",
+      "timestamp": "2026-03-18T01:42:31.514Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\maya-brooks.md",
         "exists": true,
-        "tokenCount": 1879,
+        "tokenCount": 997,
         "hasRelationships": true,
         "hasAuthority": true,
-        "hasAntiPatterns": true,
+        "hasAntiPatterns": false,
         "containsSkillContent": false,
         "containsKnowledgeContent": false,
         "skillIndicators": [],
         "knowledgeIndicators": [],
-        "duplicateRelationships": [
-          "Rachel Kim"
-        ],
+        "duplicateRelationships": [],
         "sectionBreakdown": [
           {
             "heading": "Maya Brooks — Chief Marketing Officer",
@@ -842,65 +780,45 @@
           },
           {
             "heading": "Your Identity",
-            "tokens": 131,
+            "tokens": 126,
             "classification": "identity"
           },
           {
             "heading": "Personality & Voice",
-            "tokens": 255,
+            "tokens": 214,
             "classification": "identity"
           },
           {
             "heading": "Communication Style",
-            "tokens": 304,
+            "tokens": 140,
             "classification": "identity"
           },
           {
             "heading": "Core Mission",
-            "tokens": 240,
-            "classification": "identity"
-          },
-          {
-            "heading": "Content Calendar Structure",
-            "tokens": 98,
-            "classification": "identity"
-          },
-          {
-            "heading": "SEO Target Keywords",
-            "tokens": 111,
+            "tokens": 151,
             "classification": "identity"
           },
           {
             "heading": "Your Relationships",
-            "tokens": 201,
+            "tokens": 100,
             "classification": "identity"
           },
           {
             "heading": "Authority Boundaries",
-            "tokens": 93,
+            "tokens": 89,
             "classification": "identity"
           },
           {
             "heading": "Operating Principles",
-            "tokens": 184,
+            "tokens": 98,
             "classification": "identity"
-          },
-          {
-            "heading": "Output Example",
-            "tokens": 111,
-            "classification": "identity"
-          },
-          {
-            "heading": "Failure Modes to Avoid",
-            "tokens": 74,
-            "classification": "anti-pattern"
           }
         ]
       },
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\cmo\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 1680,
+        "tokenCount": 1743,
         "hasCrisisFabricationRules": true,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -977,8 +895,8 @@
         "taskTypes": []
       },
       "tools": {
-        "factoryCount": 20,
-        "estimatedToolCount": 100,
+        "factoryCount": 21,
+        "estimatedToolCount": 105,
         "factories": [
           "createCMOTools",
           "createCollectiveIntelligenceTools",
@@ -999,7 +917,8 @@
           "createAgent365McpTools",
           "createCoreTools",
           "createGlyphorMcpTools",
-          "createFuseTools"
+          "createFuseTools",
+          "createExecutiveOrchestrationTools"
         ],
         "hasOrchestrationTools": true,
         "hasAgent365": true,
@@ -1028,16 +947,16 @@
       },
       "runs": {
         "last30Days": {
-          "total": 655,
-          "completed": 473,
+          "total": 658,
+          "completed": 476,
           "aborted": 53,
           "timedOut": 0,
           "maxTurnsReached": 2,
-          "avgTurns": 4.203053435114504,
-          "avgDurationMs": 130822.21679389312,
-          "avgInputTokens": 81659.49160305344,
-          "avgOutputTokens": 1687.6412213740457,
-          "estimatedCost30d": 48.34069999999999
+          "avgTurns": 4.214285714285714,
+          "avgDurationMs": 130499.54559270517,
+          "avgInputTokens": 81642.80547112462,
+          "avgOutputTokens": 1686.501519756839,
+          "estimatedCost30d": 48.644
         },
         "taskBreakdown": {
           "generate_content": {
@@ -1051,9 +970,9 @@
             "avgTurns": 5.904761904761905
           },
           "proactive": {
-            "count": 38,
-            "completionRate": 0.6578947368421053,
-            "avgTurns": 5.2368421052631575
+            "count": 40,
+            "completionRate": 0.675,
+            "avgTurns": 5.325
           },
           "work_loop": {
             "count": 383,
@@ -1061,9 +980,9 @@
             "avgTurns": 4.509138381201044
           },
           "on_demand": {
-            "count": 184,
-            "completionRate": 0.7989130434782609,
-            "avgTurns": 2.9565217391304346
+            "count": 185,
+            "completionRate": 0.8,
+            "avgTurns": 2.972972972972973
           },
           "content_creation": {
             "count": 4,
@@ -1089,18 +1008,6 @@
         "missingCrons": []
       },
       "recommendations": [
-        {
-          "priority": "P1",
-          "category": "brief",
-          "description": "Brief is 1879 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
-          "effort": "small"
-        },
-        {
-          "priority": "P2",
-          "category": "brief",
-          "description": "Duplicate relationship entries: Rachel Kim.",
-          "effort": "trivial"
-        },
         {
           "priority": "P2",
           "category": "skills",
@@ -1140,14 +1047,14 @@
         {
           "priority": "P2",
           "category": "tools",
-          "description": "Agent loads 20 tool factories (~100+ tools). Heavy reliance on ToolRetriever quality.",
+          "description": "Agent loads 21 tool factories (~105+ tools). Heavy reliance on ToolRetriever quality.",
           "effort": "medium"
         }
       ]
     },
     {
       "role": "competitive-research-analyst",
-      "timestamp": "2026-03-18T00:55:49.861Z",
+      "timestamp": "2026-03-18T01:42:33.164Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\lena-park.md",
         "exists": true,
@@ -1196,7 +1103,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\competitive-research-analyst\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 1106,
+        "tokenCount": 1129,
         "hasCrisisFabricationRules": false,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -1356,7 +1263,7 @@
     },
     {
       "role": "content-creator",
-      "timestamp": "2026-03-18T00:55:50.689Z",
+      "timestamp": "2026-03-18T01:42:34.579Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\tyler-reed.md",
         "exists": true,
@@ -1547,19 +1454,17 @@
     },
     {
       "role": "cto",
-      "timestamp": "2026-03-18T00:55:51.445Z",
+      "timestamp": "2026-03-18T01:42:35.514Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\marcus-reeves.md",
         "exists": true,
-        "tokenCount": 1699,
+        "tokenCount": 957,
         "hasRelationships": true,
         "hasAuthority": true,
-        "hasAntiPatterns": true,
-        "containsSkillContent": true,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
         "containsKnowledgeContent": true,
-        "skillIndicators": [
-          "extended code examples"
-        ],
+        "skillIndicators": [],
         "knowledgeIndicators": [
           "dollar amounts",
           "percentages"
@@ -1573,53 +1478,38 @@
           },
           {
             "heading": "Your Identity",
-            "tokens": 143,
+            "tokens": 106,
             "classification": "identity"
           },
           {
             "heading": "Personality & Voice",
-            "tokens": 244,
+            "tokens": 170,
             "classification": "identity"
           },
           {
             "heading": "Communication Style",
-            "tokens": 207,
-            "classification": "identity"
-          },
-          {
-            "heading": "Core Mission",
-            "tokens": 254,
-            "classification": "identity"
-          },
-          {
-            "heading": "Technical Stack You Own",
             "tokens": 123,
             "classification": "identity"
           },
           {
+            "heading": "Core Mission",
+            "tokens": 158,
+            "classification": "identity"
+          },
+          {
             "heading": "Your Relationships",
-            "tokens": 146,
+            "tokens": 115,
             "classification": "identity"
           },
           {
             "heading": "Authority Boundaries",
-            "tokens": 116,
+            "tokens": 109,
             "classification": "identity"
           },
           {
             "heading": "Operating Principles",
-            "tokens": 133,
+            "tokens": 100,
             "classification": "identity"
-          },
-          {
-            "heading": "Output Example",
-            "tokens": 170,
-            "classification": "mixed"
-          },
-          {
-            "heading": "Failure Modes to Avoid",
-            "tokens": 87,
-            "classification": "anti-pattern"
           }
         ]
       },
@@ -1642,7 +1532,7 @@
             "category": "engineering",
             "tokenCount": 1505,
             "isOwnDomain": true,
-            "timesUsed": 3,
+            "timesUsed": 6,
             "successRate": 1
           },
           {
@@ -1651,7 +1541,7 @@
             "category": "engineering",
             "tokenCount": 2020,
             "isOwnDomain": true,
-            "timesUsed": 2,
+            "timesUsed": 5,
             "successRate": 1
           },
           {
@@ -1660,7 +1550,7 @@
             "category": "engineering",
             "tokenCount": 2717,
             "isOwnDomain": true,
-            "timesUsed": 7,
+            "timesUsed": 10,
             "successRate": 1
           },
           {
@@ -1669,7 +1559,7 @@
             "category": "design",
             "tokenCount": 162,
             "isOwnDomain": false,
-            "timesUsed": 1,
+            "timesUsed": 3,
             "successRate": 1
           },
           {
@@ -1678,7 +1568,7 @@
             "category": "engineering",
             "tokenCount": 2261,
             "isOwnDomain": true,
-            "timesUsed": 7,
+            "timesUsed": 10,
             "successRate": 1
           }
         ],
@@ -1740,16 +1630,16 @@
       },
       "runs": {
         "last30Days": {
-          "total": 1337,
-          "completed": 681,
-          "aborted": 121,
+          "total": 1346,
+          "completed": 689,
+          "aborted": 122,
           "timedOut": 0,
           "maxTurnsReached": 34,
-          "avgTurns": 3.279730740463725,
-          "avgDurationMs": 71784.30067314884,
-          "avgInputTokens": 57968.8750934929,
-          "avgOutputTokens": 1617.9214659685863,
-          "estimatedCost30d": 34.98890000000006
+          "avgTurns": 3.273402674591382,
+          "avgDurationMs": 71386.99628528974,
+          "avgInputTokens": 57814.260772659734,
+          "avgOutputTokens": 1607.1433878157504,
+          "estimatedCost30d": 35.080900000000064
         },
         "taskBreakdown": {
           "proactive": {
@@ -1763,9 +1653,9 @@
             "avgTurns": 2.7903225806451615
           },
           "on_demand": {
-            "count": 334,
-            "completionRate": 0.625748502994012,
-            "avgTurns": 2.9251497005988023
+            "count": 343,
+            "completionRate": 0.6326530612244898,
+            "avgTurns": 2.9096209912536444
           },
           "work_loop": {
             "count": 597,
@@ -1796,18 +1686,6 @@
         "missingCrons": []
       },
       "recommendations": [
-        {
-          "priority": "P1",
-          "category": "brief",
-          "description": "Brief is 1699 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
-          "effort": "small"
-        },
-        {
-          "priority": "P1",
-          "category": "brief",
-          "description": "Brief contains procedural content (extended code examples). Move to skill files.",
-          "effort": "medium"
-        },
         {
           "priority": "P2",
           "category": "brief",
@@ -1848,7 +1726,7 @@
     },
     {
       "role": "design-critic",
-      "timestamp": "2026-03-18T00:55:52.200Z",
+      "timestamp": "2026-03-18T01:42:36.370Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sofia-marchetti.md",
         "exists": true,
@@ -1973,7 +1851,7 @@
         "teamMemberCount": 0,
         "teamMembersWithRunners": 0,
         "runnerMismatch": false,
-        "temperatureOutlier": true
+        "temperatureOutlier": false
       },
       "taskRouting": {
         "taskTypes": [],
@@ -2052,18 +1930,12 @@
           "category": "health",
           "description": "Completion rate is 57% (target: >80%). Agent is failing/aborting frequently.",
           "effort": "medium"
-        },
-        {
-          "priority": "P2",
-          "category": "config",
-          "description": "Temperature 0.7 is high for a precision role. Recommend 0.2-0.3.",
-          "effort": "trivial"
         }
       ]
     },
     {
       "role": "devops-engineer",
-      "timestamp": "2026-03-18T00:55:52.952Z",
+      "timestamp": "2026-03-18T01:42:37.151Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\jordan-hayes.md",
         "exists": true,
@@ -2109,7 +1981,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\devops-engineer\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 717,
+        "tokenCount": 740,
         "hasCrisisFabricationRules": false,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -2268,7 +2140,7 @@
     },
     {
       "role": "frontend-engineer",
-      "timestamp": "2026-03-18T00:55:53.702Z",
+      "timestamp": "2026-03-18T01:42:38.254Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\ava-chen.md",
         "exists": true,
@@ -2312,7 +2184,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\frontend-engineer\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 470,
+        "tokenCount": 492,
         "hasCrisisFabricationRules": false,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -2414,22 +2286,22 @@
       },
       "runs": {
         "last30Days": {
-          "total": 67,
-          "completed": 44,
+          "total": 68,
+          "completed": 45,
           "aborted": 16,
           "timedOut": 0,
           "maxTurnsReached": 0,
-          "avgTurns": 5.044776119402985,
-          "avgDurationMs": 63160.014925373136,
-          "avgInputTokens": 81005.79104477612,
-          "avgOutputTokens": 305.3731343283582,
-          "estimatedCost30d": 1.5502999999999998
+          "avgTurns": 5.088235294117647,
+          "avgDurationMs": 63281.32352941176,
+          "avgInputTokens": 81051.44117647059,
+          "avgOutputTokens": 309.25,
+          "estimatedCost30d": 1.5750999999999997
         },
         "taskBreakdown": {
           "work_loop": {
-            "count": 23,
-            "completionRate": 0.8260869565217391,
-            "avgTurns": 4.217391304347826
+            "count": 24,
+            "completionRate": 0.8333333333333334,
+            "avgTurns": 4.375
           },
           "implementation_review": {
             "count": 27,
@@ -2495,11 +2367,11 @@
     },
     {
       "role": "global-admin",
-      "timestamp": "2026-03-18T00:55:54.455Z",
+      "timestamp": "2026-03-18T01:42:39.033Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\morgan-blake.md",
         "exists": true,
-        "tokenCount": 1383,
+        "tokenCount": 679,
         "hasRelationships": false,
         "hasAuthority": true,
         "hasAntiPatterns": false,
@@ -2516,62 +2388,27 @@
           },
           {
             "heading": "Your Identity",
-            "tokens": 339,
+            "tokens": 215,
             "classification": "identity"
           },
           {
             "heading": "Communication Style",
-            "tokens": 98,
+            "tokens": 56,
             "classification": "identity"
           },
           {
             "heading": "Key Responsibilities",
-            "tokens": 299,
+            "tokens": 210,
             "classification": "identity"
           },
           {
             "heading": "Authority Boundaries",
-            "tokens": 169,
+            "tokens": 104,
             "classification": "identity"
           },
           {
             "heading": "Founder Protection",
-            "tokens": 90,
-            "classification": "identity"
-          },
-          {
-            "heading": "Onboarding Checklist",
-            "tokens": 25,
-            "classification": "identity"
-          },
-          {
-            "heading": "1. Identity & Accounts",
-            "tokens": 65,
-            "classification": "identity"
-          },
-          {
-            "heading": "2. GCP Access",
-            "tokens": 57,
-            "classification": "identity"
-          },
-          {
-            "heading": "3. GitHub Access",
-            "tokens": 34,
-            "classification": "identity"
-          },
-          {
-            "heading": "4. Communication Channels",
-            "tokens": 34,
-            "classification": "identity"
-          },
-          {
-            "heading": "5. Verification & Documentation",
-            "tokens": 57,
-            "classification": "identity"
-          },
-          {
-            "heading": "Department → Channel Mapping (reference)",
-            "tokens": 78,
+            "tokens": 52,
             "classification": "identity"
           }
         ]
@@ -2579,7 +2416,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\global-admin\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 1759,
+        "tokenCount": 1782,
         "hasCrisisFabricationRules": false,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -2706,12 +2543,6 @@
       "recommendations": [
         {
           "priority": "P1",
-          "category": "brief",
-          "description": "Brief is 1383 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
-          "effort": "small"
-        },
-        {
-          "priority": "P1",
           "category": "prompt",
           "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
           "effort": "trivial"
@@ -2732,7 +2563,7 @@
     },
     {
       "role": "head-of-hr",
-      "timestamp": "2026-03-18T00:55:55.226Z",
+      "timestamp": "2026-03-18T01:42:39.822Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\jasmine-rivera.md",
         "exists": true,
@@ -2786,7 +2617,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\head-of-hr\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 4511,
+        "tokenCount": 4534,
         "hasCrisisFabricationRules": false,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -2925,7 +2756,7 @@
     },
     {
       "role": "m365-admin",
-      "timestamp": "2026-03-18T00:55:55.955Z",
+      "timestamp": "2026-03-18T01:42:40.590Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\riley-morgan.md",
         "exists": true,
@@ -2974,7 +2805,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\m365-admin\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 1196,
+        "tokenCount": 1219,
         "hasCrisisFabricationRules": true,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -3135,7 +2966,7 @@
     },
     {
       "role": "market-research-analyst",
-      "timestamp": "2026-03-18T00:55:56.670Z",
+      "timestamp": "2026-03-18T01:42:41.516Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\daniel-okafor.md",
         "exists": true,
@@ -3186,7 +3017,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\market-research-analyst\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 1247,
+        "tokenCount": 1270,
         "hasCrisisFabricationRules": false,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -3358,7 +3189,7 @@
     },
     {
       "role": "ops",
-      "timestamp": "2026-03-18T00:55:57.456Z",
+      "timestamp": "2026-03-18T01:42:42.456Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\atlas-vega.md",
         "exists": true,
@@ -3539,16 +3370,16 @@
       },
       "runs": {
         "last30Days": {
-          "total": 3339,
-          "completed": 2328,
+          "total": 3343,
+          "completed": 2332,
           "aborted": 358,
           "timedOut": 0,
           "maxTurnsReached": 0,
-          "avgTurns": 4.159628631326744,
-          "avgDurationMs": 76140.8505540581,
-          "avgInputTokens": 82892.82869122492,
-          "avgOutputTokens": 1240.9323150643904,
-          "estimatedCost30d": 133.29830000000013
+          "avgTurns": 4.157343703260544,
+          "avgDurationMs": 76083.78103499851,
+          "avgInputTokens": 82839.99700867484,
+          "avgOutputTokens": 1239.7930002991325,
+          "estimatedCost30d": 133.59990000000013
         },
         "taskBreakdown": {
           "health_check": {
@@ -3562,9 +3393,9 @@
             "avgTurns": 3.0718232044198897
           },
           "on_demand": {
-            "count": 73,
-            "completionRate": 0.9452054794520548,
-            "avgTurns": 2.328767123287671
+            "count": 77,
+            "completionRate": 0.948051948051948,
+            "avgTurns": 2.324675324675325
           },
           "cost_check": {
             "count": 296,
@@ -3649,7 +3480,7 @@
     },
     {
       "role": "platform-engineer",
-      "timestamp": "2026-03-18T00:55:58.205Z",
+      "timestamp": "2026-03-18T01:42:43.357Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\alex-park.md",
         "exists": true,
@@ -3695,7 +3526,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\platform-engineer\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 473,
+        "tokenCount": 496,
         "hasCrisisFabricationRules": false,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -3807,8 +3638,8 @@
       },
       "assignments": {
         "last30Days": {
-          "received": 42,
-          "completed": 42,
+          "received": 43,
+          "completed": 43,
           "needsRevision": 0,
           "failed": 0,
           "avgQualityScore": 0,
@@ -3850,7 +3681,7 @@
     },
     {
       "role": "quality-engineer",
-      "timestamp": "2026-03-18T00:55:58.949Z",
+      "timestamp": "2026-03-18T01:42:44.161Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sam-deluca.md",
         "exists": true,
@@ -3894,7 +3725,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\quality-engineer\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 656,
+        "tokenCount": 679,
         "hasCrisisFabricationRules": false,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -4031,7 +3862,7 @@
     },
     {
       "role": "seo-analyst",
-      "timestamp": "2026-03-18T00:55:59.709Z",
+      "timestamp": "2026-03-18T01:42:44.992Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\lisa-chen.md",
         "exists": true,
@@ -4205,7 +4036,7 @@
     },
     {
       "role": "template-architect",
-      "timestamp": "2026-03-18T00:56:00.458Z",
+      "timestamp": "2026-03-18T01:42:45.818Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\ryan-park.md",
         "exists": true,
@@ -4251,7 +4082,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\template-architect\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 515,
+        "tokenCount": 538,
         "hasCrisisFabricationRules": false,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -4322,7 +4153,7 @@
         "teamMemberCount": 0,
         "teamMembersWithRunners": 0,
         "runnerMismatch": false,
-        "temperatureOutlier": true
+        "temperatureOutlier": false
       },
       "taskRouting": {
         "taskTypes": [],
@@ -4396,18 +4227,12 @@
           "category": "health",
           "description": "Completion rate is 60% (target: >80%).",
           "effort": "small"
-        },
-        {
-          "priority": "P2",
-          "category": "config",
-          "description": "Temperature 0.7 is high for a precision role. Recommend 0.2-0.3.",
-          "effort": "trivial"
         }
       ]
     },
     {
       "role": "ui-ux-designer",
-      "timestamp": "2026-03-18T00:56:01.282Z",
+      "timestamp": "2026-03-18T01:42:46.618Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\leo-vargas.md",
         "exists": true,
@@ -4451,7 +4276,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\ui-ux-designer\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 492,
+        "tokenCount": 515,
         "hasCrisisFabricationRules": false,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -4546,7 +4371,7 @@
         "hasAgent365": true,
         "hasGlyphorMcp": true,
         "hasSharePoint": true,
-        "grantedByDb": 44,
+        "grantedByDb": 166,
         "blockedByDb": 0
       },
       "config": {
@@ -4569,16 +4394,16 @@
       },
       "runs": {
         "last30Days": {
-          "total": 44,
-          "completed": 32,
+          "total": 45,
+          "completed": 33,
           "aborted": 8,
           "timedOut": 0,
           "maxTurnsReached": 0,
-          "avgTurns": 5.818181818181818,
-          "avgDurationMs": 54314.36363636364,
-          "avgInputTokens": 96344.18181818182,
-          "avgOutputTokens": 549.3409090909091,
-          "estimatedCost30d": 0.8268999999999996
+          "avgTurns": 5.866666666666666,
+          "avgDurationMs": 55119.46666666667,
+          "avgInputTokens": 96640.15555555555,
+          "avgOutputTokens": 579.8444444444444,
+          "estimatedCost30d": 0.8604999999999996
         },
         "taskBreakdown": {
           "design_review": {
@@ -4587,9 +4412,9 @@
             "avgTurns": 4.04
           },
           "proactive": {
-            "count": 16,
-            "completionRate": 0.8125,
-            "avgTurns": 8.125
+            "count": 17,
+            "completionRate": 0.8235294117647058,
+            "avgTurns": 8.117647058823529
           },
           "work_loop": {
             "count": 3,
@@ -4637,7 +4462,7 @@
     },
     {
       "role": "vp-research",
-      "timestamp": "2026-03-18T00:56:02.113Z",
+      "timestamp": "2026-03-18T01:42:47.420Z",
       "brief": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sophia-lin.md",
         "exists": true,
@@ -4686,7 +4511,7 @@
       "systemPrompt": {
         "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\vp-research\\systemPrompt.ts",
         "exists": true,
-        "tokenCount": 2022,
+        "tokenCount": 2045,
         "hasCrisisFabricationRules": false,
         "overlapsWithBrief": 0,
         "overlapsWithSkills": 0,
@@ -4898,7 +4723,7 @@
       ]
     }
   ],
-  "totalTokenBudget": 175144,
+  "totalTokenBudget": 171505,
   "healthSummary": {
     "healthy": 3,
     "degraded": 13,
@@ -4991,49 +4816,15 @@
       "effort": "medium"
     }
   ],
-  "bloatedBriefs": [
-    {
-      "role": "cmo",
-      "tokens": 1879
-    },
-    {
-      "role": "cfo",
-      "tokens": 1830
-    },
-    {
-      "role": "cto",
-      "tokens": 1699
-    },
-    {
-      "role": "chief-of-staff",
-      "tokens": 1685
-    },
-    {
-      "role": "global-admin",
-      "tokens": 1383
-    }
-  ],
+  "bloatedBriefs": [],
   "zeroSkillAgents": [],
   "runnerMismatches": [
     {
-      "role": "cfo",
-      "factories": 16
-    },
-    {
       "role": "cmo",
-      "factories": 20
+      "factories": 21
     }
   ],
-  "temperatureOutliers": [
-    {
-      "role": "design-critic",
-      "temp": 0.3
-    },
-    {
-      "role": "template-architect",
-      "temp": 0.3
-    }
-  ],
+  "temperatureOutliers": [],
   "unroutedTaskTypes": [
     {
       "agent": "chief-of-staff",
@@ -5067,18 +4858,13 @@
   "toolHeavyAgents": [
     {
       "role": "cmo",
-      "factories": 20,
-      "estimated": 100
+      "factories": 21,
+      "estimated": 105
     },
     {
       "role": "cto",
       "factories": 17,
       "estimated": 85
-    },
-    {
-      "role": "cfo",
-      "factories": 16,
-      "estimated": 80
     }
   ],
   "crossDomainSkillIssues": [
