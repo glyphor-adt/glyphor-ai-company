@@ -92,14 +92,26 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       ];
       const results: string[] = [];
       for (const ep of endpoints) {
-        const res = await httpPost<{ success: boolean }>(
-          `${config.schedulerUrl}${ep.path}`,
-          {},
-        );
-        if (res.ok && (res.data as Record<string, unknown>)?.success) {
-          results.push(`${ep.name}: OK`);
-        } else {
-          results.push(`${ep.name}: ${res.status}`);
+        try {
+          const res = await httpPost<{ success: boolean }>(
+            `${config.schedulerUrl}${ep.path}`,
+            {},
+          );
+          if (res.ok && (res.data as Record<string, unknown>)?.success) {
+            results.push(`${ep.name}: OK`);
+          } else {
+            results.push(`${ep.name}: ${res.status}`);
+          }
+        } catch (err) {
+          if (err instanceof Error) {
+            const msg = err.message.toLowerCase();
+            const isTimeoutAbort = err.name === 'AbortError' || msg.includes('aborted') || msg.includes('timeout');
+            if (isTimeoutAbort) {
+              results.push(`${ep.name}: timeout`);
+              continue;
+            }
+          }
+          throw err;
         }
       }
       const okCount = results.filter(r => r.includes('OK')).length;
