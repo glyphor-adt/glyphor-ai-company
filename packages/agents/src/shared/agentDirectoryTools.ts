@@ -182,17 +182,51 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
         );
 
         if (matches.length > 0) {
-          return {
-            success: true,
-            data: {
-              matches: matches.map((m) => ({
-                agent: m.name,
-                role: m.role,
-                why: m.reason,
-                how_to_reach: `Use send_agent_message with to_agent="${m.role}"`,
-              })),
-            },
+          // Check DB status for matched agents so we don't route to paused/inactive agents
+          let activeRoles: Set<string>;
+          try {
+            const rows = await systemQuery<{ role: string }>(
+              "SELECT role FROM company_agents WHERE status = 'active' AND role = ANY($1)",
+              [matches.map((m) => m.role)],
+            );
+            activeRoles = new Set(rows.map((r) => r.role));
+          } catch {
+            // If DB is unreachable, return all matches (graceful degradation)
+            activeRoles = new Set(matches.map((m) => m.role));
+          }
+
+          const activeMatches = matches.filter((m) => activeRoles.has(m.role));
+          const pausedMatches = matches.filter((m) => !activeRoles.has(m.role));
+
+          const result: Record<string, unknown> = {
+            matches: activeMatches.map((m) => ({
+              agent: m.name,
+              role: m.role,
+              why: m.reason,
+              how_to_reach: `Use send_agent_message with to_agent="${m.role}"`,
+            })),
           };
+
+          if (pausedMatches.length > 0) {
+            result.unavailable = pausedMatches.map((m) => ({
+              agent: m.name,
+              role: m.role,
+              status: 'paused or inactive',
+              note: `${m.name} is currently unavailable. Contact chief-of-staff to get them reactivated, or message ops (Atlas) to resume them.`,
+            }));
+          }
+
+          // If all matches are paused, suggest Sarah as fallback
+          if (activeMatches.length === 0) {
+            result.matches = [{
+              agent: 'Sarah Chen',
+              role: 'chief-of-staff',
+              why: `The usual handler(s) for this need (${pausedMatches.map(m => m.name).join(', ')}) are currently paused/inactive. Sarah can help route to an alternative or reactivate them.`,
+              how_to_reach: 'Use send_agent_message with to_agent="chief-of-staff"',
+            }];
+          }
+
+          return { success: true, data: result };
         }
 
         // Fallback: suggest Sarah as the router

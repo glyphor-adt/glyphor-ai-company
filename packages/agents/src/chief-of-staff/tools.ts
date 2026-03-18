@@ -2140,6 +2140,19 @@ export function createOrchestrationTools(
         updateParams.push(assignmentId);
         await systemQuery(`UPDATE work_assignments SET ${setClauses.join(', ')} WHERE id = $${updateParams.length}`, updateParams);
 
+        // ── Dual-write to assignment_evaluations (append-only) ──
+        try {
+          const rawScore = params.quality_score as number;
+          await systemQuery(
+            `INSERT INTO assignment_evaluations
+             (assignment_id, run_id, evaluator_type, evaluator_agent_id, score_raw, score_normalized, feedback)
+             VALUES ($1, $2, 'cos', $3, $4, $5, $6)`,
+            [assignmentId, null, 'chief-of-staff', rawScore, rawScore / 100, params.evaluation as string],
+          );
+        } catch (err) {
+          console.warn(`[evaluate_assignment] assignment_evaluations write failed:`, (err as Error).message);
+        }
+
         // Emit assignment.revised event to wake the target agent
         if (nextAction === 'iterate') {
           const [assignment] = await systemQuery(

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
+import { normalizeText } from '../lib/normalizeText';
 import ChatMarkdown from '../components/ChatMarkdown';
 import {
   Card,
@@ -93,7 +94,7 @@ function normalizeRunContent(text: string): string {
     alternatives: 'Alternatives',
   };
 
-  let value = text.trim();
+  let value = normalizeText(text).trim();
 
   value = value.replace(/^##\s*#\s*/gm, '## ');
 

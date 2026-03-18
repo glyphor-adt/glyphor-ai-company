@@ -680,46 +680,67 @@ const _comm  = ['send_agent_message', 'check_messages', 'call_meeting'] as const
 const _dm    = ['send_teams_dm', 'read_teams_dm'] as const;
 const _event = ['emit_insight', 'emit_alert'] as const;
 const _assign = ['read_my_assignments', 'submit_assignment_output', 'flag_assignment_blocker'] as const;
-const _toolReq = ['request_tool_access', 'request_new_tool'] as const;
+const _toolReq = ['request_tool_access', 'request_new_tool', 'list_my_tools', 'check_tool_access', 'tool_search'] as const;
 const _toolGrant = ['grant_tool_access', 'revoke_tool_access'] as const;
 const _graph = ['trace_causes', 'trace_impact', 'query_knowledge_graph', 'add_knowledge'] as const;
-const _sp    = ['upload_to_sharepoint'] as const;
-const _ci    = ['get_company_vitals', 'update_company_vitals', 'update_vitals_highlights', 'promote_to_org_knowledge', 'get_org_knowledge', 'create_knowledge_route', 'get_knowledge_routes', 'detect_contradictions', 'record_process_pattern', 'get_process_patterns', 'propose_authority_change', 'get_authority_proposals'] as const;
+const _sp    = ['upload_to_sharepoint', 'search_sharepoint', 'read_sharepoint_document'] as const;
+const _ci    = ['get_company_vitals', 'update_company_vitals', 'update_vitals_highlights', 'promote_to_org_knowledge', 'get_org_knowledge', 'create_knowledge_route', 'get_knowledge_routes', 'detect_contradictions', 'record_process_pattern', 'get_process_patterns', 'propose_authority_change', 'get_authority_proposals', 'read_company_doctrine', 'update_doctrine_section'] as const;
 const _agentCreate = ['create_specialist_agent', 'list_my_created_agents', 'retire_created_agent'] as const;
 const _agentDir = ['get_agent_directory', 'who_handles'] as const;
-const _core  = [..._mem, ..._comm, ..._dm, ..._event, ..._assign, ..._toolReq] as const;
+const _deliver = ['publish_deliverable', 'get_deliverables'] as const;
+const _extA2a = ['discover_external_agents'] as const;
+const _teamOrch = ['assign_team_task', 'create_sub_team_assignment', 'review_team_output', 'notify_founders', 'check_team_status', 'check_team_assignments', 'escalate_to_sarah'] as const;
+const _peer = ['request_peer_work', 'create_handoff', 'peer_data_request'] as const;
+const _init = ['propose_initiative'] as const;
+const _diag = ['check_table_schema', 'diagnose_column_error', 'list_tables', 'check_tool_health'] as const;
+const _core  = [..._mem, ..._comm, ..._dm, ..._event, ..._assign, ..._toolReq, ..._deliver, ..._extA2a] as const;
 
 export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
   'chief-of-staff': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
     'get_recent_activity', 'get_pending_decisions', 'get_product_metrics', 'get_financials', 'read_company_memory', 'send_briefing', 'create_decision'],
   cto: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
+    ..._teamOrch, ..._peer, ..._init, ..._diag,
     'list_tool_requests', 'review_tool_request', 'register_tool', 'deactivate_tool', 'list_registered_tools',
-    'get_platform_health', 'get_cloud_run_metrics', 'get_infrastructure_costs', 'get_recent_activity', 'read_company_memory', 'write_health_report', 'log_activity', 'get_github_pr_status'],
+    'get_platform_health', 'get_cloud_run_metrics', 'get_infrastructure_costs', 'get_recent_activity',
+    'read_company_memory', 'write_health_report', 'log_activity', 'get_github_pr_status',
+    'get_ci_health', 'get_repo_stats', 'create_github_issue', 'list_cloud_builds', 'get_cloud_build_logs',
+    'create_decision', 'get_file_contents', 'create_or_update_file', 'create_branch', 'create_github_pr',
+    'merge_github_pr', 'query_db_health', 'query_db_table', 'list_agents', 'get_agent_run_history',
+    'update_agent_status', 'get_agent_schedules', 'update_agent_schedule', 'get_agent_performance',
+    'create_incident', 'resolve_incident', 'deploy_cloud_run', 'rollback_cloud_run',
+    'update_model_config', 'query_ai_usage', 'comment_on_pr', 'list_recent_commits', 'post_to_teams',
+    'inspect_cloud_run_service', 'update_cloud_run_secrets', 'web_search', 'invoke_fuse_build'],
   cpo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
+    ..._teamOrch, ..._peer, ..._init,
     'get_product_metrics', 'get_recent_activity', 'read_company_memory', 'get_financials', 'write_product_analysis', 'log_activity', 'create_decision'],
   cfo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
+    ..._peer, ..._init,
     'get_financials', 'get_product_metrics', 'get_recent_activity', 'read_company_memory', 'calculate_unit_economics', 'write_financial_report', 'log_activity', 'query_stripe_mrr', 'query_stripe_subscriptions', 'create_decision'],
   cmo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
+    ..._teamOrch, ..._peer, ..._init,
     'get_product_metrics', 'get_recent_activity', 'read_company_memory', 'write_content', 'write_company_memory', 'log_activity', 'create_decision'],
   'vp-sales': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
+    ..._peer, ..._init,
     'get_product_metrics', 'get_financials', 'get_recent_activity', 'read_company_memory', 'write_pipeline_report', 'write_company_memory', 'log_activity', 'create_decision'],
   'vp-design': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
+    ..._teamOrch, ..._peer, ..._init,
     'run_lighthouse', 'run_lighthouse_batch', 'get_design_quality_summary', 'get_design_tokens', 'get_component_library', 'get_template_registry', 'write_design_audit', 'get_recent_activity', 'read_company_memory', 'log_activity', 'create_decision'],
-  ops: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci,
-    'query_agent_runs', 'query_agent_health', 'query_data_sync_status', 'query_events_backlog', 'query_cost_trends', 'trigger_agent_run', 'retry_failed_run', 'retry_data_sync', 'pause_agent'],
+  ops: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._diag,
+    'query_agent_runs', 'query_agent_health', 'query_data_sync_status', 'query_events_backlog', 'query_cost_trends', 'trigger_agent_run', 'retry_failed_run', 'retry_data_sync', 'pause_agent', 'resume_agent'],
   clo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir],
   'vp-research': [..._core, ..._toolGrant, ..._graph, ..._sp,
+    ..._teamOrch, ..._peer, ..._init,
     'web_search', 'web_fetch', 'search_news', 'submit_research_packet'],
   'head-of-hr': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._agentCreate, ..._agentDir,
     'view_access_matrix', 'view_pending_grant_requests', 'audit_workforce', 'validate_agent', 'update_agent_profile',
     'update_agent_name', 'retire_agent', 'reactivate_agent', 'list_stale_agents', 'set_reports_to', 'write_hr_log',
     'generate_avatar', 'provision_agent', 'enrich_agent_profile'],
   // Sub-team — Engineering
-  'platform-engineer': [..._core, ..._graph, ..._sp,
+  'platform-engineer': [..._core, ..._graph, ..._sp, ..._diag,
     'query_cloud_run_metrics', 'run_health_check', 'query_gemini_latency', 'query_db_health', 'query_uptime', 'get_repo_code_health', 'query_vercel_health', 'log_activity', 'list_cloud_builds', 'get_cloud_build_logs', 'create_github_issue'],
   'quality-engineer': [..._core, ..._graph, ..._sp,
     'query_build_logs', 'query_error_patterns', 'create_bug_report', 'query_test_results', 'log_activity', 'list_cloud_builds', 'get_cloud_build_logs', 'get_github_actions_runs', 'create_github_bug'],
-  'devops-engineer': [..._core, ..._graph, ..._sp,
+  'devops-engineer': [..._core, ..._graph, ..._sp, ..._diag,
     'query_cache_metrics', 'query_pipeline_metrics', 'query_resource_utilization', 'query_cold_starts', 'identify_unused_resources', 'calculate_cost_savings', 'log_activity', 'get_pipeline_runs', 'get_recent_commits', 'query_vercel_builds', 'comment_on_pr', 'list_cloud_builds'],
   // Sub-team — Product
   'user-researcher': [..._core, ..._graph, ..._sp,

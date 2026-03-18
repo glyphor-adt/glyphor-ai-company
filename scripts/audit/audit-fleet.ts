@@ -242,6 +242,28 @@ async function auditFleet(): Promise<FleetAuditReport> {
   };
 
   // Write reports
+  // ── Resolve stale fleet_findings that weren't re-detected ──
+  try {
+    const auditedRoles = reports.map(r => r.role);
+    // For each audited agent, resolve findings whose finding_type is no longer in recommendations
+    for (const report of reports) {
+      const activeTypes = new Set(
+        report.recommendations
+          .filter((r: { priority: string }) => r.priority === 'P0' || r.priority === 'P1')
+          .map((r: { category: string }) => r.category),
+      );
+      await systemQuery(
+        `UPDATE fleet_findings
+         SET resolved_at = NOW()
+         WHERE agent_id = $1 AND resolved_at IS NULL
+           AND finding_type != ALL($2::text[])`,
+        [report.role, [...activeTypes]],
+      );
+    }
+  } catch (err) {
+    console.warn('[audit-fleet] fleet_findings resolution failed:', (err as Error).message);
+  }
+
   const outputDir = path.join(ROOT, 'audit-reports');
   await mkdir(outputDir, { recursive: true });
 

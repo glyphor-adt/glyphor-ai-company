@@ -140,7 +140,7 @@ body {
 
 .dark .mesh-gradient {
   background-color: #07090f;
-  background-image: none;
+  background-image: url('/3d-render.jpg');
   background-position: center center;
   background-size: cover;
   background-repeat: no-repeat;

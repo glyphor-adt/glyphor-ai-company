@@ -481,6 +481,19 @@ export function createTeamOrchestrationTools(
               [evaluation, qualityScore ?? 8, 'completed', now, assignmentId],
             );
 
+            // ── Dual-write to assignment_evaluations (append-only) ──
+            try {
+              const rawScore = (qualityScore ?? 8) as number;
+              await systemQuery(
+                `INSERT INTO assignment_evaluations
+                 (assignment_id, run_id, evaluator_type, evaluator_agent_id, score_raw, score_normalized, feedback)
+                 VALUES ($1, $2, 'team', $3, $4, $5, $6)`,
+                [assignmentId, null, ctx.agentRole, rawScore, (rawScore - 1) / 9, evaluation],
+              );
+            } catch (err) {
+              console.warn(`[TeamOrchestration] assignment_evaluations write failed:`, (err as Error).message);
+            }
+
             // Log acceptance
             await systemQuery(
               'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
@@ -510,6 +523,19 @@ export function createTeamOrchestrationTools(
               'UPDATE work_assignments SET evaluation = $1, status = $2, updated_at = $3 WHERE id = $4',
               [evaluation, 'needs_revision', now, assignmentId],
             );
+
+            // ── Dual-write to assignment_evaluations (append-only) ──
+            try {
+              const rawScore = (qualityScore ?? 5) as number;
+              await systemQuery(
+                `INSERT INTO assignment_evaluations
+                 (assignment_id, run_id, evaluator_type, evaluator_agent_id, score_raw, score_normalized, feedback)
+                 VALUES ($1, $2, 'team', $3, $4, $5, $6)`,
+                [assignmentId, null, ctx.agentRole, rawScore, (rawScore - 1) / 9, evaluation],
+              );
+            } catch (err) {
+              console.warn(`[TeamOrchestration] assignment_evaluations write failed:`, (err as Error).message);
+            }
 
             // Notify the team member
             await systemQuery(

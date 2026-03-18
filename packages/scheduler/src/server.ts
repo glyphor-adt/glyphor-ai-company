@@ -31,6 +31,8 @@ import { DeepDiveEngine } from './deepDiveEngine.js';
 import { StrategyLabEngine, type StrategyAnalysisType } from './strategyLabEngine.js';
 
 const DB_RUN_ID_TURN_PREFIX = '__db_run_id__:';
+const ASSIGNMENT_ID_TURN_PREFIX = '__assignment_id__:';
+const DIRECTIVE_ID_TURN_PREFIX = '__directive_id__:';
 import {
   exportAnalysisMarkdown, exportAnalysisJSON,
   exportAnalysisPPTX, exportAnalysisDOCX,
@@ -233,6 +235,8 @@ const agentExecutor = async (
   const message = (payload.message as string) || undefined;
   let conversationHistory = payload.conversationHistory as ConversationTurn[] | undefined;
   const dbRunId = typeof payload.runId === 'string' ? payload.runId : undefined;
+  const payloadAssignmentId = typeof payload.assignmentId === 'string' ? payload.assignmentId : undefined;
+  const payloadDirectiveId = typeof payload.directiveId === 'string' ? payload.directiveId : undefined;
 
   // Thread multimodal attachments: inject as a carrier turn at the end of
   // conversationHistory so they reach CompanyAgentRunner without modifying
@@ -250,6 +254,21 @@ const agentExecutor = async (
     conversationHistory = [
       ...conversationHistory,
       { role: 'user', content: '__multimodal_attachments__', timestamp: Date.now(), attachments: rawAttach },
+    ];
+  }
+  // Inject assignment/directive IDs as carrier turns so they reach baseAgentRunner
+  if (payloadAssignmentId) {
+    if (!conversationHistory) conversationHistory = [];
+    conversationHistory = [
+      ...conversationHistory,
+      { role: 'user', content: `${ASSIGNMENT_ID_TURN_PREFIX}${payloadAssignmentId}`, timestamp: Date.now() },
+    ];
+  }
+  if (payloadDirectiveId) {
+    if (!conversationHistory) conversationHistory = [];
+    conversationHistory = [
+      ...conversationHistory,
+      { role: 'user', content: `${DIRECTIVE_ID_TURN_PREFIX}${payloadDirectiveId}`, timestamp: Date.now() },
     ];
   }
 

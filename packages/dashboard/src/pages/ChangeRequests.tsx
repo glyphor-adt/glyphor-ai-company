@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth';
 import { Card, Skeleton, timeAgo } from '../components/ui';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import type { DashboardChangeRequest } from '../lib/types';
+import { normalizeText } from '../lib/normalizeText';
 import { MdAdd, MdClose, MdOpenInNew, MdCode, MdBugReport, MdAutoFixHigh, MdBuild, MdCheck, MdBlock } from 'react-icons/md';
 
 /* ── Constants ─────────────────────────────────── */
@@ -337,7 +338,7 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
           {r.agent_notes && (
             <div className="text-xs">
               <span className="text-txt-faint">Agent Notes:</span>
-              <p className="mt-1 text-txt-secondary whitespace-pre-wrap rounded bg-raised p-3 text-[12px]">{r.agent_notes}</p>
+              <p className="mt-1 text-txt-secondary whitespace-pre-wrap rounded bg-raised p-3 text-[12px]">{normalizeText(r.agent_notes)}</p>
             </div>
           )}
           {r.rejection_reason && (

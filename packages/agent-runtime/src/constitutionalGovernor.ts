@@ -206,12 +206,28 @@ export class ConstitutionalGovernor {
     evaluation: ConstitutionalEvaluation,
     preRevisionConfidence?: number,
     postRevisionConfidence?: number,
+    assignmentId?: string,
   ): Promise<void> {
     await systemQuery(
-      `INSERT INTO constitutional_evaluations (run_id, agent_role, constitution_version, principle_scores, overall_adherence, violations, revision_triggered, pre_revision_confidence, post_revision_confidence)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [runId, agentRole, constitutionVersion, JSON.stringify(evaluation.principleScores), evaluation.overallAdherence, JSON.stringify(evaluation.violations), evaluation.revisionRequired, preRevisionConfidence, postRevisionConfidence],
+      `INSERT INTO constitutional_evaluations (run_id, agent_role, constitution_version, principle_scores, overall_adherence, violations, revision_triggered, pre_revision_confidence, post_revision_confidence, assignment_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [runId, agentRole, constitutionVersion, JSON.stringify(evaluation.principleScores), evaluation.overallAdherence, JSON.stringify(evaluation.violations), evaluation.revisionRequired, preRevisionConfidence, postRevisionConfidence, assignmentId ?? null],
     );
+
+    // Dual-write to assignment_evaluations (append-only) if assignment is known
+    if (assignmentId) {
+      try {
+        await systemQuery(
+          `INSERT INTO assignment_evaluations
+           (assignment_id, run_id, evaluator_type, evaluator_agent_id, score_raw, score_normalized, feedback)
+           VALUES ($1, $2, 'constitutional', $3, $4, $5, $6)`,
+          [assignmentId, null, agentRole, evaluation.overallAdherence, evaluation.overallAdherence,
+           evaluation.revisionRequired ? `Violations: ${evaluation.violations.join(', ')}` : 'Passed'],
+        );
+      } catch (err) {
+        console.warn(`[ConstitutionalGovernor] assignment_evaluations write failed:`, (err as Error).message);
+      }
+    }
   }
 
   /**

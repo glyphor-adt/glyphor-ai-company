@@ -706,6 +706,27 @@ export async function auditAgent(role: string): Promise<AgentAuditReport> {
     temperatureOutlier, teamMemberCount, teamMembersWithRunners, dbMaxTurns,
   });
 
+  // ── Write P0/P1 findings to fleet_findings for live scoring ──
+  try {
+    const scorableFindings = recommendations.filter(
+      (r: { priority: string }) => r.priority === 'P0' || r.priority === 'P1',
+    );
+    for (const finding of scorableFindings) {
+      const penalty = finding.priority === 'P0' ? 0.15 : 0.05;
+      await systemQuery(
+        `INSERT INTO fleet_findings (agent_id, severity, finding_type, description, score_penalty)
+         SELECT $1, $2, $3, $4, $5
+         WHERE NOT EXISTS (
+           SELECT 1 FROM fleet_findings
+           WHERE agent_id = $1 AND finding_type = $3 AND resolved_at IS NULL
+         )`,
+        [role, finding.priority, finding.category, finding.description, penalty],
+      );
+    }
+  } catch (err) {
+    console.warn(`[audit-agent] fleet_findings write failed for ${role}:`, (err as Error).message);
+  }
+
   return {
     role,
     timestamp: new Date().toISOString(),

@@ -10,6 +10,7 @@
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
+import { normalizeText } from '../lib/normalizeText';
 
 const IMAGE_URL_RE = /\.(png|jpe?g|gif|webp|svg|avif|bmp)(\?.*)?$/i;
 const MEDIA_HOSTS = ['media.glyphor.ai', 'imagedelivery.net', 'cloudflareimages.com'];
@@ -18,7 +19,8 @@ const VIDEO_EXT_RE = /\.(mp4|webm|mov)(\?.*)?$/i;
 /** Turn bare media-host URLs into markdown image syntax so react-markdown renders them */
 const BARE_MEDIA_URL_RE = /(?<![(\[!])(https?:\/\/(?:media\.glyphor\.ai|imagedelivery\.net|cloudflareimages\.com)[^\s)>\]]+)/gi;
 function preProcessContent(text: string): string {
-  return text.replace(BARE_MEDIA_URL_RE, (raw) => {
+  const normalized = normalizeText(text);
+  return normalized.replace(BARE_MEDIA_URL_RE, (raw) => {
     // Strip trailing sentence punctuation that isn't part of the URL
     const url = raw.replace(/[.,;:!?]+$/, '');
     return `![Generated image](${url})`;

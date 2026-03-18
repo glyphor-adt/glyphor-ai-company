@@ -3,6 +3,7 @@ import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, Md
 import Markdown from 'react-markdown';
 import { SCHEDULER_URL } from '../lib/firebase';
 import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import { normalizeText } from '../lib/normalizeText';
 
 /* ── Types ─────────────────────────────────────── */
 
@@ -837,7 +838,7 @@ function DDFrameworks({ record }: { record: DeepDiveRecord }) {
       {convergence && (
         <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Framework Convergence</p>
-          <p className="text-[12px] text-txt-primary leading-relaxed whitespace-pre-wrap">{convergence}</p>
+          <p className="text-[12px] text-txt-primary leading-relaxed whitespace-pre-wrap">{normalizeText(convergence)}</p>
         </div>
       )}
 

@@ -34,6 +34,8 @@ import { estimateModelCost } from '@glyphor/shared/models';
 import { systemQuery } from '@glyphor/shared/db';
 
 const DB_RUN_ID_TURN_PREFIX = '__db_run_id__:';
+const ASSIGNMENT_ID_TURN_PREFIX = '__assignment_id__:';
+const DIRECTIVE_ID_TURN_PREFIX = '__directive_id__:';
 import type { RedisCache } from './redisCache.js';
 import type { ContextDistiller } from './contextDistiller.js';
 import type { RuntimeToolFactory } from './runtimeToolFactory.js';
@@ -167,6 +169,14 @@ export abstract class BaseAgentRunner {
     let initialAttachments: ConversationAttachment[] | undefined;
     const cleanHistory = (config.conversationHistory ?? []).filter((t) => {
       if (t.content.startsWith(DB_RUN_ID_TURN_PREFIX)) {
+        return false;
+      }
+      if (t.content.startsWith(ASSIGNMENT_ID_TURN_PREFIX)) {
+        config.assignmentId = config.assignmentId ?? t.content.slice(ASSIGNMENT_ID_TURN_PREFIX.length);
+        return false;
+      }
+      if (t.content.startsWith(DIRECTIVE_ID_TURN_PREFIX)) {
+        config.directiveId = config.directiveId ?? t.content.slice(DIRECTIVE_ID_TURN_PREFIX.length);
         return false;
       }
       if (t.content === '__multimodal_attachments__' && t.attachments?.length) {
@@ -767,6 +777,8 @@ ${memPrompt}`, timestamp: Date.now() });
               constitution.version,
               constResult,
               reasoningResult?.overallConfidence,
+              undefined,
+              config.assignmentId,
             );
 
             // Apply trust delta based on constitutional compliance
@@ -893,6 +905,8 @@ ${memPrompt}`, timestamp: Date.now() });
       void harvestTaskOutcome(result, {
         runId: config.id,
         agentRole: config.role,
+        assignmentId: config.assignmentId ?? undefined,
+        directiveId: config.directiveId ?? undefined,
       }).catch(() => {});
 
       return result;
@@ -903,6 +917,8 @@ ${memPrompt}`, timestamp: Date.now() });
       void harvestTaskOutcome(errResult, {
         runId: config.id,
         agentRole: config.role,
+        assignmentId: config.assignmentId ?? undefined,
+        directiveId: config.directiveId ?? undefined,
       }).catch(() => {});
       return errResult;
     }

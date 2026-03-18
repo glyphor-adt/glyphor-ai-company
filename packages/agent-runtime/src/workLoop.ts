@@ -134,6 +134,10 @@ export interface WorkLoopResult {
   priority?: 1 | 1.5 | 2 | 3 | 4 | 5 | 6;
   /** Message to pass to the agent */
   message?: string;
+  /** Work assignment ID for outcome linkage */
+  assignmentId?: string;
+  /** Founder directive ID for outcome linkage */
+  directiveId?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -331,10 +335,11 @@ export async function executeWorkLoop(
     assigned_by: string | null;
     updated_at: string | null;
     assignment_type: string | null;
+    directive_id: string | null;
     founder_directives: { title?: string; priority?: string; description?: string } | null;
   }>(
     `SELECT wa.id, wa.task_description, wa.expected_output AS instructions, wa.status, wa.evaluation, wa.assigned_to,
-            wa.priority, wa.assigned_by, wa.updated_at, wa.assignment_type,
+            wa.priority, wa.assigned_by, wa.updated_at, wa.assignment_type, wa.directive_id,
             json_build_object('title', fd.title, 'priority', fd.priority, 'description', fd.description) AS founder_directives
       FROM work_assignments wa
       LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
@@ -436,6 +441,8 @@ export async function executeWorkLoop(
         reason: `active_assignments:${standardAssignments.length}`,
         priority: 2,
         message: execMessage,
+        assignmentId: assignment.id,
+        directiveId: assignment.directive_id ?? undefined,
       };
     }
 
@@ -455,6 +462,8 @@ export async function executeWorkLoop(
         reason: `peer_requests:${peerAssignments.length}`,
         priority: 3,
         message: `PEER WORK REQUEST from ${assignment.assigned_by ?? 'a colleague'} (priority: ${assignment.priority}):\n${assignment.task_description}\n\nExpected deliverable:\n${(assignment.instructions as string) || 'Provide the requested output.'}\n\nWhen complete: call submit_assignment_output(assignment_id="${assignment.id}", output=..., status="completed").`,
+        assignmentId: assignment.id,
+        directiveId: assignment.directive_id ?? undefined,
       };
     }
   }

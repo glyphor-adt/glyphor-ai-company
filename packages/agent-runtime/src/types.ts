@@ -27,6 +27,10 @@ export interface AgentConfig {
   dryRun?: boolean;                  // When true, mutative tools are intercepted and logged
   /** Prior conversation turns for multi-turn chat (on_demand). */
   conversationHistory?: ConversationTurn[];
+  /** Work assignment ID (threaded from dispatch for outcome linkage). */
+  assignmentId?: string;
+  /** Founder directive ID (threaded from dispatch for outcome linkage). */
+  directiveId?: string;
 }
 
 export type CompanyAgentRole =

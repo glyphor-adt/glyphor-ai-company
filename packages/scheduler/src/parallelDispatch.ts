@@ -183,7 +183,10 @@ export async function dispatchWaves(
 
         try {
           await withTimeout(
-            executor(agent.role, agent.task, agent.context),
+            executor(agent.role, agent.task, {
+              ...agent.context,
+              ...(agent.assignmentId ? { assignmentId: agent.assignmentId } : {}),
+            }),
             DISPATCH_TIMEOUT_MS,
           );
           result.dispatched.push(agent.role);
@@ -315,6 +318,8 @@ export async function resolveAndDispatchDependents(
         message: execMessage,
         priority: 'reactive',
         wake_reason: 'dependency_resolved',
+        assignmentId: dep.id,
+        directiveId: dep.directive_id ?? undefined,
       }).catch(err => {
         console.error(`[ParallelDispatch] Dependent dispatch failed for ${agentRole}:`, (err as Error).message);
       });

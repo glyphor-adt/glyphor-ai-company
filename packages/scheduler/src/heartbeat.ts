@@ -227,7 +227,7 @@ export class HeartbeatManager {
             priority: 'heartbeat',
             ...needs.context,
           },
-          assignmentId,
+          assignmentId: assignmentId ?? (needs.context.assignmentId as string | undefined),
           dependsOn,
         });
       }
@@ -415,6 +415,8 @@ export class HeartbeatManager {
             contextTier: workResult.contextTier ?? 'standard',
             priority: workResult.priority,
             message: workResult.message,
+            assignmentId: workResult.assignmentId,
+            directiveId: workResult.directiveId,
           },
         };
       }

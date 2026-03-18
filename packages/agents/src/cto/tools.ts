@@ -951,7 +951,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           type: 'string',
           description: 'Filter by status (default: all)',
           required: false,
-          enum: ['active', 'inactive', 'disabled'],
+          enum: ['active', 'paused', 'inactive', 'disabled'],
         },
         department: {
           type: 'string',
@@ -1028,18 +1028,18 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'update_agent_status',
-      description: 'Activate or deactivate an agent. Use this to disable a misbehaving agent or re-enable one after a fix.',
+      description: 'Change an agent\'s status. Use to reactivate a paused agent, disable a misbehaving one, or re-enable after a fix. Agents paused by Atlas (ops) can be reactivated by setting status to "active".',
       parameters: {
         agent_role: {
           type: 'string',
-          description: 'Agent role ID (e.g. "platform-engineer", "devops-engineer")',
+          description: 'Agent role ID (e.g. "platform-engineer", "devops-engineer", "vp-design")',
           required: true,
         },
         status: {
           type: 'string',
-          description: 'New status',
+          description: 'New status (use "active" to reactivate a paused agent)',
           required: true,
-          enum: ['active', 'inactive'],
+          enum: ['active', 'paused', 'inactive'],
         },
         reason: {
           type: 'string',

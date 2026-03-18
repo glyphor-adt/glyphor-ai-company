@@ -450,6 +450,18 @@ export function createExecutiveOrchestrationTools(
               [feedback, qualityScore, 'completed', now, assignmentId],
             );
 
+            // ── Dual-write to assignment_evaluations (append-only) ──
+            try {
+              await systemQuery(
+                `INSERT INTO assignment_evaluations
+                 (assignment_id, run_id, evaluator_type, evaluator_agent_id, score_raw, score_normalized, feedback)
+                 VALUES ($1, $2, 'executive', $3, $4, $5, $6)`,
+                [assignmentId, null, agentRole, qualityScore, (qualityScore - 1) / 4, feedback],
+              );
+            } catch (err) {
+              console.warn(`[ExecOrchestration] assignment_evaluations write failed:`, (err as Error).message);
+            }
+
             // Trigger dependency resolution
             dispatchDependentAssignments(assignmentId).catch(err => {
               console.warn('[ExecOrchestration] Dependency dispatch failed:', (err as Error).message);
@@ -473,6 +485,18 @@ export function createExecutiveOrchestrationTools(
               'UPDATE work_assignments SET evaluation = $1, quality_score = $2, status = $3, updated_at = $4 WHERE id = $5',
               [feedback, qualityScore, 'needs_revision', now, assignmentId],
             );
+
+            // ── Dual-write to assignment_evaluations (append-only) ──
+            try {
+              await systemQuery(
+                `INSERT INTO assignment_evaluations
+                 (assignment_id, run_id, evaluator_type, evaluator_agent_id, score_raw, score_normalized, feedback)
+                 VALUES ($1, $2, 'executive', $3, $4, $5, $6)`,
+                [assignmentId, null, agentRole, qualityScore, (qualityScore - 1) / 4, feedback],
+              );
+            } catch (err) {
+              console.warn(`[ExecOrchestration] assignment_evaluations write failed:`, (err as Error).message);
+            }
 
             // Signal Learning Governor
             try {
