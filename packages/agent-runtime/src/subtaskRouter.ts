@@ -34,7 +34,7 @@ export interface SubtaskRoutingDecision {
   reason: string;
 }
 
-const DEFAULT_MODEL = 'gpt-5-mini-2025-08-07';
+const DEFAULT_MODEL = 'gemini-3.1-flash-lite-preview';
 const COMPLEXITY_RANK: Record<SubtaskComplexity, number> = {
   trivial: 0,
   standard: 1,
@@ -159,12 +159,12 @@ export function classifySubtask(context: SubtaskRoutingContext): SubtaskClassifi
   };
 }
 
-export function selectSubtaskModel(
+export async function selectSubtaskModel(
   context: SubtaskRoutingContext,
   classification: SubtaskClassification,
-): RoutingDecision {
+): Promise<RoutingDecision> {
   const promptContext = buildTurnContext(context.history, context.actionReceipts, context.lastTextOutput);
-  let decision = resolveModelConfig({
+  let decision = await resolveModelConfig({
     role: context.role,
     task: context.task,
     message: promptContext,
@@ -209,9 +209,9 @@ function summarizeClassification(classification: SubtaskClassification): string 
   return requirements.length > 0 ? requirements.join(', ') : 'lightweight execution';
 }
 
-export function routeSubtask(context: SubtaskRoutingContext): SubtaskRoutingDecision {
+export async function routeSubtask(context: SubtaskRoutingContext): Promise<SubtaskRoutingDecision> {
   const classification = classifySubtask(context);
-  const routing = selectSubtaskModel(context, classification);
+  const routing = await selectSubtaskModel(context, classification);
   return {
     classification,
     routing,

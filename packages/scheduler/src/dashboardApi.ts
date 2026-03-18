@@ -126,6 +126,10 @@ const TABLE_MAP: Record<string, string> = {
   'delegation-performance': 'delegation_performance',
   'ora_sessions': 'ora_sessions',
   'ora-sessions': 'ora_sessions',
+  'model-registry': 'model_registry',
+  'model_registry': 'model_registry',
+  'routing-config': 'routing_config',
+  'routing_config': 'routing_config',
 };
 
 // ─── Helpers ────────────────────────────────────────────────────

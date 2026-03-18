@@ -246,7 +246,7 @@ export abstract class BaseAgentRunner {
         console.warn(`[${this.archetype}Runner] Trust load failed for ${config.role}:`, (err as Error).message);
       }
     }
-    let routingAudit = routeSubtask({
+    let routingAudit = await routeSubtask({
       role: config.role,
       task: taskForContext,
       history,
@@ -525,7 +525,7 @@ ${memPrompt}`, timestamp: Date.now() });
               }
           }
 
-          routingAudit = routeSubtask({
+          routingAudit = await routeSubtask({
             role: config.role,
             task: taskForContext,
             history: composedHistory,

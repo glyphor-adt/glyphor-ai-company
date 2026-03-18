@@ -568,6 +568,31 @@ export class HeartbeatManager {
     } catch (err) {
       console.warn('[Heartbeat] Failed to deactivate expired grants:', (err as Error).message);
     }
+
+    // Check for model deprecations approaching shutdown
+    // Runs every cycle but only logs warnings — lightweight query
+    try {
+      const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const expiring = await systemQuery<{ slug: string; display_name: string; shutdown_at: string; route_name: string | null }>(
+        `SELECT mr.slug, mr.display_name, mr.shutdown_at, rc.route_name
+         FROM model_registry mr
+         LEFT JOIN routing_config rc ON rc.model_slug = mr.slug AND rc.is_active = true
+         WHERE mr.shutdown_at IS NOT NULL
+           AND mr.shutdown_at < $1
+           AND mr.is_active = true`,
+        [thirtyDaysFromNow],
+      );
+      for (const model of expiring) {
+        if (model.route_name) {
+          console.warn(
+            `[ModelDeprecation] ${model.display_name} (${model.slug}) shuts down ${model.shutdown_at} ` +
+            `and is used by route "${model.route_name}". Migrate immediately.`,
+          );
+        }
+      }
+    } catch {
+      // model_registry may not exist yet — ignore silently
+    }
   }
 
   /**

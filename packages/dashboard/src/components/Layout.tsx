@@ -19,6 +19,7 @@ const NAV = [
   { to: '/builder', label: 'Builder', icon: BuilderIcon },
   { to: '/governance', label: 'Governance', icon: GovernanceIcon },
   { to: '/change-requests', label: 'Change Requests', icon: ChangeRequestIcon },
+  { to: '/models', label: 'Models', icon: ModelsIcon },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ] as const;
 
@@ -443,6 +444,17 @@ function ChangeRequestIcon({ className }: { className?: string }) {
       <rect x="2" y="1.5" width="12" height="13" rx="1.5" />
       <path d="M5 5h3M5 8h6" />
       <path d="M10 4l2 2-2 2" />
+    </svg>
+  );
+}
+
+function ModelsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <rect x="1.5" y="3" width="5" height="5" rx="1" />
+      <rect x="9.5" y="3" width="5" height="5" rx="1" />
+      <rect x="5.5" y="8" width="5" height="5" rx="1" />
+      <path d="M4 8v1M12 8v1M8 3v-1" />
     </svg>
   );
 }

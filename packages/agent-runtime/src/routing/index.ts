@@ -5,7 +5,7 @@ export type { RoutingDomain, DomainRoutingContext, DomainRoutingResult, DomainSi
 export { TOOL_CAPABILITY_MAP } from './toolCapabilityMap.js';
 export { inferCapabilities } from './inferCapabilities.js';
 export type { RoutingContext } from './inferCapabilities.js';
-export { resolveModelConfig } from './resolveModel.js';
+export { resolveModelConfig, invalidateRouteCache } from './resolveModel.js';
 export type { RoutingDecision } from './resolveModel.js';
 export { PRE_CHECK_REGISTRY, runDeterministicPreCheck } from './preChecks.js';
 export type { DeterministicPreCheckContext, DeterministicPreCheckResult, DeterministicPreCheck } from './preChecks.js';

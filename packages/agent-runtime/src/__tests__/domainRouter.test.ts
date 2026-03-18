@@ -44,8 +44,8 @@ describe('domain-aware runtime routing', () => {
     expect(capabilities).toContain('needs_code_execution');
   });
 
-  it('routes finance domain work away from nano defaults', () => {
-    const decision = resolveModelConfig({
+  it('routes finance domain work away from nano defaults', async () => {
+    const decision = await resolveModelConfig({
       role: 'cfo',
       task: 'on_demand',
       message: 'Please handle this assignment.',
@@ -59,8 +59,8 @@ describe('domain-aware runtime routing', () => {
     expect(decision.enableCodeExecution).toBe(true);
   });
 
-  it('escalates cross-domain work with stronger reasoning settings', () => {
-    const decision = resolveModelConfig({
+  it('escalates cross-domain work with stronger reasoning settings', async () => {
+    const decision = await resolveModelConfig({
       role: 'market-research-analyst',
       task: 'on_demand',
       message: 'Synthesize legal compliance findings, contract risks, and budget forecast recommendations from research evidence.',

@@ -22,8 +22,8 @@ describe('subtaskRouter', () => {
     expect(classification.requiresReasoning).toBe(false);
   });
 
-  it('routes code-edit subtasks to a stronger model', () => {
-    const decision = routeSubtask({
+  it('routes code-edit subtasks to a stronger model', async () => {
+    const decision = await routeSubtask({
       role: 'platform-engineer',
       task: 'on_demand',
       history: [

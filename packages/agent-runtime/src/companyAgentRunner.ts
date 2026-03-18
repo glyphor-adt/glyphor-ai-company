@@ -1707,7 +1707,7 @@ export class CompanyAgentRunner {
         console.warn(`[CompanyAgentRunner] Trust load failed for ${config.role}:`, (err as Error).message);
       }
     }
-    let routingAudit = routeSubtask({
+    let routingAudit = await routeSubtask({
       role: config.role,
       task,
       history,
@@ -2046,7 +2046,7 @@ export class CompanyAgentRunner {
             );
           }
 
-          routingAudit = routeSubtask({
+          routingAudit = await routeSubtask({
             role: config.role,
             task,
             history: compressedHistory,
