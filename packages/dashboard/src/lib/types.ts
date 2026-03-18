@@ -676,12 +676,13 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
 /* ── Agent built-in tools (from code — NOT DB grants) ── */
 // Shared tool groups for readability
 const _mem   = ['save_memory', 'recall_memories'] as const;
-const _comm  = ['send_agent_message', 'check_messages', 'call_meeting'] as const;
+const _comm  = ['send_agent_message', 'check_messages'] as const;
 const _dm    = ['send_teams_dm', 'read_teams_dm'] as const;
 const _event = ['emit_insight', 'emit_alert'] as const;
 const _assign = ['read_my_assignments', 'submit_assignment_output', 'flag_assignment_blocker'] as const;
 const _toolReq = ['request_tool_access', 'request_new_tool', 'list_my_tools', 'check_tool_access', 'tool_search'] as const;
 const _toolGrant = ['grant_tool_access', 'revoke_tool_access'] as const;
+const _toolReg = ['deactivate_tool', 'list_registered_tools', 'list_tool_requests', 'register_tool', 'review_tool_request'] as const;
 const _graph = ['trace_causes', 'trace_impact', 'query_knowledge_graph', 'add_knowledge'] as const;
 const _sp    = ['upload_to_sharepoint', 'search_sharepoint', 'read_sharepoint_document'] as const;
 const _ci    = ['get_company_vitals', 'update_company_vitals', 'update_vitals_highlights', 'promote_to_org_knowledge', 'get_org_knowledge', 'create_knowledge_route', 'get_knowledge_routes', 'detect_contradictions', 'record_process_pattern', 'get_process_patterns', 'propose_authority_change', 'get_authority_proposals', 'read_company_doctrine', 'update_doctrine_section'] as const;
@@ -693,14 +694,60 @@ const _teamOrch = ['assign_team_task', 'create_sub_team_assignment', 'review_tea
 const _peer = ['request_peer_work', 'create_handoff', 'peer_data_request'] as const;
 const _init = ['propose_initiative'] as const;
 const _diag = ['check_table_schema', 'diagnose_column_error', 'list_tables', 'check_tool_health'] as const;
+// Design & Frontend
+const _frontendCode = ['check_pr_status', 'create_design_branch', 'create_frontend_pr', 'list_frontend_files', 'read_frontend_file', 'search_frontend_code', 'write_frontend_file'] as const;
+const _screenshot = ['check_responsive', 'compare_screenshots', 'screenshot_component', 'screenshot_page'] as const;
+const _designSys = ['get_color_palette', 'get_component_usage', 'get_design_tokens', 'get_typography_scale', 'list_components', 'update_design_token', 'validate_tokens_vs_implementation'] as const;
+const _asset = ['generate_and_publish_asset', 'generate_favicon_set', 'generate_image', 'list_assets', 'optimize_image', 'publish_asset_deliverable', 'upload_asset'] as const;
+const _scaffold = ['clone_and_modify', 'list_templates', 'scaffold_component', 'scaffold_page'] as const;
+const _figma = ['create_figma_dev_resource', 'export_figma_images', 'get_figma_comments', 'get_figma_components', 'get_figma_dev_resources', 'get_figma_file', 'get_figma_file_metadata', 'get_figma_image_fills', 'get_figma_project_files', 'get_figma_styles', 'get_figma_team_components', 'get_figma_team_projects', 'get_figma_team_styles', 'get_figma_version_history', 'manage_figma_webhooks', 'post_figma_comment', 'resolve_figma_comment'] as const;
+const _storybook = ['storybook_check_coverage', 'storybook_get_story_source', 'storybook_list_stories', 'storybook_save_baseline', 'storybook_screenshot', 'storybook_screenshot_all', 'storybook_visual_diff'] as const;
+const _logo = ['create_logo_variation', 'create_social_avatar', 'restyle_logo'] as const;
+const _auditDsgn = ['check_ai_smell', 'check_build_errors', 'check_bundle_size', 'run_accessibility_audit', 'run_lighthouse_audit', 'validate_brand_compliance'] as const;
+const _deployPrev = ['deploy_preview', 'get_deployment_status', 'list_deployments'] as const;
+const _codex = ['codex', 'codex-reply'] as const;
+const _designBrief = ['ambient-pattern', 'capability-context', 'cta_section', 'footer', 'hero', 'hero-background', 'hero-loop', 'normalize_design_brief', 'value_proposition'] as const;
+const _fuse = ['invoke_fuse_build', 'invoke_fuse_iterate', 'invoke_fuse_upgrade'] as const;
+// Marketing
+const _content = ['approve_content_draft', 'create_content_draft', 'generate_content_image', 'get_content_calendar', 'get_content_drafts', 'get_content_metrics', 'publish_content', 'reject_content_draft', 'submit_content_for_review', 'update_content_draft'] as const;
+const _seo = ['analyze_page_seo', 'get_backlink_profile', 'get_indexing_status', 'get_search_performance', 'submit_sitemap', 'track_keyword_rankings', 'update_seo_data'] as const;
+const _socialMedia = ['get_post_performance', 'get_scheduled_posts', 'get_social_audience', 'get_social_metrics', 'get_trending_topics', 'reply_to_social', 'schedule_social_post'] as const;
+const _mktgIntel = ['analyze_market_trends', 'capture_lead', 'create_experiment', 'get_attribution_data', 'get_experiment_results', 'get_lead_pipeline', 'get_marketing_dashboard', 'monitor_competitor_marketing', 'score_lead'] as const;
+const _canva = ['create_canva_design', 'export_canva_design', 'generate_canva_design', 'get_canva_design', 'get_canva_template_fields', 'list_canva_brand_templates', 'search_canva_designs', 'upload_canva_asset'] as const;
+// Product
+const _prodAnalytics = ['get_cohort_retention', 'get_feature_usage', 'get_funnel_analysis', 'get_usage_metrics', 'segment_users'] as const;
+const _compIntel = ['compare_features', 'get_competitor_profile', 'get_market_landscape', 'monitor_competitor_launches', 'track_competitor', 'track_competitor_pricing', 'update_competitor_profile'] as const;
+const _roadmap = ['create_roadmap_item', 'get_feature_requests', 'get_roadmap', 'manage_feature_flags', 'score_feature_rice', 'update_roadmap_item'] as const;
+// Research
+const _researchRepo = ['create_research_brief', 'get_research_timeline', 'save_research', 'search_research'] as const;
+const _researchMon = ['analyze_ai_adoption', 'analyze_org_structure', 'check_monitors', 'compile_research_digest', 'create_monitor', 'cross_reference_findings', 'get_monitor_history', 'identify_research_gaps', 'search_academic_papers', 'track_ai_benchmarks', 'track_competitor_product', 'track_industry_events', 'track_open_source', 'track_regulatory_changes'] as const;
+const _userResearch = ['analyze_support_tickets', 'create_survey', 'create_user_persona', 'get_survey_results', 'get_user_feedback'] as const;
+// Finance
+const _revenue = ['get_churn_analysis', 'get_customer_ltv', 'get_mrr_breakdown', 'get_revenue_forecast', 'get_stripe_invoices', 'get_subscription_details'] as const;
+const _costMgmt = ['check_budget_status', 'create_budget', 'get_burn_rate', 'get_cost_anomalies', 'get_vendor_costs'] as const;
+const _cashFlow = ['generate_financial_report', 'get_cash_balance', 'get_cash_flow', 'get_margin_analysis', 'get_pending_transactions'] as const;
+// Legal
+const _docuSign = ['check_envelope_status', 'create_signing_envelope', 'list_envelopes', 'resend_envelope', 'send_template_envelope', 'void_envelope'] as const;
+// HR
+const _accessAudit = ['view_access_matrix', 'view_pending_grant_requests'] as const;
+const _entraHR = ['entra_audit_profiles', 'entra_get_user_profile', 'entra_hr_assign_license', 'entra_set_manager', 'entra_update_user_profile', 'entra_upload_user_photo'] as const;
+// Operations & Orchestration
+const _execOrch = ['check_team_status', 'create_team_assignments', 'evaluate_team_output', 'synthesize_team_deliverable'] as const;
+const _opsExt = ['audit_access', 'create_status_report', 'get_access_matrix', 'get_agent_health_dashboard', 'get_data_freshness', 'get_event_bus_health', 'get_platform_audit_log', 'get_system_costs_realtime', 'predict_capacity', 'provision_access', 'revoke_access', 'rotate_secrets'] as const;
+// Engineering
+const _engGap = ['create_test_plan', 'get_build_queue', 'get_code_coverage', 'get_container_logs', 'get_deployment_history', 'get_infrastructure_inventory', 'get_quality_metrics', 'get_service_dependencies', 'run_test_suite', 'scale_service'] as const;
 const _core  = [..._mem, ..._comm, ..._dm, ..._event, ..._assign, ..._toolReq, ..._deliver, ..._extA2a] as const;
 
 export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
+  // ── C-Suite & VPs ──
   'chief-of-staff': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
-    'get_recent_activity', 'get_pending_decisions', 'get_product_metrics', 'get_financials', 'read_company_memory', 'send_briefing', 'create_decision'],
-  cto: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
-    ..._teamOrch, ..._peer, ..._init, ..._diag,
-    'list_tool_requests', 'review_tool_request', 'register_tool', 'deactivate_tool', 'list_registered_tools',
+    'get_recent_activity', 'get_pending_decisions', 'read_proposed_initiatives', 'read_initiatives', 'activate_initiative',
+    'get_product_metrics', 'get_financials', 'read_company_memory', 'send_briefing', 'create_decision',
+    'log_activity', 'check_escalations', 'send_dm', 'create_calendar_event', 'read_founder_directives',
+    'create_work_assignments', 'dispatch_assignment', 'check_assignment_status', 'evaluate_assignment',
+    'update_directive_progress', 'propose_directive', 'delegate_directive'],
+  cto: [..._core, ..._toolGrant, ..._toolReg, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
+    ..._teamOrch, ..._peer, ..._init, ..._diag, ..._fuse, ..._execOrch,
     'get_platform_health', 'get_cloud_run_metrics', 'get_infrastructure_costs', 'get_recent_activity',
     'read_company_memory', 'write_health_report', 'log_activity', 'get_github_pr_status',
     'get_ci_health', 'get_repo_stats', 'create_github_issue', 'list_cloud_builds', 'get_cloud_build_logs',
@@ -709,75 +756,81 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
     'update_agent_status', 'get_agent_schedules', 'update_agent_schedule', 'get_agent_performance',
     'create_incident', 'resolve_incident', 'deploy_cloud_run', 'rollback_cloud_run',
     'update_model_config', 'query_ai_usage', 'comment_on_pr', 'list_recent_commits', 'post_to_teams',
-    'inspect_cloud_run_service', 'update_cloud_run_secrets', 'web_search', 'invoke_fuse_build'],
+    'inspect_cloud_run_service', 'update_cloud_run_secrets', 'web_search'],
   cpo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
-    ..._teamOrch, ..._peer, ..._init,
+    ..._teamOrch, ..._peer, ..._init, ..._prodAnalytics, ..._compIntel, ..._roadmap,
     'get_product_metrics', 'get_recent_activity', 'read_company_memory', 'get_financials', 'write_product_analysis', 'log_activity', 'create_decision'],
-  cfo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
-    ..._peer, ..._init,
+  cfo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentDir,
+    ..._peer, ..._init, ..._revenue, ..._costMgmt, ..._cashFlow,
     'get_financials', 'get_product_metrics', 'get_recent_activity', 'read_company_memory', 'calculate_unit_economics', 'write_financial_report', 'log_activity', 'query_stripe_mrr', 'query_stripe_subscriptions', 'create_decision'],
   cmo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
-    ..._teamOrch, ..._peer, ..._init,
+    ..._teamOrch, ..._peer, ..._init, ..._execOrch,
+    ..._content, ..._seo, ..._socialMedia, ..._mktgIntel, ..._canva, ..._logo, ..._fuse,
     'get_product_metrics', 'get_recent_activity', 'read_company_memory', 'write_content', 'write_company_memory', 'log_activity', 'create_decision'],
-  'vp-sales': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
+  clo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir, ..._docuSign],
+  'vp-sales': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentDir,
     ..._peer, ..._init,
     'get_product_metrics', 'get_financials', 'get_recent_activity', 'read_company_memory', 'write_pipeline_report', 'write_company_memory', 'log_activity', 'create_decision'],
   'vp-design': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
     ..._teamOrch, ..._peer, ..._init,
-    'run_lighthouse', 'run_lighthouse_batch', 'get_design_quality_summary', 'get_design_tokens', 'get_component_library', 'get_template_registry', 'write_design_audit', 'get_recent_activity', 'read_company_memory', 'log_activity', 'create_decision'],
-  ops: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._diag,
-    'query_agent_runs', 'query_agent_health', 'query_data_sync_status', 'query_events_backlog', 'query_cost_trends', 'trigger_agent_run', 'retry_failed_run', 'retry_data_sync', 'pause_agent', 'resume_agent'],
-  clo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir],
+    ..._frontendCode, ..._screenshot, ..._designSys, ..._auditDsgn, ..._designBrief,
+    ..._asset, ..._scaffold, ..._deployPrev, ..._fuse, ..._figma, ..._storybook, ..._canva, ..._logo,
+    'run_lighthouse', 'run_lighthouse_batch', 'get_design_quality_summary', 'get_component_library', 'get_template_registry', 'write_design_audit', 'get_recent_activity', 'read_company_memory', 'log_activity', 'create_decision'],
   'vp-research': [..._core, ..._toolGrant, ..._graph, ..._sp,
-    ..._teamOrch, ..._peer, ..._init,
+    ..._teamOrch, ..._peer, ..._init, ..._researchRepo, ..._researchMon,
     'web_search', 'web_fetch', 'search_news', 'submit_research_packet'],
+  // ── Operations ──
+  ops: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._diag, ..._opsExt,
+    'query_agent_runs', 'query_agent_health', 'query_data_sync_status', 'query_events_backlog', 'query_cost_trends', 'trigger_agent_run', 'retry_failed_run', 'retry_data_sync', 'pause_agent', 'resume_agent'],
   'head-of-hr': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._agentCreate, ..._agentDir,
-    'view_access_matrix', 'view_pending_grant_requests', 'audit_workforce', 'validate_agent', 'update_agent_profile',
+    ..._accessAudit, ..._entraHR,
+    'audit_workforce', 'validate_agent', 'update_agent_profile',
     'update_agent_name', 'retire_agent', 'reactivate_agent', 'list_stale_agents', 'set_reports_to', 'write_hr_log',
     'generate_avatar', 'provision_agent', 'enrich_agent_profile'],
-  // Sub-team — Engineering
-  'platform-engineer': [..._core, ..._graph, ..._sp, ..._diag,
-    'query_cloud_run_metrics', 'run_health_check', 'query_gemini_latency', 'query_db_health', 'query_uptime', 'get_repo_code_health', 'query_vercel_health', 'log_activity', 'list_cloud_builds', 'get_cloud_build_logs', 'create_github_issue'],
-  'quality-engineer': [..._core, ..._graph, ..._sp,
-    'query_build_logs', 'query_error_patterns', 'create_bug_report', 'query_test_results', 'log_activity', 'list_cloud_builds', 'get_cloud_build_logs', 'get_github_actions_runs', 'create_github_bug'],
-  'devops-engineer': [..._core, ..._graph, ..._sp, ..._diag,
-    'query_cache_metrics', 'query_pipeline_metrics', 'query_resource_utilization', 'query_cold_starts', 'identify_unused_resources', 'calculate_cost_savings', 'log_activity', 'get_pipeline_runs', 'get_recent_commits', 'query_vercel_builds', 'comment_on_pr', 'list_cloud_builds'],
-  // Sub-team — Product
-  'user-researcher': [..._core, ..._graph, ..._sp,
-    'query_user_analytics', 'query_build_metadata', 'query_onboarding_funnel', 'run_cohort_analysis', 'query_churn_data', 'design_experiment', 'log_activity'],
-  'competitive-intel': [..._core, ..._graph, ..._sp,
-    'search_competitor_updates', 'search_competitor_news', 'search_product_launches', 'fetch_pricing_intel', 'query_competitor_tech_stack', 'check_job_postings', 'store_intel', 'log_activity'],
-  // Sub-team — Finance
-  // Sub-team — Marketing
-  'content-creator': [..._core, ..._graph, ..._sp,
-    'draft_blog_post', 'draft_social_post', 'draft_case_study', 'draft_email', 'query_content_performance', 'query_top_performing_content', 'log_activity'],
-  'seo-analyst': [..._core, ..._graph, ..._sp,
-    'query_seo_rankings', 'query_keyword_data', 'discover_keywords', 'query_competitor_rankings', 'query_backlinks', 'analyze_content_seo', 'log_activity'],
-  'social-media-manager': [..._core, ..._graph, ..._sp,
-    'schedule_social_post', 'query_social_metrics', 'query_post_performance', 'query_optimal_times', 'query_audience_demographics', 'monitor_mentions', 'log_activity'],
-  // Sub-team — Sales
-  // Sub-team — Design & Frontend
-  'ui-ux-designer': [..._core, ..._graph, ..._sp,
-    'save_component_spec', 'query_design_tokens', 'query_component_implementations', 'log_activity'],
-  'frontend-engineer': [..._core, ..._graph, ..._sp,
-    'run_lighthouse', 'get_file_contents', 'push_component', 'create_component_branch', 'create_component_pr', 'save_component_implementation', 'query_component_specs', 'query_my_implementations', 'log_activity'],
-  'design-critic': [..._core, ..._graph, ..._sp,
-    'grade_build', 'query_build_grades', 'run_lighthouse', 'log_activity'],
-  'template-architect': [..._core, ..._graph, ..._sp,
-    'save_template_variant', 'query_template_variants', 'update_template_status', 'query_build_grades_by_template', 'log_activity'],
-  // Sub-team — Research
-  'competitive-research-analyst': [..._core, ..._graph, ..._sp,
-    'web_search', 'web_fetch', 'search_news', 'submit_research_packet'],
-  'market-research-analyst': [..._core, ..._graph, ..._sp,
-    'web_search', 'web_fetch', 'search_news', 'submit_research_packet'],
-  // Operations & IT
   'm365-admin': [..._core, ..._toolGrant, ..._graph, ..._sp,
     'list_users', 'get_user', 'list_channels', 'list_channel_members', 'add_channel_member', 'create_channel', 'post_to_channel',
     'create_calendar_event', 'list_calendar_events', 'write_admin_log', 'create_decision', 'check_my_access',
     'list_licenses', 'list_groups', 'list_group_members', 'list_app_registrations', 'list_sharepoint_sites', 'get_sharepoint_site_permissions'],
-  'global-admin': [..._core, ..._toolGrant, ..._graph, ..._sp,
+  'global-admin': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._opsExt,
     'list_project_iam', 'grant_project_role', 'revoke_project_role'],
-  // Specialist agents (planned — no runtime yet)
+  // ── Sub-team: Engineering ──
+  'platform-engineer': [..._core, ..._graph, ..._sp, ..._diag, ..._engGap,
+    'query_cloud_run_metrics', 'run_health_check', 'query_gemini_latency', 'query_db_health', 'query_uptime', 'get_repo_code_health', 'query_vercel_health', 'log_activity', 'list_cloud_builds', 'get_cloud_build_logs', 'create_github_issue'],
+  'quality-engineer': [..._core, ..._graph, ..._sp, ..._engGap,
+    'query_build_logs', 'query_error_patterns', 'create_bug_report', 'query_test_results', 'log_activity', 'list_cloud_builds', 'get_cloud_build_logs', 'get_github_actions_runs', 'create_github_bug'],
+  'devops-engineer': [..._core, ..._graph, ..._sp, ..._diag, ..._engGap,
+    'query_cache_metrics', 'query_pipeline_metrics', 'query_resource_utilization', 'query_cold_starts', 'identify_unused_resources', 'calculate_cost_savings', 'log_activity', 'get_pipeline_runs', 'get_recent_commits', 'query_vercel_builds', 'comment_on_pr', 'list_cloud_builds'],
+  // ── Sub-team: Product ──
+  'user-researcher': [..._core, ..._graph, ..._sp, ..._prodAnalytics, ..._userResearch,
+    'query_user_analytics', 'query_build_metadata', 'query_onboarding_funnel', 'run_cohort_analysis', 'query_churn_data', 'design_experiment', 'log_activity'],
+  'competitive-intel': [..._core, ..._graph, ..._sp, ..._compIntel,
+    'search_competitor_updates', 'search_competitor_news', 'search_product_launches', 'fetch_pricing_intel', 'query_competitor_tech_stack', 'check_job_postings', 'store_intel', 'log_activity'],
+  // ── Sub-team: Marketing ──
+  'content-creator': [..._core, ..._graph, ..._sp, ..._content,
+    'draft_blog_post', 'draft_social_post', 'draft_case_study', 'draft_email', 'query_content_performance', 'query_top_performing_content', 'log_activity'],
+  'seo-analyst': [..._core, ..._graph, ..._sp, ..._seo,
+    'query_seo_rankings', 'query_keyword_data', 'discover_keywords', 'query_competitor_rankings', 'query_backlinks', 'analyze_content_seo', 'log_activity'],
+  'social-media-manager': [..._core, ..._graph, ..._sp, ..._socialMedia,
+    'schedule_social_post', 'query_social_metrics', 'query_post_performance', 'query_optimal_times', 'query_audience_demographics', 'monitor_mentions', 'log_activity'],
+  // ── Sub-team: Design & Frontend ──
+  'ui-ux-designer': [..._core, ..._graph, ..._sp,
+    ..._frontendCode, ..._screenshot, ..._designSys, ..._designBrief, ..._asset, ..._fuse, ..._figma, ..._logo,
+    'save_component_spec', 'query_design_tokens', 'query_component_implementations', 'log_activity'],
+  'frontend-engineer': [..._core, ..._graph, ..._sp,
+    ..._frontendCode, ..._screenshot, ..._auditDsgn, ..._scaffold, ..._deployPrev, ..._codex, ..._fuse, ..._storybook,
+    'run_lighthouse', 'get_file_contents', 'push_component', 'create_component_branch', 'create_component_pr', 'save_component_implementation', 'query_component_specs', 'query_my_implementations', 'log_activity'],
+  'design-critic': [..._core, ..._graph, ..._sp,
+    ..._frontendCode, ..._screenshot, ..._designSys, ..._auditDsgn, ..._figma, ..._storybook,
+    'grade_build', 'query_build_grades', 'run_lighthouse', 'log_activity'],
+  'template-architect': [..._core, ..._graph, ..._sp,
+    ..._frontendCode, ..._designSys, ..._asset, ..._scaffold, ..._figma, ..._storybook, ..._logo,
+    'save_template_variant', 'query_template_variants', 'update_template_status', 'query_build_grades_by_template', 'log_activity'],
+  // ── Sub-team: Research ──
+  'competitive-research-analyst': [..._core, ..._graph, ..._sp, ..._researchRepo, ..._researchMon,
+    'web_search', 'web_fetch', 'search_news', 'submit_research_packet'],
+  'market-research-analyst': [..._core, ..._graph, ..._sp, ..._researchRepo, ..._researchMon,
+    'web_search', 'web_fetch', 'search_news', 'submit_research_packet'],
+  // ── Specialist agents (planned — no runtime yet) ──
   'bob-the-tax-pro': [],
   'marketing-intelligence-analyst': [],
   'adi-rose': [],

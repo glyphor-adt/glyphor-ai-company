@@ -1,6 +1,6 @@
 {
   "role": "cto",
-  "timestamp": "2026-03-18T01:42:35.514Z",
+  "timestamp": "2026-03-18T18:25:16.257Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\marcus-reeves.md",
     "exists": true,
@@ -78,7 +78,7 @@
         "category": "engineering",
         "tokenCount": 1505,
         "isOwnDomain": true,
-        "timesUsed": 6,
+        "timesUsed": 21,
         "successRate": 1
       },
       {
@@ -87,7 +87,7 @@
         "category": "engineering",
         "tokenCount": 2020,
         "isOwnDomain": true,
-        "timesUsed": 5,
+        "timesUsed": 21,
         "successRate": 1
       },
       {
@@ -96,7 +96,7 @@
         "category": "engineering",
         "tokenCount": 2717,
         "isOwnDomain": true,
-        "timesUsed": 10,
+        "timesUsed": 26,
         "successRate": 1
       },
       {
@@ -105,7 +105,7 @@
         "category": "design",
         "tokenCount": 162,
         "isOwnDomain": false,
-        "timesUsed": 3,
+        "timesUsed": 17,
         "successRate": 1
       },
       {
@@ -114,7 +114,7 @@
         "category": "engineering",
         "tokenCount": 2261,
         "isOwnDomain": true,
-        "timesUsed": 10,
+        "timesUsed": 26,
         "successRate": 1
       }
     ],
@@ -153,7 +153,7 @@
     "hasAgent365": true,
     "hasGlyphorMcp": true,
     "hasSharePoint": true,
-    "grantedByDb": 241,
+    "grantedByDb": 243,
     "blockedByDb": 0
   },
   "config": {
@@ -163,7 +163,7 @@
     "maxTurnsOverrides": {},
     "isExecutive": true,
     "hasActiveTeamMembers": true,
-    "teamMemberCount": 4,
+    "teamMemberCount": 6,
     "teamMembersWithRunners": 4,
     "runnerMismatch": false,
     "temperatureOutlier": false
@@ -176,16 +176,16 @@
   },
   "runs": {
     "last30Days": {
-      "total": 1346,
-      "completed": 689,
-      "aborted": 122,
+      "total": 1430,
+      "completed": 738,
+      "aborted": 130,
       "timedOut": 0,
-      "maxTurnsReached": 34,
-      "avgTurns": 3.273402674591382,
-      "avgDurationMs": 71386.99628528974,
-      "avgInputTokens": 57814.260772659734,
-      "avgOutputTokens": 1607.1433878157504,
-      "estimatedCost30d": 35.080900000000064
+      "maxTurnsReached": 42,
+      "avgTurns": 3.2664335664335664,
+      "avgDurationMs": 68773.1958041958,
+      "avgInputTokens": 58444.94265734266,
+      "avgOutputTokens": 1560.9650349650349,
+      "estimatedCost30d": 45.47600000000006
     },
     "taskBreakdown": {
       "proactive": {
@@ -194,36 +194,34 @@
         "avgTurns": 2.170886075949367
       },
       "platform_health_check": {
-        "count": 248,
-        "completionRate": 0.4838709677419355,
-        "avgTurns": 2.7903225806451615
+        "count": 257,
+        "completionRate": 0.4669260700389105,
+        "avgTurns": 2.692607003891051
       },
       "on_demand": {
-        "count": 343,
-        "completionRate": 0.6326530612244898,
-        "avgTurns": 2.9096209912536444
+        "count": 405,
+        "completionRate": 0.654320987654321,
+        "avgTurns": 2.8790123456790124
       },
       "work_loop": {
-        "count": 597,
-        "completionRate": 0.5678391959798995,
-        "avgTurns": 3.9748743718592965
+        "count": 610,
+        "completionRate": 0.5573770491803278,
+        "avgTurns": 4.049180327868853
       }
     }
   },
   "assignments": {
     "last30Days": {
-      "received": 92,
-      "completed": 67,
+      "received": 103,
+      "completed": 73,
       "needsRevision": 0,
-      "failed": 10,
-      "avgQualityScore": 10,
-      "avgCompletionTimeMs": 2459888.5
+      "failed": 13,
+      "avgQualityScore": 62.5,
+      "avgCompletionTimeMs": 5825472.590909091
     },
     "commonFailureModes": [
       "Auto-failed: dispatched > 48 hours without execution",
-      "Auto-failed: pending > 24 hours without dispatch",
-      "Not enough to accept. The title says urgent platform work is blocking frontend-engineer, but I don’t have the completed output itself. Resubmit with the exact Cloud Run service or repo, the secret name, expected value source, verification step, and confirmation of what frontend flow this unblocks.",
-      "Can’t approve a platform enablement task without the implementation details. I need the actual work product: which automated design audits were enabled, where they run, required secrets/config, trigger conditions, and how success was verified. Right now I only have the assignment title."
+      "Auto-failed: pending > 24 hours without dispatch"
     ]
   },
   "schedule": {
@@ -253,14 +251,8 @@
     {
       "priority": "P0",
       "category": "health",
-      "description": "Completion rate is 51% (target: >80%). Agent is failing/aborting frequently.",
+      "description": "Completion rate is 52% (target: >80%). Agent is failing/aborting frequently.",
       "effort": "medium"
-    },
-    {
-      "priority": "P0",
-      "category": "quality",
-      "description": "Avg quality score is 10/100. Consistently poor output.",
-      "effort": "large"
     },
     {
       "priority": "P2",

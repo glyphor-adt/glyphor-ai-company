@@ -61,8 +61,10 @@ function buildPoolConfig(): PoolConfig {
     };
   }
 
+  const portStr = firstDefined(process.env.DB_PORT, process.env.PGPORT);
   return {
     host: firstDefined(process.env.DB_HOST, process.env.PGHOST),
+    port: portStr ? parseInt(portStr, 10) : undefined,
     database: firstDefined(process.env.DB_NAME, process.env.PGDATABASE),
     user: firstDefined(process.env.DB_USER, process.env.PGUSER),
     // Empty string yields a standard auth failure instead of opaque type error.
