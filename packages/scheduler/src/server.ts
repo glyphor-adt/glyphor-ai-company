@@ -55,6 +55,7 @@ import { verifyPlan } from './planVerifier.js';
 import { consolidateMemory } from './memoryConsolidator.js';
 import { archiveExpiredMemory } from './memoryArchiver.js';
 import { evaluateBatch } from './batchOutcomeEvaluator.js';
+import { runShadow, getPendingShadowTasks, evaluatePromotion, getWorldStateHealth } from '@glyphor/agent-runtime';
 import { evaluateCascadePredictions } from './cascadePredictionEvaluator.js';
 import { expireTools } from './toolExpirationManager.js';
 import { evaluateCanary } from './canaryEvaluator.js';
@@ -1944,6 +1945,44 @@ const server = createServer(async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[BatchOutcomeEvaluator] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Shadow evaluation endpoint — runs shadow A/B tests for staged prompt versions
+    if (method === 'POST' && url === '/shadow-eval/run') {
+      try {
+        const rawBody = await readBody(req).catch(() => '{}');
+        const body = (rawBody.trim() ? JSON.parse(rawBody) : {}) as { agentId?: string; challengerVersion?: number };
+        if (!body.agentId || !body.challengerVersion) {
+          json(res, 400, { error: 'agentId and challengerVersion required' });
+          return;
+        }
+        const tasks = await getPendingShadowTasks(body.agentId, 5);
+        const results = [];
+        for (const taskInput of tasks) {
+          const result = await runShadow(body.agentId, taskInput, body.challengerVersion);
+          if (result) results.push(result);
+        }
+        const promotion = await evaluatePromotion(body.agentId, body.challengerVersion);
+        json(res, 200, { success: true, shadowRuns: results.length, promotion });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[ShadowEval] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // World state health endpoint — freshness and staleness overview for dashboard
+    if (method === 'GET' && url === '/world-state/health') {
+      try {
+        const health = await getWorldStateHealth();
+        json(res, 200, { success: true, ...health });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[WorldStateHealth] Endpoint error:', message);
         json(res, 500, { success: false, error: message });
       }
       return;

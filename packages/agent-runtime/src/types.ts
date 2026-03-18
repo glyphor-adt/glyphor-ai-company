@@ -353,7 +353,11 @@ export type GlyphorEventType =
   | 'initiative.completed'
   | 'initiative.directive_completed'
   | 'deliverable.published'
-  | 'learning.proposal_signal';
+  | 'learning.proposal_signal'
+  | 'reflection.triggered'
+  | 'shadow_run.requested'
+  | 'prompt_version.promoted'
+  | 'prompt_version.discarded';
 
 export type EventPriority = 'critical' | 'high' | 'normal' | 'low';
 

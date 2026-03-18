@@ -39,6 +39,9 @@ import type { TrustScorer } from './trustScorer.js';
 import { determineVerificationTier, type VerificationDecision } from './verificationPolicy.js';
 import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from './subtaskRouter.js';
 import { learnFromAgentRun } from './skillLearning.js';
+import { readWorldState, writeWorldState, formatWorldStateForPrompt } from './worldStateClient.js';
+import { AGENT_WORLD_STATE_KEYS, AGENT_WORLD_STATE_DOMAIN } from './worldStateKeys.js';
+import { resolveUpstreamContext } from './dependencyResolver.js';
 import { shouldUseClientSideHistoryCompression } from './compaction.js';
 import type { RequestSource } from './providers/types.js';
 import {
@@ -1550,6 +1553,23 @@ export class CompanyAgentRunner {
         });
       }
 
+      // World state + upstream dependency context — standard+ only
+      const worldStateKeys = AGENT_WORLD_STATE_KEYS[config.role];
+      const worldStateDomain = AGENT_WORLD_STATE_DOMAIN[config.role];
+      const worldStatePromise = (tier !== 'light' && tier !== 'task' && worldStateKeys && worldStateDomain)
+        ? readWorldState(worldStateDomain, null, worldStateKeys).catch(err => {
+            console.warn(`[CompanyAgentRunner] World state load failed for ${config.role}:`, (err as Error).message);
+            return null;
+          })
+        : Promise.resolve(null);
+
+      const upstreamContextPromise = (tier !== 'light' && tier !== 'task')
+        ? resolveUpstreamContext(config.role, null).catch(err => {
+            console.warn(`[CompanyAgentRunner] Upstream context load failed for ${config.role}:`, (err as Error).message);
+            return '';
+          })
+        : Promise.resolve('');
+
       // Wrap all pre-run loading with a 60s timeout so a single
       // hung loader (DB, MCP, Graph API) can't leave the run stuck
       // in "running" state until the reaper kills it.
@@ -1573,9 +1593,11 @@ export class CompanyAgentRunner {
         jitPromise,
         orchConfigPromise,
         doctrinePromise,
+        worldStatePromise,
+        upstreamContextPromise,
       ]);
 
-      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, departmentSignal, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult, orchConfigResult, doctrineResult] = await Promise.race([allLoaders, preRunDeadline]);
+      const [memoryResult, briefResult, pendingMessages, ciContext, profileResult, departmentSignal, workingMemory, skillResult, kbResult, bulletinResult, pendingAssignments, jitResult, orchConfigResult, doctrineResult, worldStateResult, upstreamContextResult] = await Promise.race([allLoaders, preRunDeadline]);
 
       // Inject memory context
       if (memoryResult) {
@@ -1693,6 +1715,27 @@ export class CompanyAgentRunner {
             timestamp: Date.now(),
           });
         }
+      }
+
+      // Inject world state context (shared cross-agent knowledge)
+      if (worldStateResult && Object.keys(worldStateResult).length > 0) {
+        const wsBlock = formatWorldStateForPrompt(worldStateResult);
+        if (wsBlock) {
+          history.push({
+            role: 'user',
+            content: `[CONTEXT — Do NOT respond to this message; wait for the user's actual message.]\n\n${wsBlock}`,
+            timestamp: Date.now(),
+          });
+        }
+      }
+
+      // Inject upstream agent outputs (cross-agent dependency context)
+      if (upstreamContextResult) {
+        history.push({
+          role: 'user',
+          content: `[CONTEXT — Do NOT respond to this message; wait for the user's actual message.]\n\n${upstreamContextResult}`,
+          timestamp: Date.now(),
+        });
       }
     }
 
@@ -2405,6 +2448,22 @@ export class CompanyAgentRunner {
         // that should never block the run response (saves 10–20s)
         this.reflectOnRun(config, history, lastTextOutput!, deps.agentMemoryStore!, dbRunId, deps?.knowledgeRouter, deps?.graphWriter, deps?.skillFeedbackWriter, skillContext)
           .catch(err => console.warn(`[CompanyAgentRunner] Reflection failed for ${config.id}:`, (err as Error).message));
+      }
+
+      // ─── WORLD STATE: Write last output for downstream agents ──
+      if (lastTextOutput && !isTaskTier) {
+        writeWorldState(
+          'agent_output',
+          null,
+          `last_output_${config.role}`,
+          {
+            summary: lastTextOutput.slice(0, 2000),
+            task: extractTask(config.id),
+            completed_at: new Date().toISOString(),
+          },
+          config.role,
+          { validUntilHours: 48 },
+        ).catch(err => console.warn(`[CompanyAgentRunner] World state write failed for ${config.role}:`, (err as Error).message));
       }
 
       // ─── EMIT: agent.completed event to event bus ──────────────

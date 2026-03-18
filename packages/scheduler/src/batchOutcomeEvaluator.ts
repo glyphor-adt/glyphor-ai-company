@@ -10,6 +10,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { getRedisCache, TrustScorer } from '@glyphor/agent-runtime';
 import { incrementDownstreamDefects } from '@glyphor/agent-runtime';
+import { reflect, applyMutation, queueShadowEvaluation } from '@glyphor/agent-runtime';
 import { WorldModelUpdater, SharedMemoryLoader, EmbeddingClient } from '@glyphor/company-memory';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -142,6 +143,42 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
       }
     } catch (err) {
       console.warn('[BatchOutcomeEvaluator] World model batch update failed:', (err as Error).message);
+    }
+
+    // ─── Reflection trigger: queue prompt mutations for low-scoring agents ────
+    try {
+      const lowScoreAgents = await systemQuery<{ role: string; performance_score: number }>(
+        `SELECT role, performance_score FROM company_agents
+         WHERE role = ANY($1) AND performance_score IS NOT NULL AND performance_score < 0.65`,
+        [[...new Set(outcomes.map(o => o.agent_role))]],
+      );
+
+      for (const agent of lowScoreAgents) {
+        // Find the most recent run for this agent in this batch
+        const recentRun = await systemQuery<{ run_id: string }>(
+          `SELECT tro.run_id FROM task_run_outcomes tro
+           WHERE tro.agent_role = $1 AND tro.run_id IS NOT NULL
+           ORDER BY tro.created_at DESC LIMIT 1`,
+          [agent.role],
+        );
+        if (!recentRun[0]?.run_id) continue;
+
+        // Fire-and-forget: reflect → mutate → queue shadow
+        reflect(agent.role, recentRun[0].run_id)
+          .then(async (reflection) => {
+            if (!reflection) return;
+            const newVersion = await applyMutation(agent.role, reflection);
+            if (newVersion) {
+              queueShadowEvaluation(agent.role, newVersion);
+              console.log(`[BatchOutcomeEvaluator] Reflection queued shadow eval for ${agent.role} v${newVersion}`);
+            }
+          })
+          .catch((err) => {
+            console.warn(`[BatchOutcomeEvaluator] Reflection failed for ${agent.role}:`, (err as Error).message);
+          });
+      }
+    } catch (err) {
+      console.warn('[BatchOutcomeEvaluator] Reflection trigger failed:', (err as Error).message);
     }
   } finally {
     await cache.del(LOCK_KEY);

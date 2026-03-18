@@ -732,7 +732,7 @@ const _docuSign = ['check_envelope_status', 'create_signing_envelope', 'list_env
 const _accessAudit = ['view_access_matrix', 'view_pending_grant_requests'] as const;
 const _entraHR = ['entra_audit_profiles', 'entra_get_user_profile', 'entra_hr_assign_license', 'entra_set_manager', 'entra_update_user_profile', 'entra_upload_user_photo'] as const;
 // Operations & Orchestration
-const _execOrch = ['check_team_status', 'create_team_assignments', 'evaluate_team_output', 'synthesize_team_deliverable'] as const;
+const _execOrch = ['create_team_assignments', 'evaluate_team_output', 'synthesize_team_deliverable'] as const;
 const _opsExt = ['audit_access', 'create_status_report', 'get_access_matrix', 'get_agent_health_dashboard', 'get_data_freshness', 'get_event_bus_health', 'get_platform_audit_log', 'get_system_costs_realtime', 'predict_capacity', 'provision_access', 'revoke_access', 'rotate_secrets'] as const;
 // Engineering
 const _engGap = ['create_test_plan', 'get_build_queue', 'get_code_coverage', 'get_container_logs', 'get_deployment_history', 'get_infrastructure_inventory', 'get_quality_metrics', 'get_service_dependencies', 'run_test_suite', 'scale_service'] as const;
@@ -811,7 +811,7 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
   'seo-analyst': [..._core, ..._graph, ..._sp, ..._seo,
     'query_seo_rankings', 'query_keyword_data', 'discover_keywords', 'query_competitor_rankings', 'query_backlinks', 'analyze_content_seo', 'log_activity'],
   'social-media-manager': [..._core, ..._graph, ..._sp, ..._socialMedia,
-    'schedule_social_post', 'query_social_metrics', 'query_post_performance', 'query_optimal_times', 'query_audience_demographics', 'monitor_mentions', 'log_activity'],
+    'query_social_metrics', 'query_post_performance', 'query_optimal_times', 'query_audience_demographics', 'monitor_mentions', 'log_activity'],
   // ── Sub-team: Design & Frontend ──
   'ui-ux-designer': [..._core, ..._graph, ..._sp,
     ..._frontendCode, ..._screenshot, ..._designSys, ..._designBrief, ..._asset, ..._fuse, ..._figma, ..._logo,

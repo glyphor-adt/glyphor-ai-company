@@ -204,3 +204,21 @@ export type { EmailSignatureOptions } from './config/emailSignatures.js';
 // Triangulated chat
 export { triangulate, classifyQuery, fanOut, runJudge, calculateCost, buildTriangulationContext } from './triangulation/index.js';
 export type { ProviderResponse, JudgeResult } from './triangulation/index.js';
+// Prompt versioning
+export { getActivePrompt, getPromptVersion, getCurrentVersionNumber, getLatestVersionNumber } from './activePromptResolver.js';
+export type { PromptVersionRow } from './activePromptResolver.js';
+// World state
+export { readWorldState, writeWorldState, formatWorldStateForPrompt, getStaleEntries, getWorldStateHealth } from './worldStateClient.js';
+export type { WorldStateEntry, WorldStateHealthSummary } from './worldStateClient.js';
+// Shadow runs
+export { runShadow, getPendingShadowTasks } from './shadowRunner.js';
+export { evaluatePromotion, queueShadowEvaluation } from './shadowPromotion.js';
+export type { PromotionOutcome } from './shadowPromotion.js';
+// Reflection + Prompt Mutation
+export { reflect } from './reflectionAgent.js';
+export type { ReflectionResult } from './reflectionAgent.js';
+export { applyMutation } from './promptMutator.js';
+// World state config
+export { AGENT_WORLD_STATE_KEYS, AGENT_WORLD_STATE_DOMAIN } from './worldStateKeys.js';
+export { AGENT_DEPENDENCIES } from './agentDependencies.js';
+export { resolveUpstreamContext } from './dependencyResolver.js';

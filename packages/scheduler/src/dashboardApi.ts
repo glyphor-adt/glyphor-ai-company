@@ -314,10 +314,15 @@ function parseQueryParams(
 
   for (const [key, value] of params.entries()) {
     if (key === 'order') {
-      const parts = value.split('.');
-      const col = sanitizeIdentifier(parts[0]);
-      const dir = parts[1]?.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
-      order = ` ORDER BY ${col} ${dir}`;
+      // Support multi-column: order=tier,slug or order=priority.desc
+      const columns = value.split(',');
+      const orderParts = columns.map((col) => {
+        const dotParts = col.split('.');
+        const name = sanitizeIdentifier(dotParts[0]);
+        const dir = dotParts[1]?.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+        return `${name} ${dir}`;
+      });
+      order = ` ORDER BY ${orderParts.join(', ')}`;
       continue;
     }
     if (key === 'limit') {

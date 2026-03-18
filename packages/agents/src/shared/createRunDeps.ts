@@ -7,7 +7,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import type { GlyphorEventBus, RunDependencies, AgentProfileData, CompanyAgentRole, SkillContext, SkillFeedback } from '@glyphor/agent-runtime';
 import type { ClassifiedRunDependencies } from '@glyphor/agent-runtime';
-import { ORCHESTRATOR_ROLES, getRedisCache, ReasoningEngine, JitContextRetriever, ModelClient, ContextDistiller, RuntimeToolFactory } from '@glyphor/agent-runtime';
+import { ORCHESTRATOR_ROLES, getRedisCache, ReasoningEngine, JitContextRetriever, ModelClient, ContextDistiller, RuntimeToolFactory, getActivePrompt } from '@glyphor/agent-runtime';
 import { ConstitutionalGovernor, TrustScorer } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
@@ -194,8 +194,9 @@ export function createRunDeps(
     },
 
     dynamicBriefLoader: async (agentRole: string): Promise<string | null> => {
-      const [data] = await systemQuery('SELECT system_prompt FROM agent_briefs WHERE agent_id = $1', [agentRole]);
-      return data?.system_prompt ?? null;
+      // Versioned prompt lookup — replaces agent_briefs.
+      // Returns null if no versioned prompt exists; caller falls back to static systemPrompt.ts.
+      return getActivePrompt(agentRole);
     },
 
     collectiveIntelligenceLoader: async (role: CompanyAgentRole): Promise<string | null> => {

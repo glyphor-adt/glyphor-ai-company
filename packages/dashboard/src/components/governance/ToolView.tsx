@@ -316,9 +316,9 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
   const mergedAgentTools = useMemo(() => {
     const merged: Record<string, string[]> = {};
 
-    // Start with static tools
+    // Start with static tools (deduplicated — shared groups can overlap)
     for (const [role, tools] of Object.entries(AGENT_BUILT_IN_TOOLS)) {
-      merged[role] = [...tools];
+      merged[role] = [...new Set(tools)];
     }
 
     // Overlay live grants — adds tools not in the static list
