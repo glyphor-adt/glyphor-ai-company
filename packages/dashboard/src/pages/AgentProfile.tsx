@@ -297,7 +297,7 @@ export default function AgentProfile() {
             <button
               onClick={() => avatarInputRef.current?.click()}
               disabled={uploadingAvatar}
-              className="absolute inset-0 flex items-center justify-center rounded-full bg-slate-900/35 dark:bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+              className="theme-overlay-backdrop absolute inset-0 flex items-center justify-center rounded-full opacity-0 transition-opacity group-hover:opacity-100"
               title="Change profile image"
             >
               {uploadingAvatar ? (
@@ -691,7 +691,7 @@ function OverviewTab({
               const pm = getToolPlatformMeta(t);
               return (
                 <span key={t} className={`inline-flex items-center gap-1.5 rounded-lg border ${pm.borderColor} ${pm.bgColor} px-3 py-1.5 font-mono text-[12px] ${pm.color} transition-colors hover:opacity-80`}>
-                  <span className="rounded bg-surface dark:bg-black/20 px-1 py-px text-[9px] font-semibold uppercase tracking-wider opacity-70">{pm.label}</span>
+                    <span className="theme-glass-chip rounded px-1 py-px text-[9px] font-semibold uppercase tracking-wider opacity-70">{pm.label}</span>
                   {t}
                 </span>
               );
@@ -1583,7 +1583,7 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
                     const pm = getToolPlatformMeta(t);
                     return (
                       <span key={t} className={`inline-flex items-center gap-1.5 rounded-lg border ${pm.borderColor} ${pm.bgColor} px-3 py-1.5 font-mono text-[12px] ${pm.color}`}>
-                        <span className="rounded bg-surface dark:bg-black/20 px-1 py-px text-[9px] font-semibold uppercase tracking-wider opacity-70">{pm.label}</span>
+                        <span className="theme-glass-chip rounded px-1 py-px text-[9px] font-semibold uppercase tracking-wider opacity-70">{pm.label}</span>
                         {t}
                       </span>
                     );

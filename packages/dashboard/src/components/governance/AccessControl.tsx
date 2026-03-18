@@ -250,7 +250,7 @@ function IAMDrillDown({ items }: { items: IAMState[] }) {
               </div>
               <div className="mt-3 overflow-x-auto rounded-xl border border-primary/20">
                 <table className="w-full min-w-[720px] text-left text-[12px]">
-                  <thead className="bg-surface dark:bg-black/30 text-txt-muted">
+                    <thead className="theme-glass-panel-strong text-txt-muted">
                     <tr>
                       <th className="px-3 py-2 font-medium">Credential</th>
                       <th className="px-3 py-2 font-medium">Agent</th>

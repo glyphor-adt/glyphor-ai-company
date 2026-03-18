@@ -564,7 +564,7 @@ function NodeDetail({
   const incoming = edges.filter((e) => e.target_id === node.id);
 
   return (
-    <div className="absolute right-0 top-0 h-full w-[340px] border-l border-primary/20 bg-surface dark:bg-black/30 backdrop-blur-[12px] overflow-y-auto">
+    <div className="theme-glass-panel-strong absolute right-0 top-0 h-full w-[340px] border-l border-primary/20 overflow-y-auto">
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
