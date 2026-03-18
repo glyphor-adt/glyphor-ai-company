@@ -772,3 +772,54 @@ export async function createAgent365ToolsFromManifest(
 }
 
 export type { MCPServerConfig, McpClientTool };
+
+/**
+ * Acquire a Microsoft Graph token attributed to a specific agentic user.
+ *
+ * Uses the same 3-step Agent Identity Authentication as Agent365 MCP tools,
+ * but targets the Graph API audience instead of the Agent365 Tools API.
+ * The resulting token carries `idtyp=user` so Graph operations (file uploads,
+ * folder creation, etc.) are attributed to the agent's Entra user identity
+ * rather than the anonymous app registration ("SharePoint App").
+ *
+ * Returns null if Agent365 is not enabled or the agent has no identity configured.
+ */
+export async function getAgenticGraphToken(agentRole: string): Promise<string | null> {
+  if (process.env.AGENT365_ENABLED !== 'true') return null;
+
+  const clientId = process.env.AGENT365_CLIENT_ID;
+  const clientSecret = process.env.AGENT365_CLIENT_SECRET ?? '';
+  const tenantId = process.env.AGENT365_TENANT_ID;
+  if (!clientId || !tenantId) return null;
+
+  // Import lazily to avoid circular deps — these come from @glyphor/agent-runtime
+  const { getAgentBlueprintSpId, getAgentEntraUserId } = await import('@glyphor/agent-runtime');
+
+  const agentAppInstanceId = getAgentBlueprintSpId(agentRole)
+    ?? process.env.AGENT365_APP_INSTANCE_ID;
+  const agenticUserId = getAgentEntraUserId(agentRole)
+    ?? process.env.AGENT365_AGENTIC_USER_ID;
+
+  if (!agentAppInstanceId || !agenticUserId) return null;
+
+  if (!tokenProvider) {
+    tokenProvider = new MsalTokenProvider({
+      clientId,
+      clientSecret,
+      tenantId,
+    } as AuthConfiguration);
+  }
+
+  try {
+    const token = await tokenProvider.getAgenticUserToken(
+      tenantId,
+      agentAppInstanceId,
+      agenticUserId,
+      ['https://graph.microsoft.com/.default'],
+    );
+    return token;
+  } catch (err) {
+    console.warn(`[Agent365] Failed to acquire Graph token for ${agentRole}: ${(err as Error).message}. Falling back to app-only.`);
+    return null;
+  }
+}

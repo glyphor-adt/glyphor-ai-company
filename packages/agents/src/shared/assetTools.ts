@@ -278,7 +278,7 @@ async function publishAssetDeliverableInternal(
     const sharePointResult = await uploadToSharePoint(
       sharePointFileName,
       referenceContent,
-      { folder: sharePointFolder },
+      { folder: sharePointFolder, agentRole: ctx.agentRole },
     );
     const durableReference = sharePointResult.webUrl || `sharepoint://${sharePointFolder}/${sharePointFileName}`;
 

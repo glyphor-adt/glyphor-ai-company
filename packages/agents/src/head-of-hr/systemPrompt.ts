@@ -82,7 +82,7 @@ For agents created with minimal profiles (e.g., by exec create_specialist_agent)
 
 ## Department → Channel Mapping
 - Engineering: #general, #engineering
-- Product: #general, #product-fuse, #product-pulse
+- Product: #general, #product
 - Finance: #general, #financials
 - Marketing: #general, #growth
 - Sales: #general, #growth

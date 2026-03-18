@@ -277,6 +277,7 @@ export {
 export {
   createAgent365Tools,
   createAgent365ToolsFromManifest,
+  getAgenticGraphToken,
   type Agent365Config,
   type Agent365ToolBridge,
 } from './agent365/index.js';

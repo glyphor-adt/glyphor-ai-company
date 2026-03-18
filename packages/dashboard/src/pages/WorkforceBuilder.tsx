@@ -434,7 +434,7 @@ export default function WorkforceBuilder() {
                     <span className="text-lg" style={{ color: TEMPLATES.find(x => x.id === selected.templateId)?.color }}>{(() => { const T = TEMPLATES.find(x => x.id === selected.templateId); return T ? <T.icon className="h-5 w-5" /> : <MdStar className="h-5 w-5" />; })()}</span>
                     <h3 className="text-sm font-semibold text-txt-primary">Configure Agent</h3>
                   </div>
-                  <button onClick={() => setSelectedId(null)} className="grid h-6 w-6 place-items-center rounded text-txt-faint transition-colors hover:bg-raised dark:hover:bg-black/35 hover:text-txt-primary"><MdClose /></button>
+                  <button onClick={() => setSelectedId(null)} className="grid h-6 w-6 place-items-center rounded text-txt-faint transition-colors hover:bg-raised hover:text-txt-primary"><MdClose /></button>
                 </div>
 
                 {/* Fields */}

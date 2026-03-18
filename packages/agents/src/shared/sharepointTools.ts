@@ -53,7 +53,7 @@ export function createSharePointTools(): ToolDefinition[] {
           const result = await uploadToSharePoint(
             params.file_name as string,
             params.content as string,
-            { folder },
+            { folder, agentRole: ctx.agentRole },
           );
 
           return {

@@ -2,6 +2,7 @@ import { systemQuery } from '@glyphor/shared/db';
 import { createHash } from 'node:crypto';
 import { inflateRawSync } from 'node:zlib';
 import { getM365Token } from '../credentials/m365Router.js';
+import { getAgenticGraphToken } from '../agent365/index.js';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 
 interface GraphDriveItem {
@@ -844,11 +845,19 @@ async function resolveUploadTarget(
   remotePath: string;
   safeName: string;
   token: string;
+  agentRole?: string;
 }> {
   const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
-  const token = await getM365Token('write_sharepoint');
+  // Try agent-attributed token first (idtyp=user → shows agent name in SharePoint).
+  // Falls back to app-only token (shows "SharePoint App") if Agent365 is unavailable.
+  const agentRole = options?.agentRole;
+  const agenticToken = agentRole ? await getAgenticGraphToken(agentRole) : null;
+  const token = agenticToken ?? await getM365Token('write_sharepoint');
+  if (agenticToken) {
+    console.log(`[SharePoint] Using agentic user token for ${agentRole}`);
+  }
   const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
 
   const folder = options?.folder ?? process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
@@ -861,6 +870,7 @@ async function resolveUploadTarget(
     remotePath,
     safeName,
     token,
+    agentRole,
   };
 }
 
@@ -912,6 +922,9 @@ export interface SharePointUploadOptions {
   siteId?: string;
   driveId?: string;
   folder?: string;
+  /** Agent role — when set, the upload uses the agent's agentic user token so
+   *  SharePoint attributes the file to the agent instead of "SharePoint App". */
+  agentRole?: string;
 }
 
 export interface SharePointBinaryUploadOptions extends SharePointUploadOptions {
@@ -992,7 +1005,7 @@ export async function uploadToSharePoint(
     status: 'active',
     error_text: null,
     knowledge_id: knowledgeId,
-    metadata: { extension: getExtension(target.safeName), uploadedBy: 'agent' },
+    metadata: { extension: getExtension(target.safeName), uploadedBy: target.agentRole ?? 'agent' },
   });
 
   return { webUrl: item.webUrl ?? '', knowledgeId };
@@ -1037,7 +1050,7 @@ export async function uploadBinaryToSharePoint(
     knowledge_id: knowledgeId,
     metadata: {
       extension: getExtension(target.safeName),
-      uploadedBy: 'agent',
+      uploadedBy: target.agentRole ?? 'agent',
       kind: 'binary',
       ...(options?.metadata ?? {}),
     },
