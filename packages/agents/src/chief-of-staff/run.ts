@@ -276,6 +276,12 @@ Goal: Drive organizational learning — identify what worked, what didn't, and h
       const lifecycleContext = await gatherDirectiveLifecycleContext();
       initialMessage = `Run your orchestration cycle:
 
+SCOPE LIMIT: Process the top 5 highest-priority active directives per cycle.
+If more than 5 are active, focus on critical/high first. Standing directives
+(source='standing') are lower priority than founder-created directives —
+only process standing directives if no regular directives need attention.
+NEVER mark standing directives as completed or cancelled.
+
 1. Use read_initiatives first so you understand active initiative sequencing and dependency state
 2. Read founder directives with status="open" (proposed, active, paused), using initiative_id filters when you need to inspect a specific initiative chain
 3. For initiative-derived directives, only move downstream work forward when prerequisite directives are completed

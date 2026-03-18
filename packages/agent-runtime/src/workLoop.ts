@@ -494,10 +494,10 @@ export async function executeWorkLoop(
   // Roles listed in PROACTIVE_COOLDOWNS autonomously identify high-value work.
   let cooldownMs = getProactiveCooldown(agentRole);
   if (cooldownMs != null) {
-    // Guard: if last 3+ consecutive runs were proactive aborts, disable proactive
-    // entirely until a non-proactive successful run breaks the cycle.
-    const recentForProactiveGuard = await systemQuery<{ task: string; status: string }>(
-      `SELECT task, status FROM agent_runs WHERE agent_id = $1 ORDER BY completed_at DESC LIMIT 5`,
+    // Guard: if last 3+ consecutive runs were proactive aborts, check whether
+    // they were caused by the directive gate vs. genuine agent failures.
+    const recentForProactiveGuard = await systemQuery<{ task: string; status: string; error: string | null }>(
+      `SELECT task, status, error FROM agent_runs WHERE agent_id = $1 ORDER BY completed_at DESC LIMIT 5`,
       [agentRole],
     );
     let consecutiveProactiveAborts = 0;
@@ -505,12 +505,50 @@ export async function executeWorkLoop(
       if (run.task === 'proactive' && run.status === 'aborted') consecutiveProactiveAborts++;
       else break;
     }
+
+    // Check the directive gate FIRST so we can use it for abort-spiral distinction
+    const proactiveDirectiveGate = await checkProactiveDirectiveCoverage(agentRole);
+
     if (consecutiveProactiveAborts >= 3) {
-      return {
-        shouldRun: false,
-        reason: `proactive_disabled:${consecutiveProactiveAborts}_consecutive_aborts`,
-        priority: 6,
-      };
+      // Distinguish gate-caused aborts from genuine agent failures.
+      // If the gate NOW passes and the aborts were gate-related, clear the spiral.
+      const abortErrors = recentForProactiveGuard
+        .filter(r => r.task === 'proactive' && r.status === 'aborted')
+        .slice(0, 3)
+        .map(r => r.error ?? '');
+
+      const allGateAborts = abortErrors.every(err =>
+        err.includes('no_active_directive') ||
+        err.includes('proactive_blocked') ||
+        err.includes('no_directive_coverage') ||
+        err === '',  // empty error = fast-exit abort (often gate-related)
+      );
+
+      if (allGateAborts && proactiveDirectiveGate.allowed) {
+        // Gate now passes — abort spiral was caused by missing directives, not
+        // agent failure. Insert a synthetic completed entry to break the streak.
+        console.log(`[workLoop] Clearing abort spiral for ${agentRole} — gate now passes (${proactiveDirectiveGate.source})`);
+        await systemQuery(
+          `INSERT INTO agent_runs (agent_id, task, status, turns, duration_ms, created_at, completed_at)
+           VALUES ($1, 'proactive_gate_reset', 'completed', 0, 0, NOW(), NOW())`,
+          [agentRole],
+        ).catch(err => console.warn(`[workLoop] Failed to reset abort spiral for ${agentRole}:`, (err as Error).message));
+        // Fall through to normal proactive check
+      } else if (allGateAborts && !proactiveDirectiveGate.allowed) {
+        // Gate still blocked — skip but don't add another abort
+        return {
+          shouldRun: false,
+          reason: `proactive_gate_still_blocked:${proactiveDirectiveGate.department ?? 'unmapped'}`,
+          priority: 6,
+        };
+      } else {
+        // Genuine agent failures — respect the cooldown
+        return {
+          shouldRun: false,
+          reason: `proactive_disabled:${consecutiveProactiveAborts}_consecutive_aborts`,
+          priority: 6,
+        };
+      }
     }
 
     // Check if last 3 proactive runs produced no tool calls — if so, double cooldown
@@ -524,13 +562,18 @@ export async function executeWorkLoop(
       cooldownMs = cooldownMs * 2; // Double cooldown for agents producing empty proactive runs
     }
 
-    const proactiveDirectiveGate = await checkProactiveDirectiveCoverage(agentRole);
     if (!proactiveDirectiveGate.allowed) {
+      console.warn(`[workLoop] Proactive blocked for ${agentRole}: no directive, standing, or objective coverage`);
       return {
         shouldRun: false,
         reason: `proactive_blocked:no_active_directive:${proactiveDirectiveGate.department ?? 'unmapped'}`,
         priority: 6,
       };
+    }
+
+    // Log the coverage source for debugging
+    if (proactiveDirectiveGate.source) {
+      console.log(`[workLoop] Proactive allowed for ${agentRole} via ${proactiveDirectiveGate.source}`);
     }
 
     const objectiveWork = await checkStandingObjectives(agentRole);
@@ -612,18 +655,21 @@ function getProactiveCooldown(agentRole: CompanyAgentRole): number | undefined {
 
 async function checkProactiveDirectiveCoverage(
   agentRole: CompanyAgentRole,
-): Promise<{ allowed: boolean; department?: string }> {
+): Promise<{ allowed: boolean; department?: string; source?: 'directive' | 'standing_directive' | 'standing_objective' | 'override' }> {
   const department = ROLE_DEPARTMENT[agentRole];
   if (!department) {
-    return { allowed: true };
+    return { allowed: true, source: 'directive' };
   }
 
   const targetRoles = DEPARTMENT_ROLE_GROUPS[department] ?? [agentRole];
   const categories = DEPARTMENT_DIRECTIVE_CATEGORIES[department] ?? [];
-  const [row] = await systemQuery<{ id: string }>(
+
+  // Source 1: Active regular directives (highest priority — real work exists)
+  const [regularRow] = await systemQuery<{ id: string }>(
     `SELECT id
        FROM founder_directives
       WHERE status = 'active'
+        AND source != 'standing'
         AND (
           COALESCE(target_agents, ARRAY[]::text[]) && $1::text[]
           OR category = ANY($2::text[])
@@ -632,10 +678,56 @@ async function checkProactiveDirectiveCoverage(
     [targetRoles, categories],
   );
 
-  return {
-    allowed: Boolean(row?.id),
-    department,
-  };
+  if (regularRow?.id) {
+    return { allowed: true, department, source: 'directive' };
+  }
+
+  // Source 2: Standing directives (permanent operational mandates)
+  const [standingRow] = await systemQuery<{ id: string }>(
+    `SELECT id
+       FROM founder_directives
+      WHERE status = 'active'
+        AND source = 'standing'
+        AND (
+          COALESCE(target_agents, ARRAY[]::text[]) && $1::text[]
+          OR category = ANY($2::text[])
+        )
+      LIMIT 1`,
+    [targetRoles, categories],
+  );
+
+  if (standingRow?.id) {
+    return { allowed: true, department, source: 'standing_directive' };
+  }
+
+  // Source 3: Agent-level standing objectives (per-agent fallback)
+  const [objectiveRow] = await systemQuery<{ id: string }>(
+    `SELECT id FROM standing_objectives
+     WHERE agent_role = $1 AND active = true
+     LIMIT 1`,
+    [agentRole],
+  );
+
+  if (objectiveRow?.id) {
+    return { allowed: true, department, source: 'standing_objective' };
+  }
+
+  // Source 4: Global override (emergency valve)
+  try {
+    const [override] = await systemQuery<{ value: string }>(
+      `SELECT value FROM system_config
+       WHERE key = 'proactive_global_override' AND value = 'true'`,
+      [],
+    );
+    if (override) {
+      return { allowed: true, department, source: 'override' };
+    }
+  } catch {
+    // system_config may not exist yet — ignore
+  }
+
+  // No coverage found — block proactive
+  return { allowed: false, department };
 }
 
 async function checkStandingObjectives(agentRole: CompanyAgentRole): Promise<WorkLoopResult | null> {

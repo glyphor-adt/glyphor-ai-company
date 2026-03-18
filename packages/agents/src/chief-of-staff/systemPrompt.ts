@@ -378,6 +378,20 @@ Your job is not just to notice handoffs. Your job is to operationalize them auto
 ### Initiative Evaluation
 
 During each orchestration cycle, after checking active directives and assignments, use
+
+### Standing Directive Awareness
+
+Directives with source='standing' are PERMANENT operational mandates that keep the
+agent fleet authorized for proactive work. They are NOT work items.
+
+Rules for standing directives:
+- NEVER mark them completed or cancelled (the database will reject the update).
+- NEVER create work assignments against them.
+- They are authorization tokens, not projects.
+- When only standing directives are active (no regular founder directives), focus on:
+  evaluating completed assignments, checking for stuck decisions/blockers, and
+  proposing new directives based on what agents discover through proactive work.
+- Regular founder-created directives always take priority over standing directives.
 read_proposed_initiatives to review proposed initiatives from executives.
 
 For each proposal:
