@@ -207,7 +207,7 @@ function HealthSummary({
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {layers.map(l => (
-          <div key={l.name} className="rounded-lg border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] px-3 py-2.5">
+          <div key={l.name} className="rounded-lg theme-glass-panel px-3 py-2.5">
             <div className="flex items-center gap-2 mb-1">
               <span className={`h-2 w-2 rounded-full ${l.status ? 'bg-prism-fill-2' : 'bg-prism-critical'}`} />
               <span className="text-[12px] font-medium text-txt-primary">{l.name}</span>
@@ -343,7 +343,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <MetricCard label="MRR" value={`$${(pulse.mrr ?? 0).toLocaleString()}`} sub={`${(pulse.mrr_change_pct ?? 0) >= 0 ? '+' : ''}${(pulse.mrr_change_pct ?? 0)}% MoM`} positive={(pulse.mrr_change_pct ?? 0) >= 0} />
             <MetricCard label="Active Users" value={String(pulse.active_users ?? 0)} />
-            <div className="rounded-lg border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] px-3 py-2.5">
+            <div className="rounded-lg theme-glass-panel px-3 py-2.5">
               <p className="text-[11px] text-txt-muted mb-1">Platform Status</p>
               <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-semibold ${st.bg} ${st.color}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${
@@ -353,7 +353,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
                 {st.label}
               </span>
             </div>
-            <div className="rounded-lg border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] px-3 py-2.5">
+            <div className="rounded-lg theme-glass-panel px-3 py-2.5">
               <p className="text-[11px] text-txt-muted mb-1">Company Mood</p>
               <p className="text-lg"><MoodIcon className="inline-block text-lg mr-1" /> <span className="text-[12px] font-medium text-txt-primary capitalize">{pulse.company_mood}</span></p>
             </div>
@@ -382,7 +382,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
 
 function MetricCard({ label, value, sub, positive }: { label: string; value: string; sub?: string; positive?: boolean }) {
   return (
-    <div className="rounded-lg border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] px-3 py-2.5">
+    <div className="rounded-lg theme-glass-panel px-3 py-2.5">
       <p className="text-[11px] text-txt-muted mb-1">{label}</p>
       <p className="text-lg font-semibold text-txt-primary">{value}</p>
       {sub && (
@@ -627,7 +627,7 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
         {sections.map(s => {
           const isEditing = editingId === s.id;
           return (
-            <div key={s.id} className="rounded-lg border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px]">
+            <div key={s.id} className="rounded-lg theme-glass-panel">
               {/* Section Header */}
               <button
                 onClick={() => isEditing ? cancelEdit() : startEdit(s)}
@@ -635,7 +635,7 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="text-[13px] font-semibold text-txt-primary truncate">{s.title}</span>
-                  <span className="rounded-full border border-primary/20 bg-surface dark:bg-black/20 px-2 py-0.5 text-[10px] text-txt-faint capitalize flex-shrink-0">
+                  <span className="rounded-full theme-glass-panel-soft px-2 py-0.5 text-[10px] text-txt-faint capitalize flex-shrink-0">
                     {s.audience}
                   </span>
                 </div>

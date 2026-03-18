@@ -20,6 +20,7 @@ const NAV = [
   { to: '/governance', label: 'Governance', icon: GovernanceIcon },
   { to: '/change-requests', label: 'Change Requests', icon: ChangeRequestIcon },
   { to: '/models', label: 'Models', icon: ModelsIcon },
+  { to: '/fleet', label: 'Fleet', icon: FleetIcon },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ] as const;
 
@@ -455,6 +456,18 @@ function ModelsIcon({ className }: { className?: string }) {
       <rect x="9.5" y="3" width="5" height="5" rx="1" />
       <rect x="5.5" y="8" width="5" height="5" rx="1" />
       <path d="M4 8v1M12 8v1M8 3v-1" />
+    </svg>
+  );
+}
+
+function FleetIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="4" cy="4" r="2" />
+      <circle cx="12" cy="4" r="2" />
+      <circle cx="4" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M6 4h4M6 12h4M4 6v4M12 6v4" />
     </svg>
   );
 }

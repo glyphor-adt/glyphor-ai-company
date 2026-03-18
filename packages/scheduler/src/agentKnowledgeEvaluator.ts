@@ -51,9 +51,9 @@ const RUNNERS: Record<string, (prompt: string) => Promise<AgentExecutionResult>>
   cto: (prompt) => runCTO({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   cfo: (prompt) => runCFO({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   // Marketing department sub-team agents
-  'content-creator': (prompt) => runContentCreator({ task: 'on_demand', message: prompt }),
-  'seo-analyst': (prompt) => runSeoAnalyst({ task: 'on_demand', message: prompt }),
-  'social-media-manager': (prompt) => runSocialMediaManager({ task: 'on_demand', message: prompt }),
+  'content-creator': (prompt) => runContentCreator({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
+  'seo-analyst': (prompt) => runSeoAnalyst({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
+  'social-media-manager': (prompt) => runSocialMediaManager({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
 };
 
 export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Promise<AgentKnowledgeEvalReport> {

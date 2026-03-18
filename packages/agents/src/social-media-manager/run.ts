@@ -23,6 +23,8 @@ export interface SocialMediaManagerRunParams {
   task?: 'engagement_report' | 'schedule_batch' | 'mention_scan' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  dryRun?: boolean;
+  evalMode?: boolean;
 }
 
 export async function runSocialMediaManager(params: SocialMediaManagerRunParams = {}) {
@@ -44,7 +46,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
     ...await createAgent365McpTools('social-media-manager'),
     ...await createGlyphorMcpTools('social-media-manager'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
+  const toolExecutor = new ToolExecutor(tools, params.dryRun === true);
 
   const task = params.task || 'engagement_report';
   const today = new Date().toISOString().split('T')[0];
@@ -76,8 +78,11 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
-  try { await memory.recordAgentRun('social-media-manager', 0, 0.03); } catch {}
+  const result = await runner.run(
+    config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory,
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory) : createRunDeps(glyphorEventBus, memory),
+  );
+  if (!params.evalMode) { try { await memory.recordAgentRun('social-media-manager', 0, 0.03); } catch {} }
   console.log(`[Kai] ${result.status} (${result.totalTurns} turns)`);
   return result;
 }

@@ -51,6 +51,7 @@ import { HeartbeatManager } from './heartbeat.js';
 import { AgentNotifier } from './agentNotifier.js';
 import { handleDashboardApi } from './dashboardApi.js';
 import { handleGovernanceApi } from './governanceApi.js';
+import { handleEvalApi } from './evalDashboard.js';
 import { verifyPlan } from './planVerifier.js';
 import { consolidateMemory } from './memoryConsolidator.js';
 import { archiveExpiredMemory } from './memoryArchiver.js';
@@ -3592,6 +3593,9 @@ const server = createServer(async (req, res) => {
       });
       return;
     }
+
+    // ── Eval Dashboard API (/api/eval/*) ──────────────────────────
+    if (await handleEvalApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Governance API (/api/governance/*) ────────────────────────
     if (await handleGovernanceApi(req, res, url, queryString ?? '', method)) return;

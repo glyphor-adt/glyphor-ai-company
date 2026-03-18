@@ -548,7 +548,7 @@ export default function Governance() {
           type="button"
           onClick={() => refresh()}
           disabled={refreshing}
-          className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary disabled:opacity-50"
+          className="rounded-lg theme-glass-panel-soft px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary disabled:opacity-50"
         >
           {refreshing ? 'Refreshing…' : 'Refresh'}
         </button>

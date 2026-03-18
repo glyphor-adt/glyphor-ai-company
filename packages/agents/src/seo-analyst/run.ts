@@ -23,6 +23,8 @@ export interface SeoAnalystRunParams {
   task?: 'ranking_report' | 'keyword_research' | 'competitor_gap' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  dryRun?: boolean;
+  evalMode?: boolean;
 }
 
 export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
@@ -44,7 +46,7 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
     ...await createAgent365McpTools('seo-analyst'),
     ...await createGlyphorMcpTools('seo-analyst'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
+  const toolExecutor = new ToolExecutor(tools, params.dryRun === true);
 
   const task = params.task || 'ranking_report';
   const today = new Date().toISOString().split('T')[0];
@@ -76,8 +78,11 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
-  try { await memory.recordAgentRun('seo-analyst', 0, 0.03); } catch {}
+  const result = await runner.run(
+    config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory,
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory) : createRunDeps(glyphorEventBus, memory),
+  );
+  if (!params.evalMode) { try { await memory.recordAgentRun('seo-analyst', 0, 0.03); } catch {} }
   console.log(`[Lisa] ${result.status} (${result.totalTurns} turns)`);
   return result;
 }

@@ -21,6 +21,7 @@ import Settings from './pages/Settings';
 import ChangeRequests from './pages/ChangeRequests';
 import ModelAdmin from './pages/ModelAdmin';
 import OraChat from './pages/OraChat';
+import Fleet from './pages/Fleet';
 
 export default function App() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="ora" element={<OraChat />} />
         <Route path="change-requests" element={<ChangeRequests />} />
         <Route path="models" element={<ModelAdmin />} />
+        <Route path="fleet" element={<Fleet />} />
         <Route path="settings" element={<Settings />} />
         {/* Legacy redirects */}
         <Route path="agents" element={<Navigate to="/workforce" replace />} />

@@ -23,6 +23,8 @@ export interface ContentCreatorRunParams {
   task?: 'blog_draft' | 'social_batch' | 'performance_review' | 'work_loop' | 'proactive' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  dryRun?: boolean;
+  evalMode?: boolean;
 }
 
 export async function runContentCreator(params: ContentCreatorRunParams = {}) {
@@ -44,7 +46,7 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
     ...await createAgent365McpTools('content-creator'),
     ...await createGlyphorMcpTools('content-creator'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
+  const toolExecutor = new ToolExecutor(tools, params.dryRun === true);
 
   const task = params.task || 'blog_draft';
   const today = new Date().toISOString().split('T')[0];
@@ -80,8 +82,11 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
     conversationHistory: params.conversationHistory,
   };
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
-  const result = await runner.run(config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory, createRunDeps(glyphorEventBus, memory));
-  try { await memory.recordAgentRun('content-creator', 0, 0.08); } catch {}
+  const result = await runner.run(
+    config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory,
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory) : createRunDeps(glyphorEventBus, memory),
+  );
+  if (!params.evalMode) { try { await memory.recordAgentRun('content-creator', 0, 0.08); } catch {} }
   console.log(`[Tyler] ${result.status} (${result.totalTurns} turns)`);
   return result;
 }

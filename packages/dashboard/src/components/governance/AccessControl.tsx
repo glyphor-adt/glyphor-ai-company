@@ -74,7 +74,7 @@ function AccessPostureScore({ posture }: { posture: AccessPostureResponse | null
         subtitle={posture.summary ?? 'Composite health across IAM sync, secret hygiene, grant freshness, and least-privilege fit.'}
       />
       <div className="grid gap-6 lg:grid-cols-[260px,1fr]">
-        <div className="rounded-2xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-5">
+        <div className="rounded-2xl theme-glass-panel p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-txt-muted">Posture</p>
           <p className="mt-3 text-5xl font-semibold text-txt-primary">{posture.score == null ? '—' : Math.round(posture.score)}</p>
           <p className="mt-2 text-[12px] text-txt-muted">Trend {posture.trend == null ? '—' : formatPercent(posture.trend, 0)}</p>
@@ -118,7 +118,7 @@ function RiskRankedIssues({ items }: { items: GovernanceAction[] }) {
       />
       <div className="space-y-3">
         {items.map((item) => (
-          <div key={item.id} className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
+          <div key={item.id} className="rounded-xl theme-glass-panel p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -164,7 +164,7 @@ function LeastPrivilegeMatrix({ items }: { items: LeastPrivilegeGrant[] }) {
       />
       <div className="space-y-4">
         {grouped.map(([department, grants]) => (
-          <div key={department} className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
+          <div key={department} className="rounded-xl theme-glass-panel p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-txt-primary">{department}</p>
@@ -180,7 +180,7 @@ function LeastPrivilegeMatrix({ items }: { items: LeastPrivilegeGrant[] }) {
                     ? 'border-prism-elevated/25 bg-prism-elevated/8 text-prism-elevated'
                     : 'border-prism-teal/25 bg-prism-teal/8 text-prism-teal';
                 return (
-                  <div key={grant.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/15 bg-surface dark:bg-black/20 px-3 py-2">
+                  <div key={grant.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg theme-glass-panel-soft border-primary/15 px-3 py-2">
                     <div>
                       <p className="text-[13px] font-medium text-txt-primary">{getDisplayName(grant.agentRole)}</p>
                       <p className="mt-1 text-[11px] text-txt-muted">{grant.agentRole}</p>
@@ -225,7 +225,7 @@ function IAMDrillDown({ items }: { items: IAMState[] }) {
             type="checkbox"
             checked={materialOnly}
             onChange={(event) => setMaterialOnly(event.target.checked)}
-            className="rounded border-primary/20 bg-surface dark:bg-black/20"
+            className="rounded theme-glass-panel-soft"
           />
           Show only material drift
         </label>
@@ -335,7 +335,7 @@ function SecretLifecycleTimeline({ items }: { items: SecretRotation[] }) {
                 ? 'bg-prism-elevated'
                 : 'bg-prism-teal';
           return (
-            <div key={item.id} className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
+            <div key={item.id} className="rounded-xl theme-glass-panel p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[13px] font-medium text-txt-primary">{item.secret_name}</p>
@@ -686,7 +686,7 @@ function AccessGrantManager({
           />
           <div className="space-y-3">
             {pendingApprovals.map((approval) => (
-              <div key={approval.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
+              <div key={approval.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl theme-glass-panel p-4">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-txt-primary">{approval.title}</p>
                   <p className="mt-2 text-[13px] text-txt-secondary">{approval.summary}</p>
@@ -724,11 +724,11 @@ function AccessGrantManager({
           subtitle={isAdmin ? `Signed in as ${currentUserEmail ?? 'founder'}` : 'Read-only access posture view'}
         />
         {isAdmin && (
-          <div className="grid gap-3 rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4 md:grid-cols-[1.1fr,1fr,1fr,0.95fr,auto]">
+          <div className="grid gap-3 rounded-xl theme-glass-panel p-4 md:grid-cols-[1.1fr,1fr,1fr,0.95fr,auto]">
             <select
               value={agentRole}
               onChange={(event) => setAgentRole(event.target.value)}
-              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary"
+              className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary"
             >
               {getAgentsByDepartment().map((group) => (
                 <optgroup key={group.dept} label={group.dept}>
@@ -742,19 +742,19 @@ function AccessGrantManager({
               value={toolName}
               onChange={(event) => setToolName(event.target.value)}
               placeholder="Tool name, e.g. upload_to_sharepoint"
-              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
+              className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
             />
             <input
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder="Reason for grant"
-              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
+              className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
             />
             <input
               type="datetime-local"
               value={expiresAt}
               onChange={(event) => setExpiresAt(event.target.value)}
-              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary"
+              className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary"
             />
             <button
               type="button"
@@ -769,29 +769,29 @@ function AccessGrantManager({
 
         <div className="mt-4 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
+            <div className="rounded-xl theme-glass-panel p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Matching Grants</p>
               <p className="mt-3 text-3xl font-semibold text-prism-sky">{filteredInventory.length}</p>
             </div>
-            <div className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
+            <div className="rounded-xl theme-glass-panel p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Agents</p>
               <p className="mt-3 text-3xl font-semibold text-prism-teal">{filteredSummary.agents}</p>
             </div>
-            <div className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
+            <div className="rounded-xl theme-glass-panel p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Tools</p>
               <p className="mt-3 text-3xl font-semibold text-txt-primary">{filteredSummary.tools}</p>
             </div>
-            <div className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
+            <div className="rounded-xl theme-glass-panel p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Departments</p>
               <p className="mt-3 text-3xl font-semibold text-prism-elevated">{filteredSummary.departments}</p>
             </div>
-            <div className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
+            <div className="rounded-xl theme-glass-panel p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Urgent / Inactive</p>
               <p className="mt-3 text-3xl font-semibold text-prism-high">{filteredSummary.expiringSoon + filteredSummary.inactiveOrExpired}</p>
             </div>
           </div>
 
-          <div className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
+          <div className="rounded-xl theme-glass-panel p-4">
             <div className="mb-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Grant search</p>
               <p className="mt-1 text-[13px] text-txt-secondary">Search directly by agent, by tool or capability family, or use the filters for narrower access questions.</p>
@@ -802,25 +802,25 @@ function AccessGrantManager({
                 value={agentSearch}
                 onChange={(event) => setAgentSearch(event.target.value)}
                 placeholder="Search by agent name or role"
-                className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
+                className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
               />
               <input
                 list="grant-tool-search-options"
                 value={toolSearch}
                 onChange={(event) => setToolSearch(event.target.value)}
                 placeholder="Search by tool or capability, e.g. Teams access"
-                className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
+                className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
               />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search department, reason, scope, or grantor"
-              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
+              className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary placeholder:text-txt-muted"
             />
             <select
               value={departmentFilter}
               onChange={(event) => setDepartmentFilter(event.target.value)}
-              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary"
+              className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary"
             >
               <option value="all">All departments</option>
               {departmentOptions.map((department) => (
@@ -830,7 +830,7 @@ function AccessGrantManager({
             <select
               value={agentFilter}
               onChange={(event) => setAgentFilter(event.target.value)}
-              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary"
+              className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary"
             >
               <option value="all">All agents</option>
               {agentOptions.map(([role, displayName]) => (
@@ -840,7 +840,7 @@ function AccessGrantManager({
             <select
               value={toolFilter}
               onChange={(event) => setToolFilter(event.target.value)}
-              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary"
+              className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary"
             >
               <option value="all">All tools</option>
               {toolOptions.map((tool) => (
@@ -850,7 +850,7 @@ function AccessGrantManager({
             <select
               value={capabilityFilter}
               onChange={(event) => setCapabilityFilter(event.target.value)}
-              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary"
+              className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary"
             >
               <option value="all">All capability families</option>
               {capabilityOptions.map((capability) => (
@@ -860,7 +860,7 @@ function AccessGrantManager({
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2 text-[13px] text-txt-primary"
+              className="rounded-lg theme-glass-panel-soft px-3 py-2 text-[13px] text-txt-primary"
             >
               <option value="all">All statuses</option>
               <option value="active">Healthy active</option>
@@ -873,7 +873,7 @@ function AccessGrantManager({
             <button
               type="button"
               onClick={resetFilters}
-              className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary"
+              className="rounded-lg theme-glass-panel-soft px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary"
             >
               Reset
             </button>
@@ -896,27 +896,27 @@ function AccessGrantManager({
           <div className="flex flex-wrap items-center gap-2 text-[12px] text-txt-muted">
             <span>{filteredInventory.length} of {inventory.length} grants shown</span>
             {agentSearch.trim() && (
-              <span className="rounded-full border border-primary/20 bg-surface dark:bg-black/20 px-2 py-0.5 text-[11px] text-txt-secondary">
+              <span className="rounded-full theme-glass-panel-soft px-2 py-0.5 text-[11px] text-txt-secondary">
                 Agent: {agentSearch.trim()}
               </span>
             )}
             {toolSearch.trim() && (
-              <span className="rounded-full border border-primary/20 bg-surface dark:bg-black/20 px-2 py-0.5 text-[11px] text-txt-secondary">
+              <span className="rounded-full theme-glass-panel-soft px-2 py-0.5 text-[11px] text-txt-secondary">
                 Tool: {toolSearch.trim()}
               </span>
             )}
             {search.trim() && (
-              <span className="rounded-full border border-primary/20 bg-surface dark:bg-black/20 px-2 py-0.5 text-[11px] text-txt-secondary">
+              <span className="rounded-full theme-glass-panel-soft px-2 py-0.5 text-[11px] text-txt-secondary">
                 Search: {search.trim()}
               </span>
             )}
             {statusFilter !== 'all' && (
-              <span className="rounded-full border border-primary/20 bg-surface dark:bg-black/20 px-2 py-0.5 text-[11px] text-txt-secondary">
+              <span className="rounded-full theme-glass-panel-soft px-2 py-0.5 text-[11px] text-txt-secondary">
                 {getGrantInventoryLabel(statusFilter as GrantInventoryStatus)}
               </span>
             )}
             {capabilityFilter !== 'all' && (
-              <span className="rounded-full border border-primary/20 bg-surface dark:bg-black/20 px-2 py-0.5 text-[11px] text-txt-secondary">
+              <span className="rounded-full theme-glass-panel-soft px-2 py-0.5 text-[11px] text-txt-secondary">
                 Capability: {toHumanWords(capabilityFilter)}
               </span>
             )}
@@ -930,14 +930,14 @@ function AccessGrantManager({
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="w-fit rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary"
+                  className="w-fit rounded-lg theme-glass-panel-soft px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary"
                 >
                   Clear filters
                 </button>
               )}
             />
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px]">
+            <div className="overflow-x-auto rounded-xl theme-glass-panel">
               <table className="w-full min-w-[1180px] text-left text-[12px]">
                 <thead>
                   <tr className="border-b border-primary/20 text-txt-muted">
@@ -977,7 +977,7 @@ function AccessGrantManager({
                             {grant.capabilityLabels.map((label) => (
                               <span
                                 key={`${grant.id}-${label}`}
-                                className="rounded-full border border-primary/20 bg-surface dark:bg-black/20 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-txt-muted"
+                                className="rounded-full theme-glass-panel-soft px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-txt-muted"
                               >
                                 {label}
                               </span>
@@ -988,7 +988,7 @@ function AccessGrantManager({
                           <div className="flex flex-wrap items-center gap-2">
                             <SeverityBadge severity={severity} />
                             {grant.expiresInDays != null && (
-                              <span className="rounded-full border border-primary/20 bg-surface dark:bg-black/20 px-2 py-0.5 text-[11px] text-txt-muted">
+                              <span className="rounded-full theme-glass-panel-soft px-2 py-0.5 text-[11px] text-txt-muted">
                                 {grant.expiresInDays < 0 ? `Expired ${Math.abs(grant.expiresInDays)}d ago` : `Expires in ${grant.expiresInDays}d`}
                               </span>
                             )}
@@ -1033,20 +1033,20 @@ function AccessGrantManager({
             ) : (
               <div className="grid gap-4 xl:grid-cols-2">
                 {filteredByAgent.map((agent) => (
-                  <div key={agent.agentRole} className="rounded-xl border border-primary/20 bg-surface dark:bg-black/25 backdrop-blur-[8px] p-4">
+                  <div key={agent.agentRole} className="rounded-xl theme-glass-panel p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-txt-primary">{agent.displayName}</p>
                         <p className="mt-1 text-[12px] text-txt-muted">{agent.agentRole} · {agent.roleTitle}</p>
                         <p className="mt-1 text-[12px] text-txt-secondary">{agent.department}</p>
                       </div>
-                      <div className="rounded-full border border-primary/20 bg-surface dark:bg-black/20 px-3 py-1 text-[11px] font-medium text-txt-secondary">
+                      <div className="rounded-full theme-glass-panel-soft px-3 py-1 text-[11px] font-medium text-txt-secondary">
                         {agent.items.length} assignment{agent.items.length === 1 ? '' : 's'}
                       </div>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {agent.items.map((grant) => (
-                        <div key={grant.id} className="rounded-lg border border-primary/20 bg-surface dark:bg-black/20 px-3 py-2">
+                        <div key={grant.id} className="rounded-lg theme-glass-panel-soft px-3 py-2">
                           <p className="text-[12px] font-medium text-txt-primary">{toHumanWords(grant.tool_name)}</p>
                           <p className="mt-1 text-[11px] text-txt-muted">{grant.tool_name}</p>
                           <p className="mt-1 text-[11px] text-txt-secondary">{grant.scope || 'full scope'}</p>
@@ -1074,7 +1074,7 @@ function AccessGrantManager({
                       {group.grants.map((grant) => {
                         const tone = grant.inventoryStatus === 'expiring-soon' || grant.inventoryStatus === 'expires-this-month'
                           ? 'border-prism-elevated/30 bg-prism-elevated/10'
-                          : 'border-primary/20 bg-surface dark:bg-black/20';
+                          : 'theme-glass-panel-soft';
                         return (
                           <div key={grant.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 ${tone}`}>
                             <div>
@@ -1084,7 +1084,7 @@ function AccessGrantManager({
                             <div className="flex flex-wrap items-center gap-2">
                               <SeverityBadge severity={getGrantInventorySeverity(grant.inventoryStatus)} />
                               {grant.expiresInDays != null && (
-                                <span className="rounded-full border border-primary/20 bg-surface dark:bg-black/20 px-2 py-0.5 text-[11px] text-txt-muted">
+                                <span className="rounded-full theme-glass-panel-soft px-2 py-0.5 text-[11px] text-txt-muted">
                                   {grant.expiresInDays < 0 ? 'Expired' : `Expires in ${grant.expiresInDays}d`}
                                 </span>
                               )}

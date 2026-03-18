@@ -224,6 +224,22 @@ export default function Directives() {
     setBulkDeleting(false);
   }
 
+  async function handleInitiativeAction(id: string, action: 'approved' | 'rejected' | 'deferred' | 'delete') {
+    try {
+      if (action === 'delete') {
+        await apiCall(`/api/proposed_initiatives/${id}`, { method: 'DELETE' });
+      } else {
+        await apiCall(`/api/proposed_initiatives/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: action, evaluated_by: 'founder', evaluated_at: new Date().toISOString() }),
+        });
+      }
+      await refresh();
+    } catch (err) {
+      console.error(`Failed to ${action} initiative:`, err);
+    }
+  }
+
   const proposed = directives.filter(d => d.status === 'proposed');
   const active = directives.filter(d => d.status === 'active' || d.status === 'paused');
   const completed = directives.filter(d => d.status === 'completed' || d.status === 'cancelled');
@@ -466,6 +482,40 @@ export default function Directives() {
                             {' · '}{new Date(init.created_at).toLocaleDateString()}
                             {init.estimated_days && ` · Est. ${init.estimated_days} days`}
                           </p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {init.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleInitiativeAction(init.id, 'approved')}
+                                className="p-1 rounded hover:bg-tier-green/20 text-txt-faint hover:text-tier-green transition-colors"
+                                title="Approve"
+                              >
+                                <MdCheckCircle size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleInitiativeAction(init.id, 'deferred')}
+                                className="p-1 rounded hover:bg-prism-elevated/20 text-txt-faint hover:text-prism-elevated transition-colors"
+                                title="Defer"
+                              >
+                                <MdBlock size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleInitiativeAction(init.id, 'rejected')}
+                                className="p-1 rounded hover:bg-prism-critical/20 text-txt-faint hover:text-prism-critical transition-colors"
+                                title="Reject"
+                              >
+                                <MdCancel size={16} />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => handleInitiativeAction(init.id, 'delete')}
+                            className="p-1 rounded hover:bg-prism-critical/20 text-txt-faint hover:text-prism-critical transition-colors"
+                            title="Delete"
+                          >
+                            <MdDelete size={16} />
+                          </button>
                         </div>
                       </div>
                       <p className="mt-2 text-[11px] text-txt-muted leading-relaxed">{init.justification}</p>

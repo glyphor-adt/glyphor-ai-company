@@ -148,10 +148,6 @@ body {
 
 .dark .dashboard-main {
   position: relative;
-  background-image: url('/3d-render.jpg');
-  background-position: center center;
-  background-size: cover;
-  background-repeat: no-repeat;
   background-color: transparent;
 }
 
@@ -302,6 +298,47 @@ button, a[role="button"], .glass-btn {
 .glass-tabs {
   background: rgba(255, 255, 255, 0.85);
   border-color: var(--color-border);
+}
+
+/* ─── Global Glass Utilities ─────────────── */
+.theme-glass-panel {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.dark .theme-glass-panel {
+  border-color: rgba(255, 255, 255, 0.12);
+  background-color: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.theme-glass-panel-soft {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.dark .theme-glass-panel-soft {
+  border-color: rgba(255, 255, 255, 0.10);
+  background-color: rgba(0, 0, 0, 0.20);
+}
+
+.theme-glass-input {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.dark .theme-glass-input {
+  background-color: rgba(0, 0, 0, 0.20);
+}
+
+.theme-glass-chip {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.dark .theme-glass-chip {
+  background-color: rgba(0, 0, 0, 0.20);
 }
 
 /* ─── Input Fields ───────────────────────────── */
@@ -541,7 +578,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 .sidebar-glass.glass-card-layout::after,
-.sidebar-glass.glass-inner-layout::after {
+.sidebar-glass.glass-inner-layout::after,
+.glass-surface.glass-card-layout::after,
+.glass-surface.glass-inner-layout::after {
   content: '';
   position: absolute;
   top: 0;
@@ -577,6 +616,7 @@ input:focus, textarea:focus, select:focus {
   opacity: 1;
 }
 
+.dark .glass-surface,
 .dark .sidebar-glass,
 .dark .glass-card.glass-panel,
 .dark .glass-raised.glass-panel,
@@ -587,7 +627,9 @@ input:focus, textarea:focus, select:focus {
 .dark .sidebar-glass .glass-panel.panel-nested,
 .dark .sidebar-glass .sidebar-glass,
 .dark .sidebar-glass .bg-raised,
-.dark .sidebar-glass .bg-surface {
+.dark .sidebar-glass .bg-surface,
+.dark .glass-surface .bg-raised,
+.dark .glass-surface .bg-surface {
   background-color: var(--sidebar-glass-bg) !important;
   backdrop-filter: var(--glass-filter) !important;
   -webkit-backdrop-filter: var(--glass-filter) !important;
