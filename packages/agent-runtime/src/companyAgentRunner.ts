@@ -1337,29 +1337,28 @@ export class CompanyAgentRunner {
     }
 
     // ─── AUTO-SYNC GRANTS ──────────────────────────────────────
-    // Bulk-sync static tools to agent_tool_grants (fire-and-forget)
+    // Sync static tools to agent_tool_grants so list_my_tools and
+    // check_tool_access return accurate data from the first tool call.
     if (staticToolNames.length > 0) {
-      (async () => {
-        try {
-          const values = staticToolNames.map((_, i) =>
-            `($1, $${i + 2}, 'system', 'auto-synced from static tool array', NOW())`
-          ).join(', ');
-           await systemQuery(
-             `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
-              VALUES ${values}
-             ON CONFLICT (agent_role, tool_name) DO UPDATE
-             SET granted_by = EXCLUDED.granted_by,
-                 reason = EXCLUDED.reason,
-                 is_active = true,
-                 expires_at = NULL,
-                 last_synced_at = NOW(),
-                 updated_at = NOW()`,
-             [config.role, ...staticToolNames],
-           );
-        } catch {
-          // Best-effort — DB may not be available in test/dev
-        }
-      })();
+      try {
+        const values = staticToolNames.map((_, i) =>
+          `($1, $${i + 2}, 'system', 'auto-synced from static tool array', NOW())`
+        ).join(', ');
+         await systemQuery(
+           `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
+            VALUES ${values}
+           ON CONFLICT (agent_role, tool_name) DO UPDATE
+           SET granted_by = EXCLUDED.granted_by,
+               reason = EXCLUDED.reason,
+               is_active = true,
+               expires_at = NULL,
+               last_synced_at = NOW(),
+               updated_at = NOW()`,
+           [config.role, ...staticToolNames],
+         );
+      } catch {
+        // Best-effort — DB may not be available in test/dev
+      }
     }
 
     // ─── PARALLEL PRE-RUN DATA LOADING ────────────────────────

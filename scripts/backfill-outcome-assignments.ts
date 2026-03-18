@@ -13,6 +13,7 @@
  */
 
 import { closePool, systemQuery } from '@glyphor/shared/db';
+import { createDbPool } from './lib/migrationLedger.js';
 
 interface OrphanedOutcome {
   id: string;
@@ -34,8 +35,14 @@ async function run() {
   const execute = hasExecuteFlag(process.argv);
   console.log(`[backfill] Mode: ${execute ? 'EXECUTE' : 'DRY RUN'}`);
 
+  // Use the migration ledger pool which reads DB_PASSWORD from env correctly
+  const pool = createDbPool();
+  const query = async <T extends Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]> => {
+    const result = await pool.query(sql, params);
+    return result.rows as T[];
+  };
   // Find all outcomes missing assignment_id
-  const orphans = await systemQuery<OrphanedOutcome>(
+  const orphans = await query<OrphanedOutcome>(
     `SELECT id, agent_role, created_at
      FROM task_run_outcomes
      WHERE assignment_id IS NULL
@@ -51,7 +58,7 @@ async function run() {
 
   for (const outcome of orphans) {
     // Find assignments within ±5 minutes of the outcome
-    const matches = await systemQuery<MatchedAssignment>(
+    const matches = await query<MatchedAssignment>(
       `SELECT id
        FROM work_assignments
        WHERE assigned_to = $1
@@ -62,7 +69,7 @@ async function run() {
 
     if (matches.length === 1) {
       if (execute) {
-        await systemQuery(
+        await query(
           `UPDATE task_run_outcomes
            SET assignment_id = $1, backfill_source = 'timestamp_proximity'
            WHERE id = $2`,
@@ -90,7 +97,7 @@ async function run() {
     console.log(`\nRun with --execute to apply ${recovered} updates.`);
   }
 
-  await closePool();
+  await pool.end();
 }
 
 run().catch((err) => {

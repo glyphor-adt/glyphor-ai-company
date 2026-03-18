@@ -16,7 +16,8 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
       description:
         'Look up agents in the company directory. Returns name, title, department, status, ' +
         'and what they handle. Use this when you need to find the right agent to message, ' +
-        'delegate to, or collaborate with. Filter by department or get the full directory.',
+        'delegate to, or collaborate with. Filter by department or get the full directory. ' +
+        'Set include_tools=true to see each agent\'s tool inventory, or include_skills=true for their skills.',
       parameters: {
         department: {
           type: 'string',
@@ -27,6 +28,16 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
         role: {
           type: 'string',
           description: 'Optional: look up a specific agent by role slug (e.g., "cto", "cfo")',
+          required: false,
+        },
+        include_tools: {
+          type: 'boolean',
+          description: 'When true, include each agent\'s tool inventory from their active grants. Use when you need to verify an agent has a specific capability before routing work to them.',
+          required: false,
+        },
+        include_skills: {
+          type: 'boolean',
+          description: 'When true, include each agent\'s skills and proficiency levels.',
           required: false,
         },
       },
@@ -53,6 +64,46 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
           return { success: false, error: (err as Error).message };
         }
 
+        const roles = (data ?? []).map((a: { role: string }) => a.role);
+
+        // Optionally load tool grants per agent
+        let toolsByRole: Map<string, string[]> | null = null;
+        if (params.include_tools && roles.length > 0) {
+          try {
+            const grants = await systemQuery<{ agent_role: string; tool_name: string }>(
+              'SELECT agent_role, tool_name FROM agent_tool_grants WHERE agent_role = ANY($1) AND is_active = true ORDER BY tool_name',
+              [roles],
+            );
+            toolsByRole = new Map();
+            for (const g of grants) {
+              const list = toolsByRole.get(g.agent_role) ?? [];
+              list.push(g.tool_name);
+              toolsByRole.set(g.agent_role, list);
+            }
+          } catch {
+            // Non-critical — continue without tool data
+          }
+        }
+
+        // Optionally load skills per agent
+        let skillsByRole: Map<string, Array<{ skill: string; proficiency: string }>> | null = null;
+        if (params.include_skills && roles.length > 0) {
+          try {
+            const skills = await systemQuery<{ agent_role: string; skill_name: string; proficiency: string }>(
+              'SELECT agent_role, skill_name, proficiency FROM agent_skills WHERE agent_role = ANY($1) ORDER BY skill_name',
+              [roles],
+            );
+            skillsByRole = new Map();
+            for (const s of skills) {
+              const list = skillsByRole.get(s.agent_role) ?? [];
+              list.push({ skill: s.skill_name, proficiency: s.proficiency });
+              skillsByRole.set(s.agent_role, list);
+            }
+          } catch {
+            // Non-critical — skills table may not exist yet
+          }
+        }
+
         const agents = (data ?? []).map(
           (a: {
             role: string;
@@ -61,14 +112,25 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
             department: string;
             status: string;
             is_core: boolean;
-          }) => ({
-            role: a.role,
-            name: a.display_name,
-            title: a.title,
-            department: a.department,
-            is_executive: a.is_core,
-            how_to_reach: `send_agent_message with to_agent="${a.role}"`,
-          }),
+          }) => {
+            const entry: Record<string, unknown> = {
+              role: a.role,
+              name: a.display_name,
+              title: a.title,
+              department: a.department,
+              is_executive: a.is_core,
+              how_to_reach: `send_agent_message with to_agent="${a.role}"`,
+            };
+            if (toolsByRole) {
+              const tools = toolsByRole.get(a.role) ?? [];
+              entry.tool_count = tools.length;
+              entry.tools = tools;
+            }
+            if (skillsByRole) {
+              entry.skills = skillsByRole.get(a.role) ?? [];
+            }
+            return entry;
+          },
         );
 
         return {

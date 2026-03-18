@@ -312,20 +312,47 @@ function normalizeSearch(value: string): string {
 function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
   const [query, setQuery] = useState('');
 
+  // Merge static AGENT_BUILT_IN_TOOLS with live grants from agent_tool_grants
+  const mergedAgentTools = useMemo(() => {
+    const merged: Record<string, string[]> = {};
+
+    // Start with static tools
+    for (const [role, tools] of Object.entries(AGENT_BUILT_IN_TOOLS)) {
+      merged[role] = [...tools];
+    }
+
+    // Overlay live grants — adds tools not in the static list
+    for (const grant of grants) {
+      if (!grant.is_active) continue;
+      const role = grant.agent_role;
+      if (!merged[role]) merged[role] = [];
+      if (!merged[role].includes(grant.tool_name)) {
+        merged[role].push(grant.tool_name);
+      }
+    }
+
+    // Sort each agent's tools for consistent display
+    for (const role of Object.keys(merged)) {
+      merged[role].sort();
+    }
+
+    return merged;
+  }, [grants]);
+
   const results = useMemo<SearchResult[]>(() => {
     const q = normalizeSearch(query);
     if (!q) return [];
 
     const matches: SearchResult[] = [];
 
-    // ── Agent matches — use AGENT_BUILT_IN_TOOLS as the canonical tool list ──
+    // ── Agent matches — merged static + live grants ──
     for (const [role, displayName] of Object.entries(DISPLAY_NAME_MAP)) {
       const searchable = normalizeSearch(
         [role, displayName, ROLE_DEPARTMENT[role] ?? '', ROLE_TITLE[role] ?? ''].join(' '),
       );
       if (!q.split(' ').every((token) => searchable.includes(token))) continue;
 
-      const tools = AGENT_BUILT_IN_TOOLS[role] ?? [];
+      const tools = mergedAgentTools[role] ?? [];
       matches.push({
         type: 'agent',
         key: `agent:${role}`,
@@ -335,9 +362,9 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
       });
     }
 
-    // ── Tool matches — build from AGENT_BUILT_IN_TOOLS ──
+    // ── Tool matches — build from merged tools ──
     const toolToAgents = new Map<string, string[]>();
-    for (const [role, tools] of Object.entries(AGENT_BUILT_IN_TOOLS)) {
+    for (const [role, tools] of Object.entries(mergedAgentTools)) {
       for (const tool of tools) {
         const list = toolToAgents.get(tool) ?? [];
         list.push(role);
@@ -366,7 +393,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
       if (a.type !== b.type) return a.type === 'agent' ? -1 : 1;
       return a.label.localeCompare(b.label);
     });
-  }, [query]);
+  }, [query, mergedAgentTools]);
 
   const showResults = query.trim().length > 0;
 
