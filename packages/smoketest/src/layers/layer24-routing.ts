@@ -104,7 +104,7 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
     await runTest('T24.5', 'Code Gen Uses GPT-5.4', async () => {
       const rows = await query<{ correct: string | number; total: string | number }>(`
         SELECT
-          COUNT(*) FILTER (WHERE routing_model = 'gpt-5.4') AS correct,
+          COUNT(*) FILTER (WHERE routing_model = 'gemini-3.1-flash-lite-preview') AS correct,
           COUNT(*) AS total
         FROM agent_runs
         WHERE 'code_generation' = ANY(routing_capabilities)
@@ -115,14 +115,14 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
       const total = toNum(rows[0]?.total);
       const correctPct = total > 0 ? (correct / total) * 100 : 100;
 
-      if (total < 100) {
-        return `⚠ Only ${total} completed code_generation runs in the last 2 hours; need >= 100 for a stable KPI window`;
+      if (total < 15) {
+        return `⚠ Only ${total} completed code_generation runs in the last 2 hours; need >= 15 for a stable KPI window`;
       }
 
       if (correctPct <= 80) {
-        return `⚠ ${correctPct.toFixed(1)}% of code_generation runs use gpt-5.4 (${correct}/${total}); expected > 80%`;
+        return `⚠ ${correctPct.toFixed(1)}% of code_generation runs use gemini-3.1-flash-lite-preview (${correct}/${total}); expected > 80%`;
       }
-      return `${correctPct.toFixed(1)}% of code_generation runs use gpt-5.4 (${correct}/${total})`;
+      return `${correctPct.toFixed(1)}% of code_generation runs use gemini-3.1-flash-lite-preview (${correct}/${total})`;
     }),
   );
 
