@@ -38,9 +38,10 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createFuseTools } from '../shared/fuseTools.js';
+import { systemQuery } from '@glyphor/shared/db';
 
 export interface CMORunParams {
-  task?: 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand';
+  task?: 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'orchestrate' | 'content_planning_cycle' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
@@ -62,6 +63,19 @@ export async function runCMO(params: CMORunParams = {}) {
   const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
+
+  // Load executive orchestration config for CMO (directive decomposition for marketing team)
+  let orchConfig: import('../shared/executiveOrchestrationTools.js').ExecutiveOrchestrationConfig | null = null;
+  try {
+    const [row] = await systemQuery(
+      'SELECT executive_role, can_decompose, can_evaluate, can_create_sub_directives, allowed_assignees, max_assignments_per_directive, requires_plan_verification, is_canary FROM executive_orchestration_config WHERE executive_role = $1 AND can_decompose = true',
+      ['cmo'],
+    );
+    orchConfig = row ?? null;
+  } catch {
+    // DB table may not exist yet — safe to skip
+  }
+
   const tools = [
     ...createCMOTools(memory),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
@@ -89,6 +103,13 @@ export async function runCMO(params: CMORunParams = {}) {
     ...await createAgent365McpTools('cmo'),
     ...await createGlyphorMcpTools('cmo'),
   ];
+
+  // Conditionally add executive orchestration tools when decomposition is enabled
+  if (orchConfig?.can_decompose) {
+    const { createExecutiveOrchestrationTools } = await import('../shared/executiveOrchestrationTools.js');
+    tools.push(...createExecutiveOrchestrationTools('cmo', orchConfig, { glyphorEventBus }));
+  }
+
   const toolExecutor = new ToolExecutor(tools, params.dryRun === true);
 
   eventBus.on('*', (event) => {
@@ -142,6 +163,32 @@ Steps:
 
     case 'on_demand':
       initialMessage = params.message || 'Provide a content and marketing strategy summary.';
+      break;
+
+    case 'orchestrate':
+      initialMessage = params.message || `Orchestrate marketing work for ${today}.
+
+Steps:
+1. Use read_founder_directives to check for any delegated marketing directives
+2. Use check_team_status to see what your team has in flight
+3. For new directives: decompose into assignments for your team (content-creator, seo-analyst, social-media-manager, marketing-intelligence-analyst)
+4. For completed work: evaluate_team_output and accept or request revision
+5. Synthesize completed deliverables back to Sarah`;
+      break;
+
+    case 'content_planning_cycle':
+      initialMessage = params.message || `Run content planning cycle for ${today}.
+
+Steps:
+1. Review current content calendar and recent performance
+2. Identify gaps in content coverage and SEO
+3. Decompose needed content into team assignments:
+   - Blog posts and articles → content-creator
+   - SEO optimization work → seo-analyst
+   - Social media posts → social-media-manager
+   - Market intelligence needs → marketing-intelligence-analyst
+4. Track progress on existing assignments
+5. Report status to Sarah`;
       break;
 
     default:

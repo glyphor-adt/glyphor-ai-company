@@ -22,10 +22,8 @@ import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
-import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createInitiativeTools } from '../shared/initiativeTools.js';
-import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createRevenueTools } from '../shared/revenueTools.js';
@@ -65,10 +63,8 @@ export async function runCFO(params: CFORunParams = {}) {
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
-    ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
-    ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
     ...createRevenueTools(),
     ...createCostManagementTools(),

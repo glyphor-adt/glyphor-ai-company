@@ -73,7 +73,7 @@ export async function runDesignCritic(params: DesignCriticRunParams = {}) {
     default:
       initialMessage = params.message || 'Critique and review design quality as directed.';
   }
-  const agentCfg = await loadAgentConfig('design-critic', { temperature: 0.7, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('design-critic', { temperature: 0.25, maxTurns: 10 });
 
   const config: AgentConfig = {
     id: `sofia-${task}-${today}`, role: 'design-critic',

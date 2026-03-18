@@ -674,11 +674,12 @@ export const ORCHESTRATOR_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
   'cto',              // Engineering orchestrator — triages, delegates to eng sub-team
   'clo',              // Legal orchestrator — decomposes compliance across departments
   'ops',              // System orchestrator — monitors health, triages alerts
+  'cmo',              // Marketing orchestrator — plans content cycles, delegates to marketing team
 ]);
 
 /** All remaining roles use the TaskRunner — they receive, reason, execute, and report. */
 export const TASK_AGENT_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
-  'cfo', 'cpo', 'cmo', 'vp-sales', 'vp-design', 'head-of-hr',
+  'cfo', 'cpo', 'vp-sales', 'vp-design', 'head-of-hr',
   'platform-engineer', 'quality-engineer', 'devops-engineer',
   'user-researcher', 'competitive-intel',
   'content-creator', 'seo-analyst', 'social-media-manager',

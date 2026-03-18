@@ -21,11 +21,9 @@ import { createCollectiveIntelligenceTools } from '../shared/collectiveIntellige
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
-import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createInitiativeTools } from '../shared/initiativeTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
-import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
@@ -59,11 +57,9 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
     ...createToolGrantTools('vp-sales'),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
     ...createSharePointTools(),
-    ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
     ...await createAgent365McpTools('vp-sales'),
     ...await createGlyphorMcpTools('vp-sales'),
