@@ -1,0 +1,200 @@
+{
+  "role": "clo",
+  "timestamp": "2026-03-18T00:55:48.166Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\victoria-chase.md",
+    "exists": true,
+    "tokenCount": 1027,
+    "hasRelationships": false,
+    "hasAuthority": true,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": true,
+    "skillIndicators": [],
+    "knowledgeIndicators": [
+      "dollar amounts"
+    ],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Victoria Chase — Chief Legal Officer",
+        "tokens": 66,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 152,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 269,
+        "classification": "identity"
+      },
+      {
+        "heading": "Communication Style",
+        "tokens": 202,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Responsibilities",
+        "tokens": 209,
+        "classification": "identity"
+      },
+      {
+        "heading": "Authority Model",
+        "tokens": 131,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\clo\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 1383,
+    "hasCrisisFabricationRules": true,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "CLO_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "compliance-monitoring",
+        "proficiency": "expert",
+        "category": "legal",
+        "tokenCount": 2906,
+        "isOwnDomain": true,
+        "timesUsed": 1,
+        "successRate": 1
+      },
+      {
+        "slug": "ip-management",
+        "proficiency": "expert",
+        "category": "legal",
+        "tokenCount": 2654,
+        "isOwnDomain": true,
+        "timesUsed": 1,
+        "successRate": 1
+      },
+      {
+        "slug": "legal-review",
+        "proficiency": "expert",
+        "category": "legal",
+        "tokenCount": 2804,
+        "isOwnDomain": true,
+        "timesUsed": 1,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 8364,
+    "crossDomainSkills": [],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 10,
+    "estimatedToolCount": 50,
+    "factories": [
+      "createCollectiveIntelligenceTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createAgentCreationTools",
+      "createToolGrantTools",
+      "createAgentDirectoryTools",
+      "createDocuSignTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 167,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "OrchestratorRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": true,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 257,
+      "completed": 235,
+      "aborted": 12,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 3.272373540856031,
+      "avgDurationMs": 26885.252918287937,
+      "avgInputTokens": 65024.50972762646,
+      "avgOutputTokens": 378.42412451361866,
+      "estimatedCost30d": 5.094399999999999
+    },
+    "taskBreakdown": {
+      "on_demand": {
+        "count": 202,
+        "completionRate": 0.9306930693069307,
+        "avgTurns": 2.698019801980198
+      },
+      "proactive": {
+        "count": 52,
+        "completionRate": 0.8461538461538461,
+        "avgTurns": 5.5
+      },
+      "work_loop": {
+        "count": 3,
+        "completionRate": 1,
+        "avgTurns": 3.3333333333333335
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 0,
+      "completed": 0,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P2",
+      "category": "brief",
+      "description": "Brief contains knowledge data (dollar amounts). Move to knowledge base.",
+      "effort": "small"
+    },
+    {
+      "priority": "P2",
+      "category": "context",
+      "description": "Assigned skills total ~8364 tokens. Exceeds recommended 3,000-token skill budget.",
+      "effort": "small"
+    }
+  ]
+}

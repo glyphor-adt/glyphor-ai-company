@@ -1,0 +1,230 @@
+{
+  "role": "ui-ux-designer",
+  "timestamp": "2026-03-18T00:56:01.282Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\leo-vargas.md",
+    "exists": true,
+    "tokenCount": 627,
+    "hasRelationships": true,
+    "hasAuthority": false,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": false,
+    "skillIndicators": [],
+    "knowledgeIndicators": [],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Leo Vargas — UI/UX Designer",
+        "tokens": 45,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 197,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 159,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 123,
+        "classification": "identity"
+      },
+      {
+        "heading": "Relationships",
+        "tokens": 104,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\ui-ux-designer\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 492,
+    "hasCrisisFabricationRules": false,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "UI_UX_DESIGNER_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "elite-design-review",
+        "proficiency": "competent",
+        "category": "design",
+        "tokenCount": 159,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "design-review",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 2172,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "react-bits-pro",
+        "proficiency": "learning",
+        "category": "design",
+        "tokenCount": 5804,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "advanced-web-creation",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 162,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "design-system-management",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 1835,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "ux-design",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 2444,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 12576,
+    "crossDomainSkills": [],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 14,
+    "estimatedToolCount": 70,
+    "factories": [
+      "createUiUxDesignerTools",
+      "createGraphTools",
+      "createFrontendCodeTools",
+      "createScreenshotTools",
+      "createDesignSystemTools",
+      "createAssetTools",
+      "createFigmaTools",
+      "createSharePointTools",
+      "createLogoTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools",
+      "createFuseTools",
+      "createDesignBriefTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 44,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": false,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 44,
+      "completed": 32,
+      "aborted": 8,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 5.818181818181818,
+      "avgDurationMs": 54314.36363636364,
+      "avgInputTokens": 96344.18181818182,
+      "avgOutputTokens": 549.3409090909091,
+      "estimatedCost30d": 0.8268999999999996
+    },
+    "taskBreakdown": {
+      "design_review": {
+        "count": 25,
+        "completionRate": 0.72,
+        "avgTurns": 4.04
+      },
+      "proactive": {
+        "count": 16,
+        "completionRate": 0.8125,
+        "avgTurns": 8.125
+      },
+      "work_loop": {
+        "count": 3,
+        "completionRate": 0.3333333333333333,
+        "avgTurns": 8.333333333333334
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 0,
+      "completed": 0,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P1",
+      "category": "prompt",
+      "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "context",
+      "description": "Assigned skills total ~12576 tokens. Exceeds recommended 3,000-token skill budget.",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "health",
+      "description": "Completion rate is 73% (target: >80%).",
+      "effort": "small"
+    }
+  ]
+}

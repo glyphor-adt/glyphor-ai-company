@@ -47,6 +47,55 @@ const ROLE_DEPARTMENT: Record<string, string> = {
   'adi-rose': 'operations',
 };
 
+const SKILL_CONTEXT_MAX_ITEMS = 5;
+const SKILL_CONTEXT_MAPPED_BUDGET = 3;
+const SKILL_CONTEXT_FALLBACK_BUDGET = 2;
+const TASK_KEYWORD_MIN_LENGTH = 4;
+
+const TASK_STOP_WORDS = new Set([
+  'the', 'and', 'for', 'with', 'from', 'that', 'this', 'into', 'your', 'have', 'will',
+  'about', 'after', 'before', 'within', 'without', 'need', 'needs', 'should', 'could',
+  'would', 'task', 'tasks', 'work', 'agent', 'run', 'next', 'quarter', 'month', 'week',
+]);
+
+const PROFICIENCY_RANK: Record<string, number> = {
+  master: 4,
+  expert: 3,
+  competent: 2,
+  learning: 1,
+};
+
+function normalizeWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => word.replace(/[^a-z0-9-]/g, ''))
+    .filter((word) => word.length >= TASK_KEYWORD_MIN_LENGTH && !TASK_STOP_WORDS.has(word));
+}
+
+function extractTaskKeywords(task: string): string[] {
+  return Array.from(new Set(normalizeWords(task))).slice(0, 8);
+}
+
+function rankSemanticSkill(keywords: string[], skill: { slug: string; name: string; description?: string; methodology?: string }): number {
+  if (keywords.length === 0) return 0;
+
+  const slugText = skill.slug.toLowerCase();
+  const nameText = skill.name.toLowerCase();
+  const descText = (skill.description ?? '').toLowerCase();
+  const methodologyText = (skill.methodology ?? '').toLowerCase();
+
+  let score = 0;
+  for (const keyword of keywords) {
+    if (slugText.includes(keyword)) score += 3;
+    if (nameText.includes(keyword)) score += 3;
+    if (descText.includes(keyword)) score += 2;
+    if (methodologyText.includes(keyword)) score += 1;
+  }
+
+  return score;
+}
+
 export function createRunDeps(
   glyphorEventBus: GlyphorEventBus,
   memory: CompanyMemoryStore,
@@ -286,12 +335,17 @@ export function createRunDeps(
       const taskMappings = await systemQuery('SELECT task_regex, skill_slug, priority FROM task_skill_map', []);
 
       const matchedSlugs = new Set<string>();
+      const slugPriority = new Map<string, number>();
       if (taskMappings) {
         for (const mapping of taskMappings as { skill_slug: string; priority: number; task_regex: string }[]) {
           try {
             const regex = new RegExp(mapping.task_regex, 'i');
             if (regex.test(task)) {
               matchedSlugs.add(mapping.skill_slug);
+              const prev = slugPriority.get(mapping.skill_slug);
+              if (prev === undefined || mapping.priority < prev) {
+                slugPriority.set(mapping.skill_slug, mapping.priority);
+              }
             }
           } catch {
             // Invalid regex — skip
@@ -308,6 +362,7 @@ export function createRunDeps(
         slug: string;
         name: string;
         category: string;
+        description: string;
         methodology: string;
         tools_granted: string[];
       }
@@ -315,43 +370,81 @@ export function createRunDeps(
       const contextSkills: SkillContext['skills'] = [];
       const seen = new Set<string>();
 
-      // Prioritize matched skills
-      for (const skill of skills as SkillRow[]) {
-        if (matchedSlugs.has(skill.slug) && !seen.has(skill.id)) {
-          const as = agentSkillMap.get(skill.id);
-          contextSkills.push({
-            slug: skill.slug,
-            name: skill.name,
-            category: skill.category,
-            methodology: skill.methodology,
-            proficiency: as?.proficiency ?? 'learning',
-            tools_granted: skill.tools_granted ?? [],
-            learned_refinements: as?.learned_refinements ?? [],
-            failure_modes: as?.failure_modes ?? [],
-          });
+      const proficiencyRank = (skillId: string) => {
+        const proficiency = (agentSkillMap.get(skillId)?.proficiency ?? 'learning').toLowerCase();
+        return PROFICIENCY_RANK[proficiency] ?? 1;
+      };
+
+      const buildContextSkill = (skill: SkillRow) => {
+        const as = agentSkillMap.get(skill.id);
+        return {
+          slug: skill.slug,
+          name: skill.name,
+          category: skill.category,
+          methodology: skill.methodology,
+          proficiency: as?.proficiency ?? 'learning',
+          tools_granted: skill.tools_granted ?? [],
+          learned_refinements: as?.learned_refinements ?? [],
+          failure_modes: as?.failure_modes ?? [],
+        };
+      };
+
+      // 3. Retrieval budget: mapped skills first, then semantic fallback, then strongest remaining.
+      const matchedCandidates = (skills as SkillRow[])
+        .filter((skill) => matchedSlugs.has(skill.slug))
+        .sort((left, right) => {
+          const leftPriority = slugPriority.get(left.slug) ?? Number.MAX_SAFE_INTEGER;
+          const rightPriority = slugPriority.get(right.slug) ?? Number.MAX_SAFE_INTEGER;
+          if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+          return proficiencyRank(right.id) - proficiencyRank(left.id);
+        })
+        .slice(0, SKILL_CONTEXT_MAPPED_BUDGET);
+
+      for (const skill of matchedCandidates) {
+        contextSkills.push(buildContextSkill(skill));
+        seen.add(skill.id);
+      }
+
+      const fallbackSlots = Math.max(0, Math.min(
+        SKILL_CONTEXT_FALLBACK_BUDGET,
+        SKILL_CONTEXT_MAX_ITEMS - contextSkills.length,
+      ));
+      if (fallbackSlots > 0) {
+        const taskKeywords = extractTaskKeywords(task);
+        const semanticFallback = (skills as SkillRow[])
+          .filter((skill) => !seen.has(skill.id))
+          .map((skill) => ({
+            skill,
+            semanticScore: rankSemanticSkill(taskKeywords, skill),
+            proficiency: proficiencyRank(skill.id),
+          }))
+          .filter((row) => row.semanticScore > 0)
+          .sort((left, right) => {
+            if (left.semanticScore !== right.semanticScore) return right.semanticScore - left.semanticScore;
+            return right.proficiency - left.proficiency;
+          })
+          .slice(0, fallbackSlots)
+          .map((row) => row.skill);
+
+        for (const skill of semanticFallback) {
+          contextSkills.push(buildContextSkill(skill));
           seen.add(skill.id);
         }
       }
 
-      // Add remaining skills (limit to top 5 to keep prompt size manageable)
-      for (const skill of skills as SkillRow[]) {
-        if (!seen.has(skill.id) && contextSkills.length < 5) {
-          const as = agentSkillMap.get(skill.id);
-          contextSkills.push({
-            slug: skill.slug,
-            name: skill.name,
-            category: skill.category,
-            methodology: skill.methodology,
-            proficiency: as?.proficiency ?? 'learning',
-            tools_granted: skill.tools_granted ?? [],
-            learned_refinements: as?.learned_refinements ?? [],
-            failure_modes: as?.failure_modes ?? [],
-          });
+      if (contextSkills.length < SKILL_CONTEXT_MAX_ITEMS) {
+        const remaining = (skills as SkillRow[])
+          .filter((skill) => !seen.has(skill.id))
+          .sort((left, right) => proficiencyRank(right.id) - proficiencyRank(left.id))
+          .slice(0, SKILL_CONTEXT_MAX_ITEMS - contextSkills.length);
+
+        for (const skill of remaining) {
+          contextSkills.push(buildContextSkill(skill));
           seen.add(skill.id);
         }
       }
 
-      return contextSkills.length > 0 ? { skills: contextSkills } : null;
+      return contextSkills.length > 0 ? { skills: contextSkills.slice(0, SKILL_CONTEXT_MAX_ITEMS) } : null;
     },
 
     partialProgressSaver: async (assignmentId: string, partialOutput: string, agentRole: CompanyAgentRole, abortReason: string): Promise<void> => {

@@ -1,0 +1,348 @@
+{
+  "role": "chief-of-staff",
+  "timestamp": "2026-03-18T00:55:47.434Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sarah-chen.md",
+    "exists": true,
+    "tokenCount": 1685,
+    "hasRelationships": true,
+    "hasAuthority": true,
+    "hasAntiPatterns": true,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": true,
+    "skillIndicators": [],
+    "knowledgeIndicators": [
+      "dollar amounts"
+    ],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Sarah Chen — Chief of Staff",
+        "tokens": 53,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 150,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 262,
+        "classification": "identity"
+      },
+      {
+        "heading": "Communication Style",
+        "tokens": 187,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 271,
+        "classification": "knowledge"
+      },
+      {
+        "heading": "Briefing Tailoring",
+        "tokens": 130,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Relationships",
+        "tokens": 178,
+        "classification": "identity"
+      },
+      {
+        "heading": "Operating Principles",
+        "tokens": 177,
+        "classification": "identity"
+      },
+      {
+        "heading": "Authority & Constraints",
+        "tokens": 152,
+        "classification": "identity"
+      },
+      {
+        "heading": "Anti-Patterns",
+        "tokens": 128,
+        "classification": "anti-pattern"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\chief-of-staff\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 8236,
+    "hasCrisisFabricationRules": true,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "CHIEF_OF_STAFF_SYSTEM_PROMPT",
+      "ORCHESTRATION_PROMPT",
+      "STRATEGIC_PLANNING_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "cross-team-coordination",
+        "proficiency": "expert",
+        "category": "leadership",
+        "tokenCount": 776,
+        "isOwnDomain": false,
+        "timesUsed": 25,
+        "successRate": 1
+      },
+      {
+        "slug": "decision-routing",
+        "proficiency": "competent",
+        "category": "leadership",
+        "tokenCount": 2259,
+        "isOwnDomain": false,
+        "timesUsed": 25,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 3035,
+    "crossDomainSkills": [
+      "cross-team-coordination",
+      "decision-routing"
+    ],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": [
+      {
+        "task": "orchestrate",
+        "tier": "full",
+        "losesIdentity": false,
+        "losesSkills": false,
+        "losesMemory": false
+      },
+      {
+        "task": "strategic_planning",
+        "tier": "full",
+        "losesIdentity": false,
+        "losesSkills": false,
+        "losesMemory": false
+      }
+    ]
+  },
+  "tools": {
+    "factoryCount": 11,
+    "estimatedToolCount": 55,
+    "factories": [
+      "createChiefOfStaffTools",
+      "createOrchestrationTools",
+      "createCollectiveIntelligenceTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createAgentCreationTools",
+      "createToolGrantTools",
+      "createAgentDirectoryTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 168,
+    "blockedByDb": 1
+  },
+  "config": {
+    "runnerType": "OrchestratorRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {
+      "orchestrate": 10
+    },
+    "isExecutive": true,
+    "hasActiveTeamMembers": true,
+    "teamMemberCount": 9,
+    "teamMembersWithRunners": 7,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [
+      "orchestrate",
+      "strategic_planning"
+    ],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [
+      "orchestrate",
+      "strategic_planning"
+    ],
+    "coverageRate": 0
+  },
+  "runs": {
+    "last30Days": {
+      "total": 1738,
+      "completed": 1068,
+      "aborted": 119,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 3.5782508630609895,
+      "avgDurationMs": 83868.85270425776,
+      "avgInputTokens": 59901.77617951669,
+      "avgOutputTokens": 1509.758918296893,
+      "estimatedCost30d": 76.8893
+    },
+    "taskBreakdown": {
+      "on_demand": {
+        "count": 770,
+        "completionRate": 0.8441558441558441,
+        "avgTurns": 2.5090909090909093
+      },
+      "eod_summary": {
+        "count": 20,
+        "completionRate": 0.85,
+        "avgTurns": 5
+      },
+      "orchestrate": {
+        "count": 466,
+        "completionRate": 0.38197424892703863,
+        "avgTurns": 5.663090128755365
+      },
+      "proactive": {
+        "count": 278,
+        "completionRate": 0.22661870503597123,
+        "avgTurns": 2.2446043165467624
+      },
+      "monthly_retrospective": {
+        "count": 1,
+        "completionRate": 1,
+        "avgTurns": 8
+      },
+      "morning_briefing": {
+        "count": 44,
+        "completionRate": 0.6818181818181818,
+        "avgTurns": 3.159090909090909
+      },
+      "agent365_mail_triage": {
+        "count": 35,
+        "completionRate": 0.8571428571428571,
+        "avgTurns": 4.057142857142857
+      },
+      "weekly_review": {
+        "count": 3,
+        "completionRate": 0.6666666666666666,
+        "avgTurns": 4.666666666666667
+      },
+      "work_loop": {
+        "count": 121,
+        "completionRate": 0.8016528925619835,
+        "avgTurns": 5.132231404958677
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 18,
+      "completed": 16,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": -37416799.333333336
+    },
+    "commonFailureModes": [
+      "I can't verify this submission yet. I checked linked deliverables for this assignment and found none, so there’s no artifact for me to review. Please resubmit with the actual output attached or published: 1) the product copy manifest entries, 2) the exact PR links, and 3) a short note on what changed so I can review against scope."
+    ]
+  },
+  "schedule": {
+    "cronJobs": [
+      {
+        "name": "orchestration-cycle",
+        "schedule": "0 */1 * * *",
+        "task": "orchestrate"
+      },
+      {
+        "name": "briefing-kristina",
+        "schedule": "0 7 * * *",
+        "task": "generate_briefing"
+      },
+      {
+        "name": "briefing-andrew",
+        "schedule": "30 7 * * *",
+        "task": "generate_briefing"
+      },
+      {
+        "name": "midday-digest",
+        "schedule": "0 12 * * 1-5",
+        "task": "midday_digest"
+      },
+      {
+        "name": "eod-summary",
+        "schedule": "0 18 * * 1-5",
+        "task": "generate_briefing"
+      },
+      {
+        "name": "weekly-review",
+        "schedule": "0 9 * * 1",
+        "task": "weekly_review"
+      },
+      {
+        "name": "monthly-retrospective",
+        "schedule": "0 10 1 * *",
+        "task": "monthly_retrospective"
+      },
+      {
+        "name": "strategic-planning",
+        "schedule": "0 14 * * 1",
+        "task": "strategic_planning"
+      },
+      {
+        "name": "escalation-check",
+        "schedule": "0 */6 * * *",
+        "task": "check_escalations"
+      }
+    ],
+    "hasScheduleFile": true,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P1",
+      "category": "brief",
+      "description": "Brief is 1685 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
+      "effort": "small"
+    },
+    {
+      "priority": "P2",
+      "category": "brief",
+      "description": "Brief contains knowledge data (dollar amounts). Move to knowledge base.",
+      "effort": "small"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"cross-team-coordination\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"decision-routing\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P1",
+      "category": "health",
+      "description": "Completion rate is 61% (target: >80%).",
+      "effort": "small"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"orchestrate\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"strategic_planning\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    }
+  ]
+}

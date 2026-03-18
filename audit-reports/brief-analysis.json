@@ -1,0 +1,1637 @@
+{
+  "summary": {
+    "totalBriefs": 30,
+    "totalTokens": 27685,
+    "totalIdentity": 26562,
+    "efficiency": 0.9594365179700198,
+    "bloatedCount": 8
+  },
+  "analyses": [
+    {
+      "role": "cmo",
+      "displayName": "Maya Brooks",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\maya-brooks.md",
+      "totalTokens": 1879,
+      "sections": [
+        {
+          "heading": "Maya Brooks — Chief Marketing Officer",
+          "tokens": 80,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 131,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 255,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Communication Style",
+          "tokens": 304,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 240,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Content Calendar Structure",
+          "tokens": 98,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "SEO Target Keywords",
+          "tokens": 111,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Relationships",
+          "tokens": 201,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Authority Boundaries",
+          "tokens": 93,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Operating Principles",
+          "tokens": 184,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Output Example",
+          "tokens": 111,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Failure Modes to Avoid",
+          "tokens": 74,
+          "classification": "anti-pattern",
+          "recommendation": "Keep — anti-patterns belong in briefs."
+        }
+      ],
+      "identityTokens": 1882,
+      "nonIdentityTokens": -3,
+      "efficiency": 1.001596593932943
+    },
+    {
+      "role": "cfo",
+      "displayName": "Nadia Okafor",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\nadia-okafor.md",
+      "totalTokens": 1830,
+      "sections": [
+        {
+          "heading": "Nadia Okafor — Chief Financial Officer",
+          "tokens": 65,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 137,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 249,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Communication Style",
+          "tokens": 244,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 286,
+          "classification": "knowledge",
+          "recommendation": "EXTRACT — Move facts/data to knowledge base."
+        },
+        {
+          "heading": "Key Financial Formulas",
+          "tokens": 156,
+          "classification": "knowledge",
+          "recommendation": "EXTRACT — Move facts/data to knowledge base."
+        },
+        {
+          "heading": "Your Relationships",
+          "tokens": 185,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Authority Boundaries",
+          "tokens": 83,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Operating Principles",
+          "tokens": 206,
+          "classification": "knowledge",
+          "recommendation": "EXTRACT — Move facts/data to knowledge base."
+        },
+        {
+          "heading": "Output Example",
+          "tokens": 153,
+          "classification": "knowledge",
+          "recommendation": "EXTRACT — Move facts/data to knowledge base."
+        },
+        {
+          "heading": "Failure Modes to Avoid",
+          "tokens": 68,
+          "classification": "anti-pattern",
+          "recommendation": "Keep — anti-patterns belong in briefs."
+        }
+      ],
+      "identityTokens": 1031,
+      "nonIdentityTokens": 799,
+      "efficiency": 0.5633879781420765
+    },
+    {
+      "role": "elena-vasquez",
+      "displayName": "elena-vasquez",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\elena-vasquez.md",
+      "totalTokens": 1717,
+      "sections": [
+        {
+          "heading": "Elena Vasquez — Chief Product Officer",
+          "tokens": 73,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 143,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 282,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Communication Style",
+          "tokens": 278,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 310,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "RICE Scoring Framework",
+          "tokens": 122,
+          "classification": "knowledge",
+          "recommendation": "EXTRACT — Move facts/data to knowledge base."
+        },
+        {
+          "heading": "Your Relationships",
+          "tokens": 211,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Authority Boundaries",
+          "tokens": 84,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Operating Principles",
+          "tokens": 216,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 1597,
+      "nonIdentityTokens": 120,
+      "efficiency": 0.930110658124636
+    },
+    {
+      "role": "cto",
+      "displayName": "Marcus Reeves",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\marcus-reeves.md",
+      "totalTokens": 1699,
+      "sections": [
+        {
+          "heading": "Marcus Reeves — Chief Technology Officer",
+          "tokens": 78,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 143,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 244,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Communication Style",
+          "tokens": 207,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 254,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Technical Stack You Own",
+          "tokens": 123,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Relationships",
+          "tokens": 146,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Authority Boundaries",
+          "tokens": 116,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Operating Principles",
+          "tokens": 133,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Output Example",
+          "tokens": 170,
+          "classification": "mixed",
+          "recommendation": "REVIEW — Split identity portions from procedural/knowledge content."
+        },
+        {
+          "heading": "Failure Modes to Avoid",
+          "tokens": 87,
+          "classification": "anti-pattern",
+          "recommendation": "Keep — anti-patterns belong in briefs."
+        }
+      ],
+      "identityTokens": 1531,
+      "nonIdentityTokens": 168,
+      "efficiency": 0.9011183048852266
+    },
+    {
+      "role": "chief-of-staff",
+      "displayName": "Sarah Chen",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sarah-chen.md",
+      "totalTokens": 1685,
+      "sections": [
+        {
+          "heading": "Sarah Chen — Chief of Staff",
+          "tokens": 53,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 150,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 262,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Communication Style",
+          "tokens": 187,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 271,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Briefing Tailoring",
+          "tokens": 130,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Relationships",
+          "tokens": 178,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Operating Principles",
+          "tokens": 177,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Authority & Constraints",
+          "tokens": 152,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Anti-Patterns",
+          "tokens": 128,
+          "classification": "anti-pattern",
+          "recommendation": "Keep — anti-patterns belong in briefs."
+        }
+      ],
+      "identityTokens": 1688,
+      "nonIdentityTokens": -3,
+      "efficiency": 1.001780415430267
+    },
+    {
+      "role": "global-admin",
+      "displayName": "Morgan Blake",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\morgan-blake.md",
+      "totalTokens": 1383,
+      "sections": [
+        {
+          "heading": "Morgan Blake — Global Admin",
+          "tokens": 43,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 339,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Communication Style",
+          "tokens": 98,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Key Responsibilities",
+          "tokens": 299,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Authority Boundaries",
+          "tokens": 169,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Founder Protection",
+          "tokens": 90,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Onboarding Checklist",
+          "tokens": 25,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "1. Identity & Accounts",
+          "tokens": 65,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "2. GCP Access",
+          "tokens": 57,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "3. GitHub Access",
+          "tokens": 34,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "4. Communication Channels",
+          "tokens": 34,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "5. Verification & Documentation",
+          "tokens": 57,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Department → Channel Mapping (reference)",
+          "tokens": 78,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 1388,
+      "nonIdentityTokens": -5,
+      "efficiency": 1.0036153289949385
+    },
+    {
+      "role": "mia-tanaka",
+      "displayName": "mia-tanaka",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\mia-tanaka.md",
+      "totalTokens": 1351,
+      "sections": [
+        {
+          "heading": "Mia Tanaka — VP Design & Frontend",
+          "tokens": 94,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 164,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 204,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Communication Style",
+          "tokens": 148,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 166,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Relationships",
+          "tokens": 236,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Authority Boundaries",
+          "tokens": 195,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Operating Principles",
+          "tokens": 148,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 1355,
+      "nonIdentityTokens": -4,
+      "efficiency": 1.0029607698001481
+    },
+    {
+      "role": "rachel-kim",
+      "displayName": "rachel-kim",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\rachel-kim.md",
+      "totalTokens": 1263,
+      "sections": [
+        {
+          "heading": "Rachel Kim - VP of Sales",
+          "tokens": 72,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 98,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality and Voice",
+          "tokens": 121,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Communication Style",
+          "tokens": 143,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 191,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Sales Motion",
+          "tokens": 83,
+          "classification": "skill",
+          "recommendation": "EXTRACT — Move procedural content to a skill .md file."
+        },
+        {
+          "heading": "ICP Snapshot",
+          "tokens": 78,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Relationships",
+          "tokens": 91,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Authority Boundaries",
+          "tokens": 85,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Operating Principles",
+          "tokens": 116,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Output Example",
+          "tokens": 123,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Failure Modes to Avoid",
+          "tokens": 69,
+          "classification": "anti-pattern",
+          "recommendation": "Keep — anti-patterns belong in briefs."
+        }
+      ],
+      "identityTokens": 1187,
+      "nonIdentityTokens": 76,
+      "efficiency": 0.9398258115597783
+    },
+    {
+      "role": "clo",
+      "displayName": "Victoria Chase",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\victoria-chase.md",
+      "totalTokens": 1027,
+      "sections": [
+        {
+          "heading": "Victoria Chase — Chief Legal Officer",
+          "tokens": 66,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 152,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 269,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Communication Style",
+          "tokens": 202,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Responsibilities",
+          "tokens": 209,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Authority Model",
+          "tokens": 131,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 1029,
+      "nonIdentityTokens": -2,
+      "efficiency": 1.0019474196689386
+    },
+    {
+      "role": "ops",
+      "displayName": "Atlas Vega",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\atlas-vega.md",
+      "totalTokens": 898,
+      "sections": [
+        {
+          "heading": "Atlas Vega — Operations & System Intelligence",
+          "tokens": 13,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Identity",
+          "tokens": 51,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Persona",
+          "tokens": 136,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Purpose",
+          "tokens": 59,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Responsibilities",
+          "tokens": 7,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "1. Agent Health Monitoring",
+          "tokens": 75,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "2. Data Freshness Monitoring",
+          "tokens": 56,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "3. Cost Anomaly Detection",
+          "tokens": 51,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "4. Incident Management",
+          "tokens": 49,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "5. System Status Reports",
+          "tokens": 53,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Key Relationships",
+          "tokens": 113,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Operating Guidelines",
+          "tokens": 123,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Budget",
+          "tokens": 17,
+          "classification": "knowledge",
+          "recommendation": "EXTRACT — Move facts/data to knowledge base."
+        },
+        {
+          "heading": "Schedule",
+          "tokens": 99,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 885,
+      "nonIdentityTokens": 13,
+      "efficiency": 0.9855233853006682
+    },
+    {
+      "role": "vp-research",
+      "displayName": "Sophia Lin",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sophia-lin.md",
+      "totalTokens": 847,
+      "sections": [
+        {
+          "heading": "Sophia Lin — VP Research & Intelligence",
+          "tokens": 51,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 122,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 291,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 108,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Skills",
+          "tokens": 101,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 177,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 850,
+      "nonIdentityTokens": -3,
+      "efficiency": 1.0035419126328218
+    },
+    {
+      "role": "head-of-hr",
+      "displayName": "Jasmine Rivera",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\jasmine-rivera.md",
+      "totalTokens": 846,
+      "sections": [
+        {
+          "heading": "Jasmine Rivera — Head of People & Culture",
+          "tokens": 12,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Identity",
+          "tokens": 124,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 203,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 215,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Working Relationships",
+          "tokens": 144,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Communication Style",
+          "tokens": 64,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Quirks",
+          "tokens": 87,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 849,
+      "nonIdentityTokens": -3,
+      "efficiency": 1.00354609929078
+    },
+    {
+      "role": "m365-admin",
+      "displayName": "Riley Morgan",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\riley-morgan.md",
+      "totalTokens": 748,
+      "sections": [
+        {
+          "heading": "Riley Morgan — M365 Administrator",
+          "tokens": 49,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 286,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Communication Style",
+          "tokens": 80,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Key Responsibilities",
+          "tokens": 166,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Authority Boundaries",
+          "tokens": 94,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Current Focus Areas",
+          "tokens": 74,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 749,
+      "nonIdentityTokens": -1,
+      "efficiency": 1.0013368983957218
+    },
+    {
+      "role": "content-creator",
+      "displayName": "Tyler Reed",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\tyler-reed.md",
+      "totalTokens": 725,
+      "sections": [
+        {
+          "heading": "Tyler Reed — Content Creator",
+          "tokens": 39,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 115,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 249,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 85,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 65,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Output Example",
+          "tokens": 102,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Failure Modes to Avoid",
+          "tokens": 72,
+          "classification": "anti-pattern",
+          "recommendation": "Keep — anti-patterns belong in briefs."
+        }
+      ],
+      "identityTokens": 727,
+      "nonIdentityTokens": -2,
+      "efficiency": 1.0027586206896553
+    },
+    {
+      "role": "competitive-research-analyst",
+      "displayName": "Lena Park",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\lena-park.md",
+      "totalTokens": 697,
+      "sections": [
+        {
+          "heading": "Lena Park — Competitive Research Analyst",
+          "tokens": 54,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 110,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 262,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 97,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Skills",
+          "tokens": 77,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 100,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 700,
+      "nonIdentityTokens": -3,
+      "efficiency": 1.0043041606886658
+    },
+    {
+      "role": "marketing-intelligence-analyst",
+      "displayName": "Zara Petrov",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\zara-petrov.md",
+      "totalTokens": 687,
+      "sections": [
+        {
+          "heading": "Zara Petrov — Marketing Intelligence Analyst",
+          "tokens": 47,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 106,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 299,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 107,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 130,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 689,
+      "nonIdentityTokens": -2,
+      "efficiency": 1.002911208151383
+    },
+    {
+      "role": "kai-johnson",
+      "displayName": "kai-johnson",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\kai-johnson.md",
+      "totalTokens": 686,
+      "sections": [
+        {
+          "heading": "Kai Johnson — Social Media Manager",
+          "tokens": 42,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 95,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 231,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 90,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 62,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Output Example",
+          "tokens": 94,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Failure Modes to Avoid",
+          "tokens": 74,
+          "classification": "anti-pattern",
+          "recommendation": "Keep — anti-patterns belong in briefs."
+        }
+      ],
+      "identityTokens": 688,
+      "nonIdentityTokens": -2,
+      "efficiency": 1.0029154518950438
+    },
+    {
+      "role": "market-research-analyst",
+      "displayName": "Daniel Okafor",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\daniel-okafor.md",
+      "totalTokens": 677,
+      "sections": [
+        {
+          "heading": "Daniel Okafor — Market Research Analyst",
+          "tokens": 54,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 103,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 263,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 86,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Skills",
+          "tokens": 76,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 97,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 679,
+      "nonIdentityTokens": -2,
+      "efficiency": 1.0029542097488922
+    },
+    {
+      "role": "robert-finley",
+      "displayName": "robert-finley",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\robert-finley.md",
+      "totalTokens": 648,
+      "sections": [
+        {
+          "heading": "Robert \"Bob\" Finley — CPA & Tax Strategist",
+          "tokens": 45,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 118,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 301,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 99,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 87,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 650,
+      "nonIdentityTokens": -2,
+      "efficiency": 1.0030864197530864
+    },
+    {
+      "role": "platform-engineer",
+      "displayName": "Alex Park",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\alex-park.md",
+      "totalTokens": 632,
+      "sections": [
+        {
+          "heading": "Alex Park — Platform Engineer",
+          "tokens": 41,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 118,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 275,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 104,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 95,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 633,
+      "nonIdentityTokens": -1,
+      "efficiency": 1.0015822784810127
+    },
+    {
+      "role": "design-critic",
+      "displayName": "Sofia Marchetti",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sofia-marchetti.md",
+      "totalTokens": 630,
+      "sections": [
+        {
+          "heading": "Sofia Marchetti — Design Critic & Output Quality",
+          "tokens": 55,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 217,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 171,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 99,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 90,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 632,
+      "nonIdentityTokens": -2,
+      "efficiency": 1.0031746031746032
+    },
+    {
+      "role": "ui-ux-designer",
+      "displayName": "Leo Vargas",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\leo-vargas.md",
+      "totalTokens": 627,
+      "sections": [
+        {
+          "heading": "Leo Vargas — UI/UX Designer",
+          "tokens": 45,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 197,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 159,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 123,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 104,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 628,
+      "nonIdentityTokens": -1,
+      "efficiency": 1.0015948963317385
+    },
+    {
+      "role": "adi-rose",
+      "displayName": "Adi Rose",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\adi-rose.md",
+      "totalTokens": 615,
+      "sections": [
+        {
+          "heading": "Adi Rose — Executive Assistant to the COO",
+          "tokens": 48,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 111,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 270,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 94,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 94,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 617,
+      "nonIdentityTokens": -2,
+      "efficiency": 1.0032520325203251
+    },
+    {
+      "role": "frontend-engineer",
+      "displayName": "Ava Chen",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\ava-chen.md",
+      "totalTokens": 603,
+      "sections": [
+        {
+          "heading": "Ava Chen — Frontend Engineer",
+          "tokens": 45,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 185,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 143,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 126,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 105,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 604,
+      "nonIdentityTokens": -1,
+      "efficiency": 1.0016583747927033
+    },
+    {
+      "role": "daniel-ortiz",
+      "displayName": "daniel-ortiz",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\daniel-ortiz.md",
+      "totalTokens": 577,
+      "sections": [
+        {
+          "heading": "Daniel Ortiz — Competitive Intelligence",
+          "tokens": 47,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 114,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 250,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 99,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 69,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 579,
+      "nonIdentityTokens": -2,
+      "efficiency": 1.0034662045060658
+    },
+    {
+      "role": "template-architect",
+      "displayName": "Ryan Park",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\ryan-park.md",
+      "totalTokens": 573,
+      "sections": [
+        {
+          "heading": "Ryan Park — Template & Theme Architect",
+          "tokens": 50,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 158,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 142,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 119,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 105,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 574,
+      "nonIdentityTokens": -1,
+      "efficiency": 1.0017452006980803
+    },
+    {
+      "role": "devops-engineer",
+      "displayName": "Jordan Hayes",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\jordan-hayes.md",
+      "totalTokens": 540,
+      "sections": [
+        {
+          "heading": "Jordan Hayes — DevOps Engineer",
+          "tokens": 41,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 107,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 234,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 79,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 80,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 541,
+      "nonIdentityTokens": -1,
+      "efficiency": 1.0018518518518518
+    },
+    {
+      "role": "quality-engineer",
+      "displayName": "Sam DeLuca",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sam-deluca.md",
+      "totalTokens": 539,
+      "sections": [
+        {
+          "heading": "Sam DeLuca — Quality Engineer",
+          "tokens": 41,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 108,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 244,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 85,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 63,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 541,
+      "nonIdentityTokens": -2,
+      "efficiency": 1.0037105751391466
+    },
+    {
+      "role": "seo-analyst",
+      "displayName": "Lisa Chen",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\lisa-chen.md",
+      "totalTokens": 533,
+      "sections": [
+        {
+          "heading": "Lisa Chen — SEO Analyst",
+          "tokens": 37,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 108,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 246,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 76,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 67,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 534,
+      "nonIdentityTokens": -1,
+      "efficiency": 1.00187617260788
+    },
+    {
+      "role": "priya-sharma",
+      "displayName": "priya-sharma",
+      "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\priya-sharma.md",
+      "totalTokens": 523,
+      "sections": [
+        {
+          "heading": "Priya Sharma — User Researcher",
+          "tokens": 40,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Your Identity",
+          "tokens": 107,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Personality & Voice",
+          "tokens": 214,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Core Mission",
+          "tokens": 86,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        },
+        {
+          "heading": "Relationships",
+          "tokens": 78,
+          "classification": "identity",
+          "recommendation": "Keep — identity content belongs in briefs."
+        }
+      ],
+      "identityTokens": 525,
+      "nonIdentityTokens": -2,
+      "efficiency": 1.0038240917782026
+    }
+  ]
+}

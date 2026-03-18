@@ -1,5 +1,6 @@
 import type { ModelRoutingMetadata } from '../providers/types.js';
 import { inferCapabilities, type RoutingContext } from './inferCapabilities.js';
+import { inferDomainRouting } from './domainRouter.js';
 
 const DEFAULT_MODEL = 'gpt-5-mini-2025-08-07';
 const PREMIUM_ANTHROPIC_ENABLED = process.env.ENABLE_PREMIUM_ANTHROPIC === 'true';
@@ -27,6 +28,13 @@ export function resolveModelConfig(
 ): RoutingDecision {
   const capabilities = (context.capabilities as string[] | undefined) ?? inferCapabilities(context);
   const selected = new Set(capabilities);
+  const domainRouting = inferDomainRouting({
+    role: context.role,
+    task: context.task,
+    message: context.message,
+    toolNames: context.toolNames,
+    department: context.department,
+  });
   const currentModel = context.currentModel ?? DEFAULT_MODEL;
   const deterministicTask = new Set([
     'health_check',
@@ -155,6 +163,30 @@ export function resolveModelConfig(
       decision.routingRule = 'low_trust_escalation';
     }
     decision.reasoningEffort = 'high';
+  }
+
+  if (!deterministicTask && domainRouting.crossDomain) {
+    if (decision.model === 'gpt-5-nano') {
+      decision.model = DEFAULT_MODEL;
+      decision.routingRule = 'cross_domain_escalation';
+    }
+    decision.reasoningEffort = decision.reasoningEffort === 'minimal' ? 'medium' : 'high';
+    decision.enableCompaction = true;
+  }
+
+  if (!deterministicTask && decision.model === 'gpt-5-nano' && domainRouting.primaryDomain === 'legal') {
+    decision.model = 'gemini-3.1-flash-lite-preview';
+    decision.routingRule = 'legal_domain_escalation';
+    decision.reasoningEffort = 'medium';
+    decision.enableCitations = true;
+    decision.enableCompaction = true;
+  }
+
+  if (!deterministicTask && decision.model === 'gpt-5-nano' && domainRouting.primaryDomain === 'finance') {
+    decision.model = 'gemini-3.1-flash-lite-preview';
+    decision.routingRule = 'financial_domain_escalation';
+    decision.reasoningEffort = 'medium';
+    decision.enableCodeExecution = true;
   }
 
   return decision;

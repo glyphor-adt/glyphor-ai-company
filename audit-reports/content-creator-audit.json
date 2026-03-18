@@ -1,0 +1,191 @@
+{
+  "role": "content-creator",
+  "timestamp": "2026-03-18T00:55:50.689Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\tyler-reed.md",
+    "exists": true,
+    "tokenCount": 725,
+    "hasRelationships": true,
+    "hasAuthority": false,
+    "hasAntiPatterns": true,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": true,
+    "skillIndicators": [],
+    "knowledgeIndicators": [
+      "percentages"
+    ],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Tyler Reed — Content Creator",
+        "tokens": 39,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 115,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 249,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 85,
+        "classification": "identity"
+      },
+      {
+        "heading": "Relationships",
+        "tokens": 65,
+        "classification": "identity"
+      },
+      {
+        "heading": "Output Example",
+        "tokens": 102,
+        "classification": "identity"
+      },
+      {
+        "heading": "Failure Modes to Avoid",
+        "tokens": 72,
+        "classification": "anti-pattern"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\content-creator\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 1108,
+    "hasCrisisFabricationRules": true,
+    "overlapsWithBrief": 25,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "CONTENT_CREATOR_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "content-creation",
+        "proficiency": "expert",
+        "category": "marketing",
+        "tokenCount": 4073,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 4073,
+    "crossDomainSkills": [],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 7,
+    "estimatedToolCount": 35,
+    "factories": [
+      "createContentCreatorTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createContentTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 53,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": false,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 109,
+      "completed": 58,
+      "aborted": 39,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 5.201834862385321,
+      "avgDurationMs": 52245.23853211009,
+      "avgInputTokens": 46847.733944954125,
+      "avgOutputTokens": 654.348623853211,
+      "estimatedCost30d": 1.2943000000000002
+    },
+    "taskBreakdown": {
+      "blog_draft": {
+        "count": 25,
+        "completionRate": 0.48,
+        "avgTurns": 4.52
+      },
+      "proactive": {
+        "count": 56,
+        "completionRate": 0.35714285714285715,
+        "avgTurns": 6.035714285714286
+      },
+      "on_demand": {
+        "count": 4,
+        "completionRate": 1,
+        "avgTurns": 3
+      },
+      "work_loop": {
+        "count": 24,
+        "completionRate": 0.9166666666666666,
+        "avgTurns": 4.333333333333333
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 2,
+      "completed": 1,
+      "needsRevision": 0,
+      "failed": 1,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 56244
+    },
+    "commonFailureModes": [
+      "Auto-failed: pending > 24 hours without dispatch"
+    ]
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P2",
+      "category": "brief",
+      "description": "Brief contains knowledge data (percentages). Move to knowledge base.",
+      "effort": "small"
+    },
+    {
+      "priority": "P0",
+      "category": "health",
+      "description": "Completion rate is 53% (target: >80%). Agent is failing/aborting frequently.",
+      "effort": "medium"
+    }
+  ]
+}

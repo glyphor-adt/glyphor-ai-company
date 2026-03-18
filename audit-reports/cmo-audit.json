@@ -1,0 +1,328 @@
+{
+  "role": "cmo",
+  "timestamp": "2026-03-18T00:55:48.993Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\maya-brooks.md",
+    "exists": true,
+    "tokenCount": 1879,
+    "hasRelationships": true,
+    "hasAuthority": true,
+    "hasAntiPatterns": true,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": false,
+    "skillIndicators": [],
+    "knowledgeIndicators": [],
+    "duplicateRelationships": [
+      "Rachel Kim"
+    ],
+    "sectionBreakdown": [
+      {
+        "heading": "Maya Brooks — Chief Marketing Officer",
+        "tokens": 80,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 131,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 255,
+        "classification": "identity"
+      },
+      {
+        "heading": "Communication Style",
+        "tokens": 304,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 240,
+        "classification": "identity"
+      },
+      {
+        "heading": "Content Calendar Structure",
+        "tokens": 98,
+        "classification": "identity"
+      },
+      {
+        "heading": "SEO Target Keywords",
+        "tokens": 111,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Relationships",
+        "tokens": 201,
+        "classification": "identity"
+      },
+      {
+        "heading": "Authority Boundaries",
+        "tokens": 93,
+        "classification": "identity"
+      },
+      {
+        "heading": "Operating Principles",
+        "tokens": 184,
+        "classification": "identity"
+      },
+      {
+        "heading": "Output Example",
+        "tokens": 111,
+        "classification": "identity"
+      },
+      {
+        "heading": "Failure Modes to Avoid",
+        "tokens": 74,
+        "classification": "anti-pattern"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\cmo\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 1680,
+    "hasCrisisFabricationRules": true,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "CMO_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "content-creation",
+        "proficiency": "expert",
+        "category": "marketing",
+        "tokenCount": 4073,
+        "isOwnDomain": true,
+        "timesUsed": 4,
+        "successRate": 1
+      },
+      {
+        "slug": "social-media-management",
+        "proficiency": "expert",
+        "category": "marketing",
+        "tokenCount": 2040,
+        "isOwnDomain": true,
+        "timesUsed": 2,
+        "successRate": 1
+      },
+      {
+        "slug": "advanced-web-creation",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 162,
+        "isOwnDomain": false,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "sharepoint-site-management",
+        "proficiency": "learning",
+        "category": "operations",
+        "tokenCount": 3399,
+        "isOwnDomain": false,
+        "timesUsed": 2,
+        "successRate": 0
+      },
+      {
+        "slug": "brand-management",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 1857,
+        "isOwnDomain": false,
+        "timesUsed": 2,
+        "successRate": 1
+      },
+      {
+        "slug": "seo-optimization",
+        "proficiency": "expert",
+        "category": "marketing",
+        "tokenCount": 2015,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 13546,
+    "crossDomainSkills": [
+      "advanced-web-creation",
+      "sharepoint-site-management",
+      "brand-management"
+    ],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 20,
+    "estimatedToolCount": 100,
+    "factories": [
+      "createCMOTools",
+      "createCollectiveIntelligenceTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createTeamOrchestrationTools",
+      "createPeerCoordinationTools",
+      "createInitiativeTools",
+      "createAgentCreationTools",
+      "createToolGrantTools",
+      "createAgentDirectoryTools",
+      "createContentTools",
+      "createSeoTools",
+      "createSocialMediaTools",
+      "createMarketingIntelTools",
+      "createCanvaTools",
+      "createLogoTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools",
+      "createFuseTools"
+    ],
+    "hasOrchestrationTools": true,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 270,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": true,
+    "hasActiveTeamMembers": true,
+    "teamMemberCount": 3,
+    "teamMembersWithRunners": 2,
+    "runnerMismatch": true,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 655,
+      "completed": 473,
+      "aborted": 53,
+      "timedOut": 0,
+      "maxTurnsReached": 2,
+      "avgTurns": 4.203053435114504,
+      "avgDurationMs": 130822.21679389312,
+      "avgInputTokens": 81659.49160305344,
+      "avgOutputTokens": 1687.6412213740457,
+      "estimatedCost30d": 48.34069999999999
+    },
+    "taskBreakdown": {
+      "generate_content": {
+        "count": 25,
+        "completionRate": 0.8,
+        "avgTurns": 5
+      },
+      "weekly_content_planning": {
+        "count": 21,
+        "completionRate": 0.6666666666666666,
+        "avgTurns": 5.904761904761905
+      },
+      "proactive": {
+        "count": 38,
+        "completionRate": 0.6578947368421053,
+        "avgTurns": 5.2368421052631575
+      },
+      "work_loop": {
+        "count": 383,
+        "completionRate": 0.6919060052219321,
+        "avgTurns": 4.509138381201044
+      },
+      "on_demand": {
+        "count": 184,
+        "completionRate": 0.7989130434782609,
+        "avgTurns": 2.9565217391304346
+      },
+      "content_creation": {
+        "count": 4,
+        "completionRate": 0.5,
+        "avgTurns": 8.5
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 27,
+      "completed": 18,
+      "needsRevision": 0,
+      "failed": 3,
+      "avgQualityScore": 92.5,
+      "avgCompletionTimeMs": 13891626.23076923
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P1",
+      "category": "brief",
+      "description": "Brief is 1879 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
+      "effort": "small"
+    },
+    {
+      "priority": "P2",
+      "category": "brief",
+      "description": "Duplicate relationship entries: Rachel Kim.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"advanced-web-creation\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"sharepoint-site-management\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"brand-management\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "context",
+      "description": "Assigned skills total ~13546 tokens. Exceeds recommended 3,000-token skill budget.",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "health",
+      "description": "Completion rate is 72% (target: >80%).",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "runner",
+      "description": "Has orchestration tools but uses TaskRunner. Has 3 team members (2 with runners) — promote to OrchestratorRunner.",
+      "effort": "large"
+    },
+    {
+      "priority": "P2",
+      "category": "tools",
+      "description": "Agent loads 20 tool factories (~100+ tools). Heavy reliance on ToolRetriever quality.",
+      "effort": "medium"
+    }
+  ]
+}

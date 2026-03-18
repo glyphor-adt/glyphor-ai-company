@@ -238,5 +238,46 @@ describe('JitContextRetriever', () => {
 
       expect(result.relevantProcedures.some((item) => item.content.includes('Recommended procedure from cfo'))).toBe(true);
     });
+
+    it('uses semantic fallback skill matching when regex mapping misses', async () => {
+      vi.mocked(systemQuery).mockImplementation((sql: any) => {
+        const text = String(sql);
+        if (text.includes('SELECT task_regex, skill_slug FROM task_skill_map')) {
+          return Promise.resolve([] as any);
+        }
+        if (text.includes('SELECT slug, name, description, methodology FROM skills')) {
+          return Promise.resolve([
+            {
+              slug: 'tax-strategy',
+              name: 'Tax Strategy',
+              description: 'Tax filing and compliance planning for quarterly operations.',
+              methodology: 'Gather tax records, validate filing dates, assess compliance risk.',
+            },
+          ] as any);
+        }
+        if (text.includes('FROM agent_skills ags')) {
+          return Promise.resolve([
+            {
+              slug: 'tax-strategy',
+              name: 'Tax Strategy',
+              methodology: 'Gather tax records, validate filing dates, assess compliance risk.',
+              description: 'Tax planning execution framework.',
+              source_agent: 'bob-the-tax-pro',
+              proficiency: 'master',
+              times_used: 20,
+              successes: 19,
+            },
+          ] as any);
+        }
+        return Promise.resolve([] as any);
+      });
+
+      const retriever = new JitContextRetriever(embeddingClient, cache);
+      const result = await retriever.retrieve('cfo', 'quarterly tax filing compliance checklist', 10000);
+
+      const skillItem = result.relevantProcedures.find((item) => item.metadata?.skill_slug === 'tax-strategy');
+      expect(skillItem).toBeTruthy();
+      expect(skillItem?.metadata?.transfer_match_source).toBe('semantic');
+    });
   });
 });

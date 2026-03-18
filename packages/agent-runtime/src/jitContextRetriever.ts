@@ -41,6 +41,24 @@ export interface JitContext {
 const DEFAULT_TOKEN_BUDGET = 3000;
 const DEFAULT_MATCH_COUNT = 5;
 const DEFAULT_MATCH_THRESHOLD = 0.65;
+const MIN_FALLBACK_KEYWORDS = 2;
+const TRANSFERABLE_SKILL_LIMIT = 3;
+const TRANSFERABLE_REGEX_BUDGET = 2;
+const TRANSFERABLE_SEMANTIC_BUDGET = 2;
+
+const SOURCE_TOKEN_BUDGET_RATIO: Record<JitContextItem['source'], number> = {
+  memory: 0.24,
+  graph: 0.16,
+  episode: 0.14,
+  procedure: 0.30,
+  knowledge: 0.16,
+};
+
+const TASK_STOP_WORDS = new Set([
+  'the', 'and', 'for', 'with', 'from', 'that', 'this', 'into', 'your', 'have',
+  'will', 'about', 'after', 'before', 'within', 'without', 'need', 'needs',
+  'should', 'could', 'would', 'task', 'tasks', 'agent', 'run', 'runs',
+]);
 
 export class JitContextRetriever {
   constructor(
@@ -116,23 +134,17 @@ export class JitContextRetriever {
     ];
     const relevantKnowledge = knowledge.status === 'fulfilled' ? knowledge.value : [];
 
-    // Combine all items, sort by score, and trim to token budget
+    // Combine all items and trim with source budgets so procedural skills
+    // and semantic memory both retain representation.
     const allItems = [
       ...relevantMemories,
       ...relevantGraphNodes,
       ...relevantEpisodes,
       ...relevantProcedures,
       ...relevantKnowledge,
-    ].sort((a, b) => b.score - a.score);
+    ];
 
-    let tokenCount = 0;
-    const trimmed: JitContextItem[] = [];
-    for (const item of allItems) {
-      const itemTokens = this.estimateTokens(item.content);
-      if (tokenCount + itemTokens > tokenBudget) break;
-      trimmed.push(item);
-      tokenCount += itemTokens;
-    }
+    const { items: trimmed, tokenCount } = this.trimItemsWithSourceBudgets(allItems, tokenBudget);
 
     // Re-separate by source
     const result: JitContext = {
@@ -256,15 +268,21 @@ export class JitContextRetriever {
 
   /** Query high-proficiency skills from other agents and inject them as reusable procedures. */
   private async queryTransferableSkills(task: string, agentRole: string): Promise<JitContextItem[]> {
-    const matchedSkillSlugs = await this.matchTaskSkillSlugs(task);
-    const keywords = task
-      .toLowerCase()
-      .split(/\s+/)
-      .map((word) => word.replace(/[^a-z0-9-]/g, ''))
-      .filter((word) => word.length > 3)
-      .slice(0, 5);
+    const keywords = this.extractTaskKeywords(task);
+    const regexMatchedSlugs = await this.matchTaskSkillSlugs(task);
+    const semanticFallbackSlugs = regexMatchedSlugs.length === 0 && keywords.length >= MIN_FALLBACK_KEYWORDS
+      ? await this.matchTaskSkillSlugsSemantically(task, keywords, TRANSFERABLE_SEMANTIC_BUDGET)
+      : [];
 
-    if (matchedSkillSlugs.length === 0 && keywords.length === 0) return [];
+    const prioritizedSlugs = [
+      ...regexMatchedSlugs.slice(0, TRANSFERABLE_REGEX_BUDGET),
+      ...semanticFallbackSlugs.filter((slug) => !regexMatchedSlugs.includes(slug)),
+    ].slice(0, TRANSFERABLE_SKILL_LIMIT);
+
+    if (prioritizedSlugs.length === 0 && keywords.length === 0) return [];
+
+    const regexSlugSet = new Set(regexMatchedSlugs);
+    const semanticSlugSet = new Set(semanticFallbackSlugs);
 
     const keywordConditions = keywords
       .map((_, index) => `(s.name ILIKE $${index + 4} OR s.description ILIKE $${index + 4} OR s.methodology ILIKE $${index + 4})`)
@@ -307,11 +325,11 @@ export class JitContextRetriever {
            CASE ags.proficiency WHEN 'master' THEN 4 WHEN 'expert' THEN 3 WHEN 'competent' THEN 2 ELSE 1 END DESC,
            ags.successes DESC,
            ags.times_used DESC
-         LIMIT 3`,
+         LIMIT ${TRANSFERABLE_SKILL_LIMIT}`,
         [
           agentRole,
           ['expert', 'master'],
-          matchedSkillSlugs,
+          prioritizedSlugs,
           ...keywordParams,
         ],
       );
@@ -325,6 +343,11 @@ export class JitContextRetriever {
           source_agent: row.source_agent,
           proficiency: row.proficiency,
           transfer_type: 'cross_agent_skill',
+          transfer_match_source: regexSlugSet.has(row.slug)
+            ? 'regex'
+            : semanticSlugSet.has(row.slug)
+              ? 'semantic'
+              : 'keyword',
         },
       }));
     } catch {
@@ -372,6 +395,109 @@ export class JitContextRetriever {
     } catch {
       return [];
     }
+  }
+
+  private extractTaskKeywords(task: string): string[] {
+    return Array.from(new Set(
+      task
+        .toLowerCase()
+        .split(/\s+/)
+        .map((word) => word.replace(/[^a-z0-9-]/g, ''))
+        .filter((word) => word.length > 3 && !TASK_STOP_WORDS.has(word)),
+    )).slice(0, 8);
+  }
+
+  private async matchTaskSkillSlugsSemantically(
+    task: string,
+    keywords: string[],
+    maxCount: number,
+  ): Promise<string[]> {
+    if (keywords.length < MIN_FALLBACK_KEYWORDS) return [];
+
+    try {
+      const skills = await systemQuery<{ slug: string; name: string; description: string; methodology: string }>(
+        'SELECT slug, name, description, methodology FROM skills',
+        [],
+      );
+
+      const taskText = task.toLowerCase();
+      const scored = skills
+        .map((skill) => {
+          const haystack = `${skill.slug} ${skill.name} ${skill.description ?? ''} ${skill.methodology ?? ''}`.toLowerCase();
+          let score = 0;
+          for (const keyword of keywords) {
+            if (skill.slug.toLowerCase().includes(keyword)) score += 3;
+            if (skill.name.toLowerCase().includes(keyword)) score += 2;
+            if (haystack.includes(keyword)) score += 1;
+          }
+          if (taskText.includes(skill.slug.toLowerCase())) score += 2;
+          return { slug: skill.slug, score };
+        })
+        .filter((entry) => entry.score > 0)
+        .sort((left, right) => right.score - left.score)
+        .slice(0, maxCount)
+        .map((entry) => entry.slug);
+
+      return scored;
+    } catch {
+      return [];
+    }
+  }
+
+  private trimItemsWithSourceBudgets(
+    items: JitContextItem[],
+    tokenBudget: number,
+  ): { items: JitContextItem[]; tokenCount: number } {
+    if (items.length === 0 || tokenBudget <= 0) {
+      return { items: [], tokenCount: 0 };
+    }
+
+    const bySource = new Map<JitContextItem['source'], JitContextItem[]>();
+    for (const item of items) {
+      const list = bySource.get(item.source) ?? [];
+      list.push(item);
+      bySource.set(item.source, list);
+    }
+
+    for (const [source, list] of bySource.entries()) {
+      bySource.set(source, [...list].sort((a, b) => b.score - a.score));
+    }
+
+    const selected: JitContextItem[] = [];
+    const selectedSet = new Set<JitContextItem>();
+    let tokenCount = 0;
+
+    for (const source of Object.keys(SOURCE_TOKEN_BUDGET_RATIO) as JitContextItem['source'][]) {
+      const sourceItems = bySource.get(source) ?? [];
+      if (sourceItems.length === 0) continue;
+
+      const sourceBudget = Math.max(0, Math.floor(tokenBudget * SOURCE_TOKEN_BUDGET_RATIO[source]));
+      let sourceTokenCount = 0;
+      for (const item of sourceItems) {
+        const itemTokens = this.estimateTokens(item.content);
+        if (sourceTokenCount + itemTokens > sourceBudget) continue;
+        if (tokenCount + itemTokens > tokenBudget) continue;
+        selected.push(item);
+        selectedSet.add(item);
+        sourceTokenCount += itemTokens;
+        tokenCount += itemTokens;
+      }
+    }
+
+    const remaining = items
+      .filter((item) => !selectedSet.has(item))
+      .sort((a, b) => b.score - a.score);
+    for (const item of remaining) {
+      const itemTokens = this.estimateTokens(item.content);
+      if (tokenCount + itemTokens > tokenBudget) continue;
+      selected.push(item);
+      tokenCount += itemTokens;
+    }
+
+    return {
+      items: selected.sort((a, b) => b.score - a.score),
+      tokenCount,
+    };
   }
 
   /** Invalidate cached context for an agent. */

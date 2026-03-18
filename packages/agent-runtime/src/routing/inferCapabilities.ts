@@ -2,6 +2,7 @@ import type { CompanyAgentRole } from '../types.js';
 import type { Capability } from './capabilities.js';
 import { HIGH_COMPLEXITY_CAPABILITIES } from './capabilities.js';
 import { TOOL_CAPABILITY_MAP } from './toolCapabilityMap.js';
+import { inferDomainRouting, type RoutingDomain } from './domainRouter.js';
 
 export interface RoutingContext {
   role: CompanyAgentRole | string;
@@ -95,10 +96,29 @@ const VISUAL_HINT = /\b(design|ui|ux|screenshot|figma|visual|brand|layout)\b/i;
 const CREATIVE_HINT = /\b(content|blog|copy|campaign|social|draft|creative)\b/i;
 const EXTRACTION_HINT = /\b(extract|classify|summarize|summarise|table|list|status|report)\b/i;
 
+const DOMAIN_CAPABILITY_HINTS: Record<RoutingDomain, Capability[]> = {
+  engineering: ['code_generation', 'needs_apply_patch'],
+  marketing: ['creative_writing', 'structured_extraction'],
+  finance: ['financial_computation', 'needs_code_execution'],
+  product: ['nuanced_evaluation', 'structured_extraction'],
+  sales: ['structured_extraction', 'nuanced_evaluation'],
+  design: ['visual_analysis', 'creative_writing'],
+  research: ['web_research', 'needs_citations'],
+  legal: ['legal_reasoning', 'needs_citations'],
+  operations: ['orchestration', 'structured_extraction'],
+};
+
 export function inferCapabilities(context: RoutingContext): Capability[] {
   const capabilities = new Set<Capability>();
   const taskAndMessage = `${context.task}\n${context.message}`.trim();
   const departmentSignal = (context.department ?? '').toLowerCase();
+  const domainRouting = inferDomainRouting({
+    role: context.role,
+    task: context.task,
+    message: context.message,
+    toolNames: context.toolNames,
+    department: context.department,
+  });
 
   for (const rawToolName of context.toolNames) {
     const toolName = normalizeToolName(rawToolName);
@@ -133,6 +153,20 @@ export function inferCapabilities(context: RoutingContext): Capability[] {
   }
   if (EXTRACTION_HINT.test(taskAndMessage)) {
     capabilities.add('structured_extraction');
+  }
+
+  for (const signal of domainRouting.domains) {
+    if (signal.share < 0.2) continue;
+    const hinted = DOMAIN_CAPABILITY_HINTS[signal.domain] ?? [];
+    for (const capability of hinted) {
+      capabilities.add(capability);
+    }
+  }
+
+  if (domainRouting.crossDomain) {
+    capabilities.add('orchestration');
+    capabilities.add('high_complexity');
+    capabilities.add('needs_compaction');
   }
 
   if (/\b(engineering|frontend|platform)\b/.test(departmentSignal)) {

@@ -1,0 +1,209 @@
+{
+  "role": "competitive-research-analyst",
+  "timestamp": "2026-03-18T00:55:49.861Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\lena-park.md",
+    "exists": true,
+    "tokenCount": 697,
+    "hasRelationships": true,
+    "hasAuthority": false,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": false,
+    "skillIndicators": [],
+    "knowledgeIndicators": [],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Lena Park — Competitive Research Analyst",
+        "tokens": 54,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 110,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 262,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 97,
+        "classification": "identity"
+      },
+      {
+        "heading": "Skills",
+        "tokens": 77,
+        "classification": "identity"
+      },
+      {
+        "heading": "Relationships",
+        "tokens": 100,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\competitive-research-analyst\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 1106,
+    "hasCrisisFabricationRules": false,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "COMPETITIVE_RESEARCH_ANALYST_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "competitive-intelligence",
+        "proficiency": "expert",
+        "category": "research",
+        "tokenCount": 1714,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 1714,
+    "crossDomainSkills": [],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": [
+      {
+        "task": "research",
+        "tier": "standard",
+        "losesIdentity": false,
+        "losesSkills": false,
+        "losesMemory": false
+      }
+    ]
+  },
+  "tools": {
+    "factoryCount": 8,
+    "estimatedToolCount": 40,
+    "factories": [
+      "createCompetitiveResearchAnalystTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createResearchRepoTools",
+      "createResearchMonitoringTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 52,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": false,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [
+      "research"
+    ],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [
+      "research"
+    ],
+    "coverageRate": 0
+  },
+  "runs": {
+    "last30Days": {
+      "total": 77,
+      "completed": 32,
+      "aborted": 36,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 5.025974025974026,
+      "avgDurationMs": 66744.36363636363,
+      "avgInputTokens": 53061.792207792205,
+      "avgOutputTokens": 832.8181818181819,
+      "estimatedCost30d": -1.6133
+    },
+    "taskBreakdown": {
+      "on_demand": {
+        "count": 7,
+        "completionRate": 0.5714285714285714,
+        "avgTurns": 4.285714285714286
+      },
+      "research": {
+        "count": 7,
+        "completionRate": 0.2857142857142857,
+        "avgTurns": 2.5714285714285716
+      },
+      "proactive": {
+        "count": 43,
+        "completionRate": 0.20930232558139536,
+        "avgTurns": 5.511627906976744
+      },
+      "work_loop": {
+        "count": 20,
+        "completionRate": 0.85,
+        "avgTurns": 5.1
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 6,
+      "completed": 6,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": -1025225.3333333334
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": [
+      "research"
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "P1",
+      "category": "prompt",
+      "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P0",
+      "category": "health",
+      "description": "Completion rate is 42% (target: >80%). Agent is failing/aborting frequently.",
+      "effort": "medium"
+    },
+    {
+      "priority": "P1",
+      "category": "schedule",
+      "description": "Task \"research\" is defined in run.ts but has no cron trigger.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"research\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    }
+  ]
+}

@@ -1,0 +1,174 @@
+{
+  "role": "seo-analyst",
+  "timestamp": "2026-03-18T00:55:59.709Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\lisa-chen.md",
+    "exists": true,
+    "tokenCount": 533,
+    "hasRelationships": true,
+    "hasAuthority": false,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": true,
+    "skillIndicators": [],
+    "knowledgeIndicators": [
+      "dollar amounts"
+    ],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Lisa Chen — SEO Analyst",
+        "tokens": 37,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 108,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 246,
+        "classification": "knowledge"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 76,
+        "classification": "identity"
+      },
+      {
+        "heading": "Relationships",
+        "tokens": 67,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\seo-analyst\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 489,
+    "hasCrisisFabricationRules": true,
+    "overlapsWithBrief": 25,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "SEO_ANALYST_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "seo-optimization",
+        "proficiency": "expert",
+        "category": "marketing",
+        "tokenCount": 2015,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 2015,
+    "crossDomainSkills": [],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 7,
+    "estimatedToolCount": 35,
+    "factories": [
+      "createSeoAnalystTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createSeoTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 23,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": false,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 85,
+      "completed": 42,
+      "aborted": 35,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 6.341176470588235,
+      "avgDurationMs": 59287.2705882353,
+      "avgInputTokens": 57525.282352941176,
+      "avgOutputTokens": 424.67058823529413,
+      "estimatedCost30d": 1.3544000000000005
+    },
+    "taskBreakdown": {
+      "proactive": {
+        "count": 59,
+        "completionRate": 0.4406779661016949,
+        "avgTurns": 6.88135593220339
+      },
+      "ranking_report": {
+        "count": 25,
+        "completionRate": 0.6,
+        "avgTurns": 5
+      },
+      "work_loop": {
+        "count": 1,
+        "completionRate": 1,
+        "avgTurns": 8
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 0,
+      "completed": 0,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P2",
+      "category": "brief",
+      "description": "Brief contains knowledge data (dollar amounts). Move to knowledge base.",
+      "effort": "small"
+    },
+    {
+      "priority": "P0",
+      "category": "health",
+      "description": "Completion rate is 49% (target: >80%). Agent is failing/aborting frequently.",
+      "effort": "medium"
+    }
+  ]
+}

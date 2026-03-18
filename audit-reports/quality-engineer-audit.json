@@ -1,0 +1,181 @@
+{
+  "role": "quality-engineer",
+  "timestamp": "2026-03-18T00:55:58.949Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sam-deluca.md",
+    "exists": true,
+    "tokenCount": 539,
+    "hasRelationships": true,
+    "hasAuthority": false,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": false,
+    "skillIndicators": [],
+    "knowledgeIndicators": [],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Sam DeLuca — Quality Engineer",
+        "tokens": 41,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 108,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 244,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 85,
+        "classification": "identity"
+      },
+      {
+        "heading": "Relationships",
+        "tokens": 63,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\quality-engineer\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 656,
+    "hasCrisisFabricationRules": false,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "QUALITY_ENGINEER_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "tech-spec-writing",
+        "proficiency": "expert",
+        "category": "engineering",
+        "tokenCount": 1505,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "quality-assurance",
+        "proficiency": "expert",
+        "category": "engineering",
+        "tokenCount": 1775,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 3280,
+    "crossDomainSkills": [],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 7,
+    "estimatedToolCount": 35,
+    "factories": [
+      "createQualityEngineerTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createEngineeringGapTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 21,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": false,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 73,
+      "completed": 48,
+      "aborted": 16,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 5.301369863013699,
+      "avgDurationMs": 62760.30136986302,
+      "avgInputTokens": 87077.78082191781,
+      "avgOutputTokens": 1012.4657534246576,
+      "estimatedCost30d": 1.2881000000000005
+    },
+    "taskBreakdown": {
+      "qa_report": {
+        "count": 21,
+        "completionRate": 0.7142857142857143,
+        "avgTurns": 5.190476190476191
+      },
+      "proactive": {
+        "count": 43,
+        "completionRate": 0.627906976744186,
+        "avgTurns": 5.72093023255814
+      },
+      "work_loop": {
+        "count": 9,
+        "completionRate": 0.6666666666666666,
+        "avgTurns": 3.5555555555555554
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 3,
+      "completed": 3,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P1",
+      "category": "prompt",
+      "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P1",
+      "category": "health",
+      "description": "Completion rate is 66% (target: >80%).",
+      "effort": "small"
+    }
+  ]
+}

@@ -1,0 +1,202 @@
+{
+  "role": "template-architect",
+  "timestamp": "2026-03-18T00:56:00.458Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\ryan-park.md",
+    "exists": true,
+    "tokenCount": 573,
+    "hasRelationships": true,
+    "hasAuthority": false,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": true,
+    "skillIndicators": [],
+    "knowledgeIndicators": [
+      "percentages"
+    ],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Ryan Park — Template & Theme Architect",
+        "tokens": 50,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 158,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 142,
+        "classification": "knowledge"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 119,
+        "classification": "identity"
+      },
+      {
+        "heading": "Relationships",
+        "tokens": 105,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\template-architect\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 515,
+    "hasCrisisFabricationRules": false,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "TEMPLATE_ARCHITECT_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "react-bits-pro",
+        "proficiency": "learning",
+        "category": "design",
+        "tokenCount": 5804,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "design-system-management",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 1835,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 7639,
+    "crossDomainSkills": [],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 13,
+    "estimatedToolCount": 65,
+    "factories": [
+      "createTemplateArchitectTools",
+      "createGraphTools",
+      "createFrontendCodeTools",
+      "createDesignSystemTools",
+      "createAssetTools",
+      "createScaffoldTools",
+      "createFigmaTools",
+      "createStorybookTools",
+      "createSharePointTools",
+      "createLogoTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 58,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": false,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": true
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 48,
+      "completed": 29,
+      "aborted": 14,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 6.25,
+      "avgDurationMs": 60091.979166666664,
+      "avgInputTokens": 96798.75,
+      "avgOutputTokens": 494.0625,
+      "estimatedCost30d": 0.8619000000000001
+    },
+    "taskBreakdown": {
+      "proactive": {
+        "count": 23,
+        "completionRate": 0.6086956521739131,
+        "avgTurns": 8.26086956521739
+      },
+      "template_review": {
+        "count": 25,
+        "completionRate": 0.6,
+        "avgTurns": 4.4
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 0,
+      "completed": 0,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P2",
+      "category": "brief",
+      "description": "Brief contains knowledge data (percentages). Move to knowledge base.",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "prompt",
+      "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "context",
+      "description": "Assigned skills total ~7639 tokens. Exceeds recommended 3,000-token skill budget.",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "health",
+      "description": "Completion rate is 60% (target: >80%).",
+      "effort": "small"
+    },
+    {
+      "priority": "P2",
+      "category": "config",
+      "description": "Temperature 0.7 is high for a precision role. Recommend 0.2-0.3.",
+      "effort": "trivial"
+    }
+  ]
+}

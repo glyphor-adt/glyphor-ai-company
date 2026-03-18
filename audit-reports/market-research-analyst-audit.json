@@ -1,0 +1,223 @@
+{
+  "role": "market-research-analyst",
+  "timestamp": "2026-03-18T00:55:56.670Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\daniel-okafor.md",
+    "exists": true,
+    "tokenCount": 677,
+    "hasRelationships": true,
+    "hasAuthority": false,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": true,
+    "skillIndicators": [],
+    "knowledgeIndicators": [
+      "dollar amounts"
+    ],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Daniel Okafor — Market Research Analyst",
+        "tokens": 54,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 103,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 263,
+        "classification": "knowledge"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 86,
+        "classification": "identity"
+      },
+      {
+        "heading": "Skills",
+        "tokens": 76,
+        "classification": "identity"
+      },
+      {
+        "heading": "Relationships",
+        "tokens": 97,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\market-research-analyst\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 1247,
+    "hasCrisisFabricationRules": false,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "MARKET_RESEARCH_ANALYST_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "market-research",
+        "proficiency": "expert",
+        "category": "research",
+        "tokenCount": 2628,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 2628,
+    "crossDomainSkills": [],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": [
+      {
+        "task": "research",
+        "tier": "standard",
+        "losesIdentity": false,
+        "losesSkills": false,
+        "losesMemory": false
+      }
+    ]
+  },
+  "tools": {
+    "factoryCount": 8,
+    "estimatedToolCount": 40,
+    "factories": [
+      "createMarketResearchAnalystTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createResearchRepoTools",
+      "createResearchMonitoringTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 24,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": false,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [
+      "research"
+    ],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [
+      "research"
+    ],
+    "coverageRate": 0
+  },
+  "runs": {
+    "last30Days": {
+      "total": 77,
+      "completed": 27,
+      "aborted": 38,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 5.766233766233766,
+      "avgDurationMs": 70880.41558441559,
+      "avgInputTokens": 60893.05194805195,
+      "avgOutputTokens": 625.2987012987013,
+      "estimatedCost30d": -0.19409999999999994
+    },
+    "taskBreakdown": {
+      "research": {
+        "count": 5,
+        "completionRate": 0.2,
+        "avgTurns": 2
+      },
+      "on_demand": {
+        "count": 1,
+        "completionRate": 1,
+        "avgTurns": 7
+      },
+      "proactive": {
+        "count": 50,
+        "completionRate": 0.16,
+        "avgTurns": 6.16
+      },
+      "work_loop": {
+        "count": 21,
+        "completionRate": 0.8095238095238095,
+        "avgTurns": 5.666666666666667
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 2,
+      "completed": 2,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 1,
+      "avgCompletionTimeMs": 3843982
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": [
+      "research"
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "P2",
+      "category": "brief",
+      "description": "Brief contains knowledge data (dollar amounts). Move to knowledge base.",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "prompt",
+      "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P0",
+      "category": "health",
+      "description": "Completion rate is 35% (target: >80%). Agent is failing/aborting frequently.",
+      "effort": "medium"
+    },
+    {
+      "priority": "P0",
+      "category": "quality",
+      "description": "Avg quality score is 1/100. Consistently poor output.",
+      "effort": "large"
+    },
+    {
+      "priority": "P1",
+      "category": "schedule",
+      "description": "Task \"research\" is defined in run.ts but has no cron trigger.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"research\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    }
+  ]
+}

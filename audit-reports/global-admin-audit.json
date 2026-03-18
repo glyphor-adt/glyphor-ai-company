@@ -1,0 +1,237 @@
+{
+  "role": "global-admin",
+  "timestamp": "2026-03-18T00:55:54.455Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\morgan-blake.md",
+    "exists": true,
+    "tokenCount": 1383,
+    "hasRelationships": false,
+    "hasAuthority": true,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": false,
+    "skillIndicators": [],
+    "knowledgeIndicators": [],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Morgan Blake — Global Admin",
+        "tokens": 43,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 339,
+        "classification": "identity"
+      },
+      {
+        "heading": "Communication Style",
+        "tokens": 98,
+        "classification": "identity"
+      },
+      {
+        "heading": "Key Responsibilities",
+        "tokens": 299,
+        "classification": "identity"
+      },
+      {
+        "heading": "Authority Boundaries",
+        "tokens": 169,
+        "classification": "identity"
+      },
+      {
+        "heading": "Founder Protection",
+        "tokens": 90,
+        "classification": "identity"
+      },
+      {
+        "heading": "Onboarding Checklist",
+        "tokens": 25,
+        "classification": "identity"
+      },
+      {
+        "heading": "1. Identity & Accounts",
+        "tokens": 65,
+        "classification": "identity"
+      },
+      {
+        "heading": "2. GCP Access",
+        "tokens": 57,
+        "classification": "identity"
+      },
+      {
+        "heading": "3. GitHub Access",
+        "tokens": 34,
+        "classification": "identity"
+      },
+      {
+        "heading": "4. Communication Channels",
+        "tokens": 34,
+        "classification": "identity"
+      },
+      {
+        "heading": "5. Verification & Documentation",
+        "tokens": 57,
+        "classification": "identity"
+      },
+      {
+        "heading": "Department → Channel Mapping (reference)",
+        "tokens": 78,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\global-admin\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 1759,
+    "hasCrisisFabricationRules": false,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "GLOBAL_ADMIN_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "access-management",
+        "proficiency": "expert",
+        "category": "operations",
+        "tokenCount": 1476,
+        "isOwnDomain": false,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 1476,
+    "crossDomainSkills": [
+      "access-management"
+    ],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 8,
+    "estimatedToolCount": 40,
+    "factories": [
+      "createGlobalAdminTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createToolGrantTools",
+      "createOpsExtensionTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 163,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": false,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 217,
+      "completed": 121,
+      "aborted": 44,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 4.359447004608295,
+      "avgDurationMs": 61834.013824884794,
+      "avgInputTokens": 56757.124423963134,
+      "avgOutputTokens": 1990.1013824884792,
+      "estimatedCost30d": 4.610100000000001
+    },
+    "taskBreakdown": {
+      "proactive": {
+        "count": 48,
+        "completionRate": 0.3125,
+        "avgTurns": 5.270833333333333
+      },
+      "skill_test": {
+        "count": 4,
+        "completionRate": 1,
+        "avgTurns": 2.5
+      },
+      "work_loop": {
+        "count": 120,
+        "completionRate": 0.5833333333333334,
+        "avgTurns": 4.258333333333334
+      },
+      "on_demand": {
+        "count": 34,
+        "completionRate": 0.6176470588235294,
+        "avgTurns": 3.3823529411764706
+      },
+      "agent365_mail_triage": {
+        "count": 11,
+        "completionRate": 1,
+        "avgTurns": 5.181818181818182
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 5,
+      "completed": 3,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P1",
+      "category": "brief",
+      "description": "Brief is 1383 tokens (target: <1200). Audit for skill/knowledge content that should be extracted.",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "prompt",
+      "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"access-management\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P0",
+      "category": "health",
+      "description": "Completion rate is 56% (target: >80%). Agent is failing/aborting frequently.",
+      "effort": "medium"
+    }
+  ]
+}

@@ -1,0 +1,193 @@
+{
+  "role": "head-of-hr",
+  "timestamp": "2026-03-18T00:55:55.226Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\jasmine-rivera.md",
+    "exists": true,
+    "tokenCount": 846,
+    "hasRelationships": false,
+    "hasAuthority": false,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": false,
+    "skillIndicators": [],
+    "knowledgeIndicators": [],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Jasmine Rivera — Head of People & Culture",
+        "tokens": 12,
+        "classification": "identity"
+      },
+      {
+        "heading": "Identity",
+        "tokens": 124,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 203,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 215,
+        "classification": "identity"
+      },
+      {
+        "heading": "Working Relationships",
+        "tokens": 144,
+        "classification": "identity"
+      },
+      {
+        "heading": "Communication Style",
+        "tokens": 64,
+        "classification": "identity"
+      },
+      {
+        "heading": "Quirks",
+        "tokens": 87,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\head-of-hr\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 4511,
+    "hasCrisisFabricationRules": false,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "HEAD_OF_HR_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "talent-management",
+        "proficiency": "expert",
+        "category": "hr",
+        "tokenCount": 2332,
+        "isOwnDomain": false,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 2332,
+    "crossDomainSkills": [
+      "talent-management"
+    ],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 11,
+    "estimatedToolCount": 55,
+    "factories": [
+      "createHeadOfHRTools",
+      "createToolGrantTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createAgentCreationTools",
+      "createAccessAuditTools",
+      "createAgentDirectoryTools",
+      "createEntraHRTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 153,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": true,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 122,
+      "completed": 103,
+      "aborted": 9,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 4.344262295081967,
+      "avgDurationMs": 44074.270491803276,
+      "avgInputTokens": 80336.2868852459,
+      "avgOutputTokens": 815.3032786885246,
+      "estimatedCost30d": 5.231599999999999
+    },
+    "taskBreakdown": {
+      "workforce_audit": {
+        "count": 20,
+        "completionRate": 0.85,
+        "avgTurns": 3.75
+      },
+      "proactive": {
+        "count": 35,
+        "completionRate": 0.6,
+        "avgTurns": 6.485714285714286
+      },
+      "on_demand": {
+        "count": 62,
+        "completionRate": 0.967741935483871,
+        "avgTurns": 2.6451612903225805
+      },
+      "work_loop": {
+        "count": 5,
+        "completionRate": 1,
+        "avgTurns": 12.8
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 0,
+      "completed": 0,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P1",
+      "category": "prompt",
+      "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"talent-management\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    }
+  ]
+}

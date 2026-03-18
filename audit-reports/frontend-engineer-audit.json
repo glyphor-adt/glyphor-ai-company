@@ -1,0 +1,227 @@
+{
+  "role": "frontend-engineer",
+  "timestamp": "2026-03-18T00:55:53.702Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\ava-chen.md",
+    "exists": true,
+    "tokenCount": 603,
+    "hasRelationships": true,
+    "hasAuthority": false,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": false,
+    "skillIndicators": [],
+    "knowledgeIndicators": [],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Ava Chen — Frontend Engineer",
+        "tokens": 45,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 185,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 143,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 126,
+        "classification": "identity"
+      },
+      {
+        "heading": "Relationships",
+        "tokens": 105,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\frontend-engineer\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 470,
+    "hasCrisisFabricationRules": false,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "FRONTEND_ENGINEER_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "react-bits-pro",
+        "proficiency": "learning",
+        "category": "design",
+        "tokenCount": 5804,
+        "isOwnDomain": true,
+        "timesUsed": 1,
+        "successRate": 1
+      },
+      {
+        "slug": "frontend-development",
+        "proficiency": "expert",
+        "category": "engineering",
+        "tokenCount": 1876,
+        "isOwnDomain": false,
+        "timesUsed": 1,
+        "successRate": 1
+      },
+      {
+        "slug": "advanced-web-creation",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 162,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "design-system-management",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 1835,
+        "isOwnDomain": true,
+        "timesUsed": 1,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 9677,
+    "crossDomainSkills": [
+      "frontend-development"
+    ],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 14,
+    "estimatedToolCount": 70,
+    "factories": [
+      "createFrontendEngineerTools",
+      "createGraphTools",
+      "createFrontendCodeTools",
+      "createScreenshotTools",
+      "createAuditTools",
+      "createScaffoldTools",
+      "createDeployPreviewTools",
+      "createStorybookTools",
+      "createSharePointTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools",
+      "createFuseTools",
+      "createCodexTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 159,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": false,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 67,
+      "completed": 44,
+      "aborted": 16,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 5.044776119402985,
+      "avgDurationMs": 63160.014925373136,
+      "avgInputTokens": 81005.79104477612,
+      "avgOutputTokens": 305.3731343283582,
+      "estimatedCost30d": 1.5502999999999998
+    },
+    "taskBreakdown": {
+      "work_loop": {
+        "count": 23,
+        "completionRate": 0.8260869565217391,
+        "avgTurns": 4.217391304347826
+      },
+      "implementation_review": {
+        "count": 27,
+        "completionRate": 0.6296296296296297,
+        "avgTurns": 3.259259259259259
+      },
+      "proactive": {
+        "count": 15,
+        "completionRate": 0.4666666666666667,
+        "avgTurns": 9.466666666666667
+      },
+      "on_demand": {
+        "count": 2,
+        "completionRate": 0.5,
+        "avgTurns": 5.5
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 5,
+      "completed": 2,
+      "needsRevision": 0,
+      "failed": 1,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 41787
+    },
+    "commonFailureModes": [
+      "I can’t accept this as-is because there’s no actual deliverable attached in the data I can see — only the title says it’s blocked and requires platform work. I need the concrete handoff: what platform change is needed, where it must be applied, exact secret/env var names, target service/repo, and the unblock condition for frontend-engineer. Resubmit with that evidence."
+    ]
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P1",
+      "category": "prompt",
+      "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"frontend-development\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "context",
+      "description": "Assigned skills total ~9677 tokens. Exceeds recommended 3,000-token skill budget.",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "health",
+      "description": "Completion rate is 66% (target: >80%).",
+      "effort": "small"
+    }
+  ]
+}

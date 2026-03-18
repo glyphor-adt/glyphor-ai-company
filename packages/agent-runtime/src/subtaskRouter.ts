@@ -1,6 +1,7 @@
 import type { ActionReceipt, CompanyAgentRole, ConversationTurn } from './types.js';
 import { inferCapabilities } from './routing/inferCapabilities.js';
 import { resolveModelConfig, type RoutingDecision } from './routing/resolveModel.js';
+import { inferDomainRouting } from './routing/domainRouter.js';
 
 export type SubtaskComplexity = 'trivial' | 'standard' | 'complex' | 'frontier';
 
@@ -11,6 +12,8 @@ export interface SubtaskClassification {
   requiresFactualGrounding: boolean;
   estimatedTokens: number;
   capabilities: string[];
+  primaryDomain?: string;
+  crossDomain?: boolean;
 }
 
 export interface SubtaskRoutingContext {
@@ -71,6 +74,14 @@ function buildTurnContext(history: ConversationTurn[], actionReceipts: ActionRec
 
 export function classifySubtask(context: SubtaskRoutingContext): SubtaskClassification {
   const estimatedTokens = estimateContextTokens(context.history, context.lastTextOutput);
+  const promptContext = buildTurnContext(context.history, context.actionReceipts, context.lastTextOutput);
+  const domainRouting = inferDomainRouting({
+    role: context.role,
+    task: context.task,
+    message: promptContext,
+    toolNames: context.toolNames,
+    department: context.department,
+  });
   const noOpTask =
     (context.task === 'work_loop' || context.task === 'proactive') &&
     estimatedTokens <= 400 &&
@@ -84,10 +95,11 @@ export function classifySubtask(context: SubtaskRoutingContext): SubtaskClassifi
       requiresFactualGrounding: false,
       estimatedTokens,
       capabilities: ['low_complexity', 'deterministic_possible', 'batch_eligible'],
+      primaryDomain: domainRouting.primaryDomain ?? undefined,
+      crossDomain: domainRouting.crossDomain,
     };
   }
 
-  const promptContext = buildTurnContext(context.history, context.actionReceipts, context.lastTextOutput);
   const capabilities = inferCapabilities({
     role: context.role,
     task: context.task,
@@ -111,6 +123,7 @@ export function classifySubtask(context: SubtaskRoutingContext): SubtaskClassifi
   ) {
     complexity = 'frontier';
   } else if (
+    domainRouting.crossDomain ||
     estimatedTokens > 6000 ||
     selected.has('high_complexity') ||
     selected.has('web_research') ||
@@ -141,6 +154,8 @@ export function classifySubtask(context: SubtaskRoutingContext): SubtaskClassifi
       selected.has('structured_extraction'),
     estimatedTokens,
     capabilities,
+    primaryDomain: domainRouting.primaryDomain ?? undefined,
+    crossDomain: domainRouting.crossDomain,
   };
 }
 
@@ -189,6 +204,8 @@ function summarizeClassification(classification: SubtaskClassification): string 
   if (classification.requiresReasoning) requirements.push('reasoning');
   if (classification.requiresCreativity) requirements.push('creativity');
   if (classification.requiresFactualGrounding) requirements.push('grounding');
+  if (classification.primaryDomain) requirements.push(`domain:${classification.primaryDomain}`);
+  if (classification.crossDomain) requirements.push('cross-domain');
   return requirements.length > 0 ? requirements.join(', ') : 'lightweight execution';
 }
 

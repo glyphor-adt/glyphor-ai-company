@@ -1,0 +1,291 @@
+{
+  "role": "ops",
+  "timestamp": "2026-03-18T00:55:57.456Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\atlas-vega.md",
+    "exists": true,
+    "tokenCount": 898,
+    "hasRelationships": false,
+    "hasAuthority": false,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": true,
+    "skillIndicators": [],
+    "knowledgeIndicators": [
+      "dollar amounts"
+    ],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Atlas Vega — Operations & System Intelligence",
+        "tokens": 13,
+        "classification": "identity"
+      },
+      {
+        "heading": "Identity",
+        "tokens": 51,
+        "classification": "identity"
+      },
+      {
+        "heading": "Persona",
+        "tokens": 136,
+        "classification": "identity"
+      },
+      {
+        "heading": "Purpose",
+        "tokens": 59,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Responsibilities",
+        "tokens": 7,
+        "classification": "identity"
+      },
+      {
+        "heading": "1. Agent Health Monitoring",
+        "tokens": 75,
+        "classification": "identity"
+      },
+      {
+        "heading": "2. Data Freshness Monitoring",
+        "tokens": 56,
+        "classification": "identity"
+      },
+      {
+        "heading": "3. Cost Anomaly Detection",
+        "tokens": 51,
+        "classification": "identity"
+      },
+      {
+        "heading": "4. Incident Management",
+        "tokens": 49,
+        "classification": "identity"
+      },
+      {
+        "heading": "5. System Status Reports",
+        "tokens": 53,
+        "classification": "identity"
+      },
+      {
+        "heading": "Key Relationships",
+        "tokens": 113,
+        "classification": "identity"
+      },
+      {
+        "heading": "Operating Guidelines",
+        "tokens": 123,
+        "classification": "identity"
+      },
+      {
+        "heading": "Budget",
+        "tokens": 17,
+        "classification": "knowledge"
+      },
+      {
+        "heading": "Schedule",
+        "tokens": 99,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\ops\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 881,
+    "hasCrisisFabricationRules": true,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "OPS_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "incident-response",
+        "proficiency": "expert",
+        "category": "engineering",
+        "tokenCount": 2717,
+        "isOwnDomain": false,
+        "timesUsed": 1,
+        "successRate": 1
+      },
+      {
+        "slug": "platform-monitoring",
+        "proficiency": "expert",
+        "category": "engineering",
+        "tokenCount": 2261,
+        "isOwnDomain": false,
+        "timesUsed": 1,
+        "successRate": 1
+      },
+      {
+        "slug": "system-monitoring",
+        "proficiency": "expert",
+        "category": "operations",
+        "tokenCount": 2272,
+        "isOwnDomain": true,
+        "timesUsed": 1,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 7250,
+    "crossDomainSkills": [
+      "incident-response",
+      "platform-monitoring"
+    ],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 10,
+    "estimatedToolCount": 50,
+    "factories": [
+      "createOpsTools",
+      "createToolGrantTools",
+      "createCollectiveIntelligenceTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createDiagnosticTools",
+      "createOpsExtensionTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 173,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "OrchestratorRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": true,
+    "hasActiveTeamMembers": true,
+    "teamMemberCount": 1,
+    "teamMembersWithRunners": 1,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 3339,
+      "completed": 2328,
+      "aborted": 358,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 4.159628631326744,
+      "avgDurationMs": 76140.8505540581,
+      "avgInputTokens": 82892.82869122492,
+      "avgOutputTokens": 1240.9323150643904,
+      "estimatedCost30d": 133.29830000000013
+    },
+    "taskBreakdown": {
+      "health_check": {
+        "count": 1713,
+        "completionRate": 0.7869235259778167,
+        "avgTurns": 4.780502043199066
+      },
+      "freshness_check": {
+        "count": 543,
+        "completionRate": 0.8158379373848987,
+        "avgTurns": 3.0718232044198897
+      },
+      "on_demand": {
+        "count": 73,
+        "completionRate": 0.9452054794520548,
+        "avgTurns": 2.328767123287671
+      },
+      "cost_check": {
+        "count": 296,
+        "completionRate": 0.6148648648648649,
+        "avgTurns": 4.783783783783784
+      },
+      "proactive": {
+        "count": 110,
+        "completionRate": 0.8,
+        "avgTurns": 5.472727272727273
+      },
+      "event_response": {
+        "count": 556,
+        "completionRate": 0.2751798561151079,
+        "avgTurns": 2.9568345323741005
+      },
+      "morning_status": {
+        "count": 20,
+        "completionRate": 0.95,
+        "avgTurns": 3.4
+      },
+      "evening_status": {
+        "count": 20,
+        "completionRate": 0.95,
+        "avgTurns": 4.35
+      },
+      "work_loop": {
+        "count": 8,
+        "completionRate": 0.875,
+        "avgTurns": 5.625
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 4,
+      "completed": 4,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 2239175.6666666665
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P2",
+      "category": "brief",
+      "description": "Brief contains knowledge data (dollar amounts). Move to knowledge base.",
+      "effort": "small"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"incident-response\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"platform-monitoring\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "context",
+      "description": "Assigned skills total ~7250 tokens. Exceeds recommended 3,000-token skill budget.",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "health",
+      "description": "Completion rate is 70% (target: >80%).",
+      "effort": "small"
+    }
+  ]
+}

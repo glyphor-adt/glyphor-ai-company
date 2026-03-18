@@ -1,5 +1,7 @@
 export type { Capability } from './capabilities.js';
 export { HIGH_COMPLEXITY_CAPABILITIES } from './capabilities.js';
+export { inferDomainRouting } from './domainRouter.js';
+export type { RoutingDomain, DomainRoutingContext, DomainRoutingResult, DomainSignal } from './domainRouter.js';
 export { TOOL_CAPABILITY_MAP } from './toolCapabilityMap.js';
 export { inferCapabilities } from './inferCapabilities.js';
 export type { RoutingContext } from './inferCapabilities.js';

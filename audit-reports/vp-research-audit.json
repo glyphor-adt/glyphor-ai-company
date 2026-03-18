@@ -1,0 +1,262 @@
+{
+  "role": "vp-research",
+  "timestamp": "2026-03-18T00:56:02.113Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sophia-lin.md",
+    "exists": true,
+    "tokenCount": 847,
+    "hasRelationships": true,
+    "hasAuthority": false,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": false,
+    "skillIndicators": [],
+    "knowledgeIndicators": [],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Sophia Lin — VP Research & Intelligence",
+        "tokens": 51,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 122,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 291,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 108,
+        "classification": "identity"
+      },
+      {
+        "heading": "Skills",
+        "tokens": 101,
+        "classification": "identity"
+      },
+      {
+        "heading": "Relationships",
+        "tokens": 177,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\vp-research\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 2022,
+    "hasCrisisFabricationRules": false,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "VP_RESEARCH_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "research-management",
+        "proficiency": "expert",
+        "category": "research",
+        "tokenCount": 2914,
+        "isOwnDomain": true,
+        "timesUsed": 4,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 2914,
+    "crossDomainSkills": [],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": [
+      {
+        "task": "decompose_research",
+        "tier": "standard",
+        "losesIdentity": false,
+        "losesSkills": false,
+        "losesMemory": false
+      },
+      {
+        "task": "qc_and_package_research",
+        "tier": "standard",
+        "losesIdentity": false,
+        "losesSkills": false,
+        "losesMemory": false
+      },
+      {
+        "task": "follow_up_research",
+        "tier": "standard",
+        "losesIdentity": false,
+        "losesSkills": false,
+        "losesMemory": false
+      }
+    ]
+  },
+  "tools": {
+    "factoryCount": 12,
+    "estimatedToolCount": 60,
+    "factories": [
+      "createVPResearchTools",
+      "createToolGrantTools",
+      "createGraphTools",
+      "createTeamOrchestrationTools",
+      "createPeerCoordinationTools",
+      "createInitiativeTools",
+      "createSharePointTools",
+      "createResearchRepoTools",
+      "createResearchMonitoringTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": true,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 153,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "OrchestratorRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": true,
+    "hasActiveTeamMembers": true,
+    "teamMemberCount": 2,
+    "teamMembersWithRunners": 2,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [
+      "decompose_research",
+      "qc_and_package_research",
+      "follow_up_research"
+    ],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [
+      "decompose_research",
+      "qc_and_package_research",
+      "follow_up_research"
+    ],
+    "coverageRate": 0
+  },
+  "runs": {
+    "last30Days": {
+      "total": 130,
+      "completed": 51,
+      "aborted": 20,
+      "timedOut": 0,
+      "maxTurnsReached": 5,
+      "avgTurns": 6,
+      "avgDurationMs": 69233.46923076923,
+      "avgInputTokens": 95167.12307692308,
+      "avgOutputTokens": 728.0846153846154,
+      "estimatedCost30d": 3.976199999999998
+    },
+    "taskBreakdown": {
+      "proactive": {
+        "count": 30,
+        "completionRate": 0.36666666666666664,
+        "avgTurns": 4.866666666666666
+      },
+      "decompose_research": {
+        "count": 9,
+        "completionRate": 0.6666666666666666,
+        "avgTurns": 1
+      },
+      "qc_and_package_research": {
+        "count": 1,
+        "completionRate": 1,
+        "avgTurns": 3
+      },
+      "on_demand": {
+        "count": 9,
+        "completionRate": 0.7777777777777778,
+        "avgTurns": 5
+      },
+      "work_loop": {
+        "count": 81,
+        "completionRate": 0.32098765432098764,
+        "avgTurns": 7.1234567901234565
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 4,
+      "completed": 1,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": [
+      "decompose_research",
+      "qc_and_package_research",
+      "follow_up_research"
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "P1",
+      "category": "prompt",
+      "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P0",
+      "category": "health",
+      "description": "Completion rate is 39% (target: >80%). Agent is failing/aborting frequently.",
+      "effort": "medium"
+    },
+    {
+      "priority": "P1",
+      "category": "schedule",
+      "description": "Task \"decompose_research\" is defined in run.ts but has no cron trigger.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P1",
+      "category": "schedule",
+      "description": "Task \"qc_and_package_research\" is defined in run.ts but has no cron trigger.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P1",
+      "category": "schedule",
+      "description": "Task \"follow_up_research\" is defined in run.ts but has no cron trigger.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"decompose_research\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"qc_and_package_research\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"follow_up_research\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    }
+  ]
+}

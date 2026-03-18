@@ -1,0 +1,201 @@
+{
+  "role": "platform-engineer",
+  "timestamp": "2026-03-18T00:55:58.205Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\alex-park.md",
+    "exists": true,
+    "tokenCount": 632,
+    "hasRelationships": true,
+    "hasAuthority": false,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": true,
+    "skillIndicators": [],
+    "knowledgeIndicators": [
+      "percentages"
+    ],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Alex Park — Platform Engineer",
+        "tokens": 41,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 118,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 275,
+        "classification": "knowledge"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 104,
+        "classification": "identity"
+      },
+      {
+        "heading": "Relationships",
+        "tokens": 95,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\platform-engineer\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 473,
+    "hasCrisisFabricationRules": false,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "PLATFORM_ENGINEER_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "incident-response",
+        "proficiency": "expert",
+        "category": "engineering",
+        "tokenCount": 2717,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "platform-monitoring",
+        "proficiency": "expert",
+        "category": "engineering",
+        "tokenCount": 2261,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 4978,
+    "crossDomainSkills": [],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 8,
+    "estimatedToolCount": 40,
+    "factories": [
+      "createPlatformEngineerTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createEngineeringGapTools",
+      "createDiagnosticTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 147,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": false,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 331,
+      "completed": 166,
+      "aborted": 33,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 3.0755287009063443,
+      "avgDurationMs": 66479.96374622357,
+      "avgInputTokens": 29030.123867069487,
+      "avgOutputTokens": 1945.3262839879153,
+      "estimatedCost30d": 3.4469000000000003
+    },
+    "taskBreakdown": {
+      "proactive": {
+        "count": 33,
+        "completionRate": 0.7272727272727273,
+        "avgTurns": 4.878787878787879
+      },
+      "health_check": {
+        "count": 135,
+        "completionRate": 0.37037037037037035,
+        "avgTurns": 1.962962962962963
+      },
+      "work_loop": {
+        "count": 156,
+        "completionRate": 0.5512820512820513,
+        "avgTurns": 3.6153846153846154
+      },
+      "on_demand": {
+        "count": 7,
+        "completionRate": 0.8571428571428571,
+        "avgTurns": 4
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 42,
+      "completed": 42,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 984685.5
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P2",
+      "category": "brief",
+      "description": "Brief contains knowledge data (percentages). Move to knowledge base.",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "prompt",
+      "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "context",
+      "description": "Assigned skills total ~4978 tokens. Exceeds recommended 3,000-token skill budget.",
+      "effort": "small"
+    },
+    {
+      "priority": "P0",
+      "category": "health",
+      "description": "Completion rate is 50% (target: >80%). Agent is failing/aborting frequently.",
+      "effort": "medium"
+    }
+  ]
+}

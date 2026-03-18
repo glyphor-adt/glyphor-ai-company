@@ -1,0 +1,210 @@
+{
+  "role": "m365-admin",
+  "timestamp": "2026-03-18T00:55:55.955Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\riley-morgan.md",
+    "exists": true,
+    "tokenCount": 748,
+    "hasRelationships": false,
+    "hasAuthority": true,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": false,
+    "skillIndicators": [],
+    "knowledgeIndicators": [],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Riley Morgan — M365 Administrator",
+        "tokens": 49,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 286,
+        "classification": "identity"
+      },
+      {
+        "heading": "Communication Style",
+        "tokens": 80,
+        "classification": "identity"
+      },
+      {
+        "heading": "Key Responsibilities",
+        "tokens": 166,
+        "classification": "identity"
+      },
+      {
+        "heading": "Authority Boundaries",
+        "tokens": 94,
+        "classification": "identity"
+      },
+      {
+        "heading": "Current Focus Areas",
+        "tokens": 74,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\m365-admin\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 1196,
+    "hasCrisisFabricationRules": true,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "M365_ADMIN_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "tenant-administration",
+        "proficiency": "expert",
+        "category": "operations",
+        "tokenCount": 1716,
+        "isOwnDomain": false,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "sharepoint-site-management",
+        "proficiency": "learning",
+        "category": "operations",
+        "tokenCount": 3399,
+        "isOwnDomain": false,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 5115,
+    "crossDomainSkills": [
+      "tenant-administration",
+      "sharepoint-site-management"
+    ],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 7,
+    "estimatedToolCount": 35,
+    "factories": [
+      "createM365AdminTools",
+      "createGraphTools",
+      "createToolGrantTools",
+      "createSharePointTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": false,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 150,
+    "blockedByDb": 0
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": false,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 179,
+      "completed": 156,
+      "aborted": 20,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 4.340782122905028,
+      "avgDurationMs": 37316.804469273746,
+      "avgInputTokens": 56324.40223463687,
+      "avgOutputTokens": 758.8659217877095,
+      "estimatedCost30d": 2.5251999999999994
+    },
+    "taskBreakdown": {
+      "proactive": {
+        "count": 32,
+        "completionRate": 0.625,
+        "avgTurns": 6.03125
+      },
+      "agent365_mail_triage": {
+        "count": 5,
+        "completionRate": 1,
+        "avgTurns": 2.2
+      },
+      "on_demand": {
+        "count": 110,
+        "completionRate": 0.9363636363636364,
+        "avgTurns": 3.4909090909090907
+      },
+      "work_loop": {
+        "count": 28,
+        "completionRate": 0.8571428571428571,
+        "avgTurns": 6.071428571428571
+      },
+      "user_audit": {
+        "count": 2,
+        "completionRate": 1,
+        "avgTurns": 3.5
+      },
+      "channel_audit": {
+        "count": 2,
+        "completionRate": 1,
+        "avgTurns": 6
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 1,
+      "completed": 1,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"tenant-administration\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"sharepoint-site-management\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "context",
+      "description": "Assigned skills total ~5115 tokens. Exceeds recommended 3,000-token skill budget.",
+      "effort": "small"
+    }
+  ]
+}
