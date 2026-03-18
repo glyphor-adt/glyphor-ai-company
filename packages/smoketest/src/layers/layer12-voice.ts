@@ -37,7 +37,12 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
       if (res.status === 404) {
         return 'POST /voice/dashboard not deployed yet — endpoint pending';
       }
-      if (!res.ok) throw new Error(`POST /voice/dashboard returned ${res.status}: ${res.raw}`);
+      if (!res.ok) {
+        if (res.raw.includes('already has an active voice session')) {
+          return 'Voice session already active for chief-of-staff (idempotent session guard)';
+        }
+        throw new Error(`POST /voice/dashboard returned ${res.status}: ${res.raw}`);
+      }
       const data = res.data as { id?: string };
       const sessionId = data?.id;
       if (sessionId) {

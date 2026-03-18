@@ -97,18 +97,6 @@ function parseMigrations(): MigrationSchema {
       if (!touchedTables.includes(tbl)) touchedTables.push(tbl);
     }
 
-    // ALTER TABLE <name> DROP COLUMN [IF EXISTS] <col>
-    const dropColumnRe =
-      /ALTER TABLE\s+(?:IF EXISTS\s+)?(\w+)\s+DROP COLUMN\s+(?:IF EXISTS\s+)?(\w+)/gi;
-    while ((m = dropColumnRe.exec(sql)) !== null) {
-      const tbl = m[1].toLowerCase();
-      const col = m[2].toLowerCase();
-      if (columns.has(tbl)) {
-        columns.get(tbl)!.delete(col);
-      }
-      if (!touchedTables.includes(tbl)) touchedTables.push(tbl);
-    }
-
     // ALTER TABLE <old_name> RENAME TO <new_name>
     const renameRe =
       /ALTER TABLE\s+(?:IF EXISTS\s+)?(\w+)\s+RENAME TO\s+(\w+)/gi;
@@ -129,6 +117,18 @@ function parseMigrations(): MigrationSchema {
       const oldIdx = touchedTables.indexOf(oldName);
       if (oldIdx >= 0) touchedTables.splice(oldIdx, 1);
       if (!touchedTables.includes(newName)) touchedTables.push(newName);
+    }
+
+    // ALTER TABLE <name> DROP COLUMN [IF EXISTS] <col>
+    const dropColumnRe =
+      /ALTER TABLE\s+(?:IF EXISTS\s+)?(\w+)\s+DROP COLUMN\s+(?:IF EXISTS\s+)?(\w+)/gi;
+    while ((m = dropColumnRe.exec(sql)) !== null) {
+      const tbl = m[1].toLowerCase();
+      const col = m[2].toLowerCase();
+      if (columns.has(tbl)) {
+        columns.get(tbl)!.delete(col);
+      }
+      if (!touchedTables.includes(tbl)) touchedTables.push(tbl);
     }
 
     // DROP TABLE [IF EXISTS] <name>

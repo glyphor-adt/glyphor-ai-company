@@ -68,7 +68,7 @@ export function resolveModelConfig(
     };
   } else if (shouldUsePremiumCodeModel) {
     decision = {
-      model: 'gemini-3.1-flash-lite-preview',
+      model: 'gpt-5.4',
       routingRule: selected.has('needs_apply_patch') ? 'standard_code_gen' : 'code_generation',
       capabilities,
       reasoningEffort: selected.has('high_complexity') ? 'high' : 'medium',
