@@ -98,12 +98,14 @@ INSERT INTO routing_config (route_name, model_slug, description, priority) VALUE
   ('workhorse',            'gemini-3.1-flash-lite-preview',  'Tier 1: default for all agents',                       50),
   ('orchestration',        'gemini-2.5-pro',                 'Tier 2: executive orchestration cycles',                90),
   ('executive_assignment', 'gemini-3-flash-preview',         'Tier 2: complex executive assignments',                 80),
-  ('complex_research',     'gemini-2.5-pro',                 'Tier 2: deep research, multi-source',                   85),
-  ('financial_complex',    'gemini-2.5-pro',                 'Tier 2: complex financial computation',                 85),
+  ('complex_research',     'gpt-5.4',                        'Tier 2: deep research, multi-source',                   85),
+  ('financial_complex',    'gpt-5.4',                        'Tier 2: complex financial computation',                 85),
   ('visual_analysis',      'gemini-2.5-pro',                 'Tier 2: image/visual understanding',                    85),
   ('code_gen',             'gemini-3.1-flash-lite-preview',  'Tier 1: code generation with tools',                    70),
   ('founder_chat',         'gemini-3-flash-preview',         'Tier 2: on-demand founder interaction',                 75),
   ('triangulation',        'gpt-5.4',                        'Tier 3: cross-provider verification',                   95),
+  ('deep_research',        'claude-opus-4-6',               'Founder-flagged deep research. Manual trigger only.',    95),
+  ('legal_review',         'claude-sonnet-4-6',             'CLO contract/compliance review. Manual trigger only.',   95),
   ('default',              'gemini-3.1-flash-lite-preview',  'Fallback for unmatched tasks',                           0)
 ON CONFLICT (route_name) DO UPDATE SET
   model_slug = EXCLUDED.model_slug,

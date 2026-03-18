@@ -55,7 +55,7 @@ describe('domain-aware runtime routing', () => {
     });
 
     expect(decision.routingRule).toBe('financial_complex');
-    expect(decision.model).toContain('gemini-2.5');
+    expect(decision.model).toContain('gpt-5.4');
     expect(decision.enableCodeExecution).toBe(true);
   });
 
