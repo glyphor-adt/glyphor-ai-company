@@ -98,6 +98,7 @@ export async function handleEvalApi(
         )
         SELECT
           a.id,
+          a.role,
           a.display_name AS name,
           a.department,
           a.performance_score,
@@ -114,11 +115,11 @@ export async function handleEvalApi(
           COALESCE(mc.promoted_mutations, 0)   AS promoted_mutations,
           rs.last_run_at
         FROM company_agents a
-        LEFT JOIN eval_scores es     ON es.agent_id = a.id
-        LEFT JOIN run_stats rs       ON rs.agent_id = a.id
-        LEFT JOIN finding_counts fc  ON fc.agent_id = a.id
-        LEFT JOIN prompt_info pi     ON pi.agent_id = a.id
-        LEFT JOIN mutation_counts mc ON mc.agent_id = a.id
+        LEFT JOIN eval_scores es     ON es.agent_id = a.role
+        LEFT JOIN run_stats rs       ON rs.agent_id = a.role
+        LEFT JOIN finding_counts fc  ON fc.agent_id = a.role
+        LEFT JOIN prompt_info pi     ON pi.agent_id = a.role
+        LEFT JOIN mutation_counts mc ON mc.agent_id = a.role
         ORDER BY a.performance_score ASC NULLS LAST
       `);
       json(res, 200, rows);

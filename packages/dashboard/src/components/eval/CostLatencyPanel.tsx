@@ -8,11 +8,11 @@ import {
 
 interface CostLatencyRow {
   agent_id: string;
-  avg_tokens: number;
-  p95_latency_ms: number;
-  avg_latency_ms: number;
-  avg_cost_usd: number;
-  run_count: number;
+  avg_tokens: number | string | null;
+  p95_latency_ms: number | string | null;
+  avg_latency_ms: number | string | null;
+  avg_cost_usd: number | string | null;
+  run_count: number | string;
 }
 
 /* ── Component ─────────────────────────────────────────────── */
@@ -57,9 +57,24 @@ export default function CostLatencyPanel() {
     );
   }
 
-  const maxRunCount = Math.max(...data.map(r => r.run_count), 1);
+  function asFiniteNumber(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  }
 
-  function barColor(cost: number): string {
+  function asRunCount(value: number | string | null | undefined): number {
+    const parsed = asFiniteNumber(value);
+    return parsed === null ? 0 : Math.max(0, parsed);
+  }
+
+  const maxRunCount = Math.max(...data.map(r => asRunCount(r.run_count)), 1);
+
+  function barColor(cost: number | null): string {
+    if (cost === null) return '#64748B';
     if (cost > 1.0) return '#EF4444';
     if (cost > 0.5) return '#F59E0B';
     return '#00A3FF';
@@ -76,16 +91,20 @@ export default function CostLatencyPanel() {
       </h3>
       <ResponsiveContainer width="100%" height={Math.max(data.length * 32, 120)}>
         <BarChart data={data} layout="vertical" margin={{ left: 100, right: 20, top: 0, bottom: 0 }}>
-          <XAxis type="number" tickFormatter={v => `$${Number(v).toFixed(3)}`}
+          <XAxis type="number" tickFormatter={v => {
+            const value = typeof v === 'number' && Number.isFinite(v) ? v : 0;
+            return `$${value.toFixed(3)}`;
+          }}
                  tick={{ fill: '#ffffff60', fontSize: 10 }} axisLine={false} tickLine={false} />
           <YAxis type="category" dataKey="agent_id" width={90}
                  tick={{ fill: '#ffffff80', fontSize: 11 }} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={{ background: '#131620', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
             labelStyle={{ color: '#ffffffcc' }}
-            formatter={(value: number, name: string) => {
-              if (name === 'avg_cost_usd') return [`$${value.toFixed(4)}`, 'Avg Cost'];
-              if (name === 'p95_latency_ms') return [`${Math.round(value)}ms`, 'p95 Latency'];
+            formatter={(rawValue: number, name: string) => {
+              const value = asFiniteNumber(rawValue);
+              if (name === 'avg_cost_usd') return [value === null ? '—' : `$${value.toFixed(4)}`, 'Avg Cost'];
+              if (name === 'p95_latency_ms') return [value === null ? '—' : `${Math.round(value)}ms`, 'p95 Latency'];
               return [value, name];
             }}
           />
@@ -93,8 +112,8 @@ export default function CostLatencyPanel() {
             {data.map((entry, i) => (
               <Cell
                 key={i}
-                fill={barColor(entry.avg_cost_usd)}
-                fillOpacity={barOpacity(entry.run_count)}
+                fill={barColor(asFiniteNumber(entry.avg_cost_usd))}
+                fillOpacity={barOpacity(asRunCount(entry.run_count))}
               />
             ))}
           </Bar>
@@ -114,17 +133,30 @@ export default function CostLatencyPanel() {
             </tr>
           </thead>
           <tbody>
-            {data.map(row => (
-              <tr key={row.agent_id} className="border-b border-white/5">
-                <td className="py-1.5 text-white/70">{row.agent_id}</td>
-                <td className={`py-1.5 text-right ${row.avg_cost_usd > 1 ? 'text-red-400' : row.avg_cost_usd > 0.5 ? 'text-amber-400' : 'text-white/60'}`}>
-                  ${row.avg_cost_usd.toFixed(4)}
-                </td>
-                <td className="py-1.5 text-right text-white/60">{Math.round(row.p95_latency_ms)}ms</td>
-                <td className="py-1.5 text-right text-white/60">{Math.round(row.avg_tokens).toLocaleString()}</td>
-                <td className="py-1.5 text-right text-white/40">{row.run_count}</td>
-              </tr>
-            ))}
+            {data.map(row => {
+              const avgCost = asFiniteNumber(row.avg_cost_usd);
+              const p95Latency = asFiniteNumber(row.p95_latency_ms);
+              const avgTokens = asFiniteNumber(row.avg_tokens);
+              const runCount = asRunCount(row.run_count);
+
+              return (
+                <tr key={row.agent_id} className="border-b border-white/5">
+                  <td className="py-1.5 text-white/70">{row.agent_id}</td>
+                  <td className={`py-1.5 text-right ${
+                    avgCost !== null && avgCost > 1
+                      ? 'text-red-400'
+                      : avgCost !== null && avgCost > 0.5
+                        ? 'text-amber-400'
+                        : 'text-white/60'
+                  }`}>
+                    {avgCost === null ? '—' : `$${avgCost.toFixed(4)}`}
+                  </td>
+                  <td className="py-1.5 text-right text-white/60">{p95Latency === null ? '—' : `${Math.round(p95Latency)}ms`}</td>
+                  <td className="py-1.5 text-right text-white/60">{avgTokens === null ? '—' : Math.round(avgTokens).toLocaleString()}</td>
+                  <td className="py-1.5 text-right text-white/40">{runCount}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

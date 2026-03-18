@@ -27,6 +27,7 @@ import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createDocuSignTools } from '../shared/docusignTools.js';
+import { createLegalDocumentTools } from '../shared/legalDocumentTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
@@ -61,6 +62,7 @@ export async function runCLO(params: CLORunParams = {}) {
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
     ...createDocuSignTools(),
+    ...createLegalDocumentTools(),
     ...await createAgent365McpTools('clo'),
     ...await createGlyphorMcpTools('clo'),
   ];

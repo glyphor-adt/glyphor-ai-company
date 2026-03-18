@@ -5,6 +5,7 @@ import { apiCall } from '../../lib/firebase';
 
 export interface FleetAgent {
   id: string;
+  role: string;
   name: string;
   department: string | null;
   performance_score: number | null;

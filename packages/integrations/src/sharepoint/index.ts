@@ -3,7 +3,12 @@ import { createHash } from 'node:crypto';
 import { inflateRawSync } from 'node:zlib';
 import { getM365Token } from '../credentials/m365Router.js';
 import { getAgenticGraphToken } from '../agent365/index.js';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import {
+  Document, Packer, Paragraph, TextRun, HeadingLevel,
+  AlignmentType, TabStopType, TabStopPosition, BorderStyle,
+  Table, TableRow, TableCell, WidthType, convertInchesToTwip,
+  Header, Footer, PageNumber, NumberFormat,
+} from 'docx';
 
 interface GraphDriveItem {
   id: string;
@@ -670,16 +675,114 @@ function getExtension(fileName: string): string {
  * Handles headings (# / ## / ###), bold (**), italic (*), bullet lists (- / *),
  * and numbered lists (1.). Produces valid Office Open XML that Word can open.
  */
-async function markdownToDocx(markdown: string): Promise<Buffer> {
-  const lines = markdown.split('\n');
-  const children: Paragraph[] = [];
+/** Default font used when no legal styling is requested. */
+const DEFAULT_FONT = 'Calibri';
+const DEFAULT_FONT_SIZE = 22; // half-points → 11pt
 
-  for (const raw of lines) {
+/** Legal document font settings. */
+const LEGAL_FONT = 'Times New Roman';
+const LEGAL_FONT_SIZE = 24; // half-points → 12pt
+const LEGAL_HEADING_SIZE = 28; // 14pt
+
+export interface DocxConvertOptions {
+  /** Use legal-document styling (Times New Roman, 1″ margins, signature blocks). */
+  legalFormatting?: boolean;
+  /** Document title for header/footer. */
+  title?: string;
+  /** Add "CONFIDENTIAL" header. */
+  confidential?: boolean;
+}
+
+async function markdownToDocx(markdown: string, opts?: DocxConvertOptions): Promise<Buffer> {
+  const legal = opts?.legalFormatting ?? false;
+  const font = legal ? LEGAL_FONT : DEFAULT_FONT;
+  const fontSize = legal ? LEGAL_FONT_SIZE : DEFAULT_FONT_SIZE;
+  const headingSize = legal ? LEGAL_HEADING_SIZE : 28;
+
+  const lines = markdown.split('\n');
+  const children: (Paragraph | Table)[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const raw = lines[i];
     const line = raw.trimEnd();
 
-    // Blank line → empty paragraph
+    // Blank line → spacing paragraph
     if (!line.trim()) {
-      children.push(new Paragraph({}));
+      children.push(new Paragraph({ spacing: { after: legal ? 120 : 0 } }));
+      i++;
+      continue;
+    }
+
+    // Horizontal rule → signature line (--- or ___)
+    if (/^(\s*[-_]{3,}\s*)$/.test(line)) {
+      children.push(new Paragraph({
+        spacing: { before: 200, after: 0 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 1, space: 1, color: '000000' } },
+        children: [new TextRun({ text: '', font: { name: font }, size: fontSize })],
+      }));
+      i++;
+      continue;
+    }
+
+    // Signature block: ``` SIGNATURE BLOCK ``` or [SIGNATURE BLOCK]
+    if (/^```\s*SIGNATURE\s*BLOCK\s*```$/i.test(line.trim()) || /^\[SIGNATURE\s*BLOCK\]$/i.test(line.trim())) {
+      // Collect parties from the following lines until blank line or end
+      i++;
+      const sigParties: string[][] = [];
+      let currentParty: string[] = [];
+      while (i < lines.length) {
+        const sigLine = lines[i].trim();
+        if (!sigLine) {
+          if (currentParty.length > 0) { sigParties.push(currentParty); currentParty = []; }
+          i++;
+          if (i < lines.length && !lines[i].trim()) break; // double blank = end of block
+          continue;
+        }
+        currentParty.push(sigLine);
+        i++;
+      }
+      if (currentParty.length > 0) sigParties.push(currentParty);
+
+      // Render each party's signature block
+      for (const party of sigParties) {
+        children.push(new Paragraph({ spacing: { before: 600 } })); // space before sig
+        // Signature line
+        children.push(new Paragraph({
+          spacing: { after: 0 },
+          border: { bottom: { style: BorderStyle.SINGLE, size: 1, space: 1, color: '000000' } },
+          children: [new TextRun({ text: '', font: { name: font }, size: fontSize })],
+        }));
+        // Party info lines
+        for (const pLine of party) {
+          children.push(new Paragraph({
+            spacing: { after: 40 },
+            children: parseInlineRuns(pLine, font, fontSize),
+          }));
+        }
+        // Date line
+        children.push(new Paragraph({
+          spacing: { before: 200, after: 40 },
+          children: [new TextRun({ text: 'Date: _______________________', font: { name: font }, size: fontSize })],
+        }));
+      }
+      continue;
+    }
+
+    // Table: lines starting with | (collect contiguous |...| lines)
+    if (line.startsWith('|') && line.endsWith('|')) {
+      const tableLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+        const tl = lines[i].trim();
+        // Skip separator rows (|---|---|)
+        if (!/^\|[\s-:|]+\|$/.test(tl)) {
+          tableLines.push(tl);
+        }
+        i++;
+      }
+      if (tableLines.length > 0) {
+        children.push(parseMarkdownTable(tableLines, font, fontSize));
+      }
       continue;
     }
 
@@ -690,52 +793,141 @@ async function markdownToDocx(markdown: string): Promise<Buffer> {
       const headingLevel = level === 1 ? HeadingLevel.HEADING_1
         : level === 2 ? HeadingLevel.HEADING_2
         : HeadingLevel.HEADING_3;
+      const hSize = level === 1 ? headingSize : level === 2 ? headingSize - 2 : headingSize - 4;
       children.push(new Paragraph({
         heading: headingLevel,
-        children: parseInlineFormatting(headingMatch[2]),
+        spacing: { before: legal ? 240 : 0, after: legal ? 120 : 0 },
+        alignment: level === 1 && legal ? AlignmentType.CENTER : undefined,
+        children: parseInlineRuns(headingMatch[2], font, hSize, true),
       }));
+      i++;
+      continue;
+    }
+
+    // "WHEREAS" / "NOW, THEREFORE" / "RECITALS" / "WITNESSETH" — legal recital styling
+    if (legal && /^(WHEREAS|NOW,?\s*THEREFORE|RECITALS|WITNESSETH)/i.test(line.trim())) {
+      children.push(new Paragraph({
+        spacing: { before: 200, after: 120 },
+        indent: { left: convertInchesToTwip(0.5) },
+        children: parseInlineRuns(line, font, fontSize, false, true),
+      }));
+      i++;
+      continue;
+    }
+
+    // Centered text (legal): lines that are ALL CAPS and short (likely titles/headers)
+    if (legal && line === line.toUpperCase() && line.trim().length > 2 && line.trim().length < 80) {
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 200, after: 120 },
+        children: [new TextRun({ text: line.trim(), font: { name: font }, size: headingSize, bold: true })],
+      }));
+      i++;
       continue;
     }
 
     // Bullet list (- or *)
-    const bulletMatch = line.match(/^\s*[-*]\s+(.*)/);
+    const bulletMatch = line.match(/^(\s*)[-*]\s+(.*)/);
     if (bulletMatch) {
+      const indent = Math.floor((bulletMatch[1]?.length ?? 0) / 2);
       children.push(new Paragraph({
-        bullet: { level: 0 },
-        children: parseInlineFormatting(bulletMatch[1]),
+        bullet: { level: Math.min(indent, 2) },
+        children: parseInlineRuns(bulletMatch[2], font, fontSize),
       }));
+      i++;
       continue;
     }
 
     // Numbered list
-    const numberedMatch = line.match(/^\s*\d+[.)]\s+(.*)/);
+    const numberedMatch = line.match(/^(\s*)\d+[.)]\s+(.*)/);
     if (numberedMatch) {
+      const indent = Math.floor((numberedMatch[1]?.length ?? 0) / 2);
       children.push(new Paragraph({
-        numbering: { reference: 'default-numbering', level: 0 },
-        children: parseInlineFormatting(numberedMatch[1]),
+        numbering: { reference: 'default-numbering', level: Math.min(indent, 2) },
+        children: parseInlineRuns(numberedMatch[2], font, fontSize),
       }));
+      i++;
+      continue;
+    }
+
+    // Section numbering: "1.2.3 Title" → indented numbered section (legal)
+    const sectionMatch = legal ? line.match(/^(\d+(?:\.\d+)*)\s+(.*)/) : null;
+    if (sectionMatch) {
+      const depth = (sectionMatch[1].match(/\./g) || []).length;
+      const isTopLevel = depth === 0;
+      children.push(new Paragraph({
+        spacing: { before: isTopLevel ? 240 : 120, after: 80 },
+        indent: depth > 0 ? { left: convertInchesToTwip(0.5 * depth) } : undefined,
+        children: [
+          new TextRun({
+            text: `${sectionMatch[1]}  `,
+            font: { name: font },
+            size: isTopLevel ? headingSize - 2 : fontSize,
+            bold: isTopLevel,
+          }),
+          ...parseInlineRuns(sectionMatch[2], font, isTopLevel ? headingSize - 2 : fontSize, isTopLevel),
+        ],
+      }));
+      i++;
       continue;
     }
 
     // Regular paragraph
     children.push(new Paragraph({
-      children: parseInlineFormatting(line),
+      spacing: { after: legal ? 120 : 0 },
+      children: parseInlineRuns(line, font, fontSize),
+    }));
+    i++;
+  }
+
+  // Build header/footer for legal docs
+  const headerChildren: Paragraph[] = [];
+  if (opts?.confidential) {
+    headerChildren.push(new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      children: [new TextRun({ text: 'CONFIDENTIAL', font: { name: font }, size: 16, bold: true, color: '888888' })],
     }));
   }
+  if (opts?.title) {
+    headerChildren.push(new Paragraph({
+      alignment: AlignmentType.LEFT,
+      children: [new TextRun({ text: opts.title, font: { name: font }, size: 16, italics: true, color: '888888' })],
+    }));
+  }
+
+  const footerChildren: Paragraph[] = [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({ text: 'Page ', font: { name: font }, size: 16 }),
+        new TextRun({ children: [PageNumber.CURRENT], font: { name: font }, size: 16 }),
+        new TextRun({ text: ' of ', font: { name: font }, size: 16 }),
+        new TextRun({ children: [PageNumber.TOTAL_PAGES], font: { name: font }, size: 16 }),
+      ],
+    }),
+  ];
+
+  const margins = legal
+    ? { top: convertInchesToTwip(1), bottom: convertInchesToTwip(1), left: convertInchesToTwip(1), right: convertInchesToTwip(1) }
+    : undefined;
 
   const doc = new Document({
     numbering: {
       config: [{
         reference: 'default-numbering',
-        levels: [{
-          level: 0,
-          format: 'decimal' as any,
-          text: '%1.',
-          alignment: 'start' as any,
-        }],
+        levels: [
+          { level: 0, format: NumberFormat.DECIMAL as any, text: '%1.', alignment: AlignmentType.START as any },
+          { level: 1, format: NumberFormat.LOWER_LETTER as any, text: '%2)', alignment: AlignmentType.START as any },
+          { level: 2, format: NumberFormat.LOWER_ROMAN as any, text: '%3.', alignment: AlignmentType.START as any },
+        ],
       }],
     },
     sections: [{
+      properties: {
+        page: { margin: margins },
+      },
+      headers: headerChildren.length > 0 ? { default: new Header({ children: headerChildren }) } : undefined,
+      footers: legal ? { default: new Footer({ children: footerChildren }) } : undefined,
       children,
     }],
   });
@@ -743,28 +935,73 @@ async function markdownToDocx(markdown: string): Promise<Buffer> {
   return Buffer.from(await Packer.toBuffer(doc));
 }
 
-/** Parse bold (**text**) and italic (*text*) inline formatting into TextRun array. */
-function parseInlineFormatting(text: string): TextRun[] {
+/** Parse bold (**text**), italic (*text*), and underline (__text__) into TextRun array with font/size. */
+function parseInlineRuns(
+  text: string,
+  fontName: string,
+  size: number,
+  bold?: boolean,
+  firstWordBold?: boolean,
+): TextRun[] {
   const runs: TextRun[] = [];
-  // Match **bold**, *italic*, or plain text segments
-  const pattern = /(\*\*(.+?)\*\*|\*(.+?)\*|([^*]+))/g;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(text)) !== null) {
-    if (match[2]) {
-      // Bold
-      runs.push(new TextRun({ text: match[2], bold: true }));
-    } else if (match[3]) {
-      // Italic
-      runs.push(new TextRun({ text: match[3], italics: true }));
-    } else if (match[4]) {
-      // Plain text
-      runs.push(new TextRun({ text: match[4] }));
+  // Match __underline__, **bold**, *italic*, or plain text segments
+  const pattern = /(__(.+?)__|\*\*(.+?)\*\*|\*(.+?)\*|([^_*]+))/g;
+  let m: RegExpExecArray | null;
+  let isFirst = true;
+  while ((m = pattern.exec(text)) !== null) {
+    if (m[2]) {
+      runs.push(new TextRun({ text: m[2], underline: {}, font: { name: fontName }, size, bold }));
+    } else if (m[3]) {
+      runs.push(new TextRun({ text: m[3], bold: true, font: { name: fontName }, size }));
+    } else if (m[4]) {
+      runs.push(new TextRun({ text: m[4], italics: true, font: { name: fontName }, size, bold }));
+    } else if (m[5]) {
+      if (firstWordBold && isFirst) {
+        const spaceIdx = m[5].indexOf(' ');
+        if (spaceIdx > 0) {
+          runs.push(new TextRun({ text: m[5].slice(0, spaceIdx), bold: true, font: { name: fontName }, size }));
+          runs.push(new TextRun({ text: m[5].slice(spaceIdx), font: { name: fontName }, size, bold }));
+        } else {
+          runs.push(new TextRun({ text: m[5], bold: true, font: { name: fontName }, size }));
+        }
+      } else {
+        runs.push(new TextRun({ text: m[5], font: { name: fontName }, size, bold }));
+      }
     }
+    isFirst = false;
   }
   if (runs.length === 0) {
-    runs.push(new TextRun({ text }));
+    runs.push(new TextRun({ text, font: { name: fontName }, size, bold }));
   }
   return runs;
+}
+
+/** Parse markdown table rows into a docx Table. */
+function parseMarkdownTable(tableLines: string[], fontName: string, fontSize: number): Table {
+  const parsed = tableLines.map(line =>
+    line.split('|').slice(1, -1).map(cell => cell.trim()),
+  );
+  const colCount = Math.max(...parsed.map(r => r.length));
+  const rows = parsed.map((cells, rowIdx) =>
+    new TableRow({
+      children: Array.from({ length: colCount }, (_, ci) =>
+        new TableCell({
+          width: { size: Math.floor(9000 / colCount), type: WidthType.DXA },
+          children: [
+            new Paragraph({
+              children: [new TextRun({
+                text: cells[ci] ?? '',
+                font: { name: fontName },
+                size: fontSize,
+                bold: rowIdx === 0,
+              })],
+            }),
+          ],
+        }),
+      ),
+    }),
+  );
+  return new Table({ rows, width: { size: 9000, type: WidthType.DXA } });
 }
 
 function buildRootChildrenUrl(
@@ -925,6 +1162,8 @@ export interface SharePointUploadOptions {
   /** Agent role — when set, the upload uses the agent's agentic user token so
    *  SharePoint attributes the file to the agent instead of "SharePoint App". */
   agentRole?: string;
+  /** Docx conversion options (legal formatting, title, confidential header). */
+  docxOptions?: DocxConvertOptions;
 }
 
 export interface SharePointBinaryUploadOptions extends SharePointUploadOptions {
@@ -974,7 +1213,7 @@ export async function uploadToSharePoint(
   let contentType: string;
 
   if (isDocx) {
-    uploadBody = await markdownToDocx(content);
+    uploadBody = await markdownToDocx(content, options?.docxOptions);
     contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
   } else {
     uploadBody = content;

@@ -90,10 +90,10 @@ export default function AgentDetailDrawer({ agent, open, onClose }: AgentDetailD
 
             {/* Tab content */}
             <div className="overflow-y-auto h-[calc(100vh-140px)] p-6">
-              {activeTab === 0 && <PerformanceTab agentId={agent.id} />}
-              {activeTab === 1 && <PromptEvolutionTab agentId={agent.id} />}
-              {activeTab === 2 && <FindingsTab agentId={agent.id} />}
-              {activeTab === 3 && <WorldStateTab agentId={agent.id} />}
+              {activeTab === 0 && <PerformanceTab agentId={agent.role} />}
+              {activeTab === 1 && <PromptEvolutionTab agentId={agent.role} />}
+              {activeTab === 2 && <FindingsTab agentId={agent.role} />}
+              {activeTab === 3 && <WorldStateTab agentId={agent.role} />}
             </div>
           </>
         )}

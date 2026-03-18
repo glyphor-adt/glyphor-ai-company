@@ -159,6 +159,7 @@ export {
   type SharePointBinaryUploadOptions,
   type SharePointSearchOptions,
   type SharePointDocument,
+  type DocxConvertOptions,
 } from './sharepoint/index.js';
 
 // Web search (OpenAI GPT-5.2 web_search_preview)
