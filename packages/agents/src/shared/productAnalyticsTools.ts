@@ -1,9 +1,9 @@
 /**
- * Product Analytics Tools — Shared tools for product usage analytics
+ * Product Analytics Tools — Shared tools for internal engine usage analytics
  *
  * Tools:
  *   query_analytics_events — Query the analytics_events table with filters
- *   get_usage_metrics      — Aggregated product usage metrics (DAU, WAU, MAU, etc.)
+ *   get_usage_metrics      — Aggregated usage metrics (DAU, WAU, MAU, etc.)
  *   get_funnel_analysis    — Analyze conversion funnels with step-by-step rates
  *   get_cohort_retention   — Retention curves by signup cohort
  *   get_feature_usage      — Usage breakdown by specific features
@@ -24,7 +24,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
       parameters: {
         product: {
           type: 'string',
-          description: 'Product to analyze.',
+          description: 'Internal engine identifier (fuse/pulse are internal engines, not external products).',
           required: true,
           enum: ['pulse', 'fuse'],
         },
@@ -144,7 +144,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Product to analyze.',
+          description: 'Internal engine identifier (fuse/pulse are internal engines, not external products).',
           required: true,
           enum: ['pulse', 'fuse'],
         },
@@ -218,7 +218,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
       parameters: {
         product: {
           type: 'string',
-          description: 'Product to analyze.',
+          description: 'Internal engine identifier (fuse/pulse are internal engines, not external products).',
           required: true,
           enum: ['pulse', 'fuse'],
         },
@@ -316,7 +316,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
       parameters: {
         product: {
           type: 'string',
-          description: 'Product to analyze.',
+          description: 'Internal engine identifier (fuse/pulse are internal engines, not external products).',
           required: true,
           enum: ['pulse', 'fuse'],
         },
@@ -393,7 +393,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Product to analyze.',
+          description: 'Internal engine identifier (fuse/pulse are internal engines, not external products).',
           required: true,
           enum: ['pulse', 'fuse'],
         },

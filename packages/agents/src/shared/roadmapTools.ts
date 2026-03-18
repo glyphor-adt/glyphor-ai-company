@@ -34,7 +34,7 @@ export function createRoadmapTools(): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Which product this item belongs to.',
+          description: 'Which internal engine this item belongs to (fuse/pulse are internal engines, not external products).',
           enum: ['pulse', 'fuse'],
           required: true,
         },
@@ -171,12 +171,12 @@ export function createRoadmapTools(): ToolDefinition[] {
     {
       name: 'get_roadmap',
       description:
-        'View the current product roadmap. Filter by product, quarter, status, or priority. ' +
+        'View the current platform roadmap. Filter by engine, quarter, status, or priority. ' +
         'Results are ordered by priority (critical first).',
       parameters: {
         product: {
           type: 'string',
-          description: 'Filter by product or view all.',
+          description: 'Filter by internal engine or view all.',
           enum: ['pulse', 'fuse', 'all'],
         },
         quarter: {
@@ -364,7 +364,7 @@ export function createRoadmapTools(): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Filter by product or view all.',
+          description: 'Filter by internal engine or view all.',
           enum: ['pulse', 'fuse', 'all'],
           required: true,
         },

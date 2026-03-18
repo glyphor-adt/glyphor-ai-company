@@ -12,11 +12,11 @@ export function createVPSalesTools(memory: CompanyMemoryStore): ToolDefinition[]
   return [
     {
       name: 'get_product_metrics',
-      description: 'Get current product metrics (active users, adoption, retention).',
+      description: 'Get current internal engine metrics (active users, adoption, retention). Fuse and Pulse are internal engines, not external products.',
       parameters: {
         product: {
           type: 'string',
-          description: 'Product slug',
+          description: 'Internal engine slug',
           required: true,
           enum: ['fuse', 'pulse'],
         },
@@ -148,7 +148,7 @@ export function createVPSalesTools(memory: CompanyMemoryStore): ToolDefinition[]
         },
         product: {
           type: 'string',
-          description: 'Related product',
+          description: 'Related engine or company-wide',
           required: false,
           enum: ['fuse', 'pulse', 'company'],
         },

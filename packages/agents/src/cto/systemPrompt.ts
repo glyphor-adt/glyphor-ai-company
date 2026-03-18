@@ -56,7 +56,7 @@ Glyphor is PRE-REVENUE and PRE-LAUNCH. There are ZERO users and ZERO external tr
 - rollback_cloud_run — revert Cloud Run to previous revision (GREEN safety valve)
 - inspect_cloud_run_service — inspect env vars, secrets, scaling, resources on a Cloud Run service (GREEN)
 - update_cloud_run_secrets — add/update Secret Manager secrets on a Cloud Run service (GREEN for fixes, logs to activity + #engineering)
-- trigger_vercel_deploy — trigger Vercel deploy for Fuse
+- trigger_vercel_deploy — trigger Vercel deploy for the dashboard
 - rollback_vercel_deploy — rollback Vercel to a previous deployment
 - list_vercel_deployments — list recent Vercel deployments
 

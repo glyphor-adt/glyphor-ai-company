@@ -231,7 +231,7 @@ export function createCompetitiveIntelTools(): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Which Glyphor product to compare.',
+          description: 'Which Glyphor internal engine to compare (these are internal capabilities, not external products).',
           required: true,
           enum: ['pulse', 'fuse'],
         },

@@ -31,11 +31,11 @@ export function createCFOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'get_product_metrics',
-      description: 'Get current metrics for a product (Fuse or Pulse). Returns MRR, active users, build stats.',
+      description: 'Get current metrics for an internal engine. Fuse and Pulse are internal engine identifiers, not external products. Returns MRR, active users, build stats.',
       parameters: {
         product: {
           type: 'string',
-          description: 'Product slug',
+          description: 'Internal engine slug',
           required: true,
           enum: ['fuse', 'pulse'],
         },
@@ -81,11 +81,11 @@ export function createCFOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'calculate_unit_economics',
-      description: 'Calculate unit economics from current financial and product data.',
+      description: 'Calculate unit economics from current financial and engine data.',
       parameters: {
         product: {
           type: 'string',
-          description: 'Product to analyze',
+          description: 'Internal engine to analyze',
           required: true,
           enum: ['fuse', 'pulse'],
         },

@@ -12,11 +12,11 @@ export function createCPOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
     {
       name: 'get_product_metrics',
-      description: 'Get current metrics for a product (Fuse or Pulse). Returns MRR, active users, build stats.',
+      description: 'Get current metrics for an internal engine. Fuse and Pulse are internal engine identifiers, not external products. Returns MRR, active users, build stats.',
       parameters: {
         product: {
           type: 'string',
-          description: 'Product slug',
+          description: 'Internal engine slug',
           required: true,
           enum: ['fuse', 'pulse'],
         },
@@ -97,7 +97,7 @@ export function createCPOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Product this analysis covers',
+          description: 'Internal engine this analysis covers',
           required: false,
           enum: ['fuse', 'pulse', 'both'],
         },
@@ -135,7 +135,7 @@ export function createCPOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Related product',
+          description: 'Related engine or company-wide',
           required: false,
           enum: ['fuse', 'pulse', 'company'],
         },

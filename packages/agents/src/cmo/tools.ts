@@ -13,11 +13,11 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
     {
       name: 'get_product_metrics',
-      description: 'Get current product metrics to inform content with real data points.',
+      description: 'Get current internal engine metrics to inform content with real data points. Fuse and Pulse are internal engines, not external products.',
       parameters: {
         product: {
           type: 'string',
-          description: 'Product slug',
+          description: 'Internal engine slug',
           required: true,
           enum: ['fuse', 'pulse'],
         },
@@ -143,7 +143,7 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Related product',
+          description: 'Related engine or company-wide',
           required: false,
           enum: ['fuse', 'pulse', 'company'],
         },

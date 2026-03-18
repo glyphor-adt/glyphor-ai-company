@@ -1235,6 +1235,23 @@ export interface RunDependencies {
   trustScorer?: TrustScorer;
 }
 
+/**
+ * Regex patterns matching future-tense planning intent — the agent is
+ * describing what it *will* do, but hasn't executed any tools yet.
+ * Used to nudge the agent into execution rather than ending the run.
+ */
+const PLANNING_INTENT_PATTERNS = [
+  /I(?:'m| am) (?:starting|beginning|preparing|creating|drafting|building|working)/i,
+  /I(?:'ll| will) (?:create|prepare|draft|build|generate|send|upload|start|set up|write)/i,
+  /I will (?:now |begin |start )?(?:create|prepare|draft|build|generate|send|upload)/i,
+  /Let me (?:start|begin|prepare|create|draft|build|set up|work on)/i,
+  /I'm going to (?:create|prepare|draft|build|generate|send|upload|start|set up)/i,
+];
+
+function containsPlanningIntent(text: string): boolean {
+  return PLANNING_INTENT_PATTERNS.some(p => p.test(text));
+}
+
 /** Regex patterns that match common action claims in agent text. */
 const ACTION_CLAIM_PATTERNS = [
   /I(?:'ve| have) (?:updated|corrected|set|changed|modified|adjusted)/gi,
@@ -2321,6 +2338,26 @@ export class CompanyAgentRunner {
             });
             continue;
           }
+
+          // Planning-detection guard: if the agent described future actions
+          // ("I'll create…", "I'm starting…") on an early turn but never
+          // invoked any tools, nudge it to actually execute instead of
+          // ending the run with an empty promise. Apply once only.
+          const PLANNING_NUDGE = 'You described actions you intend to take but did not execute any tools. Do NOT just describe what you plan to do — actually call the tools now to carry out the work. Use your available tools to complete the task.';
+          if (
+            lastTextOutput &&
+            actionReceipts.length === 0 &&
+            turnNumber <= 2 &&
+            containsPlanningIntent(lastTextOutput) &&
+            !history.some(h => h.content === PLANNING_NUDGE)
+          ) {
+            console.warn(
+              `[CompanyAgentRunner] Planning-only response detected for ${config.role} on turn ${turnNumber} — nudging to execute.`,
+            );
+            history.push({ role: 'user', content: PLANNING_NUDGE, timestamp: Date.now() });
+            continue;
+          }
+
           break;
         }
       }

@@ -364,7 +364,7 @@ export function createCashFlowTools(): ToolDefinition[] {
       parameters: {
         product: {
           type: 'string',
-          description: 'Product to analyze',
+          description: 'Internal engine to analyze (fuse/pulse are internal engines, not external products)',
           enum: ['pulse', 'fuse', 'all'],
         },
         date_range: {

@@ -267,7 +267,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Related product',
+          description: 'Related engine or company-wide',
           required: false,
           enum: ['fuse', 'pulse', 'company'],
         },

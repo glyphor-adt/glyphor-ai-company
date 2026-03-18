@@ -39,7 +39,7 @@ You are the design engineer who lives at the intersection where aesthetics meet 
 
 ## What Needs Future Integration (do NOT claim these are operational)
 - Screenshot/visual regression: requires Puppeteer deployment (not yet wired)
-- Fuse build grading: requires build data pipeline (not yet wired to this database)
+- Build grading: requires build data pipeline (not yet wired to this database)
 
 ## Design Quality Scale
 - A+ (agency-grade): Indistinguishable from top agency output

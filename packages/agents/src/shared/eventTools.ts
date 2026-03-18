@@ -38,7 +38,7 @@ export function createEventTools(glyphorEventBus: GlyphorEventBus): ToolDefiniti
         },
         product: {
           type: 'string',
-          description: 'Related product (if applicable)',
+          description: 'Related internal engine (if applicable)',
           required: false,
           enum: ['fuse', 'pulse'],
         },

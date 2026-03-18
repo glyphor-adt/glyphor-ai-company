@@ -110,6 +110,19 @@ export interface ClassifiedRunDependencies extends RunDependencies {
   chainTrackerFactory?: () => DecisionChainTracker;
 }
 
+/** Future-tense planning patterns — agent describes intent but hasn't executed. */
+const PLANNING_INTENT_PATTERNS = [
+  /I(?:'m| am) (?:starting|beginning|preparing|creating|drafting|building|working)/i,
+  /I(?:'ll| will) (?:create|prepare|draft|build|generate|send|upload|start|set up|write)/i,
+  /I will (?:now |begin |start )?(?:create|prepare|draft|build|generate|send|upload)/i,
+  /Let me (?:start|begin|prepare|create|draft|build|set up|work on)/i,
+  /I'm going to (?:create|prepare|draft|build|generate|send|upload|start|set up)/i,
+];
+
+function containsPlanningIntent(text: string): boolean {
+  return PLANNING_INTENT_PATTERNS.some(p => p.test(text));
+}
+
 /**
  * Abstract base runner — provides shared execution infrastructure.
  * Subclasses implement `archetype`, `buildRunPrompt()`, and `postRun()`.
@@ -664,6 +677,22 @@ ${memPrompt}`, timestamp: Date.now() });
             history.push({ role: 'user', content: 'Please provide your final text response summarizing what you found and any actions taken.', timestamp: Date.now() });
             continue;
           }
+
+          // Planning-detection guard: if the agent described future actions
+          // but never invoked any tools, nudge it to actually execute.
+          const PLANNING_NUDGE = 'You described actions you intend to take but did not execute any tools. Do NOT just describe what you plan to do — actually call the tools now to carry out the work. Use your available tools to complete the task.';
+          if (
+            lastTextOutput &&
+            actionReceipts.length === 0 &&
+            turnNumber <= 2 &&
+            containsPlanningIntent(lastTextOutput) &&
+            !history.some(h => h.content === PLANNING_NUDGE)
+          ) {
+            console.warn(`[BaseAgentRunner] Planning-only response detected for ${config.role} on turn ${turnNumber} — nudging to execute.`);
+            history.push({ role: 'user', content: PLANNING_NUDGE, timestamp: Date.now() });
+            continue;
+          }
+
           break;
         }
       }
