@@ -20,6 +20,13 @@ interface KBSection {
   version: number;
   is_active: boolean;
   updated_at: string;
+  layer?: number;
+  owner_agent_id?: string | null;
+  is_stale?: boolean;
+  auto_expire?: boolean;
+  last_verified_at?: string | null;
+  review_cadence?: string;
+  days_since_verified?: number;
 }
 
 interface Bulletin {
@@ -52,7 +59,9 @@ interface KGStats {
 
 /* ── Constants ─────────────────────────────────── */
 
-const AUDIENCES = ['all', 'executives', 'engineering', 'finance', 'product', 'marketing', 'sales', 'customer_success', 'design', 'operations'] as const;
+const AUDIENCES = ['all', 'executives', 'engineering', 'finance', 'product', 'marketing', 'sales', 'customer_success', 'design', 'operations',
+  'marketing,sales,executive', 'executive,finance,operations', 'executive,operations', 'engineering,operations',
+  'marketing,sales,research,executive', 'marketing,sales'] as const;
 const PRIORITIES = ['fyi', 'normal', 'important', 'urgent'] as const;
 
 const PRIORITY_STYLE: Record<string, { dot: string; text: string; bg: string; border: string }> = {
@@ -110,7 +119,7 @@ function KnowledgeBase() {
 
   const refresh = useCallback(async () => {
     const [kbData, bulData, pulseData, nodesData, edgesData] = await Promise.all([
-      apiCall<KBSection[]>('/api/company-knowledge-base?is_active=true'),
+      apiCall<KBSection[]>('/api/knowledge/status'),
       apiCall<Bulletin[]>('/api/founder-bulletins?is_active=true'),
       apiCall<Pulse>('/api/company-vitals'),
       apiCall<{ node_type: string }[]>('/api/kg-nodes?fields=node_type'),
@@ -620,29 +629,58 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
   return (
     <Card>
       <SectionHeader title="Knowledge Base" action={
-        <span className="text-[11px] text-txt-faint">{sections.length} sections</span>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-txt-faint">
+            L1: {sections.filter(s => s.layer === 1).length} · L2: {sections.filter(s => s.layer === 2).length} · L3: {sections.filter(s => s.layer === 3).length}
+          </span>
+          {sections.some(s => s.is_stale) && (
+            <span className="rounded-full bg-prism-critical/10 border border-prism-critical/30 px-2 py-0.5 text-[10px] font-medium text-prism-critical">
+              {sections.filter(s => s.is_stale).length} stale
+            </span>
+          )}
+          <span className="text-[11px] text-txt-faint">{sections.length} sections</span>
+        </div>
       } />
 
       <div className="space-y-3">
         {sections.map(s => {
           const isEditing = editingId === s.id;
+          const layerLabel = s.layer === 1 ? 'Doctrine' : s.layer === 2 ? 'Role' : 'Reference';
+          const layerColor = s.layer === 1
+            ? 'bg-prism-violet/15 text-prism-violet border-prism-violet/30'
+            : s.layer === 2
+              ? 'bg-cyan/10 text-cyan border-cyan/30'
+              : 'bg-prism-moderate/10 text-prism-moderate border-prism-moderate/30';
           return (
-            <div key={s.id} className="rounded-lg theme-glass-panel">
+            <div key={s.id} className={`rounded-lg theme-glass-panel ${s.is_stale ? 'ring-1 ring-prism-critical/40' : ''}`}>
               {/* Section Header */}
               <button
                 onClick={() => isEditing ? cancelEdit() : startEdit(s)}
                 className="flex w-full items-center justify-between px-4 py-3 text-left"
               >
                 <div className="flex items-center gap-3 min-w-0">
+                  <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase flex-shrink-0 ${layerColor}`}>
+                    {layerLabel}
+                  </span>
                   <span className="text-[13px] font-semibold text-txt-primary truncate">{s.title}</span>
+                  {s.is_stale && (
+                    <span className="rounded-full bg-prism-critical/10 px-1.5 py-0.5 text-[9px] font-semibold text-prism-critical flex-shrink-0">
+                      STALE
+                    </span>
+                  )}
                   <span className="rounded-full theme-glass-panel-soft px-2 py-0.5 text-[10px] text-txt-faint capitalize flex-shrink-0">
                     {s.audience}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {s.owner_agent_id && (
+                    <span className="text-[10px] text-txt-faint">owner: {s.owner_agent_id}</span>
+                  )}
                   <span className="text-[10px] text-txt-faint">v{s.version}</span>
                   <span className="text-[10px] text-txt-faint">·</span>
-                  <span className="text-[10px] text-txt-faint">{timeAgo(s.updated_at)}</span>
+                  <span className="text-[10px] text-txt-faint">
+                    {s.last_verified_at ? `verified ${timeAgo(s.last_verified_at)}` : 'unverified'}
+                  </span>
                   <MdExpandMore className={`text-[14px] transition-transform duration-200 text-txt-faint ${isEditing ? '' : '-rotate-90'}`} />
                 </div>
               </button>

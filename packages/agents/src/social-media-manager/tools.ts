@@ -8,6 +8,7 @@ import { systemQuery } from '@glyphor/shared/db';
 import { createSocialMediaTools } from '../shared/socialMediaTools.js';
 import { createAllPulseTools } from '../shared/pulseTools.js';
 import { createFacebookTools } from '../shared/facebookTools.js';
+import { createLinkedInTools } from '../shared/linkedinTools.js';
 
 export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   const sharedScheduleTool = createSocialMediaTools().find((tool) => tool.name === 'schedule_social_post');
@@ -127,5 +128,8 @@ export function createSocialMediaManagerTools(memory: CompanyMemoryStore): ToolD
 
     // ── Facebook / Meta Page tools ──
     ...createFacebookTools(),
+
+    // ── LinkedIn Organization tools ──
+    ...createLinkedInTools(),
   ];
 }

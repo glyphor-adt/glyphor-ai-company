@@ -83,6 +83,7 @@ const TABLE_MAP: Record<string, string> = {
   'dashboard-users': 'dashboard_users',
   'company-knowledge-base': 'company_knowledge_base',
   'company_knowledge': 'company_knowledge',
+  'knowledge': 'company_knowledge_base',
   'company-vitals': 'company_vitals',
   'kg-nodes': 'kg_nodes',
   'kg-edges': 'kg_edges',

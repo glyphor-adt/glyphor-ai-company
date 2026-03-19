@@ -9,6 +9,7 @@ import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { createAllPulseTools } from '../shared/pulseTools.js';
 import { createFacebookTools } from '../shared/facebookTools.js';
+import { createLinkedInTools } from '../shared/linkedinTools.js';
 
 export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -212,5 +213,8 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     // ── Facebook / Meta Page tools ──
     ...createFacebookTools(),
+
+    // ── LinkedIn Organization tools ──
+    ...createLinkedInTools(),
   ];
 }

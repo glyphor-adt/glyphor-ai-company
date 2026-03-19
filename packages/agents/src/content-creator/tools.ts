@@ -7,6 +7,7 @@ import type { ToolDefinition } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 import { createAllPulseTools } from '../shared/pulseTools.js';
 import { createFacebookTools } from '../shared/facebookTools.js';
+import { createLinkedInTools } from '../shared/linkedinTools.js';
 
 export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -100,5 +101,8 @@ export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefin
 
     // ── Facebook / Meta Page tools ──
     ...createFacebookTools(),
+
+    // ── LinkedIn Organization tools ──
+    ...createLinkedInTools(),
   ];
 }

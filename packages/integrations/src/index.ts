@@ -239,6 +239,24 @@ export {
   type FacebookPostInsights,
 } from './facebook/index.js';
 
+// LinkedIn — Organization page posting, analytics, follower stats
+export {
+  createLinkedInPost,
+  scheduleLinkedInPost,
+  getLinkedInPosts,
+  deleteLinkedInPost,
+  getLinkedInPostAnalytics,
+  getLinkedInFollowerStats,
+  getLinkedInPageStats,
+  getLinkedInFollowerDemographics,
+  checkLinkedInHealth,
+  type LinkedInPost,
+  type LinkedInPostResult,
+  type LinkedInPostAnalytics,
+  type LinkedInFollowerStats,
+  type LinkedInPageStats,
+} from './linkedin/index.js';
+
 // Pulse creative studio — MCP client for image/video generation, storyboards
 export {
   PulseClient,
