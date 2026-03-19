@@ -226,7 +226,7 @@ export async function handleTriangulatedChat(
       );
 
       await systemQuery(
-        `INSERT INTO agent_runs (agent_role, task, status, cost_usd, duration_ms, tokens_used, created_at)
+        `INSERT INTO agent_runs (agent_id, task, status, cost_usd, duration_ms, tokens_used, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
         [
           'ora',
@@ -299,7 +299,7 @@ export async function handleTriangulatedChat(
 
     // Log to agent_runs
     await systemQuery(
-      `INSERT INTO agent_runs (agent_role, task, status, cost_usd, duration_ms, tokens_used, created_at)
+      `INSERT INTO agent_runs (agent_id, task, status, cost_usd, duration_ms, tokens_used, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
       [
         'ora',
