@@ -217,9 +217,11 @@ export { runShadow, getPendingShadowTasks } from './shadowRunner.js';
 export { evaluatePromotion, queueShadowEvaluation } from './shadowPromotion.js';
 export type { PromotionOutcome } from './shadowPromotion.js';
 // Reflection + Prompt Mutation
-export { reflect } from './reflectionAgent.js';
+export { reflect, writeWorldModelCorrection } from './reflectionAgent.js';
 export type { ReflectionResult } from './reflectionAgent.js';
 export { applyMutation } from './promptMutator.js';
+// Cost estimation
+export { calculateLlmCost, MODEL_RATES } from './costs/modelRates.js';
 // World state config
 export { AGENT_WORLD_STATE_KEYS, AGENT_WORLD_STATE_DOMAIN } from './worldStateKeys.js';
 export { AGENT_DEPENDENCIES } from './agentDependencies.js';

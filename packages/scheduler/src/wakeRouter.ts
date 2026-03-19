@@ -12,6 +12,7 @@ import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 import { WAKE_RULES } from './wakeRules.js';
 import type { WakeRule } from './wakeRules.js';
+import { traceHandoffs } from './handoffTracer.js';
 
 export interface WakeEvent {
   type: string;
@@ -96,6 +97,11 @@ export class WakeRouter {
         `[WakeRouter] Event "${event.type}" from ${event.source}: ` +
         `woken=[${result.woken.join(',')}] queued=[${result.queued.join(',')}] skipped=[${result.skipped.join(',')}]`
       );
+    }
+
+    // Fire-and-forget: trace inter-agent handoffs when a directive completes
+    if (event.type === 'initiative.directive_completed' && event.data?.directive_id) {
+      void traceHandoffs(String(event.data.directive_id)).catch(() => {});
     }
 
     return result;

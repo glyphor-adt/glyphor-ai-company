@@ -16,6 +16,25 @@ interface WorldStateEntry {
   freshness: 'fresh' | 'stale' | 'expired';
 }
 
+interface PredictionAccuracy {
+  agent_id: string;
+  total_predictions: number;
+  prediction_accuracy: number | null;
+  avg_self_score: number | null;
+  avg_external_score: number | null;
+  calibration_bias: number | null;
+}
+
+interface WorldModelCorrection {
+  id: string;
+  correction_type: string;
+  field_name: string;
+  corrected_value: { description?: string; confidence?: number } | null;
+  evidence_eval_score: number | null;
+  source: string;
+  applied_at: string;
+}
+
 interface WorldStateTabProps {
   agentId: string;
 }
@@ -24,19 +43,28 @@ interface WorldStateTabProps {
 
 export default function WorldStateTab({ agentId }: WorldStateTabProps) {
   const [entries, setEntries] = useState<WorldStateEntry[]>([]);
+  const [predictionData, setPredictionData] = useState<PredictionAccuracy | null>(null);
+  const [corrections, setCorrections] = useState<WorldModelCorrection[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiCall<{ entries: WorldStateEntry[] }>('/api/eval/world-state');
-      // Filter to entries written by or relevant to this agent
-      const relevant = (data.entries ?? []).filter(
+      const [worldData, predData, corrData] = await Promise.all([
+        apiCall<{ entries: WorldStateEntry[] }>('/api/eval/world-state'),
+        apiCall<PredictionAccuracy | null>(`/api/eval/agent/${encodeURIComponent(agentId)}/prediction-accuracy`),
+        apiCall<WorldModelCorrection[]>(`/api/eval/agent/${encodeURIComponent(agentId)}/world-model-corrections`),
+      ]);
+      const relevant = (worldData.entries ?? []).filter(
         e => e.written_by_agent === agentId || e.domain === 'agent_output',
       );
       setEntries(relevant);
+      setPredictionData(predData);
+      setCorrections(corrData ?? []);
     } catch {
       setEntries([]);
+      setPredictionData(null);
+      setCorrections([]);
     }
     setLoading(false);
   }, [agentId]);
@@ -47,55 +75,156 @@ export default function WorldStateTab({ agentId }: WorldStateTabProps) {
     return <div className="h-[200px] animate-pulse rounded-lg bg-white/5" />;
   }
 
-  if (entries.length === 0) {
-    return (
-      <div className="rounded-lg border border-white/5 bg-white/5 p-4 text-xs text-white/40 text-center">
-        No world state entries for this agent.
-      </div>
-    );
-  }
+  return (
+    <div className="space-y-6">
+      {/* Prediction accuracy section */}
+      {predictionData && (
+        <PredictionAccuracyPanel data={predictionData} />
+      )}
 
-  function freshnessBadge(freshness: string) {
-    const styles: Record<string, string> = {
-      fresh: 'bg-[#00E0FF]/15 text-[#00E0FF]',
-      stale: 'bg-amber-500/15 text-amber-400',
-      expired: 'bg-red-500/15 text-red-400',
-    };
-    return (
-      <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${styles[freshness] ?? styles.fresh}`}>
-        {freshness}
-      </span>
-    );
-  }
+      {/* World model corrections timeline */}
+      {corrections.length > 0 && (
+        <div>
+          <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-3">
+            World Model Corrections
+          </p>
+          <div className="space-y-2">
+            {corrections.map(c => (
+              <div key={c.id} className="rounded-lg border border-white/5 bg-white/5 p-3">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                    c.correction_type === 'weakness_added'
+                      ? 'bg-red-500/15 text-red-400'
+                      : 'bg-amber-500/15 text-amber-400'
+                  }`}>
+                    {c.correction_type.replace(/_/g, ' ')}
+                  </span>
+                  <span className="text-xs text-white/70">{c.field_name.replace(/_/g, ' ')}</span>
+                </div>
+                {c.corrected_value?.description && (
+                  <p className="text-[11px] text-white/50 mt-1">{c.corrected_value.description}</p>
+                )}
+                <p className="text-[10px] text-white/30 mt-1">
+                  {new Date(c.applied_at).toLocaleDateString()} · via {c.source}
+                  {c.evidence_eval_score != null && ` · eval score: ${(c.evidence_eval_score * 100).toFixed(0)}%`}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* World state entries */}
+      {entries.length > 0 ? (
+        <div>
+          <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-3">
+            World State Entries
+          </p>
+          <div className="space-y-2">
+            {entries.map(entry => (
+              <WorldStateRow key={entry.id} entry={entry} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-white/5 bg-white/5 p-4 text-xs text-white/40 text-center">
+          No world state entries for this agent.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Prediction Accuracy Panel ─────────────────────────────── */
+
+function PredictionAccuracyPanel({ data }: { data: PredictionAccuracy }) {
+  const bias = data.calibration_bias;
+  const biasLabel =
+    bias == null ? 'unknown' :
+    bias > 0.1 ? 'overconfident' :
+    bias < -0.1 ? 'underconfident' :
+    'calibrated';
+  const biasColor =
+    biasLabel === 'calibrated' ? '#00E0FF' :
+    biasLabel === 'overconfident' ? '#EF4444' :
+    biasLabel === 'underconfident' ? '#F59E0B' : '#666';
 
   return (
-    <div className="space-y-2">
-      {entries.map(entry => (
-        <div key={entry.id} className="rounded-lg border border-white/5 bg-white/5 p-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-white/70">{entry.key}</span>
-                {freshnessBadge(entry.freshness)}
-              </div>
-              <span className="text-[10px] text-white/30 mt-0.5 block">
-                {entry.domain}{entry.entity_id ? ` / ${entry.entity_id}` : ''}
-              </span>
-            </div>
-            {entry.confidence !== null && (
-              <span className="text-[10px] text-white/30 shrink-0">
-                conf: {(entry.confidence * 100).toFixed(0)}%
-              </span>
-            )}
-          </div>
-
-          <p className="text-[10px] text-white/30 mt-2">
-            Updated {Math.round(entry.age_hours)}h ago
-            {entry.written_by_agent && ` by ${entry.written_by_agent}`}
-            {entry.valid_until && ` · expires ${new Date(entry.valid_until).toLocaleDateString()}`}
+    <div className="rounded-lg border border-white/5 bg-white/5 p-4">
+      <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-3">
+        Prediction Accuracy
+      </p>
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <p className="text-[10px] text-white/30">Accuracy</p>
+          <p className="text-lg font-mono text-[#00E0FF]">
+            {data.prediction_accuracy != null
+              ? `${(data.prediction_accuracy * 100).toFixed(0)}%`
+              : '—'}
           </p>
+          <p className="text-[10px] text-white/20">{data.total_predictions} predictions</p>
         </div>
-      ))}
+        <div>
+          <p className="text-[10px] text-white/30">Calibration</p>
+          <p className="text-lg font-mono" style={{ color: biasColor }}>
+            {bias != null ? `${bias > 0 ? '+' : ''}${(bias * 100).toFixed(0)}pts` : '—'}
+          </p>
+          <p className="text-[10px]" style={{ color: biasColor }}>{biasLabel}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-white/30">Self vs External</p>
+          <p className="text-sm font-mono text-white/60">
+            {data.avg_self_score != null ? `${(data.avg_self_score * 100).toFixed(0)}` : '—'}
+            {' / '}
+            {data.avg_external_score != null ? `${(data.avg_external_score * 100).toFixed(0)}` : '—'}
+          </p>
+          <p className="text-[10px] text-white/20">self / external</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── World State Row ───────────────────────────────────────── */
+
+function freshnessBadge(freshness: string) {
+  const styles: Record<string, string> = {
+    fresh: 'bg-[#00E0FF]/15 text-[#00E0FF]',
+    stale: 'bg-amber-500/15 text-amber-400',
+    expired: 'bg-red-500/15 text-red-400',
+  };
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${styles[freshness] ?? styles.fresh}`}>
+      {freshness}
+    </span>
+  );
+}
+
+function WorldStateRow({ entry }: { entry: WorldStateEntry }) {
+  return (
+    <div className="rounded-lg border border-white/5 bg-white/5 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-white/70">{entry.key}</span>
+            {freshnessBadge(entry.freshness)}
+          </div>
+          <span className="text-[10px] text-white/30 mt-0.5 block">
+            {entry.domain}{entry.entity_id ? ` / ${entry.entity_id}` : ''}
+          </span>
+        </div>
+        {entry.confidence !== null && (
+          <span className="text-[10px] text-white/30 shrink-0">
+            conf: {(entry.confidence * 100).toFixed(0)}%
+          </span>
+        )}
+      </div>
+
+      <p className="text-[10px] text-white/30 mt-2">
+        Updated {Math.round(entry.age_hours)}h ago
+        {entry.written_by_agent && ` by ${entry.written_by_agent}`}
+        {entry.valid_until && ` · expires ${new Date(entry.valid_until).toLocaleDateString()}`}
+      </p>
     </div>
   );
 }

@@ -21,6 +21,12 @@ export interface ReflectionResult {
   change_type: 'add_instruction' | 'clarify_constraint' | 'add_example' | 'remove_ambiguity';
   expected_impact: string;
   confidence: number;
+  world_model_correction?: {
+    type: 'weakness_added' | 'strength_revised';
+    field_name: string;
+    description: string;
+    confidence: number;
+  };
 }
 
 interface RunDetails {
@@ -71,8 +77,16 @@ Rules:
   "proposed_change": "exact text to add/modify/remove",
   "change_type": "add_instruction | clarify_constraint | add_example | remove_ambiguity",
   "expected_impact": "what this change should fix",
-  "confidence": 0.0-1.0
-}`;
+  "confidence": 0.0-1.0,
+  "world_model_correction": {
+    "type": "weakness_added | strength_revised",
+    "field_name": "short_identifier e.g. tool_selection, ambiguity_handling",
+    "description": "one sentence describing the weakness",
+    "confidence": 0.0-1.0
+  }
+}
+
+The world_model_correction field is OPTIONAL — include it only if the failure mode reveals a PERSISTENT weakness (not a one-off error).`;
 
 // ─── Rate Limiting ──────────────────────────────────────────────
 
@@ -239,13 +253,33 @@ function parseReflectionJSON(text: string): ReflectionResult | null {
     const validTypes = ['add_instruction', 'clarify_constraint', 'add_example', 'remove_ambiguity'];
     if (!validTypes.includes(parsed.change_type)) return null;
 
-    return {
+    const result: ReflectionResult = {
       failure_mode: String(parsed.failure_mode ?? ''),
       proposed_change: String(parsed.proposed_change ?? ''),
       change_type: parsed.change_type,
       expected_impact: String(parsed.expected_impact ?? ''),
       confidence: clamp(Number(parsed.confidence) || 0, 0, 1),
     };
+
+    // Parse optional world model correction
+    if (parsed.world_model_correction && typeof parsed.world_model_correction === 'object') {
+      const wmc = parsed.world_model_correction;
+      const validCorrectionTypes = ['weakness_added', 'strength_revised'];
+      if (
+        validCorrectionTypes.includes(wmc.type) &&
+        typeof wmc.field_name === 'string' &&
+        typeof wmc.description === 'string'
+      ) {
+        result.world_model_correction = {
+          type: wmc.type,
+          field_name: String(wmc.field_name),
+          description: String(wmc.description),
+          confidence: clamp(Number(wmc.confidence) || 0, 0, 1),
+        };
+      }
+    }
+
+    return result;
   } catch {
     return null;
   }
@@ -253,4 +287,40 @@ function parseReflectionJSON(text: string): ReflectionResult | null {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+/**
+ * Write a world model correction to the DB if the reflection produced one
+ * with sufficient confidence.
+ */
+export async function writeWorldModelCorrection(
+  agentId: string,
+  runId: string,
+  reflection: ReflectionResult,
+  performanceScore?: number | null,
+): Promise<void> {
+  const wmc = reflection.world_model_correction;
+  if (!wmc || wmc.confidence < 0.7) return;
+
+  try {
+    await systemQuery(
+      `INSERT INTO agent_world_model_corrections
+       (agent_id, correction_type, field_name, corrected_value,
+        evidence_run_id, evidence_eval_score, source)
+       VALUES ($1, $2, $3, $4, $5, $6, 'reflection_agent')`,
+      [
+        agentId,
+        wmc.type,
+        wmc.field_name,
+        JSON.stringify({
+          description: wmc.description,
+          confidence: wmc.confidence,
+        }),
+        runId,
+        performanceScore ?? null,
+      ],
+    );
+  } catch (err) {
+    console.warn(`[ReflectionAgent] Failed to write world model correction for ${agentId}:`, (err as Error).message);
+  }
 }

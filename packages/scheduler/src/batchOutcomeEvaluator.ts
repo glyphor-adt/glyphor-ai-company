@@ -10,9 +10,10 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { getRedisCache, TrustScorer } from '@glyphor/agent-runtime';
 import { incrementDownstreamDefects } from '@glyphor/agent-runtime';
-import { reflect, applyMutation, queueShadowEvaluation } from '@glyphor/agent-runtime';
+import { reflect, applyMutation, queueShadowEvaluation, writeWorldModelCorrection } from '@glyphor/agent-runtime';
 import { WorldModelUpdater, SharedMemoryLoader, EmbeddingClient } from '@glyphor/company-memory';
 import { evaluateToolAccuracy } from './toolAccuracyEvaluator.js';
+import { evaluateUnevaluatedHandoffs } from './handoffQualityEvaluator.js';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -203,6 +204,13 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
         reflect(agent.role, recentRun[0].run_id)
           .then(async (reflection) => {
             if (!reflection) return;
+            // Write world model correction if persistent weakness detected
+            void writeWorldModelCorrection(
+              agent.role,
+              recentRun[0].run_id,
+              reflection,
+              agent.performance_score,
+            ).catch(() => {});
             const newVersion = await applyMutation(agent.role, reflection);
             if (newVersion) {
               queueShadowEvaluation(agent.role, newVersion);
@@ -215,6 +223,16 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
       }
     } catch (err) {
       console.warn('[BatchOutcomeEvaluator] Reflection trigger failed:', (err as Error).message);
+    }
+
+    // ─── Handoff quality evaluation: score unevaluated inter-agent handoffs ────
+    try {
+      const handoffCount = await evaluateUnevaluatedHandoffs(50);
+      if (handoffCount > 0) {
+        console.log(`[BatchOutcomeEvaluator] Evaluated ${handoffCount} handoff traces`);
+      }
+    } catch (err) {
+      console.warn('[BatchOutcomeEvaluator] Handoff evaluation failed:', (err as Error).message);
     }
   } finally {
     await cache.del(LOCK_KEY);

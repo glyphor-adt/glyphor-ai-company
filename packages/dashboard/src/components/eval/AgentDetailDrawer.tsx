@@ -5,6 +5,7 @@ import PerformanceTab from './PerformanceTab';
 import PromptEvolutionTab from './PromptEvolutionTab';
 import FindingsTab from './FindingsTab';
 import WorldStateTab from './WorldStateTab';
+import HandoffsTab from './HandoffsTab';
 
 /* ── Types ─────────────────────────────────────────────────── */
 
@@ -14,7 +15,7 @@ interface AgentDetailDrawerProps {
   onClose: () => void;
 }
 
-const TABS = ['Performance', 'Prompt Evolution', 'Findings', 'World State'] as const;
+const TABS = ['Performance', 'Prompt Evolution', 'Findings', 'World State', 'Handoffs'] as const;
 
 /* ── Component ─────────────────────────────────────────────── */
 
@@ -94,6 +95,7 @@ export default function AgentDetailDrawer({ agent, open, onClose }: AgentDetailD
               {activeTab === 1 && <PromptEvolutionTab agentId={agent.role} />}
               {activeTab === 2 && <FindingsTab agentId={agent.role} />}
               {activeTab === 3 && <WorldStateTab agentId={agent.role} />}
+              {activeTab === 4 && <HandoffsTab agentId={agent.role} />}
             </div>
           </>
         )}

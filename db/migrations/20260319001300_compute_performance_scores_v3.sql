@@ -68,8 +68,8 @@ penalized AS (
     0)) AS performance_score
   FROM weighted w
 )
-UPDATE agents
+UPDATE company_agents
 SET performance_score = p.performance_score,
     updated_at = NOW()
 FROM penalized p
-WHERE agents.id = p.agent_id;
+WHERE company_agents.role = p.agent_id;

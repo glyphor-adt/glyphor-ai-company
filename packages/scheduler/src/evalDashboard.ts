@@ -363,6 +363,49 @@ export async function handleEvalApi(
       return true;
     }
 
+    // ── GET /api/eval/agent/:agentId/prediction-accuracy ──────
+    if (segments[0] === 'agent' && segments[2] === 'prediction-accuracy' && method === 'GET') {
+      const agentId = decodeURIComponent(segments[1]);
+      const rows = await systemQuery(
+        `SELECT * FROM agent_prediction_accuracy WHERE agent_id = $1`,
+        [agentId],
+      );
+      json(res, 200, rows[0] ?? null);
+      return true;
+    }
+
+    // ── GET /api/eval/agent/:agentId/world-model-corrections ──
+    if (segments[0] === 'agent' && segments[2] === 'world-model-corrections' && method === 'GET') {
+      const agentId = decodeURIComponent(segments[1]);
+      const rows = await systemQuery(
+        `SELECT id, correction_type, field_name, corrected_value, evidence_eval_score, source, applied_at
+         FROM agent_world_model_corrections
+         WHERE agent_id = $1
+         ORDER BY applied_at DESC
+         LIMIT 20`,
+        [agentId],
+      );
+      json(res, 200, rows);
+      return true;
+    }
+
+    // ── GET /api/eval/agent/:agentId/handoffs ─────────────────
+    if (segments[0] === 'agent' && segments[2] === 'handoffs' && method === 'GET') {
+      const agentId = decodeURIComponent(segments[1]);
+      const [asUpstream, asDownstream] = await Promise.all([
+        systemQuery(
+          `SELECT * FROM agent_handoff_health WHERE upstream_agent_id = $1`,
+          [agentId],
+        ),
+        systemQuery(
+          `SELECT * FROM agent_handoff_health WHERE downstream_agent_id = $1`,
+          [agentId],
+        ),
+      ]);
+      json(res, 200, { as_upstream: asUpstream, as_downstream: asDownstream });
+      return true;
+    }
+
     // No match within /api/eval/*
     json(res, 404, { error: `Unknown eval endpoint: ${path}` });
     return true;

@@ -1323,6 +1323,44 @@ const trackedAgentExecutor = async (
         console.warn('[Scheduler] Failed to persist actual model/provider attribution:', (err as Error).message);
       }
 
+      // Cost rollup: aggregate tool costs and compute total
+      try {
+        const toolCostRows = await systemQuery<{ total_tool_cost: number | null }>(
+          `SELECT SUM(estimated_cost_usd) AS total_tool_cost
+           FROM tool_call_traces
+           WHERE run_id = $1 AND estimated_cost_usd IS NOT NULL`,
+          [runId],
+        );
+        const totalToolCost = toolCostRows[0]?.total_tool_cost ?? 0;
+        const llmCost = (result as any)?.estimatedCostUsd ?? result?.cost ?? 0;
+        const modelUsed = (result as any)?.actualModel ?? null;
+
+        await systemQuery(
+          `UPDATE agent_runs SET
+             total_input_tokens    = COALESCE($2, total_input_tokens),
+             total_output_tokens   = COALESCE($3, total_output_tokens),
+             total_thinking_tokens = COALESCE($4, total_thinking_tokens),
+             total_tool_cost_usd   = $5,
+             llm_cost_usd          = $6,
+             total_cost_usd        = $7,
+             model_used            = COALESCE($8, model_used),
+             cost_source           = 'instrumented'
+           WHERE id = $1`,
+          [
+            runId,
+            result?.inputTokens ?? null,
+            result?.outputTokens ?? null,
+            result?.thinkingTokens ?? null,
+            totalToolCost,
+            llmCost,
+            totalToolCost + llmCost,
+            modelUsed,
+          ],
+        );
+      } catch (err) {
+        console.warn('[Scheduler] Failed to persist cost rollup:', (err as Error).message);
+      }
+
       if (typeof result?.compactionCount === 'number') {
         try {
           await systemQuery(
