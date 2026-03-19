@@ -25,6 +25,7 @@
 import {
   formatNotificationCard,
   buildChannelMap,
+  postCardToChannel,
   A365TeamsChatClient,
   type GraphTeamsClient,
   type NotificationType,
@@ -177,17 +178,17 @@ export class AgentNotifier {
     agentRole: string,
     cardContent: Record<string, unknown>,
   ): Promise<void> {
-    if (!this.graphClient) return;
-
     // Try the agent's department channel first, then fall back to general
-    const channelKey = this.getDepartmentChannel(agentRole) as keyof ChannelMap;
-    const channel = this.channels[channelKey] ?? this.channels['general' as keyof ChannelMap];
-    if (!channel) return;
+    const channelKey = this.getDepartmentChannel(agentRole);
+    const channelName = this.channels[channelKey as keyof ChannelMap]
+      ? channelKey
+      : this.channels['general' as keyof ChannelMap]
+        ? 'general'
+        : undefined;
+    if (!channelName) return;
 
-    await this.graphClient.sendCard(
-      { teamId: channel.teamId, channelId: channel.channelId },
-      cardContent as unknown as AdaptiveCard,
-    ).catch((err: unknown) => console.error('[AgentNotifier] Channel fallback failed:', err));
+    await postCardToChannel(channelName, cardContent as unknown as AdaptiveCard, this.graphClient)
+      .catch((err: unknown) => console.error('[AgentNotifier] Channel fallback failed:', err));
   }
 
   /**

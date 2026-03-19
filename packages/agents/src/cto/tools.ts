@@ -30,6 +30,7 @@ import {
   getCloudBuildDetails,
   GraphTeamsClient,
   buildChannelMap,
+  postTextToChannel,
   type ChannelTarget,
   searchWeb,
 } from '@glyphor/integrations';
@@ -1833,19 +1834,19 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const graphClient = GraphTeamsClient.fromEnv();
-          const channelMap = buildChannelMap();
-
           const channelKey = params.channel === 'general' ? 'general' : 'engineering';
-          const target = channelMap[channelKey] as ChannelTarget | undefined;
 
-          if (!target) {
-            return { success: false, error: `Channel "${channelKey}" not configured. Set TEAMS_CHANNEL_${channelKey.toUpperCase()} env vars.` };
+          const result = await postTextToChannel(
+            channelKey,
+            params.message as string,
+            GraphTeamsClient.fromEnv(),
+          );
+
+          if (result.method === 'none') {
+            return { success: false, error: result.error ?? `Channel "${channelKey}" not configured.` };
           }
 
-          await graphClient.sendText(target, params.message as string);
-
-          return { success: true, data: { channel: channelKey, sent: true } };
+          return { success: true, data: { channel: channelKey, method: result.method, sent: true } };
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }

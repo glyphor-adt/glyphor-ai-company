@@ -33,7 +33,8 @@
  */
 
 import { ConfidentialClientApplication } from '@azure/msal-node';
-import type { AdaptiveCard } from './webhooks.js';
+import type { AdaptiveCard, TeamsWebhookPayload } from './webhooks.js';
+import { sendTeamsWebhook } from './webhooks.js';
 import { markdownToTeamsHtml } from './messageFormatter.js';
 
 // ─── CONFIG ─────────────────────────────────────────────────────
@@ -297,11 +298,131 @@ export function buildChannelMap(): Partial<ChannelMap> {
   return map;
 }
 
-// ─── SEND HELPER ────────────────────────────────────────────────
+// ─── CHANNEL WEBHOOK MAP ────────────────────────────────────────
 
 /**
- * High-level send function — unified interface for posting to Teams.
- * Uses Graph API when configured, falls back to webhook.
+ * Maps channel names to env vars containing their webhook URLs.
+ *
+ * Webhooks are the PRIMARY posting method because Microsoft Graph
+ * does not support ChannelMessage.Send as an application permission —
+ * it is delegated-only. App-only POST to /teams/{id}/channels/{id}/messages
+ * returns 401 ("Message POST is allowed in application-only context only
+ * for import purposes").
+ *
+ * Power Automate Workflow webhooks bypass this limitation entirely.
+ */
+const CHANNEL_WEBHOOK_ENV: Record<string, string> = {
+  decisions: 'TEAMS_WEBHOOK_DECISIONS',
+  general: 'TEAMS_WEBHOOK_GENERAL',
+  engineering: 'TEAMS_WEBHOOK_ENGINEERING',
+  briefingKristina: 'TEAMS_WEBHOOK_KRISTINA_BRIEFING',
+  briefingAndrew: 'TEAMS_WEBHOOK_ANDREW_BRIEFING',
+  growth: 'TEAMS_WEBHOOK_GROWTH',
+  financials: 'TEAMS_WEBHOOK_FINANCIALS',
+  alerts: 'TEAMS_WEBHOOK_ALERTS',
+  productFuse: 'TEAMS_WEBHOOK_PRODUCT_FUSE',
+  productPulse: 'TEAMS_WEBHOOK_PRODUCT_PULSE',
+  deliverables: 'TEAMS_WEBHOOK_DELIVERABLES',
+};
+
+function getChannelWebhookUrl(channelName: string): string | undefined {
+  const envVar = CHANNEL_WEBHOOK_ENV[channelName];
+  return envVar ? process.env[envVar]?.trim() || undefined : undefined;
+}
+
+// ─── SEND HELPERS ───────────────────────────────────────────────
+
+export type PostResult = { method: 'webhook' | 'graph' | 'none'; error?: string };
+
+/**
+ * Post an Adaptive Card to a Teams channel.
+ *
+ * Tries webhook first (works with app-only auth), then Graph API as fallback.
+ * Accepts either a TeamsWebhookPayload or a raw AdaptiveCard.
+ */
+export async function postCardToChannel(
+  channelName: string,
+  payload: TeamsWebhookPayload | AdaptiveCard,
+  graphClient?: GraphTeamsClient | null,
+): Promise<PostResult> {
+  const webhookUrl = getChannelWebhookUrl(channelName);
+
+  // Normalise: if we got a raw AdaptiveCard, wrap it
+  const webhookPayload: TeamsWebhookPayload = 'type' in payload && payload.type === 'message'
+    ? payload as TeamsWebhookPayload
+    : {
+        type: 'message',
+        attachments: [{
+          contentType: 'application/vnd.microsoft.card.adaptive',
+          contentUrl: null,
+          content: payload as AdaptiveCard,
+        }],
+      };
+
+  // Extract the raw card for Graph API path
+  const card = webhookPayload.attachments[0].content;
+
+  // 1. Webhook — works for app-only contexts
+  if (webhookUrl) {
+    await sendTeamsWebhook(webhookUrl, webhookPayload);
+    return { method: 'webhook' };
+  }
+
+  // 2. Graph API — only works with delegated auth (not app-only)
+  const channels = buildChannelMap();
+  const target = channels[channelName as keyof ChannelMap];
+  if (graphClient && target) {
+    await graphClient.sendCard(target, card);
+    return { method: 'graph' };
+  }
+
+  return { method: 'none', error: `No webhook URL (${CHANNEL_WEBHOOK_ENV[channelName] ?? 'TEAMS_WEBHOOK_???'}) or Graph channel configured for "${channelName}"` };
+}
+
+/**
+ * Post a plain-text message to a Teams channel.
+ *
+ * Tries webhook first (wraps text in a minimal Adaptive Card), then Graph API.
+ */
+export async function postTextToChannel(
+  channelName: string,
+  text: string,
+  graphClient?: GraphTeamsClient | null,
+): Promise<PostResult> {
+  const webhookUrl = getChannelWebhookUrl(channelName);
+
+  if (webhookUrl) {
+    const payload: TeamsWebhookPayload = {
+      type: 'message',
+      attachments: [{
+        contentType: 'application/vnd.microsoft.card.adaptive',
+        contentUrl: null,
+        content: {
+          $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+          type: 'AdaptiveCard',
+          version: '1.5',
+          body: [{ type: 'TextBlock', text, wrap: true }],
+        },
+      }],
+    };
+    await sendTeamsWebhook(webhookUrl, payload);
+    return { method: 'webhook' };
+  }
+
+  const channels = buildChannelMap();
+  const target = channels[channelName as keyof ChannelMap];
+  if (graphClient && target) {
+    await graphClient.sendText(target, text);
+    return { method: 'graph' };
+  }
+
+  return { method: 'none', error: `No webhook URL or Graph channel configured for "${channelName}"` };
+}
+
+/**
+ * @deprecated Use postCardToChannel() instead — Graph API ChannelMessage.Send
+ * is delegated-only, so sendToTeamsChannel (which calls graphClient.sendCard)
+ * will fail with 401 in app-only contexts.
  */
 export async function sendToTeamsChannel(
   client: GraphTeamsClient,

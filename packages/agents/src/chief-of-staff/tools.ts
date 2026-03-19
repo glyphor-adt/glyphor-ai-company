@@ -15,6 +15,7 @@ import { CompanyMemoryStore, SharedMemoryLoader, WorldModelUpdater, EmbeddingCli
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
 import {
   sendTeamsWebhook,
+  postCardToChannel,
   formatBriefingCard,
   GraphTeamsClient,
   buildChannelMap,
@@ -634,16 +635,9 @@ export function createChiefOfStaffTools(
 
         let teamsNotifyError: string | null = null;
         try {
-          if (graphClient && decisionsChannel) {
-            await graphClient.sendCard(
-              { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
-              card.attachments[0].content as unknown as AdaptiveCard,
-            );
-          } else {
-            const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;
-            if (webhookUrl) {
-              await sendTeamsWebhook(webhookUrl, card);
-            }
+          const result = await postCardToChannel('decisions', card, graphClient);
+          if (result.method === 'none') {
+            console.warn(`[ChiefOfStaff] No channel posting method available for decisions: ${result.error}`);
           }
         } catch (notifyErr) {
           teamsNotifyError = notifyErr instanceof Error ? notifyErr.message : String(notifyErr);
@@ -1116,29 +1110,16 @@ export function createChiefOfStaffTools(
         });
 
         // Send to the founder's Teams channel first. If channel delivery fails, fall back to DM.
-        const channelKey = recipient === 'kristina' ? 'briefingKristina' : 'briefingAndrew';
-        const channel = channels[channelKey];
         let deliveryMode: 'channel' | 'dm' = 'channel';
         let channelError: string | null = null;
 
         try {
-          if (graphClient && channel) {
-            await graphClient.sendCard(
-              { teamId: channel.teamId, channelId: channel.channelId },
-              card.attachments[0].content as unknown as AdaptiveCard,
+          const channelKey = recipient === 'kristina' ? 'briefingKristina' : 'briefingAndrew';
+          const result = await postCardToChannel(channelKey, card, graphClient);
+          if (result.method === 'none') {
+            throw new Error(
+              `No Teams briefing channel configured for ${recipient}. ${result.error}`,
             );
-          } else {
-            const webhookUrl = recipient === 'kristina'
-              ? process.env.TEAMS_WEBHOOK_KRISTINA_BRIEFING
-              : process.env.TEAMS_WEBHOOK_ANDREW_BRIEFING;
-
-            if (!webhookUrl) {
-              throw new Error(
-                `No Teams briefing channel configured for ${recipient}. Set TEAMS_CHANNEL_CEO_BRIEF_ID/TEAMS_CHANNEL_COO_BRIEF_ID, TEAMS_CHANNEL_BRIEFING_${recipient.toUpperCase()}_ID, or TEAMS_WEBHOOK_${recipient.toUpperCase()}_BRIEFING.`,
-              );
-            }
-
-            await sendTeamsWebhook(webhookUrl, card);
           }
         } catch (err) {
           channelError = err instanceof Error ? err.message : String(err);
@@ -1220,43 +1201,23 @@ export function createChiefOfStaffTools(
           assignedTo: params.assigned_to as string[],
         });
 
-        // Send to Teams #Decisions channel via Graph API
-        const decisionsChannel = channels.decisions;
+        // Send to Teams #Decisions channel (webhook preferred, Graph API fallback)
         let teamsError: string | null = null;
         try {
-          if (graphClient && decisionsChannel) {
-            const { formatDecisionCard } = await import('@glyphor/integrations');
-            const card = formatDecisionCard({
-              id,
-              tier: params.tier as string,
-              title: params.title as string,
-              summary: params.summary as string,
-              proposedBy: ctx.agentRole,
-              reasoning: params.reasoning as string,
-              assignedTo: params.assigned_to as string[],
-              actionMode: 'execute',
-            });
-            await graphClient.sendCard(
-              { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
-              card.attachments[0].content as unknown as AdaptiveCard,
-            );
-          } else {
-            // Fallback to webhook
-            const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;
-            if (webhookUrl) {
-              const { formatDecisionCard } = await import('@glyphor/integrations');
-              const card = formatDecisionCard({
-                id,
-                tier: params.tier as string,
-                title: params.title as string,
-                summary: params.summary as string,
-                proposedBy: ctx.agentRole,
-                reasoning: params.reasoning as string,
-                assignedTo: params.assigned_to as string[],
-                actionMode: 'openUrl',
-              });
-              await sendTeamsWebhook(webhookUrl, card);
-            }
+          const { formatDecisionCard } = await import('@glyphor/integrations');
+          const card = formatDecisionCard({
+            id,
+            tier: params.tier as string,
+            title: params.title as string,
+            summary: params.summary as string,
+            proposedBy: ctx.agentRole,
+            reasoning: params.reasoning as string,
+            assignedTo: params.assigned_to as string[],
+            actionMode: 'execute',
+          });
+          const result = await postCardToChannel('decisions', card, graphClient);
+          if (result.method === 'none') {
+            console.warn(`[ChiefOfStaff] No channel posting method for decisions: ${result.error}`);
           }
         } catch (notifyErr) {
           teamsError = notifyErr instanceof Error ? notifyErr.message : String(notifyErr);

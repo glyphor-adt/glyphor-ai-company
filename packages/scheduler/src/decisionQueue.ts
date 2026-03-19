@@ -10,6 +10,7 @@ import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import {
   sendTeamsWebhook,
   formatDecisionCard,
+  postCardToChannel,
   type GraphTeamsClient,
   type AdaptiveCard,
   buildChannelMap,
@@ -68,21 +69,9 @@ export class DecisionQueue {
       actionMode: this.graphClient && decisionsChannel ? 'execute' : 'openUrl',
     });
 
-    // Send via Graph API (preferred) or webhook fallback
-    if (this.graphClient && decisionsChannel) {
-      await this.graphClient.sendCard(
-        { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
-        card.attachments[0].content as unknown as AdaptiveCard,
-      ).catch((err: unknown) => console.error('Failed to send decision via Graph API:', err));
-    } else {
-      const notifications = targets
-        .filter((founder: string) => this.founderWebhooks[founder])
-        .map((founder: string) =>
-          sendTeamsWebhook(this.founderWebhooks[founder], card)
-            .catch((err: unknown) => console.error(`Failed to notify ${founder}:`, err)),
-        );
-      await Promise.all(notifications);
-    }
+    // Send via webhook (preferred) or Graph API fallback
+    await postCardToChannel('decisions', card, this.graphClient)
+      .catch((err: unknown) => console.error('Failed to send decision to Teams:', err));
 
     await this.memory.write(
       `decision.pending.${id}`,
@@ -217,22 +206,9 @@ export class DecisionQueue {
           actionMode: this.graphClient && decisionsChannel ? 'execute' : 'openUrl',
         });
 
-        // Send via Graph API (preferred) or webhook fallback
-        if (this.graphClient && decisionsChannel) {
-          await this.graphClient.sendCard(
-            { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
-            card.attachments[0].content as unknown as AdaptiveCard,
-          ).catch((err: unknown) => console.error('Failed to send reminder via Graph API:', err));
-        } else {
-          for (const founder of targets) {
-            const webhook = this.founderWebhooks[founder];
-            if (webhook) {
-              await sendTeamsWebhook(webhook, card).catch((err: unknown) =>
-                console.error(`Reminder failed for ${founder}:`, err),
-              );
-            }
-          }
-        }
+        // Send via webhook (preferred) or Graph API fallback
+        await postCardToChannel('decisions', card, this.graphClient)
+          .catch((err: unknown) => console.error('Failed to send reminder to Teams:', err));
 
         pd.remindedAt = new Date().toISOString();
         await this.memory.write(

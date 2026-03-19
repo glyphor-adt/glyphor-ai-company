@@ -250,6 +250,12 @@ export default function Dashboard() {
   }, []);
 
   const firstName = user?.name?.split(' ')[0] ?? 'there';
+  const greeting = (() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'good morning';
+    if (hour < 17) return 'good afternoon';
+    return 'good evening';
+  })();
   const pendingDecisions = decisions.filter((decision) => decision.status === 'pending');
   const highPriorityDecisions = pendingDecisions.filter((decision) => decision.tier === 'red' || decision.tier === 'yellow');
   const cashSeries = financialRows.filter((row) => row.metric === 'cash_balance' || row.metric === 'bank_balance');
@@ -343,24 +349,24 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-home space-y-5">
-      <HomeCard className="sticky top-0 z-20 border-white/10 py-4">
-        <GlowingStarsBackgroundCard>
+      <GlowingStarsBackgroundCard className="sticky top-0 z-20">
+        <HomeCard className="border-white/10 py-4 bg-transparent">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan/80">CEO Command View</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan/80">glyphor command center</p>
               <h1 className="mt-1 font-agency text-[1.7rem] font-bold lowercase text-txt-primary md:text-[2rem]">
-                {firstName}, here&apos;s what needs your time
+                {greeting}, {firstName.toLowerCase()}
               </h1>
             </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <MetricRibbon label="Cash" value={fmtUsd(cashBalance)} detail={cashChangeToday == null ? 'Daily delta unavailable' : `${cashChangeToday >= 0 ? '↑' : '↓'} ${fmtUsd(Math.abs(cashChangeToday))} today · Runway ${fmtMonths(runwayMonths)}`} />
-              <MetricRibbon label="MRR" value={fmtUsd(pulse?.mrr ?? null)} detail={pulse?.mrr != null ? 'Pre-revenue operating posture' : 'No revenue signal yet'} />
-              <MetricRibbon label="Compute" value={fmtUsd(computeToday)} detail={`${fmtUsd(computeMtd)} MTD · ${fmtUsd(rollingThirtyDayBurn)} rolling 30d`} />
-              <MetricRibbon label="System" value={pulse?.platform_status?.toUpperCase() ?? '—'} detail={`${pendingDecisions.length} pending decisions · ${runsToday.length} runs today`} toneClass={statusTone(pulse?.platform_status)} />
+              <MetricRibbon label="Cash" color="#00E0FF" value={fmtUsd(cashBalance)} detail={cashChangeToday == null ? 'Daily delta unavailable' : `${cashChangeToday >= 0 ? '↑' : '↓'} ${fmtUsd(Math.abs(cashChangeToday))} today · Runway ${fmtMonths(runwayMonths)}`} />
+              <MetricRibbon label="MRR" color="#C084FC" value={fmtUsd(pulse?.mrr ?? null)} detail={pulse?.mrr != null ? 'Pre-revenue operating posture' : 'No revenue signal yet'} />
+              <MetricRibbon label="Compute" color="#7DD3FC" value={fmtUsd(computeToday)} detail={`${fmtUsd(computeMtd)} MTD · ${fmtUsd(rollingThirtyDayBurn)} rolling 30d`} />
+              <MetricRibbon label="System" color="#A855F7" value={pulse?.platform_status?.toUpperCase() ?? '—'} detail={`${pendingDecisions.length} pending decisions · ${runsToday.length} runs today`} toneClass={statusTone(pulse?.platform_status)} />
             </div>
           </div>
-        </GlowingStarsBackgroundCard>
-      </HomeCard>
+        </HomeCard>
+      </GlowingStarsBackgroundCard>
 
       <HomeCard>
         <SectionHeader
@@ -390,7 +396,7 @@ export default function Dashboard() {
                   <p className="mt-2 text-[13px] text-txt-muted">Recommended: {item.recommendation}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <Link to={item.reviewTo} className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-cyan-500 to-blue-500 p-px text-xs font-medium text-white dark:text-white focus:outline-none">
+                  <Link to={item.reviewTo} className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-[#00E0FF] to-[#3730A3] p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none">
                     <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
                       Review
                     </span>
@@ -399,7 +405,7 @@ export default function Dashboard() {
                     <>
                       <button
                         onClick={() => updateDecision(item.approveDecisionId!, 'approved', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-green-400 to-blue-600 p-px text-xs font-medium text-white dark:text-white focus:outline-none"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-green-400 to-blue-600 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
                       >
                         <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
                           Approve
@@ -407,7 +413,7 @@ export default function Dashboard() {
                       </button>
                       <button
                         onClick={() => updateDecision(item.approveDecisionId!, 'rejected', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-pink-500 to-orange-400 p-px text-xs font-medium text-white dark:text-white focus:outline-none"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-pink-500 to-orange-400 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
                       >
                         <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
                           Reject
@@ -423,7 +429,7 @@ export default function Dashboard() {
                           actionItemId: item.id,
                           prefillPrompt: buildOraActionPrompt(item),
                         }}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-purple-600 to-blue-500 p-px text-xs font-medium text-white dark:text-white focus:outline-none"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-[#C084FC] to-[#00E0FF] p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
                       >
                         <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
                           Discuss with Ora
@@ -561,10 +567,13 @@ export default function Dashboard() {
   );
 }
 
-function MetricRibbon({ label, value, detail, toneClass = 'text-white' }: { label: string; value: string; detail: string; toneClass?: string }) {
+function MetricRibbon({ label, value, detail, toneClass = 'text-white', color }: { label: string; value: string; detail: string; toneClass?: string; color?: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">{label}</p>
+    <div
+      className="rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm px-3 py-2.5"
+      style={color ? { borderTopColor: color, borderTopWidth: '2px' } : undefined}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={color ? { color } : undefined}>{label}</p>
       <p className={`mt-1 text-[1.05rem] font-semibold ${toneClass}`}>{value}</p>
       <p className="mt-1 text-[11px] text-white/45">{detail}</p>
     </div>
