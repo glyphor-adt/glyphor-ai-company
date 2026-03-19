@@ -386,23 +386,29 @@ export default function Dashboard() {
                   <p className="mt-1 text-[13px] text-txt-secondary">{item.context}</p>
                   <p className="mt-2 text-[13px] text-txt-muted">Recommended: {item.recommendation}</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Link to={item.reviewTo} className="rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-1.5 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/20">
-                    Review
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Link to={item.reviewTo} className="group relative inline-flex items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 p-0.5 text-sm font-medium text-white focus:outline-none focus:ring-4 focus:ring-cyan-800">
+                    <span className="relative rounded-md bg-[#0B0C10] px-4 py-2 leading-5 transition-all duration-75 ease-in group-hover:bg-transparent">
+                      Review
+                    </span>
                   </Link>
                   {item.approveDecisionId ? (
                     <>
                       <button
                         onClick={() => updateDecision(item.approveDecisionId!, 'approved', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="rounded-lg border border-[#34D399]/30 bg-[#34D399]/10 px-3 py-1.5 text-[12px] font-medium text-[#34D399] transition-colors hover:bg-[#34D399]/20"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-green-400 to-blue-600 p-0.5 text-sm font-medium text-white focus:outline-none focus:ring-4 focus:ring-green-800"
                       >
-                        Approve
+                        <span className="relative rounded-md bg-[#0B0C10] px-4 py-2 leading-5 transition-all duration-75 ease-in group-hover:bg-transparent">
+                          Approve
+                        </span>
                       </button>
                       <button
                         onClick={() => updateDecision(item.approveDecisionId!, 'rejected', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-colors hover:bg-prism-critical/20"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-pink-500 to-orange-400 p-0.5 text-sm font-medium text-white focus:outline-none focus:ring-4 focus:ring-pink-800"
                       >
-                        Reject
+                        <span className="relative rounded-md bg-[#0B0C10] px-4 py-2 leading-5 transition-all duration-75 ease-in group-hover:bg-transparent">
+                          Reject
+                        </span>
                       </button>
                     </>
                   ) : (
@@ -414,9 +420,11 @@ export default function Dashboard() {
                           actionItemId: item.id,
                           prefillPrompt: buildOraActionPrompt(item),
                         }}
-                        className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-txt-muted transition-colors hover:border-cyan/30 hover:text-cyan"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 p-0.5 text-sm font-medium text-white focus:outline-none focus:ring-4 focus:ring-blue-800"
                       >
-                        Discuss with Ora
+                        <span className="relative rounded-md bg-[#0B0C10] px-4 py-2 leading-5 transition-all duration-75 ease-in group-hover:bg-transparent">
+                          Discuss with Ora
+                        </span>
                       </Link>
                     ) : null
                   )}
