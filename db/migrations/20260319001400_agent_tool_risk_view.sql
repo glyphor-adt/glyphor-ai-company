@@ -13,7 +13,10 @@ SELECT
   AVG(CASE WHEN tct.result_success THEN 1.0 ELSE 0.0 END)   AS agent_success_rate,
   tr.success_rate                                             AS fleet_success_rate,
   tr.avg_latency_ms,
-  tr.timeout_rate,
+  CASE WHEN tr.total_calls > 0
+    THEN tr.timeout_calls::numeric / tr.total_calls
+    ELSE 0
+  END                                                         AS timeout_rate,
   CASE
     WHEN tr.success_rate < 0.7  THEN 'high'
     WHEN tr.success_rate < 0.85 THEN 'medium'
@@ -26,4 +29,4 @@ SELECT
 FROM tool_call_traces tct
 LEFT JOIN tool_reputation tr ON tr.tool_name = tct.tool_name
 WHERE tct.called_at > NOW() - INTERVAL '30 days'
-GROUP BY tct.agent_id, tct.tool_name, tr.success_rate, tr.avg_latency_ms, tr.timeout_rate;
+GROUP BY tct.agent_id, tct.tool_name, tr.success_rate, tr.avg_latency_ms, tr.total_calls, tr.timeout_calls;
