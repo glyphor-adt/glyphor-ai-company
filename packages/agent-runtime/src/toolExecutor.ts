@@ -235,6 +235,13 @@ function getVirtualTool(name: string): ToolDefinition | null {
 
 const FOUNDER_ALIASES = new Set(['kristina', 'andrew', 'both']);
 
+// Map from full GitHub repo names to their short enum key equivalents.
+// Add a new entry here whenever a new repo is registered in GLYPHOR_REPOS
+// (packages/integrations/src/github/index.ts) and exposed via a tool parameter.
+const REPO_NAME_TO_KEY: Record<string, string> = {
+  'glyphor-ai-company': 'company',
+};
+
 function normalizeAndValidateToolParams(
   toolName: string,
   tool: ToolDefinition,
@@ -304,6 +311,21 @@ function normalizeAndValidateToolParams(
       params,
       error: `Missing required parameter(s) for ${toolName}: ${missingRequired.join(', ')}`,
     };
+  }
+
+  // Normalize GitHub repo full names to their short key equivalents.
+  // Agents sometimes pass the full GitHub repo name (e.g. 'glyphor-ai-company')
+  // instead of the tool-expected enum key (e.g. 'company'). Only applies when
+  // the repo parameter has an enum and the raw value is not already a valid key.
+  // To support a new repo, add it to REPO_NAME_TO_KEY above.
+  if (typeof params.repo === 'string') {
+    const repoSpec = tool.parameters['repo'];
+    if (repoSpec?.enum && repoSpec.enum.length > 0 && !repoSpec.enum.includes(params.repo)) {
+      const normalized = REPO_NAME_TO_KEY[params.repo];
+      if (normalized !== undefined && repoSpec.enum.includes(normalized)) {
+        params.repo = normalized;
+      }
+    }
   }
 
   for (const [name, spec] of Object.entries(tool.parameters)) {
