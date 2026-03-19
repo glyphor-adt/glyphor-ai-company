@@ -22,21 +22,30 @@ export default function AgentsList() {
           {agents
             .sort((a, b) => {
               const order = [
-                'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-sales', 'vp-design', 'vp-research', 'clo', 'ops',
+                'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'clo',
+                'vp-sales', 'vp-design', 'vp-customer-success', 'vp-research', 'ops', 'platform-intel',
                 // Engineering
                 'platform-engineer', 'quality-engineer', 'devops-engineer',
                 // Product
                 'user-researcher', 'competitive-intel',
                 // Finance
+                'revenue-analyst', 'cost-analyst',
                 // Marketing
-                'content-creator', 'seo-analyst', 'social-media-manager',
+                'content-creator', 'seo-analyst', 'social-media-manager', 'marketing-intelligence-analyst',
+                // Customer Success
+                'onboarding-specialist', 'support-triage',
                 // Sales
-                // Design
+                'account-research',
+                // Design & Frontend
                 'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
-                // IT / Ops
+                // Operations & IT
                 'm365-admin', 'global-admin',
+                // People & Culture
+                'head-of-hr',
                 // Research & Intelligence
-                'competitive-research-analyst', 'market-research-analyst',
+                'competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst',
+                // Specialists
+                'bob-the-tax-pro', 'adi-rose',
               ];
               const ai = order.indexOf(a.role);
               const bi = order.indexOf(b.role);

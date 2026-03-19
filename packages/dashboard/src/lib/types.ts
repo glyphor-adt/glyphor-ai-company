@@ -418,6 +418,20 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'head-of-hr':             { color: '#E11D48', icon: 'MdPeople' },
   'competitive-research-analyst': { color: '#059669', icon: 'MdTravelExplore' },
   'market-research-analyst':      { color: '#059669', icon: 'MdInsights' },
+  // Customer Success
+  'vp-customer-success':           { color: '#0891B2', icon: 'MdHandshake' },
+  'onboarding-specialist':         { color: '#0891B2', icon: 'MdRocketLaunch' },
+  'support-triage':                { color: '#0891B2', icon: 'MdSupportAgent' },
+  // Sales
+  'account-research':              { color: '#1D4ED8', icon: 'MdPersonSearch' },
+  // Finance sub-team
+  'revenue-analyst':               { color: '#0369A1', icon: 'MdTrendingUp' },
+  'cost-analyst':                  { color: '#0369A1', icon: 'MdSavings' },
+  // Research & Intelligence (additional)
+  'technical-research-analyst':    { color: '#059669', icon: 'MdMemory' },
+  'industry-research-analyst':     { color: '#059669', icon: 'MdFactory' },
+  // Platform Intelligence
+  'platform-intel':                { color: '#EA580C', icon: 'MdHub' },
   // Specialist agents
   'bob-the-tax-pro':               { color: '#6D28D9', icon: 'MdAccountBalance' },
   'marketing-intelligence-analyst':{ color: '#7C3AED', icon: 'MdQueryStats' },
@@ -455,6 +469,20 @@ const _DISPLAY_NAMES: Record<string, string> = {
   'head-of-hr': 'Jasmine Rivera',
   'competitive-research-analyst': 'Lena Park',
   'market-research-analyst': 'Daniel Okafor',
+  // Customer Success
+  'vp-customer-success': 'James Turner',
+  'onboarding-specialist': 'Emma Wright',
+  'support-triage': 'David Santos',
+  // Sales
+  'account-research': 'Nathan Cole',
+  // Finance sub-team
+  'revenue-analyst': 'Anna Park',
+  'cost-analyst': 'Omar Hassan',
+  // Research & Intelligence (additional)
+  'technical-research-analyst': 'Kai Nakamura',
+  'industry-research-analyst': 'Amara Diallo',
+  // Platform Intelligence
+  'platform-intel': 'Nexus',
   // Specialist agents
   'bob-the-tax-pro': 'Bob Finley',
   'marketing-intelligence-analyst': 'Zara Petrov',
@@ -596,6 +624,20 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'head-of-hr': ['talent-management'],
   'm365-admin': ['tenant-administration'],
   'global-admin': ['access-management'],
+  // Customer Success
+  'vp-customer-success': ['customer-health-monitoring', 'churn-prevention'],
+  'onboarding-specialist': ['customer-onboarding', 'process-documentation'],
+  'support-triage': ['ticket-routing', 'issue-diagnosis'],
+  // Sales
+  'account-research': ['account_profiling', 'lead_qualification'],
+  // Finance sub-team
+  'revenue-analyst': ['revenue-analysis', 'financial-reporting'],
+  'cost-analyst': ['cost-analysis', 'budget-monitoring'],
+  // Research & Intelligence (additional)
+  'technical-research-analyst': ['technical_evaluation', 'architecture_analysis'],
+  'industry-research-analyst': ['industry_analysis', 'trend_forecasting'],
+  // Platform Intelligence
+  'platform-intel': ['fleet-health-analysis', 'root-cause-diagnosis', 'autonomous-remediation'],
   // Specialist agents
   'bob-the-tax-pro': ['budget-monitoring', 'tax-strategy'],
   'marketing-intelligence-analyst': ['competitive_campaigns', 'market_trend_analysis', 'channel_benchmarking', 'signal_intelligence'],
@@ -630,6 +672,20 @@ export const ROLE_TIER: Record<string, string> = {
   'template-architect': 'Sub-Team',
   'competitive-research-analyst': 'Sub-Team',
   'market-research-analyst': 'Sub-Team',
+  // Customer Success
+  'vp-customer-success': 'Executive',
+  'onboarding-specialist': 'Sub-Team',
+  'support-triage': 'Sub-Team',
+  // Sales
+  'account-research': 'Sub-Team',
+  // Finance sub-team
+  'revenue-analyst': 'Sub-Team',
+  'cost-analyst': 'Sub-Team',
+  // Research & Intelligence (additional)
+  'technical-research-analyst': 'Sub-Team',
+  'industry-research-analyst': 'Sub-Team',
+  // Platform Intelligence
+  'platform-intel': 'Specialist',
   // Specialist agents
   'bob-the-tax-pro': 'Specialist',
   'marketing-intelligence-analyst': 'Sub-Team',
@@ -666,6 +722,20 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   'template-architect': 'Design & Frontend',
   'competitive-research-analyst': 'Research & Intelligence',
   'market-research-analyst': 'Research & Intelligence',
+  // Customer Success
+  'vp-customer-success': 'Customer Success',
+  'onboarding-specialist': 'Customer Success',
+  'support-triage': 'Customer Success',
+  // Sales
+  'account-research': 'Sales',
+  // Finance sub-team
+  'revenue-analyst': 'Finance',
+  'cost-analyst': 'Finance',
+  // Research & Intelligence (additional)
+  'technical-research-analyst': 'Research & Intelligence',
+  'industry-research-analyst': 'Research & Intelligence',
+  // Platform Intelligence
+  'platform-intel': 'Operations',
   'bob-the-tax-pro': 'Finance',
   'marketing-intelligence-analyst': 'Marketing',
   'adi-rose': 'Executive Office',
@@ -865,6 +935,20 @@ export const ROLE_TITLE: Record<string, string> = {
   'template-architect': 'Template Architect',
   'competitive-research-analyst': 'Competitive Research Analyst',
   'market-research-analyst': 'Market Research Analyst',
+  // Customer Success
+  'vp-customer-success': 'VP Customer Success',
+  'onboarding-specialist': 'Onboarding Specialist',
+  'support-triage': 'Support Triage',
+  // Sales
+  'account-research': 'Account Research',
+  // Finance sub-team
+  'revenue-analyst': 'Revenue Analyst',
+  'cost-analyst': 'Cost Analyst',
+  // Research & Intelligence (additional)
+  'technical-research-analyst': 'Technical Research Analyst',
+  'industry-research-analyst': 'Industry Research Analyst',
+  // Platform Intelligence
+  'platform-intel': 'Platform Intelligence',
   'bob-the-tax-pro': 'CPA & Tax Strategist',
   'marketing-intelligence-analyst': 'Marketing Intelligence Analyst',
   'adi-rose': 'Adi Rose — AI Digital Identity',
@@ -917,4 +1001,15 @@ export const SUB_TEAM: SubTeamMember[] = [
   { name: 'Robert Finley', title: 'CPA & Tax Strategist',         department: 'Finance',                 reportsTo: 'clo', color: '#6D28D9', initials: 'RF', avatar: 'bob-the-tax-pro' },
   // Marketing
   { name: 'Zara Petrov',   title: 'Marketing Intelligence',       department: 'Marketing',               reportsTo: 'cmo', color: '#7C3AED', initials: 'ZP', avatar: 'marketing-intelligence-analyst' },
+  // Customer Success → James Turner (VP Customer Success)
+  { name: 'Emma Wright',   title: 'Onboarding Specialist',        department: 'Customer Success',        reportsTo: 'vp-customer-success', color: '#0891B2', initials: 'EW', avatar: 'onboarding-specialist' },
+  { name: 'David Santos',  title: 'Support Triage',               department: 'Customer Success',        reportsTo: 'vp-customer-success', color: '#0891B2', initials: 'DS', avatar: 'support-triage' },
+  // Sales → Rachel Kim (VP Sales)
+  { name: 'Nathan Cole',   title: 'Account Research',             department: 'Sales',                   reportsTo: 'vp-sales', color: '#1D4ED8', initials: 'NC', avatar: 'account-research' },
+  // Finance → Nadia Okafor (CFO)
+  { name: 'Anna Park',     title: 'Revenue Analyst',              department: 'Finance',                 reportsTo: 'cfo', color: '#0369A1', initials: 'AP', avatar: 'revenue-analyst' },
+  { name: 'Omar Hassan',   title: 'Cost Analyst',                 department: 'Finance',                 reportsTo: 'cfo', color: '#0369A1', initials: 'OH', avatar: 'cost-analyst' },
+  // Research & Intelligence → Sophia Lin (VP Research)
+  { name: 'Kai Nakamura',  title: 'Technical Research Analyst',   department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'KN', avatar: 'technical-research-analyst' },
+  { name: 'Amara Diallo',  title: 'Industry Research Analyst',    department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'AD', avatar: 'industry-research-analyst' },
 ];
