@@ -336,6 +336,17 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   // Design sub-team (reports to VP-Design) — roles not in static crons
   // ui-ux-designer, frontend-engineer, design-critic, template-architect
   // These are added via DB-driven agent_schedules. See seed migration.
+
+  // Platform Intelligence — Nexus daily analysis
+  {
+    id: 'platform-intel-daily',
+    agentRole: 'platform-intel',
+    schedule: '0 12 * * *',     // 12:00 UTC = 7:00 AM CT — after batch eval gets prior-day data
+    timezone: 'America/Chicago',
+    task: 'daily_analysis',
+    payload: {},
+    enabled: true,
+  },
 ];
 
 /**

@@ -67,7 +67,9 @@ export type CompanyAgentRole =
   // Specialists
   | 'bob-the-tax-pro'                 // Robert "Bob" Finley → CPA & Tax Strategist, reports to CLO
   | 'marketing-intelligence-analyst'  // Zara Petrov → reports to CMO
-  | 'adi-rose';                       // Adi Rose → Executive Assistant, reports to CoS
+  | 'adi-rose'                        // Adi Rose → Executive Assistant, reports to CoS
+  // Platform Intelligence
+  | 'platform-intel';                 // Nexus → Platform Intelligence, Operations peer
 
 export type ContextInjector = (
   turnNumber: number,

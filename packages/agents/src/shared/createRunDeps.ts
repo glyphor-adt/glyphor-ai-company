@@ -39,6 +39,7 @@ const ROLE_DEPARTMENT: Record<string, string> = {
   'design-critic': 'design',
   'template-architect': 'design',
   'ops': 'operations',
+  'platform-intel': 'operations',
   'head-of-hr': 'operations',
   'competitive-research-analyst': 'research',
   'market-research-analyst': 'research',

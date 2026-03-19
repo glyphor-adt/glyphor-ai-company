@@ -58,6 +58,7 @@ import { archiveExpiredMemory } from './memoryArchiver.js';
 import { evaluateBatch } from './batchOutcomeEvaluator.js';
 import { runShadow, getPendingShadowTasks, evaluatePromotion, getWorldStateHealth } from '@glyphor/agent-runtime';
 import { evaluateCascadePredictions } from './cascadePredictionEvaluator.js';
+import { handlePlatformIntelApproval } from './platformIntelApproval.js';
 import { expireTools } from './toolExpirationManager.js';
 import { evaluateCanary } from './canaryEvaluator.js';
 import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
@@ -84,6 +85,7 @@ import {
   runMarketResearchAnalyst,
   runVPResearch,
   runDynamicAgent,
+  runPlatformIntel,
 } from '@glyphor/agents';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
@@ -373,6 +375,10 @@ const agentExecutor = async (
   else if (agentRole === 'ops') {
     return runOps({ task: (task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene'), message, eventPayload: payload, conversationHistory });
   }
+  // Platform Intelligence
+  else if (agentRole === 'platform-intel') {
+    return runPlatformIntel({ task: (task as 'daily_analysis' | 'on_demand'), message, conversationHistory });
+  }
   // Strategy Lab v2 — Research Analysts
   else if (agentRole === 'vp-research') {
     return runVPResearch({ task: (task as 'decompose_research' | 'qc_and_package_research' | 'follow_up_research' | 'on_demand'), message, analysisId: payload.analysisId as string | undefined, query: payload.query as string | undefined, analysisType: payload.analysisType as string | undefined, depth: payload.depth as string | undefined, sarahNotes: payload.sarahNotes as string | undefined, rawPackets: payload.rawPackets as Record<string, unknown> | undefined, executiveRouting: payload.executiveRouting as Record<string, string[]> | undefined, gaps: payload.gaps as unknown[] | undefined, conversationHistory });
@@ -412,6 +418,7 @@ const RUN_STATUS_DEPARTMENT_FALLBACK: Record<string, string> = {
   'vp-design': 'design',
   'vp-research': 'research',
   ops: 'operations',
+  'platform-intel': 'operations',
   'global-admin': 'operations',
 };
 
@@ -1578,6 +1585,12 @@ const server = createServer(async (req, res) => {
       }
       json(res, 200, { invalidated: true, prefix: prefix ?? 'all' });
       return;
+    }
+
+    // Platform Intel approval/rejection webhooks (GET from Teams card links)
+    if (method === 'GET' && url?.startsWith('/platform-intel/')) {
+      const handled = await handlePlatformIntelApproval(url, req, res);
+      if (handled) return;
     }
 
     // Stripe webhook endpoint

@@ -42,6 +42,9 @@ export { runHeadOfHR, type HeadOfHRRunParams } from './head-of-hr/run.js';
 // Operations
 export { runOps, type OpsRunParams } from './ops/run.js';
 
+// Platform Intelligence
+export { runPlatformIntel, type PlatformIntelRunParams } from './platform-intel/run.js';
+
 // Strategy Lab v2 — Research & Intelligence
 export { runVPResearch, type VPResearchRunParams } from './vp-research/run.js';
 export { runCompetitiveResearchAnalyst, type CompetitiveResearchAnalystRunParams } from './competitive-research-analyst/run.js';
@@ -75,6 +78,7 @@ import { M365_ADMIN_SYSTEM_PROMPT } from './m365-admin/systemPrompt.js';
 import { GLOBAL_ADMIN_SYSTEM_PROMPT } from './global-admin/systemPrompt.js';
 import { HEAD_OF_HR_SYSTEM_PROMPT } from './head-of-hr/systemPrompt.js';
 import { OPS_SYSTEM_PROMPT } from './ops/systemPrompt.js';
+import { PLATFORM_INTEL_SYSTEM_PROMPT } from './platform-intel/systemPrompt.js';
 import { VP_RESEARCH_SYSTEM_PROMPT } from './vp-research/systemPrompt.js';
 import { COMPETITIVE_RESEARCH_ANALYST_SYSTEM_PROMPT } from './competitive-research-analyst/systemPrompt.js';
 import { MARKET_RESEARCH_ANALYST_SYSTEM_PROMPT } from './market-research-analyst/systemPrompt.js';
@@ -104,6 +108,7 @@ export const SYSTEM_PROMPTS: Record<string, string> = {
   'global-admin': GLOBAL_ADMIN_SYSTEM_PROMPT,
   'head-of-hr': HEAD_OF_HR_SYSTEM_PROMPT,
   'ops': OPS_SYSTEM_PROMPT,
+  'platform-intel': PLATFORM_INTEL_SYSTEM_PROMPT,
   'vp-research': VP_RESEARCH_SYSTEM_PROMPT,
   'competitive-research-analyst': COMPETITIVE_RESEARCH_ANALYST_SYSTEM_PROMPT,
   'market-research-analyst': MARKET_RESEARCH_ANALYST_SYSTEM_PROMPT,

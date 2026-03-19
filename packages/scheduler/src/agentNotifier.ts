@@ -46,6 +46,7 @@ const AGENT_NAMES: Record<string, string> = {
   'm365-admin': 'Riley Morgan',
   'global-admin': 'Morgan Blake', 'head-of-hr': 'Ava Martinez',
   clo: 'Legal', 'vp-research': 'Research Lead',
+  'platform-intel': 'Nexus',
 };
 
 export interface ParsedNotification {
