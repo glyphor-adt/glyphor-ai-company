@@ -6,6 +6,9 @@ on:
     types: [completed]
   pull_request_review:
     types: [submitted]
+  # Re-check when our own workflow marks a PR ready
+  pull_request:
+    types: [ready_for_review]
 
 permissions:
   contents: write
@@ -38,20 +41,19 @@ jobs:
             # Check CI status — require at least one check and all must pass
             CI_STATUS=$(gh pr checks "$PR" \
               --repo "${{ github.repository }}" \
-              --json state \
-              --jq 'if length == 0 then "pending" elif any(.state == "PENDING" or .state == "QUEUED" or .state == "IN_PROGRESS") then "pending" elif all(.state == "SUCCESS" or .state == "SKIPPED") then "pass" else "fail" end' 2>/dev/null || echo "pending")
+              --json name,state \
+              --jq '[.[] | select(.name | test("CI/|Build"))] | if length == 0 then "pending" elif any(.state == "PENDING" or .state == "QUEUED" or .state == "IN_PROGRESS") then "pending" elif all(.state == "SUCCESS" or .state == "SKIPPED") then "pass" else "fail" end' 2>/dev/null || echo "pending")
 
             echo "  CI: $CI_STATUS"
 
             if [ "$CI_STATUS" = "pass" ]; then
-              echo "  Enabling auto-merge for PR #$PR..."
+              echo "  Merging PR #$PR..."
               gh pr merge "$PR" \
                 --repo "${{ github.repository }}" \
                 --squash \
-                --auto \
                 --delete-branch && \
-              echo "  Auto-merge enabled for PR #$PR." || \
-              echo "  Could not enable auto-merge for PR #$PR (may need branch protection to allow it)."
+              echo "  ✓ Merged PR #$PR." || \
+              echo "  ✗ Could not merge PR #$PR."
             elif [ "$CI_STATUS" = "fail" ]; then
               echo "  PR #$PR CI failed — skipping."
             else
