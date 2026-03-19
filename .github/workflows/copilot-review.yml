@@ -1,5 +1,9 @@
 name: Request Copilot Review
 
+# NOTE: For fully automatic Copilot reviews, enable it in repo settings:
+#   Settings → Copilot → Code Review → "Automatically review pull requests"
+# This workflow acts as a fallback for repos where that setting isn't available.
+
 on:
   pull_request_target:
     types: [opened, synchronize, ready_for_review]
@@ -15,15 +19,30 @@ jobs:
     steps:
       - name: Request Copilot review
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.COPILOT_REVIEW_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           REPO="${{ github.repository }}"
 
-          # Request Copilot as PR reviewer
-          gh api \
+          echo "Requesting Copilot review for PR #${PR_NUMBER}..."
+
+          # Method 1: gh pr edit (works with Copilot as a special reviewer)
+          gh pr edit "$PR_NUMBER" \
+            --repo "$REPO" \
+            --add-reviewer "Copilot" && \
+          echo "✓ Copilot review requested via gh pr edit." && exit 0
+
+          echo "gh pr edit failed — trying API fallback..."
+
+          # Method 2: direct API call (standard reviewers endpoint)
+          RESPONSE=$(gh api \
             --method POST \
             "repos/${REPO}/pulls/${PR_NUMBER}/requested_reviewers" \
-            -f 'reviewers[]=Copilot' 2>/dev/null || echo "Note: Could not request Copilot review."
+            --input - <<< '{"reviewers":["Copilot"]}' 2>&1) && \
+          echo "✓ Copilot review requested via API." && exit 0
 
-          echo "Copilot review requested for PR #${PR_NUMBER}."
+          echo "⚠ Could not auto-request Copilot review."
+          echo "Response: $RESPONSE"
+          echo ""
+          echo "To fix: enable automatic Copilot reviews in repo settings:"
+          echo "  Settings → Copilot → Code Review → Automatically review pull requests"
