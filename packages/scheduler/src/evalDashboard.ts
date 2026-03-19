@@ -6,6 +6,7 @@
  *   GET  /api/eval/agent/:agentId/trend      – Performance trend + prompt versions
  *   GET  /api/eval/agent/:agentId/shadow     – Shadow run results
  *   GET  /api/eval/agent/:agentId/findings   – Findings for a single agent
+ *   GET  /api/eval/agent/:agentId/tool-accuracy – Tool accuracy scores + problem tools
  *   GET  /api/eval/world-state               – World state freshness
  *   GET  /api/eval/cost-latency              – Cost & latency per agent
  *   PATCH /api/eval/findings/:id/resolve     – Mark a finding resolved
@@ -275,6 +276,90 @@ export async function handleEvalApi(
       } else {
         json(res, 200, { ok: true, id: updated[0] });
       }
+      return true;
+    }
+
+    // ── GET /api/eval/agent/:agentId/tool-accuracy ────────────
+    if (segments[0] === 'agent' && segments[2] === 'tool-accuracy' && method === 'GET') {
+      const agentId = decodeURIComponent(segments[1]);
+
+      const [scoreData, problemTools, retrievalData, riskTools] = await Promise.all([
+        // Average tool accuracy score (last 30 days)
+        systemQuery<{ avg_score: number | null; eval_count: number }>(
+          `SELECT AVG(ae.score_normalized) AS avg_score, COUNT(*)::int AS eval_count
+           FROM assignment_evaluations ae
+           JOIN work_assignments wa ON wa.id = ae.assignment_id
+           WHERE wa.assigned_to = $1 AND ae.evaluator_type = 'tool_accuracy'
+             AND ae.evaluated_at > NOW() - INTERVAL '30 days'`,
+          [agentId],
+        ),
+
+        // Problem tools from feedback JSON
+        systemQuery<{ tool_name: string; repeated_failures: number; redundant_calls: number }>(
+          `SELECT
+            tool_name,
+            SUM(repeated_failures_count)::int AS repeated_failures,
+            SUM(redundant_calls_count)::int   AS redundant_calls
+           FROM (
+             SELECT
+               jsonb_array_elements_text(ae.feedback::jsonb->'repeated_failures') AS tool_name,
+               1 AS repeated_failures_count, 0 AS redundant_calls_count
+             FROM assignment_evaluations ae
+             JOIN work_assignments wa ON wa.id = ae.assignment_id
+             WHERE wa.assigned_to = $1 AND ae.evaluator_type = 'tool_accuracy'
+               AND ae.evaluated_at > NOW() - INTERVAL '30 days'
+             UNION ALL
+             SELECT
+               jsonb_array_elements_text(ae.feedback::jsonb->'redundant_calls'),
+               0, 1
+             FROM assignment_evaluations ae
+             JOIN work_assignments wa ON wa.id = ae.assignment_id
+             WHERE wa.assigned_to = $1 AND ae.evaluator_type = 'tool_accuracy'
+               AND ae.evaluated_at > NOW() - INTERVAL '30 days'
+           ) t
+           GROUP BY tool_name
+           ORDER BY (SUM(repeated_failures_count) + SUM(redundant_calls_count)) DESC
+           LIMIT 5`,
+          [agentId],
+        ),
+
+        // Retrieval method breakdown
+        systemQuery<{ pinned_pct: number | null; semantic_pct: number | null }>(
+          `SELECT
+            ROUND(100.0 * COUNT(*) FILTER (WHERE retrieval_method IN ('role_pin','core_pin','dept_pin'))
+              / NULLIF(COUNT(*), 0))::int AS pinned_pct,
+            ROUND(100.0 * COUNT(*) FILTER (WHERE retrieval_method = 'semantic')
+              / NULLIF(COUNT(*), 0))::int AS semantic_pct
+           FROM tool_call_traces
+           WHERE agent_id = $1
+             AND called_at > NOW() - INTERVAL '30 days'`,
+          [agentId],
+        ),
+
+        // Agent-specific tool risk from cross-signal view
+        systemQuery<{ tool_name: string; fleet_risk: string; agent_underperforming_vs_fleet: boolean; call_count: number; agent_success_rate: number; fleet_success_rate: number | null }>(
+          `SELECT tool_name, fleet_risk, agent_underperforming_vs_fleet, call_count,
+                  ROUND(agent_success_rate::numeric, 2) AS agent_success_rate,
+                  ROUND(fleet_success_rate::numeric, 2) AS fleet_success_rate
+           FROM agent_tool_risk
+           WHERE agent_id = $1
+             AND (fleet_risk IN ('high', 'medium') OR agent_underperforming_vs_fleet = true)
+           ORDER BY
+             agent_underperforming_vs_fleet DESC,
+             CASE fleet_risk WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+             call_count DESC
+           LIMIT 5`,
+          [agentId],
+        ),
+      ]);
+
+      json(res, 200, {
+        avg_score: scoreData[0]?.avg_score ?? null,
+        eval_count: scoreData[0]?.eval_count ?? 0,
+        problem_tools: problemTools,
+        retrieval_breakdown: retrievalData[0] ?? null,
+        risk_tools: riskTools,
+      });
       return true;
     }
 

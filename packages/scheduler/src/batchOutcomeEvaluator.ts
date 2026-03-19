@@ -126,6 +126,39 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
       console.warn('[BatchOutcomeEvaluator] Downstream defect tracking failed:', (err as Error).message);
     }
 
+    // ─── Tool accuracy evaluation (fire-and-forget) ─────────────
+    // For each outcome with a linked assignment, score tool selection quality.
+    try {
+      const eligibleOutcomes = outcomes.filter(o => o.run_id && o.assignment_id);
+      if (eligibleOutcomes.length > 0) {
+        const assignmentIds = eligibleOutcomes.map(o => o.assignment_id!);
+        const taskDescriptions = await systemQuery<{ id: string; task_description: string }>(
+          `SELECT id, task_description FROM work_assignments WHERE id = ANY($1::uuid[])`,
+          [assignmentIds],
+        );
+        const taskMap = new Map(taskDescriptions.map(t => [t.id, t.task_description]));
+
+        let toolAccuracyCount = 0;
+        for (const outcome of eligibleOutcomes) {
+          const taskDesc = taskMap.get(outcome.assignment_id!);
+          if (!taskDesc) continue;
+          void evaluateToolAccuracy(
+            outcome.run_id!,
+            outcome.assignment_id!,
+            outcome.id,
+            taskDesc,
+            outcome.agent_role,
+          ).catch(err => console.warn('[BatchOutcomeEvaluator] Tool accuracy eval failed:', (err as Error).message));
+          toolAccuracyCount++;
+        }
+        if (toolAccuracyCount > 0) {
+          console.log(`[BatchOutcomeEvaluator] Queued ${toolAccuracyCount} tool accuracy evaluations`);
+        }
+      }
+    } catch (err) {
+      console.warn('[BatchOutcomeEvaluator] Tool accuracy trigger failed:', (err as Error).message);
+    }
+
     // Update world models and trust scores for each agent that had outcomes evaluated
     try {
       const agentRoles = [...new Set(outcomes.map(o => o.agent_role))];

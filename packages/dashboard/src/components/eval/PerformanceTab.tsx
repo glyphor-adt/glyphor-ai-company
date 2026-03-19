@@ -4,6 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import ScoreBreakdownPanel from './ScoreBreakdownPanel';
+import ToolAccuracySection from './ToolAccuracySection';
 
 /* ── Types ─────────────────────────────────────────────────── */
 
@@ -146,6 +147,9 @@ export default function PerformanceTab({ agentId }: PerformanceTabProps) {
 
       {/* Score breakdown */}
       <ScoreBreakdownPanel runs={breakdownRuns} />
+
+      {/* Tool accuracy */}
+      <ToolAccuracySection agentId={agentId} />
     </div>
   );
 }
