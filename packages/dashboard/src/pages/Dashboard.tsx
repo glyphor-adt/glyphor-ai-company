@@ -387,8 +387,8 @@ export default function Dashboard() {
                   <p className="mt-2 text-[13px] text-txt-muted">Recommended: {item.recommendation}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <Link to={item.reviewTo} className="group relative inline-flex items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 p-0.5 text-sm font-medium text-white focus:outline-none focus:ring-4 focus:ring-cyan-800">
-                    <span className="relative rounded-md bg-[#0B0C10] px-4 py-2 leading-5 transition-all duration-75 ease-in group-hover:bg-transparent">
+                  <Link to={item.reviewTo} className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-cyan-500 to-blue-500 p-px text-xs font-medium text-white focus:outline-none">
+                    <span className="relative rounded-[5px] bg-gray-900 px-3 py-1.5 leading-4 transition-all duration-75 ease-in group-hover:bg-transparent">
                       Review
                     </span>
                   </Link>
@@ -396,17 +396,17 @@ export default function Dashboard() {
                     <>
                       <button
                         onClick={() => updateDecision(item.approveDecisionId!, 'approved', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-green-400 to-blue-600 p-0.5 text-sm font-medium text-white focus:outline-none focus:ring-4 focus:ring-green-800"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-green-400 to-blue-600 p-px text-xs font-medium text-white focus:outline-none"
                       >
-                        <span className="relative rounded-md bg-[#0B0C10] px-4 py-2 leading-5 transition-all duration-75 ease-in group-hover:bg-transparent">
+                        <span className="relative rounded-[5px] bg-gray-900 px-3 py-1.5 leading-4 transition-all duration-75 ease-in group-hover:bg-transparent">
                           Approve
                         </span>
                       </button>
                       <button
                         onClick={() => updateDecision(item.approveDecisionId!, 'rejected', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-pink-500 to-orange-400 p-0.5 text-sm font-medium text-white focus:outline-none focus:ring-4 focus:ring-pink-800"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-pink-500 to-orange-400 p-px text-xs font-medium text-white focus:outline-none"
                       >
-                        <span className="relative rounded-md bg-[#0B0C10] px-4 py-2 leading-5 transition-all duration-75 ease-in group-hover:bg-transparent">
+                        <span className="relative rounded-[5px] bg-gray-900 px-3 py-1.5 leading-4 transition-all duration-75 ease-in group-hover:bg-transparent">
                           Reject
                         </span>
                       </button>
@@ -420,9 +420,9 @@ export default function Dashboard() {
                           actionItemId: item.id,
                           prefillPrompt: buildOraActionPrompt(item),
                         }}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 p-0.5 text-sm font-medium text-white focus:outline-none focus:ring-4 focus:ring-blue-800"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-purple-600 to-blue-500 p-px text-xs font-medium text-white focus:outline-none"
                       >
-                        <span className="relative rounded-md bg-[#0B0C10] px-4 py-2 leading-5 transition-all duration-75 ease-in group-hover:bg-transparent">
+                        <span className="relative rounded-[5px] bg-gray-900 px-3 py-1.5 leading-4 transition-all duration-75 ease-in group-hover:bg-transparent">
                           Discuss with Ora
                         </span>
                       </Link>
