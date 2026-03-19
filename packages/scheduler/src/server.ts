@@ -61,6 +61,7 @@ import { evaluateCascadePredictions } from './cascadePredictionEvaluator.js';
 import { expireTools } from './toolExpirationManager.js';
 import { evaluateCanary } from './canaryEvaluator.js';
 import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
+import { runGtmReadinessEval, persistGtmReport } from './gtmReadiness/index.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
 import {
   authenticateSdkClient,
@@ -2041,6 +2042,54 @@ const server = createServer(async (req, res) => {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[AgentKnowledgeEvaluator] Endpoint error:', message);
         json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // GTM Readiness — run evaluation (Cloud Scheduler: 0 13 * * *)
+    if (method === 'POST' && url === '/gtm-readiness/run') {
+      try {
+        const report = await runGtmReadinessEval();
+        await persistGtmReport(report);
+        json(res, 200, { success: true, ...report });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[GtmReadiness] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // GTM Readiness — latest report
+    if (method === 'GET' && url === '/api/eval/gtm-readiness/latest') {
+      try {
+        const rows = await systemQuery<{ report_json: unknown }>(
+          `SELECT report_json FROM gtm_readiness_reports ORDER BY generated_at DESC LIMIT 1`
+        );
+        json(res, 200, rows[0]?.report_json ?? null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[GtmReadiness] Latest endpoint error:', message);
+        json(res, 500, { error: message });
+      }
+      return;
+    }
+
+    // GTM Readiness — report history
+    if (method === 'GET' && url === '/api/eval/gtm-readiness/history') {
+      try {
+        const rows = await systemQuery(
+          `SELECT id, generated_at, overall, marketing_department_ready,
+                  passing_count, failing_count, insufficient_data_count
+           FROM gtm_readiness_reports
+           ORDER BY generated_at DESC
+           LIMIT 30`
+        );
+        json(res, 200, rows);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[GtmReadiness] History endpoint error:', message);
+        json(res, 500, { error: message });
       }
       return;
     }

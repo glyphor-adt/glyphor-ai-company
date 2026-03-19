@@ -7,6 +7,7 @@ import EvalFleetGrid from '../components/eval/EvalFleetGrid';
 import type { FleetAgent } from '../components/eval/EvalFleetGrid';
 import CostLatencyPanel from '../components/eval/CostLatencyPanel';
 import AgentDetailDrawer from '../components/eval/AgentDetailDrawer';
+import GtmReadinessPanel from '../components/eval/GtmReadinessPanel';
 
 export default function Fleet() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,6 +48,9 @@ export default function Fleet() {
 
       {/* Main content */}
       <div className="p-6 space-y-6">
+        {/* GTM Readiness — Marketing Department pass/fail gate */}
+        <GtmReadinessPanel />
+
         {/* World state freshness */}
         <WorldStateFreshnessPanel />
 

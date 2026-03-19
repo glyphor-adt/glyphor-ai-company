@@ -1,6 +1,6 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { getModel } from '@glyphor/shared/models';
-import { runCFO, runCMO, runCTO, runContentCreator, runSeoAnalyst, runSocialMediaManager } from '@glyphor/agents';
+import { runCFO, runCMO, runCTO, runChiefOfStaff, runContentCreator, runSeoAnalyst, runSocialMediaManager } from '@glyphor/agents';
 import { getRedisCache, ModelClient, type AgentExecutionResult } from '@glyphor/agent-runtime';
 
 export interface AgentKnowledgeEvalReport {
@@ -50,6 +50,8 @@ const RUNNERS: Record<string, (prompt: string) => Promise<AgentExecutionResult>>
   cmo: (prompt) => runCMO({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   cto: (prompt) => runCTO({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   cfo: (prompt) => runCFO({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
+  // Chief of Staff — orchestration quality
+  'chief-of-staff': (prompt) => runChiefOfStaff({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   // Marketing department sub-team agents
   'content-creator': (prompt) => runContentCreator({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   'seo-analyst': (prompt) => runSeoAnalyst({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),

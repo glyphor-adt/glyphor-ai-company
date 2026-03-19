@@ -464,6 +464,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/tools/expire',
     enabled: true,
   },
+  // GTM Readiness — daily Marketing Department pass/fail gate (runs after batch-eval)
+  {
+    id: 'gtm-readiness-eval',
+    schedule: '0 13 * * *',    // 13:00 UTC = 8:00 AM CT, daily
+    timezone: 'UTC',
+    endpoint: '/gtm-readiness/run',
+    enabled: true,
+  },
 ];
 
 /**

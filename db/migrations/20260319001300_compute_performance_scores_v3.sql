@@ -15,12 +15,12 @@ WITH agent_scores AS (
     wa.assigned_to AS agent_id,
     AVG(ae_exec.score_normalized)  AS exec_quality,
     AVG(ae_team.score_normalized)  AS team_quality,
-    AVG(CASE WHEN ar.status = 'completed' THEN 1.0 ELSE 0.0 END) AS success_rate,
+    AVG(CASE WHEN tro.final_status = 'submitted' THEN 1.0 ELSE 0.0 END) AS success_rate,
     AVG(ae_con.score_normalized)   AS constitutional_score,
     AVG(ae_cos.score_normalized)   AS cos_quality,
     AVG(ae_tool.score_normalized)  AS tool_accuracy
   FROM work_assignments wa
-  JOIN agent_runs ar ON ar.assignment_id = wa.id
+  JOIN task_run_outcomes tro ON tro.assignment_id = wa.id
   LEFT JOIN assignment_evaluations ae_exec ON ae_exec.assignment_id = wa.id AND ae_exec.evaluator_type = 'executive'
   LEFT JOIN assignment_evaluations ae_team ON ae_team.assignment_id = wa.id AND ae_team.evaluator_type = 'team'
   LEFT JOIN assignment_evaluations ae_con  ON ae_con.assignment_id  = wa.id AND ae_con.evaluator_type  = 'constitutional'
