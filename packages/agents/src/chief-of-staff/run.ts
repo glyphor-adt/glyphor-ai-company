@@ -51,6 +51,8 @@ export interface CoSRunParams {
   recipient?: 'kristina' | 'andrew' | 'both';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  dryRun?: boolean;
+  evalMode?: boolean;
 }
 
 /**
@@ -181,7 +183,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
     ...await createAgent365McpTools('chief-of-staff'),
     ...await createGlyphorMcpTools('chief-of-staff'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
+  const toolExecutor = new ToolExecutor(tools, params.dryRun === true);
 
   // Log all events to console
   eventBus.on('*', (event) => {
