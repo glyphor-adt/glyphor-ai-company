@@ -87,6 +87,20 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
       'pause_agent',
       'resume_agent',
     ],
+    'platform-intel': [
+      'read_gtm_report',
+      'read_fleet_health',
+      'read_agent_eval_detail',
+      'read_handoff_health',
+      'read_tool_failure_rates',
+      'trigger_reflection_cycle',
+      'promote_prompt_version',
+      'discard_prompt_version',
+      'pause_agent',
+      'write_fleet_finding',
+      'write_world_model_correction',
+      'create_approval_request',
+    ],
   },
 };
 
