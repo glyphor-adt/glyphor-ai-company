@@ -418,6 +418,19 @@ input:focus, textarea:focus, select:focus {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* Light-mode card elevation — gives cards lift off the white page */
+.glass-card-layout,
+.glass-card,
+.glass-surface {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+.dark .glass-card-layout,
+.dark .glass-card,
+.dark .glass-surface {
+  box-shadow: none;
+}
+
 .glass-card-layout:hover,
 .glass-card:hover {
   transform: translateY(-1px);

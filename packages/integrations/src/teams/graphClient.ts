@@ -237,8 +237,8 @@ export class GraphTeamsClient {
  * Example channel environment variables:
  *   - TEAMS_CHANNEL_GENERAL_ID
  *   - TEAMS_CHANNEL_ENGINEERING_ID
- *   - TEAMS_CHANNEL_BRIEFING_KRISTINA_ID
- *   - TEAMS_CHANNEL_BRIEFING_ANDREW_ID
+ *   - TEAMS_CHANNEL_BRIEFINGS_ID
+ *   - TEAMS_CHANNEL_DECISIONS_ID
  *   - TEAMS_CHANNEL_CEO_BRIEF_ID
  *   - TEAMS_CHANNEL_COO_BRIEF_ID
  *   - TEAMS_CHANNEL_DECISIONS_ID
@@ -250,8 +250,7 @@ export class GraphTeamsClient {
  *   - TEAMS_CHANNEL_PRODUCT_PULSE_ID
  */
 export interface ChannelMap {
-  briefingKristina: ChannelTarget;
-  briefingAndrew: ChannelTarget;
+  briefings: ChannelTarget;
   decisions: ChannelTarget;
   alerts: ChannelTarget;
   deliverables: ChannelTarget;
@@ -259,8 +258,6 @@ export interface ChannelMap {
   engineering: ChannelTarget;
   growth: ChannelTarget;
   financials: ChannelTarget;
-  productFuse: ChannelTarget;
-  productPulse: ChannelTarget;
 }
 
 /**
@@ -272,8 +269,7 @@ export function buildChannelMap(): Partial<ChannelMap> {
   if (!teamId) return {};
 
   const channelEnvMap: Record<keyof ChannelMap, string[]> = {
-    briefingKristina: ['TEAMS_CHANNEL_CEO_BRIEF_ID', 'TEAMS_CHANNEL_BRIEFING_KRISTINA_ID'],
-    briefingAndrew: ['TEAMS_CHANNEL_COO_BRIEF_ID', 'TEAMS_CHANNEL_BRIEFING_ANDREW_ID'],
+    briefings: ['TEAMS_CHANNEL_BRIEFINGS_ID'],
     decisions: ['TEAMS_CHANNEL_DECISIONS_ID'],
     alerts: ['TEAMS_CHANNEL_ALERTS_ID'],
     deliverables: ['TEAMS_CHANNEL_DELIVERABLES_ID'],
@@ -281,8 +277,6 @@ export function buildChannelMap(): Partial<ChannelMap> {
     engineering: ['TEAMS_CHANNEL_ENGINEERING_ID'],
     growth: ['TEAMS_CHANNEL_GROWTH_ID'],
     financials: ['TEAMS_CHANNEL_FINANCIALS_ID'],
-    productFuse: ['TEAMS_CHANNEL_PRODUCT_FUSE_ID'],
-    productPulse: ['TEAMS_CHANNEL_PRODUCT_PULSE_ID'],
   };
 
   const map: Partial<ChannelMap> = {};
@@ -315,8 +309,7 @@ const CHANNEL_WEBHOOK_ENV: Record<string, string> = {
   decisions: 'TEAMS_WEBHOOK_DECISIONS',
   general: 'TEAMS_WEBHOOK_GENERAL',
   engineering: 'TEAMS_WEBHOOK_ENGINEERING',
-  briefingKristina: 'TEAMS_WEBHOOK_KRISTINA_BRIEFING',
-  briefingAndrew: 'TEAMS_WEBHOOK_ANDREW_BRIEFING',
+  briefings: 'TEAMS_WEBHOOK_BRIEFINGS',
   growth: 'TEAMS_WEBHOOK_GROWTH',
   financials: 'TEAMS_WEBHOOK_FINANCIALS',
   alerts: 'TEAMS_WEBHOOK_ALERTS',

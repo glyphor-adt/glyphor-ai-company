@@ -1114,8 +1114,7 @@ export function createChiefOfStaffTools(
         let channelError: string | null = null;
 
         try {
-          const channelKey = recipient === 'kristina' ? 'briefingKristina' : 'briefingAndrew';
-          const result = await postCardToChannel(channelKey, card, graphClient);
+          const result = await postCardToChannel('briefings', card, graphClient);
           if (result.method === 'none') {
             throw new Error(
               `No Teams briefing channel configured for ${recipient}. ${result.error}`,

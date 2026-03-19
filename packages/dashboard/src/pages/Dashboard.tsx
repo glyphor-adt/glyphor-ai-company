@@ -142,7 +142,7 @@ function statusTone(status: string | null | undefined): string {
 
 function HomeCard({ children, className = '', ...rest }: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`sidebar-glass dashboard-home-primary glass-card-layout glass-panel panel-primary rounded-2xl border p-5 ${className}`} {...rest}>
+    <div className={`sidebar-glass dashboard-home-primary glass-card-layout glass-panel panel-primary rounded-2xl border p-5 shadow-[0_2px_12px_rgba(0,0,0,0.08)] dark:shadow-none ${className}`} {...rest}>
       <div className="dashboard-home-surface-content">{children}</div>
     </div>
   );
@@ -150,7 +150,7 @@ function HomeCard({ children, className = '', ...rest }: { children: ReactNode; 
 
 function HomeInnerCard({ children, className = '', ...rest }: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`sidebar-glass dashboard-home-nested glass-inner-layout glass-panel panel-nested rounded-xl border px-4 py-3 ${className}`} {...rest}>
+    <div className={`sidebar-glass dashboard-home-nested glass-inner-layout glass-panel panel-nested rounded-xl border px-4 py-3 shadow-[0_1px_6px_rgba(0,0,0,0.06)] dark:shadow-none ${className}`} {...rest}>
       <div className="dashboard-home-surface-content">{children}</div>
     </div>
   );
@@ -349,11 +349,11 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-home space-y-5">
-      <GlowingStarsBackgroundCard className="sticky top-0 z-20">
+      <GlowingStarsBackgroundCard>
         <HomeCard className="border-white/10 py-4 bg-transparent">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan/80">glyphor command center</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#00E0FF]">glyphor command center</p>
               <h1 className="mt-1 font-agency text-[1.7rem] font-bold lowercase text-txt-primary md:text-[2rem]">
                 {greeting}, {firstName.toLowerCase()}
               </h1>
@@ -405,7 +405,7 @@ export default function Dashboard() {
                     <>
                       <button
                         onClick={() => updateDecision(item.approveDecisionId!, 'approved', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-green-400 to-blue-600 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-green-400 to-emerald-600 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
                       >
                         <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
                           Approve
@@ -413,7 +413,7 @@ export default function Dashboard() {
                       </button>
                       <button
                         onClick={() => updateDecision(item.approveDecisionId!, 'rejected', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-pink-500 to-orange-400 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-red-500 to-orange-500 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
                       >
                         <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
                           Reject
@@ -570,12 +570,12 @@ export default function Dashboard() {
 function MetricRibbon({ label, value, detail, toneClass = 'text-white', color }: { label: string; value: string; detail: string; toneClass?: string; color?: string }) {
   return (
     <div
-      className="rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm px-3 py-2.5"
+      className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-3 py-2.5"
       style={color ? { borderTopColor: color, borderTopWidth: '2px' } : undefined}
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={color ? { color } : undefined}>{label}</p>
-      <p className={`mt-1 text-[1.05rem] font-semibold ${toneClass}`}>{value}</p>
-      <p className="mt-1 text-[11px] text-white/45">{detail}</p>
+      <p className={`mt-1 text-[1.05rem] font-semibold dark:text-white text-txt-primary ${toneClass === 'text-white' ? '' : toneClass}`}>{value}</p>
+      <p className="mt-1 text-[11px] dark:text-white/45 text-txt-muted">{detail}</p>
     </div>
   );
 }
