@@ -1,6 +1,6 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { getModel } from '@glyphor/shared/models';
-import { runCFO, runCMO, runCTO, runChiefOfStaff, runContentCreator, runSeoAnalyst, runSocialMediaManager } from '@glyphor/agents';
+import { runCFO, runCMO, runCTO, runChiefOfStaff, runContentCreator, runSeoAnalyst, runSocialMediaManager, runPlatformIntel } from '@glyphor/agents';
 import { getRedisCache, ModelClient, type AgentExecutionResult } from '@glyphor/agent-runtime';
 
 export interface AgentKnowledgeEvalReport {
@@ -56,6 +56,7 @@ const RUNNERS: Record<string, (prompt: string) => Promise<AgentExecutionResult>>
   'content-creator': (prompt) => runContentCreator({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   'seo-analyst': (prompt) => runSeoAnalyst({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   'social-media-manager': (prompt) => runSocialMediaManager({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
+  'platform-intel': (prompt) => runPlatformIntel({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
 };
 
 export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Promise<AgentKnowledgeEvalReport> {

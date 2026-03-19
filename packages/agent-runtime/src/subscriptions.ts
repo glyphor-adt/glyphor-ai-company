@@ -107,6 +107,7 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
   'bob-the-tax-pro': ['task.requested', 'message.sent'],
   'marketing-intelligence-analyst': ['task.requested', 'message.sent'],
   'adi-rose': ['task.requested', 'message.sent'],
+  'platform-intel': ['alert.triggered', 'message.sent'],
 };
 
 /**

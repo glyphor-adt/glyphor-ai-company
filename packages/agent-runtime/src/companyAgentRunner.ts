@@ -239,6 +239,7 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'bob-the-tax-pro': 'robert-finley',
   'marketing-intelligence-analyst': 'zara-petrov',
   'adi-rose': 'adi-rose',
+  'platform-intel': 'nexus',
 };
 
 /** Maps roles to their department for knowledge base audience targeting. */
@@ -272,6 +273,7 @@ const ROLE_DEPARTMENT: Record<string, string> = {
   'global-admin': 'operations',
   'marketing-intelligence-analyst': 'marketing',
   'adi-rose': 'operations',
+  'platform-intel': 'operations',
   'head-of-hr': 'operations',
 };
 
@@ -306,6 +308,7 @@ const ROLE_CONTEXT_FILES: Record<string, string[]> = {
   'global-admin': ['operations.md'],
   'marketing-intelligence-analyst': ['marketing.md'],
   'adi-rose': ['operations.md'],
+  'platform-intel': ['operations.md'],
   'head-of-hr': ['operations.md'],
 };
 

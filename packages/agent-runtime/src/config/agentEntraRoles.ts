@@ -116,6 +116,7 @@ export const AGENT_ROLE_ASSIGNMENTS: Record<CompanyAgentRole, GlyphorAppRole[]> 
   'bob-the-tax-pro':               ['Glyphor.Finance.Revenue.Read'],
   'marketing-intelligence-analyst': ['Glyphor.Marketing.Read', 'Glyphor.Research.Read'],
   'adi-rose':                      ['Glyphor.Admin.Read', 'Glyphor.Ops.Read'],
+  'platform-intel':                ['Glyphor.Ops.Read', 'Glyphor.Engineering.Read'],
 };
 
 /**

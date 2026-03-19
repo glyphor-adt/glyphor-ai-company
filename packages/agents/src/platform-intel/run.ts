@@ -8,6 +8,8 @@
 import {
   CompanyAgentRunner,
   ModelClient,
+  AgentSupervisor,
+  ToolExecutor,
   EventBus,
   GlyphorEventBus,
   type AgentConfig,
@@ -16,8 +18,8 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { PLATFORM_INTEL_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createPlatformIntelTools } from './tools.js';
-import { createRunDeps } from '../shared/createRunDeps.js';
-import { createRunner, resolveModel } from '../shared/createRunner.js';
+import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { createRunner } from '../shared/createRunner.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 import { PLATFORM_INTEL_CONFIG } from './config.js';
@@ -52,6 +54,7 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...createDiagnosticTools(),
   ];
+  const toolExecutor = new ToolExecutor(tools);
 
   eventBus.on('*', (event) => {
     console.log(`[Nexus] ${event.type}`, JSON.stringify(event));
@@ -67,38 +70,62 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
       break;
 
     case 'on_demand':
-      initialMessage = params.message ?? 'Provide a current fleet health summary.';
-      break;
-
     default:
       initialMessage = params.message ?? 'Provide a current fleet health summary.';
       break;
   }
 
-  const defaultModel = PLATFORM_INTEL_CONFIG.model;
-  const dbModel = null; // Can be overridden from DB
-  const model = resolveModel('platform-intel', task, defaultModel, dbModel);
-
-  const runId = `platform-intel-${task}-${today}-${Date.now()}`;
-
-  const deps = await createRunDeps('platform-intel', memory, glyphorEventBus, {
-    task,
-    message: initialMessage,
-  });
+  const agentCfg = await loadAgentConfig('platform-intel', {
+    temperature: 1.0,
+    maxTurns: PLATFORM_INTEL_CONFIG.maxTurns,
+  }, task);
 
   const config: AgentConfig = {
-    id: runId,
+    id: `platform-intel-${task}-${today}-${Date.now()}`,
     role: 'platform-intel',
     systemPrompt: PLATFORM_INTEL_SYSTEM_PROMPT,
-    model,
+    model: agentCfg.model,
     tools,
-    maxTurns: PLATFORM_INTEL_CONFIG.maxTurns,
+    maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3,
     timeoutMs: 600_000, // 10 min — fleet analysis is thorough
-    temperature: 1.0,
+    temperature: agentCfg.temperature,
+    thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
     dryRun: params.dryRun ?? params.evalMode,
   };
 
-  return runner.run(config);
+  const supervisor = new AgentSupervisor({
+    maxTurns: config.maxTurns,
+    maxStallTurns: config.maxStallTurns,
+    timeoutMs: config.timeoutMs,
+    onEvent: (event) => eventBus.emit(event),
+  });
+
+  const startTime = Date.now();
+
+  const result = await runner.run(
+    config,
+    initialMessage,
+    supervisor,
+    toolExecutor,
+    (event) => eventBus.emit(event),
+    memory,
+    params.evalMode
+      ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory)
+      : createRunDeps(glyphorEventBus, memory),
+  );
+
+  const durationMs = Date.now() - startTime;
+
+  if (!params.evalMode) {
+    try {
+      await memory.recordAgentRun('platform-intel', durationMs, result.cost ?? 0);
+    } catch (e) {
+      console.warn('[Nexus] Failed to record run:', (e as Error).message);
+    }
+  }
+
+  console.log(`[Nexus] ${result.status} in ${durationMs}ms (${result.totalTurns} turns)`);
+  return result;
 }

@@ -485,6 +485,7 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'bob-the-tax-pro':               { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'marketing-intelligence-analyst': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'adi-rose':                      { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
+  'platform-intel':                { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
 };
 
 // ═══════════════════════════════════════════════════════════════════

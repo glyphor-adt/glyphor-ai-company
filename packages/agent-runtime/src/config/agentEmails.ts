@@ -58,6 +58,7 @@ export const AGENT_EMAIL_MAP: Record<CompanyAgentRole, AgentEmailEntry> = {
   'bob-the-tax-pro':               { email: 'bob@glyphor.ai',     displayName: 'Robert Finley',      title: 'CPA & Tax Strategist' },
   'marketing-intelligence-analyst': { email: 'zara@glyphor.ai',  displayName: 'Zara Petrov',        title: 'Marketing Intelligence Analyst' },
   'adi-rose':                      { email: 'adi@glyphor.ai',     displayName: 'Adi Rose',           title: 'Executive Assistant to COO' },
+  'platform-intel':                { email: 'nexus@glyphor.ai',   displayName: 'Nexus',              title: 'Platform Intelligence' },
 };
 
 /** Founder email addresses for resolveRecipient(). */
