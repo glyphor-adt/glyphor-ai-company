@@ -372,21 +372,22 @@ export function createRoadmapTools(): ToolDefinition[] {
       async execute(params): Promise<ToolResult> {
         const dateRange = params.date_range as string;
         const product = params.product as string;
+        const intervalStr = dateRange.replace(/(\d+)d$/, '$1 days');
 
         const productFilter = product !== 'all'
-          ? `AND metadata->>'product' = $2`
+          ? `AND product = $2`
           : '';
-        const values: unknown[] = [dateRange];
+        const values: unknown[] = [intervalStr];
         if (product !== 'all') values.push(product);
 
         try {
           const rows = await systemQuery(
             `SELECT
-               COALESCE(metadata->>'category', 'uncategorized') AS category,
+               COALESCE(details->>'category', 'uncategorized') AS category,
                COUNT(*) AS request_count,
-               COUNT(DISTINCT metadata->>'customer_id') AS unique_requestors
+               COUNT(DISTINCT details->>'customer_id') AS unique_requestors
              FROM activity_log
-             WHERE event_type = 'feature_request'
+             WHERE action = 'feature_request'
                AND created_at >= NOW() - CAST($1 AS INTERVAL)
                ${productFilter}
              GROUP BY category
@@ -446,12 +447,12 @@ export function createRoadmapTools(): ToolDefinition[] {
         try {
           if (action === 'status') {
             const rows = await systemQuery(
-              `SELECT metadata->>'enabled' AS enabled,
-                      metadata->>'segment' AS segment,
+              `SELECT details->>'enabled' AS enabled,
+                      details->>'segment' AS segment,
                       created_at AS last_updated
                FROM activity_log
-               WHERE event_type = 'feature_flag'
-                 AND metadata->>'flag_name' = $1
+               WHERE action = 'feature_flag'
+                 AND details->>'flag_name' = $1
                ORDER BY created_at DESC
                LIMIT 1`,
               [flagName],
@@ -479,8 +480,8 @@ export function createRoadmapTools(): ToolDefinition[] {
           const enabled = action === 'enable';
 
           await systemQuery(
-            `INSERT INTO activity_log (event_type, metadata)
-             VALUES ('feature_flag', jsonb_build_object(
+            `INSERT INTO activity_log (agent_role, action, summary, details)
+             VALUES ('cpo', 'feature_flag', $1, jsonb_build_object(
                'flag_name', $1::text,
                'enabled', $2::text,
                'segment', $3::text

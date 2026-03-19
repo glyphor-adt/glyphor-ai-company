@@ -46,6 +46,9 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
         const dateRange = params.date_range as string;
         const metric = params.metric as string;
 
+        // Convert '7d' → '7 days' for PostgreSQL interval casting
+        const intervalStr = dateRange.replace(/(\d+)d$/, '$1 days');
+
         try {
           let selectExpr: string;
           switch (metric) {
@@ -82,23 +85,23 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
             `SELECT ${groupExpr} AS period,
                     ${selectExpr} AS value
              FROM analytics_events
-             WHERE product = $1
+             WHERE properties->>'product' = $1
                AND created_at >= NOW() - CAST($2 AS INTERVAL)
              GROUP BY ${groupExpr}
              ORDER BY period`,
-            [product, dateRange],
+            [product, intervalStr],
           );
 
           const previousPeriod = await systemQuery(
             `SELECT ${groupExpr} AS period,
                     ${selectExpr} AS value
              FROM analytics_events
-             WHERE product = $1
+             WHERE properties->>'product' = $1
                AND created_at >= NOW() - 2 * CAST($2 AS INTERVAL)
                AND created_at < NOW() - CAST($2 AS INTERVAL)
              GROUP BY ${groupExpr}
              ORDER BY period`,
-            [product, dateRange],
+            [product, intervalStr],
           );
 
           const currentTotal = currentPeriod.reduce((s, r) => s + Number(r.value), 0);
@@ -167,7 +170,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
             const rows = await systemQuery<{ unique_users: number }>(
               `SELECT COUNT(DISTINCT user_id) AS unique_users
                FROM analytics_events
-               WHERE product = $1
+               WHERE properties->>'product' = $1
                  AND event_type = $2`,
               [product, steps[i]],
             );
@@ -239,6 +242,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
         const product = params.product as string;
         const cohortPeriod = params.cohort_period as string;
         const dateRange = params.date_range as string;
+        const intervalStr = dateRange.replace(/(\d+)d$/, '$1 days');
 
         try {
           const truncFn = `DATE_TRUNC('${cohortPeriod}', u.created_at)`;
@@ -254,11 +258,11 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
                COUNT(DISTINCT ae.user_id) AS active_users
              FROM users u
              JOIN analytics_events ae ON ae.user_id = u.id
-             WHERE ae.product = $1
+             WHERE ae.properties->>'product' = $1
                AND u.created_at >= NOW() - CAST($2 AS INTERVAL)
              GROUP BY cohort, period_offset
              ORDER BY cohort, period_offset`,
-            [product, dateRange],
+            [product, intervalStr],
           );
 
           const cohortSizes = await systemQuery(
@@ -269,7 +273,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
              WHERE u.created_at >= NOW() - CAST($1 AS INTERVAL)
              GROUP BY cohort
              ORDER BY cohort`,
-            [dateRange],
+            [intervalStr],
           );
 
           const sizeMap = new Map<string, number>();
@@ -345,7 +349,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
                     COUNT(*) AS usage_count,
                     COUNT(DISTINCT user_id) AS unique_users
              FROM analytics_events
-             WHERE product = $1
+             WHERE properties->>'product' = $1
                ${featureFilter}
              GROUP BY event_type
              ORDER BY usage_count DESC`,
@@ -413,7 +417,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
                         COUNT(*) AS total_events,
                         ROUND(COUNT(*)::numeric / NULLIF(COUNT(DISTINCT user_id), 0), 2) AS avg_events_per_user
                  FROM analytics_events
-                 WHERE product = $1
+                 WHERE properties->>'product' = $1
                  GROUP BY plan
                  ORDER BY user_count DESC`,
                 [product],
@@ -434,7 +438,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
                  FROM (
                    SELECT user_id, COUNT(*) AS event_count
                    FROM analytics_events
-                   WHERE product = $1
+                   WHERE properties->>'product' = $1
                      AND created_at >= NOW() - INTERVAL '30 days'
                    GROUP BY user_id
                  ) sub
@@ -450,7 +454,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
                         COUNT(DISTINCT user_id) AS user_count,
                         COUNT(*) AS total_events
                  FROM analytics_events
-                 WHERE product = $1
+                 WHERE properties->>'product' = $1
                  GROUP BY event_type
                  ORDER BY user_count DESC`,
                 [product],
@@ -465,7 +469,7 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
                         ROUND(COUNT(*)::numeric / NULLIF(COUNT(DISTINCT ae.user_id), 0), 2) AS avg_events_per_user
                  FROM analytics_events ae
                  JOIN users u ON u.id = ae.user_id
-                 WHERE ae.product = $1
+                 WHERE ae.properties->>'product' = $1
                  GROUP BY DATE_TRUNC('month', u.created_at)
                  ORDER BY segment DESC`,
                 [product],

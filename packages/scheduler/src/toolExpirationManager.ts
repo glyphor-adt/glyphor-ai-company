@@ -86,6 +86,8 @@ export async function expireTools(eventBus?: GlyphorEventBus): Promise<Expiratio
 // ─── Step 1: Update Reliability Scores ──────────────────────────
 
 async function updateReliabilityScores(report: ExpirationReport): Promise<void> {
+  // Compute reliability for ALL active tools with usage (not just runtime/dynamic)
+  // so the dashboard shows accurate health metrics for static & MCP tools too.
   const result = await systemQuery<{ count: number }>(
     `WITH updated AS (
        UPDATE tool_reputation SET
@@ -96,8 +98,8 @@ async function updateReliabilityScores(report: ExpirationReport): Promise<void> 
            + CASE WHEN last_used_at > NOW() - INTERVAL '7 days' THEN 0.1 ELSE 0.0 END
          ),
          updated_at = NOW()
-       WHERE tool_source IN ('runtime', 'dynamic_registry')
-         AND is_active = true
+       WHERE is_active = true
+         AND total_calls > 0
        RETURNING 1
      )
      SELECT COUNT(*)::int AS count FROM updated`,

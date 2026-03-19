@@ -47,6 +47,7 @@ export function createRevenueTools(): ToolDefinition[] {
       async execute(params): Promise<ToolResult> {
         const dateRange = params.date_range as string;
         const breakdownBy = params.breakdown_by as string;
+        const intervalStr = dateRange.replace(/(\d+)d$/, '$1 days');
 
         try {
           // Map breakdown_by enum to actual stripe_data columns
@@ -64,7 +65,7 @@ export function createRevenueTools(): ToolDefinition[] {
              WHERE recorded_at >= NOW() - CAST($1 AS INTERVAL)
              GROUP BY ${dbColumn}
              ORDER BY total_mrr DESC`,
-            [dateRange],
+            [intervalStr],
           );
 
           return {
@@ -158,6 +159,7 @@ export function createRevenueTools(): ToolDefinition[] {
       },
       async execute(params): Promise<ToolResult> {
         const dateRange = params.date_range as string;
+        const intervalStr = dateRange.replace(/(\d+)d$/, '$1 days');
 
         try {
           const rows = await systemQuery(
@@ -171,7 +173,7 @@ export function createRevenueTools(): ToolDefinition[] {
                COALESCE(SUM(amount_usd) FILTER (WHERE record_type = 'churned'), 0) AS revenue_impact
              FROM stripe_data
              WHERE recorded_at >= NOW() - CAST($1 AS INTERVAL)`,
-            [dateRange],
+            [intervalStr],
           );
 
           const churnByPlan = await systemQuery(
@@ -183,7 +185,7 @@ export function createRevenueTools(): ToolDefinition[] {
                AND recorded_at >= NOW() - CAST($1 AS INTERVAL)
              GROUP BY plan
              ORDER BY revenue_lost DESC`,
-            [dateRange],
+            [intervalStr],
           );
 
           const summary = rows[0] || {};
