@@ -6,7 +6,7 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import {
-  listWorkflowRuns, listRecentCommits, commentOnPR, createIssue,
+  listWorkflowRuns, listRecentCommits, commentOnPR, createIssueForCopilot,
   getFileContents, createOrUpdateFile, createBranch, createGitHubPR,
   GLYPHOR_REPOS, type GlyphorRepo,
   listCloudBuilds, getCloudBuildDetails,
@@ -361,7 +361,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const result = await createIssue(
+          const result = await createIssueForCopilot(
             params.repo as GlyphorRepo,
             params.title as string,
             params.body as string,

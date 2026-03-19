@@ -70,6 +70,7 @@ const CORE_PINNED_TOOLS = new Set<string>([
   'list_messages',
   'list_inbox',
   'list_mail_folders',
+  'read_company_knowledge',
 ]);
 
 const DEPARTMENT_PINS: Record<string, string[]> = {

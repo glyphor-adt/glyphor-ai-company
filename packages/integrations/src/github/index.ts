@@ -598,7 +598,7 @@ export async function createCheckRun(
 // COPILOT CODING AGENT — Create issues assigned to GitHub Copilot
 // ═══════════════════════════════════════════════════════════════════
 
-/** Create a GitHub issue labeled for Copilot coding agent to implement */
+/** Create a GitHub issue assigned to Copilot coding agent to implement */
 export async function createIssueForCopilot(
   repoKey: GlyphorRepo,
   title: string,
@@ -615,6 +615,19 @@ export async function createIssueForCopilot(
     body,
     labels: [...(labels ?? []), 'copilot'],
   });
+
+  // Assign Copilot to actually work on the issue
+  try {
+    await gh.issues.addAssignees({
+      owner: ORG,
+      repo: repoName,
+      issue_number: data.number,
+      assignees: ['Copilot'],
+    });
+  } catch {
+    // Best-effort — issue was still created successfully
+    console.warn(`[GitHub] Could not assign Copilot to issue #${data.number} — assign manually`);
+  }
 
   return { number: data.number, url: data.html_url };
 }

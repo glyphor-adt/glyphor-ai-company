@@ -765,7 +765,7 @@ const _peer = ['request_peer_work', 'create_handoff', 'peer_data_request'] as co
 const _init = ['propose_initiative'] as const;
 const _diag = ['check_table_schema', 'diagnose_column_error', 'list_tables', 'check_tool_health'] as const;
 // Design & Frontend
-const _frontendCode = ['check_pr_status', 'create_design_branch', 'create_frontend_pr', 'list_frontend_files', 'read_frontend_file', 'search_frontend_code', 'write_frontend_file'] as const;
+const _frontendCode = ['check_pr_status', 'create_design_branch', 'create_frontend_pr', 'create_git_branch', 'list_frontend_files', 'read_frontend_file', 'search_frontend_code', 'write_frontend_file'] as const;
 const _screenshot = ['check_responsive', 'compare_screenshots', 'screenshot_component', 'screenshot_page'] as const;
 const _designSys = ['get_color_palette', 'get_component_usage', 'get_design_tokens', 'get_typography_scale', 'list_components', 'update_design_token', 'validate_tokens_vs_implementation'] as const;
 const _asset = ['generate_and_publish_asset', 'generate_favicon_set', 'generate_image', 'list_assets', 'optimize_image', 'publish_asset_deliverable', 'upload_asset'] as const;

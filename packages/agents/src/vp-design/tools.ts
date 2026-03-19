@@ -8,7 +8,7 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import {
-  getFileContents, createIssue, listOpenPRs, commentOnPR, createGitHubPR, createBranch,
+  getFileContents, createIssueForCopilot, listOpenPRs, commentOnPR, createGitHubPR, createBranch,
   GLYPHOR_REPOS, type GlyphorRepo,
 } from '@glyphor/integrations';
 
@@ -386,7 +386,7 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
       },
       execute: async (params): Promise<ToolResult> => {
         const labels = params.labels ? (params.labels as string).split(',').map(l => l.trim()) : ['design'];
-        const issue = await createIssue(params.repo as GlyphorRepo, params.title as string, params.body as string, labels);
+        const issue = await createIssueForCopilot(params.repo as GlyphorRepo, params.title as string, params.body as string, labels);
         return { success: true, data: issue };
       },
     },

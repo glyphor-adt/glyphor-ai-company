@@ -5,8 +5,9 @@
  *   read_frontend_file       — Read files under allowed frontend paths
  *   search_frontend_code     — Search across frontend codebases
  *   list_frontend_files      — Browse frontend directory tree
- *   write_frontend_file      — Create/update files on design branches
+ *   write_frontend_file      — Create/update files on design/frontend branches
  *   create_design_branch     — Create feature/design-* branches
+ *   create_git_branch        — Create feature/design-* or feature/frontend-* branches
  *   create_frontend_pr       — Open PR from design branch
  *   check_pr_status          — Check CI status on design PRs
  */
@@ -29,9 +30,19 @@ const ALLOWED_PREFIXES = [
   'packages/dashboard/src/styles/',
   'packages/dashboard/src/theme/',
   'packages/dashboard/src/assets/',
+  'packages/dashboard/tailwind.config',
+  'packages/dashboard/postcss.config',
+  'packages/dashboard/next.config',
+  'packages/dashboard/tsconfig',
+  'packages/dashboard/package.json',
   'packages/pulse/src/components/',
   'packages/pulse/src/pages/',
   'packages/pulse/src/styles/',
+  'packages/pulse/tailwind.config',
+  'packages/pulse/postcss.config',
+  'packages/pulse/next.config',
+  'packages/pulse/tsconfig',
+  'packages/pulse/package.json',
   'packages/shared-ui/',
   'packages/design-tokens/',
 ];
@@ -120,11 +131,20 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           const repoName = GLYPHOR_REPOS[repo];
           if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
           const gh = getGitHubClient();
-          const q = `${query} repo:glyphor-adt/${repoName} path:packages/dashboard/src OR path:packages/pulse/src OR path:packages/shared-ui OR path:packages/design-tokens`;
-          const response = await gh.search.code({ q });
+          const pathScopes = [
+            'path:packages/dashboard',
+            'path:packages/pulse',
+            'path:packages/shared-ui',
+            'path:packages/design-tokens',
+          ];
+          const q = `${query} repo:glyphor-adt/${repoName} ${pathScopes.join(' ')}`;
+          const response = await gh.search.code({
+            q,
+            headers: { accept: 'application/vnd.github.text-match+json' },
+          });
           const results = response.data.items.slice(0, 20).map((item) => ({
             file: item.path,
-            matches: item.text_matches?.map((m) => m.fragment) ?? [],
+            matches: (item as Record<string, unknown> & { text_matches?: { fragment: string }[] }).text_matches?.map((m) => m.fragment) ?? [],
           }));
           return { success: true, data: { total: response.data.total_count, results } };
         } catch (err) {
@@ -182,8 +202,8 @@ export function createFrontendCodeTools(): ToolDefinition[] {
     {
       name: 'write_frontend_file',
       description:
-        'Create or update a file on a feature/design-* branch. Only works under allowed frontend ' +
-        'path prefixes and only on branches starting with "feature/design-".',
+        'Create or update a file on a feature/design-* or feature/frontend-* branch. Only works under allowed frontend ' +
+        'path prefixes and only on branches starting with "feature/design-" or "feature/frontend-".',
       parameters: {
         path: {
           type: 'string',
@@ -197,7 +217,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
         },
         branch: {
           type: 'string',
-          description: 'Target branch (must start with "feature/design-")',
+          description: 'Target branch (must start with "feature/design-" or "feature/frontend-")',
           required: true,
         },
         commit_message: {
@@ -209,15 +229,15 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           type: 'string',
           description: 'Repository key (defaults to company)',
           required: false,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
       },
       async execute(params): Promise<ToolResult> {
         try {
           const filePath = params.path as string;
           const branch = params.branch as string;
-          if (!branch.startsWith('feature/design-')) {
-            return { success: false, error: 'Branch must start with "feature/design-"' };
+          if (!branch.startsWith('feature/design-') && !branch.startsWith('feature/frontend-')) {
+            return { success: false, error: 'Branch must start with "feature/design-" or "feature/frontend-"' };
           }
           if (!isAllowedPath(filePath)) {
             return { success: false, error: `Path "${filePath}" is outside allowed frontend directories` };
@@ -266,6 +286,42 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           const repo = (params.repo as GlyphorRepo) || 'company';
           const repoName = GLYPHOR_REPOS[repo];
           if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
+          await createBranch(repoName, branchName);
+          return { success: true, data: `Branch "${branchName}" created from main` };
+        } catch (err) {
+          return { success: false, error: `Failed to create branch: ${(err as Error).message}` };
+        }
+      },
+    },
+
+    /* ─── Create git branch (general-purpose) ─── */
+    {
+      name: 'create_git_branch',
+      description:
+        'Create a new branch from main for frontend work. ' +
+        'Branch name must start with "feature/design-" or "feature/frontend-".',
+      parameters: {
+        branch_name: {
+          type: 'string',
+          description: 'Branch name (must start with "feature/design-" or "feature/frontend-")',
+          required: true,
+        },
+        repo: {
+          type: 'string',
+          description: 'Repository key (defaults to company)',
+          required: false,
+          enum: ['company'],
+        },
+      },
+      async execute(params): Promise<ToolResult> {
+        try {
+          const branchName = params.branch_name as string;
+          if (!branchName.startsWith('feature/design-') && !branchName.startsWith('feature/frontend-')) {
+            return { success: false, error: 'Branch name must start with "feature/design-" or "feature/frontend-"' };
+          }
+          const repo = (params.repo as GlyphorRepo) || 'company';
+          const repoName = GLYPHOR_REPOS[repo];
+          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company` };
           await createBranch(repoName, branchName);
           return { success: true, data: `Branch "${branchName}" created from main` };
         } catch (err) {

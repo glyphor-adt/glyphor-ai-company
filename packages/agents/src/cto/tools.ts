@@ -16,7 +16,7 @@ import {
   listOpenPRs,
   listWorkflowRuns,
   getRepoStats,
-  createIssue,
+  createIssueForCopilot,
   listRecentCommits,
   commentOnPR,
   getFileContents,
@@ -401,7 +401,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const result = await createIssue(
+          const result = await createIssueForCopilot(
             params.repo as GlyphorRepo,
             params.title as string,
             params.body as string,

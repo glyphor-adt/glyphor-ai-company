@@ -22,6 +22,7 @@ import { createEventTools } from './eventTools.js';
 import { createDmTools } from './dmTools.js';
 import { createDeliverableTools } from './deliverableTools.js';
 import { createExternalA2aTools } from './externalA2aTools.js';
+import { createKnowledgeRetrievalTools } from './knowledgeRetrievalTools.js';
 
 export const CORE_TOOL_NAMES: Set<string> = new Set([
   // Assignment lifecycle
@@ -51,6 +52,8 @@ export const CORE_TOOL_NAMES: Set<string> = new Set([
   'get_deliverables',
   // External discovery
   'discover_external_agents',
+  // Knowledge retrieval
+  'read_company_knowledge',
 ]);
 
 export interface CoreToolDeps {
@@ -70,6 +73,7 @@ export function createCoreTools(deps: CoreToolDeps): ToolDefinition[] {
     ...createDmTools(),
     ...createDeliverableTools(deps.glyphorEventBus),
     ...createExternalA2aTools(deps.externalA2aRegistryUrl ?? process.env.A2A_REGISTRY_URL),
+    ...createKnowledgeRetrievalTools(),
   ];
 
   return all.filter((t) => CORE_TOOL_NAMES.has(t.name));

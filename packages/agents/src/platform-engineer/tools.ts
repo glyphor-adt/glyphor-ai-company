@@ -12,7 +12,7 @@ import {
   queryCloudRunMetrics, pingServices,
   listOpenPRs, getRepoStats, listRecentCommits, type GlyphorRepo,
   listCloudBuilds, getCloudBuildDetails,
-  createIssue,
+  createIssueForCopilot,
 } from '@glyphor/integrations';
 
 export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
@@ -243,7 +243,7 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
         try {
-          const result = await createIssue(
+          const result = await createIssueForCopilot(
             params.repo as GlyphorRepo,
             params.title as string,
             params.body as string,

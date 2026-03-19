@@ -23,6 +23,7 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   list_frontend_files: ['structured_extraction'],
   write_frontend_file: ['code_generation'],
   create_design_branch: ['code_generation'],
+  create_git_branch: ['code_generation'],
   scaffold_component: ['code_generation'],
   scaffold_page: ['code_generation'],
   clone_and_modify: ['code_generation'],

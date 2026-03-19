@@ -794,6 +794,69 @@ export async function handleDashboardApi(
       return true;
     }
 
+    // GET /api/knowledge/status — layered KB overview with staleness info
+    if (tableSlug === 'knowledge' && resourceId === 'status' && method === 'GET') {
+      const sections = await systemQuery(
+        `SELECT section, title, layer, audience, owner_agent_id, review_cadence,
+                last_verified_at, is_stale, auto_expire, version, is_active,
+                LENGTH(content) AS chars,
+                EXTRACT(EPOCH FROM (NOW() - COALESCE(last_verified_at, created_at)))/86400 AS days_since_verified
+         FROM company_knowledge_base
+         ORDER BY layer ASC, section ASC`,
+      );
+      jsonResponse(res, 200, sections);
+      return true;
+    }
+
+    // GET /api/knowledge/changelog — recent KB changes
+    if (tableSlug === 'knowledge' && resourceId === 'changelog' && method === 'GET') {
+      const limit = Math.min(parseInt(params.get('limit') ?? '20', 10) || 20, 100);
+      const changes = await systemQuery(
+        `SELECT section_key, version, change_summary, changed_by, changed_at
+         FROM knowledge_change_log
+         ORDER BY changed_at DESC
+         LIMIT $1`,
+        [limit],
+      );
+      jsonResponse(res, 200, changes);
+      return true;
+    }
+
+    // POST /api/knowledge/:section_key/verify — founder verification from Cockpit
+    if (tableSlug === 'knowledge' && resourceId && method === 'POST' && url?.includes('/verify')) {
+      const body = JSON.parse(await readBody(req));
+      const sectionKey = resourceId.replace('/verify', '');
+      const [section] = await systemQuery<{ section: string; content: string; version: number }>(
+        `SELECT section, content, version FROM company_knowledge_base WHERE section = $1`,
+        [sectionKey],
+      );
+      if (!section) {
+        jsonResponse(res, 404, { error: `Section '${sectionKey}' not found` });
+        return true;
+      }
+      const newContent = typeof body.content === 'string' ? body.content : null;
+      const changeSummary = body.change_summary ?? 'Verified from Cockpit';
+      // Log the change
+      await systemQuery(
+        `INSERT INTO knowledge_change_log (section_key, version, previous_content, new_content, change_summary, changed_by)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [section.section, section.version, section.content, newContent ?? section.content, changeSummary, 'founder:kristina'],
+      );
+      if (newContent) {
+        await systemQuery(
+          `UPDATE company_knowledge_base SET content = $2, is_stale = FALSE, last_verified_at = NOW(), verified_by = 'founder:kristina', version = version + 1, change_summary = $3 WHERE section = $1`,
+          [sectionKey, newContent, changeSummary],
+        );
+      } else {
+        await systemQuery(
+          `UPDATE company_knowledge_base SET is_stale = FALSE, last_verified_at = NOW(), verified_by = 'founder:kristina', version = version + 1, change_summary = $2 WHERE section = $1`,
+          [sectionKey, changeSummary],
+        );
+      }
+      jsonResponse(res, 200, { success: true, section: sectionKey });
+      return true;
+    }
+
     // ── GET ─────────────────────────────────────────────────────
     if (method === 'GET') {
       if (tableName === 'chat_messages') {

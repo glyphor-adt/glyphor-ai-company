@@ -53,6 +53,24 @@ const SKILL_CONTEXT_MAPPED_BUDGET = 3;
 const SKILL_CONTEXT_FALLBACK_BUDGET = 2;
 const TASK_KEYWORD_MIN_LENGTH = 4;
 
+/** Resolve {live_ref_key} placeholders in KB section content. */
+async function resolveLiveRefs<T extends { content: string }>(sections: T[]): Promise<T[]> {
+  // Early exit if no placeholders to resolve
+  if (!sections.some(s => s.content.includes('{'))) return sections;
+  const refs = await systemQuery<{ key: string; cached_value: string | null }>(
+    'SELECT key, cached_value FROM knowledge_live_refs',
+  );
+  if (!refs || refs.length === 0) return sections;
+  const refMap = new Map(refs.map(r => [r.key, r.cached_value ?? '—']));
+  return sections.map(s => ({
+    ...s,
+    content: s.content.replace(
+      /\{(\w+)\}/g,
+      (match, key: string) => refMap.get(key) ?? match,
+    ),
+  }));
+}
+
 const TASK_STOP_WORDS = new Set([
   'the', 'and', 'for', 'with', 'from', 'that', 'this', 'into', 'your', 'have', 'will',
   'about', 'after', 'before', 'within', 'without', 'need', 'needs', 'should', 'could',
@@ -251,21 +269,28 @@ export function createRunDeps(
     graphWriter: memory.getGraphWriter() ?? undefined,
 
     knowledgeBaseLoader: async (department?: string): Promise<string> => {
-      let sql = 'SELECT section, title, content FROM company_knowledge_base WHERE is_active = true';
+      // Layer 2: Role context — inject based on audience match
       const params: unknown[] = [];
+      let audienceFilter = '';
       if (department) {
-        params.push('all', department);
-        sql += ` AND (audience = $1 OR audience = $2)`;
+        params.push(department);
+        audienceFilter = ` AND (audience = 'all' OR audience LIKE '%' || $1 || '%')`;
+      } else {
+        audienceFilter = ` AND audience = 'all'`;
       }
-      // Exclude large reference-only sections from auto-injection; agents can still read them on demand via read_company_doctrine
-      params.push('brand_guide');
-      sql += ` AND section != $${params.length}`;
-      sql += ' ORDER BY section';
+      const sql = `SELECT section, title, content, is_stale
+        FROM company_knowledge_base
+        WHERE is_active = true
+          AND layer = 2
+          AND is_stale = FALSE
+          ${audienceFilter}
+        ORDER BY section`;
       const data = await systemQuery(sql, params);
       if (data.length === 0) return '';
 
-      return data
-        .map((row: { title: string; content: string }) => `## ${row.title}\n\n${row.content}`)
+      const resolved = await resolveLiveRefs(data as { section: string; title: string; content: string; is_stale: boolean }[]);
+      return resolved
+        .map((row) => `## ${row.title}\n\n${row.content}`)
         .join('\n\n---\n\n');
     },
 
@@ -296,14 +321,14 @@ export function createRunDeps(
     },
 
     doctrineLoader: async (): Promise<string | null> => {
+      // Layer 1: Always inject — all agents, every run
       const doctrineRows = await systemQuery(
         `SELECT section, title, content
          FROM company_knowledge_base
          WHERE is_active = true
-           AND audience = 'all'
-           AND section = ANY($1)
-         ORDER BY array_position($1::text[], section)`,
-        [Array.from(REQUIRED_COMPANY_DOCTRINE_SECTIONS)],
+           AND layer = 1
+           AND is_stale = FALSE
+         ORDER BY section`,
       );
 
       if (!doctrineRows || doctrineRows.length === 0) {
@@ -311,10 +336,13 @@ export function createRunDeps(
       }
 
       const rows = doctrineRows as { section: string; title: string; content: string }[];
+
+      // Validate required doctrine sections are still present
       const activeSections = new Set(rows.map((row) => row.section));
       const missing = REQUIRED_COMPANY_DOCTRINE_SECTIONS.filter((section) => !activeSections.has(section));
 
-      const parts: string[] = rows.map((row) => `## ${row.title}\n\n${row.content}`);
+      const resolved = await resolveLiveRefs(rows);
+      const parts: string[] = resolved.map((row) => `## ${row.title}\n\n${row.content}`);
       if (missing.length > 0) {
         parts.push(
           `## Doctrine Integrity Warning\n\nMissing required active doctrine sections: ${missing.join(', ')}. ` +

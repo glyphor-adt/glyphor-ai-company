@@ -143,6 +143,7 @@ const KNOWN_TOOLS = new Set([
   'list_frontend_files',
   'write_frontend_file',
   'create_design_branch',
+  'create_git_branch',
   'create_frontend_pr',
   'check_pr_status',
   // screenshotTools

@@ -981,5 +981,135 @@ export function createPlatformIntelTools(): ToolDefinition[] {
       },
     },
 
+    // ── KNOWLEDGE BASE FRESHNESS AUDIT ──────────────────────────
+
+    {
+      name: 'audit_knowledge_freshness',
+      description: 'Audit company knowledge base for stale sections. Flags sections past their review cadence and marks them stale. Call weekly during analysis cycle.',
+      parameters: {},
+      execute: async (_params: Record<string, unknown>, _ctx: ToolContext): Promise<ToolResult> => {
+        const staleRows = await systemQuery<{
+          section: string; title: string; owner_agent_id: string | null;
+          review_cadence: string; last_verified_at: string | null;
+          auto_expire: boolean; days_since_verified: number; cadence_days: number | null;
+        }>(`
+          SELECT section, title, owner_agent_id, review_cadence, last_verified_at, auto_expire,
+            EXTRACT(EPOCH FROM (NOW() - COALESCE(last_verified_at, created_at))) / 86400 AS days_since_verified,
+            CASE review_cadence
+              WHEN 'weekly'    THEN 7
+              WHEN 'monthly'   THEN 30
+              WHEN 'quarterly' THEN 90
+              ELSE NULL
+            END AS cadence_days
+          FROM company_knowledge_base
+          WHERE is_active = true
+            AND review_cadence != 'never'
+            AND review_cadence != 'on_change'
+        `);
+
+        const nowStale = staleRows.filter(r =>
+          r.cadence_days != null && r.days_since_verified > r.cadence_days
+        );
+
+        if (nowStale.length === 0) {
+          return { success: true, data: { stale_count: 0, message: 'All knowledge sections are within review cadence.' } };
+        }
+
+        // Mark stale
+        const staleKeys = nowStale.map(r => r.section);
+        await systemQuery(
+          `UPDATE company_knowledge_base SET is_stale = TRUE WHERE section = ANY($1)`,
+          [staleKeys],
+        );
+
+        return {
+          success: true,
+          data: {
+            stale_count: nowStale.length,
+            sections: nowStale.map(r => ({
+              section: r.section,
+              title: r.title,
+              owner: r.owner_agent_id ?? 'founders',
+              days_since_verified: Math.round(r.days_since_verified),
+              cadence: r.review_cadence,
+              auto_expire: r.auto_expire,
+            })),
+            owner_tasks_needed: nowStale.filter(r => r.owner_agent_id).length,
+            founder_review_needed: nowStale.filter(r => !r.owner_agent_id).length,
+          },
+        };
+      },
+    },
+
+    {
+      name: 'verify_knowledge_section',
+      description: 'Mark a knowledge section as verified after reviewing and confirming its accuracy. Only the owning agent or founders can verify. Call this after actually reading and confirming the section is accurate.',
+      parameters: {
+        section_key: { type: 'string', description: 'The section key to verify', required: true },
+        content_updated: { type: 'boolean', description: 'Whether content was changed', required: true },
+        change_summary: { type: 'string', description: 'What was changed, or "verified accurate, no changes" if unchanged', required: true },
+        new_content: { type: 'string', description: 'Updated content if content_updated is true', required: false },
+      },
+      execute: async (params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> => {
+        const sectionKey = params.section_key as string;
+        const contentUpdated = params.content_updated === true;
+        const changeSummary = params.change_summary as string;
+        const newContent = typeof params.new_content === 'string' ? params.new_content : null;
+
+        if (!sectionKey || !changeSummary) {
+          return { success: false, error: 'section_key and change_summary are required' };
+        }
+
+        const [section] = await systemQuery<{
+          section: string; content: string; version: number; owner_agent_id: string | null;
+        }>(
+          `SELECT section, content, version, owner_agent_id FROM company_knowledge_base WHERE section = $1`,
+          [sectionKey],
+        );
+
+        if (!section) return { success: false, error: `Section '${sectionKey}' not found` };
+
+        // Only owner or platform-intel (acting on behalf of founders) can verify
+        if (section.owner_agent_id && section.owner_agent_id !== ctx.agentRole && ctx.agentRole !== 'platform-intel') {
+          return { success: false, error: `Only ${section.owner_agent_id} or founders can verify this section` };
+        }
+
+        // Log the change
+        await systemQuery(
+          `INSERT INTO knowledge_change_log (section_key, version, previous_content, new_content, change_summary, changed_by)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [sectionKey, section.version, section.content, contentUpdated ? newContent : section.content, changeSummary, ctx.agentRole],
+        );
+
+        // Update the section
+        if (contentUpdated && newContent) {
+          await systemQuery(
+            `UPDATE company_knowledge_base SET
+               content = $2,
+               is_stale = FALSE,
+               last_verified_at = NOW(),
+               verified_by = $3,
+               version = version + 1,
+               change_summary = $4
+             WHERE section = $1`,
+            [sectionKey, newContent, ctx.agentRole, changeSummary],
+          );
+        } else {
+          await systemQuery(
+            `UPDATE company_knowledge_base SET
+               is_stale = FALSE,
+               last_verified_at = NOW(),
+               verified_by = $2,
+               version = version + 1,
+               change_summary = $3
+             WHERE section = $1`,
+            [sectionKey, ctx.agentRole, changeSummary],
+          );
+        }
+
+        return { success: true, data: { section_key: sectionKey, verified: true, version: section.version + 1 } };
+      },
+    },
+
   ];
 }
