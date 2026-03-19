@@ -1,48 +1,40 @@
 name: Request Copilot Review
 
-# NOTE: For fully automatic Copilot reviews, enable it in repo settings:
-#   Settings → Copilot → Code Review → "Automatically review pull requests"
-# This workflow acts as a fallback for repos where that setting isn't available.
+# Copilot auto-review only triggers on non-draft PRs.
+# Copilot coding agent always creates drafts, so this workflow
+# marks them ready → which triggers the auto-review setting.
 
 on:
   pull_request_target:
-    types: [opened, synchronize, ready_for_review]
+    types: [opened, synchronize]
     branches: [main]
 
 permissions:
   pull-requests: write
+  contents: read
 
 jobs:
-  assign-copilot:
-    # Run for all PRs — including drafts created by Copilot
+  mark-ready-and-request-review:
     runs-on: ubuntu-latest
     steps:
-      - name: Request Copilot review
+      - name: Mark draft PR ready & request Copilot review
         env:
-          GH_TOKEN: ${{ secrets.COPILOT_REVIEW_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           REPO="${{ github.repository }}"
+          IS_DRAFT="${{ github.event.pull_request.draft }}"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
 
-          echo "Requesting Copilot review for PR #${PR_NUMBER}..."
+          echo "PR #${PR_NUMBER} | Author: ${AUTHOR} | Draft: ${IS_DRAFT}"
 
-          # Method 1: gh pr edit (works with Copilot as a special reviewer)
-          gh pr edit "$PR_NUMBER" \
-            --repo "$REPO" \
-            --add-reviewer "Copilot" && \
-          echo "✓ Copilot review requested via gh pr edit." && exit 0
-
-          echo "gh pr edit failed — trying API fallback..."
-
-          # Method 2: direct API call (standard reviewers endpoint)
-          RESPONSE=$(gh api \
-            --method POST \
-            "repos/${REPO}/pulls/${PR_NUMBER}/requested_reviewers" \
-            --input - <<< '{"reviewers":["Copilot"]}' 2>&1) && \
-          echo "✓ Copilot review requested via API." && exit 0
-
-          echo "⚠ Could not auto-request Copilot review."
-          echo "Response: $RESPONSE"
-          echo ""
-          echo "To fix: enable automatic Copilot reviews in repo settings:"
-          echo "  Settings → Copilot → Code Review → Automatically review pull requests"
+          # If the PR is still a draft, mark it ready for review.
+          # This triggers the repo's "Automatically review pull requests" setting.
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "Marking PR #${PR_NUMBER} as ready for review..."
+            gh pr ready "$PR_NUMBER" --repo "$REPO" && \
+              echo "✓ PR #${PR_NUMBER} is now ready for review." || \
+              echo "✗ Could not mark PR ready (may already be ready)."
+          else
+            echo "PR is already ready for review."
+          fi
