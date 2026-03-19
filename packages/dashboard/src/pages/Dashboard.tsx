@@ -15,6 +15,7 @@ import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useState } fro
 import { useActiveDirectives, useCompanyPulse, useDecisions, useOpenIncidents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import { GlowingStarsBackgroundCard } from '../components/ui/glowing-stars';
 import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 
@@ -343,20 +344,22 @@ export default function Dashboard() {
   return (
     <div className="dashboard-home space-y-5">
       <HomeCard className="sticky top-0 z-20 border-white/10 py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan/80">CEO Command View</p>
-            <h1 className="mt-1 font-agency text-[1.7rem] font-bold lowercase text-white md:text-[2rem]">
-              {firstName}, here&apos;s what needs your time
-            </h1>
+        <GlowingStarsBackgroundCard>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan/80">CEO Command View</p>
+              <h1 className="mt-1 font-agency text-[1.7rem] font-bold lowercase text-txt-primary md:text-[2rem]">
+                {firstName}, here&apos;s what needs your time
+              </h1>
+            </div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <MetricRibbon label="Cash" value={fmtUsd(cashBalance)} detail={cashChangeToday == null ? 'Daily delta unavailable' : `${cashChangeToday >= 0 ? '↑' : '↓'} ${fmtUsd(Math.abs(cashChangeToday))} today · Runway ${fmtMonths(runwayMonths)}`} />
+              <MetricRibbon label="MRR" value={fmtUsd(pulse?.mrr ?? null)} detail={pulse?.mrr != null ? 'Pre-revenue operating posture' : 'No revenue signal yet'} />
+              <MetricRibbon label="Compute" value={fmtUsd(computeToday)} detail={`${fmtUsd(computeMtd)} MTD · ${fmtUsd(rollingThirtyDayBurn)} rolling 30d`} />
+              <MetricRibbon label="System" value={pulse?.platform_status?.toUpperCase() ?? '—'} detail={`${pendingDecisions.length} pending decisions · ${runsToday.length} runs today`} toneClass={statusTone(pulse?.platform_status)} />
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MetricRibbon label="Cash" value={fmtUsd(cashBalance)} detail={cashChangeToday == null ? 'Daily delta unavailable' : `${cashChangeToday >= 0 ? '↑' : '↓'} ${fmtUsd(Math.abs(cashChangeToday))} today · Runway ${fmtMonths(runwayMonths)}`} />
-            <MetricRibbon label="MRR" value={fmtUsd(pulse?.mrr ?? null)} detail={pulse?.mrr != null ? 'Pre-revenue operating posture' : 'No revenue signal yet'} />
-            <MetricRibbon label="Compute" value={fmtUsd(computeToday)} detail={`${fmtUsd(computeMtd)} MTD · ${fmtUsd(rollingThirtyDayBurn)} rolling 30d`} />
-            <MetricRibbon label="System" value={pulse?.platform_status?.toUpperCase() ?? '—'} detail={`${pendingDecisions.length} pending decisions · ${runsToday.length} runs today`} toneClass={statusTone(pulse?.platform_status)} />
-          </div>
-        </div>
+        </GlowingStarsBackgroundCard>
       </HomeCard>
 
       <HomeCard>
@@ -387,8 +390,8 @@ export default function Dashboard() {
                   <p className="mt-2 text-[13px] text-txt-muted">Recommended: {item.recommendation}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <Link to={item.reviewTo} className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-cyan-500 to-blue-500 p-px text-xs font-medium text-white focus:outline-none">
-                    <span className="relative rounded-[5px] bg-gray-900 px-3 py-1.5 leading-4 transition-all duration-75 ease-in group-hover:bg-transparent">
+                  <Link to={item.reviewTo} className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-cyan-500 to-blue-500 p-px text-xs font-medium text-white dark:text-white focus:outline-none">
+                    <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
                       Review
                     </span>
                   </Link>
@@ -396,17 +399,17 @@ export default function Dashboard() {
                     <>
                       <button
                         onClick={() => updateDecision(item.approveDecisionId!, 'approved', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-green-400 to-blue-600 p-px text-xs font-medium text-white focus:outline-none"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-green-400 to-blue-600 p-px text-xs font-medium text-white dark:text-white focus:outline-none"
                       >
-                        <span className="relative rounded-[5px] bg-gray-900 px-3 py-1.5 leading-4 transition-all duration-75 ease-in group-hover:bg-transparent">
+                        <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
                           Approve
                         </span>
                       </button>
                       <button
                         onClick={() => updateDecision(item.approveDecisionId!, 'rejected', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-pink-500 to-orange-400 p-px text-xs font-medium text-white focus:outline-none"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-pink-500 to-orange-400 p-px text-xs font-medium text-white dark:text-white focus:outline-none"
                       >
-                        <span className="relative rounded-[5px] bg-gray-900 px-3 py-1.5 leading-4 transition-all duration-75 ease-in group-hover:bg-transparent">
+                        <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
                           Reject
                         </span>
                       </button>
@@ -420,9 +423,9 @@ export default function Dashboard() {
                           actionItemId: item.id,
                           prefillPrompt: buildOraActionPrompt(item),
                         }}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-purple-600 to-blue-500 p-px text-xs font-medium text-white focus:outline-none"
+                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-purple-600 to-blue-500 p-px text-xs font-medium text-white dark:text-white focus:outline-none"
                       >
-                        <span className="relative rounded-[5px] bg-gray-900 px-3 py-1.5 leading-4 transition-all duration-75 ease-in group-hover:bg-transparent">
+                        <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
                           Discuss with Ora
                         </span>
                       </Link>

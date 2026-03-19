@@ -6,12 +6,17 @@
  *
  * Required environment variables:
  *   - AZURE_TENANT_ID: Microsoft Entra (Azure AD) tenant ID
- *   - AZURE_CLIENT_ID: Entra app registration client ID
- *   - AZURE_CLIENT_SECRET: Entra app registration secret
+ *   - AZURE_TEAMS_CHANNEL_CLIENT_ID: Dedicated Teams-channel app client ID (preferred)
+ *   - AZURE_TEAMS_CHANNEL_CLIENT_SECRET: Dedicated Teams-channel app secret (preferred)
+ *   - AZURE_CLIENT_ID: Shared Entra app client ID (fallback)
+ *   - AZURE_CLIENT_SECRET: Shared Entra app secret (fallback)
  *   - TEAMS_TEAM_ID: Microsoft Teams team ID
  *   - TEAMS_CHANNEL_GENERAL_ID: Channel ID for #general
  *   - TEAMS_CHANNEL_ENGINEERING_ID: Channel ID for #engineering
  *   (see buildChannelMap() for full list of supported channels)
+ *
+ * The dedicated glyphor-teams-channels app has ChannelMessage.Send
+ * permission. The shared app may not — prefer the dedicated one.
  *
  * Required Graph API permissions (Application):
  *   - ChannelMessage.Send: Required to post messages to channels
@@ -62,15 +67,26 @@ export class GraphTeamsClient {
 
   /**
    * Create a GraphTeamsClient from environment variables.
+   *
+   * Prefers the dedicated Teams-channel app registration
+   * (AZURE_TEAMS_CHANNEL_CLIENT_ID / _CLIENT_SECRET) which has
+   * ChannelMessage.Send permission. Falls back to the shared
+   * AZURE_CLIENT_ID / AZURE_CLIENT_SECRET for backward compat.
    */
   static fromEnv(): GraphTeamsClient {
     const tenantId = process.env.AZURE_TENANT_ID?.trim();
-    const clientId = process.env.AZURE_CLIENT_ID?.trim();
-    const clientSecret = process.env.AZURE_CLIENT_SECRET?.trim();
+
+    // Prefer the scoped Teams-channel app registration
+    const clientId =
+      process.env.AZURE_TEAMS_CHANNEL_CLIENT_ID?.trim() ||
+      process.env.AZURE_CLIENT_ID?.trim();
+    const clientSecret =
+      process.env.AZURE_TEAMS_CHANNEL_CLIENT_SECRET?.trim() ||
+      process.env.AZURE_CLIENT_SECRET?.trim();
 
     if (!tenantId || !clientId || !clientSecret) {
       throw new Error(
-        'Missing Azure credentials. Set AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET.',
+        'Missing Azure credentials. Set AZURE_TENANT_ID and AZURE_TEAMS_CHANNEL_CLIENT_ID/SECRET (or AZURE_CLIENT_ID/SECRET).',
       );
     }
 
