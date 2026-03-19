@@ -12,13 +12,12 @@ export function createCPOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
     {
       name: 'get_product_metrics',
-      description: 'Get current metrics for an internal engine. Fuse and Pulse are internal engine identifiers, not external products. Returns MRR, active users, build stats.',
+      description: 'Get current metrics for an internal engine. Returns MRR, active users, build stats. The only external product is the AI Marketing Department.',
       parameters: {
         product: {
           type: 'string',
           description: 'Internal engine slug',
           required: true,
-          enum: ['fuse', 'pulse'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {

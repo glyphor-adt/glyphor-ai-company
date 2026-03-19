@@ -1,0 +1,53 @@
+name: Auto-approve Bot Workflows
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  actions: write
+
+jobs:
+  approve:
+    # Only auto-approve for trusted bot actors
+    if: >
+      github.event.pull_request.user.login == 'copilot[bot]' ||
+      github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve pending workflow runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          REPO="${{ github.repository }}"
+          ACTOR="${{ github.event.pull_request.user.login }}"
+
+          echo "PR author: $ACTOR"
+          echo "Head SHA:  $HEAD_SHA"
+
+          # Workflow runs may take a moment to appear — retry up to 6 times (60s)
+          for ATTEMPT in 1 2 3 4 5 6; do
+            echo "Attempt $ATTEMPT: checking for runs awaiting approval..."
+
+            PENDING_RUNS=$(gh api \
+              "repos/${REPO}/actions/runs?head_sha=${HEAD_SHA}&status=action_required" \
+              --jq '.workflow_runs[].id' 2>/dev/null || true)
+
+            if [ -n "$PENDING_RUNS" ]; then
+              for RUN_ID in $PENDING_RUNS; do
+                echo "Approving workflow run $RUN_ID..."
+                gh api \
+                  --method POST \
+                  "repos/${REPO}/actions/runs/${RUN_ID}/approve" 2>/dev/null && \
+                  echo "  ✓ Approved run $RUN_ID" || \
+                  echo "  ✗ Could not approve run $RUN_ID (may need PAT — see README)"
+              done
+              exit 0
+            fi
+
+            echo "  No pending runs yet — waiting 10s..."
+            sleep 10
+          done
+
+          echo "No workflow runs requiring approval found after 60s — they may already be running."

@@ -236,7 +236,7 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
       name: 'create_github_issue',
       description: 'Create a GitHub issue to report a platform health problem, outage, or degradation you detected.',
       parameters: {
-        repo: { type: 'string', description: 'Repo: "company", "fuse", or "pulse"', required: true, enum: ['company', 'fuse', 'pulse'] },
+        repo: { type: 'string', description: 'Repo: "company"', required: true, enum: ['company'] },
         title: { type: 'string', description: 'Issue title', required: true },
         body: { type: 'string', description: 'Issue body with diagnostic data (markdown)', required: true },
         labels: { type: 'array', description: 'Labels (e.g., ["platform", "health"])', required: false, items: { type: 'string', description: 'Label' } },

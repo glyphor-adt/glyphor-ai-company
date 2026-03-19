@@ -2,7 +2,7 @@ name: Request Copilot Review
 
 on:
   pull_request_target:
-    types: [opened, ready_for_review]
+    types: [opened, synchronize, ready_for_review]
     branches: [main]
 
 permissions:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   assign-copilot:
-    if: "!github.event.pull_request.draft"
+    # Run for all PRs — including drafts created by Copilot
     runs-on: ubuntu-latest
     steps:
       - name: Request Copilot review

@@ -12,13 +12,12 @@ export function createVPSalesTools(memory: CompanyMemoryStore): ToolDefinition[]
   return [
     {
       name: 'get_product_metrics',
-      description: 'Get current internal engine metrics (active users, adoption, retention). Fuse and Pulse are internal engines, not external products.',
+      description: 'Get current internal engine metrics (active users, adoption, retention). The only external product is the AI Marketing Department.',
       parameters: {
         product: {
           type: 'string',
           description: 'Internal engine slug',
           required: true,
-          enum: ['fuse', 'pulse'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {

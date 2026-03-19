@@ -40,7 +40,7 @@ export function createEventTools(glyphorEventBus: GlyphorEventBus): ToolDefiniti
           type: 'string',
           description: 'Related internal engine (if applicable)',
           required: false,
-          enum: ['fuse', 'pulse'],
+          enum: ['company'],
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {

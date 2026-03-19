@@ -31,13 +31,12 @@ export function createCFOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'get_product_metrics',
-      description: 'Get current metrics for an internal engine. Fuse and Pulse are internal engine identifiers, not external products. Returns MRR, active users, build stats.',
+      description: 'Get current metrics for an internal engine. Returns MRR, active users, build stats.',
       parameters: {
         product: {
           type: 'string',
           description: 'Internal engine slug',
           required: true,
-          enum: ['fuse', 'pulse'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
@@ -69,7 +68,7 @@ export function createCFOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         key: {
           type: 'string',
-          description: 'Memory namespace key (e.g., "finance.budget", "product.fuse.metrics")',
+          description: 'Memory namespace key (e.g., "finance.budget", "product.metrics")',
           required: true,
         },
       },
@@ -87,7 +86,6 @@ export function createCFOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           type: 'string',
           description: 'Internal engine to analyze',
           required: true,
-          enum: ['fuse', 'pulse'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {

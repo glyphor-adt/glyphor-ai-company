@@ -1008,13 +1008,12 @@ export function createChiefOfStaffTools(
 
     {
       name: 'get_product_metrics',
-      description: 'Get current metrics for an internal engine. Fuse and Pulse are internal engine identifiers, not external products. Returns MRR, active users, build stats.',
+      description: 'Get current metrics for an internal engine. Returns MRR, active users, build stats. The only external product is the AI Marketing Department.',
       parameters: {
         product: {
           type: 'string',
           description: 'Internal engine slug',
           required: true,
-          enum: ['fuse', 'pulse'],
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
@@ -1042,7 +1041,7 @@ export function createChiefOfStaffTools(
 
     {
       name: 'read_company_memory',
-      description: 'Read a value from company shared memory by key. Use namespace keys like "company.vision", "product.fuse.metrics".',
+      description: 'Read a value from company shared memory by key. Use namespace keys like "company.vision", "product.metrics".',
       parameters: {
         key: {
           type: 'string',

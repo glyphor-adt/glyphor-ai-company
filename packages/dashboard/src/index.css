@@ -150,10 +150,12 @@ body {
 }
 
 /* Compositing boundary fix — duplicate gradient onto <main> so
-   backdrop-filter children can sample it within their own context */
+   backdrop-filter children can sample it within their own context.
+   background-color must stay transparent so the mesh gradient SVG
+   is the only painted layer — an opaque fill would block refraction. */
 .dark main.dashboard-main {
   background-image:      url('/gradient-dark.svg');
-  background-color:      #07090f;
+  background-color:      transparent;
   background-size:       100% 4200px;
   background-position:   center var(--gradient-offset, 0px);
   background-repeat:     no-repeat;

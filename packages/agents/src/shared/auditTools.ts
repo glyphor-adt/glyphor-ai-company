@@ -439,14 +439,14 @@ export function createAuditTools(): ToolDefinition[] {
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repository key: "company", "fuse", or "pulse" (default: company)',
-          enum: ['company', 'fuse', 'pulse'],
+          description: 'Repository key (default: company)',
+          enum: ['company'],
         },
       },
       async execute(params): Promise<ToolResult> {
         const resolved = resolveRepo(params.repo as string | undefined);
         if (!resolved) {
-          return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, or pulse.` };
+          return { success: false, error: `Unknown repo "${params.repo}". Use: company.` };
         }
         const { repoName } = resolved;
         const gh = getGitHubClient();
@@ -541,14 +541,14 @@ export function createAuditTools(): ToolDefinition[] {
       parameters: {
         repo: {
           type: 'string',
-          description: 'Repository key: "company", "fuse", or "pulse" (default: company)',
-          enum: ['company', 'fuse', 'pulse'],
+          description: 'Repository key (default: company)',
+          enum: ['company'],
         },
       },
       async execute(params): Promise<ToolResult> {
         const resolved = resolveRepo(params.repo as string | undefined);
         if (!resolved) {
-          return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, or pulse.` };
+          return { success: false, error: `Unknown repo "${params.repo}". Use: company.` };
         }
         const { repoName } = resolved;
         const gh = getGitHubClient();

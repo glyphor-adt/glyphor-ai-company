@@ -233,7 +233,7 @@ export function createCompetitiveIntelTools(): ToolDefinition[] {
           type: 'string',
           description: 'Which Glyphor internal engine to compare (these are internal capabilities, not external products).',
           required: true,
-          enum: ['pulse', 'fuse'],
+          enum: ['company'],
         },
       },
       async execute(params): Promise<ToolResult> {

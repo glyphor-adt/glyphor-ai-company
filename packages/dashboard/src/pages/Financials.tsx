@@ -6,6 +6,35 @@ import {
   SectionHeader,
   Skeleton,
 } from '../components/ui';
+import { SiGooglecloud, SiVercel, SiOpenai, SiAmazonwebservices, SiGithub, SiSlack, SiStripe, SiCloudflare, SiDigitalocean, SiAtlassian } from 'react-icons/si';
+import { VscAzure } from 'react-icons/vsc';
+import type { IconType } from 'react-icons';
+
+const PROVIDER_ICONS: Record<string, { icon: IconType; color: string }> = {
+  'google cloud': { icon: SiGooglecloud, color: '#4285F4' },
+  'google': { icon: SiGooglecloud, color: '#4285F4' },
+  'gcp': { icon: SiGooglecloud, color: '#4285F4' },
+  'microsoft': { icon: VscAzure, color: '#00A4EF' },
+  'azure': { icon: VscAzure, color: '#00A4EF' },
+  'vercel': { icon: SiVercel, color: '#ffffff' },
+  'openai': { icon: SiOpenai, color: '#10A37F' },
+  'aws': { icon: SiAmazonwebservices, color: '#FF9900' },
+  'github': { icon: SiGithub, color: '#ffffff' },
+  'slack': { icon: SiSlack, color: '#E01E5A' },
+  'stripe': { icon: SiStripe, color: '#635BFF' },
+  'cloudflare': { icon: SiCloudflare, color: '#F48120' },
+  'digitalocean': { icon: SiDigitalocean, color: '#0080FF' },
+  'atlassian': { icon: SiAtlassian, color: '#0052CC' },
+};
+
+function getProviderIcon(name: string): { icon: IconType; color: string } | null {
+  const lower = name.toLowerCase();
+  if (PROVIDER_ICONS[lower]) return PROVIDER_ICONS[lower];
+  for (const [key, val] of Object.entries(PROVIDER_ICONS)) {
+    if (lower.includes(key)) return val;
+  }
+  return null;
+}
 
 // ─── Sync Status Types & Hook ─────────────────────────────────────
 interface SyncStatus {
@@ -951,15 +980,27 @@ export default function Financials() {
           ) : (
             <div className="space-y-2">
               <p className="text-xs text-txt-faint">Total recurring vendor spend: <span className="font-mono text-txt-primary">${totalSubscriptions.toFixed(2)}/mo</span></p>
-              {subscriptions.slice(0, 7).map((sub) => (
+              {subscriptions.slice(0, 7).map((sub) => {
+                const providerMeta = getProviderIcon(sub.name);
+                return (
                 <div key={sub.name} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium text-txt-primary">{sub.name}</p>
-                    <p className="text-[11px] text-txt-faint">Last payment {formatDate(sub.lastPayment)} · {sub.count} payments</p>
+                  <div className="flex items-center gap-3">
+                    {providerMeta ? (
+                      <providerMeta.icon className="h-5 w-5 flex-shrink-0" style={{ color: providerMeta.color }} />
+                    ) : (
+                      <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-[10px] font-bold text-txt-muted">
+                        {sub.name[0]}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-txt-primary">{sub.name}</p>
+                      <p className="text-[11px] text-txt-faint">Last payment {formatDate(sub.lastPayment)} · {sub.count} payments</p>
+                    </div>
                   </div>
                   <p className="font-mono text-sm text-txt-secondary">${sub.monthly.toFixed(2)}</p>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>
