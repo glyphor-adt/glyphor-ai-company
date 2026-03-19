@@ -201,14 +201,14 @@ export function createEngineeringGapTools(): ToolDefinition[] {
                     COUNT(CASE WHEN details::jsonb->>'result' = 'pass' THEN 1 END) AS passed,
                     COUNT(CASE WHEN details::jsonb->>'result' = 'fail' THEN 1 END) AS failed
              FROM activity_log
-             WHERE event_type = 'test_run_triggered'
+             WHERE action = 'test_run_triggered'
                AND created_at >= NOW() - INTERVAL '${intervalDays} days'`,
           );
 
           const bugEvents = await systemQuery<{ bug_count: number }>(
             `SELECT COUNT(*) AS bug_count
              FROM activity_log
-             WHERE event_type IN ('bug_reported', 'bug_filed')
+             WHERE action IN ('bug_reported', 'bug_filed')
                AND created_at >= NOW() - INTERVAL '${intervalDays} days'`,
           );
 

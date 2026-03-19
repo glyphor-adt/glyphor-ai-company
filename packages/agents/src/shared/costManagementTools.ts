@@ -358,12 +358,13 @@ export function createCostManagementTools(): ToolDefinition[] {
 
         try {
           await systemQuery(
-            `INSERT INTO activity_log (event_type, category, details, created_at)
-             VALUES ($1, $2, $3, NOW())`,
+            `INSERT INTO activity_log (agent_role, action, summary, details, created_at)
+             VALUES ($1, $2, $3, $4, NOW())`,
             [
+              'cfo',
               'budget_created',
-              category,
-              JSON.stringify({ monthly_limit: monthlyLimit, alert_threshold_pct: alertPct }),
+              `Budget set: $${monthlyLimit}/month for "${category}" with alert at ${alertPct}%`,
+              JSON.stringify({ category, monthly_limit: monthlyLimit, alert_threshold_pct: alertPct }),
             ],
           );
 
@@ -403,7 +404,7 @@ export function createCostManagementTools(): ToolDefinition[] {
           const budgets = await systemQuery<{ details: string }>(
             `SELECT details
              FROM activity_log
-             WHERE event_type = 'budget_created' AND category = $1
+             WHERE action = 'budget_created' AND details::jsonb->>'category' = $1
              ORDER BY created_at DESC
              LIMIT 1`,
             [category],

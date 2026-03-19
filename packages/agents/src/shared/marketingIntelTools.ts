@@ -196,9 +196,9 @@ export function createMarketingIntelTools(): ToolDefinition[] {
             };
 
             await systemQuery(
-              `INSERT INTO activity_log (actor, action, details, created_at)
-               VALUES ('marketing-intel', 'competitor_monitored', $1, NOW())`,
-              [JSON.stringify(findings)],
+              `INSERT INTO activity_log (agent_role, action, summary, details, created_at)
+               VALUES ('marketing-intel', 'competitor_monitored', $1, $2, NOW())`,
+              [`Competitor monitored: ${domain}`, JSON.stringify(findings)],
             );
 
             monitoringSummary.push(findings);
@@ -422,10 +422,10 @@ export function createMarketingIntelTools(): ToolDefinition[] {
           };
 
           const rows = await systemQuery(
-            `INSERT INTO activity_log (actor, action, details, created_at)
-             VALUES ('marketing-intel', 'lead_captured', $1, NOW())
+            `INSERT INTO activity_log (agent_role, action, summary, details, created_at)
+             VALUES ('marketing-intel', 'lead_captured', $1, $2, NOW())
              RETURNING id`,
-            [JSON.stringify(details)],
+            [`Lead captured: ${contactName}`, JSON.stringify(details)],
           );
 
           return {

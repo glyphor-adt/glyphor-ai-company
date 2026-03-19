@@ -10,9 +10,10 @@ INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by) VALUES
 ON CONFLICT (agent_role, tool_name) DO NOTHING;
 
 -- Register create_git_branch in tool_registry
-INSERT INTO tool_registry (tool_name, description, category, status) VALUES
+INSERT INTO tool_registry (name, description, category, created_by, is_active) VALUES
   ('create_git_branch',
    'Create a new branch from main for frontend work. Supports feature/design-* and feature/frontend-* prefixes.',
    'code',
-   'active')
-ON CONFLICT (tool_name) DO UPDATE SET status = 'active', description = EXCLUDED.description;
+   'system',
+   true)
+ON CONFLICT (name) DO UPDATE SET is_active = true, description = EXCLUDED.description;

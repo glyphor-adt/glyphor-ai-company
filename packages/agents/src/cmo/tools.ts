@@ -8,6 +8,7 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { createAllPulseTools } from '../shared/pulseTools.js';
+import { createFacebookTools } from '../shared/facebookTools.js';
 
 export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -208,5 +209,8 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     // ── Pulse Creative Studio tools (MCP) ──
     ...createAllPulseTools(memory),
+
+    // ── Facebook / Meta Page tools ──
+    ...createFacebookTools(),
   ];
 }

@@ -1689,20 +1689,20 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           let paramIndex = 2;
 
           if (params.agent_role) {
-            conditions.push(`agent_role=$${paramIndex++}`);
+            conditions.push(`agent_id=$${paramIndex++}`);
             queryParams.push(params.agent_role as string);
           }
 
           queryParams.push(200);
-          const runs = await systemQuery<{ agent_role: string; model: string; tokens_used: number; cost_usd: number; status: string }>(
-            `SELECT agent_role, model, tokens_used, cost_usd, created_at, status FROM agent_runs WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${paramIndex}`,
+          const runs = await systemQuery<{ agent_id: string; model_used: string; tokens_used: number; cost_usd: number; status: string }>(
+            `SELECT agent_id, COALESCE(model_used, 'unknown') AS model_used, COALESCE(total_input_tokens, input_tokens, 0) + COALESCE(total_output_tokens, output_tokens, 0) AS tokens_used, COALESCE(total_cost_usd, cost, 0) AS cost_usd, created_at, status FROM agent_runs WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${paramIndex}`,
             queryParams,
           );
 
           // Aggregate by model
           const byModel: Record<string, { runs: number; tokens: number; cost: number }> = {};
           for (const run of runs) {
-            const model = run.model || 'unknown';
+            const model = run.model_used || 'unknown';
             if (!byModel[model]) byModel[model] = { runs: 0, tokens: 0, cost: 0 };
             byModel[model].runs++;
             byModel[model].tokens += run.tokens_used || 0;
@@ -1712,10 +1712,10 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           // Aggregate by agent
           const byAgent: Record<string, { runs: number; tokens: number; cost: number }> = {};
           for (const run of runs) {
-            if (!byAgent[run.agent_role]) byAgent[run.agent_role] = { runs: 0, tokens: 0, cost: 0 };
-            byAgent[run.agent_role].runs++;
-            byAgent[run.agent_role].tokens += run.tokens_used || 0;
-            byAgent[run.agent_role].cost += run.cost_usd || 0;
+            if (!byAgent[run.agent_id]) byAgent[run.agent_id] = { runs: 0, tokens: 0, cost: 0 };
+            byAgent[run.agent_id].runs++;
+            byAgent[run.agent_id].tokens += run.tokens_used || 0;
+            byAgent[run.agent_id].cost += run.cost_usd || 0;
           }
 
           const totalCost = runs.reduce((s, r) => s + (r.cost_usd || 0), 0);

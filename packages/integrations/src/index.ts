@@ -222,6 +222,23 @@ export {
   type VercelUsageSummary,
 } from './vercel/index.js';
 
+// Facebook / Meta Graph API — page publishing, insights, audience data
+export {
+  createPagePost,
+  schedulePagePost,
+  getPagePosts,
+  getPost as getFacebookPost,
+  deletePost as deleteFacebookPost,
+  getPageInsights,
+  getPostInsights,
+  getAudienceDemographics,
+  checkFacebookHealth,
+  type FacebookPost,
+  type FacebookPostResult,
+  type FacebookPageInsights,
+  type FacebookPostInsights,
+} from './facebook/index.js';
+
 // Pulse creative studio — MCP client for image/video generation, storyboards
 export {
   PulseClient,

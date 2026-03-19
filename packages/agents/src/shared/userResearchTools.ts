@@ -74,9 +74,9 @@ export function createUserResearchTools(): ToolDefinition[] {
           });
 
           const [row] = await systemQuery<{ id: string }>(
-            `INSERT INTO activity_log (type, details, created_at)
-             VALUES ('survey_created', $1::jsonb, NOW()) RETURNING id`,
-            [details],
+            `INSERT INTO activity_log (agent_role, action, summary, details, created_at)
+             VALUES ('user-researcher', 'survey_created', $1, $2::jsonb, NOW()) RETURNING id`,
+            [`Survey created: ${params.title}`, details],
           );
 
           return {
