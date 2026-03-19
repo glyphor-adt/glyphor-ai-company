@@ -480,17 +480,17 @@ export async function createGitHubPR(
     body,
   });
 
-  // Request Copilot as reviewer so the PR gets worked on
+  // Request Copilot coding agent as reviewer
   try {
     await gh.pulls.requestReviewers({
       owner: ORG,
       repo: repoName,
       pull_number: data.number,
-      reviewers: ['Copilot'],
+      reviewers: ['copilot-swe-agent[bot]'],
     });
-  } catch {
+  } catch (err) {
     // Best-effort — PR was still created successfully
-    console.warn(`[GitHub] Could not request Copilot review on PR #${data.number}`);
+    console.warn(`[GitHub] Could not request Copilot review on PR #${data.number}:`, (err as Error).message);
   }
 
   return { number: data.number, url: data.html_url };
@@ -629,17 +629,25 @@ export async function createIssueForCopilot(
     labels: [...(labels ?? []), 'copilot'],
   });
 
-  // Assign Copilot to actually work on the issue
+  // Assign Copilot coding agent via REST API with agent_assignment
+  // Per https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/create-a-pr#assigning-an-issue-to-copilot-via-the-github-api
   try {
-    await gh.issues.addAssignees({
+    await gh.request('POST /repos/{owner}/{repo}/issues/{issue_number}/assignees', {
       owner: ORG,
       repo: repoName,
       issue_number: data.number,
-      assignees: ['Copilot'],
+      assignees: ['copilot-swe-agent[bot]'],
+      agent_assignment: {
+        target_repo: `${ORG}/${repoName}`,
+        base_branch: 'main',
+        custom_instructions: '',
+        custom_agent: '',
+        model: '',
+      },
     });
-  } catch {
+  } catch (err) {
     // Best-effort — issue was still created successfully
-    console.warn(`[GitHub] Could not assign Copilot to issue #${data.number} — assign manually`);
+    console.warn(`[GitHub] Could not assign Copilot to issue #${data.number}:`, (err as Error).message);
   }
 
   return { number: data.number, url: data.html_url };

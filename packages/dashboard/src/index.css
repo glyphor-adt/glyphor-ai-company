@@ -137,10 +137,9 @@ body {
 .dark .mesh-gradient {
   background-color: #07090f;
   background-image: url('/gradient-dark.svg');
-  background-position: top center;
-  background-size: 100% auto;
+  background-position: center var(--gradient-offset, 0px);
+  background-size: 100% 4200px;
   background-repeat: no-repeat;
-  background-attachment: fixed;
 }
 
 .dark .dashboard-main {
@@ -678,6 +677,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .dashboard-sidebar.sidebar-glass {
+  background-color: rgba(17, 25, 40, 0.35) !important;
   border: 0 !important;
   border-right: 1px solid var(--sidebar-glass-border) !important;
 }

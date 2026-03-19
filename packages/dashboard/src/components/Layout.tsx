@@ -2,7 +2,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { Orbit } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
@@ -40,12 +40,32 @@ export default function Layout() {
   const FULL_BLEED_ROUTES = ['/comms', '/ora'];
   const isFullBleed = FULL_BLEED_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + '/'));
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
 
   // Close drawer on navigation
   useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
+  // Scroll-linked gradient offset for dark mode background
+  useEffect(() => {
+    const main = mainRef.current;
+    const shell = shellRef.current;
+    if (!main || !shell) return;
+    if (theme !== 'dark') { shell.style.removeProperty('--gradient-offset'); return; }
+    const update = () => {
+      const max = main.scrollHeight - main.clientHeight;
+      if (max <= 0) { shell.style.setProperty('--gradient-offset', '0px'); return; }
+      const ratio = Math.min(main.scrollTop / max, 1);
+      const shift = ratio * (4200 - window.innerHeight);
+      shell.style.setProperty('--gradient-offset', `${-shift}px`);
+    };
+    main.addEventListener('scroll', update, { passive: true });
+    update();
+    return () => main.removeEventListener('scroll', update);
+  }, [theme, location.pathname]);
+
   return (
-    <div className="dashboard-shell mesh-gradient flex h-screen overflow-x-hidden">
+    <div ref={shellRef} className="dashboard-shell mesh-gradient flex h-screen overflow-x-hidden">
       {/* ── Desktop Sidebar ─────────────────── */}
       <aside className={`dashboard-sidebar sidebar-glass hidden w-[220px] flex-col transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
         {/* Brand */}
@@ -178,7 +198,7 @@ export default function Layout() {
       )}
 
       {/* ── Main Content ────────────────────── */}
-      <main className={`dashboard-main flex-1 transition-colors duration-200 ${isFullBleed ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} pb-16 md:pb-0 safe-top`}>
+      <main ref={mainRef} className={`dashboard-main flex-1 transition-colors duration-200 ${isFullBleed ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} pb-16 md:pb-0 safe-top`}>
         <div className="dashboard-content">
           {isFullBleed ? (
             <div className="page-enter min-h-0 flex-1 px-4 py-4 md:px-8 md:py-8">
