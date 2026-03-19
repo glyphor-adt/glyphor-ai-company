@@ -1054,13 +1054,16 @@ const COMPLEXITY_LABELS: Record<string, string> = { trivial: 'Trivial', standard
 function SummaryCard({ label, value, loading, sub, color }: { label: string; value: string; loading: boolean; sub?: string; color?: string }) {
   if (loading) return <Skeleton className="h-[76px]" />;
   return (
-    <Card className="flex h-[76px] flex-col justify-between !p-3.5" style={color ? { borderTopColor: color, borderTopWidth: '2px' } : undefined}>
-      <p className="text-[10px] font-medium uppercase tracking-wider" style={color ? { color } : undefined}>{label}</p>
+    <div
+      className="flex h-[76px] flex-col justify-between rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-3.5 py-3"
+      style={color ? { borderTopColor: color, borderTopWidth: '2px' } : undefined}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={color ? { color } : undefined}>{label}</p>
       <div>
-        <p className="font-mono text-lg font-semibold leading-none text-txt-primary">{value}</p>
-        {sub && <p className="mt-1 line-clamp-1 text-[10px] text-txt-faint">{sub}</p>}
+        <p className="font-mono text-lg font-semibold leading-none dark:text-white text-txt-primary">{value}</p>
+        {sub && <p className="mt-1 line-clamp-1 text-[10px] dark:text-white/45 text-txt-muted">{sub}</p>}
       </div>
-    </Card>
+    </div>
   );
 }
 

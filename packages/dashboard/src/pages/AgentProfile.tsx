@@ -1325,10 +1325,10 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
           { label: 'Meetings', value: meetings.length, color: '#7DD3FC' },
           { label: 'Pending', value: received.filter((m) => m.status === 'pending').length, color: '#A855F7' },
         ].map((s) => (
-          <Card key={s.label} className="text-center py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
-            <p className="text-xl font-bold text-txt-primary">{s.value}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
-          </Card>
+          <div key={s.label} className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm text-center px-3 py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
+            <p className="text-xl font-bold dark:text-white text-txt-primary">{s.value}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: s.color }}>{s.label}</p>
+          </div>
         ))}
       </div>
 
@@ -1513,10 +1513,10 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
           { label: 'Success Rate', value: overallRate !== '—' ? `${overallRate}%` : '—', color: '#7DD3FC' },
           { label: 'Master-level', value: String(profCounts.master ?? 0), color: '#A855F7' },
         ].map((s) => (
-          <Card key={s.label} className="text-center py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
-            <p className="text-xl font-bold text-txt-primary">{s.value}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
-          </Card>
+          <div key={s.label} className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm text-center px-3 py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
+            <p className="text-xl font-bold dark:text-white text-txt-primary">{s.value}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: s.color }}>{s.label}</p>
+          </div>
         ))}
       </div>
 
