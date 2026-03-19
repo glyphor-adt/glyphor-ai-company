@@ -32,9 +32,9 @@ interface PlanVerification {
 }
 
 const VERDICT_CONFIG: Record<string, { label: string; dot: string; border: string; bg: string; text: string }> = {
-  APPROVE: { label: 'APPROVED', dot: 'bg-tier-green', border: 'border-tier-green/30', bg: 'bg-tier-green/15', text: 'text-tier-green' },
-  WARN:    { label: 'WARNING',  dot: 'bg-prism-elevated', border: 'border-prism-elevated/30', bg: 'bg-prism-elevated/15', text: 'text-prism-elevated' },
-  REVISE:  { label: 'REVISE',   dot: 'bg-prism-critical', border: 'border-prism-critical/30', bg: 'bg-prism-critical/15', text: 'text-prism-critical' },
+  APPROVE: { label: 'APPROVED', dot: 'bg-tier-green', border: '', bg: 'bg-gradient-to-r from-green-400 via-green-500 to-green-600', text: 'text-white' },
+  WARN:    { label: 'WARNING',  dot: 'bg-prism-elevated', border: '', bg: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600', text: 'text-white' },
+  REVISE:  { label: 'REVISE',   dot: 'bg-prism-critical', border: '', bg: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600', text: 'text-white' },
 };
 
 /* ── Types ─────────────────────────────────────── */
@@ -471,8 +471,11 @@ export default function Directives() {
                             }`} />
                             <span className="text-sm font-medium text-txt-primary">{init.title}</span>
                             <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
-                              PRIORITY_CONFIG[init.priority as Priority]?.bg ?? ''
-                            } ${PRIORITY_CONFIG[init.priority as Priority]?.text ?? 'text-txt-faint'}`}>
+                              init.priority === 'critical' ? 'bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white'
+                              : init.priority === 'high' ? 'bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 text-white'
+                              : init.priority === 'medium' ? 'bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white'
+                              : 'bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600 text-white'
+                            }`}>
                               {init.priority.toUpperCase()}
                             </span>
                             <span className="text-[10px] text-txt-faint uppercase">{init.status}</span>
@@ -659,27 +662,27 @@ function DirectiveCard({
           <div className="flex items-center gap-2 mb-1">
             <p className="text-sm font-semibold text-txt-primary truncate">{cleanText(d.title)}</p>
             {d.status === 'paused' && (
-              <span className="rounded-full border border-prism-elevated/30 bg-prism-elevated/15 px-1.5 py-0.5 text-[10px] font-medium text-prism-elevated">
+              <span className="rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
                 paused
               </span>
             )}
             {d.status === 'completed' && (
-              <span className="rounded-full border border-prism-fill-2/30 bg-prism-fill-2/15 px-1.5 py-0.5 text-[10px] font-medium text-prism-teal">
+              <span className="rounded-full bg-gradient-to-r from-green-400 via-green-500 to-green-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
                 completed
               </span>
             )}
             {d.delegated_to && (
-              <span className="rounded-full border border-purple-500/30 bg-purple-500/15 px-1.5 py-0.5 text-[10px] font-medium text-purple-400">
+              <span className="rounded-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 px-1.5 py-0.5 text-[10px] font-medium text-white">
                 Delegated to {DISPLAY_NAME_MAP[d.delegated_to] ?? d.delegated_to}
               </span>
             )}
             {!d.delegated_to && d.delegation_type === 'cross-domain' && (
-              <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+              <span className="rounded-full bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
                 Cross-domain
               </span>
             )}
             {!d.delegated_to && !d.delegation_type && d.status === 'active' && (
-              <span className="rounded-full border border-sky-500/30 bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium text-sky-400">
+              <span className="rounded-full bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
                 Self-orchestrated
               </span>
             )}
@@ -756,10 +759,10 @@ function DirectiveCard({
             const childrenOf = (parentId: string) => subTasks.filter(s => s.parent_assignment_id === parentId);
 
             const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
-              executive_outcome: { label: 'Exec Outcome', cls: 'bg-purple-500/15 text-purple-400' },
-              team_task: { label: 'Team Task', cls: 'bg-blue-500/15 text-blue-400' },
-              peer_request: { label: 'Peer Request', cls: 'bg-amber-500/15 text-amber-400' },
-              standard: { label: 'Standard', cls: 'bg-neutral-500/15 text-neutral-400' },
+              executive_outcome: { label: 'Exec Outcome', cls: 'bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white' },
+              team_task: { label: 'Team Task', cls: 'bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white' },
+              peer_request: { label: 'Peer Request', cls: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white' },
+              standard: { label: 'Standard', cls: 'bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600 text-white' },
             };
 
             const renderAssignment = (a: WorkAssignment, indent = false) => {
@@ -852,7 +855,7 @@ function DirectiveCard({
               {verification && (() => {
                 const vc = VERDICT_CONFIG[verification.verdict] ?? VERDICT_CONFIG.WARN;
                 return (
-                  <span className={`rounded-full border ${vc.border} ${vc.bg} px-1.5 py-0.5 text-[10px] font-medium ${vc.text}`}>
+                  <span className={`rounded-full ${vc.bg} px-1.5 py-0.5 text-[10px] font-medium ${vc.text}`}>
                     {vc.label}
                   </span>
                 );

@@ -48,13 +48,13 @@ export function AgentAvatar({
 /* ─── Tier Badge (green / yellow / red) ──── */
 export function TierBadge({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
-    green: 'bg-tier-green/15 text-tier-green border-tier-green/30',
-    yellow: 'bg-tier-yellow/15 text-tier-yellow border-tier-yellow/30',
-    red: 'bg-tier-red/15 text-tier-red border-tier-red/30',
+    green: 'bg-gradient-to-r from-green-400 via-green-500 to-green-600 text-white',
+    yellow: 'bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-gray-900',
+    red: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white',
   };
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
         colors[tier] ?? colors.green
       }`}
     >
@@ -66,14 +66,14 @@ export function TierBadge({ tier }: { tier: string }) {
 /* ─── Impact Badge ────────────────────────── */
 export function ImpactBadge({ impact }: { impact: string }) {
   const colors: Record<string, string> = {
-    low: 'bg-prism-moderate/15 text-prism-moderate border-prism-moderate/25',
-    medium: 'bg-prism-elevated/15 text-prism-elevated border-prism-elevated/25',
-    high: 'bg-prism-high/15 text-prism-high border-prism-high/25',
-    critical: 'bg-prism-critical/15 text-prism-critical border-prism-critical/25',
+    low: 'bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600 text-white',
+    medium: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white',
+    high: 'bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 text-white',
+    critical: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white',
   };
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider ${
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider ${
         colors[impact] ?? colors.low
       }`}
     >

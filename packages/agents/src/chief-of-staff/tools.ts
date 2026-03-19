@@ -1511,7 +1511,7 @@ export function createOrchestrationTools(
           type: 'string',
           description: 'Filter by directive status. Default: open (proposed, active, paused)',
           required: false,
-          enum: ['open', 'proposed', 'active', 'paused', 'completed', 'all'],
+          enum: ['open', 'proposed', 'active', 'paused', 'completed', 'rejected', 'all'],
         },
         created_by: {
           type: 'string',
@@ -2665,6 +2665,38 @@ export function createOrchestrationTools(
         const sourceDirectiveId = params.source_directive_id as string | undefined;
         const dueDate = params.due_date as string | undefined;
         const notify = (params.notify as string) || 'kristina';
+
+        // 0. De-duplication guard — block re-proposals of recently rejected directives
+        const recentRejected = await systemQuery(
+          `SELECT id, title, updated_at FROM founder_directives
+           WHERE status = 'rejected'
+             AND proposed_by = 'chief-of-staff'
+             AND updated_at > NOW() - INTERVAL '7 days'
+             AND LOWER(title) = LOWER($1)`,
+          [title],
+        );
+        if (recentRejected.length > 0) {
+          return {
+            success: false,
+            error: `Directive "${title}" was rejected ${recentRejected.length > 1 ? `${recentRejected.length} times` : 'recently'} (most recent: ${(recentRejected[0] as any).updated_at}). Do NOT re-propose the same directive. If genuinely new evidence exists, propose under a different title with the new evidence cited.`,
+          };
+        }
+
+        // 0b. Fuzzy guard — block proposals whose title is a substring of a recent rejection (or vice versa)
+        const fuzzyRejected = await systemQuery(
+          `SELECT id, title FROM founder_directives
+           WHERE status = 'rejected'
+             AND proposed_by = 'chief-of-staff'
+             AND updated_at > NOW() - INTERVAL '7 days'
+             AND (LOWER(title) LIKE '%' || LOWER($1) || '%' OR LOWER($1) LIKE '%' || LOWER(title) || '%')`,
+          [title],
+        );
+        if (fuzzyRejected.length > 0) {
+          return {
+            success: false,
+            error: `A similar directive "${(fuzzyRejected[0] as any).title}" was rejected in the last 7 days. Do NOT re-propose the same work under a different name. Note this in your working memory and move on.`,
+          };
+        }
 
         // 1. Insert the proposed directive
         // Pass targetAgents as a native JS array — node-postgres serialises string[] → TEXT[] automatically.

@@ -280,7 +280,7 @@ export {
   type PulseAsset,
 } from './pulse/index.js';
 
-// DocuSign eSignature — envelope creation, signing, status tracking
+// DocuSign eSignature — envelope creation, signing, status tracking, Connect webhooks
 export {
   DocuSignClient,
   type DocuSignConfig,
@@ -292,6 +292,11 @@ export {
   type EnvelopeStatus,
   type RecipientStatus,
   type EnvelopeSummary,
+  handleDocuSignWebhook,
+  verifyHmac as verifyDocuSignHmac,
+  processConnectEvent as processDocuSignConnectEvent,
+  type DocuSignConnectEvent,
+  type DocuSignWebhookResult,
 } from './docusign/index.js';
 
 // Canva Connect API — design creation, brand templates, autofill, export

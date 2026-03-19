@@ -75,9 +75,9 @@ const PRIORITY_ORDER: Record<ActionCenterItem['priority'], number> = {
 };
 
 const PRIORITY_BADGE: Record<ActionCenterItem['priority'], string> = {
-  critical: 'bg-prism-critical/15 text-prism-critical border-prism-critical/30',
-  high: 'bg-prism-elevated/15 text-prism-elevated border-prism-elevated/30',
-  medium: 'bg-cyan/15 text-cyan border-cyan/30',
+  critical: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white',
+  high: 'bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 text-white',
+  medium: 'bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600 text-white',
 };
 
 const QUICK_ACTIONS = [
@@ -388,7 +388,7 @@ export default function Dashboard() {
                   <div className="flex items-start gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${PRIORITY_BADGE[item.priority]}`}>
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${PRIORITY_BADGE[item.priority]}`}>
                           {item.priority}
                         </span>
                         <span className="text-[9px] uppercase tracking-[0.18em] text-txt-faint">{item.kind}</span>

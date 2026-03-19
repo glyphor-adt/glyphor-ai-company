@@ -92,6 +92,43 @@ export const WAKE_RULES: WakeRule[] = [
     cooldown_min: 30,
   },
 
+  // ── DOCUSIGN CONNECT WEBHOOKS ───────────────────────────────
+  {
+    event: 'docusign.envelope-completed',
+    wake: ['clo'],
+    task: 'envelope_completed',
+    priority: 'immediate',
+    cooldown_min: 1,
+  },
+  {
+    event: 'docusign.envelope-declined',
+    wake: ['clo', 'chief-of-staff'],
+    task: 'envelope_declined',
+    priority: 'immediate',
+    cooldown_min: 1,
+  },
+  {
+    event: 'docusign.envelope-voided',
+    wake: ['clo'],
+    task: 'envelope_voided',
+    priority: 'immediate',
+    cooldown_min: 1,
+  },
+  {
+    event: 'docusign.recipient-completed',
+    wake: ['clo'],
+    task: 'signer_completed',
+    priority: 'next_heartbeat',
+    cooldown_min: 5,
+  },
+  {
+    event: 'docusign.recipient-declined',
+    wake: ['clo', 'chief-of-staff'],
+    task: 'signer_declined',
+    priority: 'immediate',
+    cooldown_min: 1,
+  },
+
   // ── DECISIONS ───────────────────────────────────────────────
   {
     event: 'decision.resolved',

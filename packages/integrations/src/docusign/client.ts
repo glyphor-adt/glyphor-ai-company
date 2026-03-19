@@ -304,6 +304,8 @@ export class DocuSignClient {
 
   /**
    * List recent envelopes with optional status filter.
+   * Defaults from_date to 30 days ago (required by DocuSign API unless
+   * envelope_ids or transaction_ids are provided).
    */
   async listEnvelopes(options?: {
     fromDate?: string;
@@ -311,7 +313,10 @@ export class DocuSignClient {
     count?: number;
   }): Promise<EnvelopeSummary[]> {
     const params = new URLSearchParams();
-    if (options?.fromDate) params.set('from_date', options.fromDate);
+    const fromDate =
+      options?.fromDate ||
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    params.set('from_date', fromDate);
     if (options?.status) params.set('status', options.status);
     params.set('count', String(options?.count || 25));
 
@@ -388,6 +393,15 @@ export class DocuSignClient {
   }
 
   /**
+   * Send a draft envelope (transition from 'created' to 'sent').
+   */
+  async sendEnvelope(envelopeId: string): Promise<void> {
+    await this.apiRequest<void>('PUT', `/envelopes/${encodeURIComponent(envelopeId)}`, {
+      status: 'sent',
+    });
+  }
+
+  /**
    * Send a reminder notification for a pending envelope.
    */
   async resendEnvelope(envelopeId: string): Promise<void> {
@@ -396,5 +410,172 @@ export class DocuSignClient {
       `/envelopes/${encodeURIComponent(envelopeId)}?resend_envelope=true`,
       { status: 'sent' },
     );
+  }
+
+  /**
+   * Generate an embedded signing URL for a recipient.
+   * The recipient must already be on the envelope.
+   */
+  async createRecipientView(envelopeId: string, options: {
+    email: string;
+    name: string;
+    returnUrl: string;
+    clientUserId?: string;
+  }): Promise<{ url: string }> {
+    return this.apiRequest<{ url: string }>(
+      'POST',
+      `/envelopes/${encodeURIComponent(envelopeId)}/views/recipient`,
+      {
+        email: options.email,
+        userName: options.name,
+        returnUrl: options.returnUrl,
+        clientUserId: options.clientUserId || options.email,
+        authenticationMethod: 'none',
+      },
+    );
+  }
+
+  /**
+   * Get form field data that recipients have filled in on an envelope.
+   */
+  async getFormData(envelopeId: string): Promise<{
+    envelopeId: string;
+    formData: Array<{ name: string; value: string; originalValue?: string }>;
+    recipientFormData?: Array<{
+      email: string;
+      name: string;
+      formData: Array<{ name: string; value: string }>;
+    }>;
+  }> {
+    return this.apiRequest(
+      'GET',
+      `/envelopes/${encodeURIComponent(envelopeId)}/form_data`,
+    );
+  }
+
+  /**
+   * List documents attached to an envelope.
+   */
+  async listDocuments(envelopeId: string): Promise<{
+    envelopeId: string;
+    envelopeDocuments: Array<{
+      documentId: string;
+      name: string;
+      type: string;
+      uri: string;
+      order: string;
+      pages?: Array<{ pageId: string; sequence: string; height: string; width: string }>;
+    }>;
+  }> {
+    return this.apiRequest(
+      'GET',
+      `/envelopes/${encodeURIComponent(envelopeId)}/documents`,
+    );
+  }
+
+  /**
+   * Get the audit trail for an envelope (compliance / legal hold).
+   */
+  async getAuditEvents(envelopeId: string): Promise<{
+    auditEvents: Array<{
+      eventFields: Array<{ name: string; value: string }>;
+    }>;
+  }> {
+    return this.apiRequest(
+      'GET',
+      `/envelopes/${encodeURIComponent(envelopeId)}/audit_events`,
+    );
+  }
+
+  /**
+   * Add recipients to an existing envelope.
+   */
+  async addRecipients(envelopeId: string, options: {
+    signers?: Signer[];
+    ccRecipients?: { email: string; name: string; recipientId?: string }[];
+  }): Promise<{
+    signers?: RecipientStatus[];
+    carbonCopies?: RecipientStatus[];
+  }> {
+    const body: Record<string, unknown> = {};
+    if (options.signers?.length) {
+      body.signers = options.signers.map((s, i) => ({
+        email: s.email,
+        name: s.name,
+        recipientId: s.recipientId || String(100 + i),
+        routingOrder: s.routingOrder || String(100 + i),
+        tabs: s.tabs,
+      }));
+    }
+    if (options.ccRecipients?.length) {
+      body.carbonCopies = options.ccRecipients.map((cc, i) => ({
+        email: cc.email,
+        name: cc.name,
+        recipientId: cc.recipientId || String(200 + i),
+      }));
+    }
+    return this.apiRequest(
+      'POST',
+      `/envelopes/${encodeURIComponent(envelopeId)}/recipients`,
+      body,
+    );
+  }
+
+  // ── Connect (Webhook) Configuration ─────────────────────────────────────
+
+  /**
+   * Create a Connect webhook configuration (JSON SIM format).
+   * Requires account admin privileges.
+   */
+  async createConnectConfig(options: {
+    name: string;
+    urlToPublishTo: string;
+    envelopeEvents: string[];
+    recipientEvents?: string[];
+    allUsers?: boolean;
+  }): Promise<{ connectId: string; name: string }> {
+    return this.apiRequest<{ connectId: string; name: string }>(
+      'POST',
+      '/connect',
+      {
+        configurationType: 'custom',
+        name: options.name,
+        urlToPublishTo: options.urlToPublishTo,
+        allowEnvelopePublish: 'true',
+        enableLog: 'true',
+        allUsers: options.allUsers !== false ? 'true' : 'false',
+        eventData: {
+          format: 'json',
+          version: '2.1',
+          includeData: ['recipients'],
+        },
+        envelopeEvents: options.envelopeEvents,
+        recipientEvents: options.recipientEvents || [],
+      },
+    );
+  }
+
+  /**
+   * List existing Connect configurations for the account.
+   */
+  async listConnectConfigs(): Promise<{
+    configurations: Array<{
+      connectId: string;
+      name: string;
+      urlToPublishTo: string;
+      allowEnvelopePublish: string;
+      envelopeEvents: string[];
+      recipientEvents?: string[];
+    }>;
+    totalRecords: string;
+  }> {
+    return this.apiRequest('GET', '/connect');
+  }
+
+  /**
+   * Delete a Connect configuration by ID.
+   */
+  async deleteConnectConfig(connectId: string): Promise<void> {
+    await this.apiRequest<void>('DELETE', `/connect/${encodeURIComponent(connectId)}`);
   }
 }

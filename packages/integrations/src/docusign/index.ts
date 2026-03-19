@@ -13,3 +13,11 @@ export {
   type RecipientStatus,
   type EnvelopeSummary,
 } from './client.js';
+
+export {
+  handleDocuSignWebhook,
+  verifyHmac,
+  processConnectEvent,
+  type DocuSignConnectEvent,
+  type DocuSignWebhookResult,
+} from './connectWebhook.js';

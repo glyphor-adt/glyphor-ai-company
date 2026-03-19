@@ -6,12 +6,17 @@
  * and void envelopes via the DocuSign eSignature REST API.
  *
  * Tools:
- *   create_signing_envelope  — Prepare & send a document for e-signature
- *   send_template_envelope   — Send an envelope from a DocuSign template
- *   check_envelope_status    — Check signing progress on an envelope
- *   list_envelopes           — List recent envelopes with optional filters
- *   void_envelope            — Void/cancel a pending envelope
- *   resend_envelope          — Resend reminder for a pending envelope
+ *   create_signing_envelope   — Prepare & send document(s) for e-signature
+ *   send_template_envelope    — Send an envelope from a DocuSign template
+ *   check_envelope_status     — Check signing progress on an envelope
+ *   list_envelopes            — List recent envelopes with optional filters
+ *   void_envelope             — Void/cancel a pending envelope
+ *   resend_envelope           — Resend reminder for a pending envelope
+ *   send_draft_envelope       — Send a draft envelope (created → sent)
+ *   get_envelope_documents    — List documents attached to an envelope
+ *   get_envelope_form_data    — Get form field values from a signed envelope
+ *   get_envelope_audit_trail  — Get compliance audit trail for an envelope
+ *   add_envelope_recipients   — Add signers or CC recipients to a draft
  *
  * Required env vars (see packages/integrations/src/docusign/client.ts):
  *   DOCUSIGN_ACCOUNT_ID, DOCUSIGN_INTEGRATION_KEY,
@@ -41,11 +46,12 @@ export function createDocuSignTools(): ToolDefinition[] {
     {
       name: 'create_signing_envelope',
       description:
-        'Prepare and send a document for e-signature via DocuSign. ' +
+        'Prepare and send one or more documents for e-signature via DocuSign. ' +
         'Always YELLOW — requires founder approval before sending. ' +
-        'Provide the document content as base64, list signers with email/name, ' +
-        'and optionally add CC recipients. Set status to "created" to save as ' +
-        'draft without sending.',
+        'Provide documents as an array (or a single document via the legacy ' +
+        'document_base64/document_name/file_extension params). List signers ' +
+        'with email/name, and optionally add CC recipients. Set ' +
+        'send_immediately to false to save as draft without sending.',
       parameters: {
         email_subject: {
           type: 'string',
@@ -57,20 +63,34 @@ export function createDocuSignTools(): ToolDefinition[] {
           description: 'Brief message to include in the signing request email',
           required: false,
         },
+        documents: {
+          type: 'array',
+          description: 'Array of documents to include in the envelope. Use this for multi-doc envelopes.',
+          required: false,
+          items: {
+            type: 'object',
+            description: 'A document with base64 content, name, and extension',
+            properties: {
+              document_base64: { type: 'string', description: 'Base64-encoded document content' },
+              document_name: { type: 'string', description: 'Document filename (e.g., "NDA.pdf")' },
+              file_extension: { type: 'string', description: 'File extension without dot (e.g., "pdf")' },
+            },
+          },
+        },
         document_base64: {
           type: 'string',
-          description: 'Base64-encoded document content (PDF, DOCX, etc.)',
-          required: true,
+          description: 'Base64-encoded document content (single-doc shorthand; use "documents" array for multiple)',
+          required: false,
         },
         document_name: {
           type: 'string',
           description: 'Document filename (e.g., "NDA_Acme_Corp.pdf")',
-          required: true,
+          required: false,
         },
         file_extension: {
           type: 'string',
           description: 'File extension without dot (e.g., "pdf", "docx")',
-          required: true,
+          required: false,
         },
         signers: {
           type: 'array',
@@ -118,17 +138,33 @@ export function createDocuSignTools(): ToolDefinition[] {
             routing_order?: string;
           }>;
 
+          // Build documents array — support both multi-doc "documents" param and single-doc legacy params
+          const docsParam = params.documents as Array<{
+            document_base64: string;
+            document_name: string;
+            file_extension: string;
+          }> | undefined;
+
+          const documents = docsParam?.length
+            ? docsParam.map((d, i) => ({
+                documentBase64: d.document_base64,
+                name: d.document_name,
+                fileExtension: d.file_extension,
+                documentId: String(i + 1),
+              }))
+            : [
+                {
+                  documentBase64: params.document_base64 as string,
+                  name: params.document_name as string,
+                  fileExtension: params.file_extension as string,
+                  documentId: '1',
+                },
+              ];
+
           const result = await client.createEnvelope({
             emailSubject: params.email_subject as string,
             emailBlurb: (params.email_message as string) || undefined,
-            documents: [
-              {
-                documentBase64: params.document_base64 as string,
-                name: params.document_name as string,
-                fileExtension: params.file_extension as string,
-                documentId: '1',
-              },
-            ],
+            documents,
             signers: signers.map((s) => ({
               email: s.email,
               name: s.name,
@@ -145,10 +181,11 @@ export function createDocuSignTools(): ToolDefinition[] {
             data: {
               envelope_id: result.envelopeId,
               status: result.status,
+              document_count: documents.length,
               message:
                 result.status === 'sent'
-                  ? `Envelope sent to ${signers.map((s) => s.email).join(', ')}`
-                  : 'Envelope saved as draft — use send_template_envelope or the DocuSign console to send.',
+                  ? `Envelope sent to ${signers.map((s) => s.email).join(', ')} with ${documents.length} document(s)`
+                  : `Envelope saved as draft (${documents.length} document(s)). Use send_draft_envelope to send after founder approval.`,
             },
           };
         } catch (err) {
@@ -429,6 +466,245 @@ export function createDocuSignTools(): ToolDefinition[] {
           return {
             success: false,
             error: `Failed to resend envelope: ${err instanceof Error ? err.message : String(err)}`,
+          };
+        }
+      },
+    },
+
+    // ── send_draft_envelope ─────────────────────────────────────────────
+    {
+      name: 'send_draft_envelope',
+      description:
+        'Send a draft DocuSign envelope that was previously created with ' +
+        'send_immediately=false or via prepare_signing_envelope. This transitions ' +
+        'the envelope from "created" (draft) to "sent" status. ' +
+        'Always YELLOW — requires founder approval before sending.',
+      parameters: {
+        envelope_id: {
+          type: 'string',
+          description: 'DocuSign envelope ID of the draft to send',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        if (!client) return notConfigured;
+
+        try {
+          await client.sendEnvelope(params.envelope_id as string);
+          return {
+            success: true,
+            data: {
+              envelope_id: params.envelope_id,
+              status: 'sent',
+              message: 'Draft envelope has been sent to all recipients for signing.',
+            },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to send draft envelope: ${err instanceof Error ? err.message : String(err)}`,
+          };
+        }
+      },
+    },
+
+    // ── get_envelope_documents ───────────────────────────────────────────
+    {
+      name: 'get_envelope_documents',
+      description:
+        'List all documents attached to a DocuSign envelope. GREEN — safe to call anytime. ' +
+        'Returns document IDs, names, and page counts. Use the document ID with ' +
+        'download_document if you need the actual file content.',
+      parameters: {
+        envelope_id: {
+          type: 'string',
+          description: 'DocuSign envelope ID',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        if (!client) return notConfigured;
+
+        try {
+          const result = await client.listDocuments(params.envelope_id as string);
+          return {
+            success: true,
+            data: {
+              envelope_id: result.envelopeId,
+              document_count: result.envelopeDocuments.length,
+              documents: result.envelopeDocuments.map((d) => ({
+                document_id: d.documentId,
+                name: d.name,
+                type: d.type,
+                page_count: d.pages?.length || 0,
+              })),
+            },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to list documents: ${err instanceof Error ? err.message : String(err)}`,
+          };
+        }
+      },
+    },
+
+    // ── get_envelope_form_data ───────────────────────────────────────────
+    {
+      name: 'get_envelope_form_data',
+      description:
+        'Get form field data that recipients have filled in on a signed DocuSign envelope. ' +
+        'GREEN — safe to call anytime. Useful for extracting completed values like dates, ' +
+        'amounts, addresses, or any text fields after signing.',
+      parameters: {
+        envelope_id: {
+          type: 'string',
+          description: 'DocuSign envelope ID',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        if (!client) return notConfigured;
+
+        try {
+          const result = await client.getFormData(params.envelope_id as string);
+          return {
+            success: true,
+            data: {
+              envelope_id: result.envelopeId,
+              form_fields: result.formData,
+              recipient_data: result.recipientFormData?.map((r) => ({
+                name: r.name,
+                email: r.email,
+                fields: r.formData,
+              })),
+            },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to get form data: ${err instanceof Error ? err.message : String(err)}`,
+          };
+        }
+      },
+    },
+
+    // ── get_envelope_audit_trail ─────────────────────────────────────────
+    {
+      name: 'get_envelope_audit_trail',
+      description:
+        'Get the full audit trail for a DocuSign envelope — every action taken ' +
+        'from creation through completion. GREEN — safe to call anytime. ' +
+        'Essential for legal compliance, disputes, and regulatory filings.',
+      parameters: {
+        envelope_id: {
+          type: 'string',
+          description: 'DocuSign envelope ID',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        if (!client) return notConfigured;
+
+        try {
+          const result = await client.getAuditEvents(params.envelope_id as string);
+          const events = result.auditEvents.map((e) => {
+            const fields: Record<string, string> = {};
+            for (const f of e.eventFields) {
+              fields[f.name] = f.value;
+            }
+            return fields;
+          });
+          return {
+            success: true,
+            data: {
+              envelope_id: params.envelope_id,
+              event_count: events.length,
+              events,
+            },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to get audit trail: ${err instanceof Error ? err.message : String(err)}`,
+          };
+        }
+      },
+    },
+
+    // ── add_envelope_recipients ──────────────────────────────────────────
+    {
+      name: 'add_envelope_recipients',
+      description:
+        'Add signers or CC recipients to an existing draft envelope. ' +
+        'YELLOW — modifies an envelope. Use when you need to add a party after ' +
+        'creating a draft (e.g., adding a co-signer or CC\'ing legal counsel). ' +
+        'Cannot add recipients to already-completed envelopes.',
+      parameters: {
+        envelope_id: {
+          type: 'string',
+          description: 'DocuSign envelope ID',
+          required: true,
+        },
+        signers: {
+          type: 'array',
+          description: 'Additional signers to add',
+          required: false,
+          items: {
+            type: 'object',
+            description: 'A signer with email and name',
+            properties: {
+              email: { type: 'string', description: 'Signer email address' },
+              name: { type: 'string', description: 'Signer full name' },
+            },
+          },
+        },
+        cc_recipients: {
+          type: 'array',
+          description: 'Additional CC recipients to add',
+          required: false,
+          items: {
+            type: 'object',
+            description: 'CC recipient with email and name',
+            properties: {
+              email: { type: 'string', description: 'Recipient email' },
+              name: { type: 'string', description: 'Recipient name' },
+            },
+          },
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        if (!client) return notConfigured;
+
+        try {
+          const signers = params.signers as Array<{ email: string; name: string }> | undefined;
+          const ccRecipients = params.cc_recipients as Array<{ email: string; name: string }> | undefined;
+
+          if (!signers?.length && !ccRecipients?.length) {
+            return { success: false, error: 'Provide at least one signer or CC recipient to add.' };
+          }
+
+          const result = await client.addRecipients(params.envelope_id as string, {
+            signers: signers?.map((s) => ({ email: s.email, name: s.name })),
+            ccRecipients,
+          });
+
+          const added: string[] = [];
+          if (signers?.length) added.push(`${signers.length} signer(s)`);
+          if (ccRecipients?.length) added.push(`${ccRecipients.length} CC recipient(s)`);
+
+          return {
+            success: true,
+            data: {
+              envelope_id: params.envelope_id,
+              added: added.join(' and '),
+              message: `Added ${added.join(' and ')} to envelope.`,
+            },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to add recipients: ${err instanceof Error ? err.message : String(err)}`,
           };
         }
       },

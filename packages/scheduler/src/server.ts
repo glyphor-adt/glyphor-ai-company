@@ -13,7 +13,7 @@ import type { AuthConfiguration, Request as AgentHostingRequest } from '@microso
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache, getRedisCache, WorkflowOrchestrator } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { systemQuery } from '@glyphor/shared/db';
 import { EventRouter } from './eventRouter.js';
@@ -1616,6 +1616,45 @@ const server = createServer(async (req, res) => {
           });
         }
       } catch { /* wake is best-effort */ }
+
+      json(res, result.status, result.body);
+      return;
+    }
+
+    // DocuSign Connect webhook endpoint
+    if (method === 'POST' && url === '/webhook/docusign') {
+      const rawBody = await readBody(req);
+      const result = handleDocuSignWebhook(rawBody, req.headers as Record<string, string | string[] | undefined>);
+
+      // Reactive wake: notify CLO and relevant agents of DocuSign events
+      if (result.status === 200 && 'event' in result.body) {
+        try {
+          const body = result.body as import('@glyphor/integrations').DocuSignWebhookResult;
+          await wakeRouter.processEvent({
+            type: `docusign.${body.event}`,
+            data: {
+              envelope_id: body.envelopeId,
+              envelope_status: body.envelopeStatus,
+              email_subject: body.emailSubject,
+              summary: body.summary,
+              signers: body.signers,
+            },
+            source: 'docusign',
+          });
+
+          // Log to activity_log
+          await systemQuery(
+            `INSERT INTO activity_log (agent_role, action, summary, details, created_at)
+             VALUES ($1, $2, $3, $4, NOW())`,
+            [
+              'clo',
+              `docusign.${body.event}`,
+              body.summary,
+              JSON.stringify({ envelope_id: body.envelopeId, signers: body.signers }),
+            ],
+          );
+        } catch { /* wake + logging is best-effort */ }
+      }
 
       json(res, result.status, result.body);
       return;

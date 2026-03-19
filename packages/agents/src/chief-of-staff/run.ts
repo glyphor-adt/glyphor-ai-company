@@ -140,6 +140,21 @@ async function gatherDirectiveLifecycleContext(): Promise<string> {
         sections.push(`Decision: "${dec.title}" (id: ${dec.id})\n   Tier: ${dec.tier} | Waiting: ${waitHours} hours\n   Assigned to: ${assignedTo}\n   Summary: ${(dec.summary || '').substring(0, 200)}\n`);
       }
     }
+
+    // D. Recently rejected directives — DO NOT re-propose these
+    const rejectedDirectives = await systemQuery(
+      `SELECT id, title, updated_at FROM founder_directives
+       WHERE status = 'rejected' AND proposed_by = 'chief-of-staff'
+         AND updated_at > NOW() - INTERVAL '7 days'
+       ORDER BY updated_at DESC`,
+    );
+    if (rejectedDirectives.length > 0) {
+      sections.push(`## REJECTED DIRECTIVES — Do NOT re-propose\n\nThese directives were rejected by founders in the last 7 days. Do NOT propose the same work again under any title variation. Note them in your working memory and move on.\n`);
+      for (const d of rejectedDirectives as any[]) {
+        sections.push(`  - "${d.title}" (rejected ${d.updated_at})`);
+      }
+      sections.push('');
+    }
   } catch (e) {
     console.warn('[CoS] Failed to gather directive lifecycle context:', (e as Error).message);
     sections.push('(Could not load directive lifecycle context — proceed with standard orchestration.)');

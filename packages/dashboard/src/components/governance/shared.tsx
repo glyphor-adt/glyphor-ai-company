@@ -176,13 +176,13 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
 };
 
 const SEVERITY_STYLES: Record<Severity, string> = {
-  critical: 'border-prism-critical/30 bg-prism-critical/10 text-prism-critical',
-  high: 'border-prism-high/30 bg-prism-high/10 text-prism-high',
-  medium: 'border-prism-elevated/30 bg-prism-elevated/10 text-prism-elevated',
-  low: 'border-prism-sky/30 bg-prism-sky/10 text-prism-sky',
-  info: 'border-border bg-prism-card text-txt-secondary',
-  warning: 'border-prism-elevated/30 bg-prism-elevated/10 text-prism-elevated',
-  good: 'border-prism-teal/30 bg-prism-teal/10 text-prism-teal',
+  critical: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white',
+  high: 'bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 text-white',
+  medium: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white',
+  low: 'bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white',
+  info: 'bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600 text-white',
+  warning: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white',
+  good: 'bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600 text-white',
 };
 
 export function getAgentsByDepartment(): { dept: string; roles: string[] }[] {
@@ -303,7 +303,7 @@ export function getPlatformLabel(platform: string | null | undefined): string {
 
 export function SeverityBadge({ severity }: { severity: Severity }) {
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] ${SEVERITY_STYLES[severity]}`}>
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] ${SEVERITY_STYLES[severity]}`}>
       {severity}
     </span>
   );

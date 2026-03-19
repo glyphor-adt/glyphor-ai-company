@@ -39,7 +39,7 @@ export default function Layout() {
   const FULL_BLEED_ROUTES = ['/comms', '/ora'];
   const isFullBleed = FULL_BLEED_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + '/'));
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const shellRef = useRef<HTMLDivElement>(null);
+  const bgRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
 
   // Close drawer on navigation
@@ -48,15 +48,15 @@ export default function Layout() {
   // Scroll-linked gradient offset for dark mode background
   useEffect(() => {
     const main = mainRef.current;
-    const shell = shellRef.current;
-    if (!main || !shell) return;
-    if (theme !== 'dark') { shell.style.removeProperty('--gradient-offset'); return; }
+    const bg = bgRef.current;
+    if (!main || !bg) return;
+    if (theme !== 'dark') { bg.style.removeProperty('--gradient-offset'); return; }
     const update = () => {
       const max = main.scrollHeight - main.clientHeight;
-      if (max <= 0) { shell.style.setProperty('--gradient-offset', '0px'); return; }
+      if (max <= 0) { bg.style.setProperty('--gradient-offset', '0px'); return; }
       const ratio = Math.min(main.scrollTop / max, 1);
       const shift = ratio * (4200 - window.innerHeight);
-      shell.style.setProperty('--gradient-offset', `${-shift}px`);
+      bg.style.setProperty('--gradient-offset', `${-shift}px`);
     };
     main.addEventListener('scroll', update, { passive: true });
     update();
@@ -64,7 +64,9 @@ export default function Layout() {
   }, [theme, location.pathname]);
 
   return (
-    <div ref={shellRef} className="dashboard-shell mesh-gradient flex h-screen overflow-x-hidden">
+    <>
+    <div ref={bgRef} className="mesh-gradient-bg" />
+    <div className="dashboard-shell flex h-screen overflow-x-hidden">
       {/* ── Desktop Sidebar ─────────────────── */}
       <aside className={`dashboard-sidebar sidebar-glass hidden w-[220px] flex-col transition-colors duration-200 md:flex ${theme === 'dark' ? 'dashboard-sidebar--dark' : 'dashboard-sidebar--light'}`}>
         {/* Brand */}
@@ -237,6 +239,7 @@ export default function Layout() {
         </button>
       </nav>
     </div>
+    </>
   );
 }
 
