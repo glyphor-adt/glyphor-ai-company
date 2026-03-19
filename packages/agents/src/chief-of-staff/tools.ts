@@ -632,16 +632,22 @@ export function createChiefOfStaffTools(
           actionMode: graphClient && decisionsChannel ? 'execute' : 'openUrl',
         });
 
-        if (graphClient && decisionsChannel) {
-          await graphClient.sendCard(
-            { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
-            card.attachments[0].content as unknown as AdaptiveCard,
-          );
-        } else {
-          const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;
-          if (webhookUrl) {
-            await sendTeamsWebhook(webhookUrl, card);
+        let teamsNotifyError: string | null = null;
+        try {
+          if (graphClient && decisionsChannel) {
+            await graphClient.sendCard(
+              { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
+              card.attachments[0].content as unknown as AdaptiveCard,
+            );
+          } else {
+            const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;
+            if (webhookUrl) {
+              await sendTeamsWebhook(webhookUrl, card);
+            }
           }
+        } catch (notifyErr) {
+          teamsNotifyError = notifyErr instanceof Error ? notifyErr.message : String(notifyErr);
+          console.error(`[ChiefOfStaff] Teams notification failed for initiative ${initiative.id}:`, teamsNotifyError);
         }
 
         if (sourceProposalId) {
@@ -677,6 +683,7 @@ export function createChiefOfStaffTools(
             initiative_id: initiative.id,
             decision_id: decisionId,
             status: 'proposed',
+            ...(teamsNotifyError ? { teams_notification_error: teamsNotifyError } : {}),
           },
           memoryKeysWritten: 1,
         };
@@ -1215,26 +1222,9 @@ export function createChiefOfStaffTools(
 
         // Send to Teams #Decisions channel via Graph API
         const decisionsChannel = channels.decisions;
-        if (graphClient && decisionsChannel) {
-          const { formatDecisionCard } = await import('@glyphor/integrations');
-          const card = formatDecisionCard({
-            id,
-            tier: params.tier as string,
-            title: params.title as string,
-            summary: params.summary as string,
-            proposedBy: ctx.agentRole,
-            reasoning: params.reasoning as string,
-            assignedTo: params.assigned_to as string[],
-            actionMode: 'execute',
-          });
-          await graphClient.sendCard(
-            { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
-            card.attachments[0].content as unknown as AdaptiveCard,
-          );
-        } else {
-          // Fallback to webhook
-          const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;
-          if (webhookUrl) {
+        let teamsError: string | null = null;
+        try {
+          if (graphClient && decisionsChannel) {
             const { formatDecisionCard } = await import('@glyphor/integrations');
             const card = formatDecisionCard({
               id,
@@ -1244,13 +1234,43 @@ export function createChiefOfStaffTools(
               proposedBy: ctx.agentRole,
               reasoning: params.reasoning as string,
               assignedTo: params.assigned_to as string[],
-              actionMode: 'openUrl',
+              actionMode: 'execute',
             });
-            await sendTeamsWebhook(webhookUrl, card);
+            await graphClient.sendCard(
+              { teamId: decisionsChannel.teamId, channelId: decisionsChannel.channelId },
+              card.attachments[0].content as unknown as AdaptiveCard,
+            );
+          } else {
+            // Fallback to webhook
+            const webhookUrl = process.env.TEAMS_WEBHOOK_DECISIONS;
+            if (webhookUrl) {
+              const { formatDecisionCard } = await import('@glyphor/integrations');
+              const card = formatDecisionCard({
+                id,
+                tier: params.tier as string,
+                title: params.title as string,
+                summary: params.summary as string,
+                proposedBy: ctx.agentRole,
+                reasoning: params.reasoning as string,
+                assignedTo: params.assigned_to as string[],
+                actionMode: 'openUrl',
+              });
+              await sendTeamsWebhook(webhookUrl, card);
+            }
           }
+        } catch (notifyErr) {
+          teamsError = notifyErr instanceof Error ? notifyErr.message : String(notifyErr);
+          console.error(`[ChiefOfStaff] Teams notification failed for decision ${id}:`, teamsError);
         }
 
-        return { success: true, data: { decisionId: id }, memoryKeysWritten: 1 };
+        return {
+          success: true,
+          data: {
+            decisionId: id,
+            ...(teamsError ? { teams_notification_error: teamsError } : {}),
+          },
+          memoryKeysWritten: 1,
+        };
       },
     },
 

@@ -61,10 +61,10 @@
   --scrollbar-thumb: rgba(255, 255, 255, 0.12);
   --scrollbar-hover: rgba(255, 255, 255, 0.2);
   --glass-filter: blur(24px) saturate(200%);
-  --glass-bg: rgba(18, 24, 42, 0.34);
-  --sidebar-glass-bg: rgba(17, 25, 40, 0.75);
-  --sidebar-glass-border: rgba(255, 255, 255, 0.125);
-  --sidebar-glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(0, 0, 0, 0.18);
+  --sidebar-glass-bg: rgba(0, 0, 0, 0.12);
+  --sidebar-glass-border: rgba(255, 255, 255, 0.08);
+  --sidebar-glass-highlight: rgba(255, 255, 255, 0.04);
   /* Accent colors – bright shades from Prism */
   --cyan: var(--prism-accent-1);
   --azure: var(--prism-accent-3);
@@ -679,7 +679,16 @@ input:focus, textarea:focus, select:focus {
   opacity: 1;
 }
 
-.dark .glass-surface,
+/* ─── Dark glass surfaces ─────────────────────── */
+.dark .glass-surface {
+  background-color: var(--color-surface) !important;
+  backdrop-filter: var(--glass-filter) !important;
+  -webkit-backdrop-filter: var(--glass-filter) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: none !important;
+}
+
+/* Sidebar-hosted panels & nested glass */
 .dark .sidebar-glass,
 .dark .glass-card.glass-panel,
 .dark .glass-raised.glass-panel,
@@ -697,27 +706,26 @@ input:focus, textarea:focus, select:focus {
   backdrop-filter: var(--glass-filter) !important;
   -webkit-backdrop-filter: var(--glass-filter) !important;
   border: 1px solid var(--sidebar-glass-border) !important;
-  box-shadow: inset 0 1px 0 var(--sidebar-glass-highlight) !important;
+  box-shadow: none !important;
 }
 
 .dark .dashboard-sidebar.sidebar-glass {
-  background: rgba(17, 25, 40, 0.28) !important;
+  background: rgba(0, 0, 0, 0.15) !important;
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
   border: 0 !important;
-  border-right: 1px solid var(--sidebar-glass-border) !important;
-  border-top-color: var(--color-border-highlight, rgba(255,255,255,0.28));
+  border-right: none !important;
 }
 
 .dark .dashboard-home .dashboard-home-primary.sidebar-glass {
-  background-color: rgba(17, 25, 40, 0.56) !important;
-  border-color: rgba(255, 255, 255, 0.115) !important;
+  background-color: rgba(0, 0, 0, 0.22) !important;
+  border-color: var(--color-border) !important;
 }
 
 .dark .dashboard-home .dashboard-home-nested.sidebar-glass {
-  background-color: rgba(17, 25, 40, 0.34) !important;
+  background-color: rgba(0, 0, 0, 0.14) !important;
   border-color: rgba(255, 255, 255, 0.10) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
 }
 
 .dashboard-home-surface-content {
@@ -726,13 +734,13 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .bg-raised {
-  background-color: rgba(17, 25, 40, 0.62) !important;
+  background-color: rgba(0, 0, 0, 0.30) !important;
   backdrop-filter: var(--glass-filter) !important;
   -webkit-backdrop-filter: var(--glass-filter) !important;
 }
 
 .dark .bg-surface {
-  background-color: rgba(17, 25, 40, 0.72) !important;
+  background-color: rgba(0, 0, 0, 0.22) !important;
   backdrop-filter: var(--glass-filter) !important;
   -webkit-backdrop-filter: var(--glass-filter) !important;
 }
