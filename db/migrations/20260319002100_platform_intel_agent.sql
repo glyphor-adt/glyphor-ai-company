@@ -1,12 +1,11 @@
 -- Register Nexus (Platform Intelligence) as a first-class agent
-INSERT INTO agents (
-  id, name, title, department, model, status, created_at
+INSERT INTO company_agents (
+  role, display_name, model, status, config, created_at
 ) VALUES (
   'platform-intel',
   'Nexus',
-  'Platform Intelligence',
-  'Operations',
   'claude-opus-4-6',
   'active',
+  '{"department": "Operations", "title": "Platform Intelligence"}'::jsonb,
   NOW()
-) ON CONFLICT (id) DO NOTHING;
+) ON CONFLICT (role) DO NOTHING;
