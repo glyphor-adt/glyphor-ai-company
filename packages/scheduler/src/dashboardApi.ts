@@ -689,14 +689,12 @@ export async function handleDashboardApi(
       // never poison the main skill sync transaction state.
       try {
         await systemQuery(
-          `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at)
-           VALUES ($1, $2, $3, $4, $5)`,
+          `INSERT INTO activity_log (agent_role, action, summary)
+           VALUES ($1, $2, $3)`,
           [
-            'dashboard',
             'dashboard',
             'skills.sync_from_file',
             `Synced skill ${parsed.slug} from ${body.fileName ?? 'uploaded markdown'} (holders +${syncResult.holders.inserted}/-${syncResult.holders.deleted}, mappings +${syncResult.task_mappings.inserted}/-${syncResult.task_mappings.deleted})`,
-            new Date().toISOString(),
           ],
         );
       } catch (err) {

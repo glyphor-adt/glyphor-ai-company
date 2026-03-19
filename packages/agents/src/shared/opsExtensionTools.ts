@@ -508,13 +508,13 @@ export function createOpsExtensionTools(): ToolDefinition[] {
 
         try {
           await systemQuery(
-            `INSERT INTO activity_log (event_type, agent_role, category, details, created_at)
-             VALUES ($1, $2, $3, $4, NOW())`,
+            `INSERT INTO activity_log (agent_role, action, summary, details)
+             VALUES ($1, $2, $3, $4::jsonb)`,
             [
-              'access_provisioned',
               agentRole,
-              platform,
-              JSON.stringify({ permissions, justification }),
+              'access_provisioned',
+              `Provisioned ${platform} access for ${agentRole}`,
+              JSON.stringify({ permissions, justification, platform }),
             ],
           );
 
@@ -564,13 +564,13 @@ export function createOpsExtensionTools(): ToolDefinition[] {
 
         try {
           await systemQuery(
-            `INSERT INTO activity_log (event_type, agent_role, category, details, created_at)
-             VALUES ($1, $2, $3, $4, NOW())`,
+            `INSERT INTO activity_log (agent_role, action, summary, details)
+             VALUES ($1, $2, $3, $4::jsonb)`,
             [
-              'access_revoked',
               agentRole,
-              platform,
-              JSON.stringify({ reason }),
+              'access_revoked',
+              `Revoked ${platform} access for ${agentRole}`,
+              JSON.stringify({ reason, platform }),
             ],
           );
 
@@ -696,13 +696,13 @@ export function createOpsExtensionTools(): ToolDefinition[] {
           );
 
           await systemQuery(
-            `INSERT INTO activity_log (event_type, agent_role, category, details, created_at)
-             VALUES ($1, $2, $3, $4, NOW())`,
+            `INSERT INTO activity_log (agent_role, action, summary, details)
+             VALUES ($1, $2, $3, $4::jsonb)`,
             [
-              'secret_rotation',
               'global-admin',
-              platform,
-              JSON.stringify({ secret_name: secretName, triggered_at: new Date().toISOString() }),
+              'secret_rotation',
+              `Secret rotation triggered for ${platform}/${secretName}`,
+              JSON.stringify({ secret_name: secretName, triggered_at: new Date().toISOString(), platform }),
             ],
           );
 

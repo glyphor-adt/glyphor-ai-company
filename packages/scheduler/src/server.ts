@@ -1139,13 +1139,11 @@ async function runAutoFailurePipeline(
 
   try {
     await systemQuery(
-      'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
+      'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)',
       [
         'ops',
-        String(runId ?? agentRole),
         'agent.auto_investigate',
         `Auto-investigate: ${agentRole} failed task=${task} run_id=${runId ?? 'unknown'} error=${truncateForLog(errorMessage, 420)} retry=${shouldRetry}`,
-        new Date().toISOString(),
       ],
     );
   } catch (err) {
@@ -2414,7 +2412,7 @@ const server = createServer(async (req, res) => {
       }
 
       // Log creation
-      await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)', ['system', 'system', 'agent.created', `New agent created: ${name} (${agentId})`, new Date().toISOString()]);
+      await systemQuery('INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)', ['system', 'agent.created', `New agent created: ${name} (${agentId})`]);
 
       // Emit agent.spawned event to wake HR for onboarding
       try {
@@ -2510,7 +2508,7 @@ const server = createServer(async (req, res) => {
         );
       }
 
-      await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)', ['system', 'system', 'agent.settings_updated', `Settings updated for ${targetAgent.role}: ${Object.keys(agentUpdates).join(', ')}`, new Date().toISOString()]);
+      await systemQuery('INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)', ['system', 'agent.settings_updated', `Settings updated for ${targetAgent.role}: ${Object.keys(agentUpdates).join(', ')}`]);
 
       // Invalidate cached config for this agent
       const cache = getRedisCache();
@@ -2651,7 +2649,7 @@ const server = createServer(async (req, res) => {
           console.warn(`[server] Entra cleanup failed for ${agentEmail}:`, entraErr);
         }
 
-        await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)', ['system', 'system', 'agent.deleted', `Agent hard-deleted: ${agentRow?.display_name ?? agentId} (${agentRole})`, new Date().toISOString()]);
+        await systemQuery('INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)', ['system', 'agent.deleted', `Agent hard-deleted: ${agentRow?.display_name ?? agentId} (${agentRole})`]);
         json(res, 200, { success: true, deleted: true });
       } else {
         // Soft-delete (retire)

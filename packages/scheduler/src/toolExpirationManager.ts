@@ -207,8 +207,8 @@ async function expireTool(tool: ToolReputationRow, reason: string): Promise<void
 async function logActivity(action: string, detail: string): Promise<void> {
   try {
     await systemQuery(
-      'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
-      ['system', 'system', action, detail, new Date().toISOString()],
+      'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)',
+      ['system', action, detail],
     );
   } catch (err) {
     console.warn(`${LOG_PREFIX} Activity log failed:`, (err as Error).message);

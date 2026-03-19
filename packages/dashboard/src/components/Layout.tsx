@@ -19,7 +19,6 @@ const NAV = [
   { to: '/builder', label: 'Builder', icon: BuilderIcon },
   { to: '/governance', label: 'Governance', icon: GovernanceIcon },
   { to: '/change-requests', label: 'Change Requests', icon: ChangeRequestIcon },
-  { to: '/models', label: 'Models', icon: ModelsIcon },
   { to: '/fleet', label: 'Fleet', icon: FleetIcon },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ] as const;
@@ -74,7 +73,7 @@ export default function Layout() {
         </div>
 
         {/* Nav links */}
-        <nav className="relative z-10 flex-1 space-y-0.5 overflow-y-auto px-3">
+        <nav className="relative z-10 flex-1 space-y-0.5 overflow-y-auto scrollbar-hide px-3">
           {NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -147,7 +146,7 @@ export default function Layout() {
               </button>
             </div>
             {/* Full nav */}
-            <nav className="relative z-10 flex-1 space-y-0.5 overflow-y-auto px-3">
+            <nav className="relative z-10 flex-1 space-y-0.5 overflow-y-auto scrollbar-hide px-3">
               {NAV.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}

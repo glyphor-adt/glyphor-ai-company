@@ -496,8 +496,8 @@ export function createTeamOrchestrationTools(
 
             // Log acceptance
             await systemQuery(
-              'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
-              [ctx.agentRole, ctx.agentRole, 'team.output_accepted', `Accepted: ${title} (score: ${qualityScore ?? 8})`, now],
+              'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)',
+              [ctx.agentRole, 'team.output_accepted', `Accepted: ${title} (score: ${qualityScore ?? 8})`],
             );
 
             // Check if all sibling tasks under the same parent are done
@@ -669,7 +669,7 @@ export function createTeamOrchestrationTools(
           }
 
           await systemQuery(
-            'INSERT INTO activity_log (agent_role, activity_type, description) VALUES ($1, $2, $3)',
+            'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
             [ctx.agentRole, 'founder_notification', `[${urgency}] ${params.subject as string}`],
           );
 

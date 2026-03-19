@@ -276,8 +276,8 @@ function roundEvalCost(value: number): number {
 async function logActivity(detail: string): Promise<void> {
   try {
     await systemQuery(
-      'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
-      ['system', 'system', 'agent_eval.completed', detail, new Date().toISOString()],
+      'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)',
+      ['system', 'agent_eval.completed', detail],
     );
   } catch (err) {
     console.warn(`${LOG_PREFIX} Failed to log activity:`, (err as Error).message);

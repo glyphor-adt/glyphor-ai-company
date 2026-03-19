@@ -200,8 +200,8 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         // Log the trigger request — the scheduler server will
         // handle the actual execution via the /run endpoint
         await systemQuery(
-          'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
-          ['ops', 'ops', 'agent.triggered', `Atlas triggered ${params.agent_role}: ${params.reason}`, new Date().toISOString()],
+          'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+          ['ops', 'agent.triggered', `Atlas triggered ${params.agent_role}: ${params.reason}`],
         );
 
         return {
@@ -234,8 +234,8 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
         // Log retry attempt
         await systemQuery(
-          'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
-          ['ops', 'ops', 'run.retried', `Atlas retrying run ${params.run_id} for agent ${run.agent_id}`, new Date().toISOString()],
+          'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+          ['ops', 'run.retried', `Atlas retrying run ${params.run_id} for agent ${run.agent_id}`],
         );
 
         return {
@@ -260,8 +260,8 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         const syncType = params.sync_type as string;
 
         await systemQuery(
-          'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
-          ['ops', 'ops', 'sync.retried', `Atlas retrying ${syncType} data sync`, new Date().toISOString()],
+          'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+          ['ops', 'sync.retried', `Atlas retrying ${syncType} data sync`],
         );
 
         return {
@@ -369,8 +369,8 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         );
 
         await systemQuery(
-          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
-          ['ops', 'incident.created', `[${params.severity}] ${params.title}`, new Date().toISOString()],
+          'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+          ['ops', 'incident.created', `[${params.severity}] ${params.title}`],
         );
 
         return { success: true, data: { incident_id: rows[0].id, severity: params.severity, title: params.title } };
@@ -392,8 +392,8 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         );
 
         await systemQuery(
-          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
-          ['ops', 'incident.resolved', `Resolved: ${params.resolution}`, new Date().toISOString()],
+          'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+          ['ops', 'incident.resolved', `Resolved: ${params.resolution}`],
         );
 
         return { success: true, data: { incident_id: params.incident_id, resolved: true } };
@@ -432,8 +432,8 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         );
 
         await systemQuery(
-          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
-          ['ops', 'system.status', `[${(params.status as string).toUpperCase()}] ${params.summary}`, new Date().toISOString()],
+          'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+          ['ops', 'system.status', `[${(params.status as string).toUpperCase()}] ${params.summary}`],
         );
 
         return {
@@ -799,8 +799,8 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         await a365Client.postChatMessage(chatId, messageText, 'ops');
 
         await systemQuery(
-          'INSERT INTO activity_log (agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4)',
-          ['ops', 'dm.sent', `Atlas DM to ${recipient}: ${(params.message as string).slice(0, 100)}`, new Date().toISOString()],
+          'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+          ['ops', 'dm.sent', `Atlas DM to ${recipient}: ${(params.message as string).slice(0, 100)}`],
         );
 
         return { success: true, data: { sent: true, recipient } };

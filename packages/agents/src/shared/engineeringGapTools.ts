@@ -48,14 +48,14 @@ export function createEngineeringGapTools(): ToolDefinition[] {
 
         try {
           const [row] = await systemQuery<{ id: string }>(
-            `INSERT INTO activity_log (event_type, agent_role, category, details, created_at)
-             VALUES ($1, $2, $3, $4, NOW())
+            `INSERT INTO activity_log (agent_role, action, summary, details)
+             VALUES ($1, $2, $3, $4::jsonb)
              RETURNING id`,
             [
-              'test_run_triggered',
               'quality-engineer',
-              'testing',
-              JSON.stringify({ suite, package: pkg }),
+              'test_run_triggered',
+              `Test run: ${suite}${pkg ? ` (${pkg})` : ''}`,
+              JSON.stringify({ suite, package: pkg, category: 'testing' }),
             ],
           );
 
@@ -287,14 +287,14 @@ export function createEngineeringGapTools(): ToolDefinition[] {
 
         try {
           const [row] = await systemQuery<{ id: string }>(
-            `INSERT INTO activity_log (event_type, agent_role, category, details, created_at)
-             VALUES ($1, $2, $3, $4, NOW())
+            `INSERT INTO activity_log (agent_role, action, summary, details)
+             VALUES ($1, $2, $3, $4::jsonb)
              RETURNING id`,
             [
-              'test_plan',
               'quality-engineer',
-              'testing',
-              JSON.stringify({ feature, test_types: testTypes.split(',').map((t) => t.trim()), priority }),
+              'test_plan',
+              `Test plan: ${feature} (${testTypes})`,
+              JSON.stringify({ feature, test_types: testTypes.split(',').map((t) => t.trim()), priority, category: 'testing' }),
             ],
           );
 
@@ -431,14 +431,14 @@ export function createEngineeringGapTools(): ToolDefinition[] {
 
         try {
           const [row] = await systemQuery<{ id: string }>(
-            `INSERT INTO activity_log (event_type, agent_role, category, details, created_at)
-             VALUES ($1, $2, $3, $4, NOW())
+            `INSERT INTO activity_log (agent_role, action, summary, details)
+             VALUES ($1, $2, $3, $4::jsonb)
              RETURNING id`,
             [
-              'scale_request',
               'devops-engineer',
-              'infrastructure',
-              JSON.stringify({ service, min_instances: minInstances, max_instances: maxInstances }),
+              'scale_request',
+              `Scale ${service}: ${minInstances}-${maxInstances} instances`,
+              JSON.stringify({ service, min_instances: minInstances, max_instances: maxInstances, category: 'infrastructure' }),
             ],
           );
 

@@ -396,9 +396,9 @@ export const tools: ToolDefinition[] = [
       const plan = { agent_role: agentRole, department, mentor, milestones, created_at: now };
 
       await pool.query(
-        `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [agentRole, agentRole, 'onboarding_plan', JSON.stringify(plan), now],
+        `INSERT INTO activity_log (agent_role, action, summary)
+         VALUES ($1, $2, $3)`,
+        [agentRole, 'onboarding_plan', JSON.stringify(plan)],
       );
 
       return plan;
@@ -437,9 +437,9 @@ export const tools: ToolDefinition[] = [
       const survey = { survey_id: surveyId, title, questions: parsedQuestions, created_at: now };
 
       await pool.query(
-        `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at)
-         VALUES ($1, $2, $3, $4, $5)`,
-        ['hr', 'hr', 'engagement_survey', JSON.stringify(survey), now],
+        `INSERT INTO activity_log (agent_role, action, summary)
+         VALUES ($1, $2, $3)`,
+        ['hr', 'engagement_survey', JSON.stringify(survey)],
       );
 
       return { survey_id: surveyId, title, question_count: parsedQuestions.length };

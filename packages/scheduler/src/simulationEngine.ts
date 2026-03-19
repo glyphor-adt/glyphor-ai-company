@@ -180,8 +180,8 @@ export class SimulationEngine {
     );
 
     await systemQuery(
-      'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
-      ['system', 'system', 'simulation.accepted', `Simulation ${id} accepted by ${acceptedBy}`, new Date().toISOString()],
+      'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)',
+      ['system', 'simulation.accepted', `Simulation ${id} accepted by ${acceptedBy}`],
     );
   }
 
@@ -277,8 +277,8 @@ export class SimulationEngine {
     await this.persistPredictions(id, report);
 
     await systemQuery(
-      'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
-      ['system', 'system', 'simulation.completed', `Simulation completed: "${req.action.slice(0, 100)}" — score: ${report.overallScore}`, new Date().toISOString()],
+      'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)',
+      ['system', 'simulation.completed', `Simulation completed: "${req.action.slice(0, 100)}" — score: ${report.overallScore}`],
     );
   }
 

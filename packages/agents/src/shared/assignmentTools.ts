@@ -268,9 +268,9 @@ export function createAssignmentTools(
 
           // Log to activity_log
           await systemQuery(
-            'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
-            [ctx.agentRole, ctx.agentRole, status === 'completed' ? 'assignment.completed' : 'assignment.progress',
-             `${status === 'completed' ? 'Completed' : 'Updated'} assignment: ${title}`, now],
+            'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+            [ctx.agentRole, status === 'completed' ? 'assignment.completed' : 'assignment.progress',
+             `${status === 'completed' ? 'Completed' : 'Updated'} assignment: ${title}`],
           );
 
           return {
@@ -376,8 +376,8 @@ export function createAssignmentTools(
 
           // Log to activity_log
           await systemQuery(
-            'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
-            [ctx.agentRole, ctx.agentRole, 'assignment.blocked', `Blocked on assignment: ${title} — ${blockerReason}`, now],
+            'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+            [ctx.agentRole, 'assignment.blocked', `Blocked on assignment: ${title} — ${blockerReason}`],
           );
 
           return {

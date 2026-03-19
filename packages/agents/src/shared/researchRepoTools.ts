@@ -356,10 +356,10 @@ export function createResearchRepoTools(): ToolDefinition[] {
           };
 
           const rows = await systemQuery<{ id: string }>(
-            `INSERT INTO activity_log (type, data, created_at)
-             VALUES ('research_brief', $1::jsonb, NOW())
+            `INSERT INTO activity_log (agent_role, action, summary, details)
+             VALUES ($1, 'research_brief', $2, $3::jsonb)
              RETURNING id`,
-            [JSON.stringify(briefData)],
+            [assignedTo, `Research brief: ${topic}`, JSON.stringify(briefData)],
           );
 
           return {

@@ -94,8 +94,8 @@ export async function createTemporaryAgent(
 
   // Log the creation
   await systemQuery(
-    'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
-    [opts.spawnedBy, opts.spawnedBy, 'agent.spawned', `Spawned temporary agent "${opts.name}" (${agentId}) for: ${opts.spawnedFor}`, new Date().toISOString()],
+    'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)',
+    [opts.spawnedBy, 'agent.spawned', `Spawned temporary agent "${opts.name}" (${agentId}) for: ${opts.spawnedFor}`],
   );
 
   // Emit agent.spawned event to wake HR for onboarding
@@ -143,8 +143,8 @@ export async function retireTemporaryAgent(
   );
 
   await systemQuery(
-    'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
-    ['system', 'system', 'agent.retired', `Retired temporary agent ${agentId}: ${reason}`, now],
+    'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)',
+    ['system', 'agent.retired', `Retired temporary agent ${agentId}: ${reason}`],
   );
 }
 

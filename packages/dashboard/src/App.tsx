@@ -19,7 +19,6 @@ import Skills from './pages/Skills';
 import Comms from './pages/Comms';
 import Settings from './pages/Settings';
 import ChangeRequests from './pages/ChangeRequests';
-import ModelAdmin from './pages/ModelAdmin';
 import OraChat from './pages/OraChat';
 import Fleet from './pages/Fleet';
 
@@ -48,7 +47,7 @@ export default function App() {
         <Route path="policy" element={<Navigate to="/governance" replace />} />
         <Route path="ora" element={<OraChat />} />
         <Route path="change-requests" element={<ChangeRequests />} />
-        <Route path="models" element={<ModelAdmin />} />
+        <Route path="models" element={<Navigate to="/governance?tab=models" replace />} />
         <Route path="fleet" element={<Fleet />} />
         <Route path="settings" element={<Settings />} />
         {/* Legacy redirects */}

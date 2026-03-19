@@ -90,38 +90,36 @@ export async function runCPO(params: CPORunParams = {}) {
       initialMessage = `Perform the weekly product usage analysis for the week ending ${today}.
 
 Steps:
-1. Use get_product_metrics for both Fuse and Pulse
-2. Use get_financials for the last 14 days (compare this week to last)
-3. Use get_recent_activity for the past 168 hours (7 days)
-4. Analyze user engagement trends, feature adoption, and growth patterns
-5. Identify key insights: What's growing? What's declining? What needs attention?
-6. Use write_product_analysis with type "usage" to archive your report
-7. Use log_activity to record this analysis
-8. If you find critical product issues (engagement drops >15%), use create_decision
+1. Use get_financials for the last 14 days (compare this week to last)
+2. Use get_recent_activity for the past 168 hours (7 days)
+3. Analyze development progress, launch readiness, and operational patterns
+4. Identify key insights: What progressed? What's blocked? What needs attention?
+5. Use write_product_analysis with type "usage" to archive your report
+6. Use log_activity to record this analysis
+7. If you find critical issues, use create_decision
 
-IMPORTANT: If get_product_metrics returns null or empty metrics, that means the data is not yet populated — NOT that there is a crisis. Report "no product data available yet" and skip analysis for that product. Do NOT fabricate incidents, outages, or emergency scenarios from missing data.`;
+IMPORTANT: Glyphor is pre-revenue, pre-launch. The only external product is the AI Marketing Department. Do NOT reference Fuse or Pulse — those are internal engine names. If product data is unavailable, report "no product data available yet" and focus on development/operational progress.`;
       break;
 
     case 'competitive_scan':
       initialMessage = `Perform a competitive landscape scan.
 
-Analyze the competitive position of Fuse and Pulse against known competitors:
-- Fuse: Lovable, Bolt, Cursor, v0, Replit Agent
-- Pulse: Canva AI, Adobe Firefly, Jasper
+Analyze the competitive position of the AI Marketing Department against known competitors in the AI agency/marketing automation space.
 
 Steps:
 1. Use read_company_memory for any prior competitive analyses
-2. Use get_product_metrics to understand our current position
-3. Write a competitive analysis report
-4. Log the activity`;
+2. Write a competitive analysis report
+3. Log the activity
+
+IMPORTANT: Do NOT reference Fuse or Pulse — those are internal engine names, not products.`;
       break;
 
     case 'on_demand':
-      initialMessage = params.message || 'Provide a product strategy summary for both Fuse and Pulse.';
+      initialMessage = params.message || 'Provide a product strategy summary for the AI Marketing Department.';
       break;
 
     default:
-      initialMessage = params.message || 'Provide a product strategy summary for both Fuse and Pulse.';
+      initialMessage = params.message || 'Provide a product strategy summary for the AI Marketing Department.';
   }
   const agentCfg = await loadAgentConfig('cpo', { temperature: 0.4, maxTurns: 10 }, task);
 

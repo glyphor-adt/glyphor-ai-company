@@ -291,7 +291,7 @@ export function createExecutiveOrchestrationTools(
                 if (result.verdict === 'REVISE') {
                   const feedback = result.suggestions?.join('; ') || 'Plan needs revision';
                   await systemQuery(
-                    'INSERT INTO activity_log (agent_role, activity_type, description) VALUES ($1, $2, $3)',
+                    'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
                     [agentRole, 'plan_verification', `REVISE: ${feedback}`],
                   );
 
@@ -313,7 +313,7 @@ export function createExecutiveOrchestrationTools(
                 );
                 if (result.verdict === 'WARN' && result.suggestions?.length) {
                   await systemQuery(
-                    'INSERT INTO activity_log (agent_role, activity_type, description) VALUES ($1, $2, $3)',
+                    'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
                     [agentRole, 'plan_verification', `WARN: ${result.suggestions.join('; ')}`],
                   );
                 }
@@ -359,9 +359,9 @@ export function createExecutiveOrchestrationTools(
           // Log activity
           const now = new Date().toISOString();
           await systemQuery(
-            'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
-            [agentRole, agentRole, 'executive.assignments_created',
-             `Created ${createdIds.length} assignments for directive ${directiveId}`, now],
+            'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+            [agentRole, 'executive.assignments_created',
+             `Created ${createdIds.length} assignments for directive ${directiveId}`],
           );
 
           const finalData = await systemQuery(
@@ -475,9 +475,9 @@ export function createExecutiveOrchestrationTools(
             }
 
             await systemQuery(
-              'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
-              [agentRole, agentRole, 'executive.output_accepted',
-               `Accepted: ${title} (score: ${qualityScore}/5)`, now],
+              'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+              [agentRole, 'executive.output_accepted',
+               `Accepted: ${title} (score: ${qualityScore}/5)`],
             );
           } else {
             // Revise
@@ -531,9 +531,9 @@ export function createExecutiveOrchestrationTools(
             }
 
             await systemQuery(
-              'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1,$2,$3,$4,$5)',
-              [agentRole, agentRole, 'executive.output_revised',
-               `Revision requested: ${title} (score: ${qualityScore}/5)`, now],
+              'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+              [agentRole, 'executive.output_revised',
+               `Revision requested: ${title} (score: ${qualityScore}/5)`],
             );
           }
 
@@ -836,9 +836,9 @@ export function createExecutiveOrchestrationTools(
 
           // Log activity
           await systemQuery(
-            'INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at) VALUES ($1, $2, $3, $4, $5)',
-            [agentRole, agentRole, 'executive.deliverable_synthesized',
-             `Synthesized ${completedAssignments.length} outputs for directive ${directiveId} into deliverable ${deliverableId}`, now],
+            'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+            [agentRole, 'executive.deliverable_synthesized',
+             `Synthesized ${completedAssignments.length} outputs for directive ${directiveId} into deliverable ${deliverableId}`],
           );
 
           return {

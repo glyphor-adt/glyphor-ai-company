@@ -398,8 +398,8 @@ export const tools: ToolDefinition[] = [
       const notificationTargets = params.notification_targets as string | undefined;
 
       const { rows } = await pool.query(
-        `INSERT INTO activity_log (type, description, metadata)
-         VALUES ('compliance_alert', $1, $2::jsonb)
+        `INSERT INTO activity_log (agent_role, action, summary, details)
+         VALUES ('clo', 'compliance_alert', $1, $2::jsonb)
          RETURNING id, created_at::text as created_at`,
         [
           triggerDescription,
@@ -443,8 +443,8 @@ export const tools: ToolDefinition[] = [
       const deadline = params.deadline as string | undefined;
 
       const { rows } = await pool.query(
-        `INSERT INTO activity_log (type, description, metadata)
-         VALUES ('contract_review', $1, $2::jsonb)
+        `INSERT INTO activity_log (agent_role, action, summary, details)
+         VALUES ('clo', 'contract_review', $1, $2::jsonb)
          RETURNING id, created_at::text as created_at`,
         [
           `Contract review: ${contractType} with ${counterparty}`,
@@ -490,8 +490,8 @@ export const tools: ToolDefinition[] = [
       const severity = (params.severity as string) || 'medium';
 
       const { rows } = await pool.query(
-        `INSERT INTO activity_log (type, description, metadata)
-         VALUES ('contract_issue', $1, $2::jsonb)
+        `INSERT INTO activity_log (agent_role, action, summary, details)
+         VALUES ('clo', 'contract_issue', $1, $2::jsonb)
          RETURNING id, created_at::text as created_at`,
         [
           description,

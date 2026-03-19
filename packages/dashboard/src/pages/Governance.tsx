@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Card, PageTabs, SectionHeader, Skeleton } from '../components/ui';
 import AccessControl from '../components/governance/AccessControl';
 import ToolView from '../components/governance/ToolView';
+import ModelAdmin from './ModelAdmin';
 import {
   ADMIN_EMAILS,
   AccessPostureResponse,
@@ -413,9 +414,24 @@ async function apiCallWithTimeout<T = unknown>(path: string, options: RequestIni
   }
 }
 
+const VALID_TABS: GovernanceSurface[] = ['tool-view', 'access-control', 'models'];
+
 export default function Governance() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<GovernanceSurface>('tool-view');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') as GovernanceSurface | null;
+  const [activeTab, setActiveTab] = useState<GovernanceSurface>(
+    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'tool-view'
+  );
+
+  const handleTabChange = useCallback((tab: GovernanceSurface) => {
+    setActiveTab(tab);
+    if (tab === 'tool-view') {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ tab }, { replace: true });
+    }
+  }, [setSearchParams]);
   const [data, setData] = useState<GovernanceData>(INITIAL_DATA);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -558,9 +574,10 @@ export default function Governance() {
         tabs={[
           { key: 'tool-view', label: 'Tool View' },
           { key: 'access-control', label: 'Access Control' },
+          { key: 'models', label: 'Models' },
         ]}
         active={activeTab}
-        onChange={setActiveTab}
+        onChange={handleTabChange}
       />
 
       {activeTab === 'tool-view' && (
@@ -569,7 +586,7 @@ export default function Governance() {
             loading={false}
             toolReputation={data.toolReputation}
             grants={data.grants}
-            onOpenSurface={setActiveTab}
+            onOpenSurface={handleTabChange}
           />
         </div>
       )}
@@ -592,6 +609,12 @@ export default function Governance() {
             onRevoke={handleRevoke}
             onResolveApproval={handleResolveApproval}
           />
+        </div>
+      )}
+
+      {activeTab === 'models' && (
+        <div id="models">
+          <ModelAdmin />
         </div>
       )}
     </div>

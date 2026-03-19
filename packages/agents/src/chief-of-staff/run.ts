@@ -203,16 +203,16 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
 Steps:
 1. Use get_recent_activity to see what happened in the last 24 hours
 2. Use get_pending_decisions to check for items needing approval
-3. Use get_product_metrics for both Fuse and Pulse
-4. Use get_financials for the last 7 days
-5. Synthesize everything into a concise morning briefing
-6. Use send_briefing to deliver it to ${recipient} via Teams
+3. Use get_financials for the last 7 days
+4. Synthesize everything into a concise morning briefing
+5. Use send_briefing to deliver it to ${recipient} via Teams
 
 Remember:
 - Kristina cares about: product/market, growth, competitive landscape, enterprise opportunities
 - Andrew cares about: financials, costs, margins, infrastructure, risk
 - Lead with the most important item
-- Include action items if any decisions need their attention`;
+- Include action items if any decisions need their attention
+- The only external product is the AI Marketing Department. Do NOT reference Fuse, Pulse, or internal engine names in the briefing.`;
       break;
     }
 

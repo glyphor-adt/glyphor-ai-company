@@ -1910,7 +1910,7 @@ export function createOrchestrationTools(
               // Leave as 'draft' — inject feedback for re-decomposition
               const feedback = result.suggestions?.join('; ') || 'Plan needs revision';
               await systemQuery(
-                "INSERT INTO activity_log (agent_role, activity_type, description) VALUES ($1, $2, $3)",
+                "INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)",
                 ['chief-of-staff', 'plan_verification', `REVISE: ${feedback}`],
               );
             } else {
@@ -1921,7 +1921,7 @@ export function createOrchestrationTools(
               );
               if (result.verdict === 'WARN' && result.suggestions?.length) {
                 await systemQuery(
-                  "INSERT INTO activity_log (agent_role, activity_type, description) VALUES ($1, $2, $3)",
+                  "INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)",
                   ['chief-of-staff', 'plan_verification', `WARN: ${result.suggestions.join('; ')}`],
                 );
               }
@@ -2722,8 +2722,8 @@ export function createOrchestrationTools(
         }
 
         // 3. Log to activity_log
-        await systemQuery('INSERT INTO activity_log (agent_role, agent_id, action, detail) VALUES ($1, $2, $3, $4)',
-          [ctx.agentRole, ctx.agentRole, 'directive_proposed', `Proposed directive: ${title} (${directiveId})`]);
+        await systemQuery('INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+          [ctx.agentRole, 'directive_proposed', `Proposed directive: ${title} (${directiveId})`]);
 
         // 4. Return result
         return {
@@ -2864,8 +2864,8 @@ export function createOrchestrationTools(
 
           // 7. Log activity
           await systemQuery(
-            'INSERT INTO activity_log (agent_role, agent_id, action, detail) VALUES ($1, $2, $3, $4)',
-            [ctx.agentRole, ctx.agentRole, 'directive_delegated', `Delegated "${original.title}" to ${delegatedTo} (sub: ${subDirectiveId}, type: ${delegationType})`],
+            'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+            [ctx.agentRole, 'directive_delegated', `Delegated "${original.title}" to ${delegatedTo} (sub: ${subDirectiveId}, type: ${delegationType})`],
           );
 
           return {

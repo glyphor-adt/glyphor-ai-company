@@ -288,14 +288,12 @@ export async function createClientSdkAgent(
     }
 
     await db.query(
-      `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at, tenant_id)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO activity_log (agent_role, action, summary, tenant_id)
+       VALUES ($1, $2, $3, $4)`,
       [
         request.reportsTo,
-        role,
         'agent.created',
         `Client SDK agent created by ${client.name}: ${request.name.trim()} (${role})`,
-        now,
         client.tenantId,
       ],
     );
@@ -342,9 +340,9 @@ export async function retireClientSdkAgent(
     );
 
     await db.query(
-      `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at, tenant_id)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      ['chief-of-staff', role, 'agent.retired', `Client SDK retirement by ${client.name}: ${reason}`, new Date().toISOString(), client.tenantId],
+      `INSERT INTO activity_log (agent_role, action, summary, tenant_id)
+       VALUES ($1, $2, $3, $4)`,
+      ['chief-of-staff', 'agent.retired', `Client SDK retirement by ${client.name}: ${reason}`, client.tenantId],
     );
   });
 

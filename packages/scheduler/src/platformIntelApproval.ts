@@ -61,7 +61,7 @@ async function executeApprovedAction(action: PlatformIntelAction): Promise<void>
     case 'pause_gtm_agent':
       if (!action.target_agent_id) throw new Error('Missing target_agent_id');
       await systemQuery(
-        `UPDATE agents SET status = 'paused', updated_at = NOW() WHERE id = $1`,
+        `UPDATE company_agents SET status = 'paused', updated_at = NOW() WHERE role = $1`,
         [action.target_agent_id],
       );
       break;
@@ -69,34 +69,46 @@ async function executeApprovedAction(action: PlatformIntelAction): Promise<void>
     case 'update_agent_dependencies':
       if (!action.target_agent_id) throw new Error('Missing target_agent_id');
       await systemQuery(
-        `UPDATE agents SET dependencies = $1, updated_at = NOW() WHERE id = $2`,
+        `UPDATE company_agents SET dependencies = $1, updated_at = NOW() WHERE role = $2`,
         [JSON.stringify(payload.new_dependencies), action.target_agent_id],
       );
       break;
 
     case 'modify_tool_access': {
-      const targetId = action.target_agent_id;
-      if (!targetId) throw new Error('Missing target_agent_id');
+      const targetRole = action.target_agent_id;
+      if (!targetRole) throw new Error('Missing target_agent_id');
       const toolsToAdd = Array.isArray(payload.tools_to_add) ? payload.tools_to_add : [];
       const toolsToRemove = Array.isArray(payload.tools_to_remove) ? payload.tools_to_remove : [];
       for (const tool of toolsToAdd) {
         await systemQuery(
-          `INSERT INTO agent_tool_grants (agent_id, tool_name, granted_by)
+          `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by)
            VALUES ($1, $2, 'platform-intel') ON CONFLICT DO NOTHING`,
-          [targetId, tool],
+          [targetRole, tool],
         );
       }
       for (const tool of toolsToRemove) {
         await systemQuery(
-          `DELETE FROM agent_tool_grants WHERE agent_id = $1 AND tool_name = $2`,
-          [targetId, tool],
+          `DELETE FROM agent_tool_grants WHERE agent_role = $1 AND tool_name = $2`,
+          [targetRole, tool],
         );
       }
       break;
     }
 
     default:
-      throw new Error(`Unknown action type: ${action.action_type}`);
+      // Log the unknown action type rather than crashing
+      console.error(`[PlatformIntelApproval] Unknown action type: ${action.action_type}`);
+      await systemQuery(
+        `INSERT INTO activity_log (agent_role, action, summary, details)
+         VALUES ($1, $2, $3, $4::jsonb)`,
+        [
+          'system',
+          'approval_execution_skipped',
+          `Unknown approval action type: ${action.action_type}`,
+          JSON.stringify({ action_id: action.id, action_type: action.action_type, payload }),
+        ],
+      );
+      break;
   }
 }
 
