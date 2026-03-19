@@ -147,14 +147,14 @@ function InterAgentFeed() {
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Messages (24h)', value: stats.total24h },
-          { label: 'Urgent', value: stats.urgent, accent: stats.urgent > 0 },
-          { label: 'Unread', value: stats.pending, accent: stats.pending > 0 },
-          { label: 'Active Pairs', value: stats.pairs },
+          { label: 'Messages (24h)', value: stats.total24h, color: '#00E0FF' },
+          { label: 'Urgent', value: stats.urgent, accent: stats.urgent > 0, color: '#A855F7' },
+          { label: 'Unread', value: stats.pending, accent: stats.pending > 0, color: '#C084FC' },
+          { label: 'Active Pairs', value: stats.pairs, color: '#7DD3FC' },
         ].map((s) => (
-          <Card key={s.label} className="text-center py-3">
+          <Card key={s.label} className="text-center py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
             <p className={`text-xl font-bold ${s.accent ? 'text-prism-critical' : 'text-txt-primary'}`}>{s.value}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">{s.label}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
           </Card>
         ))}
       </div>

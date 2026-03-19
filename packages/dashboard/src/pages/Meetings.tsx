@@ -107,15 +107,15 @@ export default function Meetings() {
       {/* Stats bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
         {[
-          { label: 'Total Meetings', value: meetings.length },
-          { label: 'Completed', value: completedMeetings.length },
-          { label: 'Action Items', value: totalActionItems },
-          { label: 'Escalations', value: totalEscalations },
-          { label: 'Pending Messages', value: pendingMessages },
+          { label: 'Total Meetings', value: meetings.length, color: '#00E0FF' },
+          { label: 'Completed', value: completedMeetings.length, color: '#C084FC' },
+          { label: 'Action Items', value: totalActionItems, color: '#7DD3FC' },
+          { label: 'Escalations', value: totalEscalations, color: '#A855F7' },
+          { label: 'Pending Messages', value: pendingMessages, color: '#3730A3' },
         ].map((s) => (
-          <Card key={s.label} className="text-center py-3">
+          <Card key={s.label} className="text-center py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
             <p className="text-xl font-bold text-txt-primary">{s.value}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">{s.label}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
           </Card>
         ))}
       </div>

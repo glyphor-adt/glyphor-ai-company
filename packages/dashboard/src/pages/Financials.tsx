@@ -801,12 +801,12 @@ export default function Financials() {
       )}
 
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-6">
-        <SummaryCard label="Monthly Revenue" value={`$${fmt(latestMRR)}`} loading={loading} sub="Stripe MRR snapshot" />
-        <SummaryCard label="Bank Balance" value={`$${fmt(latestBalance)}`} loading={loading} sub="Latest Mercury balance" />
-        <SummaryCard label="Gross Margin" value={`${latestMargin.toFixed(1)}%`} loading={loading} sub={`${marginDelta >= 0 ? '+' : ''}${marginDelta.toFixed(1)} pts from trend baseline`} />
-        <SummaryCard label="Burn Rate" value={latestBurnRate > 0 ? `$${fmt(latestBurnRate)}` : '—'} loading={loading} sub="Monthly cash outflow" />
-        <SummaryCard label="AI Billing Today" value={`$${todayAiCost.toFixed(2)}`} loading={apiLoading || gcpLoading} sub="OpenAI + Gemini + Anthropic" />
-        <SummaryCard label="Runway" value={runwayMonths > 0 ? `${runwayMonths.toFixed(1)} mo` : '—'} loading={loading} sub={runwayMonths > 0 ? 'Based on current burn' : 'Awaiting burn data'} />
+        <SummaryCard label="Monthly Revenue" value={`$${fmt(latestMRR)}`} loading={loading} sub="Stripe MRR snapshot" color="#00E0FF" />
+        <SummaryCard label="Bank Balance" value={`$${fmt(latestBalance)}`} loading={loading} sub="Latest Mercury balance" color="#C084FC" />
+        <SummaryCard label="Gross Margin" value={`${latestMargin.toFixed(1)}%`} loading={loading} sub={`${marginDelta >= 0 ? '+' : ''}${marginDelta.toFixed(1)} pts from trend baseline`} color="#7DD3FC" />
+        <SummaryCard label="Burn Rate" value={latestBurnRate > 0 ? `$${fmt(latestBurnRate)}` : '—'} loading={loading} sub="Monthly cash outflow" color="#A855F7" />
+        <SummaryCard label="AI Billing Today" value={`$${todayAiCost.toFixed(2)}`} loading={apiLoading || gcpLoading} sub="OpenAI + Gemini + Anthropic" color="#3730A3" />
+        <SummaryCard label="Runway" value={runwayMonths > 0 ? `${runwayMonths.toFixed(1)} mo` : '—'} loading={loading} sub={runwayMonths > 0 ? 'Based on current burn' : 'Awaiting burn data'} color="#581C87" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -1051,11 +1051,11 @@ const VERIF_LABELS: Record<string, string> = { none: 'None', self_critique: 'Sel
 const COMPLEXITY_COLORS: Record<string, string> = { trivial: '#00A3C4', standard: '#2563EB', complex: '#6366F1', frontier: '#7C3AED', unknown: '#94A3B8' };
 const COMPLEXITY_LABELS: Record<string, string> = { trivial: 'Trivial', standard: 'Standard', complex: 'Complex', frontier: 'Frontier', unknown: 'Unknown' };
 
-function SummaryCard({ label, value, loading, sub }: { label: string; value: string; loading: boolean; sub?: string }) {
+function SummaryCard({ label, value, loading, sub, color }: { label: string; value: string; loading: boolean; sub?: string; color?: string }) {
   if (loading) return <Skeleton className="h-[76px]" />;
   return (
-    <Card className="flex h-[76px] flex-col justify-between !p-3.5">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">{label}</p>
+    <Card className="flex h-[76px] flex-col justify-between !p-3.5" style={color ? { borderTopColor: color, borderTopWidth: '2px' } : undefined}>
+      <p className="text-[10px] font-medium uppercase tracking-wider" style={color ? { color } : undefined}>{label}</p>
       <div>
         <p className="font-mono text-lg font-semibold leading-none text-txt-primary">{value}</p>
         {sub && <p className="mt-1 line-clamp-1 text-[10px] text-txt-faint">{sub}</p>}

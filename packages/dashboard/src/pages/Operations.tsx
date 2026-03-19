@@ -668,10 +668,10 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <SummaryCard label="Total Runs" value={String(totalRuns)} loading={loading} />
-        <SummaryCard label="Total AI Spend" value={`$${totalCost.toFixed(2)}`} loading={loading} />
-        <SummaryCard label="Avg Score" value={`${avgScore}/100`} loading={loading} />
-        <SummaryCard label="Active Agents" value={`${agents.length}`} loading={loading} />
+        <SummaryCard label="Total Runs" value={String(totalRuns)} loading={loading} color="#00E0FF" />
+        <SummaryCard label="Total AI Spend" value={`$${totalCost.toFixed(2)}`} loading={loading} color="#C084FC" />
+        <SummaryCard label="Avg Score" value={`${avgScore}/100`} loading={loading} color="#7DD3FC" />
+        <SummaryCard label="Active Agents" value={`${agents.length}`} loading={loading} color="#A855F7" />
       </div>
 
       {/* Plan Quality Card */}
@@ -1142,10 +1142,10 @@ function ActiveWorkflowsSection({
       {/* Workflow Metrics (30 days) */}
       {metrics && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          <SummaryCard label="Started (30d)" value={String(metrics.total_started)} loading={loading} />
-          <SummaryCard label="Completed" value={String(metrics.total_completed)} loading={loading} />
-          <SummaryCard label="Failed" value={String(metrics.total_failed)} loading={loading} />
-          <SummaryCard label="Avg Time" value={formatMs(metrics.avg_completion_time_ms)} loading={loading} />
+          <SummaryCard label="Started (30d)" value={String(metrics.total_started)} loading={loading} color="#00E0FF" />
+          <SummaryCard label="Completed" value={String(metrics.total_completed)} loading={loading} color="#7DD3FC" />
+          <SummaryCard label="Failed" value={String(metrics.total_failed)} loading={loading} color="#A855F7" />
+          <SummaryCard label="Avg Time" value={formatMs(metrics.avg_completion_time_ms)} loading={loading} color="#C084FC" />
         </div>
       )}
 
@@ -1547,11 +1547,11 @@ function PlanQualityCard({ verifications, loading }: { verifications: PlanVerifi
   );
 }
 
-function SummaryCard({ label, value, loading }: { label: string; value: string; loading: boolean }) {
+function SummaryCard({ label, value, loading, color }: { label: string; value: string; loading: boolean; color?: string }) {
   if (loading) return <Skeleton className="h-20" />;
   return (
-    <Card>
-      <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">{label}</p>
+    <Card style={color ? { borderTopColor: color, borderTopWidth: '2px' } : undefined}>
+      <p className="text-[11px] font-medium uppercase tracking-wider" style={color ? { color } : undefined}>{label}</p>
       <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">{value}</p>
     </Card>
   );

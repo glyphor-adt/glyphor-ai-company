@@ -1320,14 +1320,14 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Received', value: received.length },
-          { label: 'Sent', value: sent.length },
-          { label: 'Meetings', value: meetings.length },
-          { label: 'Pending', value: received.filter((m) => m.status === 'pending').length },
+          { label: 'Received', value: received.length, color: '#00E0FF' },
+          { label: 'Sent', value: sent.length, color: '#C084FC' },
+          { label: 'Meetings', value: meetings.length, color: '#7DD3FC' },
+          { label: 'Pending', value: received.filter((m) => m.status === 'pending').length, color: '#A855F7' },
         ].map((s) => (
-          <Card key={s.label} className="text-center py-3">
+          <Card key={s.label} className="text-center py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
             <p className="text-xl font-bold text-txt-primary">{s.value}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">{s.label}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
           </Card>
         ))}
       </div>
@@ -1508,14 +1508,14 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Skills', value: String(skills.length) },
-          { label: 'Total Uses', value: String(totalUsage) },
-          { label: 'Success Rate', value: overallRate !== '—' ? `${overallRate}%` : '—' },
-          { label: 'Master-level', value: String(profCounts.master ?? 0) },
+          { label: 'Skills', value: String(skills.length), color: '#00E0FF' },
+          { label: 'Total Uses', value: String(totalUsage), color: '#C084FC' },
+          { label: 'Success Rate', value: overallRate !== '—' ? `${overallRate}%` : '—', color: '#7DD3FC' },
+          { label: 'Master-level', value: String(profCounts.master ?? 0), color: '#A855F7' },
         ].map((s) => (
-          <Card key={s.label} className="text-center py-3">
+          <Card key={s.label} className="text-center py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
             <p className="text-xl font-bold text-txt-primary">{s.value}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">{s.label}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
           </Card>
         ))}
       </div>
