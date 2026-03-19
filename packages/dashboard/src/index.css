@@ -99,7 +99,7 @@ html { scroll-behavior: smooth; }
 body {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   background: var(--color-base);
-  background-image: url('/3d-render.jpg');
+  background-image: url('/gradient-dark.svg');
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -140,7 +140,7 @@ body {
 
 .dark .mesh-gradient {
   background-color: #07090f;
-  background-image: url('/3d-render.jpg');
+  background-image: url('/gradient-dark.svg');
   background-position: center center;
   background-size: cover;
   background-repeat: no-repeat;
