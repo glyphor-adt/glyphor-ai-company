@@ -24,13 +24,10 @@ declare -A ENV_MAP=(
   [decisions]="TEAMS_WEBHOOK_DECISIONS"
   [general]="TEAMS_WEBHOOK_GENERAL"
   [engineering]="TEAMS_WEBHOOK_ENGINEERING"
-  [kristina-briefing]="TEAMS_WEBHOOK_KRISTINA_BRIEFING"
-  [andrew-briefing]="TEAMS_WEBHOOK_ANDREW_BRIEFING"
+  [briefings]="TEAMS_WEBHOOK_BRIEFINGS"
   [growth]="TEAMS_WEBHOOK_GROWTH"
   [financials]="TEAMS_WEBHOOK_FINANCIALS"
   [alerts]="TEAMS_WEBHOOK_ALERTS"
-  [product-fuse]="TEAMS_WEBHOOK_PRODUCT_FUSE"
-  [product-pulse]="TEAMS_WEBHOOK_PRODUCT_PULSE"
   [deliverables]="TEAMS_WEBHOOK_DELIVERABLES"
 )
 

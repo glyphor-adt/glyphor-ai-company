@@ -101,7 +101,7 @@ async function gcpFetch(url: string, method = 'GET', body?: unknown): Promise<Re
 /** Department → Teams channel environment variable mapping. */
 const DEPT_CHANNELS: Record<string, string[]> = {
   engineering: ['TEAMS_CHANNEL_GENERAL_ID', 'TEAMS_CHANNEL_ENGINEERING_ID'],
-  product: ['TEAMS_CHANNEL_GENERAL_ID', 'TEAMS_CHANNEL_PRODUCT_FUSE_ID', 'TEAMS_CHANNEL_PRODUCT_PULSE_ID'],
+  product: ['TEAMS_CHANNEL_GENERAL_ID'],
   finance: ['TEAMS_CHANNEL_GENERAL_ID', 'TEAMS_CHANNEL_FINANCIALS_ID'],
   marketing: ['TEAMS_CHANNEL_GENERAL_ID', 'TEAMS_CHANNEL_GROWTH_ID'],
   sales: ['TEAMS_CHANNEL_GENERAL_ID', 'TEAMS_CHANNEL_GROWTH_ID'],

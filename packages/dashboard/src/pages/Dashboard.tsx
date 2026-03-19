@@ -368,201 +368,190 @@ export default function Dashboard() {
         </HomeCard>
       </GlowingStarsBackgroundCard>
 
-      <HomeCard>
-        <SectionHeader
-          title="Action Center"
-          action={<span className="text-[11px] text-txt-faint">{actionItems.length} open items</span>}
-        />
-        {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-24" />)}
-          </div>
-        ) : actionItems.length === 0 ? (
-          <p className="py-8 text-sm text-txt-faint">No critical actions queued right now.</p>
-        ) : (
-          <div className="space-y-3">
-            {actionItems.map((item, index) => (
-              <HomeInnerCard key={item.id} className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${PRIORITY_BADGE[item.priority]}`}>
-                    {item.priority}
-                  </span>
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-txt-faint">{index + 1}. {item.kind}</span>
-                  {item.timestamp ? <span className="ml-auto text-[11px] text-txt-faint">{timeAgo(item.timestamp)}</span> : null}
-                </div>
-                <div>
-                  <h2 className="text-[15px] font-semibold text-txt-primary">{item.title}</h2>
-                  <p className="mt-1 text-[13px] text-txt-secondary">{item.context}</p>
-                  <p className="mt-2 text-[13px] text-txt-muted">Recommended: {item.recommendation}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <Link to={item.reviewTo} className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-[#00E0FF] to-[#3730A3] p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none">
-                    <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
-                      Review
-                    </span>
-                  </Link>
-                  {item.approveDecisionId ? (
-                    <>
-                      <button
-                        onClick={() => updateDecision(item.approveDecisionId!, 'approved', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-green-400 to-emerald-600 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
-                      >
-                        <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
-                          Approve
+      {/* ── Row 1: Action Center (left) + Company Vitals (right) ── */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <HomeCard className="p-4">
+          <SectionHeader
+            title="Action Center"
+            action={<span className="text-[11px] text-txt-faint">{actionItems.length} items</span>}
+          />
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-16" />)}
+            </div>
+          ) : actionItems.length === 0 ? (
+            <p className="py-4 text-sm text-txt-faint">No critical actions queued right now.</p>
+          ) : (
+            <div className="space-y-2">
+              {actionItems.map((item, index) => (
+                <HomeInnerCard key={item.id} className="px-3 py-2.5">
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${PRIORITY_BADGE[item.priority]}`}>
+                          {item.priority}
                         </span>
-                      </button>
-                      <button
-                        onClick={() => updateDecision(item.approveDecisionId!, 'rejected', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-red-500 to-orange-500 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
-                      >
-                        <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
-                          Reject
-                        </span>
-                      </button>
-                    </>
-                  ) : (
-                    (item.kind === 'incident' || item.kind === 'briefing') ? (
-                      <Link
-                        to="/ora"
-                        state={{
-                          origin: 'action-center',
-                          actionItemId: item.id,
-                          prefillPrompt: buildOraActionPrompt(item),
-                        }}
-                        className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-[#C084FC] to-[#00E0FF] p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
-                      >
-                        <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-3 py-1.5 leading-4 text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
-                          Discuss with Ora
-                        </span>
-                      </Link>
-                    ) : null
-                  )}
-                </div>
-              </HomeInnerCard>
-            ))}
-          </div>
-        )}
-      </HomeCard>
+                        <span className="text-[9px] uppercase tracking-[0.18em] text-txt-faint">{item.kind}</span>
+                        {item.timestamp ? <span className="ml-auto text-[10px] text-txt-faint">{timeAgo(item.timestamp)}</span> : null}
+                      </div>
+                      <h2 className="mt-1.5 text-[13px] font-semibold leading-snug text-txt-primary line-clamp-1">{item.title}</h2>
+                      <p className="mt-0.5 text-[11px] text-txt-muted line-clamp-1">{item.context}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <Link to={item.reviewTo} className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-[#00E0FF] to-[#3730A3] p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none">
+                      <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-2.5 py-1 leading-4 text-[11px] text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
+                        Review
+                      </span>
+                    </Link>
+                    {item.approveDecisionId ? (
+                      <>
+                        <button
+                          onClick={() => updateDecision(item.approveDecisionId!, 'approved', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
+                          className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-green-400 to-emerald-600 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
+                        >
+                          <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-2.5 py-1 leading-4 text-[11px] text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
+                            Approve
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => updateDecision(item.approveDecisionId!, 'rejected', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
+                          className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-red-500 to-orange-500 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
+                        >
+                          <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-2.5 py-1 leading-4 text-[11px] text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
+                            Reject
+                          </span>
+                        </button>
+                      </>
+                    ) : (
+                      (item.kind === 'incident' || item.kind === 'briefing') ? (
+                        <Link
+                          to="/ora"
+                          state={{
+                            origin: 'action-center',
+                            actionItemId: item.id,
+                            prefillPrompt: buildOraActionPrompt(item),
+                          }}
+                          className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-[#C084FC] to-[#00E0FF] p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
+                        >
+                          <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-2.5 py-1 leading-4 text-[11px] text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
+                            Discuss with Ora
+                          </span>
+                        </Link>
+                      ) : null
+                    )}
+                  </div>
+                </HomeInnerCard>
+              ))}
+            </div>
+          )}
+        </HomeCard>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.3fr_0.9fr]">
-        <HomeCard>
-          <SectionHeader title="Company Vitals" action={<Link to="/operations" className="text-[11px] text-cyan hover:underline">View all activity</Link>} />
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <PulseStat label="Runs completed" value={String(runsToday.length)} />
-            <PulseStat label="Assignments active" value={String(activeAssignments)} />
-            <PulseStat label="Decisions pending" value={String(pendingDecisions.length)} />
+        <HomeCard className="p-4">
+          <SectionHeader title="Company Vitals" action={<Link to="/operations" className="text-[11px] text-cyan hover:underline">View all</Link>} />
+          <div className="grid grid-cols-3 gap-3">
+            <PulseStat label="Runs" value={String(runsToday.length)} />
+            <PulseStat label="Active" value={String(activeAssignments)} />
+            <PulseStat label="Pending" value={String(pendingDecisions.length)} />
           </div>
-          <div className="mt-5 space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Recent Agent Work</p>
+          <div className="mt-4 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Recent Work</p>
             {activityRows.length === 0 ? (
-              <p className="text-sm text-txt-faint">No recent founder-visible activity logged.</p>
+              <p className="text-sm text-txt-faint">No recent activity.</p>
             ) : (
-              activityRows.slice(0, 4).map((entry) => {
+              activityRows.slice(0, 5).map((entry) => {
                 const role = entry.agent_role ?? entry.agent_id ?? 'system';
                 const name = DISPLAY_NAME_MAP[role] ?? role;
-                const summary = previewText(entry.summary ?? entry.detail, entry.action);
+                const summary = parseText(entry.summary ?? entry.detail) || entry.action;
+                const short = summary.length > 60 ? `${summary.slice(0, 57)}...` : summary;
                 return (
-                  <HomeInnerCard key={entry.id} className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-cyan/10 text-cyan">
-                      <MdCheckCircle className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium text-txt-secondary">{name}</p>
-                      <p className="mt-1 text-[12px] text-txt-muted">{summary}</p>
-                    </div>
-                    <span className="text-[10px] text-txt-faint">{timeAgo(entry.created_at)}</span>
-                  </HomeInnerCard>
+                  <div key={entry.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-raised/40">
+                    <MdCheckCircle className="h-3.5 w-3.5 shrink-0 text-cyan" />
+                    <span className="min-w-0 flex-1 truncate text-[12px] text-txt-secondary"><span className="font-medium">{name}</span> — {short}</span>
+                    <span className="shrink-0 text-[10px] text-txt-faint">{timeAgo(entry.created_at)}</span>
+                  </div>
                 );
               })
             )}
           </div>
         </HomeCard>
+      </div>
 
-        <HomeCard>
+      {/* ── Row 2: Quick Actions (left) + Intelligence Feed (right) ── */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[0.8fr_1.2fr]">
+        <HomeCard className="p-4">
           <SectionHeader title="Quick Actions" />
-          <div className="space-y-2.5">
+          <div className="space-y-1.5">
             {QUICK_ACTIONS.map((action) => {
               const Icon = action.icon;
               return (
-                <Link key={action.label} to={action.to} className="flex items-center gap-3 rounded-xl border border-border/80 px-4 py-3 transition-colors hover:border-cyan/30 hover:bg-raised/60">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan/10 text-cyan">
-                    <Icon className="h-5 w-5" />
+                <Link key={action.label} to={action.to} className="flex items-center gap-2.5 rounded-lg border border-border/60 px-3 py-2 transition-colors hover:border-cyan/30 hover:bg-raised/60">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan/10 text-cyan">
+                    <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold text-txt-primary">{action.label}</p>
-                    <p className="text-[12px] text-txt-muted">{action.description}</p>
+                    <p className="text-[12px] font-semibold text-txt-primary">{action.label}</p>
+                    <p className="text-[11px] text-txt-muted">{action.description}</p>
                   </div>
-                  <MdArrowForward className="h-4 w-4 text-txt-faint" />
+                  <MdArrowForward className="h-3.5 w-3.5 text-txt-faint" />
                 </Link>
               );
             })}
           </div>
         </HomeCard>
-      </div>
 
-      <HomeCard>
-        <SectionHeader title="Intelligence Feed" action={<span className="text-[11px] text-txt-faint">Last 7 days</span>} />
-        {metricsLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-20" />)}
-          </div>
-        ) : deliverables.length === 0 ? (
-          <div className="space-y-4">
-            <p className="text-sm text-txt-faint">No deliverables were published in the last 7 days.</p>
-            <p className="text-[13px] text-txt-muted">Your agents need active directives to produce founder-visible work. These are the highest-leverage prompts to start with:</p>
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-              {SUGGESTED_DIRECTIVES.map((directive) => (
-                <HomeInnerCard key={directive.title} className="space-y-3">
-                  <div className="flex items-start gap-2">
-                    <MdSpeed className="mt-0.5 h-4 w-4 shrink-0 text-cyan" />
-                    <div>
-                      <p className="text-[13px] font-semibold text-txt-primary">{directive.title}</p>
-                      <p className="mt-1 text-[12px] text-txt-muted">{directive.description}</p>
-                    </div>
-                  </div>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-txt-faint">Estimated cost: {directive.cost}</p>
-                  <Link to="/directives" className="inline-flex rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-1.5 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/20">
-                    Create This Directive
-                  </Link>
-                </HomeInnerCard>
-              ))}
+        <HomeCard className="p-4">
+          <SectionHeader title="Intelligence Feed" action={<span className="text-[11px] text-txt-faint">Last 7 days</span>} />
+          {metricsLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-14" />)}
             </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {deliverables.map((deliverable) => {
-              const score = extractDeliverableScore(deliverable);
-              const producer = deliverable.producing_agent ? (DISPLAY_NAME_MAP[deliverable.producing_agent] ?? deliverable.producing_agent) : 'Unknown agent';
-              const summary = previewText(deliverable.content, 'Open the linked artifact for the full output.');
-              return (
-                <HomeInnerCard key={deliverable.id} className="space-y-2.5">
-                  <div className="flex flex-wrap items-start gap-3">
+          ) : deliverables.length === 0 ? (
+            <div className="space-y-3">
+              <p className="text-sm text-txt-faint">No deliverables in the last 7 days.</p>
+              <p className="text-[12px] text-txt-muted">Create directives so agents can produce founder-visible work.</p>
+              <div className="space-y-2">
+                {SUGGESTED_DIRECTIVES.map((directive) => (
+                  <div key={directive.title} className="flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2">
+                    <MdSpeed className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-semibold text-txt-primary">{deliverable.title}</p>
-                      <p className="mt-1 text-[12px] text-txt-faint">{producer} · {timeAgo(deliverable.created_at)}</p>
+                      <p className="text-[12px] font-medium text-txt-primary line-clamp-1">{directive.title}</p>
+                      <p className="text-[11px] text-txt-muted">{directive.cost}</p>
                     </div>
-                    {score != null ? (
-                      <span className="rounded-full border border-[#34D399]/25 bg-[#34D399]/10 px-2.5 py-1 text-[11px] font-semibold text-[#34D399]">
-                        Score {score}/100
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="text-[13px] text-txt-secondary">{summary}</p>
-                  {deliverable.storage_url ? (
-                    <a href={deliverable.storage_url} target="_blank" rel="noreferrer" className="inline-flex rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-txt-muted transition-colors hover:border-cyan/30 hover:text-cyan">
-                      Open Deliverable
-                    </a>
-                  ) : (
-                    <Link to="/directives" className="inline-flex rounded-lg border border-border px-3 py-1.5 text-[12px] font-medium text-txt-muted transition-colors hover:border-cyan/30 hover:text-cyan">
-                      View Directive Context
+                    <Link to="/directives" className="shrink-0 rounded-md border border-cyan/30 bg-cyan/10 px-2 py-1 text-[10px] font-medium text-cyan hover:bg-cyan/20">
+                      Create
                     </Link>
-                  )}
-                </HomeInnerCard>
-              );
-            })}
-          </div>
-        )}
-      </HomeCard>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {deliverables.map((deliverable) => {
+                const score = extractDeliverableScore(deliverable);
+                const producer = deliverable.producing_agent ? (DISPLAY_NAME_MAP[deliverable.producing_agent] ?? deliverable.producing_agent) : 'Unknown';
+                const summary = previewText(deliverable.content, 'Open the linked artifact for the full output.');
+                return (
+                  <HomeInnerCard key={deliverable.id} className="px-3 py-2.5">
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-semibold text-txt-primary line-clamp-1">{deliverable.title}</p>
+                        <p className="mt-0.5 text-[11px] text-txt-faint">{producer} · {timeAgo(deliverable.created_at)}</p>
+                        <p className="mt-1 text-[12px] text-txt-secondary line-clamp-2">{summary}</p>
+                      </div>
+                      {score != null ? (
+                        <span className="shrink-0 rounded-full border border-[#34D399]/25 bg-[#34D399]/10 px-2 py-0.5 text-[10px] font-semibold text-[#34D399]">
+                          {score}/100
+                        </span>
+                      ) : null}
+                    </div>
+                  </HomeInnerCard>
+                );
+              })}
+            </div>
+          )}
+        </HomeCard>
+      </div>
     </div>
   );
 }
