@@ -43,7 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_pir_generated ON platform_intel_reports(generated
 CREATE TABLE IF NOT EXISTS approval_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   action_id UUID NOT NULL REFERENCES platform_intel_actions(id) ON DELETE CASCADE,
-  token TEXT NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(32), 'hex'),
+  token TEXT NOT NULL UNIQUE DEFAULT replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''),
   decision TEXT NOT NULL CHECK (decision IN ('approve', 'reject')),
   expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '48 hours',
   used_at TIMESTAMPTZ DEFAULT NULL
