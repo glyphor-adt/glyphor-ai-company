@@ -257,6 +257,9 @@ export function createRunDeps(
         params.push('all', department);
         sql += ` AND (audience = $1 OR audience = $2)`;
       }
+      // Exclude large reference-only sections from auto-injection; agents can still read them on demand via read_company_doctrine
+      params.push('brand_guide');
+      sql += ` AND section != $${params.length}`;
       sql += ' ORDER BY section';
       const data = await systemQuery(sql, params);
       if (data.length === 0) return '';

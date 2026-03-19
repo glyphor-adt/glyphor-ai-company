@@ -268,7 +268,11 @@ export function createCollectiveIntelligenceTools(
 
         const filtered = sections.filter((section) => {
           if (!section.is_active) return false;
-          if (audience && section.audience !== 'all' && section.audience !== audience) return false;
+          // Enforce audience scoping: sections with a specific audience are only
+          // visible when the caller explicitly passes that matching audience.
+          if (section.audience !== 'all') {
+            if (!audience || section.audience !== audience) return false;
+          }
           if (!sectionFilter) return true;
 
           const sectionText = section.section.toLowerCase();
