@@ -747,7 +747,7 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
     'create_work_assignments', 'dispatch_assignment', 'check_assignment_status', 'evaluate_assignment',
     'update_directive_progress', 'propose_directive', 'delegate_directive'],
   cto: [..._core, ..._toolGrant, ..._toolReg, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
-    ..._teamOrch, ..._peer, ..._init, ..._diag, ..._fuse, ..._execOrch,
+    ..._teamOrch, ..._peer, ..._init, ..._diag, ..._execOrch,
     'get_platform_health', 'get_cloud_run_metrics', 'get_infrastructure_costs', 'get_recent_activity',
     'read_company_memory', 'write_health_report', 'log_activity', 'get_github_pr_status',
     'get_ci_health', 'get_repo_stats', 'create_github_issue', 'list_cloud_builds', 'get_cloud_build_logs',

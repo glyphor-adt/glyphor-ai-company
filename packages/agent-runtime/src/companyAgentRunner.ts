@@ -27,12 +27,13 @@ import type {
   ConversationAttachment,
   ConversationTurn,
   IMemoryBus,
+  ToolRetrievalMetadataMap,
 } from './types.js';
 import { estimateModelCost } from '@glyphor/shared/models';
 import { systemQuery } from '@glyphor/shared/db';
 import { extractTaskFromConfigId } from './taskIdentity.js';
 import { composeModelContext } from './context/contextComposer.js';
-import { buildToolTaskContext, getToolRetriever } from './routing/toolRetriever.js';
+import { buildToolTaskContext, getToolRetriever, type ToolRetrieverTrace } from './routing/toolRetriever.js';
 import { runDeterministicPreCheck } from './routing/index.js';
 import type { RoutingDecision } from './routing/index.js';
 import type { TrustScorer } from './trustScorer.js';
@@ -1252,6 +1253,24 @@ function containsPlanningIntent(text: string): boolean {
   return PLANNING_INTENT_PATTERNS.some(p => p.test(text));
 }
 
+/** Build a per-tool retrieval metadata map from the ToolRetriever trace. */
+function buildCompanyRetrievalMetadataMap(trace: ToolRetrieverTrace): ToolRetrievalMetadataMap {
+  const map: ToolRetrievalMetadataMap = new Map();
+  const base = { toolsAvailable: trace.totalCandidates, modelCap: trace.modelCap };
+  const rolePinSet = new Set(trace.rolePins ?? []);
+  const deptPinSet = new Set(trace.deptPins ?? []);
+  for (const name of trace.pinnedTools) {
+    const method = rolePinSet.has(name) ? 'role_pin' as const
+      : deptPinSet.has(name) ? 'dept_pin' as const
+      : 'core_pin' as const;
+    map.set(name, { method, ...base });
+  }
+  for (const entry of trace.retrievedTools) {
+    map.set(entry.name, { method: 'semantic', score: entry.score, ...base });
+  }
+  return map;
+}
+
 /** Regex patterns that match common action claims in agent text. */
 const ACTION_CLAIM_PATTERNS = [
   /I(?:'ve| have) (?:updated|corrected|set|changed|modified|adjusted)/gi,
@@ -1849,6 +1868,7 @@ export class CompanyAgentRunner {
     try {
       let turnNumber = 0;
       let previousResponseId: string | undefined;
+      let lastRetrievalTrace: ToolRetrieverTrace | undefined;
 
       // ─── ON-DEMAND / TASK TIER SPEED GUARD ─────────────────────
       // Chat (on_demand) must finish within the dashboard's 180 s abort.
@@ -2067,6 +2087,7 @@ export class CompanyAgentRunner {
             });
 
             effectiveTools = retrieval.tools;
+            lastRetrievalTrace = retrieval.trace;
 
             if (turnNumber === 1 || turnNumber % 3 === 0) {
               console.log(
@@ -2269,6 +2290,11 @@ export class CompanyAgentRunner {
               memoryBus,
               emitEvent,
               glyphorEventBus: deps?.glyphorEventBus,
+              runId: config.id,
+              assignmentId: config.assignmentId,
+              retrievalMetadata: lastRetrievalTrace
+                ? buildCompanyRetrievalMetadataMap(lastRetrievalTrace)
+                : undefined,
             });
 
             const resultContent = result.data !== undefined

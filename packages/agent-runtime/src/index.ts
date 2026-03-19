@@ -151,6 +151,8 @@ export type {
   AgentToolGrants,
   ToolCallLog,
   ActionReceipt,
+  ToolRetrievalMeta,
+  ToolRetrievalMetadataMap,
   SecurityEventType,
   SecurityEvent,
   // Agent classification types

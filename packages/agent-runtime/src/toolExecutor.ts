@@ -26,6 +26,7 @@ import type {
   ToolCallLog,
   SecurityEvent,
   SecurityEventType,
+  ToolRetrievalMeta,
 } from './types.js';
 import { AGENT_BUDGETS } from './types.js';
 import { systemQuery } from '@glyphor/shared/db';
@@ -44,6 +45,51 @@ import {
   loadBehaviorProfile,
   persistBehavioralAnomalies,
 } from './behavioralFingerprint.js';
+
+// ─── Tool Call Trace Persistence ───────────────────────────────
+// Fire-and-forget write of each tool call to tool_call_traces for
+// eval and retrieval analytics. Never throws.
+async function persistToolCallTrace(
+  log: ToolCallLog,
+  runId: string | undefined,
+  assignmentId: string | undefined,
+  turnNumber: number,
+  retrievalMeta?: ToolRetrievalMeta,
+): Promise<void> {
+  if (!runId) return;
+  try {
+    await systemQuery(
+      `INSERT INTO tool_call_traces
+       (run_id, assignment_id, agent_id, agent_role, tool_name, args,
+        result_success, result_data, result_error, files_written, memory_keys_written,
+        constitutional_check, estimated_cost_usd, turn_number,
+        retrieval_method, retrieval_score, tools_available, model_cap)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [
+        runId,
+        assignmentId ?? null,
+        log.agentId,
+        log.agentRole,
+        log.toolName,
+        JSON.stringify(log.args),
+        log.result.success,
+        log.result.data != null ? JSON.stringify(log.result.data) : null,
+        log.result.error ?? null,
+        log.result.filesWritten ?? 0,
+        log.result.memoryKeysWritten ?? 0,
+        log.result.constitutional_check ? JSON.stringify(log.result.constitutional_check) : null,
+        log.estimatedCostUsd,
+        turnNumber,
+        retrievalMeta?.method ?? null,
+        retrievalMeta?.score ?? null,
+        retrievalMeta?.toolsAvailable ?? null,
+        retrievalMeta?.modelCap ?? null,
+      ],
+    );
+  } catch {
+    // fire-and-forget — never block tool execution
+  }
+}
 
 // ─── Emergency Block Cache ─────────────────────────────────────
 const BLOCK_CACHE_TTL_MS = 60_000; // 60 seconds
@@ -939,6 +985,18 @@ export class ToolExecutor {
       recordToolCall(toolName, toolSource, finalResult.success, false, execLatency)
         .catch(err => console.warn('[ToolReputation] tracking failed:', err));
 
+      // Persist tool call trace for eval analytics (fire-and-forget)
+      const lastLog = this.callLog[this.callLog.length - 1];
+      if (lastLog) {
+        void persistToolCallTrace(
+          lastLog,
+          context.runId,
+          context.assignmentId,
+          context.turnNumber,
+          context.retrievalMetadata?.get(toolName),
+        );
+      }
+
       return finalResult;
     } catch (error) {
       const failResult: ToolResult = {
@@ -964,6 +1022,18 @@ export class ToolExecutor {
       const timedOut = (error as Error).message?.includes('timed out') || execLatency >= 60_000;
       recordToolCall(toolName, toolSource, false, timedOut, execLatency)
         .catch(err => console.warn('[ToolReputation] tracking failed:', err));
+
+      // Persist tool call trace for eval analytics (fire-and-forget)
+      const lastFailLog = this.callLog[this.callLog.length - 1];
+      if (lastFailLog) {
+        void persistToolCallTrace(
+          lastFailLog,
+          context.runId,
+          context.assignmentId,
+          context.turnNumber,
+          context.retrievalMetadata?.get(toolName),
+        );
+      }
 
       return failResult;
     }

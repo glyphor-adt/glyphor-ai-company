@@ -106,7 +106,24 @@ export interface ToolContext {
   glyphorEventBus?: import('./glyphorEventBus.js').GlyphorEventBus;
   /** RuntimeToolFactory — present when runtime tool synthesis is enabled. */
   runtimeToolFactory?: import('./runtimeToolFactory.js').RuntimeToolFactory;
+  /** Run ID for trace persistence (from AgentConfig.id). */
+  runId?: string;
+  /** Assignment ID for trace linkage (from AgentConfig.assignmentId). */
+  assignmentId?: string;
+  /** Per-tool retrieval metadata from ToolRetriever, keyed by tool name. */
+  retrievalMetadata?: ToolRetrievalMetadataMap;
 }
+
+/** How a tool was selected for this run. */
+export interface ToolRetrievalMeta {
+  method: 'role_pin' | 'core_pin' | 'dept_pin' | 'semantic';
+  score?: number;
+  toolsAvailable: number;
+  modelCap: number;
+}
+
+/** Map from tool name → retrieval metadata. */
+export type ToolRetrievalMetadataMap = Map<string, ToolRetrievalMeta>;
 
 export interface ToolResult {
   success: boolean;

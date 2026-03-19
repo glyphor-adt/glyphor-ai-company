@@ -26,6 +26,7 @@ import type {
   ConversationTurn,
   IMemoryBus,
   SharedMemoryContext,
+  ToolRetrievalMetadataMap,
 } from './types.js';
 import type { RunDependencies, AgentProfileData, SkillContext } from './companyAgentRunner.js';
 import type { ReasoningEngine } from './reasoningEngine.js';
@@ -47,7 +48,7 @@ import type { ActionReceipt } from './types.js';
 import { extractTaskFromConfigId } from './taskIdentity.js';
 import { composeModelContext } from './context/contextComposer.js';
 import { runDeterministicPreCheck } from './routing/index.js';
-import { buildToolTaskContext, getToolRetriever } from './routing/toolRetriever.js';
+import { buildToolTaskContext, getToolRetriever, type ToolRetrieverTrace } from './routing/toolRetriever.js';
 import type { RoutingDecision } from './routing/index.js';
 import { determineVerificationTier } from './verificationPolicy.js';
 import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from './subtaskRouter.js';
@@ -121,6 +122,24 @@ const PLANNING_INTENT_PATTERNS = [
 
 function containsPlanningIntent(text: string): boolean {
   return PLANNING_INTENT_PATTERNS.some(p => p.test(text));
+}
+
+/** Build a per-tool retrieval metadata map from the ToolRetriever trace. */
+function buildRetrievalMetadataMap(trace: ToolRetrieverTrace): ToolRetrievalMetadataMap {
+  const map: ToolRetrievalMetadataMap = new Map();
+  const base = { toolsAvailable: trace.totalCandidates, modelCap: trace.modelCap };
+  const rolePinSet = new Set(trace.rolePins ?? []);
+  const deptPinSet = new Set(trace.deptPins ?? []);
+  for (const name of trace.pinnedTools) {
+    const method = rolePinSet.has(name) ? 'role_pin' as const
+      : deptPinSet.has(name) ? 'dept_pin' as const
+      : 'core_pin' as const;
+    map.set(name, { method, ...base });
+  }
+  for (const entry of trace.retrievedTools) {
+    map.set(entry.name, { method: 'semantic', score: entry.score, ...base });
+  }
+  return map;
 }
 
 /**
@@ -464,6 +483,7 @@ ${memPrompt}`, timestamp: Date.now() });
     try {
       let turnNumber = 0;
       let previousResponseId: string | undefined;
+      let lastRetrievalTrace: ToolRetrieverTrace | undefined;
 
       while (true) {
         turnNumber++;
@@ -536,6 +556,7 @@ ${memPrompt}`, timestamp: Date.now() });
                 }),
               });
               effectiveTools = retrieval.tools;
+              lastRetrievalTrace = retrieval.trace;
 
               if (turnNumber === 1 || turnNumber % 3 === 0) {
                 console.log(
@@ -638,6 +659,11 @@ ${memPrompt}`, timestamp: Date.now() });
               memoryBus,
               emitEvent,
               glyphorEventBus: safeDeps.glyphorEventBus,
+              runId: config.id,
+              assignmentId: config.assignmentId,
+              retrievalMetadata: lastRetrievalTrace
+                ? buildRetrievalMetadataMap(lastRetrievalTrace)
+                : undefined,
             });
 
             const resultContent = result.data !== undefined ? JSON.stringify(result.data) : result.error ?? 'ok';

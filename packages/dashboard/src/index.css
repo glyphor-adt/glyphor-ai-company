@@ -100,8 +100,8 @@ body {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   background: var(--color-base);
   background-image: url('/gradient-dark.svg');
-  background-position: center;
-  background-size: cover;
+  background-position: top center;
+  background-size: 100% 100%;
   background-repeat: no-repeat;
   color: var(--color-txt-secondary);
 }
@@ -133,16 +133,16 @@ body {
   position: relative;
   background-color: var(--color-base);
   background-image: none;
-  background-position: center center;
-  background-size: cover;
+  background-position: top center;
+  background-size: 100% 100%;
   background-repeat: no-repeat;
 }
 
 .dark .mesh-gradient {
   background-color: #07090f;
   background-image: url('/gradient-dark.svg');
-  background-position: center center;
-  background-size: cover;
+  background-position: top center;
+  background-size: 100% 100%;
   background-repeat: no-repeat;
 }
 

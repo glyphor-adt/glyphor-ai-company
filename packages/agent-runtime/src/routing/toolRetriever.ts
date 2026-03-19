@@ -16,6 +16,10 @@ export interface ToolRetrieverRequest {
 export interface ToolRetrieverTrace {
   totalCandidates: number;
   pinnedTools: string[];
+  /** Breakdown of how pinned tools were selected. */
+  rolePins: string[];
+  corePins: string[];
+  deptPins: string[];
   retrievedTools: Array<{ name: string; score: number; method: 'bm25' | 'vector' | 'hybrid' }>;
   modelCap: number;
   model: string;
@@ -427,26 +431,36 @@ export class ToolRetriever {
 
     // Role-specific pins first — they are the agent's bread-and-butter tools
     // and must survive the model cap slice before generic core pins.
-    const pinnedNames = new Set<string>([
-      ...getAlwaysLoadedTools(request.role),
-      ...CORE_PINNED_TOOLS,
-    ]);
-
+    const rolePinSet = new Set(getAlwaysLoadedTools(request.role));
+    const corePinSet = new Set(CORE_PINNED_TOOLS);
     const department = inferDepartment(request.role, request.department);
+    const deptPinSet = new Set<string>();
     if (department) {
       for (const toolName of DEPARTMENT_PINS[department] ?? []) {
-        pinnedNames.add(toolName);
+        deptPinSet.add(toolName);
       }
     }
 
+    const pinnedNames = new Set<string>([
+      ...rolePinSet,
+      ...corePinSet,
+      ...deptPinSet,
+    ]);
+
     const pinnedTools: ToolDeclaration[] = [];
     const pinnedToolNames: string[] = [];
+    const rolePinNames: string[] = [];
+    const corePinNames: string[] = [];
+    const deptPinNames: string[] = [];
 
     for (const pinnedName of pinnedNames) {
       const index = this.toolNameToIndex.get(pinnedName);
       if (index === undefined) continue;
       pinnedTools.push(this.entries[index].tool);
       pinnedToolNames.push(pinnedName);
+      if (rolePinSet.has(pinnedName)) rolePinNames.push(pinnedName);
+      else if (deptPinSet.has(pinnedName)) deptPinNames.push(pinnedName);
+      else if (corePinSet.has(pinnedName)) corePinNames.push(pinnedName);
     }
 
     const remainingSlots = Math.max(0, modelCap - pinnedTools.length);
@@ -462,6 +476,9 @@ export class ToolRetriever {
         trace: {
           totalCandidates: this.entries.length,
           pinnedTools: pinnedToolNames,
+          rolePins: rolePinNames,
+          corePins: corePinNames,
+          deptPins: deptPinNames,
           retrievedTools: [],
           modelCap,
           model: request.model,
@@ -522,6 +539,9 @@ export class ToolRetriever {
       trace: {
         totalCandidates: this.entries.length,
         pinnedTools: pinnedToolNames,
+        rolePins: rolePinNames,
+        corePins: corePinNames,
+        deptPins: deptPinNames,
         retrievedTools: ranked.map((entry) => ({
           name: entry.name,
           score: entry.score,

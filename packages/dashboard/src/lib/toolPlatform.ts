@@ -3,6 +3,7 @@
  *
  * Platforms:
  *   core       – Glyphor agent runtime built-ins (memory, communication, assignments, events)
+ *   gcp        – GCP Cloud Run, Cloud Build, Secret Manager, Vercel deploy/rollback
  *   m365       – Microsoft 365 via Agent 365 MCP (Mail, Calendar, Teams, Word, SharePoint, Admin)
  *   glyphor-data       – Glyphor MCP Data Server
  *   glyphor-marketing  – Glyphor MCP Marketing Server
@@ -19,6 +20,7 @@
 
 export type ToolPlatform =
   | 'core'
+  | 'gcp'
   | 'm365'
   | 'glyphor-data'
   | 'glyphor-marketing'
@@ -41,6 +43,7 @@ interface PlatformMeta {
 
 export const PLATFORM_META: Record<ToolPlatform, PlatformMeta> = {
   core:                 { label: 'Core',        color: 'text-cyan',            bgColor: 'bg-cyan/10',            borderColor: 'border-cyan/25' },
+  gcp:                  { label: 'GCP',         color: 'text-sky-400',         bgColor: 'bg-sky-400/10',         borderColor: 'border-sky-400/25' },
   m365:                 { label: 'M365',        color: 'text-blue-400',        bgColor: 'bg-blue-400/10',        borderColor: 'border-blue-400/25' },
   'glyphor-data':       { label: 'Data',        color: 'text-emerald-400',     bgColor: 'bg-emerald-400/10',     borderColor: 'border-emerald-400/25' },
   'glyphor-marketing':  { label: 'Marketing',   color: 'text-pink-400',        bgColor: 'bg-pink-400/10',        borderColor: 'border-pink-400/25' },
@@ -86,7 +89,7 @@ const TOOL_PLATFORM_MAP: Record<string, ToolPlatform> = {
   audit_workforce: 'governance', validate_agent: 'governance',
 
   // M365 / SharePoint (upload_to_sharepoint has DB sync; rest via Agent365 mcp_ODSPRemoteServer)
-  upload_to_sharepoint: 'm365',
+  upload_to_sharepoint: 'm365', search_sharepoint: 'm365', read_sharepoint_document: 'm365',
   list_users: 'm365', get_user: 'm365',
   list_channels: 'm365', list_channel_members: 'm365', add_channel_member: 'm365', create_channel: 'm365', post_to_channel: 'm365',
   create_calendar_event: 'm365', list_calendar_events: 'm365',
@@ -94,11 +97,65 @@ const TOOL_PLATFORM_MAP: Record<string, ToolPlatform> = {
   list_app_registrations: 'm365', list_sharepoint_sites: 'm365', get_sharepoint_site_permissions: 'm365',
   write_admin_log: 'm365', check_my_access: 'm365',
   list_project_iam: 'm365', grant_project_role: 'm365', revoke_project_role: 'm365',
+  // M365 — Agent365 MCP PascalCase tools (mcp_MailTools)
+  send_email: 'm365', reply_to_email: 'm365', read_inbox: 'm365', reply_email_with_attachments: 'm365',
+  ReadInbox: 'm365', SendEmail: 'm365', ReplyToEmail: 'm365', ReplyAll: 'm365', ForwardMessage: 'm365',
+  SearchEmails: 'm365', GetMessage: 'm365', GetMessages: 'm365', CreateDraftMessage: 'm365',
+  UpdateDraftMessage: 'm365', DeleteMessage: 'm365', MoveMessage: 'm365', FlagEmail: 'm365',
+  AddDraftAttachments: 'm365', DownloadAttachment: 'm365', DeleteAttachment: 'm365',
+  GetMailFolders: 'm365', CreateMailFolder: 'm365', MoveMailFolder: 'm365', DeleteMailFolder: 'm365',
+  GetFocusedInbox: 'm365',
+  // M365 — Agent365 MCP PascalCase tools (mcp_CalendarTools)
+  CreateEvent: 'm365', GetEvents: 'm365', GetEvent: 'm365', UpdateEvent: 'm365', DeleteEvent: 'm365',
+  DeleteEventById: 'm365', AcceptEvent: 'm365', DeclineEvent: 'm365', TentativelyAcceptEvent: 'm365',
+  FindMeetingTimes: 'm365', CancelEvent: 'm365',
+  GetCalendarView: 'm365', GetCalendars: 'm365', CreateCalendar: 'm365',
+  GetCalendarDateAndTimeSettings: 'm365',
+  // M365 — Agent365 MCP PascalCase tools (mcp_TeamsServer)
+  GetTeams: 'm365', GetChannels: 'm365', GetChannel: 'm365', CreateChannel: 'm365', CreatePrivateChannel: 'm365',
+  GetMessages: 'm365', SendMessage: 'm365', ReplyToMessage: 'm365',
+  GetChats: 'm365', GetChat: 'm365', CreateChat: 'm365', GetChatMessages: 'm365', SendChatMessage: 'm365',
+  AddChatMember: 'm365', AddChannelMember: 'm365', AddComment: 'm365',
+  DeleteChat: 'm365', DeleteChatMessage: 'm365',
+  GetMessageWithFullThread: 'm365',
+  // M365 — Agent365 MCP PascalCase tools (mcp_ODSPRemoteServer / OneDrive + SharePoint)
+  ListDrives: 'm365', ListItems: 'm365', GetItem: 'm365', SearchFiles: 'm365', DownloadFile: 'm365',
+  UploadFile: 'm365', CreateFolder: 'm365', MoveItem: 'm365', CopyItem: 'm365', DeleteItem: 'm365',
+  GetPermissions: 'm365', ShareItem: 'm365', GetRecentFiles: 'm365', GetSharedWithMe: 'm365',
+  ListSites: 'm365', GetSitePages: 'm365', SearchSites: 'm365',
+  // M365 — Agent365 MCP PascalCase tools (mcp_WordServer)
+  CreateDocument: 'm365', GetDocument: 'm365', UpdateDocument: 'm365', SearchDocument: 'm365',
+  InsertContent: 'm365', ReplaceContent: 'm365',
+  // M365 — Agent365 MCP PascalCase tools (mcp_UserProfile)
+  GetMyProfile: 'm365', GetUserProfile: 'm365', GetDirectReports: 'm365', GetManager: 'm365',
+  GetPeople: 'm365', SearchUsers: 'm365', GetPresence: 'm365',
+  // M365 — Agent365 MCP PascalCase tools (mcp_SharePointLists)
+  GetLists: 'm365', GetList: 'm365', GetListItems: 'm365', CreateListItem: 'm365',
+  UpdateListItem: 'm365', DeleteListItem: 'm365',
+  // M365 — Agent365 MCP PascalCase tools (mcp_AdminCenter)
+  GetTenantInfo: 'm365', GetSubscriptions: 'm365', GetServiceHealth: 'm365',
+  GetUserActivity: 'm365', GetMailboxUsage: 'm365',
+  // M365 — Agent365 MCP PascalCase tools (mcp_M365Copilot)
+  AskCopilot: 'm365',
 
   // GitHub
   get_github_pr_status: 'github', create_github_issue: 'github', create_github_bug: 'github',
   get_github_actions_runs: 'github', get_recent_commits: 'github', comment_on_pr: 'github',
   get_repo_code_health: 'github', create_component_branch: 'github', create_component_pr: 'github',
+  get_ci_health: 'github', get_repo_stats: 'github', create_branch: 'github',
+  create_github_pr: 'github', merge_github_pr: 'github', list_recent_commits: 'github',
+  create_or_update_file: 'github',
+
+  // GCP — Cloud Run, Cloud Build, Secret Manager, Vercel
+  deploy_cloud_run: 'gcp', rollback_cloud_run: 'gcp',
+  inspect_cloud_run_service: 'gcp', update_cloud_run_secrets: 'gcp',
+  list_cloud_builds: 'gcp', get_cloud_build_logs: 'gcp',
+  trigger_vercel_deploy: 'gcp', rollback_vercel_deploy: 'gcp', list_vercel_deployments: 'gcp',
+  create_incident: 'gcp', resolve_incident: 'gcp',
+  update_model_config: 'gcp', query_ai_usage: 'gcp',
+  list_agents: 'gcp', get_agent_run_history: 'gcp', update_agent_status: 'gcp',
+  get_agent_schedules: 'gcp', update_agent_schedule: 'gcp', get_agent_performance: 'gcp',
+  query_db_health: 'gcp', query_db_table: 'gcp',
 
   // Glyphor MCP — Data Server
   query_content_drafts: 'glyphor-data', query_content_metrics: 'glyphor-data', query_seo_data: 'glyphor-data',
@@ -197,7 +254,15 @@ const TOOL_PLATFORM_MAP: Record<string, ToolPlatform> = {
  * Falls back to 'specialist' for unrecognised tools.
  */
 export function getToolPlatform(toolName: string): ToolPlatform {
-  return TOOL_PLATFORM_MAP[toolName] ?? 'specialist';
+  if (TOOL_PLATFORM_MAP[toolName]) return TOOL_PLATFORM_MAP[toolName];
+
+  // Agent365 MCP tools come through with PascalCase names and are not in the static map.
+  // Match common M365 patterns by prefix/suffix.
+  if (/^(Get|Send|Reply|Create|Update|Delete|Move|Copy|Search|List|Forward|Accept|Decline|Cancel|Find|Flag|Download|Upload|Insert|Replace|Add|Remove|Share|Void|Resend|Check|Tentatively)[A-Z]/.test(toolName)) {
+    return 'm365';
+  }
+
+  return 'specialist';
 }
 
 /**

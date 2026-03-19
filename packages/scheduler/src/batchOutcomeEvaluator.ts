@@ -12,6 +12,7 @@ import { getRedisCache, TrustScorer } from '@glyphor/agent-runtime';
 import { incrementDownstreamDefects } from '@glyphor/agent-runtime';
 import { reflect, applyMutation, queueShadowEvaluation } from '@glyphor/agent-runtime';
 import { WorldModelUpdater, SharedMemoryLoader, EmbeddingClient } from '@glyphor/company-memory';
+import { evaluateToolAccuracy } from './toolAccuracyEvaluator.js';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ export interface BatchEvalResult {
 
 interface TaskRunOutcome {
   id: string;
+  run_id: string | null;
+  assignment_id: string | null;
   agent_role: string;
   final_status: string;
   turn_count: number;
@@ -59,7 +62,7 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
   try {
     // Fetch unevaluated outcomes older than the cooldown window
     const outcomes = await systemQuery<TaskRunOutcome>(
-      `SELECT id, agent_role, final_status, turn_count, tool_failure_count, had_partial_save,
+      `SELECT id, run_id, assignment_id, agent_role, final_status, turn_count, tool_failure_count, had_partial_save,
               cost_usd, was_revised, revision_count, was_accepted,
               downstream_agent_succeeded, per_run_quality_score
        FROM task_run_outcomes

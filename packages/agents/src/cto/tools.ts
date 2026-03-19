@@ -209,7 +209,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         key: {
           type: 'string',
-          description: 'Memory namespace key to read (e.g., "infra.cloud-run", "product.fuse.metrics")',
+          description: 'Memory namespace key to read (e.g., "infra.cloud-run", "infra.health.latest")',
           required: true,
         },
       },
@@ -269,14 +269,14 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           type: 'string',
           description: 'Related engine or company-wide',
           required: false,
-          enum: ['fuse', 'pulse', 'company'],
+          enum: ['company'],
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         await memory.appendActivity({
           agentRole: ctx.agentRole,
           action: params.action as 'analysis' | 'deploy' | 'alert',
-          product: (params.product as 'fuse' | 'pulse' | 'company') ?? 'company',
+          product: 'company',
           summary: params.summary as string,
           createdAt: new Date().toISOString(),
         });
@@ -1959,13 +1959,39 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           const container = template?.containers?.[0];
           if (!container) return { success: false, error: 'No container found in service template' };
 
-          // Build updated env array — preserve existing, add/update secrets
+          // Check which secrets already exist with the same mapping — skip those
           const existingEnv: Array<Record<string, unknown>> = container.env ?? [];
-          const updatedEnv = existingEnv.filter(
-            (e: any) => !secretKeys.includes(e.name),
-          );
+          const alreadyMapped: string[] = [];
+          const toAdd: Record<string, string> = {};
 
           for (const [envVar, secretName] of Object.entries(secretsToAdd)) {
+            const existing = existingEnv.find((e: any) => e.name === envVar);
+            const existingSecret = (existing as any)?.valueSource?.secretKeyRef?.secret ?? '';
+            if (existing && existingSecret.includes(secretName)) {
+              alreadyMapped.push(envVar);
+            } else {
+              toAdd[envVar] = secretName;
+            }
+          }
+
+          if (Object.keys(toAdd).length === 0) {
+            return {
+              success: true,
+              data: {
+                service: serviceName,
+                alreadyMapped,
+                message: `All ${alreadyMapped.length} secret(s) already exist on ${serviceName}. No changes needed.`,
+              },
+            };
+          }
+
+          // Build updated env array — preserve existing, add/update only new secrets
+          const newKeys = Object.keys(toAdd);
+          const updatedEnv = existingEnv.filter(
+            (e: any) => !newKeys.includes(e.name),
+          );
+
+          for (const [envVar, secretName] of Object.entries(toAdd)) {
             updatedEnv.push({
               name: envVar,
               valueSource: {
@@ -1999,8 +2025,8 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
             agentRole: ctx.agentRole,
             action: 'deploy',
             product: 'company',
-            summary: `Updated secrets on ${serviceName}: added ${secretKeys.join(', ')}. Reason: ${params.reason}`,
-            details: { service: serviceName, secretsAdded: secretKeys, reason: params.reason },
+            summary: `Updated secrets on ${serviceName}: added ${newKeys.join(', ')}${alreadyMapped.length > 0 ? ` (skipped already-mapped: ${alreadyMapped.join(', ')})` : ''}. Reason: ${params.reason}`,
+            details: { service: serviceName, secretsAdded: newKeys, alreadyMapped, reason: params.reason },
             createdAt: new Date().toISOString(),
           });
 
@@ -2008,9 +2034,10 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
             success: true,
             data: {
               service: serviceName,
-              secretsAdded: secretKeys,
+              secretsAdded: newKeys,
+              alreadyMapped,
               reason: params.reason,
-              message: `Successfully updated ${secretKeys.length} secret(s) on ${serviceName}. New revision deploying.`,
+              message: `Successfully updated ${newKeys.length} secret(s) on ${serviceName}${alreadyMapped.length > 0 ? ` (${alreadyMapped.length} already existed, skipped)` : ''}. New revision deploying.`,
             },
           };
         } catch (err) {
