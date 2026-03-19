@@ -52,6 +52,7 @@ export async function listCloudBuilds(
   }
 
   const [builds] = await cb.listBuilds({
+    parent: `projects/${projectId}/locations/-`,
     projectId,
     pageSize: limit,
     filter: filter || undefined,
@@ -80,7 +81,9 @@ export async function getCloudBuildDetails(
   buildId: string,
 ): Promise<CloudBuildLog> {
   const cb = getClient();
-  const [build] = await cb.getBuild({ projectId, id: buildId });
+  const [build] = await cb.getBuild({
+    name: `projects/${projectId}/locations/-/builds/${buildId}`,
+  });
 
   const steps = (build.steps ?? []).map((step) => {
     const startSec = Number(step.timing?.startTime?.seconds ?? 0);
