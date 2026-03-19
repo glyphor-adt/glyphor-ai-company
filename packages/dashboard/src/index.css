@@ -688,8 +688,7 @@ input:focus, textarea:focus, select:focus {
   box-shadow: none !important;
 }
 
-/* Sidebar-hosted panels & nested glass */
-.dark .sidebar-glass,
+/* Nested glass panels (NOT the sidebar itself — that has its own rule below) */
 .dark .glass-card.glass-panel,
 .dark .glass-raised.glass-panel,
 .dark .glass-panel.panel-primary,
@@ -710,11 +709,12 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .dashboard-sidebar.sidebar-glass {
-  background: rgba(0, 0, 0, 0.15) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
   border: 0 !important;
   border-right: none !important;
+  box-shadow: none !important;
 }
 
 .dark .dashboard-home .dashboard-home-primary.sidebar-glass {
