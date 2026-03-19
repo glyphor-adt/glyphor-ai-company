@@ -93,48 +93,214 @@ INSERT INTO skills (slug, name, category, description, methodology, tools_grante
  'Fleet Health Analysis',
  'operations',
  'Reads performance scores, eval component breakdowns, and fleet audit findings across all 36 agents. Identifies systemic patterns vs individual agent failures.',
- E'1. Call read_fleet_health to get performance scores across all agents.\n2. Identify agents below 0.65 threshold — these need individual diagnosis.\n3. For each flagged agent, call read_agent_eval_detail to get score breakdown.\n4. Cross-reference with fleet findings to distinguish systemic vs isolated issues.\n5. Rank issues by GTM impact (Marketing Department agents first).\n6. Produce a severity-ranked list: blocking > important > monitoring.',
- ARRAY['read_fleet_health', 'read_agent_eval_detail', 'write_fleet_finding'],
+ $fleet_health$
+# Fleet Health Analysis
+
+Diagnose the full 36-agent fleet in a single pass. Produce severity-ranked output.
+
+## Procedure
+
+1. Call `read_fleet_health` to get performance scores, last run times, and open findings for all agents.
+2. Partition agents into three buckets:
+   - **Unhealthy** (<0.50 score OR 3+ consecutive failures): immediate investigation.
+   - **Degraded** (0.50–0.65 score OR stale >24h): scheduled investigation.
+   - **Healthy** (>0.65): note but skip.
+3. For each unhealthy/degraded agent, call `read_agent_eval_detail` to get the component breakdown (tool accuracy, completion rate, output quality, hallucination rate).
+4. Cross-reference with `read_tool_failure_rates` (min_failure_rate: 0.15) to detect tool-level causes.
+5. Check `read_handoff_health` for context loss between upstream/downstream pairs.
+6. Identify systemic patterns: if 3+ agents share the same failing tool or the same degradation pattern, call `write_fleet_finding` to document it.
+7. Rank all issues: GTM-blocking > fleet-wide systemic > individual degradation > monitoring-only.
+8. Include all findings in the structured JSON output under `fleet_summary`.
+
+## Decision Rules
+
+- Never investigate platform-intel's own health (self-referential loop).
+- If >50% of fleet is degraded, suspect a systemic cause (model provider outage, DB issue) before diagnosing individual agents.
+- If an agent has 0 runs in the past 48h, flag as "stale" — it may be paused or its cron disabled.
+ $fleet_health$,
+ ARRAY['read_fleet_health', 'read_agent_eval_detail', 'read_tool_failure_rates', 'read_handoff_health', 'write_fleet_finding', 'read_tool_call_errors'],
  1),
 
 ('gtm-gate-evaluation',
  'GTM Gate Evaluation',
  'operations',
  'Evaluates Marketing Department agent readiness against defined pass/fail thresholds. Identifies exactly which gate each agent is failing and why.',
- E'1. Call read_gtm_report to get current GTM status and per-agent gate results.\n2. For each failing agent, identify the specific gate (eval score, tool accuracy, completion rate).\n3. Read the threshold definition and compare to actual metric.\n4. Trace the root cause: is it a prompt issue, tool issue, or data issue?\n5. Classify as actionable-now vs needs-investigation.\n6. Produce a GTM blocking issues list with specific remediation paths.',
- ARRAY['read_gtm_report', 'read_agent_eval_detail'],
+ $gtm_gate$
+# GTM Gate Evaluation
+
+Determine whether the Marketing Department is ready to go to market.
+
+## GTM-Required Agents
+
+cmo, content-creator, seo-analyst, social-media-manager, chief-of-staff.
+
+## Procedure
+
+1. Call `read_gtm_report` to get current GTM status and per-agent gate results.
+2. For each agent marked NOT_READY, identify the specific failing gate:
+   - **Eval score** below threshold → check `read_agent_eval_detail` for component breakdown.
+   - **Tool accuracy** below threshold → check `read_tool_failure_rates` for the specific failing tools.
+   - **Completion rate** below threshold → check if agent is hitting max_turns (prompt too broad) or aborting (tool errors).
+3. Classify each blocker:
+   - **Actionable now** (autonomous): trigger reflection, promote prompt, write finding.
+   - **Needs approval**: create approval request with exact metric, action, and expected outcome.
+   - **Needs investigation**: document and flag for next run.
+4. Never take autonomous action on a GTM-required agent beyond writing findings and triggering reflection.
+5. Produce the GTM status in the JSON output: READY, NOT_READY, or INSUFFICIENT_DATA.
+
+## Thresholds (Do Not Modify Without Approval)
+
+- Performance score: 0.65 minimum
+- Tool call accuracy: 0.85 minimum
+- Completion rate: 0.75 minimum
+- Shadow run count: 10 minimum for prompt promotion
+ $gtm_gate$,
+ ARRAY['read_gtm_report', 'read_agent_eval_detail', 'read_tool_failure_rates', 'read_tool_call_errors'],
  1),
 
 ('prompt-evolution-management',
  'Prompt Evolution Management',
  'operations',
  'Monitors shadow run A/B results, promotes or discards challenger prompt versions based on statistical performance, triggers reflection cycles on underperforming agents.',
- E'1. Query agent_prompt_versions for agents with active challengers (deployed_at IS NULL, retired_at IS NULL).\n2. Compare challenger shadow scores vs baseline over 10+ runs.\n3. If challenger > baseline by 5%+: promote (call promote_prompt_version).\n4. If challenger <= baseline after 10+ runs: discard (call discard_prompt_version).\n5. For agents below 0.65 with no active challenger: trigger reflection cycle.\n6. Log all promotion/discard decisions with statistical evidence.',
- ARRAY['promote_prompt_version', 'discard_prompt_version', 'trigger_reflection_cycle'],
+ $prompt_evo$
+# Prompt Evolution Management
+
+Manage the prompt lifecycle: reflection → challenger → shadow evaluation → promotion or discard.
+
+## Procedure
+
+1. Identify agents with active challenger prompts (deployed_at IS NULL, retired_at IS NULL in agent_prompt_versions).
+2. For each challenger, compare shadow scores vs baseline:
+   - **10+ shadow runs AND challenger > baseline by 5%+**: call `promote_prompt_version`.
+   - **10+ shadow runs AND challenger <= baseline**: call `discard_prompt_version`.
+   - **<10 shadow runs**: skip, needs more data.
+3. For agents below 0.65 with NO active challenger, call `trigger_reflection_cycle` to generate one.
+4. Never trigger reflection on the same agent more than once per 24 hours.
+5. Never promote a prompt that changes core agent behavior without an approval request.
+6. Log every promotion/discard with: agent, old score, new score, number of shadow runs, statistical confidence.
+
+## Constraints
+
+- Reflection is AUTONOMOUS for non-GTM agents.
+- For GTM-required agents: reflection is autonomous, but promotion requires approval.
+- Never discard a challenger with fewer than 10 shadow runs — the data is insufficient.
+ $prompt_evo$,
+ ARRAY['trigger_reflection_cycle', 'promote_prompt_version', 'discard_prompt_version', 'read_agent_eval_detail'],
  1),
 
 ('root-cause-diagnosis',
  'Root Cause Diagnosis',
  'operations',
  'Traces agent failures to their source: tool call failures, context loss at handoffs, world state staleness, runner variant gaps, max_turns limits.',
- E'1. Start from the symptom: low eval score, abort, or incomplete output.\n2. Call read_agent_eval_detail for the score breakdown (tool accuracy, completion, quality).\n3. Call read_tool_failure_rates to check for tool-level failures.\n4. Call read_handoff_health to check for context loss with upstream/downstream agents.\n5. Check if max_turns was hit (suggests prompt or task complexity issue).\n6. Produce a root cause chain: symptom → contributing factors → root cause → fix.',
- ARRAY['read_agent_eval_detail', 'read_tool_failure_rates', 'read_handoff_health'],
+ $root_cause$
+# Root Cause Diagnosis
+
+Trace from symptom to root cause for any failing agent. Always produce a causal chain.
+
+## Diagnostic Ladder
+
+1. **Start from the symptom**: low eval score, abort, incomplete output, or repeated failures.
+2. **Check eval breakdown** via `read_agent_eval_detail`:
+   - Tool accuracy low → tool-level issue. Go to step 3.
+   - Completion rate low → abort or max_turns. Go to step 4.
+   - Output quality low → prompt issue. Go to step 5.
+3. **Tool diagnosis** via `read_tool_failure_rates` and `read_tool_call_errors`:
+   - If a specific tool fails >15% of calls: check for SQL errors (`validate_tool_sql`), credential issues (`check_env_credentials`), or schema drift.
+   - If multiple agents share the same failing tool: systemic issue → `write_fleet_finding`.
+4. **Abort diagnosis**:
+   - Hitting max_turns → prompt too broad or task too complex. Recommend increasing max_turns or splitting the task.
+   - Stall detection (3+ turns with no tool calls) → prompt lacks clear next-step guidance.
+   - Timeout → 10-minute limit hit on complex analysis.
+5. **Quality diagnosis**:
+   - Hallucination rate high → context window pollution or stale world state.
+   - Output format wrong → prompt missing format specification.
+   - `read_handoff_health` for context loss at inter-agent boundaries.
+6. **Produce the root cause chain**: symptom → contributing factors → root cause → recommended fix.
+
+## Output Format
+
+Always include in your analysis:
+- Agent role and current score
+- Specific metric that triggered diagnosis
+- Root cause with evidence (tool name, error message, trace)
+- Recommended fix (one specific action)
+- Whether fix is autonomous or needs approval
+ $root_cause$,
+ ARRAY['read_agent_eval_detail', 'read_tool_failure_rates', 'read_tool_call_errors', 'read_tool_call_trace', 'read_handoff_health', 'validate_tool_sql', 'check_env_credentials', 'write_fleet_finding'],
  1),
 
 ('approval-request-drafting',
  'Approval Request Drafting',
  'operations',
  'Writes precise, metric-backed approval requests for founder review. Each request includes the triggering signal, exact action, and GTM impact.',
- E'1. Identify the action that exceeds autonomous tier.\n2. Gather the triggering metric: exact value, threshold, trend.\n3. Define the exact action that will execute on approval.\n4. State the expected outcome with a measurable prediction.\n5. State what happens if rejected (is this blocking GTM?).\n6. Submit via create_approval_request with all fields populated.',
- ARRAY['create_approval_request'],
+ $approval_draft$
+# Approval Request Drafting
+
+Write approval requests that founders can act on in 10 seconds.
+
+## Required Fields
+
+Every approval request MUST include all of:
+1. **Triggering signal**: exact metric, exact threshold, exact delta. "seo-analyst tool accuracy is 0.71, threshold is 0.85, 6 of last 8 runs aborted."
+2. **Exact action**: what will execute on approval. No ambiguity. "Increase seo-analyst max_turns from 15 to 20."
+3. **Expected outcome**: measurable prediction. "Completion rate should improve from 33% to >80% based on tool trace analysis showing valid data returns at turn 12-14."
+4. **Rejection impact**: what happens if they say no. "seo-analyst remains below GTM threshold. Marketing Department gate stays NOT_READY."
+5. **Urgency**: blocking (GTM gate), important (degradation trend), or routine (optimization).
+
+## Anti-Patterns (Never Do)
+
+- "seo-analyst is underperforming" — vague, no metric.
+- "We should consider improving tool reliability" — no specific action.
+- "This might help with GTM readiness" — hedging when data is clear.
+
+## Procedure
+
+1. Gather all evidence before drafting.
+2. Call `create_approval_request` with title, rationale, action, urgency, and target_agent.
+3. Include the request in the structured JSON output under `approval_requests`.
+ $approval_draft$,
+ ARRAY['create_approval_request', 'read_agent_eval_detail', 'read_gtm_report'],
  1),
 
 ('autonomous-remediation',
  'Autonomous Remediation',
  'operations',
  'Executes safe, reversible fixes within defined autonomy bounds: reflection cycles, prompt promotions, agent pausing, world model corrections, fleet finding escalations.',
- E'1. Verify the action is within autonomous tier (check autonomy rules).\n2. Verify the target agent is NOT a GTM-required agent (for destructive actions).\n3. Execute the action: trigger_reflection_cycle, promote_prompt_version, pause_agent, etc.\n4. Log the action with the triggering signal and expected outcome.\n5. Verify the action completed successfully (check for errors).\n6. Include in the structured output JSON under autonomous_actions.',
- ARRAY['trigger_reflection_cycle', 'promote_prompt_version', 'discard_prompt_version', 'pause_agent', 'write_fleet_finding', 'write_world_model_correction'],
+ $auto_remediation$
+# Autonomous Remediation
+
+Act within defined bounds. Every action must be safe, reversible, and logged.
+
+## Autonomy Matrix
+
+| Action | Condition | GTM Agent? | Autonomous? |
+|--------|-----------|------------|-------------|
+| trigger_reflection_cycle | Score <0.65 with recent runs | Any | YES |
+| promote_prompt_version | Challenger >5% above baseline, 10+ runs | Non-GTM | YES |
+| promote_prompt_version | Any | GTM agent | NO — approval required |
+| discard_prompt_version | Challenger <= baseline, 10+ runs | Any | YES |
+| pause_agent | 3+ consecutive aborts | Non-GTM | YES |
+| pause_agent | Any | GTM agent | NO — approval required |
+| write_fleet_finding | Systemic issue detected | Any | YES |
+| write_world_model_correction | External eval contradicts self-assessment | Any | YES |
+| grant_tool_to_agent | Agent needs tool access | Any | NO — approval required |
+
+## Procedure
+
+1. Before any action, verify it matches the autonomy matrix above.
+2. Log the triggering signal: which metric, which threshold, which evidence.
+3. Execute the action.
+4. Verify success (check return value for errors).
+5. Record in structured JSON output under `autonomous_actions` with: action, target, triggering_signal, outcome.
+
+## Safety Rails
+
+- Never act on platform-intel itself.
+- Never trigger reflection on the same agent twice in 24 hours.
+- Never pause a GTM-required agent without approval.
+- If uncertain about autonomy tier, default to `create_approval_request`.
+ $auto_remediation$,
+ ARRAY['trigger_reflection_cycle', 'promote_prompt_version', 'discard_prompt_version', 'pause_agent', 'write_fleet_finding', 'write_world_model_correction', 'grant_tool_to_agent', 'create_approval_request'],
  1)
 
 ON CONFLICT (slug) DO UPDATE SET

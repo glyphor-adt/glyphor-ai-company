@@ -189,4 +189,35 @@ export const WAKE_RULES: WakeRule[] = [
     priority: 'immediate',
     cooldown_min: 2,
   },
+
+  // ── PLATFORM INTELLIGENCE (Nexus reactive wakes) ────────
+  {
+    event: 'agent.run_failed',
+    wake: ['platform-intel'],
+    task: 'daily_analysis',
+    priority: 'next_heartbeat',
+    cooldown_min: 30,
+  },
+  {
+    event: 'eval.batch_completed',
+    wake: ['platform-intel'],
+    task: 'daily_analysis',
+    priority: 'next_heartbeat',
+    cooldown_min: 60,
+  },
+  {
+    event: 'fleet_finding.created',
+    wake: ['platform-intel'],
+    task: 'daily_analysis',
+    priority: 'immediate',
+    cooldown_min: 30,
+  },
+  {
+    event: 'alert.triggered',
+    condition: 'severity_critical',
+    wake: ['platform-intel'],
+    task: 'daily_analysis',
+    priority: 'immediate',
+    cooldown_min: 15,
+  },
 ];

@@ -617,9 +617,9 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
     {
       name: 'provision_agent',
       description:
-        'Create a new permanent agent in company_agents. Use this to onboard a new team member ' +
-        'that does not yet exist in the system. This creates the base record — follow up with ' +
-        'update_agent_profile or enrich_agent_profile to complete their profile, and generate_avatar for their headshot.',
+        'Create a fully onboarded permanent agent — inserts company_agents, agent_briefs (system prompt), ' +
+        'and agent_profiles (personality, backstory, traits, avatar) in one atomic operation. ' +
+        'After provisioning, use generate_avatar to upgrade the placeholder headshot and enrich_agent_profile for richer personality.',
       parameters: {
         role: {
           type: 'string',
@@ -646,6 +646,60 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           description: 'Role slug of the manager this agent reports to (e.g. "chief-of-staff").',
           required: true,
         },
+        system_prompt: {
+          type: 'string',
+          description: 'The agent\'s system prompt defining personality, expertise, responsibilities, and instructions. Must be 100+ chars.',
+          required: true,
+        },
+        personality_summary: {
+          type: 'string',
+          description: 'First-person personality summary (2+ sentences). E.g. "I\'m a data-driven marketer who thrives on turning analytics into action..."',
+          required: true,
+        },
+        backstory: {
+          type: 'string',
+          description: 'Why this agent exists and what gap they fill at Glyphor (2+ sentences).',
+          required: true,
+        },
+        communication_traits: {
+          type: 'array',
+          description: 'Array of 3+ communication trait strings (e.g. ["concise", "data-driven", "collaborative"]).',
+          required: true,
+          items: { type: 'string', description: 'A communication trait.' },
+        },
+        quirks: {
+          type: 'array',
+          description: 'Array of 1+ personality quirk strings (e.g. ["always leads with metrics"]).',
+          required: true,
+          items: { type: 'string', description: 'A quirk.' },
+        },
+        skills: {
+          type: 'array',
+          description: 'Array of skill names this agent should have (e.g. ["social-media-management", "content-strategy"]).',
+          required: false,
+          items: { type: 'string', description: 'A skill name.' },
+        },
+        tools: {
+          type: 'array',
+          description: 'Array of tool names to grant this agent (e.g. ["send_agent_message", "check_messages"]).',
+          required: false,
+          items: { type: 'string', description: 'A tool name.' },
+        },
+        working_style: {
+          type: 'string',
+          description: 'Working style description (e.g. "outcome-driven", "collaborative and iterative").',
+          required: false,
+        },
+        tone_formality: {
+          type: 'number',
+          description: 'Tone formality 0.0-1.0 (0.3-0.8 recommended). Default: 0.6.',
+          required: false,
+        },
+        verbosity: {
+          type: 'number',
+          description: 'Verbosity 0.0-1.0 (0.3-0.7 recommended). Default: 0.5.',
+          required: false,
+        },
         model: {
           type: 'string',
           description: 'AI model to use (default: gpt-5-mini-2025-08-07).',
@@ -658,10 +712,36 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const title = params.title as string;
         const department = params.department as string;
         const reportsTo = params.reports_to as string;
+        const systemPrompt = params.system_prompt as string;
+        const personalitySummary = params.personality_summary as string;
+        const backstory = params.backstory as string;
+        const communicationTraits = (params.communication_traits as string[] | undefined) ?? [];
+        const quirks = (params.quirks as string[] | undefined) ?? [];
+        const skills = (params.skills as string[] | undefined) ?? [];
+        const tools = (params.tools as string[] | undefined) ?? [];
+        const workingStyle = (params.working_style as string) || 'outcome-driven';
+        const toneFormality = toNumeric(params.tone_formality, 0.6);
+        const verbosity = toNumeric(params.verbosity, 0.5);
         const model = (params.model as string) || 'gpt-5-mini-2025-08-07';
 
+        // ── Validate required fields ──
         if (!role || !name || !title || !department || !reportsTo) {
           return { success: false, error: 'role, name, title, department, and reports_to are all required.' };
+        }
+        if (!systemPrompt || systemPrompt.length < 100) {
+          return { success: false, error: 'system_prompt is required and must be at least 100 characters. Define the agent\'s expertise, responsibilities, and personality.' };
+        }
+        if (!personalitySummary || personalitySummary.length < 20) {
+          return { success: false, error: 'personality_summary is required (2+ sentences, first-person voice).' };
+        }
+        if (!backstory || backstory.length < 20) {
+          return { success: false, error: 'backstory is required (explain why this agent exists and what gap they fill).' };
+        }
+        if (!Array.isArray(communicationTraits) || communicationTraits.length < 3) {
+          return { success: false, error: 'communication_traits must be an array with 3+ trait strings.' };
+        }
+        if (!Array.isArray(quirks) || quirks.length < 1) {
+          return { success: false, error: 'quirks must be an array with at least 1 entry.' };
         }
 
         // Verify manager exists
@@ -676,6 +756,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           return { success: false, error: `Agent "${role}" already exists. Use validate_agent to check its profile.` };
         }
 
+        // ── 1. Create company_agents row ──
         try {
           await systemQuery(
             'INSERT INTO company_agents (role, display_name, name, title, department, reports_to, model, status, is_core, is_temporary) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
@@ -685,15 +766,34 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           return { success: false, error: `Failed to provision agent: ${(err as Error).message}` };
         }
 
-        // Log the provisioning
+        // ── 2. Create agent_briefs row (system prompt, skills, tools) ──
+        await systemQuery(
+          `INSERT INTO agent_briefs (agent_id, system_prompt, skills, tools, updated_at)
+           VALUES ($1, $2, $3, $4, NOW())
+           ON CONFLICT (agent_id) DO UPDATE SET system_prompt = EXCLUDED.system_prompt, skills = EXCLUDED.skills, tools = EXCLUDED.tools, updated_at = NOW()`,
+          [role, systemPrompt, skills, tools]
+        );
+
+        // ── 3. Create agent_profiles row (personality, backstory, traits, avatar) ──
+        const avatarSeed = encodeURIComponent(name.trim() || 'Agent');
+        const avatarUrl = `https://api.dicebear.com/9.x/initials/svg?seed=${avatarSeed}&radius=50&bold=true`;
+
+        await systemQuery(
+          `INSERT INTO agent_profiles (agent_id, personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, working_style, avatar_url, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+           ON CONFLICT (agent_id) DO UPDATE SET personality_summary = EXCLUDED.personality_summary, backstory = EXCLUDED.backstory, communication_traits = EXCLUDED.communication_traits, quirks = EXCLUDED.quirks, tone_formality = EXCLUDED.tone_formality, emoji_usage = EXCLUDED.emoji_usage, verbosity = EXCLUDED.verbosity, working_style = EXCLUDED.working_style, avatar_url = COALESCE(agent_profiles.avatar_url, EXCLUDED.avatar_url), updated_at = NOW()`,
+          [role, personalitySummary, backstory, communicationTraits.map(String), quirks.map(String), toneFormality, 0, verbosity, workingStyle, avatarUrl]
+        );
+
+        // ── 4. Log the provisioning ──
         await systemQuery(
           'INSERT INTO activity_log (agent_role, action, details) VALUES ($1, $2, $3)',
-          ['head-of-hr', 'agent_provisioned', JSON.stringify({ role, name, title, department, reports_to: reportsTo })]
+          ['head-of-hr', 'agent_provisioned', JSON.stringify({ role, name, title, department, reports_to: reportsTo, has_brief: true, has_profile: true })]
         );
 
         return {
           success: true,
-          data: `Agent "${name}" (${role}) provisioned successfully in ${department}, reporting to ${reportsTo}.\n\nNext steps:\n1. Use enrich_agent_profile to generate personality\n2. Use generate_avatar to create headshot\n3. Use validate_agent to confirm onboarding completeness`,
+          data: `Agent "${name}" (${role}) fully provisioned in ${department}, reporting to ${reportsTo}.\n\nCreated:\n- company_agents row (name, title, department, model)\n- agent_briefs row (system prompt: ${systemPrompt.length} chars, ${skills.length} skills, ${tools.length} tools)\n- agent_profiles row (personality, backstory, ${communicationTraits.length} traits, ${quirks.length} quirks, avatar)\n\nOptional next steps:\n1. Use generate_avatar to upgrade from DiceBear placeholder to AI headshot\n2. Use enrich_agent_profile if you want to regenerate a richer personality via AI\n3. Use validate_agent to confirm onboarding completeness`,
         };
       },
     },

@@ -337,11 +337,29 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   // ui-ux-designer, frontend-engineer, design-critic, template-architect
   // These are added via DB-driven agent_schedules. See seed migration.
 
-  // Platform Intelligence — Nexus daily analysis
+  // Platform Intelligence — Nexus fleet analysis (3x daily)
   {
-    id: 'platform-intel-daily',
+    id: 'platform-intel-morning',
     agentRole: 'platform-intel',
-    schedule: '0 12 * * *',     // 12:00 UTC = 7:00 AM CT — after batch eval gets prior-day data
+    schedule: '0 7 * * *',      // 7:00 AM CT — morning analysis after batch eval
+    timezone: 'America/Chicago',
+    task: 'daily_analysis',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'platform-intel-midday',
+    agentRole: 'platform-intel',
+    schedule: '0 12 * * *',     // 12:00 PM CT — midday check
+    timezone: 'America/Chicago',
+    task: 'daily_analysis',
+    payload: {},
+    enabled: true,
+  },
+  {
+    id: 'platform-intel-evening',
+    agentRole: 'platform-intel',
+    schedule: '0 17 * * *',     // 5:00 PM CT — end-of-day sweep
     timezone: 'America/Chicago',
     task: 'daily_analysis',
     payload: {},

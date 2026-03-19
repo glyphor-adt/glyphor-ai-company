@@ -17,6 +17,144 @@ import { systemQuery } from '@glyphor/shared/db';
 
 export function createCostManagementTools(): ToolDefinition[] {
   return [
+    // ── 1. get_gcp_costs ──────────────────────────────────────────────────
+    {
+      name: 'get_gcp_costs',
+      description:
+        'Get detailed GCP cost breakdown by service. Returns cost per service, total spend, ' +
+        'and percentage breakdown for the specified time range.',
+      parameters: {
+        date_range: {
+          type: 'string',
+          description: 'Time period to analyze',
+          required: true,
+          enum: ['7d', '30d', '90d'],
+        },
+        service: {
+          type: 'string',
+          description: 'Filter to specific GCP service (e.g., "cloud-run", "cloud-storage"). Omit for all services.',
+          required: false,
+        },
+      },
+      async execute(params): Promise<ToolResult> {
+        const days = params.date_range === '7d' ? 7 : params.date_range === '30d' ? 30 : 90;
+
+        try {
+          const serviceFilter = typeof params.service === 'string' ? params.service : null;
+          const queryParams: unknown[] = [];
+          let filter = `WHERE recorded_at >= NOW() - INTERVAL '${days} days'`;
+          if (serviceFilter) {
+            queryParams.push(serviceFilter);
+            filter += ` AND service = $${queryParams.length}`;
+          }
+
+          const rows = await systemQuery<{
+            service: string;
+            total_cost: number;
+            request_count: number;
+          }>(
+            `SELECT service, SUM(cost_usd) AS total_cost,
+                    COUNT(*) AS request_count
+             FROM gcp_billing
+             ${filter}
+             GROUP BY service
+             ORDER BY total_cost DESC`,
+            queryParams,
+          );
+
+          const totalSpend = rows.reduce((sum, r) => sum + Number(r.total_cost), 0);
+          const breakdown = rows.map((r) => ({
+            service: r.service,
+            cost_usd: Math.round(Number(r.total_cost) * 100) / 100,
+            pct_of_total: totalSpend > 0 ? Math.round((Number(r.total_cost) / totalSpend) * 1000) / 10 : 0,
+            requests: Number(r.request_count),
+          }));
+
+          return {
+            success: true,
+            data: {
+              date_range: params.date_range,
+              total_gcp_spend: Math.round(totalSpend * 100) / 100,
+              service_count: rows.length,
+              breakdown,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: `GCP cost query failed: ${(err as Error).message}` };
+        }
+      },
+    },
+
+    // ── 2. get_ai_model_costs ─────────────────────────────────────────────
+    {
+      name: 'get_ai_model_costs',
+      description:
+        'Get AI inference cost breakdown from agent run data. Returns cost per model/provider ' +
+        'and per-agent spend.',
+      parameters: {
+        date_range: {
+          type: 'string',
+          description: 'Time period to analyze',
+          required: true,
+          enum: ['7d', '30d', '90d'],
+        },
+      },
+      async execute(params): Promise<ToolResult> {
+        const days = params.date_range === '7d' ? 7 : params.date_range === '30d' ? 30 : 90;
+
+        try {
+          const byModel = await systemQuery<{
+            model: string;
+            total_cost: number;
+            run_count: number;
+          }>(
+            `SELECT model, SUM(cost_usd) AS total_cost, COUNT(*) AS run_count
+             FROM agent_runs
+             WHERE created_at >= NOW() - INTERVAL '${days} days'
+               AND cost_usd IS NOT NULL
+             GROUP BY model
+             ORDER BY total_cost DESC`,
+          );
+
+          const byAgent = await systemQuery<{
+            agent_id: string;
+            total_cost: number;
+            run_count: number;
+          }>(
+            `SELECT agent_id, SUM(cost_usd) AS total_cost, COUNT(*) AS run_count
+             FROM agent_runs
+             WHERE created_at >= NOW() - INTERVAL '${days} days'
+               AND cost_usd IS NOT NULL
+             GROUP BY agent_id
+             ORDER BY total_cost DESC
+             LIMIT 15`,
+          );
+
+          const totalSpend = byModel.reduce((sum, r) => sum + Number(r.total_cost), 0);
+
+          return {
+            success: true,
+            data: {
+              date_range: params.date_range,
+              total_ai_spend: Math.round(totalSpend * 100) / 100,
+              by_model: byModel.map((r) => ({
+                model: r.model,
+                cost_usd: Math.round(Number(r.total_cost) * 100) / 100,
+                runs: Number(r.run_count),
+              })),
+              by_agent: byAgent.map((r) => ({
+                agent_id: r.agent_id,
+                cost_usd: Math.round(Number(r.total_cost) * 100) / 100,
+                runs: Number(r.run_count),
+              })),
+            },
+          };
+        } catch (err) {
+          return { success: false, error: `AI model cost query failed: ${(err as Error).message}` };
+        }
+      },
+    },
+
     // ── 3. get_vendor_costs ───────────────────────────────────────────────
     {
       name: 'get_vendor_costs',
@@ -35,16 +173,15 @@ export function createCostManagementTools(): ToolDefinition[] {
 
         try {
           const vendors = await systemQuery<{
-            vendor: string;
+            product: string;
             amount: number;
-            frequency: string;
-            category: string;
+            metric: string;
           }>(
-            `SELECT vendor, SUM(amount) AS amount, frequency, category
+            `SELECT product, SUM(value) AS amount, metric
              FROM financials
-             WHERE category IN ('vendor_costs', 'infrastructure_costs')
-               AND recorded_at >= NOW() - INTERVAL '${days} days'
-             GROUP BY vendor, frequency, category
+             WHERE metric IN ('infra_cost', 'api_cost')
+               AND date >= (CURRENT_DATE - ${days})
+             GROUP BY product, metric
              ORDER BY amount DESC`,
           );
 
@@ -90,7 +227,7 @@ export function createCostManagementTools(): ToolDefinition[] {
 
         try {
           const dailyTotals = await systemQuery<{ day: string; daily_cost: number }>(
-            `SELECT DATE(recorded_at) AS day, SUM(cost) AS daily_cost
+            `SELECT DATE(recorded_at) AS day, SUM(cost_usd) AS daily_cost
              FROM gcp_billing
              WHERE recorded_at >= NOW() - INTERVAL '${lookback} days'
              GROUP BY DATE(recorded_at)
@@ -146,18 +283,18 @@ export function createCostManagementTools(): ToolDefinition[] {
       async execute(): Promise<ToolResult> {
         try {
           const monthlyCosts = await systemQuery<{ month: string; total_cost: number }>(
-            `SELECT TO_CHAR(recorded_at, 'YYYY-MM') AS month, SUM(amount) AS total_cost
+            `SELECT TO_CHAR(date, 'YYYY-MM') AS month, SUM(value) AS total_cost
              FROM financials
-             GROUP BY TO_CHAR(recorded_at, 'YYYY-MM')
+             GROUP BY TO_CHAR(date, 'YYYY-MM')
              ORDER BY month DESC
              LIMIT 6`,
           );
 
           const cashRows = await systemQuery<{ cash_balance: number }>(
-            `SELECT amount AS cash_balance
+            `SELECT value AS cash_balance
              FROM financials
-             WHERE category = 'cash_balance'
-             ORDER BY recorded_at DESC
+             WHERE metric = 'cash_balance'
+             ORDER BY date DESC
              LIMIT 1`,
           );
 
@@ -280,16 +417,16 @@ export function createCostManagementTools(): ToolDefinition[] {
 
           // Get actual spend for the current month
           const spendRows = await systemQuery<{ actual_spend: number }>(
-            `SELECT COALESCE(SUM(cost), 0) AS actual_spend
+            `SELECT COALESCE(SUM(cost_usd), 0) AS actual_spend
              FROM gcp_billing
              WHERE recorded_at >= DATE_TRUNC('month', NOW())`,
           );
 
           const vendorSpend = await systemQuery<{ actual_spend: number }>(
-            `SELECT COALESCE(SUM(amount), 0) AS actual_spend
+            `SELECT COALESCE(SUM(value), 0) AS actual_spend
              FROM financials
-             WHERE category IN ('vendor_costs', 'infrastructure_costs')
-               AND recorded_at >= DATE_TRUNC('month', NOW())`,
+             WHERE metric IN ('infra_cost', 'api_cost')
+               AND date >= DATE_TRUNC('month', CURRENT_DATE)`,
           );
 
           const gcpSpend = spendRows.length > 0 ? Number(spendRows[0].actual_spend) : 0;

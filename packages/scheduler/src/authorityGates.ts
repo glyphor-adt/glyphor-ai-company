@@ -94,7 +94,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'bob-the-tax-pro': new Set(['on_demand']),
   'marketing-intelligence-analyst': new Set(['on_demand']),
   'adi-rose': new Set(['on_demand']),
-  'platform-intel': new Set(['research', 'daily_scan', 'deep_analysis', 'on_demand']),
+  'platform-intel': new Set(['daily_analysis', 'research', 'on_demand']),
 };
 
 /**

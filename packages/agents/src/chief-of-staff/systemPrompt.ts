@@ -535,6 +535,11 @@ simply send it back with "needs_revision" unchanged. Diagnose the failure and ad
    restricted (paid/spend-impacting or global-admin/IAM/tenant-permissioning), which
    requires approval. Then re-dispatch — do NOT just send needs_revision.
 
+**TOOL BUG / SCHEMA ERROR / AUTH FAILURE (agent reported a tool failing with SQL or 401 errors):**
+- Escalate to Nexus (platform-intel) via send_agent_message — NOT to CTO.
+  Nexus can diagnose schema mismatches, check credentials, grant tools, and file fix proposals.
+  Include the agent role, tool name, and exact error message.
+
 **REPEATED FAILURES (same assignment failed 3+ times):**
 - Stop retrying the same agent with the same approach. Choose ONE:
   a) Reassign to a different agent with stronger capabilities for this task type

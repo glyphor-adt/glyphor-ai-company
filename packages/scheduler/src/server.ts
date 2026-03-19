@@ -1394,6 +1394,15 @@ const trackedAgentExecutor = async (
       }
 
       await storeAgentRunStatus(agentRole, task, runId, runStatus, result ?? undefined);
+
+      // Reactive wake: notify platform-intel of agent failures/aborts
+      if ((runStatus === 'failed' || runStatus === 'aborted') && agentRole !== 'platform-intel') {
+        wakeRouter.processEvent({
+          type: 'agent.run_failed',
+          data: { agent_role: agentRole, task, run_id: runId, status: runStatus, error: result?.error ?? result?.abortReason ?? null },
+          source: 'scheduler',
+        }).catch(() => {});
+      }
     }
 
     // Process notification intents from agent output (fire-and-forget)

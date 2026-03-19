@@ -166,6 +166,12 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
           reason: string;
         }> = [
           {
+            keywords: ['tool failure', 'tool error', 'tool broken', 'tool bug', 'tool fix', 'agent health', 'agent performance', 'fleet health', 'agent failing', 'agent broken', 'column does not exist', 'schema error', 'sql error', 'tool access', 'tool grant', 'tool block', 'performance score', 'eval score', 'prompt version', 'shadow run', 'reflection', 'agent paused', 'gtm readiness'],
+            role: 'platform-intel',
+            name: 'Nexus',
+            reason: 'Platform Intelligence — diagnoses tool failures, fixes schema mismatches, manages tool grants, monitors agent fleet health, and creates code fix proposals. Escalate tool bugs and agent issues here, not to CTO.',
+          },
+          {
             keywords: ['infrastructure', 'deploy', 'cloud run', 'build', 'ci/cd', 'platform', 'incident', 'outage', 'tool request', 'new tool', 'api integration', 'tool registry'],
             role: 'cto',
             name: 'Marcus Reeves',

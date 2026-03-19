@@ -90,6 +90,18 @@ export function createAgentCreationTools(): ToolDefinition[] {
           description: 'Optional cron schedule (e.g., "0 */6 * * *" for every 6 hours). Omit for on-demand only.',
           required: false,
         },
+        skills: {
+          type: 'array',
+          description: 'Skills this agent should have (e.g., ["cloud-migration", "azure-architecture"]). Defaults to empty.',
+          required: false,
+          items: { type: 'string', description: 'A skill name.' },
+        },
+        tools: {
+          type: 'array',
+          description: 'Tools to grant this agent (e.g., ["send_agent_message", "check_messages"]). Defaults to empty.',
+          required: false,
+          items: { type: 'string', description: 'A tool name.' },
+        },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         // ── Guard: only executives can create agents ──
@@ -108,6 +120,8 @@ export function createAgentCreationTools(): ToolDefinition[] {
         const ttlDays = Math.min((params.ttl_days as number) || DEFAULT_TTL_DAYS, MAX_TTL_DAYS);
         const model = (params.model as string) || 'gpt-5-mini-2025-08-07';
         const cronExpression = params.cron_expression as string | undefined;
+        const skills = (params.skills as string[] | undefined) ?? [];
+        const tools = (params.tools as string[] | undefined) ?? [];
 
         if (!name || !systemPrompt || !justification) {
           return { success: false, error: 'name, system_prompt, and justification are required.' };
@@ -150,7 +164,7 @@ export function createAgentCreationTools(): ToolDefinition[] {
           `INSERT INTO agent_briefs (agent_id, system_prompt, skills, tools, updated_at)
            VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (agent_id) DO UPDATE SET system_prompt = EXCLUDED.system_prompt, skills = EXCLUDED.skills, tools = EXCLUDED.tools, updated_at = EXCLUDED.updated_at`,
-          [agentId, systemPrompt, JSON.stringify([]), JSON.stringify([]), new Date().toISOString()]
+          [agentId, systemPrompt, skills, tools, new Date().toISOString()]
         );
 
         // Ensure each dynamic agent has a profile at creation time.
@@ -158,7 +172,7 @@ export function createAgentCreationTools(): ToolDefinition[] {
           `INSERT INTO agent_profiles (agent_id, personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, working_style, updated_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
            ON CONFLICT (agent_id) DO UPDATE SET personality_summary = EXCLUDED.personality_summary, backstory = EXCLUDED.backstory, communication_traits = EXCLUDED.communication_traits, quirks = EXCLUDED.quirks, tone_formality = EXCLUDED.tone_formality, emoji_usage = EXCLUDED.emoji_usage, verbosity = EXCLUDED.verbosity, working_style = EXCLUDED.working_style, updated_at = EXCLUDED.updated_at`,
-          [agentId, personalitySummary, backstory, JSON.stringify(['clear', 'structured', 'action-oriented']), JSON.stringify(['summarizes key decisions before details']), 0.6, 0.1, 0.45, 'outcome-driven', new Date().toISOString()]
+          [agentId, personalitySummary, backstory, ['clear', 'structured', 'action-oriented'], ['summarizes key decisions before details'], 0.6, 0.1, 0.45, 'outcome-driven', new Date().toISOString()]
         );
 
         // Set DiceBear avatar only for new profiles (don't overwrite existing PNG avatars)
