@@ -192,7 +192,7 @@ export function createAgentCreationTools(): ToolDefinition[] {
         // ── Log creation as a Yellow-tier decision for founder visibility ──
         await systemQuery(
           'INSERT INTO decisions (proposed_by, tier, title, summary, reasoning, status, assigned_to, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-          [ctx.agentRole, 'yellow', `New specialist agent: ${name}`, `${ctx.agentRole} created a temporary specialist agent.\n\nJustification: ${justification}\n\nAgent: ${name} (${agentId})\nDepartment: ${department}\nModel: ${model}\nTTL: ${ttlDays} days (expires ${expiresAt})\nBudget: $${MAX_BUDGET_PER_RUN}/run, $${MAX_BUDGET_DAILY}/day, $${MAX_BUDGET_MONTHLY}/month${cronExpression ? `\nSchedule: ${cronExpression}` : '\nSchedule: on-demand only'}`, justification, 'pending', JSON.stringify(['kristina', 'andrew']), new Date().toISOString()]
+          [ctx.agentRole, 'yellow', `New specialist agent: ${name}`, `${ctx.agentRole} created a temporary specialist agent.\n\nJustification: ${justification}\n\nAgent: ${name} (${agentId})\nDepartment: ${department}\nModel: ${model}\nTTL: ${ttlDays} days (expires ${expiresAt})\nBudget: $${MAX_BUDGET_PER_RUN}/run, $${MAX_BUDGET_DAILY}/day, $${MAX_BUDGET_MONTHLY}/month${cronExpression ? `\nSchedule: ${cronExpression}` : '\nSchedule: on-demand only'}`, justification, 'pending', ['kristina', 'andrew'], new Date().toISOString()]
         );
 
         // ── Activity log ──
