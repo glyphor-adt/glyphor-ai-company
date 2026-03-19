@@ -1987,9 +1987,24 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
           // Build updated env array — preserve existing, add/update only new secrets
           const newKeys = Object.keys(toAdd);
-          const updatedEnv = existingEnv.filter(
-            (e: any) => !newKeys.includes(e.name),
-          );
+          const updatedEnv = existingEnv
+            .filter((e: any) => !newKeys.includes(e.name))
+            .map((e: any) => {
+              // Normalize existing secret refs: the Cloud Run GET response returns fully-versioned
+              // paths like projects/{p}/secrets/{s}/versions/{v}, but the PATCH API only accepts
+              // {secret} or projects/{project}/secrets/{secret} — strip the /versions/... suffix.
+              if (typeof e.valueSource?.secretKeyRef?.secret === 'string') {
+                const normalized = e.valueSource.secretKeyRef.secret.replace(/\/versions\/.*$/, '');
+                return {
+                  ...e,
+                  valueSource: {
+                    ...e.valueSource,
+                    secretKeyRef: { ...e.valueSource.secretKeyRef, secret: normalized },
+                  },
+                };
+              }
+              return e;
+            });
 
           for (const [envVar, secretName] of Object.entries(toAdd)) {
             updatedEnv.push({
