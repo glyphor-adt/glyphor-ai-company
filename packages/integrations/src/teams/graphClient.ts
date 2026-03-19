@@ -1,41 +1,100 @@
 /**
  * Microsoft Graph API Teams Client
  *
- * Sends messages to Teams channels using app-only authentication
- * via Entra ID client credentials flow (MSAL).
+ * Sends messages to Teams channels. Primary method is delegated auth
+ * (ChannelMessage.Send) via a cached refresh token. Falls back to
+ * app-only auth for read operations.
+ *
+ * Posting flow:
+ *   1. Delegated Graph API (refresh token → ChannelMessage.Send)
+ *   2. App-only Graph API (fallback — only works for reads)
  *
  * Required environment variables:
  *   - AZURE_TENANT_ID: Microsoft Entra (Azure AD) tenant ID
- *   - AZURE_TEAMS_CHANNEL_CLIENT_ID: Dedicated Teams-channel app client ID (preferred)
- *   - AZURE_TEAMS_CHANNEL_CLIENT_SECRET: Dedicated Teams-channel app secret (preferred)
- *   - AZURE_CLIENT_ID: Shared Entra app client ID (fallback)
- *   - AZURE_CLIENT_SECRET: Shared Entra app secret (fallback)
+ *   - AZURE_CLIENT_ID: Entra app client ID
+ *   - GRAPH_DELEGATED_REFRESH_TOKEN: Offline refresh token for delegated posting
  *   - TEAMS_TEAM_ID: Microsoft Teams team ID
- *   - TEAMS_CHANNEL_GENERAL_ID: Channel ID for #general
- *   - TEAMS_CHANNEL_ENGINEERING_ID: Channel ID for #engineering
- *   (see buildChannelMap() for full list of supported channels)
- *
- * The dedicated glyphor-teams-channels app has ChannelMessage.Send
- * permission. The shared app may not — prefer the dedicated one.
- *
- * Required Graph API permissions (Application):
- *   - ChannelMessage.Send: Required to post messages to channels
- *   - Channel.ReadBasic.All: Required to list channels
- *   - Team.ReadBasic.All: Required to access team information
- *
- * Troubleshooting:
- *   - "Invalid URL" error: Check that TEAMS_TEAM_ID and channel IDs are set
- *   - "Forbidden" error: Verify app has ChannelMessage.Send permission
- *   - "Unauthorized" error: Check AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
- *
- * Testing:
- *   Run `node test-teams.cjs` from repo root to validate configuration
+ *   - TEAMS_CHANNEL_*_ID: Channel IDs (see buildChannelMap())
  */
 
 import { ConfidentialClientApplication } from '@azure/msal-node';
 import type { AdaptiveCard, TeamsWebhookPayload } from './webhooks.js';
 import { sendTeamsWebhook } from './webhooks.js';
 import { markdownToTeamsHtml } from './messageFormatter.js';
+
+// ─── DELEGATED AUTH (refresh token) ─────────────────────────────
+
+let _delegatedTokenCache: { token: string; expiresAt: number } | null = null;
+
+/**
+ * Acquire a delegated Graph access token using the stored refresh token.
+ * ChannelMessage.Send is delegated-only — this is how we post to channels.
+ */
+async function getDelegatedGraphToken(): Promise<string | null> {
+  const now = Date.now();
+  if (_delegatedTokenCache && _delegatedTokenCache.expiresAt > now + 60_000) {
+    return _delegatedTokenCache.token;
+  }
+
+  const tenantId = process.env.AZURE_TENANT_ID?.trim();
+  const clientId = process.env.AZURE_CLIENT_ID?.trim();
+  const refreshToken = process.env.GRAPH_DELEGATED_REFRESH_TOKEN?.trim();
+  if (!tenantId || !clientId || !refreshToken) return null;
+
+  try {
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: clientId,
+      refresh_token: refreshToken,
+      scope: 'https://graph.microsoft.com/ChannelMessage.Send offline_access',
+    });
+
+    const res = await fetch(
+      `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`,
+      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() },
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`[GraphClient] Delegated token refresh failed (${res.status}): ${text.substring(0, 200)}`);
+      return null;
+    }
+
+    const data = (await res.json()) as { access_token: string; expires_in: number; refresh_token?: string };
+    _delegatedTokenCache = {
+      token: data.access_token,
+      expiresAt: now + data.expires_in * 1000,
+    };
+    return data.access_token;
+  } catch (err) {
+    console.error('[GraphClient] Delegated token refresh error:', err);
+    return null;
+  }
+}
+
+/**
+ * Post a channel message using the delegated Graph token.
+ * Returns true on success, false if unavailable or failed.
+ */
+async function postWithDelegatedToken(
+  target: ChannelTarget,
+  body: Record<string, unknown>,
+): Promise<boolean> {
+  const token = await getDelegatedGraphToken();
+  if (!token) return false;
+
+  const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(target.teamId)}/channels/${encodeURIComponent(target.channelId)}/messages`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[GraphClient] Delegated post failed (${res.status}): ${text.substring(0, 300)}`);
+    return false;
+  }
+  return true;
+}
 
 // ─── CONFIG ─────────────────────────────────────────────────────
 
@@ -287,18 +346,13 @@ export function buildChannelMap(): Partial<ChannelMap> {
   return map;
 }
 
-// ─── CHANNEL WEBHOOK MAP ────────────────────────────────────────
+// ─── CHANNEL POSTING ────────────────────────────────────────────
 
 /**
- * Maps channel names to env vars containing their webhook URLs.
- *
- * Webhooks are the PRIMARY posting method because Microsoft Graph
- * does not support ChannelMessage.Send as an application permission —
- * it is delegated-only. App-only POST to /teams/{id}/channels/{id}/messages
- * returns 401 ("Message POST is allowed in application-only context only
- * for import purposes").
- *
- * Power Automate Workflow webhooks bypass this limitation entirely.
+ * Channel posting uses delegated auth (ChannelMessage.Send) via a cached
+ * refresh token. ChannelMessage.Send is delegated-only — app-only Graph
+ * cannot post to channels (returns 401). The refresh token is obtained
+ * once via device-code flow and stored in GRAPH_DELEGATED_REFRESH_TOKEN.
  */
 const CHANNEL_WEBHOOK_ENV: Record<string, string> = {
   decisions: 'TEAMS_WEBHOOK_DECISIONS',
@@ -331,8 +385,6 @@ export async function postCardToChannel(
   payload: TeamsWebhookPayload | AdaptiveCard,
   graphClient?: GraphTeamsClient | null,
 ): Promise<PostResult> {
-  const webhookUrl = getChannelWebhookUrl(channelName);
-
   // Normalise: if we got a raw AdaptiveCard, wrap it
   const webhookPayload: TeamsWebhookPayload = 'type' in payload && payload.type === 'message'
     ? payload as TeamsWebhookPayload
@@ -345,24 +397,36 @@ export async function postCardToChannel(
         }],
       };
 
-  // Extract the raw card for Graph API path
   const card = webhookPayload.attachments[0].content;
 
-  // 1. Webhook — works for app-only contexts
+  // 1. Delegated Graph API (ChannelMessage.Send via refresh token)
+  const channels = buildChannelMap();
+  const target = channels[channelName as keyof ChannelMap];
+  if (target) {
+    const graphBody = {
+      body: { contentType: 'html', content: '<attachment id="adaptiveCard"></attachment>' },
+      attachments: [{ id: 'adaptiveCard', contentType: 'application/vnd.microsoft.card.adaptive', content: JSON.stringify(card) }],
+    };
+    const ok = await postWithDelegatedToken(target, graphBody);
+    if (ok) return { method: 'graph' };
+  }
+
+  // 2. Webhook fallback
+  const webhookUrl = getChannelWebhookUrl(channelName);
   if (webhookUrl) {
     await sendTeamsWebhook(webhookUrl, webhookPayload);
     return { method: 'webhook' };
   }
 
-  // 2. Graph API — only works with delegated auth (not app-only)
-  const channels = buildChannelMap();
-  const target = channels[channelName as keyof ChannelMap];
+  // 3. App-only Graph API (will likely 401 for posting, but try anyway)
   if (graphClient && target) {
-    await graphClient.sendCard(target, card);
-    return { method: 'graph' };
+    try {
+      await graphClient.sendCard(target, card);
+      return { method: 'graph' };
+    } catch { /* fall through */ }
   }
 
-  return { method: 'none', error: `No webhook URL (${CHANNEL_WEBHOOK_ENV[channelName] ?? 'TEAMS_WEBHOOK_???'}) or Graph channel configured for "${channelName}"` };
+  return { method: 'none', error: `No delegated token, webhook, or Graph channel configured for "${channelName}"` };
 }
 
 /**
@@ -375,8 +439,17 @@ export async function postTextToChannel(
   text: string,
   graphClient?: GraphTeamsClient | null,
 ): Promise<PostResult> {
-  const webhookUrl = getChannelWebhookUrl(channelName);
+  // 1. Delegated Graph API (ChannelMessage.Send via refresh token)
+  const channels = buildChannelMap();
+  const target = channels[channelName as keyof ChannelMap];
+  if (target) {
+    const graphBody = { body: { contentType: 'html', content: markdownToTeamsHtml(text) } };
+    const ok = await postWithDelegatedToken(target, graphBody);
+    if (ok) return { method: 'graph' };
+  }
 
+  // 2. Webhook fallback
+  const webhookUrl = getChannelWebhookUrl(channelName);
   if (webhookUrl) {
     const payload: TeamsWebhookPayload = {
       type: 'message',
@@ -395,14 +468,15 @@ export async function postTextToChannel(
     return { method: 'webhook' };
   }
 
-  const channels = buildChannelMap();
-  const target = channels[channelName as keyof ChannelMap];
+  // 3. App-only Graph API fallback
   if (graphClient && target) {
-    await graphClient.sendText(target, text);
-    return { method: 'graph' };
+    try {
+      await graphClient.sendText(target, text);
+      return { method: 'graph' };
+    } catch { /* fall through */ }
   }
 
-  return { method: 'none', error: `No webhook URL or Graph channel configured for "${channelName}"` };
+  return { method: 'none', error: `No delegated token, webhook, or Graph channel configured for "${channelName}"` };
 }
 
 /**
