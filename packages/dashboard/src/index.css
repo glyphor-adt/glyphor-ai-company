@@ -46,10 +46,12 @@
 .dark {
   color-scheme: dark;
   --color-base: #0B0C10;
-  --color-surface: rgba(22, 24, 30, 0.85);
+  --color-surface: rgba(0, 0, 0, 0.18);
+  --color-surface-raised: rgba(0, 0, 0, 0.42);
   --color-raised: rgba(16, 18, 24, 0.9);
-  --color-border: rgba(255, 255, 255, 0.10);
+  --color-border: rgba(255, 255, 255, 0.15);
   --color-border-hover: rgba(255, 255, 255, 0.20);
+  --color-border-highlight: rgba(255, 255, 255, 0.28);
   --color-txt-primary: #ECEEF4;
   --color-txt-secondary: rgba(255, 255, 255, 0.6);
   --color-txt-muted: rgba(255, 255, 255, 0.45);
@@ -58,7 +60,7 @@
   --color-shimmer: rgb(var(--prism-accent-1) / 0.1);
   --scrollbar-thumb: rgba(255, 255, 255, 0.12);
   --scrollbar-hover: rgba(255, 255, 255, 0.2);
-  --glass-filter: blur(16px) saturate(180%);
+  --glass-filter: blur(24px) saturate(200%);
   --glass-bg: rgba(18, 24, 42, 0.34);
   --sidebar-glass-bg: rgba(17, 25, 40, 0.75);
   --sidebar-glass-border: rgba(255, 255, 255, 0.125);
@@ -147,6 +149,16 @@ body {
   background-color: transparent;
 }
 
+/* Compositing boundary fix — duplicate gradient onto <main> so
+   backdrop-filter children can sample it within their own context */
+.dark main.dashboard-main {
+  background-image:      url('/gradient-dark.svg');
+  background-color:      #07090f;
+  background-size:       100% 4200px;
+  background-position:   center var(--gradient-offset, 0px);
+  background-repeat:     no-repeat;
+}
+
 .dashboard-sidebar {
   position: relative;
   overflow: hidden;
@@ -206,7 +218,9 @@ body {
 }
 
 .nav-item-active--dark {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
 }
 
 .nav-item-active--dark::before {
@@ -304,9 +318,9 @@ button, a[role="button"], .glass-btn {
 
 .dark .theme-glass-panel {
   border-color: rgba(255, 255, 255, 0.12);
-  background-color: rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background-color: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 .theme-glass-panel-strong {
@@ -316,9 +330,9 @@ button, a[role="button"], .glass-btn {
 
 .dark .theme-glass-panel-strong {
   border-color: rgba(255, 255, 255, 0.14);
-  background-color: rgba(0, 0, 0, 0.30);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background-color: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
 }
 
 .theme-glass-panel-soft {
@@ -328,7 +342,9 @@ button, a[role="button"], .glass-btn {
 
 .dark .theme-glass-panel-soft {
   border-color: rgba(255, 255, 255, 0.10);
-  background-color: rgba(0, 0, 0, 0.20);
+  background-color: rgba(0, 0, 0, 0.10);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .theme-glass-input {
@@ -616,6 +632,12 @@ input:focus, textarea:focus, select:focus {
   width: 24px;
 }
 
+/* Rim-light: brighter top border on glass surfaces */
+.dark .glass-surface {
+  border-color: var(--color-border);
+  border-top-color: var(--color-border-highlight, rgba(255,255,255,0.28));
+}
+
 .sidebar-glass.glass-card-layout::after,
 .sidebar-glass.glass-inner-layout::after,
 .glass-surface.glass-card-layout::after,
@@ -677,9 +699,12 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .dashboard-sidebar.sidebar-glass {
-  background-color: rgba(17, 25, 40, 0.35) !important;
+  background: rgba(17, 25, 40, 0.28) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
   border: 0 !important;
   border-right: 1px solid var(--sidebar-glass-border) !important;
+  border-top-color: var(--color-border-highlight, rgba(255,255,255,0.28));
 }
 
 .dark .dashboard-home .dashboard-home-primary.sidebar-glass {
