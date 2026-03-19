@@ -118,6 +118,7 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
     'shadow_run.requested',
     'prompt_version.promoted',
     'prompt_version.discarded',
+    'tool.failure',
   ],
 };
 

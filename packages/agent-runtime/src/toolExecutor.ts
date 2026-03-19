@@ -977,7 +977,7 @@ export class ToolExecutor {
 
       // Track repeated tool failures for auto-escalation
       if (!finalResult.success) {
-        trackToolFailure(context.agentRole, toolName, finalResult.error ?? 'unknown error');
+        trackToolFailure(context.agentRole, toolName, finalResult.error ?? 'unknown error', context.glyphorEventBus);
       }
 
       // Tool reputation tracking (fire-and-forget)
@@ -1015,7 +1015,7 @@ export class ToolExecutor {
         estimateToolCost(toolName),
       );
 
-      trackToolFailure(context.agentRole, toolName, (error as Error).message);
+      trackToolFailure(context.agentRole, toolName, (error as Error).message, context.glyphorEventBus);
 
       // Tool reputation tracking (fire-and-forget)
       const execLatency = Date.now() - execStart;
@@ -1043,6 +1043,10 @@ export class ToolExecutor {
 // ─── Tool Failure Tracking & Auto-Escalation ──────────────────────
 // When the same tool fails repeatedly (across any agent), log a
 // diagnostic alert so CTO/ops can investigate the tool implementation.
+// When the threshold is hit, we emit a tool.failure GlyphorEvent so Nexus
+// (platform-intel) is woken up to diagnose and fix the root cause.
+
+import type { GlyphorEventBus } from './glyphorEventBus.js';
 
 interface ToolFailureRecord {
   agentRole: string;
@@ -1055,7 +1059,12 @@ const FAILURE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const FAILURE_ESCALATION_THRESHOLD = 3;    // 3 failures in the window
 const escalatedTools = new Set<string>();  // prevent duplicate escalations per process
 
-function trackToolFailure(agentRole: string, toolName: string, error: string): void {
+function trackToolFailure(
+  agentRole: string,
+  toolName: string,
+  error: string,
+  eventBus?: GlyphorEventBus,
+): void {
   const now = Date.now();
   const records = toolFailureLog.get(toolName) ?? [];
 
@@ -1070,24 +1079,35 @@ function trackToolFailure(agentRole: string, toolName: string, error: string): v
     const uniqueAgents = [...new Set(recent.map(r => r.agentRole))];
     const uniqueErrors = [...new Set(recent.map(r => r.error.slice(0, 120)))];
 
+    const escalationPayload = {
+      tool: toolName,
+      failureCount: recent.length,
+      affectedAgents: uniqueAgents,
+      sampleErrors: uniqueErrors.slice(0, 3),
+      window: '1h',
+      recommendation: `Tool "${toolName}" has failed ${recent.length} times in the last hour across agents [${uniqueAgents.join(', ')}]. This likely indicates a code bug, not an agent error.`,
+    };
+
     // Fire-and-forget: log to activity_log for CTO visibility
     systemQuery(
-      `INSERT INTO activity_log (agent_role, agent_id, action, detail, created_at)
-       VALUES ($1, $2, $3, $4, $5)`,
+      `INSERT INTO activity_log (agent_role, action, summary, details)
+       VALUES ($1, $2, $3, $4)`,
       [
         'system',
-        'tool-failure-tracker',
         'tool_repeated_failure',
-        JSON.stringify({
-          tool: toolName,
-          failureCount: recent.length,
-          affectedAgents: uniqueAgents,
-          sampleErrors: uniqueErrors.slice(0, 3),
-          window: '1h',
-          recommendation: `Tool "${toolName}" has failed ${recent.length} times in the last hour across agents [${uniqueAgents.join(', ')}]. This likely indicates a code bug, not an agent error. CTO should investigate the tool implementation.`,
-        }),
-        new Date().toISOString(),
+        `Tool "${toolName}" failed ${recent.length}x in 1h across [${uniqueAgents.join(', ')}]`,
+        JSON.stringify(escalationPayload),
       ],
     ).catch(err => console.warn(`[ToolFailureTracker] Failed to log escalation:`, (err as Error).message));
+
+    // Emit tool.failure event to wake Nexus (platform-intel)
+    if (eventBus) {
+      eventBus.emit({
+        type: 'tool.failure',
+        source: 'system',
+        priority: 'high',
+        payload: escalationPayload,
+      }).catch(err => console.warn(`[ToolFailureTracker] Failed to emit tool.failure event:`, (err as Error).message));
+    }
   }
 }

@@ -376,7 +376,8 @@ export type GlyphorEventType =
   | 'reflection.triggered'
   | 'shadow_run.requested'
   | 'prompt_version.promoted'
-  | 'prompt_version.discarded';
+  | 'prompt_version.discarded'
+  | 'tool.failure';
 
 export type EventPriority = 'critical' | 'high' | 'normal' | 'low';
 
