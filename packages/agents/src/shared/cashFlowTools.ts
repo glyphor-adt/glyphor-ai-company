@@ -70,10 +70,10 @@ export function createCashFlowTools(): ToolDefinition[] {
           // Fallback: query financials table for latest balance
           try {
             const rows = await systemQuery<{ total_balance: number; snapshot_date: string }>(
-              `SELECT SUM(amount) as total_balance, MAX(created_at::date)::text as snapshot_date
+              `SELECT SUM(value) as total_balance, MAX(date::date)::text as snapshot_date
                FROM financials
-               WHERE category = 'cash_balance'
-               ORDER BY created_at DESC LIMIT 1`,
+               WHERE metric = 'cash_balance'
+               ORDER BY date DESC LIMIT 1`,
             );
             const row = rows[0];
             return {
@@ -116,18 +116,18 @@ export function createCashFlowTools(): ToolDefinition[] {
 
         try {
           const inflows = await systemQuery<{ category: string; total: number }>(
-            `SELECT category, SUM(amount) as total
+            `SELECT metric AS category, SUM(value) as total
              FROM financials
-             WHERE amount > 0 AND created_at >= NOW() - INTERVAL '${days} days'
-             GROUP BY category
+             WHERE value > 0 AND date >= NOW() - INTERVAL '${days} days'
+             GROUP BY metric
              ORDER BY total DESC`,
           );
 
           const outflows = await systemQuery<{ category: string; total: number }>(
-            `SELECT category, SUM(ABS(amount)) as total
+            `SELECT metric AS category, SUM(ABS(value)) as total
              FROM financials
-             WHERE amount < 0 AND created_at >= NOW() - INTERVAL '${days} days'
-             GROUP BY category
+             WHERE value < 0 AND date >= NOW() - INTERVAL '${days} days'
+             GROUP BY metric
              ORDER BY total DESC`,
           );
 
@@ -212,28 +212,28 @@ export function createCashFlowTools(): ToolDefinition[] {
 
         try {
           const typeFilter =
-            txnType === 'inflow' ? 'AND amount > 0' :
-            txnType === 'outflow' ? 'AND amount < 0' :
+            txnType === 'inflow' ? 'AND value > 0' :
+            txnType === 'outflow' ? 'AND value < 0' :
             '';
 
           const rows = await systemQuery<{
-            id: string; amount: number; category: string;
-            counterparty: string; created_at: string;
+            id: string; value: number; metric: string;
+            product: string; date: string;
           }>(
-            `SELECT id, amount, category, counterparty, created_at::text as created_at
+            `SELECT id, value, metric, product, date::text as date
              FROM financials
-             WHERE created_at >= NOW() - INTERVAL '${days} days' ${typeFilter}
-             ORDER BY created_at DESC
+             WHERE date >= NOW() - INTERVAL '${days} days' ${typeFilter}
+             ORDER BY date DESC
              LIMIT 100`,
           );
 
           const transactions = rows.map((r) => ({
             id: r.id,
-            amount: r.amount,
-            counterparty: r.counterparty,
-            category: r.category,
-            date: r.created_at,
-            direction: r.amount > 0 ? 'inflow' : 'outflow',
+            amount: r.value,
+            counterparty: r.product,
+            category: r.metric,
+            date: r.date,
+            direction: r.value > 0 ? 'inflow' : 'outflow',
           }));
 
           return {
@@ -282,21 +282,21 @@ export function createCashFlowTools(): ToolDefinition[] {
         try {
           const [revenue, costs, gcpBilling, pulse] = await Promise.all([
             systemQuery<{ source: string; total: number }>(
-              `SELECT source, SUM(amount) as total
+              `SELECT record_type AS source, SUM(amount_usd) as total
                FROM stripe_data
-               WHERE created_at >= NOW() - INTERVAL '${interval}'
-               GROUP BY source`,
+               WHERE recorded_at >= NOW() - INTERVAL '${interval}'
+               GROUP BY record_type`,
             ),
             systemQuery<{ category: string; total: number }>(
-              `SELECT category, SUM(ABS(amount)) as total
+              `SELECT metric AS category, SUM(ABS(value)) as total
                FROM financials
-               WHERE amount < 0 AND created_at >= NOW() - INTERVAL '${interval}'
-               GROUP BY category`,
+               WHERE value < 0 AND date >= NOW() - INTERVAL '${interval}'
+               GROUP BY metric`,
             ),
             systemQuery<{ service: string; total: number }>(
-              `SELECT service, SUM(cost) as total
+              `SELECT service, SUM(cost_usd) as total
                FROM gcp_billing
-               WHERE usage_date >= NOW() - INTERVAL '${interval}'
+               WHERE recorded_at >= NOW() - INTERVAL '${interval}'
                GROUP BY service
                ORDER BY total DESC`,
             ),
@@ -379,28 +379,36 @@ export function createCashFlowTools(): ToolDefinition[] {
         const days = parseInt(range, 10);
         const interval = `${days} days`;
 
-        const productFilter = product !== 'all' ? `AND product = '${product}'` : '';
+        const productArgs: unknown[] = [];
+        let productClause = '';
+        if (product !== 'all') {
+          productArgs.push(product);
+          productClause = `AND product = $1`;
+        }
 
         try {
           const [revenueRows, cogsRows, opexRows] = await Promise.all([
             systemQuery<{ product: string; total: number }>(
-              `SELECT product, SUM(amount) as total
+              `SELECT product, SUM(amount_usd) as total
                FROM stripe_data
-               WHERE created_at >= NOW() - INTERVAL '${interval}' ${productFilter}
+               WHERE recorded_at >= NOW() - INTERVAL '${interval}' ${productClause}
                GROUP BY product`,
+              productArgs,
             ),
             systemQuery<{ product: string; total: number }>(
-              `SELECT product, SUM(cost) as total
+              `SELECT product, SUM(cost_usd) as total
                FROM gcp_billing
-               WHERE usage_date >= NOW() - INTERVAL '${interval}' ${productFilter}
+               WHERE recorded_at >= NOW() - INTERVAL '${interval}' ${productClause}
                GROUP BY product`,
+              productArgs,
             ),
             systemQuery<{ product: string; total: number }>(
-              `SELECT COALESCE(product, 'shared') as product, SUM(ABS(amount)) as total
+              `SELECT COALESCE(product, 'shared') as product, SUM(ABS(value)) as total
                FROM financials
-               WHERE amount < 0 AND category != 'cogs'
-                 AND created_at >= NOW() - INTERVAL '${interval}' ${productFilter}
+               WHERE value < 0 AND metric != 'cogs'
+                 AND date >= NOW() - INTERVAL '${interval}' ${productClause}
                GROUP BY product`,
+              productArgs,
             ),
           ]);
 

@@ -480,6 +480,19 @@ export async function createGitHubPR(
     body,
   });
 
+  // Request Copilot as reviewer so the PR gets worked on
+  try {
+    await gh.pulls.requestReviewers({
+      owner: ORG,
+      repo: repoName,
+      pull_number: data.number,
+      reviewers: ['Copilot'],
+    });
+  } catch {
+    // Best-effort — PR was still created successfully
+    console.warn(`[GitHub] Could not request Copilot review on PR #${data.number}`);
+  }
+
   return { number: data.number, url: data.html_url };
 }
 

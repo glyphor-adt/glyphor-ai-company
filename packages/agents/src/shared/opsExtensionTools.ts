@@ -41,22 +41,25 @@ export function createOpsExtensionTools(): ToolDefinition[] {
 
         try {
           let query = `
-            SELECT agent_role,
-                   MAX(started_at) AS last_run,
+            SELECT ar.agent_id AS agent_role,
+                   MAX(ar.started_at) AS last_run,
                    COUNT(*) AS total_runs,
-                   COUNT(CASE WHEN status = 'completed' THEN 1 END) AS success_count,
-                   COUNT(CASE WHEN status IN ('failed', 'error') THEN 1 END) AS error_count,
-                   ROUND(AVG(cost_usd)::numeric, 4) AS avg_cost
-            FROM agent_runs
-            WHERE started_at >= NOW() - INTERVAL '24 hours'`;
+                   COUNT(CASE WHEN ar.status = 'completed' THEN 1 END) AS success_count,
+                   COUNT(CASE WHEN ar.status IN ('failed', 'error') THEN 1 END) AS error_count,
+                   ROUND(AVG(COALESCE(ar.total_cost_usd, ar.cost, 0))::numeric, 4) AS avg_cost
+            FROM agent_runs ar`;
           const queryParams: unknown[] = [];
 
           if (department) {
-            query += ` AND department = $1`;
+            query += ` JOIN company_agents ca ON ca.role = ar.agent_id
+            WHERE ar.started_at >= NOW() - INTERVAL '24 hours'
+              AND ca.department = $1`;
             queryParams.push(department);
+          } else {
+            query += ` WHERE ar.started_at >= NOW() - INTERVAL '24 hours'`;
           }
 
-          query += ` GROUP BY agent_role ORDER BY error_count DESC, agent_role`;
+          query += ` GROUP BY ar.agent_id ORDER BY error_count DESC, ar.agent_id`;
 
           const rows = await systemQuery<{
             agent_role: string;
@@ -112,10 +115,10 @@ export function createOpsExtensionTools(): ToolDefinition[] {
           );
 
           const byType = await systemQuery<{ event_type: string; event_count: number }>(
-            `SELECT event_type, COUNT(*) AS event_count
+            `SELECT action AS event_type, COUNT(*) AS event_count
              FROM activity_log
              WHERE created_at >= NOW() - INTERVAL '1 hour'
-             GROUP BY event_type
+             GROUP BY action
              ORDER BY event_count DESC`,
           );
 
@@ -212,18 +215,18 @@ export function createOpsExtensionTools(): ToolDefinition[] {
       execute: async (): Promise<ToolResult> => {
         try {
           const byRole = await systemQuery<{ agent_role: string; total_cost: number; run_count: number }>(
-            `SELECT agent_role, SUM(cost_usd) AS total_cost, COUNT(*) AS run_count
+            `SELECT agent_id AS agent_role, SUM(COALESCE(total_cost_usd, cost, 0)) AS total_cost, COUNT(*) AS run_count
              FROM agent_runs
              WHERE started_at >= DATE_TRUNC('day', NOW())
-             GROUP BY agent_role
+             GROUP BY agent_id
              ORDER BY total_cost DESC`,
           );
 
           const byModel = await systemQuery<{ model: string; total_cost: number; run_count: number }>(
-            `SELECT model, SUM(cost_usd) AS total_cost, COUNT(*) AS run_count
+            `SELECT COALESCE(model_used, 'unknown') AS model, SUM(COALESCE(total_cost_usd, cost, 0)) AS total_cost, COUNT(*) AS run_count
              FROM agent_runs
              WHERE started_at >= DATE_TRUNC('day', NOW())
-             GROUP BY model
+             GROUP BY COALESCE(model_used, 'unknown')
              ORDER BY total_cost DESC`,
           );
 

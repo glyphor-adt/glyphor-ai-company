@@ -49,16 +49,20 @@ export function createRevenueTools(): ToolDefinition[] {
         const breakdownBy = params.breakdown_by as string;
 
         try {
+          // Map breakdown_by enum to actual stripe_data columns
+          const columnMap: Record<string, string> = { plan: 'plan', product: 'product', segment: 'product' };
+          const dbColumn = columnMap[breakdownBy] ?? 'product';
+
           const rows = await systemQuery(
-            `SELECT ${breakdownBy} AS category,
-                    SUM(mrr) AS total_mrr,
-                    SUM(CASE WHEN mrr_type = 'new' THEN mrr ELSE 0 END) AS new_mrr,
-                    SUM(CASE WHEN mrr_type = 'expansion' THEN mrr ELSE 0 END) AS expansion_mrr,
-                    SUM(CASE WHEN mrr_type = 'contraction' THEN mrr ELSE 0 END) AS contraction_mrr,
-                    SUM(CASE WHEN mrr_type = 'churned' THEN mrr ELSE 0 END) AS churned_mrr
-             FROM financials
+            `SELECT ${dbColumn} AS category,
+                    SUM(amount_usd) AS total_mrr,
+                    SUM(CASE WHEN record_type = 'new' THEN amount_usd ELSE 0 END) AS new_mrr,
+                    SUM(CASE WHEN record_type = 'expansion' THEN amount_usd ELSE 0 END) AS expansion_mrr,
+                    SUM(CASE WHEN record_type = 'contraction' THEN amount_usd ELSE 0 END) AS contraction_mrr,
+                    SUM(CASE WHEN record_type = 'churned' THEN amount_usd ELSE 0 END) AS churned_mrr
+             FROM stripe_data
              WHERE recorded_at >= NOW() - CAST($1 AS INTERVAL)
-             GROUP BY ${breakdownBy}
+             GROUP BY ${dbColumn}
              ORDER BY total_mrr DESC`,
             [dateRange],
           );
@@ -158,26 +162,26 @@ export function createRevenueTools(): ToolDefinition[] {
         try {
           const rows = await systemQuery(
             `SELECT
-               COUNT(*) FILTER (WHERE event_type = 'churn') AS churned_customers,
-               COUNT(*) FILTER (WHERE event_type IN ('active','churn')) AS total_customers,
+               COUNT(*) FILTER (WHERE record_type = 'churned') AS churned_customers,
+               COUNT(*) FILTER (WHERE record_type IN ('active','churned')) AS total_customers,
                ROUND(
-                 COUNT(*) FILTER (WHERE event_type = 'churn')::numeric /
-                 NULLIF(COUNT(*) FILTER (WHERE event_type IN ('active','churn')), 0) * 100, 2
+                 COUNT(*) FILTER (WHERE record_type = 'churned')::numeric /
+                 NULLIF(COUNT(*) FILTER (WHERE record_type IN ('active','churned')), 0) * 100, 2
                ) AS churn_rate,
-               COALESCE(SUM(mrr) FILTER (WHERE event_type = 'churn'), 0) AS revenue_impact
+               COALESCE(SUM(amount_usd) FILTER (WHERE record_type = 'churned'), 0) AS revenue_impact
              FROM stripe_data
              WHERE recorded_at >= NOW() - CAST($1 AS INTERVAL)`,
             [dateRange],
           );
 
           const churnByPlan = await systemQuery(
-            `SELECT plan_name,
+            `SELECT plan,
                     COUNT(*) AS churned_count,
-                    COALESCE(SUM(mrr), 0) AS revenue_lost
+                    COALESCE(SUM(amount_usd), 0) AS revenue_lost
              FROM stripe_data
-             WHERE event_type = 'churn'
+             WHERE record_type = 'churned'
                AND recorded_at >= NOW() - CAST($1 AS INTERVAL)
-             GROUP BY plan_name
+             GROUP BY plan
              ORDER BY revenue_lost DESC`,
             [dateRange],
           );
@@ -229,10 +233,17 @@ export function createRevenueTools(): ToolDefinition[] {
         try {
           const rows = await systemQuery(
             `SELECT
-               COALESCE(SUM(mrr), 0) AS current_mrr,
-               COALESCE(AVG(growth_rate), 0) AS avg_growth_rate,
-               COALESCE(AVG(churn_rate), 0) AS avg_churn_rate
-             FROM financials
+               COALESCE(SUM(amount_usd), 0) AS current_mrr,
+               COALESCE(
+                 (SUM(amount_usd) FILTER (WHERE record_type = 'new') +
+                  SUM(amount_usd) FILTER (WHERE record_type = 'expansion')) /
+                 NULLIF(SUM(amount_usd), 0), 0
+               ) AS avg_growth_rate,
+               COALESCE(
+                 ABS(SUM(amount_usd) FILTER (WHERE record_type = 'churned')) /
+                 NULLIF(SUM(amount_usd), 0), 0
+               ) AS avg_churn_rate
+             FROM stripe_data
              WHERE recorded_at >= NOW() - INTERVAL '90 days'`,
             [],
           );
