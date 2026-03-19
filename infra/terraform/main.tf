@@ -809,6 +809,99 @@ resource "google_cloud_run_v2_service" "worker" {
   ]
 }
 
+# ─── Cloud Run: Decisions API ────────────────────────────────
+resource "google_cloud_run_v2_service" "decisions_api" {
+  name     = "glyphor-decisions-api"
+  location = var.region
+
+  template {
+    service_account = google_service_account.glyphor.email
+    timeout         = "60s"
+
+    vpc_access {
+      connector = google_vpc_access_connector.glyphor.id
+      egress    = "PRIVATE_RANGES_ONLY"
+    }
+
+    containers {
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/glyphor/decisions-api:latest"
+
+      ports {
+        container_port = 8080
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "1Gi"
+        }
+      }
+
+      env {
+        name  = "NODE_ENV"
+        value = "production"
+      }
+
+      dynamic "env" {
+        for_each = local.secrets
+        content {
+          name = upper(replace(env.value, "-", "_"))
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.secrets[env.value].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      volume_mounts {
+        name       = "cloudsql"
+        mount_path = "/cloudsql"
+      }
+
+      env {
+        name  = "DB_HOST"
+        value = "/cloudsql/${google_sql_database_instance.glyphor_db.connection_name}"
+      }
+      env {
+        name  = "DB_NAME"
+        value = "glyphor"
+      }
+      env {
+        name  = "DB_USER"
+        value = "glyphor_app"
+      }
+      env {
+        name = "DB_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.secrets["db-password"].secret_id
+            version = "latest"
+          }
+        }
+      }
+    }
+
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = [google_sql_database_instance.glyphor_db.connection_name]
+      }
+    }
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 3
+    }
+  }
+
+  depends_on = [
+    google_project_service.apis["run.googleapis.com"],
+    google_secret_manager_secret_iam_member.runner_access,
+  ]
+}
+
 # ─── Cloud Scheduler: Morning Briefings ──────────────────────
 resource "google_cloud_scheduler_job" "briefing_kristina" {
   name      = "cos-briefing-kristina"
@@ -1207,6 +1300,13 @@ resource "google_cloud_run_v2_service_iam_member" "worker_invoker" {
   member   = "serviceAccount:${google_service_account.glyphor.email}"
 }
 
+resource "google_cloud_run_v2_service_iam_member" "decisions_api_invoker" {
+  name     = google_cloud_run_v2_service.decisions_api.name
+  location = var.region
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.glyphor.email}"
+}
+
 resource "google_project_iam_member" "cloudtasks_enqueuer" {
   project = var.project_id
   role    = "roles/cloudtasks.enqueuer"
@@ -1431,6 +1531,10 @@ output "redis_port" {
 
 output "worker_url" {
   value = google_cloud_run_v2_service.worker.uri
+}
+
+output "decisions_api_url" {
+  value = google_cloud_run_v2_service.decisions_api.uri
 }
 
 output "worker_service_account_email" {
