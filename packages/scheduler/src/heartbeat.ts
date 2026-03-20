@@ -86,6 +86,13 @@ const MIN_RUN_GAP_MS = 5 * 60 * 1000;
 const OPS_RUN_GAP_MS = 30 * 60 * 1000;
 const INBOX_SIGNATURE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
+/** If a directive stays unresolved after this many consecutive orchestrate runs, stop waking */
+const DIRECTIVE_RETRY_CAP = 3;
+/** Lookback window for checking recent orchestrate runs before re-waking CoS */
+const DIRECTIVE_RECHECK_WINDOW_MS = 60 * 60 * 1000; // 60 minutes
+/** Daily cost budget per agent (USD). Heartbeat skips non-critical wakes when exceeded. */
+const DAILY_COST_BUDGET_USD = 5.00;
+
 function inboxSignatureCacheKey(role: CompanyAgentRole): string {
   return `inbox-signature:${role}`;
 }
@@ -174,7 +181,14 @@ export class HeartbeatManager {
     // ── Phase 0c: DIRECTIVE DETECTION — runs EVERY cycle (~10 min) ──
     // This is outside the tier-gated agent loop so new directives are
     // detected within ~10 minutes regardless of CoS's exec-tier cadence.
-    const directiveWake = await this.checkDirectiveNeeds();
+    // Cost guard: skip if CoS has exceeded daily budget
+    let directiveWake: WaveAgent | null = null;
+    const cosCostToday = await this.getAgentCostToday('chief-of-staff');
+    if (cosCostToday >= DAILY_COST_BUDGET_USD) {
+      console.log(`[Heartbeat] CoS daily cost $${cosCostToday.toFixed(2)} >= budget $${DAILY_COST_BUDGET_USD} — skipping directive wake`);
+    } else {
+      directiveWake = await this.checkDirectiveNeeds();
+    }
 
     const allAgentsForCycle = this.getAgentsForCycle(this.cycle);
 
@@ -196,6 +210,13 @@ export class HeartbeatManager {
     for (const agentRole of agentsToCheck) {
       // Skip if agent was already added by directive detection above
       if (agentRole === 'chief-of-staff' && directiveWake) continue;
+
+      // Cost guard: skip non-critical wakes if agent exceeded daily budget
+      const agentCostToday = await this.getAgentCostToday(agentRole);
+      if (agentCostToday >= DAILY_COST_BUDGET_USD) {
+        console.log(`[Heartbeat] ${agentRole} daily cost $${agentCostToday.toFixed(2)} >= budget $${DAILY_COST_BUDGET_USD} — skipping heartbeat wake`);
+        continue;
+      }
 
       // Skip if agent ran recently
       const lastRun = lastRuns.get(agentRole);
@@ -690,20 +711,32 @@ export class HeartbeatManager {
 
       const directive = newDirectives[0];
       const directiveLabel = `"${directive.title}" (${directive.id})`;
-      const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-      const [recentRun] = await systemQuery<{ status: string; error: string | null; started_at: string }>(
+      const recheckWindowAgo = new Date(Date.now() - DIRECTIVE_RECHECK_WINDOW_MS).toISOString();
+      const recentRuns = await systemQuery<{ status: string; error: string | null; started_at: string }>(
         `SELECT status, error, started_at
          FROM agent_runs
          WHERE agent_id = $1
            AND task LIKE $2
            AND started_at >= $3
          ORDER BY started_at DESC
-         LIMIT 1`,
-        ['chief-of-staff', 'orchestrate%', fifteenMinAgo],
+         LIMIT ${DIRECTIVE_RETRY_CAP + 1}`,
+        ['chief-of-staff', 'orchestrate%', recheckWindowAgo],
       );
+
+      const recentRun = recentRuns[0] ?? null;
 
       if (recentRun?.status === 'running') {
         console.log('[Heartbeat] CoS: orchestration currently running; skipping directive wake');
+        return null;
+      }
+
+      // Retry cap: if the last N runs were all completed but the directive is still
+      // unresolved, the agent is stuck in a loop. Stop waking until a new event fires.
+      const consecutiveCompleted = recentRuns.filter(r => r.status === 'completed').length;
+      if (consecutiveCompleted >= DIRECTIVE_RETRY_CAP) {
+        console.log(
+          `[Heartbeat] CoS: directive ${directiveLabel} still unresolved after ${consecutiveCompleted} consecutive runs in ${DIRECTIVE_RECHECK_WINDOW_MS / 60000}min — suppressing wake until new event`,
+        );
         return null;
       }
 
@@ -719,7 +752,7 @@ export class HeartbeatManager {
           message: `SINGLE DIRECTIVE FOCUS: Process ONLY directive ${directiveLabel}. Decompose it into concrete assignments, dispatch the work, and do not process other directives this run unless this directive is fully handled.`,
         };
       } else if (recentRun?.status === 'completed') {
-        console.log(`[Heartbeat] CoS: unresolved directive after completed run; forcing retry for ${directiveLabel}`);
+        console.log(`[Heartbeat] CoS: unresolved directive after completed run; retrying for ${directiveLabel} (attempt ${consecutiveCompleted + 1}/${DIRECTIVE_RETRY_CAP})`);
         reason = 'new_directives_persistent:1';
         context = {
           task: 'orchestrate',
@@ -809,6 +842,24 @@ export class HeartbeatManager {
     } catch (err) {
       console.warn('[Heartbeat] Failed to filter active agents, proceeding with all:', (err as Error).message);
       return agents;
+    }
+  }
+
+  /**
+   * Get today's total cost for an agent (UTC day).
+   */
+  private async getAgentCostToday(agentId: string): Promise<number> {
+    try {
+      const [row] = await systemQuery<{ cost: string | null }>(
+        `SELECT SUM(total_cost_usd) AS cost
+         FROM agent_runs
+         WHERE agent_id = $1
+           AND created_at >= date_trunc('day', NOW())`,
+        [agentId],
+      );
+      return row?.cost ? parseFloat(row.cost) : 0;
+    } catch {
+      return 0; // If query fails, don't block the agent
     }
   }
 
