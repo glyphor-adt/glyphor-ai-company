@@ -245,16 +245,16 @@ export const DottedGlowBackground = ({
       const time = (now / 1000) * Math.max(speedScale, 0);
       for (let i = 0; i < dots.length; i++) {
         const d = dots[i];
-        // Linear triangle wave 0..1..0 for linear glow/dim
-        const mod = (time * d.speed + d.phase) % 2;
-        const lin = mod < 1 ? mod : 2 - mod; // 0..1..0
-        const a = 0.25 + 0.55 * lin; // 0.25..0.8 linearly
+        // Smooth sine wave 0..1..0 for organic shimmer
+        const raw = Math.sin(time * d.speed + d.phase);
+        const lin = raw * 0.5 + 0.5; // normalize to 0..1
+        const a = 0.08 + 0.92 * lin; // 0.08..1.0 — mostly dim, occasional bright
 
         // draw glow when bright
-        if (a > 0.6) {
-          const glow = (a - 0.6) / 0.4; // 0..1
+        if (a > 0.5) {
+          const glow = (a - 0.5) / 0.5; // 0..1
           ctx.shadowColor = resolvedGlowColor;
-          ctx.shadowBlur = 6 * glow;
+          ctx.shadowBlur = 10 * glow;
         } else {
           ctx.shadowColor = "transparent";
           ctx.shadowBlur = 0;

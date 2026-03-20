@@ -368,17 +368,17 @@ export default function Dashboard() {
         </HomeCard>
         <DottedGlowBackground
           className="pointer-events-none"
-          opacity={1}
+          opacity={0.8}
           gap={10}
-          radius={1.6}
+          radius={0.9}
           colorLightVar="--color-neutral-500"
           glowColorLightVar="--color-neutral-600"
           colorDarkVar="--color-neutral-500"
           glowColorDarkVar="--color-sky-800"
           backgroundOpacity={0}
-          speedMin={0.3}
-          speedMax={1.6}
-          speedScale={1}
+          speedMin={0.08}
+          speedMax={0.4}
+          speedScale={0.5}
         />
       </div>
 
