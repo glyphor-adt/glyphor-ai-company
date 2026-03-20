@@ -25,6 +25,7 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createFuseTools } from '../shared/fuseTools.js';
 import { createCodexTools } from '../shared/codexTools.js';
+import { createDesignSystemTools } from '../shared/designSystemTools.js';
 
 export interface FrontendEngineerRunParams {
   task?: 'implement_component' | 'accessibility_audit' | 'on_demand';
@@ -52,6 +53,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createScaffoldTools(),
     ...createDeployPreviewTools(),
     ...createCodexTools(),
+    ...createDesignSystemTools(),
     ...createFuseTools(memory, {
       allowBuild: true,
       allowIterate: true,

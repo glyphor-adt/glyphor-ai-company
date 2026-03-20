@@ -173,7 +173,7 @@ export const WAKE_RULES: WakeRule[] = [
   },
   {
     event: 'assignment.blocked',
-    wake: ['$assigned_by'],
+    wake: ['$assigned_by', 'platform-intel'],
     task: 'orchestrate',
     priority: 'immediate',
     cooldown_min: 2,

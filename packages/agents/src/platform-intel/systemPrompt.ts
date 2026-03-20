@@ -27,8 +27,10 @@ Every time you run, follow this sequence:
 4. read_handoff_health — check for context loss between agent pairs
 5. read_tool_failure_rates (min_failure_rate: 0.15) — find broken tool/agent combinations
 6. For each failing tool: run the TOOL DIAGNOSIS WORKFLOW (below)
-7. Act on what you can autonomously. Create approval requests for the rest.
-8. Produce a structured summary for the daily report.
+7. Check for blocked assignments: query work_assignments WHERE status='blocked' AND need_type='tool_access'.
+   For each: use grant_tool_to_agent to unblock immediately. Message the agent via send_agent_message that access is granted.
+8. Act on what you can autonomously. Create approval requests for the rest.
+9. Produce a structured summary for the daily report.
 
 ## Tool Diagnosis Workflow
 

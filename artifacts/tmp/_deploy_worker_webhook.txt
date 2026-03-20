@@ -1,0 +1,19 @@
+Creating temporary archive of 1404 file(s) totalling 137.1 MiB before compression.
+Uploading tarball of [.] to [gs://ai-glyphor-company_cloudbuild/source/1774050176.394523-0271f3d7a0e5490aafb54f919773004a.tgz]
+Created [https://cloudbuild.googleapis.com/v1/projects/ai-glyphor-company/locations/global/builds/9a56be53-f740-4220-97ba-cc241f703267].
+Logs are available at [ https://console.cloud.google.com/cloud-build/builds/9a56be53-f740-4220-97ba-cc241f703267?project=610179349713 ].
+
+gcloud builds submit only displays logs from Cloud Storage. To view logs from Cloud Logging, run:
+gcloud beta builds submit
+
+Waiting for build to complete. Polling interval: 1 second(s).
+
+INFO: The service account running this build projects/ai-glyphor-company/serviceAccounts/610179349713-compute@developer.gserviceaccount.com does not have permission to write logs to Cloud Logging. To fix this, grant the Logs Writer (roles/logging.logWriter) role to the service account.
+
+1 message(s) issued.
+ID: 9a56be53-f740-4220-97ba-cc241f703267
+CREATE_TIME: 2026-03-20T23:43:36+00:00
+DURATION: 1M50S
+SOURCE: gs://ai-glyphor-company_cloudbuild/source/1774050176.394523-0271f3d7a0e5490aafb54f919773004a.tgz
+IMAGES: us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker (+1 more)
+STATUS: SUCCESS
