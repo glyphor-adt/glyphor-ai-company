@@ -1396,7 +1396,7 @@ const trackedAgentExecutor = async (
       try {
         await systemQuery(
           `UPDATE agent_runs
-              SET model = COALESCE($1, model),
+              SET model_used = COALESCE($1, model_used),
                   actual_model = COALESCE($1, actual_model),
                   actual_provider = COALESCE($2, actual_provider),
                   estimated_cost_usd = COALESCE($3, estimated_cost_usd)

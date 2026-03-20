@@ -108,11 +108,11 @@ export function createCostManagementTools(): ToolDefinition[] {
             total_cost: number;
             run_count: number;
           }>(
-            `SELECT model, SUM(cost_usd) AS total_cost, COUNT(*) AS run_count
+            `SELECT COALESCE(model_used, 'unknown') AS model, SUM(COALESCE(total_cost_usd, cost_usd, 0)) AS total_cost, COUNT(*) AS run_count
              FROM agent_runs
              WHERE created_at >= NOW() - INTERVAL '${days} days'
-               AND cost_usd IS NOT NULL
-             GROUP BY model
+               AND COALESCE(total_cost_usd, cost_usd) IS NOT NULL
+             GROUP BY COALESCE(model_used, 'unknown')
              ORDER BY total_cost DESC`,
           );
 

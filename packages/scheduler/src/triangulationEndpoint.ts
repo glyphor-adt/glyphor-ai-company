@@ -226,8 +226,8 @@ export async function handleTriangulatedChat(
       );
 
       await systemQuery(
-        `INSERT INTO agent_runs (agent_id, task, status, cost_usd, duration_ms, tokens_used, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        `INSERT INTO agent_runs (agent_id, task, status, cost_usd, duration_ms, tokens_used, model_used, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
         [
           'ora',
           'ora_chat',
@@ -241,6 +241,7 @@ export async function handleTriangulatedChat(
           ),
           modelRun.durationMs,
           response.usageMetadata.totalTokens,
+          model,
         ],
       );
 
@@ -298,9 +299,13 @@ export async function handleTriangulatedChat(
     );
 
     // Log to agent_runs
+    const selectedModel = result.models[result.selectedProvider] ?? null;
+    if (!selectedModel) {
+      console.warn(`[triangulatedChat] Could not resolve model for selectedProvider="${result.selectedProvider}"; model_used will be null`);
+    }
     await systemQuery(
-      `INSERT INTO agent_runs (agent_id, task, status, cost_usd, duration_ms, tokens_used, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+      `INSERT INTO agent_runs (agent_id, task, status, cost_usd, duration_ms, tokens_used, model_used, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
       [
         'ora',
         'ora_chat',
@@ -308,6 +313,7 @@ export async function handleTriangulatedChat(
         result.cost.total,
         Math.max(...Object.values(result.latencyMs), 0),
         Object.values(result.allResponses).length,
+        selectedModel,
       ],
     );
   } catch (err) {
