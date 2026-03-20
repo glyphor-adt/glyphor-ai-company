@@ -59,6 +59,7 @@ import { evaluateBatch } from './batchOutcomeEvaluator.js';
 import { runShadow, getPendingShadowTasks, evaluatePromotion, getWorldStateHealth } from '@glyphor/agent-runtime';
 import { evaluateCascadePredictions } from './cascadePredictionEvaluator.js';
 import { handlePlatformIntelApproval } from './platformIntelApproval.js';
+import { handleDirectiveApproval } from './directiveApproval.js';
 import { expireTools } from './toolExpirationManager.js';
 import { evaluateCanary } from './canaryEvaluator.js';
 import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
@@ -1597,6 +1598,12 @@ const server = createServer(async (req, res) => {
     // Platform Intel approval/rejection webhooks (GET from Teams card links)
     if (method === 'GET' && url?.startsWith('/platform-intel/')) {
       const handled = await handlePlatformIntelApproval(url, req, res);
+      if (handled) return;
+    }
+
+    // Directive approval/rejection webhooks (GET from Teams card buttons)
+    if (method === 'GET' && url?.startsWith('/directives/')) {
+      const handled = await handleDirectiveApproval(url, req, res);
       if (handled) return;
     }
 

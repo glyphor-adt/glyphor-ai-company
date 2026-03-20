@@ -449,6 +449,132 @@ export function formatNotificationCard(data: NotificationCardData): TeamsWebhook
   };
 }
 
+// ─── DIRECTIVE PROPOSAL CARD ────────────────────────────────────
+
+export interface DirectiveProposalCardData {
+  directiveId: string;
+  title: string;
+  description: string;
+  priority: string;
+  category: string;
+  targetAgents: string[];
+  proposalReason: string;
+  dueDate?: string;
+  approveUrl: string;
+  rejectUrl: string;
+}
+
+export function formatDirectiveProposalCard(data: DirectiveProposalCardData): AdaptiveCard {
+  const priorityColor: Record<string, string> = {
+    critical: 'Attention',
+    high: 'Warning',
+    medium: 'Accent',
+    low: 'Good',
+  };
+  const color = priorityColor[data.priority] ?? 'Default';
+
+  const facts = [
+    { title: 'Priority', value: data.priority.toUpperCase() },
+    { title: 'Category', value: capitalize(data.category.replace(/_/g, ' ')) },
+    { title: 'Agents', value: data.targetAgents.join(', ') },
+  ];
+  if (data.dueDate) {
+    facts.push({ title: 'Suggested Deadline', value: data.dueDate });
+  }
+
+  const body: AdaptiveCardElement[] = [
+    {
+      type: 'Container',
+      style: 'emphasis',
+      items: [
+        {
+          type: 'TextBlock',
+          text: '📋 Directive Proposal — Decision Needed',
+          weight: 'bolder',
+          size: 'small',
+          color: 'accent',
+          wrap: true,
+        } as AdaptiveCardElement,
+        {
+          type: 'TextBlock',
+          text: data.title,
+          weight: 'bolder',
+          size: 'large',
+          color,
+          wrap: true,
+        } as AdaptiveCardElement,
+        {
+          type: 'TextBlock',
+          text: `Proposed by Sarah Chen, Chief of Staff`,
+          size: 'small',
+          color: 'accent',
+          spacing: 'none',
+          wrap: true,
+        } as AdaptiveCardElement,
+      ],
+    } as AdaptiveCardElement,
+    {
+      type: 'FactSet',
+      facts,
+    } as AdaptiveCardElement,
+    {
+      type: 'TextBlock',
+      text: '**Why this is needed**',
+      weight: 'bolder',
+      size: 'small',
+      spacing: 'medium',
+      wrap: true,
+    } as AdaptiveCardElement,
+    {
+      type: 'TextBlock',
+      text: data.proposalReason,
+      wrap: true,
+      size: 'small',
+    } as AdaptiveCardElement,
+    {
+      type: 'TextBlock',
+      text: '**Scope**',
+      weight: 'bolder',
+      size: 'small',
+      spacing: 'medium',
+      wrap: true,
+    } as AdaptiveCardElement,
+    {
+      type: 'TextBlock',
+      text: data.description,
+      wrap: true,
+      size: 'small',
+    } as AdaptiveCardElement,
+    {
+      type: 'TextBlock',
+      text: `Directive ID: ${data.directiveId} · Expires in 48h`,
+      size: 'small',
+      color: 'accent',
+      spacing: 'medium',
+      wrap: true,
+    } as AdaptiveCardElement,
+  ];
+
+  return {
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    type: 'AdaptiveCard',
+    version: '1.5',
+    body,
+    actions: [
+      {
+        type: 'Action.OpenUrl',
+        title: '✓ Approve Directive',
+        url: data.approveUrl,
+      } as AdaptiveCardAction,
+      {
+        type: 'Action.OpenUrl',
+        title: '✕ Reject Directive',
+        url: data.rejectUrl,
+      } as AdaptiveCardAction,
+    ],
+  };
+}
+
 // ─── UTILS ──────────────────────────────────────────────────────
 
 function capitalize(s: string): string {

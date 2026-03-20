@@ -17,6 +17,7 @@ import {
   sendTeamsWebhook,
   postCardToChannel,
   formatBriefingCard,
+  formatDirectiveProposalCard,
   GraphTeamsClient,
   buildChannelMap,
   GraphCalendarClient,
@@ -2712,20 +2713,75 @@ export function createOrchestrationTools(
 
         const directiveId = data.id;
 
-        // 2. Send Teams DM to the target founder
-        const agentList = targetAgents.join(', ');
-        const deadlineLine = dueDate ? `\nSuggested deadline: ${dueDate}` : '';
-        const dmMessage =
-          `PROPOSED DIRECTIVE: ${title}\n\n` +
-          `Why: ${proposalReason}\n` +
-          `Scope: ${agentList}\n` +
-          `Priority: ${priority} | Category: ${category}${deadlineLine}\n\n` +
-          `→ Approve, modify, or reject in Dashboard → Directives`;
+        // 2. Generate approval tokens and send Adaptive Card with approve/reject buttons
+        const baseUrl = process.env.PUBLIC_URL ?? process.env.SERVICE_URL ?? '';
+        let approveUrl = `${baseUrl}/directives/approve/`;
+        let rejectUrl = `${baseUrl}/directives/reject/`;
 
-        // Use the send_dm tool's underlying client if available
         try {
+          const [approveToken] = await systemQuery<{ token: string }>(
+            `INSERT INTO directive_approval_tokens (directive_id, decision) VALUES ($1, 'approve') RETURNING token`,
+            [directiveId],
+          );
+          const [rejectToken] = await systemQuery<{ token: string }>(
+            `INSERT INTO directive_approval_tokens (directive_id, decision) VALUES ($1, 'reject') RETURNING token`,
+            [directiveId],
+          );
+          if (approveToken?.token) approveUrl += approveToken.token;
+          if (rejectToken?.token) rejectUrl += rejectToken.token;
+        } catch (e) {
+          console.warn('[CoS] Could not generate approval tokens:', (e as Error).message);
+        }
+
+        // Build and send Adaptive Card with interactive buttons
+        try {
+          const card = formatDirectiveProposalCard({
+            directiveId,
+            title,
+            description,
+            priority,
+            category,
+            targetAgents,
+            proposalReason,
+            dueDate,
+            approveUrl,
+            rejectUrl,
+          });
+
+          // Try sending card via Teams DM
           const sendDmTool = tools.find(t => t.name === 'send_dm');
-          if (sendDmTool) {
+          let cardSent = false;
+
+          // Attempt A365 → Graph DM card delivery
+          try {
+            const graphClient = GraphTeamsClient.fromEnv();
+            if (graphClient) {
+              const { TeamsDirectMessageClient } = await import('@glyphor/integrations');
+              const dmClient = TeamsDirectMessageClient.fromEnv(graphClient);
+              if (dmClient) {
+                await dmClient.sendCard(
+                  notify as 'kristina' | 'andrew',
+                  card,
+                  'Sarah Chen',
+                );
+                cardSent = true;
+              }
+            }
+          } catch (cardErr) {
+            console.warn('[CoS] Card DM failed, falling back to text DM:', (cardErr as Error).message);
+          }
+
+          // Fallback: send plain text DM with approve/reject links
+          if (!cardSent && sendDmTool) {
+            const agentList = targetAgents.join(', ');
+            const deadlineLine = dueDate ? `\nSuggested deadline: ${dueDate}` : '';
+            const dmMessage =
+              `PROPOSED DIRECTIVE: ${title}\n\n` +
+              `Why: ${proposalReason}\n` +
+              `Scope: ${agentList}\n` +
+              `Priority: ${priority} | Category: ${category}${deadlineLine}\n\n` +
+              `✓ Approve: ${approveUrl}\n` +
+              `✕ Reject: ${rejectUrl}`;
             await sendDmTool.execute({ recipient: notify, message: dmMessage }, ctx);
           }
         } catch (e) {
