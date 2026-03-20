@@ -31,9 +31,9 @@ export function MovingBorderContainer({
         aria-hidden
       />
 
-      {/* Content */}
+      {/* Content — opaque bg masks the gradient; only the 1.5px padding gap is visible */}
       <div
-        className={cn('relative z-10 h-full w-full', className)}
+        className={cn('relative z-10 h-full w-full bg-raised', className)}
         style={{ borderRadius: `calc(${borderRadius} - 1.5px)` }}
       >
         {children}
