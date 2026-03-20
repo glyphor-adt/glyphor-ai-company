@@ -232,14 +232,14 @@ export const WAKE_RULES: WakeRule[] = [
     event: 'agent.run_failed',
     wake: ['platform-intel'],
     task: 'daily_analysis',
-    priority: 'next_heartbeat',
+    priority: 'immediate',
     cooldown_min: 30,
   },
   {
     event: 'eval.batch_completed',
     wake: ['platform-intel'],
     task: 'daily_analysis',
-    priority: 'next_heartbeat',
+    priority: 'immediate',
     cooldown_min: 60,
   },
   {
