@@ -95,6 +95,33 @@ async function executeApprovedAction(action: PlatformIntelAction): Promise<void>
       break;
     }
 
+    case 'grant_tool_access': {
+      const targetRole = action.target_agent_id;
+      if (!targetRole) throw new Error('Missing target_agent_id');
+      const toolName = payload.tool_name as string;
+      if (!toolName) throw new Error('Missing tool_name in payload');
+      await systemQuery(
+        `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
+         VALUES ($1, $2, 'platform-intel', $3)
+         ON CONFLICT (agent_role, tool_name) DO UPDATE
+           SET is_active = true, granted_by = 'platform-intel', reason = EXCLUDED.reason, updated_at = NOW()`,
+        [targetRole, toolName, payload.reason ?? 'Approved via Nexus approval card'],
+      );
+      break;
+    }
+
+    case 'apply_fix_proposal': {
+      // Mark the fix proposal as approved so Nexus knows to proceed
+      const proposalId = payload.proposal_id as string;
+      if (proposalId) {
+        await systemQuery(
+          `UPDATE tool_fix_proposals SET status = 'approved', reviewed_by = 'founder', reviewed_at = NOW() WHERE id = $1`,
+          [proposalId],
+        );
+      }
+      break;
+    }
+
     default:
       // Log the unknown action type rather than crashing
       console.error(`[PlatformIntelApproval] Unknown action type: ${action.action_type}`);

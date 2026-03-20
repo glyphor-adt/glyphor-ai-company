@@ -8,7 +8,32 @@
 
 import type { ToolDefinition, ToolContext, ToolResult } from '@glyphor/agent-runtime';
 import { invalidateGrantCache, refreshDynamicToolCache, isKnownToolAsync } from '@glyphor/agent-runtime';
+import { A365TeamsChatClient } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
+
+// ── Teams DM helper ────────────────────────────────────────────
+
+const FOUNDER_EMAILS = {
+  kristina: process.env.TEAMS_USER_KRISTINA_EMAIL ?? 'kristina@glyphor.ai',
+  andrew: process.env.TEAMS_USER_ANDREW_EMAIL ?? 'andrew@glyphor.ai',
+};
+
+async function notifyFounders(message: string): Promise<void> {
+  try {
+    const client = A365TeamsChatClient.fromEnv('platform-intel');
+    if (!client) return;
+    for (const [name, email] of Object.entries(FOUNDER_EMAILS)) {
+      try {
+        const chatId = await client.createOrGetOneOnOneChat(email, undefined, 'platform-intel');
+        await client.postChatMessage(chatId, message, 'platform-intel');
+      } catch (err) {
+        console.warn(`[Nexus] Failed to DM ${name}:`, (err as Error).message);
+      }
+    }
+  } catch (err) {
+    console.warn('[Nexus] Teams notification failed:', (err as Error).message);
+  }
+}
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -449,17 +474,42 @@ export function createPlatformIntelTools(): ToolDefinition[] {
           [action.id],
         );
 
+        // Send Teams DM with approval links
+        const schedulerUrl = process.env.SCHEDULER_URL ?? 'https://glyphor-scheduler-610179349713.us-central1.run.app';
+        const approveUrl = `${schedulerUrl}/platform-intel/approve/${approveToken?.token}`;
+        const rejectUrl = `${schedulerUrl}/platform-intel/reject/${rejectToken?.token}`;
+        const urgencyTag = (params.urgency as string).toUpperCase();
+        const dmMessage = [
+          `[${urgencyTag}] ⚡ Nexus — Approval Required`,
+          '',
+          `**${params.title}**`,
+          targetAgentId ? `Agent: ${targetAgentId}` : '',
+          '',
+          `Why: ${params.rationale}`,
+          '',
+          `Action: ${actionDescription}`,
+          '',
+          `Expected outcome: ${params.impact}`,
+          '',
+          `✓ Approve: ${approveUrl}`,
+          `✕ Reject: ${rejectUrl}`,
+          '',
+          `Expires in 48h · Action ID: ${action.id}`,
+        ].filter(Boolean).join('\n');
+        notifyFounders(dmMessage).catch(() => {});
+
         return {
           success: true,
           data: {
             action_id: action.id,
             status: 'pending_approval',
-            approve_token: approveToken?.token,
-            reject_token: rejectToken?.token,
+            approve_url: approveUrl,
+            reject_url: rejectUrl,
             title: params.title,
             rationale: params.rationale,
             urgency: params.urgency,
             target_agent_id: targetAgentId,
+            teams_notification: 'sent',
           },
         };
       },
@@ -880,6 +930,21 @@ export function createPlatformIntelTools(): ToolDefinition[] {
               [agent, severity, 'tool_bug', `${toolName}: ${rootCause}`],
             );
           }
+
+          // Notify founders — P0/P1 tool bugs need engineering attention
+          const dmMessage = [
+            `[${severity}] 🔧 Nexus — Tool Fix Proposal`,
+            '',
+            `**${toolName}** is broken${blockingGtm ? ' (BLOCKING GTM)' : ''}`,
+            `Affected agents: ${affectedAgents.join(', ')}`,
+            '',
+            `Root cause: ${rootCause}`,
+            '',
+            `Fix: ${fixDescription}`,
+            '',
+            `Proposal ID: ${row?.id}`,
+          ].join('\n');
+          notifyFounders(dmMessage).catch(() => {});
         }
 
         await logPlatformAction(

@@ -127,6 +127,30 @@ export async function applyPatchToGitHub(
       commitShas.push(update.commit.sha);
     }
 
+    // Auto-create a pull request so the fix can be reviewed and deployed
+    let prUrl: string | undefined;
+    try {
+      const prBody = {
+        title: params.commit_message,
+        head: params.branch,
+        base: 'main',
+        body: `Automated fix by Nexus (platform-intel).\n\nFiles changed:\n${filesWritten.map(f => '- ' + f).join('\n')}`,
+      };
+      const pr = await githubRequest<{ html_url: string; number: number }>(
+        `/repos/${GITHUB_OWNER}/${params.repo}/pulls`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(prBody),
+        },
+        context?.abortSignal,
+      );
+      prUrl = pr.html_url;
+    } catch (prErr) {
+      // PR creation is best-effort — the branch + commits are the important part
+      console.warn('[PatchHarness] PR creation failed (branch still has commits):', (prErr as Error).message);
+    }
+
     return {
       success: true,
       data: {
@@ -134,6 +158,7 @@ export async function applyPatchToGitHub(
         branch: params.branch,
         files: filesWritten,
         commit_shas: commitShas,
+        pull_request_url: prUrl ?? null,
       },
       filesWritten: filesWritten.length,
       memoryKeysWritten: 0,

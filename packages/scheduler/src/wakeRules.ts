@@ -257,4 +257,11 @@ export const WAKE_RULES: WakeRule[] = [
     priority: 'immediate',
     cooldown_min: 15,
   },
+  {
+    event: 'tool.failure',
+    wake: ['platform-intel'],
+    task: 'daily_analysis',
+    priority: 'immediate',
+    cooldown_min: 30,
+  },
 ];
