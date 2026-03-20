@@ -212,23 +212,22 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
 
   switch (task) {
     case 'generate_briefing': {
-      const recipient = params.recipient || 'kristina';
-      const isBoth = recipient === 'both';
-      initialMessage = `Generate the ${isBoth ? 'morning briefings for BOTH Kristina and Andrew' : `morning briefing for ${recipient}`} for ${today}.
+      const recipient = params.recipient || 'both';
+      initialMessage = `Generate the morning briefing for BOTH founders (Kristina and Andrew) for ${today}.
 
 Steps:
 1. Use get_recent_activity to see what happened in the last 24 hours
 2. Use get_pending_decisions to check for items needing approval
 3. Use get_financials for the last 7 days
-${isBoth ? `4. Synthesize into TWO separate briefings — one for each founder
-5. Use send_briefing to deliver Kristina's briefing (recipient="kristina")
-6. Use send_briefing to deliver Andrew's briefing (recipient="andrew")
-   You MUST send both. Do NOT skip Andrew.` : `4. Synthesize everything into a concise morning briefing
-5. Use send_briefing to deliver it to ${recipient} via Teams`}
+4. Synthesize everything into ONE concise morning briefing covering the full company
+5. Use send_briefing to deliver it to kristina via Teams
+6. Use send_briefing to deliver the SAME briefing to andrew via Teams
+   You MUST send to both. Do NOT skip either founder.
 
 Remember:
-- Kristina cares about: product/market, growth, competitive landscape, enterprise opportunities
-- Andrew cares about: financials, costs, margins, infrastructure, risk
+- Kristina (CEO) focuses on: product/market, growth, competitive landscape, infrastructure, engineering
+- Andrew (COO) focuses on: financials, costs, margins, business health, sales pipeline
+- But BOTH receive the SAME briefing — do NOT generate two different versions. One briefing, sent twice.
 - Lead with the most important item
 - Include action items if any decisions need their attention
 - The only external product is the AI Marketing Department. Do NOT reference Fuse, Pulse, or internal engine names in the briefing.`;
@@ -383,7 +382,7 @@ Synthesize into a SHORT status update (not a full briefing). Structure:
 - **Needs attention:** Any blockers, stuck decisions, or items requiring founder input?
 - **Cost note:** Any spending anomalies today?
 
-Send via send_dm to ${recipient === 'both' ? 'kristina and then andrew (two separate calls)' : recipient}.
+Send via send_dm to kristina and then andrew (two separate calls — same message).
 Keep it under 400 words. Be direct — this is a status pulse, not a report.`;
       break;
     }

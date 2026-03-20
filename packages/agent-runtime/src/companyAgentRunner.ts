@@ -769,7 +769,7 @@ in your final output so founders stay informed. This is how you report up — li
 
 **Syntax:**
 \`\`\`
-<notify type="update|completed|blocker|fyi" to="kristina|andrew|both" title="Short descriptive title">
+<notify type="update|completed|blocker|fyi" to="both" title="Short descriptive title">
 2-3 sentence summary of what you did, what the outcome was, and any next steps.
 </notify>
 \`\`\`
@@ -781,9 +781,8 @@ in your final output so founders stay informed. This is how you report up — li
 - \`fyi\` — Informational, no action needed (trend spotted, anomaly noted, colleague notified)
 
 **Recipients:**
-- \`to="kristina"\` — Product, growth, GTM, competitive landscape, content, brand
-- \`to="andrew"\` — Financials, costs, infrastructure, risk, engineering, security
-- \`to="both"\` — Cross-functional updates, major milestones, blockers affecting the whole company
+- ALWAYS use \`to="both"\`. Kristina and Andrew are a two-person founding team — both need to see everything.
+- Do NOT route to one founder individually. That wastes tokens on duplicate messages and leaves one founder out of the loop.
 
 **Rules:**
 - Include ONE notify block per run (not more). Pick the most important thing.

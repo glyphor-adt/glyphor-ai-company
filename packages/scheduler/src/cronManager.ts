@@ -24,21 +24,12 @@ export interface ScheduledJob {
  */
 export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
-    id: 'cos-briefing-kristina',
+    id: 'cos-briefing-both',
     agentRole: 'chief-of-staff',
     schedule: '0 12 * * *',  // 12:00 UTC = 7:00 AM CT, daily
     timezone: 'America/Chicago',
     task: 'morning_briefing',
-    payload: { founder: 'kristina' },
-    enabled: true,
-  },
-  {
-    id: 'cos-briefing-andrew',
-    agentRole: 'chief-of-staff',
-    schedule: '30 12 * * *',  // 12:30 UTC = 7:30 AM CT, daily
-    timezone: 'America/Chicago',
-    task: 'morning_briefing',
-    payload: { founder: 'andrew' },
+    payload: { founder: 'both' },
     enabled: true,
   },
   {

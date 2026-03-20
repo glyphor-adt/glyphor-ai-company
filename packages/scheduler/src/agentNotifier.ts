@@ -138,10 +138,8 @@ export class AgentNotifier {
         const card = formatNotificationCard(cardData);
         const cardContent = card.attachments[0].content as unknown as Record<string, unknown>;
 
-        // Determine recipients
-        const targets: string[] = notif.to === 'both'
-          ? ['kristina', 'andrew']
-          : [notif.to];
+        // Always deliver to BOTH founders regardless of what the agent specified
+        const targets: string[] = ['kristina', 'andrew'];
 
         for (const target of targets) {
           const upn = this.founderUpns[target];

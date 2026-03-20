@@ -902,9 +902,9 @@ resource "google_cloud_run_v2_service" "decisions_api" {
   ]
 }
 
-# ─── Cloud Scheduler: Morning Briefings ──────────────────────
-resource "google_cloud_scheduler_job" "briefing_kristina" {
-  name      = "cos-briefing-kristina"
+# ─── Cloud Scheduler: Morning Briefing (both founders, single run) ──────────
+resource "google_cloud_scheduler_job" "briefing_both" {
+  name      = "cos-briefing-both"
   schedule  = "0 12 * * 1-5"
   time_zone = "America/Chicago"
   region    = var.region
@@ -914,25 +914,7 @@ resource "google_cloud_scheduler_job" "briefing_kristina" {
     data = base64encode(jsonencode({
       agentRole = "chief-of-staff"
       task      = "morning_briefing"
-      payload   = { founder = "kristina" }
-    }))
-  }
-
-  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
-}
-
-resource "google_cloud_scheduler_job" "briefing_andrew" {
-  name      = "cos-briefing-andrew"
-  schedule  = "30 12 * * 1-5"
-  time_zone = "America/Chicago"
-  region    = var.region
-
-  pubsub_target {
-    topic_name = google_pubsub_topic.agent_tasks.id
-    data = base64encode(jsonencode({
-      agentRole = "chief-of-staff"
-      task      = "morning_briefing"
-      payload   = { founder = "andrew" }
+      payload   = { founder = "both" }
     }))
   }
 
