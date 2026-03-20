@@ -377,7 +377,7 @@ export type PostResult = { method: 'webhook' | 'graph' | 'none'; error?: string 
 /**
  * Post an Adaptive Card to a Teams channel.
  *
- * Tries webhook first (works with app-only auth), then Graph API as fallback.
+ * Tries webhook first (posts as bot), then delegated Graph API as fallback.
  * Accepts either a TeamsWebhookPayload or a raw AdaptiveCard.
  */
 export async function postCardToChannel(
@@ -399,7 +399,18 @@ export async function postCardToChannel(
 
   const card = webhookPayload.attachments[0].content;
 
-  // 1. Delegated Graph API (ChannelMessage.Send via refresh token)
+  // 1. Webhook (preferred — posts as bot, not as a user)
+  const webhookUrl = getChannelWebhookUrl(channelName);
+  if (webhookUrl) {
+    try {
+      await sendTeamsWebhook(webhookUrl, webhookPayload);
+      return { method: 'webhook' };
+    } catch (err) {
+      console.warn(`[GraphClient] Webhook failed for ${channelName}:`, (err as Error).message);
+    }
+  }
+
+  // 2. Delegated Graph API (ChannelMessage.Send via refresh token — posts as token owner)
   const channels = buildChannelMap();
   const target = channels[channelName as keyof ChannelMap];
   if (target) {
@@ -411,13 +422,6 @@ export async function postCardToChannel(
     if (ok) return { method: 'graph' };
   }
 
-  // 2. Webhook fallback
-  const webhookUrl = getChannelWebhookUrl(channelName);
-  if (webhookUrl) {
-    await sendTeamsWebhook(webhookUrl, webhookPayload);
-    return { method: 'webhook' };
-  }
-
   // 3. App-only Graph API (will likely 401 for posting, but try anyway)
   if (graphClient && target) {
     try {
@@ -426,7 +430,7 @@ export async function postCardToChannel(
     } catch { /* fall through */ }
   }
 
-  return { method: 'none', error: `No delegated token, webhook, or Graph channel configured for "${channelName}"` };
+  return { method: 'none', error: `No webhook, delegated token, or Graph channel configured for "${channelName}"` };
 }
 
 /**
@@ -439,16 +443,7 @@ export async function postTextToChannel(
   text: string,
   graphClient?: GraphTeamsClient | null,
 ): Promise<PostResult> {
-  // 1. Delegated Graph API (ChannelMessage.Send via refresh token)
-  const channels = buildChannelMap();
-  const target = channels[channelName as keyof ChannelMap];
-  if (target) {
-    const graphBody = { body: { contentType: 'html', content: markdownToTeamsHtml(text) } };
-    const ok = await postWithDelegatedToken(target, graphBody);
-    if (ok) return { method: 'graph' };
-  }
-
-  // 2. Webhook fallback
+  // 1. Webhook (preferred — posts as bot, not as a user)
   const webhookUrl = getChannelWebhookUrl(channelName);
   if (webhookUrl) {
     const payload: TeamsWebhookPayload = {
@@ -464,8 +459,21 @@ export async function postTextToChannel(
         },
       }],
     };
-    await sendTeamsWebhook(webhookUrl, payload);
-    return { method: 'webhook' };
+    try {
+      await sendTeamsWebhook(webhookUrl, payload);
+      return { method: 'webhook' };
+    } catch (err) {
+      console.warn(`[GraphClient] Webhook failed for ${channelName}:`, (err as Error).message);
+    }
+  }
+
+  // 2. Delegated Graph API (ChannelMessage.Send via refresh token — posts as token owner)
+  const channels = buildChannelMap();
+  const target = channels[channelName as keyof ChannelMap];
+  if (target) {
+    const graphBody = { body: { contentType: 'html', content: markdownToTeamsHtml(text) } };
+    const ok = await postWithDelegatedToken(target, graphBody);
+    if (ok) return { method: 'graph' };
   }
 
   // 3. App-only Graph API fallback
@@ -476,7 +484,7 @@ export async function postTextToChannel(
     } catch { /* fall through */ }
   }
 
-  return { method: 'none', error: `No delegated token, webhook, or Graph channel configured for "${channelName}"` };
+  return { method: 'none', error: `No webhook, delegated token, or Graph channel configured for "${channelName}"` };
 }
 
 /**

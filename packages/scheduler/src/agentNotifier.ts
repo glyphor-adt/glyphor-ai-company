@@ -203,26 +203,6 @@ export class AgentNotifier {
   }
 
   /**
-   * Send a notification card to the agent's department channel as a fallback.
-   */
-  private async sendToFallbackChannel(
-    agentRole: string,
-    cardContent: Record<string, unknown>,
-  ): Promise<void> {
-    // Try the agent's department channel first, then fall back to general
-    const channelKey = this.getDepartmentChannel(agentRole);
-    const channelName = this.channels[channelKey as keyof ChannelMap]
-      ? channelKey
-      : this.channels['general' as keyof ChannelMap]
-        ? 'general'
-        : undefined;
-    if (!channelName) return;
-
-    await postCardToChannel(channelName, cardContent as unknown as AdaptiveCard, this.graphClient)
-      .catch((err: unknown) => console.error('[AgentNotifier] Channel fallback failed:', err));
-  }
-
-  /**
    * Format a notification as plain text for A365 MCP DMs (no Adaptive Card support).
    */
   private formatNotificationText(agentName: string, notif: ParsedNotification): string {
@@ -236,22 +216,5 @@ export class AgentNotifier {
       lines.push('', 'Options: ' + notif.options.join(' | '));
     }
     return lines.join('\n');
-  }
-
-  /**
-   * Map agent role to their department channel.
-   */
-  private getDepartmentChannel(agentRole: string): string {
-    const map: Record<string, string> = {
-      cto: 'engineering', 'platform-engineer': 'engineering', 'quality-engineer': 'engineering',
-      'devops-engineer': 'engineering', cpo: 'product', 'user-researcher': 'product',
-      'competitive-intel': 'product', cfo: 'finance',
-      cmo: 'marketing', 'content-creator': 'marketing',
-      'seo-analyst': 'marketing', 'social-media-manager': 'marketing',
-      'vp-sales': 'sales',
-      'vp-design': 'design', 'ui-ux-designer': 'design', 'frontend-engineer': 'design',
-      'design-critic': 'design', 'template-architect': 'design',
-    };
-    return map[agentRole] ?? 'general';
   }
 }
