@@ -318,13 +318,13 @@ export default function AgentProfile() {
               <span className="ml-2">Active since {new Date(agent.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({daysSinceCreated}d)</span>
             </p>
             <div className="mt-1.5 flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                agent.status === 'active' ? 'bg-tier-green/15 text-tier-green'
-                : agent.status === 'paused' ? 'bg-tier-yellow/15 text-tier-yellow'
-                : 'bg-prism-moderate/15 text-prism-moderate'
+              <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-medium ${
+                agent.status === 'active' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
+                : agent.status === 'paused' ? 'text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600'
+                : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
               }`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${
-                  agent.status === 'active' ? 'bg-tier-green' : agent.status === 'paused' ? 'bg-tier-yellow' : 'bg-prism-moderate'
+                  agent.status === 'active' ? 'bg-green-200' : agent.status === 'paused' ? 'bg-yellow-200' : 'bg-gray-200'
                 }`} />
                 {agent.status}
               </span>
@@ -621,11 +621,11 @@ function OverviewTab({
           </div>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Tier</p>
-            <span className={`mt-1 inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
-              tier === 'Orchestrator' ? 'border-accent/30 bg-accent/15 text-accent'
-              : tier === 'Executive' ? 'border-azure/30 bg-azure/15 text-azure'
-              : tier === 'Specialist' ? 'border-cyan/30 bg-cyan/15 text-cyan'
-              : 'border-border bg-raised text-txt-secondary'
+            <span className={`mt-1 inline-flex rounded-lg px-2.5 py-0.5 text-[11px] font-medium ${
+              tier === 'Orchestrator' ? 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600'
+              : tier === 'Executive' ? 'text-white bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700'
+              : tier === 'Specialist' ? 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600'
+              : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
             }`}>
               {tier}
             </span>
@@ -644,13 +644,13 @@ function OverviewTab({
           </div>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Status</p>
-            <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-              agent.status === 'active' ? 'bg-tier-green/15 text-tier-green'
-              : agent.status === 'paused' ? 'bg-tier-yellow/15 text-tier-yellow'
-              : 'bg-prism-moderate/15 text-prism-moderate'
+            <span className={`mt-1 inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-medium ${
+              agent.status === 'active' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
+              : agent.status === 'paused' ? 'text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600'
+              : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
             }`}>
               <span className={`h-1.5 w-1.5 rounded-full ${
-                agent.status === 'active' ? 'bg-tier-green' : agent.status === 'paused' ? 'bg-tier-yellow' : 'bg-prism-moderate'
+                agent.status === 'active' ? 'bg-green-200' : agent.status === 'paused' ? 'bg-yellow-200' : 'bg-gray-200'
               }`} />
               {agent.status}
             </span>
@@ -1198,11 +1198,11 @@ function MemoryTab({ agent }: { agent: AgentRow }) {
   if (loading) return <Skeleton className="h-48" />;
 
   const typeColor: Record<string, string> = {
-    fact: 'bg-prism-fill-3/15 text-prism-sky',
-    pattern: 'bg-prism-violet/15 text-prism-violet',
-    learning: 'bg-tier-green/15 text-tier-green',
-    observation: 'bg-prism-elevated/15 text-prism-elevated',
-    preference: 'bg-cyan/15 text-cyan',
+    fact: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
+    pattern: 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700',
+    learning: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
+    observation: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
+    preference: 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
   };
 
   const oldest = memories.length
@@ -1228,7 +1228,7 @@ function MemoryTab({ agent }: { agent: AgentRow }) {
           <ul className="space-y-2">
             {memories.map((m) => (
               <li key={m.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5">
-                <span className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${typeColor[m.memory_type] ?? 'bg-prism-moderate/15 text-prism-moderate'}`}>
+                <span className={`mt-0.5 rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${typeColor[m.memory_type] ?? 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'}`}>
                   {m.memory_type}
                 </span>
                 <span className="flex-1 text-sm text-txt-secondary">{m.content}</span>
@@ -1296,10 +1296,10 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
   const displayName = DISPLAY_NAME_MAP[agent.role] ?? agent.display_name;
 
   const typeColor: Record<string, string> = {
-    request: 'bg-prism-fill-3/15 text-prism-sky',
-    response: 'bg-tier-green/15 text-tier-green',
-    info: 'bg-prism-moderate/15 text-prism-moderate',
-    followup: 'bg-prism-violet/15 text-prism-violet',
+    request: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
+    response: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
+    info: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
+    followup: 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700',
   };
 
   const statusIcon: Record<string, ReactNode> = {
@@ -1341,11 +1341,11 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
               return (
                 <li key={m.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5">
                   <div className="flex flex-col items-center gap-1">
-                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${typeColor[m.message_type] ?? typeColor.info}`}>
+                    <span className={`rounded-lg px-2 py-0.5 text-[9px] font-semibold uppercase ${typeColor[m.message_type] ?? typeColor.info}`}>
                       {m.message_type}
                     </span>
                     {m.priority === 'urgent' && (
-                      <span className="rounded-full bg-prism-critical/15 px-1.5 py-0.5 text-[9px] font-bold text-prism-critical">!</span>
+                      <span className="rounded-lg text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 px-1.5 py-0.5 text-[9px] font-bold">!</span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1394,10 +1394,10 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
                     <div className="mt-1 text-sm text-txt-secondary line-clamp-2 prose-chat"><Markdown>{m.summary}</Markdown></div>
                   )}
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                  m.status === 'completed' ? 'bg-tier-green/15 text-tier-green'
-                  : m.status === 'in_progress' ? 'bg-prism-elevated/15 text-prism-elevated'
-                  : 'bg-prism-moderate/15 text-prism-moderate'
+                <span className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                  m.status === 'completed' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
+                  : m.status === 'in_progress' ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
+                  : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
                 }`}>
                   {m.status}
                 </span>
@@ -1438,17 +1438,25 @@ interface SkillCatalogRow {
 }
 
 const PROF_COLOR: Record<string, string> = {
-  learning:  'bg-prism-moderate/15 text-prism-moderate border-prism-moderate/30',
-  competent: 'bg-prism-fill-3/15 text-prism-sky border-prism-fill-3/30',
-  expert:    'bg-cyan/15 text-cyan border-cyan/30',
-  master:    'bg-prism-elevated/15 text-prism-elevated border-prism-elevated/30',
+  learning:  'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
+  competent: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
+  expert:    'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
+  master:    'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
 };
 
-const CAT_COLOR: Record<string, string> = {
-  finance: '#0369A1', engineering: '#2563EB', marketing: '#7C3AED',
-  product: '#0891B2', sales: '#1D4ED8', design: '#DB2777',
-  leadership: '#7C3AED', operations: '#EA580C', analytics: '#059669',
-  legal: '#9333EA', research: '#0F766E',
+const CAT_COLOR: Record<string, { hex: string; gradient: string }> = {
+  finance: { hex: '#0369A1', gradient: 'from-sky-600 via-sky-700 to-sky-800' },
+  engineering: { hex: '#2563EB', gradient: 'from-blue-500 via-blue-600 to-blue-700' },
+  marketing: { hex: '#7C3AED', gradient: 'from-violet-500 via-violet-600 to-violet-700' },
+  product: { hex: '#0891B2', gradient: 'from-cyan-500 via-cyan-600 to-cyan-700' },
+  sales: { hex: '#1D4ED8', gradient: 'from-blue-600 via-blue-700 to-blue-800' },
+  design: { hex: '#DB2777', gradient: 'from-pink-500 via-pink-600 to-pink-700' },
+  leadership: { hex: '#7C3AED', gradient: 'from-violet-500 via-violet-600 to-violet-700' },
+  operations: { hex: '#EA580C', gradient: 'from-orange-500 via-orange-600 to-orange-700' },
+  analytics: { hex: '#059669', gradient: 'from-emerald-500 via-emerald-600 to-emerald-700' },
+  legal: { hex: '#9333EA', gradient: 'from-purple-500 via-purple-600 to-purple-700' },
+  research: { hex: '#0F766E', gradient: 'from-teal-600 via-teal-700 to-teal-800' },
+  hr: { hex: '#0F766E', gradient: 'from-teal-600 via-teal-700 to-teal-800' },
 };
 
 function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null }) {
@@ -1524,7 +1532,7 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
             {skills.map((sk) => {
               const s = sk.skills;
               const rate = sk.times_used > 0 ? ((sk.successes / sk.times_used) * 100).toFixed(0) : null;
-              const catColor = s ? CAT_COLOR[s.category] ?? '#666' : '#666';
+              const catMeta = s ? CAT_COLOR[s.category] ?? null : null;
               return (
                 <Link
                   key={sk.id}
@@ -1532,8 +1540,7 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-white/5"
                 >
                   <span
-                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-                    style={{ backgroundColor: `${catColor}15`, color: catColor }}
+                    className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white bg-gradient-to-r ${catMeta?.gradient ?? 'from-gray-400 via-gray-500 to-gray-600'}`}
                   >
                     {s?.category ?? '?'}
                   </span>
@@ -1545,7 +1552,7 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
                       {sk.last_used_at ? ` · Last: ${timeAgo(sk.last_used_at)}` : ''}
                     </p>
                   </div>
-                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${PROF_COLOR[sk.proficiency] ?? PROF_COLOR.learning}`}>
+                  <span className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${PROF_COLOR[sk.proficiency] ?? PROF_COLOR.learning}`}>
                     {sk.proficiency}
                   </span>
                 </Link>

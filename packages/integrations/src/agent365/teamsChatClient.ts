@@ -517,6 +517,56 @@ export class A365TeamsChatClient {
     }, agentRole);
   }
 
+  /**
+   * Post a message to a Teams channel as the agent's own identity.
+   *
+   * Uses the agent's Graph token (via getAgenticUserToken with Graph audience)
+   * to call POST /teams/{teamId}/channels/{channelId}/messages directly.
+   * The message appears as the agent's agentic user — NOT the app or a human.
+   */
+  async postChannelMessage(
+    teamId: string,
+    channelId: string,
+    content: string,
+    agentRole?: string,
+  ): Promise<void> {
+    const role = agentRole ?? this.defaultAgentRole;
+
+    const agentAppInstanceId = (role ? getAgentBlueprintSpId(role) : null)
+      ?? process.env.AGENT365_APP_INSTANCE_ID;
+    const agenticUserId = (role ? getAgentEntraUserId(role) : null)
+      ?? process.env.AGENT365_AGENTIC_USER_ID;
+
+    if (!agentAppInstanceId || !agenticUserId) {
+      throw new Error(`[A365Teams] Agent identity not configured for channel posting (${role ?? 'unknown'}).`);
+    }
+
+    // Get a Graph-scoped token for this agent's identity
+    const token = await this.tokenProvider.getAgenticUserToken(
+      this.tenantId,
+      agentAppInstanceId,
+      agenticUserId,
+      ['https://graph.microsoft.com/.default'],
+    );
+
+    const url = `https://graph.microsoft.com/v1.0/teams/${teamId}/channels/${channelId}/messages`;
+    const body = {
+      body: { contentType: 'html', content: markdownToTeamsHtml(content) },
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`[A365Teams] Channel post failed (${res.status}): ${text.substring(0, 300)}`);
+    }
+    console.log(`[A365Teams] ${role ?? 'agent'} posted to channel ${channelId.substring(0, 20)}…`);
+  }
+
   /** Disconnect the MCP client */
   async close(): Promise<void> {
     if (this.mcpClient) {

@@ -31,17 +31,17 @@ interface EmailActivity {
 }
 
 const TYPE_STYLES: Record<string, string> = {
-  request:  'bg-prism-fill-3/15 text-prism-sky',
-  response: 'bg-tier-green/15 text-tier-green',
-  info:     'bg-prism-moderate/15 text-prism-moderate',
-  followup: 'bg-prism-violet/15 text-prism-violet',
-  task:     'bg-prism-elevated/15 text-prism-elevated',
-  alert:    'bg-prism-critical/15 text-prism-critical',
-  blocker:  'bg-prism-critical/15 text-prism-critical',
-  escalation: 'bg-prism-critical/15 text-prism-critical',
-  notification: 'bg-cyan/15 text-cyan',
-  status_update: 'bg-prism-moderate/15 text-prism-moderate',
-  delegation: 'bg-prism-violet/15 text-prism-violet',
+  request:  'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
+  response: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
+  info:     'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
+  followup: 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700',
+  task:     'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
+  alert:    'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
+  blocker:  'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
+  escalation: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
+  notification: 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
+  status_update: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
+  delegation: 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700',
 };
 
 const MESSAGE_TYPES = ['all', 'request', 'response', 'task', 'followup', 'alert', 'blocker', 'escalation', 'delegation', 'info', 'notification', 'status_update'] as const;

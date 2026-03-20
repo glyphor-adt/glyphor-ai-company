@@ -111,15 +111,15 @@ function normalizeRunContent(text: string): string {
 function statusConfig(status: string) {
   switch (status) {
     case 'running':
-      return { dot: 'bg-cyan animate-pulse', label: 'Running', badge: 'border-cyan/30 bg-cyan/10 text-cyan' };
+      return { dot: 'bg-cyan animate-pulse', label: 'Running', badge: 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600' };
     case 'completed':
-      return { dot: 'bg-tier-green', label: 'Completed', badge: 'border-tier-green/30 bg-tier-green/10 text-tier-green' };
+      return { dot: 'bg-tier-green', label: 'Completed', badge: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' };
     case 'failed':
-      return { dot: 'bg-prism-critical', label: 'Failed', badge: 'border-prism-critical/30 bg-prism-critical/10 text-prism-critical' };
+      return { dot: 'bg-prism-critical', label: 'Failed', badge: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600' };
     case 'skipped_precheck':
-      return { dot: 'bg-tier-yellow', label: 'Skipped', badge: 'border-tier-yellow/30 bg-tier-yellow/10 text-tier-yellow' };
+      return { dot: 'bg-tier-yellow', label: 'Skipped', badge: 'text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600' };
     default:
-      return { dot: 'bg-txt-faint', label: status, badge: 'border-border bg-raised text-txt-muted' };
+      return { dot: 'bg-txt-faint', label: status, badge: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600' };
   }
 }
 
@@ -325,7 +325,7 @@ export default function Activity() {
                     {/* Status */}
                     <div className="flex items-center gap-1.5">
                       <span className={`inline-block h-2 w-2 rounded-full ${sc.dot}`} />
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${sc.badge}`}>
+                      <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${sc.badge}`}>
                         {sc.label}
                       </span>
                     </div>

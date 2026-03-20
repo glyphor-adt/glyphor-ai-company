@@ -39,23 +39,24 @@ interface PlatformMeta {
   color: string;       // Tailwind text color
   bgColor: string;     // Tailwind bg color
   borderColor: string; // Tailwind border color
+  gradient: string;    // Tailwind gradient stops for badge
 }
 
 export const PLATFORM_META: Record<ToolPlatform, PlatformMeta> = {
-  core:                 { label: 'Core',        color: 'text-cyan',            bgColor: 'bg-cyan/10',            borderColor: 'border-cyan/25' },
-  gcp:                  { label: 'GCP',         color: 'text-sky-400',         bgColor: 'bg-sky-400/10',         borderColor: 'border-sky-400/25' },
-  m365:                 { label: 'M365',        color: 'text-blue-400',        bgColor: 'bg-blue-400/10',        borderColor: 'border-blue-400/25' },
-  'glyphor-data':       { label: 'Data',        color: 'text-emerald-400',     bgColor: 'bg-emerald-400/10',     borderColor: 'border-emerald-400/25' },
-  'glyphor-marketing':  { label: 'Marketing',   color: 'text-pink-400',        bgColor: 'bg-pink-400/10',        borderColor: 'border-pink-400/25' },
-  'glyphor-engineering':{ label: 'Engineering',  color: 'text-orange-400',      bgColor: 'bg-orange-400/10',      borderColor: 'border-orange-400/25' },
-  'glyphor-design':     { label: 'Design',      color: 'text-violet-400',      bgColor: 'bg-violet-400/10',      borderColor: 'border-violet-400/25' },
-  'glyphor-finance':    { label: 'Finance',     color: 'text-amber-400',       bgColor: 'bg-amber-400/10',       borderColor: 'border-amber-400/25' },
-  'glyphor-hr':         { label: 'HR',          color: 'text-teal-400',        bgColor: 'bg-teal-400/10',        borderColor: 'border-teal-400/25' },
-  'glyphor-legal':      { label: 'Legal',       color: 'text-slate-400',       bgColor: 'bg-slate-400/10',       borderColor: 'border-slate-400/25' },
-  github:               { label: 'GitHub',      color: 'text-gray-300',        bgColor: 'bg-gray-300/10',        borderColor: 'border-gray-300/25' },
-  web:                  { label: 'Web',         color: 'text-indigo-400',      bgColor: 'bg-indigo-400/10',      borderColor: 'border-indigo-400/25' },
-  governance:           { label: 'Governance',  color: 'text-yellow-400',      bgColor: 'bg-yellow-400/10',      borderColor: 'border-yellow-400/25' },
-  specialist:           { label: 'Specialist',  color: 'text-prism-elevated',  bgColor: 'bg-prism-elevated/10',  borderColor: 'border-prism-elevated/25' },
+  core:                 { label: 'Core',        color: 'text-cyan',            bgColor: 'bg-cyan/10',            borderColor: 'border-cyan/25',            gradient: 'from-cyan-400 via-cyan-500 to-cyan-600' },
+  gcp:                  { label: 'GCP',         color: 'text-sky-400',         bgColor: 'bg-sky-400/10',         borderColor: 'border-sky-400/25',         gradient: 'from-sky-400 via-sky-500 to-sky-600' },
+  m365:                 { label: 'M365',        color: 'text-blue-400',        bgColor: 'bg-blue-400/10',        borderColor: 'border-blue-400/25',        gradient: 'from-blue-500 via-blue-600 to-blue-700' },
+  'glyphor-data':       { label: 'Data',        color: 'text-emerald-400',     bgColor: 'bg-emerald-400/10',     borderColor: 'border-emerald-400/25',     gradient: 'from-emerald-400 via-emerald-500 to-emerald-600' },
+  'glyphor-marketing':  { label: 'Marketing',   color: 'text-pink-400',        bgColor: 'bg-pink-400/10',        borderColor: 'border-pink-400/25',        gradient: 'from-pink-400 via-pink-500 to-pink-600' },
+  'glyphor-engineering':{ label: 'Engineering',  color: 'text-orange-400',      bgColor: 'bg-orange-400/10',      borderColor: 'border-orange-400/25',      gradient: 'from-orange-400 via-orange-500 to-orange-600' },
+  'glyphor-design':     { label: 'Design',      color: 'text-violet-400',      bgColor: 'bg-violet-400/10',      borderColor: 'border-violet-400/25',      gradient: 'from-violet-500 via-violet-600 to-violet-700' },
+  'glyphor-finance':    { label: 'Finance',     color: 'text-amber-400',       bgColor: 'bg-amber-400/10',       borderColor: 'border-amber-400/25',       gradient: 'from-amber-400 via-amber-500 to-amber-600' },
+  'glyphor-hr':         { label: 'HR',          color: 'text-teal-400',        bgColor: 'bg-teal-400/10',        borderColor: 'border-teal-400/25',        gradient: 'from-teal-400 via-teal-500 to-teal-600' },
+  'glyphor-legal':      { label: 'Legal',       color: 'text-slate-400',       bgColor: 'bg-slate-400/10',       borderColor: 'border-slate-400/25',       gradient: 'from-slate-400 via-slate-500 to-slate-600' },
+  github:               { label: 'GitHub',      color: 'text-gray-300',        bgColor: 'bg-gray-300/10',        borderColor: 'border-gray-300/25',        gradient: 'from-gray-400 via-gray-500 to-gray-600' },
+  web:                  { label: 'Web',         color: 'text-indigo-400',      bgColor: 'bg-indigo-400/10',      borderColor: 'border-indigo-400/25',      gradient: 'from-indigo-500 via-indigo-600 to-indigo-700' },
+  governance:           { label: 'Governance',  color: 'text-yellow-400',      bgColor: 'bg-yellow-400/10',      borderColor: 'border-yellow-400/25',      gradient: 'from-yellow-400 via-yellow-500 to-yellow-600' },
+  specialist:           { label: 'Specialist',  color: 'text-prism-elevated',  bgColor: 'bg-prism-elevated/10',  borderColor: 'border-prism-elevated/25',  gradient: 'from-amber-400 via-amber-500 to-amber-600' },
 };
 
 // ── Known tool → platform mapping ────────────────────────────────

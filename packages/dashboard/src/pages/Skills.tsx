@@ -95,30 +95,30 @@ function parseTaskMappings(raw: string): UploadTaskMapping[] {
   return mappings;
 }
 
-const CATEGORY_META: Record<string, { label: string; color: string; icon: ReactNode }> = {
-  finance:            { label: 'Finance',           color: '#0369A1', icon: <MdAttachMoney className="inline h-4 w-4" /> },
-  engineering:        { label: 'Engineering',       color: '#2563EB', icon: <MdSettings className="inline h-4 w-4" /> },
-  marketing:          { label: 'Marketing',         color: '#7C3AED', icon: <MdCampaign className="inline h-4 w-4" /> },
-  product:            { label: 'Product',           color: '#0891B2', icon: <MdExplore className="inline h-4 w-4" /> },
-  sales:              { label: 'Sales',             color: '#1D4ED8', icon: <MdTrackChanges className="inline h-4 w-4" /> },
-  design:             { label: 'Design',            color: '#DB2777', icon: <MdPalette className="inline h-4 w-4" /> },
-  leadership:         { label: 'Leadership',        color: '#7C3AED', icon: <MdStars className="inline h-4 w-4" /> },
-  operations:         { label: 'Operations',        color: '#EA580C', icon: <MdBarChart className="inline h-4 w-4" /> },
-  analytics:          { label: 'Analytics',         color: '#059669', icon: <MdTrendingUp className="inline h-4 w-4" /> },
-  legal:              { label: 'Legal',             color: '#4F46E5', icon: <MdGavel className="inline h-4 w-4" /> },
-  hr:                 { label: 'HR',                color: '#0F766E', icon: <MdBadge className="inline h-4 w-4" /> },
-  'human-resources':  { label: 'HR',                color: '#0F766E', icon: <MdBadge className="inline h-4 w-4" /> },
-  human_resources:    { label: 'HR',                color: '#0F766E', icon: <MdBadge className="inline h-4 w-4" /> },
-  research:           { label: 'Research',          color: '#6D28D9', icon: <MdManageSearch className="inline h-4 w-4" /> },
+const CATEGORY_META: Record<string, { label: string; color: string; gradient: string; icon: ReactNode }> = {
+  finance:            { label: 'Finance',           color: '#0369A1', gradient: 'from-sky-600 via-sky-700 to-sky-800', icon: <MdAttachMoney className="inline h-4 w-4" /> },
+  engineering:        { label: 'Engineering',       color: '#2563EB', gradient: 'from-blue-500 via-blue-600 to-blue-700', icon: <MdSettings className="inline h-4 w-4" /> },
+  marketing:          { label: 'Marketing',         color: '#7C3AED', gradient: 'from-violet-500 via-violet-600 to-violet-700', icon: <MdCampaign className="inline h-4 w-4" /> },
+  product:            { label: 'Product',           color: '#0891B2', gradient: 'from-cyan-500 via-cyan-600 to-cyan-700', icon: <MdExplore className="inline h-4 w-4" /> },
+  sales:              { label: 'Sales',             color: '#1D4ED8', gradient: 'from-blue-600 via-blue-700 to-blue-800', icon: <MdTrackChanges className="inline h-4 w-4" /> },
+  design:             { label: 'Design',            color: '#DB2777', gradient: 'from-pink-500 via-pink-600 to-pink-700', icon: <MdPalette className="inline h-4 w-4" /> },
+  leadership:         { label: 'Leadership',        color: '#7C3AED', gradient: 'from-violet-500 via-violet-600 to-violet-700', icon: <MdStars className="inline h-4 w-4" /> },
+  operations:         { label: 'Operations',        color: '#EA580C', gradient: 'from-orange-500 via-orange-600 to-orange-700', icon: <MdBarChart className="inline h-4 w-4" /> },
+  analytics:          { label: 'Analytics',         color: '#059669', gradient: 'from-emerald-500 via-emerald-600 to-emerald-700', icon: <MdTrendingUp className="inline h-4 w-4" /> },
+  legal:              { label: 'Legal',             color: '#4F46E5', gradient: 'from-indigo-500 via-indigo-600 to-indigo-700', icon: <MdGavel className="inline h-4 w-4" /> },
+  hr:                 { label: 'HR',                color: '#0F766E', gradient: 'from-teal-600 via-teal-700 to-teal-800', icon: <MdBadge className="inline h-4 w-4" /> },
+  'human-resources':  { label: 'HR',                color: '#0F766E', gradient: 'from-teal-600 via-teal-700 to-teal-800', icon: <MdBadge className="inline h-4 w-4" /> },
+  human_resources:    { label: 'HR',                color: '#0F766E', gradient: 'from-teal-600 via-teal-700 to-teal-800', icon: <MdBadge className="inline h-4 w-4" /> },
+  research:           { label: 'Research',          color: '#6D28D9', gradient: 'from-violet-600 via-violet-700 to-violet-800', icon: <MdManageSearch className="inline h-4 w-4" /> },
 };
 
 const ACTION_BTN_CLS = 'flex h-10 w-40 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-4 text-sm font-semibold transition-all';
 
 const PROFICIENCY_COLOR: Record<string, string> = {
-  learning:  'bg-prism-moderate/15 text-prism-moderate',
-  competent: 'bg-prism-fill-3/15 text-prism-sky',
-  expert:    'bg-cyan/15 text-cyan',
-  master:    'bg-prism-elevated/15 text-prism-elevated',
+  learning:  'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
+  competent: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
+  expert:    'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
+  master:    'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
 };
 
 export default function Skills() {
@@ -271,8 +271,7 @@ export default function Skills() {
               <Card className="h-full transition-all hover:border-cyan/30 hover:shadow-[0_0_15px_rgba(34,211,238,0.08)]">
                 <div className="flex items-start justify-between mb-2">
                   <span
-                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-                    style={{ backgroundColor: `${meta?.color ?? '#666'}15`, color: meta?.color }}
+                    className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white bg-gradient-to-r ${meta?.gradient ?? 'from-gray-400 via-gray-500 to-gray-600'}`}
                   >
                     {meta?.icon} {meta?.label ?? skill.category}
                   </span>
@@ -317,7 +316,7 @@ export default function Skills() {
                   <p className="text-sm font-medium text-txt-primary">{DISPLAY_NAME_MAP[as.agent_role] ?? as.agent_role}</p>
                   <p className="text-[11px] text-txt-faint">{as.skill.name}</p>
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${PROFICIENCY_COLOR[as.proficiency] ?? PROFICIENCY_COLOR.learning}`}>
+                <span className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${PROFICIENCY_COLOR[as.proficiency] ?? PROFICIENCY_COLOR.learning}`}>
                   {as.proficiency}
                 </span>
                 <span className="text-[11px] text-txt-muted font-mono">{as.times_used}×</span>

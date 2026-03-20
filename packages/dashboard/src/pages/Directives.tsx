@@ -32,9 +32,9 @@ interface PlanVerification {
 }
 
 const VERDICT_CONFIG: Record<string, { label: string; dot: string; border: string; bg: string; text: string }> = {
-  APPROVE: { label: 'APPROVED', dot: 'bg-tier-green', border: '', bg: 'bg-green-500/15', text: 'text-green-400' },
-  WARN:    { label: 'WARNING',  dot: 'bg-prism-elevated', border: '', bg: 'bg-amber-500/15', text: 'text-amber-400' },
-  REVISE:  { label: 'REVISE',   dot: 'bg-prism-critical', border: '', bg: 'bg-red-500/15', text: 'text-red-400' },
+  APPROVE: { label: 'APPROVED', dot: 'bg-tier-green', border: '', bg: 'bg-gradient-to-r from-green-400 via-green-500 to-green-600', text: 'text-white' },
+  WARN:    { label: 'WARNING',  dot: 'bg-prism-elevated', border: '', bg: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600', text: 'text-white' },
+  REVISE:  { label: 'REVISE',   dot: 'bg-prism-critical', border: '', bg: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600', text: 'text-white' },
 };
 
 /* ── Types ─────────────────────────────────────── */
@@ -470,11 +470,11 @@ export default function Directives() {
                               'bg-prism-critical'
                             }`} />
                             <span className="text-sm font-medium text-txt-primary">{init.title}</span>
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
-                              init.priority === 'critical' ? 'bg-red-500/15 text-red-400'
-                              : init.priority === 'high' ? 'bg-orange-500/15 text-orange-400'
-                              : init.priority === 'medium' ? 'bg-blue-500/15 text-blue-400'
-                              : 'bg-gray-500/15 text-gray-400'
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-lg font-medium ${
+                              init.priority === 'critical' ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
+                              : init.priority === 'high' ? 'text-white bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600'
+                              : init.priority === 'medium' ? 'text-white bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700'
+                              : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
                             }`}>
                               {init.priority.toUpperCase()}
                             </span>
@@ -662,27 +662,27 @@ function DirectiveCard({
           <div className="flex items-center gap-2 mb-1">
             <p className="text-sm font-semibold text-txt-primary truncate">{cleanText(d.title)}</p>
             {d.status === 'paused' && (
-              <span className="rounded-full bg-amber-500/15 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium">
+              <span className="rounded-lg text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-1.5 py-0.5 text-[10px] font-medium">
                 paused
               </span>
             )}
             {d.status === 'completed' && (
-              <span className="rounded-full bg-green-500/15 text-green-400 px-1.5 py-0.5 text-[10px] font-medium">
+              <span className="rounded-lg text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600 px-1.5 py-0.5 text-[10px] font-medium">
                 completed
               </span>
             )}
             {d.delegated_to && (
-              <span className="rounded-full bg-purple-500/15 text-purple-400 px-1.5 py-0.5 text-[10px] font-medium">
+              <span className="rounded-lg text-white bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 px-1.5 py-0.5 text-[10px] font-medium">
                 Delegated to {DISPLAY_NAME_MAP[d.delegated_to] ?? d.delegated_to}
               </span>
             )}
             {!d.delegated_to && d.delegation_type === 'cross-domain' && (
-              <span className="rounded-full bg-teal-500/15 text-teal-400 px-1.5 py-0.5 text-[10px] font-medium">
+              <span className="rounded-lg text-white bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600 px-1.5 py-0.5 text-[10px] font-medium">
                 Cross-domain
               </span>
             )}
             {!d.delegated_to && !d.delegation_type && d.status === 'active' && (
-              <span className="rounded-full bg-cyan-500/15 text-cyan px-1.5 py-0.5 text-[10px] font-medium">
+              <span className="rounded-lg text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600 px-1.5 py-0.5 text-[10px] font-medium">
                 Self-orchestrated
               </span>
             )}
@@ -759,10 +759,10 @@ function DirectiveCard({
             const childrenOf = (parentId: string) => subTasks.filter(s => s.parent_assignment_id === parentId);
 
             const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
-              executive_outcome: { label: 'Exec Outcome', cls: 'bg-purple-500/15 text-purple-400' },
-              team_task: { label: 'Team Task', cls: 'bg-blue-500/15 text-blue-400' },
-              peer_request: { label: 'Peer Request', cls: 'bg-amber-500/15 text-amber-400' },
-              standard: { label: 'Standard', cls: 'bg-gray-500/15 text-gray-400' },
+              executive_outcome: { label: 'Exec Outcome', cls: 'text-white bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700' },
+              team_task: { label: 'Team Task', cls: 'text-white bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700' },
+              peer_request: { label: 'Peer Request', cls: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' },
+              standard: { label: 'Standard', cls: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600' },
             };
 
             const renderAssignment = (a: WorkAssignment, indent = false) => {

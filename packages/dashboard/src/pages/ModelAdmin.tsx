@@ -41,20 +41,20 @@ type Tab = 'routing' | 'registry' | 'deprecations';
 // ── Helpers ──────────────────────────────────────────────────
 
 const TIER_COLORS: Record<string, string> = {
-  economy: 'bg-green-500/20 text-green-300',
-  workhorse: 'bg-blue-500/20 text-blue-300',
-  pro: 'bg-purple-500/20 text-purple-300',
-  specialist: 'bg-amber-500/20 text-amber-300',
+  economy: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
+  workhorse: 'text-white bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700',
+  pro: 'text-white bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700',
+  specialist: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
 };
 
 const PROVIDER_COLORS: Record<string, string> = {
-  gemini: 'bg-blue-500/20 text-blue-300',
-  openai: 'bg-emerald-500/20 text-emerald-300',
-  anthropic: 'bg-orange-500/20 text-orange-300',
+  gemini: 'text-white bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700',
+  openai: 'text-white bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600',
+  anthropic: 'text-white bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600',
 };
 
 function Badge({ label, colorClass }: { label: string; colorClass: string }) {
-  return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}>{label}</span>;
+  return <span className={`inline-block rounded-lg px-2 py-0.5 text-xs font-medium ${colorClass}`}>{label}</span>;
 }
 
 function daysUntil(dateStr: string): number {
@@ -221,8 +221,8 @@ export default function ModelAdmin() {
                       {m.supports_thinking && <span className="text-xs opacity-50">🧠</span>}
                     </td>
                     <td className="py-2">
-                      {m.is_preview && <Badge label="preview" colorClass="bg-yellow-500/20 text-yellow-300" />}
-                      {!m.is_preview && <Badge label="stable" colorClass="bg-green-500/20 text-green-300" />}
+                      {m.is_preview && <Badge label="preview" colorClass="text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600" />}
+                      {!m.is_preview && <Badge label="stable" colorClass="text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600" />}
                     </td>
                   </tr>
                 ))}
@@ -261,7 +261,7 @@ export default function ModelAdmin() {
                           {days !== null && (
                             <Badge
                               label={`${days}d`}
-                              colorClass={days < 30 ? 'bg-red-500/20 text-red-300' : 'bg-yellow-500/20 text-yellow-300'}
+                              colorClass={days < 30 ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600' : 'text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600'}
                             />
                           )}
                         </td>

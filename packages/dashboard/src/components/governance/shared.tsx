@@ -176,13 +176,13 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
 };
 
 const SEVERITY_STYLES: Record<Severity, string> = {
-  critical: 'bg-red-500/15 text-red-400',
-  high: 'bg-orange-500/15 text-orange-400',
-  medium: 'bg-amber-500/15 text-amber-400',
-  low: 'bg-blue-500/15 text-blue-400',
-  info: 'bg-gray-500/15 text-gray-400',
-  warning: 'bg-amber-500/15 text-amber-400',
-  good: 'bg-teal-500/15 text-teal-400',
+  critical: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
+  high: 'text-white bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600',
+  medium: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
+  low: 'text-white bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700',
+  info: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
+  warning: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
+  good: 'text-white bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600',
 };
 
 export function getAgentsByDepartment(): { dept: string; roles: string[] }[] {
@@ -303,7 +303,7 @@ export function getPlatformLabel(platform: string | null | undefined): string {
 
 export function SeverityBadge({ severity }: { severity: Severity }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] ${SEVERITY_STYLES[severity]}`}>
+    <span className={`inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] ${SEVERITY_STYLES[severity]}`}>
       {severity}
     </span>
   );
@@ -316,7 +316,7 @@ export function TrendPill({ value }: { value: number | null | undefined }) {
   const normalized = Math.abs(value) <= 1 ? value * 100 : value;
   const positive = normalized > 0;
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${positive ? 'bg-prism-critical/10 text-prism-critical' : 'bg-prism-teal/10 text-prism-teal'}`}>
+    <span className={`inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-medium ${positive ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600' : 'text-white bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600'}`}>
       {positive ? '↑' : '↓'} {Math.abs(normalized).toFixed(0)}%
     </span>
   );
