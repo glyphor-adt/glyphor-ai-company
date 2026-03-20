@@ -4,6 +4,7 @@ import { useAgents } from '../lib/hooks';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar, GradientButton } from '../components/ui';
+import { MovingBorderContainer } from '../components/ui/MovingBorder';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch, MdDeleteOutline } from 'react-icons/md';
@@ -1213,16 +1214,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             </div>
           )}
 
-          <div className="flex gap-1.5 md:gap-2 items-end">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="sidebar-glass flex-shrink-0 rounded-lg border border-border px-2 py-2 text-txt-muted transition-colors hover:text-cyan md:px-2.5 md:py-2.5"
-              title="Attach file"
-            >
-              <MdAttachFile className="text-[16px]" />
-            </button>
-            <input
+          <input
               ref={fileInputRef}
               type="file"
               multiple
@@ -1235,6 +1227,13 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                 Message failed to save — your history may be incomplete
               </div>
             )}
+          <MovingBorderContainer
+            borderRadius="1rem"
+            containerClassName="w-full"
+            innerClassName="flex-col items-stretch"
+            duration={6000}
+          >
+            {/* Textarea */}
             <textarea
               ref={inputRef}
               value={input}
@@ -1244,52 +1243,69 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               placeholder={`Message ${codename}... (@ to mention, Shift+Enter for new line)`}
               disabled={respondingAgents.has(selectedRole)}
               rows={1}
-              className="sidebar-glass flex-1 resize-none rounded-lg border border-border px-4 py-3 text-[13px] leading-5 text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 min-h-[44px] max-h-[140px]"
+              className="w-full bg-transparent resize-none px-4 pt-3.5 pb-1 text-[13px] leading-5 text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 min-h-[52px] max-h-[140px]"
               onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; }}
             />
-            <button
-              type="button"
-              onClick={toggleDictation}
-              className={`flex-shrink-0 w-[36px] h-[36px] md:w-[40px] md:h-[40px] hidden md:flex items-center justify-center rounded-full transition-all ${
-                isListening
-                  ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
-                  : 'sidebar-glass border border-border text-txt-muted hover:text-cyan hover:bg-cyan/5'
-              }`}
-              title={isListening ? 'Stop dictation' : 'Dictate (speech to text)'}
-            >
-              <HiMicrophone size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (voice.isActive) voice.stopVoice();
-                else voice.startVoice(selectedRole, userEmail);
-              }}
-              disabled={voice.isConnecting}
-              className={`flex-shrink-0 w-[36px] h-[36px] md:w-[40px] md:h-[40px] hidden md:flex items-center justify-center rounded-full transition-all ${
-                voice.isActive
-                  ? 'bg-prism-fill-2 text-white shadow-lg shadow-prism-fill-2/25 hover:bg-prism-critical hover:shadow-prism-critical/25'
-                  : voice.isConnecting
-                    ? 'bg-prism-elevated/20 text-prism-elevated animate-pulse'
-                    : 'sidebar-glass border border-border text-txt-muted hover:text-cyan hover:bg-cyan/5'
-              }`}
-              title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
-            >
-              {voice.isActive ? (
-                <HiStop size={18} />
-              ) : (
-                <HiMiniSignal size={18} />
-              )}
-            </button>
-            <GradientButton
-              variant="primary"
-              size="md"
-              onClick={sendMessage}
-              disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
-            >
-              Send
-            </GradientButton>
-          </div>
+
+            {/* Bottom toolbar */}
+            <div className="flex items-center justify-between px-2.5 pb-2.5 pt-1">
+              {/* Left actions */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-full text-txt-muted hover:text-cyan hover:bg-white/5 transition-colors"
+                  title="Attach file"
+                >
+                  <MdAttachFile className="text-[16px]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleDictation}
+                  className={`hidden md:flex flex-shrink-0 w-[34px] h-[34px] items-center justify-center rounded-full transition-all ${
+                    isListening
+                      ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
+                      : 'text-txt-muted hover:text-cyan hover:bg-white/5'
+                  }`}
+                  title={isListening ? 'Stop dictation' : 'Dictate (speech to text)'}
+                >
+                  <HiMicrophone size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (voice.isActive) voice.stopVoice();
+                    else voice.startVoice(selectedRole, userEmail);
+                  }}
+                  disabled={voice.isConnecting}
+                  className={`hidden md:flex flex-shrink-0 w-[34px] h-[34px] items-center justify-center rounded-full transition-all ${
+                    voice.isActive
+                      ? 'bg-prism-fill-2 text-white shadow-lg shadow-prism-fill-2/25 hover:bg-prism-critical hover:shadow-prism-critical/25'
+                      : voice.isConnecting
+                        ? 'bg-prism-elevated/20 text-prism-elevated animate-pulse'
+                        : 'text-txt-muted hover:text-cyan hover:bg-white/5'
+                  }`}
+                  title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
+                >
+                  {voice.isActive ? (
+                    <HiStop size={16} />
+                  ) : (
+                    <HiMiniSignal size={16} />
+                  )}
+                </button>
+              </div>
+
+              {/* Right – send */}
+              <GradientButton
+                variant="primary"
+                size="md"
+                onClick={sendMessage}
+                disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
+              >
+                Send
+              </GradientButton>
+            </div>
+          </MovingBorderContainer>
         </div>
         </>
       </Card>
