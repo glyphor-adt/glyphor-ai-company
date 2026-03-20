@@ -63,6 +63,41 @@ export function createPlatformIntelTools(): ToolDefinition[] {
     // ── READ TOOLS ──────────────────────────────────────────────
 
     {
+      name: 'read_blocked_assignments',
+      description: 'Read all currently blocked work assignments across the fleet. Returns agent role, blocker reason, need type, and assignment details. Use this to find agents blocked on tool_access that you can unblock with grant_tool_to_agent.',
+      parameters: {
+        need_type: { type: 'string', description: 'Filter by need type (tool_access, data_access, peer_help, etc). Omit for all.', required: false },
+      },
+      execute: async (params: Record<string, unknown>): Promise<ToolResult> => {
+        const needType = params.need_type as string | undefined;
+        let sql = `SELECT wa.id, wa.assigned_to, wa.assigned_by, wa.task_description, wa.need_type, wa.blocker_reason, wa.updated_at
+                   FROM work_assignments wa WHERE wa.status = 'blocked'`;
+        const queryParams: unknown[] = [];
+        if (needType) {
+          queryParams.push(needType);
+          sql += ` AND wa.need_type = $${queryParams.length}`;
+        }
+        sql += ' ORDER BY wa.updated_at DESC LIMIT 30';
+        const rows = await systemQuery(sql, queryParams);
+        return {
+          success: true,
+          data: {
+            count: rows.length,
+            blocked: rows.map((r: Record<string, unknown>) => ({
+              id: r.id,
+              agent: r.assigned_to,
+              assigned_by: r.assigned_by,
+              task: (r.task_description as string)?.slice(0, 120),
+              need_type: r.need_type,
+              blocker_reason: r.blocker_reason,
+              blocked_since: r.updated_at,
+            })),
+          },
+        };
+      },
+    },
+
+    {
       name: 'read_gtm_report',
       description: 'Read the latest GTM readiness report and historical trend. Use this first on every analysis cycle to understand overall system health and which agents are blocking GTM.',
       parameters: {
