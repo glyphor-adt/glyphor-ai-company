@@ -366,20 +366,28 @@ export default function Dashboard() {
             </div>
           </div>
         </HomeCard>
-        <DottedGlowBackground
-          className="pointer-events-none"
-          opacity={1}
-          gap={10}
-          radius={1.2}
-          color="rgba(0,180,200,0.5)"
-          glowColor="rgba(0,210,255,0.85)"
-          darkColor="rgba(0,210,255,0.45)"
-          darkGlowColor="rgba(0,235,255,0.9)"
-          backgroundOpacity={0}
-          speedMin={0.12}
-          speedMax={0.55}
-          speedScale={0.7}
-        />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            maskImage: 'linear-gradient(to right, black 30%, transparent 52%)',
+            WebkitMaskImage: 'linear-gradient(to right, black 30%, transparent 52%)',
+          }}
+        >
+          <DottedGlowBackground
+            className="pointer-events-none"
+            opacity={1}
+            gap={10}
+            radius={1.2}
+            color="rgba(0,180,200,0.5)"
+            glowColor="rgba(0,210,255,0.85)"
+            darkColor="rgba(0,210,255,0.45)"
+            darkGlowColor="rgba(0,235,255,0.9)"
+            backgroundOpacity={0}
+            speedMin={0.12}
+            speedMax={0.55}
+            speedScale={0.7}
+          />
+        </div>
       </div>
 
       {/* ── Row 1: Action Center (left) + Company Vitals (right) ── */}
