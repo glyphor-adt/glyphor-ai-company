@@ -204,7 +204,7 @@ function AgentGateRow({ agent }: { agent: AgentGateResult }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
+    <div className="glass-surface glass-surface rounded-lg border border-border overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-3
@@ -244,7 +244,7 @@ function AgentGateRow({ agent }: { agent: AgentGateResult }) {
         <div className="px-4 pb-4 border-t border-border">
           <div className="grid grid-cols-3 gap-2 mt-3">
             {Object.entries(agent.gates).map(([name, g]) => (
-              <div key={name} className="bg-raised/40 rounded-lg p-2.5">
+              <div key={name} className="glass-surface rounded-lg p-2.5">
                 <p className="text-[10px] text-txt-faint mb-1">
                   {name.replace(/_/g, ' ')}
                 </p>

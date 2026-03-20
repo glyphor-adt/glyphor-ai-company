@@ -90,7 +90,7 @@ export default function WorldStateTab({ agentId }: WorldStateTabProps) {
           </p>
           <div className="space-y-2">
             {corrections.map(c => (
-              <div key={c.id} className="rounded-lg border border-border bg-raised/40 p-3">
+              <div key={c.id} className="glass-surface rounded-lg border border-border p-3">
                 <div className="flex items-center gap-2">
                   <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-lg ${
                     c.correction_type === 'weakness_added'
@@ -127,7 +127,7 @@ export default function WorldStateTab({ agentId }: WorldStateTabProps) {
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-border bg-raised/40 p-4 text-xs text-txt-muted text-center">
+        <div className="glass-surface rounded-lg border border-border p-4 text-xs text-txt-muted text-center">
           No world state entries for this agent.
         </div>
       )}
@@ -150,7 +150,7 @@ function PredictionAccuracyPanel({ data }: { data: PredictionAccuracy }) {
     biasLabel === 'underconfident' ? '#F59E0B' : '#666';
 
   return (
-    <div className="rounded-lg border border-border bg-raised/40 p-4">
+    <div className="glass-surface rounded-lg border border-border p-4">
       <p className="text-[10px] font-semibold text-txt-faint uppercase tracking-widest mb-3">
         Prediction Accuracy
       </p>
@@ -202,7 +202,7 @@ function freshnessBadge(freshness: string) {
 
 function WorldStateRow({ entry }: { entry: WorldStateEntry }) {
   return (
-    <div className="rounded-lg border border-border bg-raised/40 p-3">
+    <div className="glass-surface rounded-lg border border-border p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">

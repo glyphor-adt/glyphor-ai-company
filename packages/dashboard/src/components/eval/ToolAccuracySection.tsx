@@ -86,7 +86,7 @@ export default function ToolAccuracySection({ agentId }: ToolAccuracySectionProp
         <div className="space-y-1.5">
           <p className="text-[10px] text-txt-faint uppercase tracking-widest">Frequent issues</p>
           {data.problem_tools.map((tool) => (
-            <div key={tool.tool_name} className="flex justify-between items-center bg-raised/40 rounded-lg px-3 py-2">
+            <div key={tool.tool_name} className="flex justify-between items-center glass-surface rounded-lg px-3 py-2">
               <span className="text-xs text-txt-secondary font-mono">{tool.tool_name}</span>
               <div className="flex gap-2 text-[10px]">
                 {tool.repeated_failures > 0 && (
@@ -136,7 +136,7 @@ export default function ToolAccuracySection({ agentId }: ToolAccuracySectionProp
           <p className="text-[10px] text-txt-faint uppercase tracking-widest mb-2">Tool Risk Signals</p>
           <div className="space-y-1.5">
             {data.risk_tools.map((tool) => (
-              <div key={tool.tool_name} className="flex justify-between items-center bg-raised/40 rounded-lg px-3 py-2">
+              <div key={tool.tool_name} className="flex justify-between items-center glass-surface rounded-lg px-3 py-2">
                 <span className="text-xs text-txt-secondary font-mono truncate mr-2">{tool.tool_name}</span>
                 <div className="flex gap-1.5 shrink-0">
                   {tool.agent_underperforming_vs_fleet && (

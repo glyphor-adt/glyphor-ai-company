@@ -333,7 +333,7 @@ export function EmptyState({
 }) {
   return (
     <Card>
-      <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border/70 bg-prism-card/60 p-5">
+      <div className="glass-surface flex flex-col gap-3 rounded-xl border border-dashed border-border/70 p-5">
         <div>
           <p className="text-sm font-semibold text-txt-primary">{title}</p>
           <p className="mt-1 text-[13px] text-txt-muted">{description}</p>

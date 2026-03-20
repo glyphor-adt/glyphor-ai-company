@@ -87,7 +87,7 @@ export default function PromptEvolutionTab({ agentId }: PromptEvolutionTabProps)
           </h4>
           {shadows.map(s => (
             <div key={`${s.challenger_prompt_version}-${s.baseline_prompt_version}`}
-                 className="rounded-lg border border-border bg-raised/40 p-3 mb-2">
+                 className="glass-surface rounded-lg border border-border p-3 mb-2">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-sm text-txt-primary">

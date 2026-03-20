@@ -139,7 +139,7 @@ export function createChannelNotifyTools(): ToolDefinition[] {
         // Fallback: use the shared delegated Graph token (postCardToChannel)
         try {
           const { postTextToChannel } = await import('@glyphor/integrations');
-          const result = await postTextToChannel('briefings', formatted);
+          const result = await postTextToChannel('briefings', formatted, null, role);
           if (result.method !== 'none') {
             try {
               await systemQuery(

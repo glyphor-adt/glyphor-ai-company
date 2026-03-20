@@ -66,7 +66,7 @@ export default function FounderBriefing() {
       <div className="space-y-5">
         {/* ── Company Vitals ─────────────────── */}
         {pulse && (
-          <div className="rounded-lg border border-border bg-raised/50 p-3.5">
+          <div className="glass-surface rounded-lg border border-border p-3.5">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-sm">{MOOD_EMOJI[pulse.company_mood] ?? 'S'}</span>
               <span className="text-[13px] font-semibold text-txt-primary capitalize">

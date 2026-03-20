@@ -47,7 +47,7 @@ export default function HandoffsTab({ agentId }: HandoffsTabProps) {
 
   if (!data || (data.as_upstream.length === 0 && data.as_downstream.length === 0)) {
     return (
-      <div className="rounded-lg border border-border bg-raised/40 p-4 text-xs text-txt-muted text-center">
+      <div className="glass-surface rounded-lg border border-border p-4 text-xs text-txt-muted text-center">
         No handoff traces for this agent yet.
       </div>
     );

@@ -1840,6 +1840,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
             channelKey,
             params.message as string,
             GraphTeamsClient.fromEnv(),
+            'cto',
           );
 
           if (result.method === 'none') {

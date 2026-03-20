@@ -71,7 +71,7 @@ export function SystemHealth() {
         {syncs.map((sync) => (
           <div
             key={sync.id}
-            className="flex items-center justify-between rounded-lg border border-border bg-raised px-3 py-2"
+            className="glass-surface flex items-center justify-between rounded-lg border border-border px-3 py-2"
           >
             <div className="flex items-center gap-2">
               <span

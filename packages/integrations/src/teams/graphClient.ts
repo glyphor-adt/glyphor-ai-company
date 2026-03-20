@@ -6,8 +6,10 @@
  * app-only auth for read operations.
  *
  * Posting flow:
- *   1. Delegated Graph API (refresh token → ChannelMessage.Send)
- *   2. App-only Graph API (fallback — only works for reads)
+ *   0. Agent identity (A365 Graph token — posts as the agent)
+ *   1. Webhook (posts as bot)
+ *   2. Delegated Graph API (refresh token → ChannelMessage.Send — posts as token owner)
+ *   3. App-only Graph API (fallback — only works for reads)
  *
  * Required environment variables:
  *   - AZURE_TENANT_ID: Microsoft Entra (Azure AD) tenant ID
@@ -21,6 +23,7 @@ import { ConfidentialClientApplication } from '@azure/msal-node';
 import type { AdaptiveCard, TeamsWebhookPayload } from './webhooks.js';
 import { sendTeamsWebhook } from './webhooks.js';
 import { markdownToTeamsHtml } from './messageFormatter.js';
+import { getAgenticGraphToken } from '../agent365/index.js';
 
 // ─── DELEGATED AUTH (refresh token) ─────────────────────────────
 
@@ -372,7 +375,39 @@ function getChannelWebhookUrl(channelName: string): string | undefined {
 
 // ─── SEND HELPERS ───────────────────────────────────────────────
 
-export type PostResult = { method: 'webhook' | 'graph' | 'none'; error?: string };
+export type PostResult = { method: 'webhook' | 'graph' | 'agent' | 'none'; error?: string };
+
+/**
+ * Post a raw Graph message body to a channel using the agent's own A365 Graph token.
+ * Returns true if the agent has an identity and the post succeeded.
+ */
+async function postAsAgentIdentity(
+  target: ChannelTarget,
+  body: Record<string, unknown>,
+  agentRole: string,
+): Promise<boolean> {
+  try {
+    const token = await getAgenticGraphToken(agentRole);
+    if (!token) return false;
+
+    const url = `https://graph.microsoft.com/v1.0/teams/${target.teamId}/channels/${target.channelId}/messages`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      console.warn(`[GraphClient] Agent identity post failed for ${agentRole} (${res.status}): ${text.substring(0, 200)}`);
+      return false;
+    }
+    console.log(`[GraphClient] ${agentRole} posted to channel as own identity`);
+    return true;
+  } catch (err) {
+    console.warn(`[GraphClient] Agent identity post error for ${agentRole}:`, (err as Error).message);
+    return false;
+  }
+}
 
 /**
  * Post an Adaptive Card to a Teams channel.
@@ -384,6 +419,7 @@ export async function postCardToChannel(
   channelName: string,
   payload: TeamsWebhookPayload | AdaptiveCard,
   graphClient?: GraphTeamsClient | null,
+  agentRole?: string,
 ): Promise<PostResult> {
   // Normalise: if we got a raw AdaptiveCard, wrap it
   const webhookPayload: TeamsWebhookPayload = 'type' in payload && payload.type === 'message'
@@ -398,8 +434,20 @@ export async function postCardToChannel(
       };
 
   const card = webhookPayload.attachments[0].content;
+  const channels = buildChannelMap();
+  const target = channels[channelName as keyof ChannelMap];
 
-  // 1. Webhook (preferred — posts as bot, not as a user)
+  // 0. Agent identity (posts as the agent, not a human or bot)
+  if (agentRole && target) {
+    const graphBody = {
+      body: { contentType: 'html', content: '<attachment id="adaptiveCard"></attachment>' },
+      attachments: [{ id: 'adaptiveCard', contentType: 'application/vnd.microsoft.card.adaptive', content: JSON.stringify(card) }],
+    };
+    const ok = await postAsAgentIdentity(target, graphBody, agentRole);
+    if (ok) return { method: 'agent' };
+  }
+
+  // 1. Webhook (posts as bot, not as a user)
   const webhookUrl = getChannelWebhookUrl(channelName);
   if (webhookUrl) {
     try {
@@ -411,8 +459,6 @@ export async function postCardToChannel(
   }
 
   // 2. Delegated Graph API (ChannelMessage.Send via refresh token — posts as token owner)
-  const channels = buildChannelMap();
-  const target = channels[channelName as keyof ChannelMap];
   if (target) {
     const graphBody = {
       body: { contentType: 'html', content: '<attachment id="adaptiveCard"></attachment>' },
@@ -442,8 +488,19 @@ export async function postTextToChannel(
   channelName: string,
   text: string,
   graphClient?: GraphTeamsClient | null,
+  agentRole?: string,
 ): Promise<PostResult> {
-  // 1. Webhook (preferred — posts as bot, not as a user)
+  const channels = buildChannelMap();
+  const target = channels[channelName as keyof ChannelMap];
+
+  // 0. Agent identity (posts as the agent, not a human or bot)
+  if (agentRole && target) {
+    const graphBody = { body: { contentType: 'html', content: markdownToTeamsHtml(text) } };
+    const ok = await postAsAgentIdentity(target, graphBody, agentRole);
+    if (ok) return { method: 'agent' };
+  }
+
+  // 1. Webhook (posts as bot, not as a user)
   const webhookUrl = getChannelWebhookUrl(channelName);
   if (webhookUrl) {
     const payload: TeamsWebhookPayload = {
@@ -468,8 +525,6 @@ export async function postTextToChannel(
   }
 
   // 2. Delegated Graph API (ChannelMessage.Send via refresh token — posts as token owner)
-  const channels = buildChannelMap();
-  const target = channels[channelName as keyof ChannelMap];
   if (target) {
     const graphBody = { body: { contentType: 'html', content: markdownToTeamsHtml(text) } };
     const ok = await postWithDelegatedToken(target, graphBody);

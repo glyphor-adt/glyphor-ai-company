@@ -785,7 +785,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
               {syncs.map((sync) => (
                 <div
                   key={sync.id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-raised px-3 py-2.5"
+                  className="glass-surface flex items-center justify-between rounded-lg border border-border px-3 py-2.5"
                 >
                   <div className="flex items-center gap-2">
                     <span
@@ -896,7 +896,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
                 return (
                   <div
                     key={agent.id}
-                    className={`relative flex flex-col gap-1.5 rounded-lg border p-3 ${
+                    className={`glass-surface relative flex flex-col gap-1.5 rounded-lg border p-3 ${
                       health === 'healthy'
                         ? 'border-tier-green/25 bg-tier-green/5'
                         : health === 'degraded'
@@ -1193,7 +1193,7 @@ function ActiveWorkflowsSection({
               <div key={w.id}>
                 <button
                   onClick={() => setExpanded(expanded === w.id ? null : w.id)}
-                  className="w-full text-left rounded-lg border border-border bg-raised px-4 py-2.5 hover:bg-surface transition-colors"
+                  className="glass-surface w-full text-left rounded-lg border border-border px-4 py-2.5 hover:bg-surface transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
@@ -1429,7 +1429,7 @@ function MemoryHealthSection({
               {tableCounts.map((t) => (
                 <div
                   key={t.table}
-                  className="flex items-center justify-between rounded-lg border border-border bg-raised px-3 py-2.5"
+                  className="glass-surface flex items-center justify-between rounded-lg border border-border px-3 py-2.5"
                 >
                   <span className="text-sm font-medium text-txt-secondary">{t.table}</span>
                   <span className="font-mono text-sm text-txt-primary">{t.count.toLocaleString()}</span>
@@ -1917,7 +1917,7 @@ function DelegationOverview() {
         ) : (
           <div className="space-y-2">
             {activity.map(d => (
-              <div key={d.id} className="flex items-center gap-3 rounded-lg border border-border bg-raised px-3 py-2.5">
+              <div key={d.id} className="glass-surface flex items-center gap-3 rounded-lg border border-border px-3 py-2.5">
                 <span className={`h-2 w-2 rounded-full ${PRIORITY_DOT[d.priority] ?? 'bg-prism-moderate'}`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-txt-primary truncate">{d.title}</p>

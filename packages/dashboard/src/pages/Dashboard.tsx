@@ -492,7 +492,7 @@ export default function Dashboard() {
             {QUICK_ACTIONS.map((action) => {
               const Icon = action.icon;
               return (
-                <Link key={action.label} to={action.to} className="inner-card-lift flex items-center gap-2.5 rounded-lg border border-border/60 px-3 py-2">
+                <Link key={action.label} to={action.to} className="glass-surface inner-card-lift flex items-center gap-2.5 rounded-lg border border-border/60 px-3 py-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan/10 text-cyan">
                     <Icon className="h-4 w-4" />
                   </div>
@@ -519,7 +519,7 @@ export default function Dashboard() {
               <p className="text-[12px] text-txt-muted">Create directives so agents can produce founder-visible work.</p>
               <div className="space-y-2">
                 {SUGGESTED_DIRECTIVES.map((directive) => (
-                  <div key={directive.title} className="inner-card-lift flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2">
+                  <div key={directive.title} className="glass-surface inner-card-lift flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2">
                     <MdSpeed className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan" />
                     <div className="min-w-0 flex-1">
                       <p className="text-[12px] font-medium text-txt-primary line-clamp-1">{directive.title}</p>

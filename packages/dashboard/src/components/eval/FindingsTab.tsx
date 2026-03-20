@@ -68,7 +68,7 @@ export default function FindingsTab({ agentId }: FindingsTabProps) {
 
   function renderFinding(f: Finding, allowResolve: boolean) {
     return (
-      <div key={f.id} className="rounded-lg border border-border bg-raised/40 p-3 mb-2">
+      <div key={f.id} className="glass-surface rounded-lg border border-border p-3 mb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {severityBadge(f.severity)}
@@ -105,7 +105,7 @@ export default function FindingsTab({ agentId }: FindingsTabProps) {
     <div className="space-y-4">
       {/* Open findings */}
       {open.length === 0 ? (
-        <div className="rounded-lg border border-border bg-raised/40 p-4 text-xs text-txt-muted text-center">
+        <div className="glass-surface rounded-lg border border-border p-4 text-xs text-txt-muted text-center">
           No open findings — all clear ✓
         </div>
       ) : (

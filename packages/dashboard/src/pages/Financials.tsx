@@ -738,7 +738,7 @@ export default function Financials() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-border bg-white/[0.02] p-4">
+      <div className="glass-surface rounded-2xl border border-border p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-txt-primary">Financials</h1>
@@ -772,7 +772,7 @@ export default function Financials() {
                 const isFailing = s?.status === 'failing';
                 const isSyncing = syncingIds.has(sync.id);
                 return (
-                  <div key={sync.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                  <div key={sync.id} className="glass-surface flex items-center justify-between rounded-lg border border-border px-3 py-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <div className={`h-2 w-2 flex-shrink-0 rounded-full ${isOk ? 'bg-green-500' : isFailing ? 'bg-red-500' : 'bg-yellow-500'}`} />
@@ -981,7 +981,7 @@ export default function Financials() {
               {subscriptions.slice(0, 7).map((sub) => {
                 const providerMeta = getProviderIcon(sub.name);
                 return (
-                <div key={sub.name} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                <div key={sub.name} className="glass-surface flex items-center justify-between rounded-lg border border-border px-3 py-2">
                   <div className="flex items-center gap-3">
                     {providerMeta ? (
                       <providerMeta.icon className="h-5 w-5 flex-shrink-0" style={{ color: providerMeta.color }} />

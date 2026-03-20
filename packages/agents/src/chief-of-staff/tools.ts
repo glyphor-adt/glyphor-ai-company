@@ -651,7 +651,7 @@ export function createChiefOfStaffTools(
 
         let teamsNotifyError: string | null = null;
         try {
-          const result = await postCardToChannel('decisions', card, graphClient);
+          const result = await postCardToChannel('decisions', card, graphClient, 'chief-of-staff');
           if (result.method === 'none') {
             console.warn(`[ChiefOfStaff] No channel posting method available for decisions: ${result.error}`);
           }
@@ -1123,7 +1123,7 @@ export function createChiefOfStaffTools(
         let channelError: string | null = null;
 
         try {
-          const result = await postCardToChannel('briefings', card, graphClient);
+          const result = await postCardToChannel('briefings', card, graphClient, 'chief-of-staff');
           if (result.method === 'none') {
             throw new Error(
               `No Teams briefing channel configured. ${result.error}`,
@@ -1230,7 +1230,7 @@ export function createChiefOfStaffTools(
             assignedTo: params.assigned_to as string[],
             actionMode: 'execute',
           });
-          const result = await postCardToChannel('decisions', card, graphClient);
+          const result = await postCardToChannel('decisions', card, graphClient, 'chief-of-staff');
           if (result.method === 'none') {
             console.warn(`[ChiefOfStaff] No channel posting method for decisions: ${result.error}`);
           }

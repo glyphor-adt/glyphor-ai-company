@@ -127,7 +127,7 @@ function ActionQueueSection({
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <div key={item.id} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+            <div key={item.id} className="glass-surface rounded-xl border border-border/70 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -229,7 +229,7 @@ function ChangeLogSection({ items }: { items: GovernanceChangeItem[] }) {
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-txt-muted">{label}</p>
               <div className="mt-3 space-y-3">
                 {entries.map((entry) => (
-                  <div key={entry.id} className="rounded-lg border border-border/60 bg-prism-card/50 px-4 py-3">
+                  <div key={entry.id} className="glass-surface rounded-lg border border-border/60 px-4 py-3">
                     <p className="text-[13px] font-medium text-txt-primary">{entry.title}</p>
                     <p className="mt-1 text-[12px] text-txt-secondary">{entry.description}</p>
                     <p className="mt-2 text-[11px] text-txt-muted">{formatDateTime(entry.createdAt)}</p>
@@ -278,7 +278,7 @@ function SystemTrustMap({ entries }: { entries: TrustMapEntry[] }) {
       />
       <div className="space-y-4">
         {groups.map((group) => (
-          <div key={group.department} className="rounded-xl border border-border/70 bg-prism-card/60 p-4">
+          <div key={group.department} className="glass-surface rounded-xl border border-border/70 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-txt-primary">{group.department}</p>

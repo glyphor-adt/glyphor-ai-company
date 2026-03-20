@@ -335,7 +335,7 @@ function WorkflowStepProgress({ workflowId }: { workflowId: string }) {
   if (!wf) return null;
 
   return (
-    <div className="rounded-lg bg-raised/60 p-4 space-y-2">
+    <div className="glass-surface rounded-lg p-4 space-y-2">
       <div className="flex items-center gap-2 text-sm text-txt-muted mb-2">
         <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
         Step {wf.current_step}/{wf.total_steps}
@@ -493,7 +493,7 @@ function DeepDiveCard({ record, expanded, onToggle }: { record: DeepDiveRecord; 
           {record.workflow_id ? (
             <WorkflowStepProgress workflowId={record.workflow_id} />
           ) : (
-            <div className="rounded-lg bg-raised/60 p-4">
+            <div className="glass-surface rounded-lg p-4">
               <div className="flex items-center gap-2 text-sm text-txt-muted">
                 <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
                 {DD_STATUS_LABELS[record.status]}
@@ -606,7 +606,7 @@ function DDCurrentState({ report }: { report: DeepDiveReport }) {
             { label: 'Valuation', val: fs.valuation },
             { label: 'Profitability', val: fs.profitability },
           ].filter((f) => f.val).map((f) => (
-            <div key={f.label} className="rounded-lg bg-raised/60 p-3 border border-border">
+            <div key={f.label} className="glass-surface rounded-lg p-3 border border-border">
               <span className="text-[10px] text-txt-muted uppercase tracking-wider">{f.label}</span>
               <p className="text-sm font-semibold text-txt-primary mt-0.5">{f.val}</p>
             </div>
@@ -653,7 +653,7 @@ function DDOverview({ report }: { report: DeepDiveReport }) {
           { label: 'Headquarters', val: report.overview.headquarters },
           { label: 'Business Model', val: report.overview.businessModel },
         ].filter((f) => f.val).map((f) => (
-          <div key={f.label} className="rounded-lg bg-raised/60 p-3 border border-border">
+          <div key={f.label} className="glass-surface rounded-lg p-3 border border-border">
             <span className="text-[10px] text-txt-muted uppercase tracking-wider">{f.label}</span>
             <p className="text-sm text-txt-primary mt-0.5">{f.val}</p>
           </div>
@@ -680,7 +680,7 @@ function DDOverview({ report }: { report: DeepDiveReport }) {
           <h4 className="text-xs font-semibold text-cyan uppercase tracking-wider mb-2">Products & Services</h4>
           <div className="space-y-2">
             {report.overview.products.map((p, i) => (
-              <div key={i} className="rounded-lg bg-raised/60 p-3 border border-border">
+              <div key={i} className="glass-surface rounded-lg p-3 border border-border">
                 <p className="text-sm font-medium text-txt-primary">{p.name}</p>
                 <p className="text-[12px] text-txt-muted mt-0.5">{p.description}</p>
               </div>
@@ -701,7 +701,7 @@ function DDMarket({ report }: { report: DeepDiveReport }) {
           { label: 'SAM', ...report.marketAnalysis.sam },
           { label: 'SOM', ...report.marketAnalysis.som },
         ].map((s) => (
-          <div key={s.label} className="rounded-lg bg-raised/60 p-4 border border-cyan/20 text-center">
+          <div key={s.label} className="glass-surface rounded-lg p-4 border border-cyan/20 text-center">
             <span className="text-[11px] text-txt-muted font-semibold tracking-widest">{s.label}</span>
             <p className="text-lg font-bold text-cyan mt-1">{s.value}</p>
             <p className="text-[11px] text-txt-muted mt-1">{s.methodology}</p>
@@ -772,7 +772,7 @@ function DDCompetitive({ report }: { report: DeepDiveReport }) {
           const pct = (f.score / 5) * 100;
           const barColor = f.score >= 4 ? 'bg-prism-critical' : f.score >= 3 ? 'bg-prism-elevated' : 'bg-tier-green';
           return (
-            <div key={key} className="rounded-lg bg-raised/60 p-3 border border-border">
+            <div key={key} className="glass-surface rounded-lg p-3 border border-border">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-sm font-medium text-txt-primary">{label}</span>
                 <span className="text-sm font-bold text-txt-secondary">{f.score}/5</span>
@@ -796,7 +796,7 @@ function DDCompetitive({ report }: { report: DeepDiveReport }) {
           <h4 className="text-xs font-semibold text-cyan uppercase tracking-wider pt-2">Key Competitors</h4>
           <div className="space-y-2">
             {report.competitiveLandscape.competitors.map((c, i) => (
-              <div key={i} className="rounded-lg bg-raised/60 p-3 border border-border">
+              <div key={i} className="glass-surface rounded-lg p-3 border border-border">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-txt-primary">{c.name}</span>
                   {c.estimatedRevenue && <span className="text-[11px] text-txt-muted">{c.estimatedRevenue}</span>}
@@ -905,7 +905,7 @@ function DDRecommendations({ report }: { report: DeepDiveReport }) {
   return (
     <div className="space-y-3">
       {report.strategicRecommendations.map((rec, i) => (
-        <div key={i} className="rounded-lg bg-raised/60 border border-border p-4">
+        <div key={i} className="glass-surface rounded-lg border border-border p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-sm font-bold text-cyan">{i + 1}.</span>
             <span className="text-sm font-semibold text-txt-primary flex-1">{rec.title}</span>
@@ -938,7 +938,7 @@ function DDRoadmap({ report }: { report: DeepDiveReport }) {
   return (
     <div className="space-y-3">
       {report.implementationRoadmap.map((phase, i) => (
-        <div key={i} className="rounded-lg bg-raised/60 border border-border p-4">
+        <div key={i} className="glass-surface rounded-lg border border-border p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-txt-primary">{phase.phase}</span>
             <span className="text-[11px] text-cyan font-medium">{phase.timeline}</span>
@@ -964,7 +964,7 @@ function DDRoi({ report }: { report: DeepDiveReport }) {
   return (
     <div className="space-y-4">
       {report.roiAnalysis.map((scenario, i) => (
-        <div key={i} className="rounded-lg bg-raised/60 border border-border p-4">
+        <div key={i} className="glass-surface rounded-lg border border-border p-4">
           <h4 className="text-sm font-semibold text-txt-primary capitalize mb-2">{scenario.scenario} Case</h4>
           <div className="flex gap-4 text-[12px] text-txt-muted mb-3">
             {scenario.paybackPeriod && <span>Payback: <span className="text-cyan font-medium">{scenario.paybackPeriod}</span></span>}
@@ -1314,7 +1314,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
       <div>
         <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Cascade Map</p>
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch">
-          <div className="rounded-lg border border-border bg-raised px-3 py-3">
+          <div className="glass-surface rounded-lg border border-border px-3 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-faint">Current State</p>
             <p className="mt-2 text-[12px] text-txt-secondary leading-relaxed">
               {report.dimensions.length} impacted domains under a {PERSPECTIVE_LABELS[record.perspective] ?? record.perspective.toLowerCase()} scenario.
@@ -1329,7 +1329,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
             <p className="mt-2 text-[12px] text-txt-primary leading-relaxed">{record.action}</p>
           </div>
           <div className="flex items-center justify-center text-cyan"><MdArrowForward /></div>
-          <div className="rounded-lg border border-border bg-raised px-3 py-3">
+          <div className="glass-surface rounded-lg border border-border px-3 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-faint">Predicted State T+1</p>
             <p className="mt-2 text-[12px] text-txt-secondary leading-relaxed">{report.summary}</p>
             <p className="mt-2 text-[11px] text-txt-faint">
@@ -1345,7 +1345,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Impact by Department</p>
           <div className="grid grid-cols-2 gap-2">
             {report.dimensions.map((dim, i) => (
-              <div key={i} className="rounded-lg border border-border bg-raised px-3 py-2.5">
+              <div key={i} className="glass-surface rounded-lg border border-border px-3 py-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] font-medium text-txt-secondary">{dim.area}</span>
                   <span className={`font-mono text-sm font-semibold ${
@@ -1383,7 +1383,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Cascade Paths</p>
           <div className="grid gap-2 md:grid-cols-2">
             {report.cascadeChain.map((link, i) => (
-              <div key={i} className="rounded-lg border border-border bg-raised px-3 py-2 text-[11px]">
+              <div key={i} className="glass-surface rounded-lg border border-border px-3 py-2 text-[11px]">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-cyan">{link.from}</span>
                   <MdArrowForward className="text-txt-faint" />
@@ -1408,7 +1408,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
           </div>
           <div className="space-y-2">
             {predictions.map((prediction) => (
-              <div key={prediction.id} className="rounded-lg border border-border bg-raised px-3 py-2.5">
+              <div key={prediction.id} className="glass-surface rounded-lg border border-border px-3 py-2.5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan">
@@ -1442,7 +1442,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Executive Votes</p>
           <div className="space-y-2">
             {report.votes.map((v, i) => (
-              <div key={i} className="flex items-start gap-2.5 rounded-lg border border-border bg-raised px-3 py-2.5">
+              <div key={i} className="glass-surface flex items-start gap-2.5 rounded-lg border border-border px-3 py-2.5">
                 <span className={`text-base mt-0.5 ${voteColor(v.vote)}`}>{voteIcon(v.vote)}</span>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -1694,7 +1694,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
             <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Core Problems</p>
             <div className="space-y-2">
               {report.problems.map((p, i) => (
-                <div key={i} className="rounded-lg border border-border bg-raised px-3 py-2.5">
+                <div key={i} className="glass-surface rounded-lg border border-border px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <span className={`rounded-lg px-1.5 py-0.5 text-[10px] font-medium ${
                       p.severity === 'high'
@@ -1721,7 +1721,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
             <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Root Causes</p>
             <div className="space-y-2">
               {report.rootCauses.map((rc, i) => (
-                <div key={i} className="rounded-lg border border-border bg-raised px-3 py-2.5">
+                <div key={i} className="glass-surface rounded-lg border border-border px-3 py-2.5">
                   <p className="text-sm font-medium text-txt-primary">{rc.cause}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="text-[10px] text-txt-faint">Links to:</span>
@@ -1743,7 +1743,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Mapped Solutions</p>
           <div className="space-y-2">
             {report.solutions.map((s, i) => (
-              <div key={i} className="rounded-lg border border-border bg-raised px-3 py-2.5">
+              <div key={i} className="glass-surface rounded-lg border border-border px-3 py-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-txt-primary">{s.title}</span>
                   <span className="font-mono text-sm font-semibold text-cyan">
@@ -1842,7 +1842,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Logical Validation</p>
           <div className="space-y-2">
             {report.validations.map((v, i) => (
-              <div key={i} className="flex items-start gap-3 rounded-lg border border-border bg-raised px-3 py-2.5">
+              <div key={i} className="glass-surface flex items-start gap-3 rounded-lg border border-border px-3 py-2.5">
                 <span className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${
                   v.status === 'valid' ? 'bg-tier-green' : v.status === 'questionable' ? 'bg-prism-elevated' : 'bg-prism-critical'
                 }`} />
@@ -2267,7 +2267,7 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Research Team</p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
             {researchProgress.map((rp) => (
-              <div key={rp.analystRole} className="rounded-lg border border-border bg-raised px-3 py-2">
+              <div key={rp.analystRole} className="glass-surface rounded-lg border border-border px-3 py-2">
                 <div className="flex items-center gap-1.5">
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                     rp.status === 'completed' ? 'bg-tier-green' : rp.status === 'running' ? 'bg-cyan animate-pulse' : rp.status === 'failed' ? 'bg-prism-critical' : 'bg-txt-faint/30'
@@ -2289,7 +2289,7 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Executive Analysis</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {execProgress.map((ep) => (
-              <div key={ep.execRole} className="rounded-lg border border-border bg-raised px-3 py-2">
+              <div key={ep.execRole} className="glass-surface rounded-lg border border-border px-3 py-2">
                 <div className="flex items-center gap-1.5">
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                     ep.status === 'completed' ? 'bg-tier-green' : ep.status === 'running' ? 'bg-cyan animate-pulse' : ep.status === 'failed' ? 'bg-prism-critical' : 'bg-txt-faint/30'

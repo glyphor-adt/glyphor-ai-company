@@ -771,7 +771,7 @@ function DirectiveCard({
               const isLong = desc.length > 200;
 
               return (
-              <div key={a.id} className={`rounded-lg border border-border bg-raised px-3 py-2.5 ${indent ? 'ml-6 border-l-2 border-l-border' : ''}`}>
+              <div key={a.id} className={`glass-surface rounded-lg border border-border px-3 py-2.5 ${indent ? 'ml-6 border-l-2 border-l-border' : ''}`}>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`h-2 w-2 rounded-full ${assignmentStatusColor(a.status)}`} />
                   <span className="text-[12px] font-medium text-txt-primary">
@@ -891,7 +891,7 @@ function DirectiveCard({
                 {showChecks && (
                   <div className="space-y-1.5">
                     {Object.entries(verification.checks).map(([name, check]) => (
-                      <div key={name} className="rounded-lg border border-border bg-raised px-3 py-2">
+                      <div key={name} className="glass-surface rounded-lg border border-border px-3 py-2">
                         <div className="flex items-center gap-2">
                           <span className={`h-2 w-2 rounded-full ${check.passed ? 'bg-tier-green' : 'bg-prism-critical'}`} />
                           <span className="text-[11px] font-medium text-txt-secondary">{name.replace(/_/g, ' ')}</span>

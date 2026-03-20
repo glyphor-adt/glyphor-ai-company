@@ -70,7 +70,7 @@ export class DecisionQueue {
     });
 
     // Send via webhook (preferred) or Graph API fallback
-    await postCardToChannel('decisions', card, this.graphClient)
+    await postCardToChannel('decisions', card, this.graphClient, decision.proposedBy)
       .catch((err: unknown) => console.error('Failed to send decision to Teams:', err));
 
     await this.memory.write(
@@ -207,7 +207,7 @@ export class DecisionQueue {
         });
 
         // Send via webhook (preferred) or Graph API fallback
-        await postCardToChannel('decisions', card, this.graphClient)
+        await postCardToChannel('decisions', card, this.graphClient, decision.proposedBy)
           .catch((err: unknown) => console.error('Failed to send reminder to Teams:', err));
 
         pd.remindedAt = new Date().toISOString();
