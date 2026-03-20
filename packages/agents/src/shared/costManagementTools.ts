@@ -108,11 +108,13 @@ export function createCostManagementTools(): ToolDefinition[] {
             total_cost: number;
             run_count: number;
           }>(
-            `SELECT model, SUM(cost_usd) AS total_cost, COUNT(*) AS run_count
+            `SELECT COALESCE(model_used, 'unknown') AS model,
+                    SUM(COALESCE(total_cost_usd, cost, 0)) AS total_cost,
+                    COUNT(*) AS run_count
              FROM agent_runs
              WHERE created_at >= NOW() - INTERVAL '${days} days'
-               AND cost_usd IS NOT NULL
-             GROUP BY model
+               AND (total_cost_usd IS NOT NULL OR cost IS NOT NULL)
+             GROUP BY model_used
              ORDER BY total_cost DESC`,
           );
 
@@ -121,10 +123,12 @@ export function createCostManagementTools(): ToolDefinition[] {
             total_cost: number;
             run_count: number;
           }>(
-            `SELECT agent_id, SUM(cost_usd) AS total_cost, COUNT(*) AS run_count
+            `SELECT agent_id,
+                    SUM(COALESCE(total_cost_usd, cost, 0)) AS total_cost,
+                    COUNT(*) AS run_count
              FROM agent_runs
              WHERE created_at >= NOW() - INTERVAL '${days} days'
-               AND cost_usd IS NOT NULL
+               AND (total_cost_usd IS NOT NULL OR cost IS NOT NULL)
              GROUP BY agent_id
              ORDER BY total_cost DESC
              LIMIT 15`,

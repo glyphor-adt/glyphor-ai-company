@@ -136,15 +136,17 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.light .dashboard-shell {
-  background: rgba(255, 255, 255, 0.55);
-  -webkit-backdrop-filter: blur(40px) saturate(160%);
-  backdrop-filter: blur(40px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+html:not(.dark) .dashboard-shell {
+  background: rgba(255, 255, 255, 0.45);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  margin: 10px;
+  border-radius: 20px;
+  height: calc(100vh - 20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow:
     0 4px 24px rgba(0, 0, 0, 0.06),
-    0 16px 56px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    0 16px 56px rgba(0, 0, 0, 0.04);
 }
 
 .mesh-gradient-bg {
@@ -166,6 +168,14 @@ body {
     radial-gradient(ellipse 60% 50% at 50% 80%, rgba(192, 132, 252, 0.30) 0%, transparent 50%);
 }
 
+html:not(.dark) .mesh-gradient-bg {
+  background-color: #e4e6ee;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 15% 30%, rgba(0, 180, 255, 0.30) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 75% 15%, rgba(110, 119, 223, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 50% at 50% 80%, rgba(192, 132, 252, 0.20) 0%, transparent 50%);
+}
+
 .dark .dashboard-main {
   position: relative;
   background-color: transparent;
@@ -177,6 +187,16 @@ body {
   background: transparent;
 }
 
+html:not(.dark) main.dashboard-main {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  margin: 0;
+  border-radius: 0;
+}
+
 .dashboard-sidebar {
   position: relative;
   overflow: hidden;
@@ -184,7 +204,7 @@ body {
 }
 
 .dashboard-sidebar--light {
-  background: #ffffff;
+  background: transparent;
 }
 
 .dashboard-sidebar--dark {
@@ -733,6 +753,17 @@ input:focus, textarea:focus, select:focus {
   -webkit-backdrop-filter: none !important;
   border: 1px solid rgba(255, 255, 255, 0.04) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+
+/* ─── Light glass surfaces ────────────────────── */
+html:not(.dark) .glass-surface {
+  background-color: rgba(255, 255, 255, 0.65) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.02) !important;
 }
 
 /* Nested glass panels (NOT the sidebar itself — that has its own rule below) */

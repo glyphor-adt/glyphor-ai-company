@@ -40,7 +40,6 @@ export const MODELS: ModelOption[] = [
   { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',         provider: 'gemini', inputPer1M: 2.00, outputPer1M: 12.0 },
   { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', inputPer1M: 0.25, outputPer1M: 1.50, default: true },
   { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash',         provider: 'gemini', inputPer1M: 0.50, outputPer1M: 3.00 },
-  { value: 'gemini-2.5-pro',     label: 'Gemini 2.5 Pro',      provider: 'gemini', inputPer1M: 1.25, outputPer1M: 10.0 },
   { value: 'gemini-2.5-flash',   label: 'Gemini 2.5 Flash',    provider: 'gemini', inputPer1M: 0.30, outputPer1M: 2.50 },
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', provider: 'gemini', inputPer1M: 0.10, outputPer1M: 0.40 },
 

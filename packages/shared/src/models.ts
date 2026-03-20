@@ -65,7 +65,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',         provider: 'gemini',    tier: 'flagship',  inputPer1M: 2.00,  outputPer1M: 12.0,  thinkingPer1M: 12.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', tier: 'economy', inputPer1M: 0.25, outputPer1M: 1.50, thinkingPer1M: 1.50, cachedInputDiscount: 0.10, selectable: true, verifier: true  },
   { id: 'gemini-3-flash-preview',  label: 'Gemini 3 Flash',        provider: 'gemini',    tier: 'standard',  inputPer1M: 0.50,  outputPer1M: 3.00,  thinkingPer1M: 3.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
-  { id: 'gemini-2.5-pro',          label: 'Gemini 2.5 Pro',        provider: 'gemini',    tier: 'flagship',  inputPer1M: 1.25,  outputPer1M: 10.0,  thinkingPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
+  { id: 'gemini-2.5-pro',          label: 'Gemini 2.5 Pro (retired)', provider: 'gemini', tier: 'flagship',  inputPer1M: 1.25,  outputPer1M: 10.0,  thinkingPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: false, verifier: false },
   { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash',      provider: 'gemini',    tier: 'standard',  inputPer1M: 0.30,  outputPer1M: 2.50,  thinkingPer1M: 2.50,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gemini-2.5-flash-lite',   label: 'Gemini 2.5 Flash Lite', provider: 'gemini',    tier: 'economy',   inputPer1M: 0.10,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
 
@@ -119,6 +119,7 @@ export const DEPRECATED_MODELS: Record<string, string> = {
   'gemini-1.5-pro':             'gemini-3.1-pro-preview',
   'gemini-3.0-flash-preview':   'gemini-3.1-flash-lite-preview',
   'gemini-3-pro-preview':       'gemini-3.1-pro-preview',
+  'gemini-2.5-pro':             'gemini-3.1-pro-preview',
 
   // OpenAI legacy
   'gpt-4o':                     'gpt-5-mini',
@@ -173,15 +174,14 @@ export const GRAPHRAG_MODEL = 'gpt-5-mini-2025-08-07';
 
 export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   // Gemini primary → try same-provider tier first, then cheapest cross-provider
-  'gemini-3.1-pro-preview':        ['gemini-2.5-pro', 'gpt-5.4'],
+  'gemini-3.1-pro-preview':        ['gemini-3-flash-preview', 'gpt-5.4'],
   'gemini-3.1-flash-lite-preview':  ['gemini-2.5-flash', 'gpt-5-mini'],
   'gemini-3-flash-preview':         ['gemini-2.5-flash', 'gpt-5.4-mini'],
-  'gemini-2.5-pro':                 ['gemini-3.1-pro-preview', 'gpt-5.4'],
   'gemini-2.5-flash':               ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
   'gemini-2.5-flash-lite':          ['gemini-3.1-flash-lite-preview', 'gpt-5.4-nano'],
 
   // OpenAI primary → try Gemini first (GCP-resident, cheapest), then economy cross-provider
-  'gpt-5.4':                ['gemini-2.5-pro', 'gemini-3.1-pro-preview'],
+  'gpt-5.4':                ['gemini-3.1-pro-preview', 'gemini-3-flash-preview'],
   'gpt-5.4-pro':            ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
   'gpt-5.4-mini':           ['gemini-3-flash-preview', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.4-nano':           ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite-preview'],
@@ -198,8 +198,8 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'o4-mini-deep-research':  ['o4-mini', 'gpt-5-mini-2025-08-07'],
 
   // Anthropic primary → try Gemini first (GCP-resident), then cheapest OpenAI
-  'claude-opus-4-6':        ['gemini-2.5-pro', 'gpt-5.4'],
-  'claude-sonnet-4-6':      ['gemini-2.5-pro', 'gpt-5.4'],
+  'claude-opus-4-6':        ['gemini-3.1-pro-preview', 'gpt-5.4'],
+  'claude-sonnet-4-6':      ['gemini-3.1-pro-preview', 'gpt-5.4'],
   'claude-sonnet-4-5':      ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
   'claude-haiku-4-5':       ['gemini-3-flash-preview', 'gpt-5.4-mini'],
 };
@@ -210,10 +210,9 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
 
 export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> = {
   // Gemini
-  'gemini-3.1-pro-preview':        ['gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite-preview'],
+  'gemini-3.1-pro-preview':        ['gemini-3-flash-preview', 'gemini-3.1-flash-lite-preview'],
   'gemini-3.1-flash-lite-preview': ['gemini-2.5-flash', 'gemini-3-flash-preview'],
   'gemini-3-flash-preview':        ['gemini-2.5-flash', 'gemini-3.1-flash-lite-preview'],
-  'gemini-2.5-pro':                ['gemini-3.1-pro-preview', 'gemini-3-flash-preview'],
   'gemini-2.5-flash':              ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash-lite'],
   'gemini-2.5-flash-lite':         ['gemini-3.1-flash-lite-preview'],
 
@@ -247,7 +246,6 @@ export const VERIFIER_MAP: Record<string, string> = {
   'gemini-3.1-pro-preview':        'gpt-5-mini',
   'gemini-3.1-flash-lite-preview': 'gpt-5-nano',
   'gemini-3-flash-preview':        'gpt-5-nano',
-  'gemini-2.5-pro':                'gpt-5-mini',
   'gemini-2.5-flash':              'gpt-5-nano',
   'gemini-2.5-flash-lite':         'gpt-5-nano',
 
