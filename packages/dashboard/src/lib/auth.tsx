@@ -173,7 +173,7 @@ function TeamsAuthGate({ children }: { children: ReactNode }) {
   if (error || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-base">
-        <div className="rounded-xl border border-border bg-surface p-8 text-center">
+        <div className="glass-surface rounded-xl border border-border p-8 text-center">
           <p className="text-sm text-prism-critical">{error || 'Unable to authenticate via Teams'}</p>
         </div>
       </div>
@@ -253,7 +253,7 @@ function GoogleAuthGate({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-surface p-8 shadow-lg">
+          <div className="glass-surface rounded-xl border border-border p-8 shadow-lg">
             <p className="mb-6 text-center text-sm text-txt-secondary">
               Sign in with your Glyphor Google account
             </p>

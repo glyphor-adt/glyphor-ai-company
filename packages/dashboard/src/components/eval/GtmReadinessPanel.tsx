@@ -204,7 +204,7 @@ function AgentGateRow({ agent }: { agent: AgentGateResult }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="glass-surface glass-surface rounded-lg border border-border overflow-hidden">
+    <div className="glass-surface rounded-lg border border-border overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-3

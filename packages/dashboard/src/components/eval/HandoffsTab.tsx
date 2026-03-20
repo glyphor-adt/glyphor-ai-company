@@ -97,10 +97,10 @@ function HandoffSection({
           return (
             <div
               key={i}
-              className={`rounded-lg border p-3 ${
+              className={`glass-surface rounded-lg border p-3 ${
                 isRedFlag
                   ? 'border-red-500/20 bg-red-500/5'
-                  : 'border-border bg-raised/40'
+                  : 'border-border'
               }`}
             >
               <div className="flex items-center justify-between">
