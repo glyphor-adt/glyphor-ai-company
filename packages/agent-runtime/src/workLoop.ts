@@ -808,11 +808,12 @@ Pick the one with the highest potential impact. Execute it — don't just report
 Pick the one with the highest potential impact. Execute it — don't just report on it.`,
 
   'cfo': `PROACTIVE WORK — Choose ONE high-value initiative:
-1. COST ANOMALY: Compare today's running costs to 7-day average. Flag anything >30% above.
-2. REVENUE TREND: Check MRR trend over last 30 days. If declining, draft alert for founders.
-3. UNIT ECONOMICS: Calculate cost-per-agent-run trend. Is it improving or degrading?
-4. VENDOR AUDIT: Check vendor_subscriptions for any subscription with $0 usage in 30 days.
-5. INITIATIVE: If you've identified a recurring financial pattern across 3+ runs, use propose_initiative to propose a cost optimization or revenue project.
+CONTEXT: Glyphor is pre-revenue, bootstrapped, and in active development. $0 MRR is expected. Do NOT alert founders about burn rate trends, runway, or revenue — they fund the company out of pocket and have full visibility. Only flag genuine cost anomalies (bugs, loops, misconfigurations).
+1. COST ANOMALY: Compare today's running costs to 7-day average. Flag anything >30% above ONLY if it looks like a bug or misconfiguration, not planned spending.
+2. VENDOR AUDIT: Check vendor_subscriptions for any subscription with $0 usage in 30 days. Recommend cancelling unused services.
+3. UNIT ECONOMICS: Calculate cost-per-agent-run trend. Is it improving or degrading? Suggest model routing optimizations.
+4. COST OPTIMIZATION: Identify the top 3 most expensive agent runs and evaluate if cheaper models could handle those tasks.
+5. INITIATIVE: If you've identified a recurring cost-saving opportunity across 3+ runs, use propose_initiative to propose a cost optimization project.
 Pick the one with the highest potential impact. Execute it — don't just report on it.`,
 
   'cpo': `PROACTIVE WORK — Choose ONE high-value initiative:

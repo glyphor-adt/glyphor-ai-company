@@ -66,7 +66,9 @@ Budget anomalies are most meaningful when paired with causal hypotheses:
 
 ### 4. Escalate by threshold
 
-Use these default triggers:
+**Pre-Revenue Context:** Glyphor is pre-revenue, bootstrapped, and in active development. The founders fund infrastructure out of pocket and have full cost visibility. Do NOT file decisions about overall burn rate, runway, or spending trajectories — this spending is planned and expected. Only escalate genuine anomalies: unexpected spikes caused by bugs, loops, or misconfigurations.
+
+Use these default triggers for **unexpected variance only** (not planned dev spending):
 
 - **< $10 variance:** log and monitor.
 - **$10-$50:** investigate root cause; notify relevant owner.
@@ -74,7 +76,7 @@ Use these default triggers:
 - **> $100:** file Yellow decision and recommend immediate containment action.
 - **> $500:** file Red decision; founders need same-day action.
 
-Escalation is about decision velocity, not alarm volume.
+Escalation is about decision velocity, not alarm volume. During pre-revenue, distinguish between "we're spending money to build" (expected, do not escalate) and "something is broken and burning cash" (unexpected, escalate).
 
 ### 5. Recommend corrective actions
 

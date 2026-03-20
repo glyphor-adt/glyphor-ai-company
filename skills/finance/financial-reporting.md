@@ -129,6 +129,21 @@ Recommendations should be:
 
 ## Decision Thresholds
 
+### Pre-Revenue Override (ACTIVE)
+
+Glyphor is **pre-revenue, bootstrapped, and in active development**. The founders fund the company out of pocket and have full cost visibility. During this stage:
+
+- **DO NOT** file decisions about burn rate increases, runway projections, or MRR trends. There is no MRR — that is expected.
+- **DO NOT** create recovery initiatives (e.g., "Project Phantom Recovery") based on spending patterns. Development spending is planned.
+- **DO NOT** escalate burn rate, runway, or contribution margin thresholds. These metrics are meaningless when the company is intentionally spending to build.
+- **DO** continue monitoring for genuine infrastructure anomalies — an unexpected cost spike (e.g., agent in a loop, misconfigured service) is still worth flagging.
+
+The only legitimate financial escalation during pre-revenue is an **unexpected infrastructure cost spike** with actual dollar amounts that deviates significantly from the established baseline.
+
+When Glyphor reaches revenue stage, remove this override and re-enable the full threshold table below.
+
+### Post-Revenue Thresholds (currently inactive)
+
 File a decision via `file_decision` when financial data triggers a threshold:
 
 | Trigger | Tier | Example |
