@@ -1076,14 +1076,8 @@ export function createChiefOfStaffTools(
 
     {
       name: 'send_briefing',
-      description: 'Send a morning briefing to a founder via Teams webhook. Also archives to GCS.',
+      description: 'Post the morning/EOD briefing to the #briefings Teams channel. Both founders see it there — do NOT call this twice.',
       parameters: {
-        recipient: {
-          type: 'string',
-          description: 'Founder to send briefing to',
-          required: true,
-          enum: ['kristina', 'andrew'],
-        },
         briefing_markdown: {
           type: 'string',
           description: 'The full briefing content in markdown format',
@@ -1111,21 +1105,20 @@ export function createChiefOfStaffTools(
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const recipient = params.recipient as 'kristina' | 'andrew';
         const markdown = params.briefing_markdown as string;
         const metrics = params.metrics as BriefingData['metrics'];
         const actionItems = (params.action_items as string[]) || [];
 
         // Format as Teams Adaptive Card
         const card = formatBriefingCard({
-          recipient,
+          recipient: 'both',
           metrics,
           markdown,
           actionItems,
           date: new Date().toISOString().split('T')[0],
         });
 
-        // Send to the founder's Teams channel first. If channel delivery fails, fall back to DM.
+        // Post to #briefings channel — both founders see it there
         let deliveryMode: 'channel' | 'dm' = 'channel';
         let channelError: string | null = null;
 
@@ -1133,19 +1126,26 @@ export function createChiefOfStaffTools(
           const result = await postCardToChannel('briefings', card, graphClient);
           if (result.method === 'none') {
             throw new Error(
-              `No Teams briefing channel configured for ${recipient}. ${result.error}`,
+              `No Teams briefing channel configured. ${result.error}`,
             );
           }
         } catch (err) {
           channelError = err instanceof Error ? err.message : String(err);
-          await sendFounderBriefingDm(recipient, markdown, metrics, actionItems);
-          deliveryMode = 'dm';
+          // Fall back to DM to both founders via A365
+          try {
+            await sendFounderBriefingDm('kristina', markdown, metrics, actionItems);
+            await sendFounderBriefingDm('andrew', markdown, metrics, actionItems);
+            deliveryMode = 'dm';
+          } catch (dmErr) {
+            // If DM also fails, still archive and log the failure
+            console.error('[send_briefing] Both channel and DM delivery failed:', (dmErr as Error).message);
+          }
         }
 
         // Archive to GCS
         const date = new Date().toISOString().split('T')[0];
         await memory.writeDocument(
-          `briefings/${recipient}/${date}.md`,
+          `briefings/both/${date}.md`,
           markdown,
         );
 
@@ -1154,7 +1154,7 @@ export function createChiefOfStaffTools(
           agentRole: 'chief-of-staff',
           action: 'briefing',
           product: 'company',
-          summary: `${deliveryMode === 'channel' ? 'Briefing posted to Teams channel' : 'Briefing DM fallback sent'} for ${recipient}`,
+          summary: `${deliveryMode === 'channel' ? 'Briefing posted to #briefings channel' : 'Briefing DM fallback sent to both founders'}`,
           createdAt: new Date().toISOString(),
         });
 

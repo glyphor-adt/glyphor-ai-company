@@ -112,6 +112,7 @@ export class AgentNotifier {
 
   /**
    * Process an agent's output and deliver any notification intents.
+   * Posts to #briefings channel so both founders see it. Falls back to DMs.
    * Returns the number of notifications sent.
    */
   async processAgentOutput(
@@ -138,71 +139,61 @@ export class AgentNotifier {
         const card = formatNotificationCard(cardData);
         const cardContent = card.attachments[0].content as unknown as Record<string, unknown>;
 
-        // Always deliver to BOTH founders regardless of what the agent specified
-        const targets: string[] = ['kristina', 'andrew'];
+        let delivered = false;
+        let deliveryMethod = 'none';
+        let deliveryError: string | undefined;
 
-        for (const target of targets) {
-          const upn = this.founderUpns[target];
-          let delivered = false;
-          let deliveryMethod = 'none';
-          let deliveryError: string | undefined;
-
-          // Try A365 MCP DM first (plain text — Adaptive Cards not supported)
-          if (this.a365Client && upn) {
-            for (let attempt = 0; attempt < 2; attempt++) {
-              try {
-                const chatId = await this.a365Client.createOrGetOneOnOneChat(upn, undefined, agentRole);
-                const textMessage = this.formatNotificationText(agentName, notif);
-                await this.a365Client.postChatMessage(chatId, textMessage, agentRole);
-                console.log(`[AgentNotifier] ${agentName} → DM to ${target}: ${notif.title}`);
-                delivered = true;
-                deliveryMethod = 'dm';
-                break;
-              } catch (err) {
-                const msg = (err as Error).message;
-                if (attempt === 0 && (msg.includes('401') || msg.includes('Unauthorized'))) {
-                  console.warn(`[AgentNotifier] A365 DM to ${target} got 401, retrying once...`);
-                  continue;
-                }
-                deliveryError = msg;
-                console.warn(`[AgentNotifier] A365 DM to ${target} failed:`, msg);
-                break;
-              }
-            }
+        // Primary: post to #briefings channel (both founders see it)
+        try {
+          const result = await postCardToChannel('briefings', cardContent as unknown as AdaptiveCard, this.graphClient);
+          if (result.method !== 'none') {
+            delivered = true;
+            deliveryMethod = 'channel';
+            console.log(`[AgentNotifier] ${agentName} → #briefings channel: ${notif.title}`);
+          } else {
+            throw new Error(result.error ?? 'No channel delivery method');
           }
-
-          // Fall back to channel post (Adaptive Card via Graph API)
-          if (!delivered) {
-            try {
-              await this.sendToFallbackChannel(agentRole, cardContent);
-              delivered = true;
-              deliveryMethod = 'channel';
-              console.log(`[AgentNotifier] ${agentName} → channel fallback for ${target}: ${notif.title}`);
-            } catch (err) {
-              deliveryError = (err as Error).message;
-              console.error(`[AgentNotifier] Channel fallback also failed for ${target}:`, deliveryError);
-            }
-          }
-
-          // Log to activity_log for founder visibility
-          try {
-            await systemQuery(
-              `INSERT INTO activity_log (agent_role, action, details, created_at)
-               VALUES ($1, $2, $3, NOW())`,
-              [
-                agentRole,
-                delivered ? (deliveryMethod === 'dm' ? 'alert' : 'briefing') : 'alert_failed',
-                delivered
-                  ? `${deliveryMethod === 'dm' ? 'DM sent' : 'Briefing posted to Teams channel'} to ${target}: ${notif.title}`
-                  : `Failed to deliver notification to ${target}: ${notif.title} — ${deliveryError ?? 'unknown error'}`,
-              ],
-            );
-          } catch (logErr) {
-            console.warn('[AgentNotifier] Failed to log to activity_log:', (logErr as Error).message);
-          }
-
-          if (delivered) sent++;
+        } catch (err) {
+          deliveryError = (err as Error).message;
+          console.warn(`[AgentNotifier] Channel post failed for ${agentName}:`, deliveryError);
         }
+
+        // Fallback: DM both founders via A365
+        if (!delivered && this.a365Client) {
+          const textMessage = this.formatNotificationText(agentName, notif);
+          for (const target of ['kristina', 'andrew'] as const) {
+            const upn = this.founderUpns[target];
+            if (!upn) continue;
+            try {
+              const chatId = await this.a365Client.createOrGetOneOnOneChat(upn, undefined, agentRole);
+              await this.a365Client.postChatMessage(chatId, textMessage, agentRole);
+              console.log(`[AgentNotifier] ${agentName} → DM fallback to ${target}: ${notif.title}`);
+            } catch (dmErr) {
+              console.warn(`[AgentNotifier] DM fallback to ${target} also failed:`, (dmErr as Error).message);
+            }
+          }
+          delivered = true;
+          deliveryMethod = 'dm_fallback';
+        }
+
+        // Log to activity_log
+        try {
+          await systemQuery(
+            `INSERT INTO activity_log (agent_role, action, details, created_at)
+             VALUES ($1, $2, $3, NOW())`,
+            [
+              agentRole,
+              delivered ? 'alert' : 'alert_failed',
+              delivered
+                ? `${deliveryMethod === 'channel' ? 'Posted to #briefings channel' : 'DM fallback to both founders'}: ${notif.title}`
+                : `Failed to deliver notification: ${notif.title} — ${deliveryError ?? 'unknown error'}`,
+            ],
+          );
+        } catch (logErr) {
+          console.warn('[AgentNotifier] Failed to log to activity_log:', (logErr as Error).message);
+        }
+
+        if (delivered) sent++;
       } catch (err) {
         console.error(`[AgentNotifier] Failed to process notification from ${agentName}:`, (err as Error).message);
       }
