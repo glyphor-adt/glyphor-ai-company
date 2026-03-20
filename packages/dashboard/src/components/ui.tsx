@@ -89,7 +89,7 @@ type GradientSize = 'sm' | 'md';
 const GRADIENT_MAP: Record<GradientVariant, string> = {
   primary: 'from-[#00E0FF] to-[#3730A3]',
   approve: 'from-green-400 to-emerald-600',
-  reject: 'from-red-500 to-orange-500',
+  reject: 'from-red-500 to-rose-600',
   purple: 'from-[#C084FC] to-[#00E0FF]',
   warning: 'from-amber-400 to-yellow-600',
   neutral: 'from-gray-400 to-gray-600',

@@ -694,26 +694,22 @@ function AccessGrantManager({
                 </div>
                 {isAdmin && (
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
+                    <GradientButton
+                      variant="approve"
+                      size="sm"
                       disabled={busyDecisionId === approval.id}
                       onClick={() => onResolveApproval(approval.id, true)}
-                      className="relative inline-flex items-center justify-center p-0.5 overflow-hidden text-[12px] font-medium text-txt-primary rounded-lg group bg-gradient-to-br from-green-400 to-blue-600 group-hover:from-green-400 group-hover:to-blue-600 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800 disabled:opacity-50"
                     >
-                      <span className="relative px-3 py-1.5 transition-all ease-in duration-75 bg-surface rounded-md group-hover:bg-transparent group-hover:dark:bg-transparent leading-5">
-                        {busyDecisionId === approval.id ? 'Saving…' : 'Approve'}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
+                      {busyDecisionId === approval.id ? 'Saving…' : 'Approve'}
+                    </GradientButton>
+                    <GradientButton
+                      variant="reject"
+                      size="sm"
                       disabled={busyDecisionId === approval.id}
                       onClick={() => onResolveApproval(approval.id, false)}
-                      className="relative inline-flex items-center justify-center p-0.5 overflow-hidden text-[12px] font-medium text-txt-primary rounded-lg group bg-gradient-to-br from-red-500 to-rose-600 group-hover:from-red-500 group-hover:to-rose-600 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-red-200 dark:focus:ring-red-800 disabled:opacity-50"
                     >
-                      <span className="relative px-3 py-1.5 transition-all ease-in duration-75 bg-surface rounded-md group-hover:bg-transparent group-hover:dark:bg-transparent leading-5">
-                        Reject
-                      </span>
-                    </button>
+                      Reject
+                    </GradientButton>
                   </div>
                 )}
               </div>

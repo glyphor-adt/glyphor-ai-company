@@ -1555,7 +1555,7 @@ function SummaryCard({ label, value, loading, color }: { label: string; value: s
   if (loading) return <Skeleton className="h-20" />;
   return (
     <div
-      className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3.5"
+      className="glass-surface rounded-xl px-4 py-3.5"
       style={color ? { borderTopColor: color, borderTopWidth: '2px' } : undefined}
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={color ? { color } : undefined}>{label}</p>

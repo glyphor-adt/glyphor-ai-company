@@ -115,7 +115,7 @@ function ToolHealthOverview({
               className={`rounded-xl border p-4 text-left transition-colors ${
                 isActive
                   ? 'border-cyan/40 bg-cyan/8 ring-1 ring-cyan/20'
-                  : 'border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm'
+                  : 'glass-surface'
               } ${isClickable ? 'cursor-pointer hover:border-border-hover' : 'cursor-default'}`}
               style={{ borderTopColor: TONE_COLOR[card.tone] ?? '#0EA5E9', borderTopWidth: '2px' }}
             >

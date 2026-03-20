@@ -1053,7 +1053,7 @@ function SummaryCard({ label, value, loading, sub, color }: { label: string; val
   if (loading) return <Skeleton className="h-[76px]" />;
   return (
     <div
-      className="flex h-[76px] flex-col justify-between rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-3.5 py-3"
+      className="glass-surface flex h-[76px] flex-col justify-between rounded-xl px-3.5 py-3"
       style={color ? { borderTopColor: color, borderTopWidth: '2px' } : undefined}
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={color ? { color } : undefined}>{label}</p>

@@ -282,23 +282,26 @@ export default function Directives() {
             {selected.size} directive{selected.size > 1 ? 's' : ''} selected
           </span>
           {!confirmBulkDelete ? (
-            <button
+            <GradientButton
+              variant="reject"
+              size="sm"
               onClick={() => setConfirmBulkDelete(true)}
               disabled={bulkDeleting}
-              className="ml-auto rounded-lg border border-prism-critical/30 bg-prism-critical/20 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="ml-auto"
             >
               <MdDelete className="inline-block text-[14px] mr-1" /> Delete Selected
-            </button>
+            </GradientButton>
           ) : (
             <div className="ml-auto flex items-center gap-2">
               <span className="text-[12px] text-prism-critical">Delete {selected.size} directive{selected.size > 1 ? 's' : ''} and all assignments?</span>
-              <button
+              <GradientButton
+                variant="reject"
+                size="sm"
                 onClick={handleBulkDelete}
                 disabled={bulkDeleting}
-                className="rounded-lg bg-prism-critical px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
               >
                 {bulkDeleting ? 'Deleting…' : 'Confirm'}
-              </button>
+              </GradientButton>
               <button
                 onClick={() => setConfirmBulkDelete(false)}
                 disabled={bulkDeleting}
@@ -971,13 +974,14 @@ function DirectiveCard({
               {confirmDelete && (
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-prism-critical">Delete this directive and all its assignments?</span>
-                  <button
+                  <GradientButton
+                    variant="reject"
+                    size="sm"
                     onClick={handleDelete}
                     disabled={acting}
-                    className="rounded-lg bg-prism-critical px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
                     Confirm
-                  </button>
+                  </GradientButton>
                   <button
                     onClick={() => setConfirmDelete(false)}
                     disabled={acting}
@@ -1148,13 +1152,14 @@ function ProposedDirectiveCard({
           ) : (
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-prism-critical">Delete this directive and all its assignments?</span>
-              <button
+              <GradientButton
+                variant="reject"
+                size="sm"
                 onClick={handleDelete}
                 disabled={acting}
-                className="rounded-lg bg-prism-critical px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
               >
                 Confirm
-              </button>
+              </GradientButton>
               <button
                 onClick={() => setConfirmDelete(false)}
                 disabled={acting}
@@ -1337,13 +1342,13 @@ function EditApproveModal({
           >
             Cancel
           </button>
-          <button
+          <GradientButton
+            variant="approve"
             onClick={handleSave}
             disabled={saving || !title.trim() || !description.trim()}
-            className="rounded-lg bg-prism-fill-2 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {saving ? 'Saving…' : 'Approve Directive'}
-          </button>
+          </GradientButton>
         </div>
       </div>
     </div>

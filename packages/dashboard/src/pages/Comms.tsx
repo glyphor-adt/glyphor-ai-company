@@ -152,7 +152,7 @@ function InterAgentFeed() {
           { label: 'Unread', value: stats.pending, accent: stats.pending > 0, color: '#C084FC' },
           { label: 'Active Pairs', value: stats.pairs, color: '#7DD3FC' },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm text-center px-3 py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
+          <div key={s.label} className="glass-surface rounded-xl text-center px-3 py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
             <p className={`text-xl font-bold ${s.accent ? 'text-prism-critical' : 'dark:text-white text-txt-primary'}`}>{s.value}</p>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: s.color }}>{s.label}</p>
           </div>

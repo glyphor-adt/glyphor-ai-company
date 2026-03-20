@@ -248,7 +248,7 @@ export const DottedGlowBackground = ({
         // Smooth sine wave 0..1..0 for organic shimmer
         const raw = Math.sin(time * d.speed + d.phase);
         const lin = raw * 0.5 + 0.5; // normalize to 0..1
-        const a = 0.08 + 0.92 * lin; // 0.08..1.0 — mostly dim, occasional bright
+        const a = 0.15 + 0.85 * lin; // 0.15..1.0 — dim baseline, bright peaks
 
         // draw glow when bright
         if (a > 0.5) {

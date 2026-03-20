@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, SectionHeader, Skeleton } from '../ui';
+import { Card, GradientButton, SectionHeader, Skeleton } from '../ui';
 import {
   EmptyState,
   GovernanceAction,
@@ -146,19 +146,15 @@ function ActionQueueSection({
                     const target = getActionTarget(actionLabel, item);
                     if (typeof target.approve === 'boolean' && item.decisionId && onResolveDecision) {
                       return (
-                        <button
+                        <GradientButton
                           key={`${item.id}-${actionLabel}`}
-                          type="button"
+                          variant={target.approve ? 'approve' : 'reject'}
+                          size="sm"
                           disabled={busyDecisionId === item.decisionId}
                           onClick={() => onResolveDecision(item.decisionId!, target.approve!)}
-                          className={`rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                            target.approve
-                              ? 'border border-prism-teal/30 bg-prism-teal/10 text-prism-teal hover:bg-prism-teal/20'
-                              : 'border border-prism-critical/30 bg-prism-critical/10 text-prism-critical hover:bg-prism-critical/20'
-                          } disabled:cursor-not-allowed disabled:opacity-50`}
                         >
                           {busyDecisionId === item.decisionId ? 'Saving…' : actionLabel}
-                        </button>
+                        </GradientButton>
                       );
                     }
 

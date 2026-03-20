@@ -368,17 +368,17 @@ export default function Dashboard() {
         </HomeCard>
         <DottedGlowBackground
           className="pointer-events-none"
-          opacity={0.8}
+          opacity={1}
           gap={10}
-          radius={0.9}
+          radius={1.2}
           colorLightVar="--color-neutral-500"
           glowColorLightVar="--color-neutral-600"
           colorDarkVar="--color-neutral-500"
           glowColorDarkVar="--color-sky-800"
           backgroundOpacity={0}
-          speedMin={0.08}
-          speedMax={0.4}
-          speedScale={0.5}
+          speedMin={0.12}
+          speedMax={0.55}
+          speedScale={0.7}
         />
       </div>
 
@@ -525,9 +525,9 @@ export default function Dashboard() {
                       <p className="text-[12px] font-medium text-txt-primary line-clamp-1">{directive.title}</p>
                       <p className="text-[11px] text-txt-muted">{directive.cost}</p>
                     </div>
-                    <Link to="/directives" className="shrink-0 rounded-md border border-cyan/30 bg-cyan/10 px-2 py-1 text-[10px] font-medium text-cyan hover:bg-cyan/20">
+                    <GradientButton as={Link} to="/directives" variant="primary" size="sm">
                       Create
-                    </Link>
+                    </GradientButton>
                   </div>
                 ))}
               </div>
@@ -566,7 +566,7 @@ export default function Dashboard() {
 function MetricRibbon({ label, value, detail, toneClass = 'text-white', color }: { label: string; value: string; detail: string; toneClass?: string; color?: string }) {
   return (
     <div
-      className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-3 py-2.5"
+      className="glass-surface rounded-xl px-3 py-2.5"
       style={color ? { borderTopColor: color, borderTopWidth: '2px' } : undefined}
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={color ? { color } : undefined}>{label}</p>
@@ -586,7 +586,7 @@ function PulseStat({ label, value }: { label: string; value: string }) {
   const color = PULSE_COLORS[label] ?? '#0891B2';
   return (
     <div
-      className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3"
+      className="glass-surface rounded-xl px-4 py-3"
       style={{ borderTopColor: color, borderTopWidth: '2px' }}
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color }}>{label}</p>

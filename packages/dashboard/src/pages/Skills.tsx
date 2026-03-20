@@ -202,15 +202,15 @@ export default function Skills() {
     <div className="space-y-6">
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift" style={{ borderTopColor: '#0891B2', borderTopWidth: '2px' }}>
+        <div className="glass-surface rounded-xl px-4 py-3 text-center inner-card-lift" style={{ borderTopColor: '#0891B2', borderTopWidth: '2px' }}>
           <p className="text-2xl font-bold text-txt-primary">{totalSkills}</p>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#0891B2' }}>Total Skills</p>
         </div>
-        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift" style={{ borderTopColor: '#8B5CF6', borderTopWidth: '2px' }}>
+        <div className="glass-surface rounded-xl px-4 py-3 text-center inner-card-lift" style={{ borderTopColor: '#8B5CF6', borderTopWidth: '2px' }}>
           <p className="text-2xl font-bold text-txt-primary">{categories.length}</p>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#8B5CF6' }}>Categories</p>
         </div>
-        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift" style={{ borderTopColor: '#F59E0B', borderTopWidth: '2px' }}>
+        <div className="glass-surface rounded-xl px-4 py-3 text-center inner-card-lift" style={{ borderTopColor: '#F59E0B', borderTopWidth: '2px' }}>
           <p className="text-2xl font-bold text-txt-primary">{totalAssignments}</p>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#F59E0B' }}>Agent Assignments</p>
         </div>

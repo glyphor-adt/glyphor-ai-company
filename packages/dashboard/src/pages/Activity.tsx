@@ -514,7 +514,7 @@ function MiniStat({
   const color = MINI_STAT_COLORS[label] ?? '#64748b';
   return (
     <div
-      className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3"
+      className="glass-surface rounded-xl px-4 py-3"
       style={{ borderTopColor: color, borderTopWidth: '2px' }}
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color }}>{label}</p>

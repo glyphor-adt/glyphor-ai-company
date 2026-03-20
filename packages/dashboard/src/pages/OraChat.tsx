@@ -1092,12 +1092,12 @@ export default function OraChat() {
       )}
       {/* Session Sidebar — responsive: fixed overlay on mobile, inline on desktop */}
       {sidebarOpen && (
-        <div className="fixed inset-y-0 left-0 z-50 w-72 flex-shrink-0 flex-col bg-prism-bg md:relative md:inset-auto md:z-auto flex" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-y-0 left-0 z-50 w-72 flex-shrink-0 flex-col bg-prism-card border-r border-prism-border/10 md:relative md:inset-auto md:z-auto flex md:rounded-2xl md:border md:border-prism-border/10" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2 px-3 py-3">
             <button
               type="button"
               onClick={startNewSession}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-prism-card px-3 py-2 text-[13px] text-prism-primary transition-colors hover:text-cyan-300"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-prism-bg px-3 py-2 text-[13px] text-prism-primary transition-colors hover:text-cyan-300"
             >
               <MessageSquarePlus className="h-4 w-4" />
               New chat
@@ -1114,7 +1114,7 @@ export default function OraChat() {
 
           {/* Search */}
           <div className="px-3 py-2">
-            <div className="flex items-center gap-2 rounded-lg bg-prism-card px-2.5 py-1.5">
+            <div className="flex items-center gap-2 rounded-lg bg-prism-bg px-2.5 py-1.5">
               <Search className="h-3.5 w-3.5 text-prism-tertiary" />
               <input
                 type="text"
