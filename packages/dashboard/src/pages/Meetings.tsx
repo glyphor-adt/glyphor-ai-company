@@ -168,10 +168,10 @@ function MeetingCard({
   onToggle: () => void;
 }) {
   const statusColor: Record<MeetingStatus, string> = {
-    scheduled: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
-    in_progress: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
-    completed: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
-    cancelled: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
+    scheduled: 'badge-sky',
+    in_progress: 'badge-amber',
+    completed: 'badge-green',
+    cancelled: 'badge-red',
   };
 
   const typeIcon: Record<MeetingType, ReactNode> = {
@@ -318,10 +318,10 @@ function MeetingCard({
 
 function MessageRow({ message }: { message: MessageRecord }) {
   const typeColor: Record<string, string> = {
-    request: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
-    response: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
-    info: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
-    followup: 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700',
+    request: 'badge-sky',
+    response: 'badge-green',
+    info: 'badge-gray',
+    followup: 'badge-violet',
   };
 
   return (
@@ -331,7 +331,7 @@ function MessageRow({ message }: { message: MessageRecord }) {
           {message.message_type}
         </span>
         {message.priority === 'urgent' && (
-          <span className="rounded-lg text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 px-1.5 py-0.5 text-[9px] font-bold">URGENT</span>
+          <span className="rounded-lg badge badge-red px-1.5 py-0.5 text-[9px] font-bold">URGENT</span>
         )}
       </div>
       <div className="flex-1 min-w-0">

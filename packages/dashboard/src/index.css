@@ -15,6 +15,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Badge Gradient System (single source of truth) ───── */
+@layer components {
+  .badge {
+    @apply inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-medium text-white;
+  }
+  .badge-xs  { @apply text-[9px] px-1.5 py-0.5; }
+  .badge-sm  { @apply text-[10px]; }
+  .badge-lg  { @apply text-[13px] px-3 py-1; }
+  .badge-up  { @apply uppercase tracking-wider; }
+
+  .badge-red      { background-image: linear-gradient(to right, #f87171, #ef4444, #dc2626); }
+  .badge-orange   { background-image: linear-gradient(to right, #fb923c, #f97316, #ea580c); }
+  .badge-amber    { background-image: linear-gradient(to right, #fbbf24, #f59e0b, #d97706); }
+  .badge-yellow   { background-image: linear-gradient(to right, #facc15, #eab308, #ca8a04); }
+  .badge-green    { background-image: linear-gradient(to right, #4ade80, #22c55e, #16a34a); }
+  .badge-emerald  { background-image: linear-gradient(to right, #34d399, #10b981, #059669); }
+  .badge-teal     { background-image: linear-gradient(to right, #2dd4bf, #14b8a6, #0d9488); }
+  .badge-cyan     { background-image: linear-gradient(to right, #22d3ee, #06b6d4, #0891b2); }
+  .badge-sky      { background-image: linear-gradient(to right, #38bdf8, #0ea5e9, #0284c7); }
+  .badge-blue     { background-image: linear-gradient(to right, #3b82f6, #2563eb, #1d4ed8); }
+  .badge-indigo   { background-image: linear-gradient(to right, #6366f1, #4f46e5, #4338ca); }
+  .badge-violet   { background-image: linear-gradient(to right, #8b5cf6, #7c3aed, #6d28d9); }
+  .badge-purple   { background-image: linear-gradient(to right, #a855f7, #9333ea, #7e22ce); }
+  .badge-pink     { background-image: linear-gradient(to right, #f472b6, #ec4899, #db2777); }
+  .badge-gray     { background-image: linear-gradient(to right, #9ca3af, #6b7280, #4b5563); }
+}
+
 /* ─── Theme Variables (derived from Prism) ────── */
 :root {
   --color-base: rgb(var(--prism-bg));
@@ -774,7 +801,10 @@ input:focus, textarea:focus, select:focus {
   background-color: rgba(0, 0, 0, 0.22) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.04) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.04) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
 }
 
@@ -783,7 +813,10 @@ html:not(.dark) .glass-surface {
   background-color: rgba(255, 255, 255, 0.65) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   backdrop-filter: blur(12px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.04),
     0 4px 12px rgba(0, 0, 0, 0.02) !important;

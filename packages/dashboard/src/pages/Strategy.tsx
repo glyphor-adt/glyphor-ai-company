@@ -74,9 +74,9 @@ function statusColor(status: string) {
 }
 
 function recommendationBadge(rec: string) {
-  if (rec === 'proceed') return { text: 'Proceed', cls: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' };
-  if (rec === 'proceed_with_caution') return { text: 'Proceed with Caution', cls: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' };
-  return { text: 'Reconsider', cls: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600' };
+  if (rec === 'proceed') return { text: 'Proceed', cls: 'badge-green' };
+  if (rec === 'proceed_with_caution') return { text: 'Proceed with Caution', cls: 'badge-amber' };
+  return { text: 'Reconsider', cls: 'badge-red' };
 }
 
 function voteIcon(vote: string): ReactNode {
@@ -878,7 +878,7 @@ function FrameworkCard({ label, color, summary, keyInsight, data }: {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-lg border border-border bg-raised/60 p-4">
+    <div className="glass-surface rounded-xl p-4" style={{ borderTopColor: 'currentColor', borderTopWidth: '2px' }}>
       <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between text-left">
         <span className={`text-xs font-semibold uppercase tracking-wider ${color}`}>{label}</span>
         <MdExpandMore className={`h-4 w-4 text-txt-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
@@ -1054,7 +1054,7 @@ function DDWatchlist({ items }: { items?: WatchlistItem[] }) {
               <span className="text-sm font-medium text-txt-primary flex-1">{w.item}</span>
               <div className="flex gap-2 shrink-0 ml-2">
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${colors.text}`}>{w.category}</span>
-                <span className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${w.priority === 'high' ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600' : w.priority === 'medium' ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' : 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'}`}>{w.priority}</span>
+                <span className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${w.priority === 'high' ? 'badge-red' : w.priority === 'medium' ? 'badge-amber' : 'badge-green'}`}>{w.priority}</span>
               </div>
             </div>
             <p className="text-[12px] text-txt-muted">{w.current_status}</p>
@@ -1698,10 +1698,10 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
                   <div className="flex items-center gap-2">
                     <span className={`rounded-lg px-1.5 py-0.5 text-[10px] font-medium ${
                       p.severity === 'high'
-                        ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
+                        ? 'badge-red'
                         : p.severity === 'medium'
-                        ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
-                        : 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600'
+                        ? 'badge-amber'
+                        : 'badge-sky'
                     }`}>
                       {p.severity}
                     </span>
@@ -1851,10 +1851,10 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
                     <span className="text-sm font-medium text-txt-primary">{v.assumption}</span>
                     <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${
                       v.status === 'valid'
-                        ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
+                        ? 'badge-green'
                         : v.status === 'questionable'
-                        ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
-                        : 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
+                        ? 'badge-amber'
+                        : 'badge-red'
                     }`}>
                       {v.status}
                     </span>
@@ -2100,13 +2100,14 @@ function StrategyLabV2Panel() {
               />
               Also run Deep Dive research
             </label>
-            <button
+            <GradientButton
+              variant="primary"
+              size="md"
               onClick={launch}
               disabled={launching || !query.trim()}
-              className="rounded-lg bg-cyan/20 border border-cyan/30 px-5 py-2 text-sm font-medium text-cyan transition-all hover:bg-cyan/30 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {launching ? 'Launching…' : 'Launch Analysis'}
-            </button>
+            </GradientButton>
           </div>
         </div>
       </Card>
@@ -2229,7 +2230,7 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
               w.active
                 ? 'border border-cyan/40 bg-cyan/15 text-cyan'
                 : w.done || r.status === 'completed'
-                  ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
+                  ? 'badge-green'
                   : 'border border-border bg-surface text-txt-faint'
             }`}>
               {w.icon}
@@ -2246,9 +2247,9 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-prism-elevated">Sophia QC</span>
             <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${
-              r.overall_confidence === 'high' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' :
-              r.overall_confidence === 'medium' ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' :
-              'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
+              r.overall_confidence === 'high' ? 'badge-green' :
+              r.overall_confidence === 'medium' ? 'badge-amber' :
+              'badge-red'
             }`}>{r.overall_confidence} confidence</span>
           </div>
           {r.gaps_filled?.length > 0 && (
@@ -2491,12 +2492,12 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
                 <span className="text-sm font-medium text-txt-primary">{rec.title}</span>
                 <div className="flex gap-1.5">
                   <span className={`rounded-lg px-2 py-0.5 text-[9px] font-medium ${
-                    rec.impact === 'high' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' : rec.impact === 'medium' ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
+                    rec.impact === 'high' ? 'badge-green' : rec.impact === 'medium' ? 'badge-amber' : 'badge-gray'
                   }`}>
                     Impact: {rec.impact}
                   </span>
                   <span className={`rounded-lg px-2 py-0.5 text-[9px] font-medium ${
-                    rec.feasibility === 'high' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' : rec.feasibility === 'medium' ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
+                    rec.feasibility === 'high' ? 'badge-green' : rec.feasibility === 'medium' ? 'badge-amber' : 'badge-gray'
                   }`}>
                     Feasibility: {rec.feasibility}
                   </span>

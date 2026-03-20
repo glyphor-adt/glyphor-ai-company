@@ -373,10 +373,10 @@ export default function AgentSettings() {
               {/* Status badge */}
               <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-medium ${
                 agent.status === 'active'
-                  ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
+                  ? 'badge-green'
                   : agent.status === 'paused'
-                  ? 'text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600'
-                  : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
+                  ? 'badge-yellow'
+                  : 'badge-gray'
               }`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${
                   agent.status === 'active' ? 'bg-green-200' : agent.status === 'paused' ? 'bg-yellow-200' : 'bg-gray-200'

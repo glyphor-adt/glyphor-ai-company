@@ -318,8 +318,8 @@ export default function Approvals() {
                   <span
                     className={`rounded-lg px-2.5 py-1 text-[11px] font-medium ${
                       d.status === 'approved'
-                        ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
-                        : 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
+                        ? 'badge-green'
+                        : 'badge-red'
                     }`}
                   >
                     {d.status}

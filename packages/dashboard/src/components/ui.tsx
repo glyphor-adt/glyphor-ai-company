@@ -45,41 +45,62 @@ export function AgentAvatar({
   );
 }
 
-/* ─── Tier Badge (green / yellow / red) ──── */
-export function TierBadge({ tier }: { tier: string }) {
-  const colors: Record<string, string> = {
-    green: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
-    yellow: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
-    red: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
-  };
+/* ─── Badge Color Map (single source of truth) ──── */
+export type BadgeColor =
+  | 'red' | 'orange' | 'amber' | 'yellow' | 'green' | 'emerald'
+  | 'teal' | 'cyan' | 'sky' | 'blue' | 'indigo' | 'violet'
+  | 'purple' | 'pink' | 'gray';
+
+/** CSS class for each badge color. Use directly in className when a component is not practical. */
+export const BADGE_COLORS: Record<BadgeColor, string> = {
+  red:     'badge-red',
+  orange:  'badge-orange',
+  amber:   'badge-amber',
+  yellow:  'badge-yellow',
+  green:   'badge-green',
+  emerald: 'badge-emerald',
+  teal:    'badge-teal',
+  cyan:    'badge-cyan',
+  sky:     'badge-sky',
+  blue:    'badge-blue',
+  indigo:  'badge-indigo',
+  violet:  'badge-violet',
+  purple:  'badge-purple',
+  pink:    'badge-pink',
+  gray:    'badge-gray',
+};
+
+/** Universal gradient badge. All badge rendering goes through this or the CSS classes above. */
+export function Badge({
+  children,
+  color = 'gray',
+  size,
+  uppercase = false,
+  className = '',
+}: {
+  children: React.ReactNode;
+  color?: BadgeColor;
+  size?: 'xs' | 'sm' | 'lg';
+  uppercase?: boolean;
+  className?: string;
+}) {
   return (
-    <span
-      className={`inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-medium ${
-        colors[tier] ?? colors.green
-      }`}
-    >
-      {tier}
+    <span className={`badge ${BADGE_COLORS[color]} ${size ? `badge-${size}` : ''} ${uppercase ? 'badge-up' : ''} ${className}`}>
+      {children}
     </span>
   );
 }
 
+/* ─── Tier Badge (green / yellow / red) ──── */
+export function TierBadge({ tier }: { tier: string }) {
+  const map: Record<string, BadgeColor> = { green: 'green', yellow: 'amber', red: 'red' };
+  return <Badge color={map[tier] ?? 'green'}>{tier}</Badge>;
+}
+
 /* ─── Impact Badge ────────────────────────── */
 export function ImpactBadge({ impact }: { impact: string }) {
-  const colors: Record<string, string> = {
-    low: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
-    medium: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
-    high: 'text-white bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600',
-    critical: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
-  };
-  return (
-    <span
-      className={`inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider ${
-        colors[impact] ?? colors.low
-      }`}
-    >
-      {impact}
-    </span>
-  );
+  const map: Record<string, BadgeColor> = { low: 'gray', medium: 'amber', high: 'orange', critical: 'red' };
+  return <Badge color={map[impact] ?? 'gray'} uppercase>{impact}</Badge>;
 }
 
 /* ─── Gradient Border Button ──────────────── */

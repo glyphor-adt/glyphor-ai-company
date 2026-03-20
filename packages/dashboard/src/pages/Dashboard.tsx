@@ -75,9 +75,9 @@ const PRIORITY_ORDER: Record<ActionCenterItem['priority'], number> = {
 };
 
 const PRIORITY_BADGE: Record<ActionCenterItem['priority'], string> = {
-  critical: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
-  high: 'text-white bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600',
-  medium: 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
+  critical: 'badge-red',
+  high: 'badge-orange',
+  medium: 'badge-cyan',
 };
 
 const QUICK_ACTIONS = [

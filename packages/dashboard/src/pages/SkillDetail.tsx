@@ -56,23 +56,23 @@ function normalizeAssignment(raw: AgentAssignment): AgentAssignment {
   };
 }
 
-const CATEGORY_META: Record<string, { label: string; color: string; gradient: string; icon: ReactNode }> = {
-  finance:            { label: 'Finance',           color: '#0369A1', gradient: 'from-sky-600 via-sky-700 to-sky-800', icon: <MdAttachMoney className="inline h-4 w-4" /> },
-  engineering:        { label: 'Engineering',       color: '#2563EB', gradient: 'from-blue-500 via-blue-600 to-blue-700', icon: <MdSettings className="inline h-4 w-4" /> },
-  marketing:          { label: 'Marketing',         color: '#7C3AED', gradient: 'from-violet-500 via-violet-600 to-violet-700', icon: <MdCampaign className="inline h-4 w-4" /> },
-  product:            { label: 'Product',           color: '#0891B2', gradient: 'from-cyan-500 via-cyan-600 to-cyan-700', icon: <MdExplore className="inline h-4 w-4" /> },
-  sales:              { label: 'Sales',             color: '#1D4ED8', gradient: 'from-blue-600 via-blue-700 to-blue-800', icon: <MdTrackChanges className="inline h-4 w-4" /> },
-  design:             { label: 'Design',            color: '#DB2777', gradient: 'from-pink-500 via-pink-600 to-pink-700', icon: <MdPalette className="inline h-4 w-4" /> },
-  leadership:         { label: 'Leadership',        color: '#7C3AED', gradient: 'from-violet-500 via-violet-600 to-violet-700', icon: <MdStars className="inline h-4 w-4" /> },
-  operations:         { label: 'Operations',        color: '#EA580C', gradient: 'from-orange-500 via-orange-600 to-orange-700', icon: <MdBarChart className="inline h-4 w-4" /> },
-  analytics:          { label: 'Analytics',         color: '#059669', gradient: 'from-emerald-500 via-emerald-600 to-emerald-700', icon: <MdTrendingUp className="inline h-4 w-4" /> },
+const CATEGORY_META: Record<string, { label: string; color: string; badge: string; icon: ReactNode }> = {
+  finance:            { label: 'Finance',           color: '#0369A1', badge: 'badge-sky',     icon: <MdAttachMoney className="inline h-4 w-4" /> },
+  engineering:        { label: 'Engineering',       color: '#2563EB', badge: 'badge-blue',    icon: <MdSettings className="inline h-4 w-4" /> },
+  marketing:          { label: 'Marketing',         color: '#7C3AED', badge: 'badge-violet',  icon: <MdCampaign className="inline h-4 w-4" /> },
+  product:            { label: 'Product',           color: '#0891B2', badge: 'badge-cyan',    icon: <MdExplore className="inline h-4 w-4" /> },
+  sales:              { label: 'Sales',             color: '#1D4ED8', badge: 'badge-blue',    icon: <MdTrackChanges className="inline h-4 w-4" /> },
+  design:             { label: 'Design',            color: '#DB2777', badge: 'badge-pink',    icon: <MdPalette className="inline h-4 w-4" /> },
+  leadership:         { label: 'Leadership',        color: '#7C3AED', badge: 'badge-violet',  icon: <MdStars className="inline h-4 w-4" /> },
+  operations:         { label: 'Operations',        color: '#EA580C', badge: 'badge-orange',  icon: <MdBarChart className="inline h-4 w-4" /> },
+  analytics:          { label: 'Analytics',         color: '#059669', badge: 'badge-emerald', icon: <MdTrendingUp className="inline h-4 w-4" /> },
 };
 
 const PROFICIENCY_COLOR: Record<string, string> = {
-  learning:  'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
-  competent: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
-  expert:    'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
-  master:    'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
+  learning:  'badge-gray',
+  competent: 'badge-sky',
+  expert:    'badge-cyan',
+  master:    'badge-amber',
 };
 
 function timeAgo(iso: string | null): string {
@@ -159,7 +159,7 @@ export default function SkillDetailPage() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <span
-              className={`rounded-lg px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white bg-gradient-to-r ${meta?.gradient ?? 'from-gray-400 via-gray-500 to-gray-600'}`}
+              className={`badge badge-up ${meta?.badge ?? 'badge-gray'}`}
             >
               {meta?.icon} {meta?.label ?? skill.category}
             </span>
@@ -173,12 +173,12 @@ export default function SkillDetailPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Agents', value: String(assignments.length) },
-          { label: 'Total Usage', value: String(totalUsage) },
-          { label: 'Success Rate', value: overallSuccessRate !== '—' ? `${overallSuccessRate}%` : '—' },
-          { label: 'Failures', value: String(totalFailures) },
+          { label: 'Agents', value: String(assignments.length), color: '#38bdf8' },
+          { label: 'Total Usage', value: String(totalUsage), color: '#a78bfa' },
+          { label: 'Success Rate', value: overallSuccessRate !== '—' ? `${overallSuccessRate}%` : '—', color: '#34d399' },
+          { label: 'Failures', value: String(totalFailures), color: '#ef4444' },
         ].map((s) => (
-          <Card key={s.label} className="text-center py-3">
+          <Card key={s.label} className="text-center py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
             <p className="text-xl font-bold text-txt-primary">{s.value}</p>
             <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">{s.label}</p>
           </Card>

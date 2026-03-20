@@ -2,9 +2,9 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Markdown from 'react-markdown';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP } from '../lib/types';
-import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff, MessageSquarePlus, PanelLeftClose, PanelLeft, Search, Trash2 } from 'lucide-react';
+import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff, MessageSquarePlus, PanelLeftClose, PanelLeft, Search, Trash2, ArrowUp } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
-import { Card, GradientButton } from '../components/ui';
+import { Card } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { getModelLabel, getModelsByProvider, PROVIDER_LABELS, getReasoningSupport, normalizeReasoningLevel, type ReasoningLevel } from '../lib/models';
 import { useAuth, getEmailAliases } from '../lib/auth';
@@ -1357,7 +1357,7 @@ export default function OraChat() {
       <div className="pt-3 relative shrink-0" ref={menuRef}>
         {/* Menu flyout (opens above) */}
         {menuOpen && (
-          <div className="fixed left-3 right-3 bottom-[max(10px,var(--sat))] z-[90] max-h-[72vh] overflow-y-auto pr-1 md:left-auto md:right-6 flex flex-col md:flex-row items-start gap-2 max-w-[calc(100vw-1.5rem)] md:max-w-none">
+          <div className="absolute left-0 bottom-full mb-2 z-[90] max-h-[72vh] overflow-y-auto pr-1 flex flex-col md:flex-row items-start gap-2 max-w-[calc(100vw-1.5rem)] md:max-w-none">
             <div className="w-[min(320px,calc(100vw-1.5rem))] rounded-[24px] bg-black/30 backdrop-blur-2xl backdrop-saturate-150 border border-white/[0.06] p-3 shadow-prism-lg">
               <MenuAction
                 icon={<Paperclip className="h-4 w-4" />}
@@ -1552,42 +1552,47 @@ export default function OraChat() {
             <Plus className={`h-4 w-4 transition-transform ${menuOpen ? 'rotate-45' : ''}`} />
           </button>
 
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              resizeTextarea();
-            }}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder="Ask Ora... (Shift+Enter for new line)"
-            rows={1}
-            className="flex-1 rounded-lg bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 resize-none min-h-[44px] max-h-[140px]"
-            onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; }}
-            disabled={isLoading}
-          />
-
-          <button
-            type="button"
-            onClick={toggleDictation}
-            disabled={isLoading}
-            className={`hidden md:flex flex-shrink-0 w-[40px] h-[40px] items-center justify-center rounded-full transition-all ${
-              isListening
-                ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
-                : 'bg-raised text-txt-muted hover:text-cyan hover:bg-cyan/5'
-            } ${isLoading ? 'opacity-50' : ''}`}
-            title={isListening ? 'Stop dictation' : 'Dictate'}
-          >
-            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-          </button>
-
-          <GradientButton
-            onClick={send}
-            disabled={isLoading || (!input.trim() && attachments.length === 0)}
-          >
-            Send
-          </GradientButton>
+          <div className="flex-1 relative">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                resizeTextarea();
+              }}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              placeholder="Ask Ora... (Shift+Enter for new line)"
+              rows={1}
+              className="w-full rounded-xl bg-raised pl-4 pr-20 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 resize-none min-h-[44px] max-h-[140px]"
+              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; }}
+              disabled={isLoading}
+            />
+            <div className="absolute right-2 bottom-1.5 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={toggleDictation}
+                disabled={isLoading}
+                className={`hidden md:flex flex-shrink-0 w-[32px] h-[32px] items-center justify-center rounded-full transition-all ${
+                  isListening
+                    ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
+                    : 'text-txt-muted hover:text-cyan'
+                } ${isLoading ? 'opacity-50' : ''}`}
+                title={isListening ? 'Stop dictation' : 'Dictate'}
+              >
+                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </button>
+              <button
+                type="button"
+                onClick={send}
+                disabled={isLoading || (!input.trim() && attachments.length === 0)}
+                className="flex-shrink-0 w-[32px] h-[32px] flex items-center justify-center rounded-full bg-cyan text-white transition-all hover:bg-cyan/80 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Send message"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       </Card>

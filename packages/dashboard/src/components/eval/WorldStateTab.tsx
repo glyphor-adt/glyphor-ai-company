@@ -94,8 +94,8 @@ export default function WorldStateTab({ agentId }: WorldStateTabProps) {
                 <div className="flex items-center gap-2">
                   <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-lg ${
                     c.correction_type === 'weakness_added'
-                      ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
-                      : 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
+                      ? 'badge-red'
+                      : 'badge-amber'
                   }`}>
                     {c.correction_type.replace(/_/g, ' ')}
                   </span>
@@ -189,9 +189,9 @@ function PredictionAccuracyPanel({ data }: { data: PredictionAccuracy }) {
 
 function freshnessBadge(freshness: string) {
   const styles: Record<string, string> = {
-    fresh: 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
-    stale: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
-    expired: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
+    fresh: 'badge-cyan',
+    stale: 'badge-amber',
+    expired: 'badge-red',
   };
   return (
     <span className={`inline-block rounded-lg px-2 py-0.5 text-[10px] font-medium ${styles[freshness] ?? styles.fresh}`}>

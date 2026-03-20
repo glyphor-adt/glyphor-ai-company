@@ -41,16 +41,16 @@ type Tab = 'routing' | 'registry' | 'deprecations';
 // ── Helpers ──────────────────────────────────────────────────
 
 const TIER_COLORS: Record<string, string> = {
-  economy: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
-  workhorse: 'text-white bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700',
-  pro: 'text-white bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700',
-  specialist: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
+  economy: 'badge-green',
+  workhorse: 'badge-blue',
+  pro: 'badge-purple',
+  specialist: 'badge-amber',
 };
 
 const PROVIDER_COLORS: Record<string, string> = {
-  gemini: 'text-white bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700',
-  openai: 'text-white bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600',
-  anthropic: 'text-white bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600',
+  gemini: 'badge-blue',
+  openai: 'badge-emerald',
+  anthropic: 'badge-orange',
 };
 
 function Badge({ label, colorClass }: { label: string; colorClass: string }) {
@@ -221,8 +221,8 @@ export default function ModelAdmin() {
                       {m.supports_thinking && <span className="text-xs opacity-50">🧠</span>}
                     </td>
                     <td className="py-2">
-                      {m.is_preview && <Badge label="preview" colorClass="text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600" />}
-                      {!m.is_preview && <Badge label="stable" colorClass="text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600" />}
+                      {m.is_preview && <Badge label="preview" colorClass="badge badge-yellow" />}
+                      {!m.is_preview && <Badge label="stable" colorClass="badge badge-green" />}
                     </td>
                   </tr>
                 ))}
@@ -261,7 +261,7 @@ export default function ModelAdmin() {
                           {days !== null && (
                             <Badge
                               label={`${days}d`}
-                              colorClass={days < 30 ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600' : 'text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600'}
+                              colorClass={days < 30 ? 'badge-red' : 'badge-yellow'}
                             />
                           )}
                         </td>

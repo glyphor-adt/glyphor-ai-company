@@ -140,17 +140,17 @@ export default function ToolAccuracySection({ agentId }: ToolAccuracySectionProp
                 <span className="text-xs text-txt-secondary font-mono truncate mr-2">{tool.tool_name}</span>
                 <div className="flex gap-1.5 shrink-0">
                   {tool.agent_underperforming_vs_fleet && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-lg text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-lg badge badge-red">
                       underperforming
                     </span>
                   )}
                   {tool.fleet_risk === 'high' && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-lg text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-lg badge badge-red">
                       fleet: high risk
                     </span>
                   )}
                   {tool.fleet_risk === 'medium' && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-lg text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-lg badge badge-amber">
                       fleet: medium
                     </span>
                   )}

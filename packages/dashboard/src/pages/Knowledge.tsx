@@ -206,10 +206,10 @@ function HealthSummary({
         <h2 className="text-lg font-semibold text-txt-primary">Knowledge Health</h2>
         <span className={`rounded-lg px-2.5 py-0.5 text-[11px] font-semibold ${
           healthyCount === layers.length
-            ? 'text-white bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600'
+            ? 'badge-teal'
             : healthyCount >= 3
-            ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
-            : 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
+            ? 'badge-amber'
+            : 'badge-red'
         }`}>
           {healthyCount}/{layers.length} layers active
         </span>
@@ -646,10 +646,10 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
           const isEditing = editingId === s.id;
           const layerLabel = s.layer === 1 ? 'Doctrine' : s.layer === 2 ? 'Role' : 'Reference';
           const layerColor = s.layer === 1
-            ? 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700'
+            ? 'badge-violet'
             : s.layer === 2
-              ? 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600'
-              : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600';
+              ? 'badge-cyan'
+              : 'badge-gray';
           return (
             <div key={s.id} className={`rounded-lg theme-glass-panel ${s.is_stale ? 'ring-1 ring-prism-critical/40' : ''}`}>
               {/* Section Header */}

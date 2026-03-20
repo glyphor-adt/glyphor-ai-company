@@ -386,21 +386,21 @@ export default function WorldModel() {
     <div className="space-y-6 p-6">
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4 text-center">
+        <Card className="p-4 text-center" style={{ borderTopColor: '#38bdf8', borderTopWidth: '2px' }}>
           <div className="text-2xl font-bold text-txt-primary">{totalAgents}</div>
           <div className="text-xs text-txt-faint">Active World Models</div>
         </Card>
-        <Card className="p-4 text-center">
+        <Card className="p-4 text-center" style={{ borderTopColor: '#34d399', borderTopWidth: '2px' }}>
           <div className={`text-2xl font-bold ${scoreColor(avgAccuracy * 5)}`}>
             {(avgAccuracy * 100).toFixed(0)}%
           </div>
           <div className="text-xs text-txt-faint">Avg Prediction Accuracy</div>
         </Card>
-        <Card className="p-4 text-center">
+        <Card className="p-4 text-center" style={{ borderTopColor: '#a78bfa', borderTopWidth: '2px' }}>
           <div className="text-2xl font-bold text-prism-fill-4">{totalGoals}</div>
           <div className="text-xs text-txt-faint">Improvement Goals</div>
         </Card>
-        <Card className="p-4 text-center">
+        <Card className="p-4 text-center" style={{ borderTopColor: '#ef4444', borderTopWidth: '2px' }}>
           <div className="text-2xl font-bold text-prism-critical">{totalFailurePatterns}</div>
           <div className="text-xs text-txt-faint">Known Failure Patterns</div>
         </Card>

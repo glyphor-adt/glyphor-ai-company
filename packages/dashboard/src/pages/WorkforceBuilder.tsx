@@ -292,15 +292,15 @@ export default function WorkforceBuilder() {
           <span className="text-txt-faint">drag from palette · connect nodes · click to configure</span>
         </span>
         {connectFrom && (
-          <span className="rounded-lg text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 px-3 py-1 text-[12px] font-medium animate-pulse">
+          <span className="rounded-lg badge badge-yellow px-3 py-1 text-[12px] font-medium animate-pulse">
             Click a node to set as manager…
           </span>
         )}
         {deployMsg && (
           <span className={`rounded-lg px-3 py-1 text-[12px] font-medium ${
             deployMsg.includes('failed') || deployMsg.includes('need')
-              ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
-              : 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
+              ? 'badge-red'
+              : 'badge-green'
           }`}>{deployMsg}</span>
         )}
       </div>
@@ -405,7 +405,7 @@ export default function WorkforceBuilder() {
                     </div>
                   </div>
                   <span className={`absolute bottom-2 left-4 rounded-lg px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide ${
-                    t?.tier === 'orchestrator' ? 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600' : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
+                    t?.tier === 'orchestrator' ? 'badge-cyan' : 'badge-gray'
                   }`}>{t?.tier ?? 'specialist'}</span>
                 </div>
               );

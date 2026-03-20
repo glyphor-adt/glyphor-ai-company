@@ -175,10 +175,10 @@ function LeastPrivilegeMatrix({ items }: { items: LeastPrivilegeGrant[] }) {
             <div className="mt-3 space-y-3">
               {grants.map((grant) => {
                 const tone = grant.usesLast30d === 0
-                  ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
+                  ? 'badge-red'
                   : grant.usesLast30d < 3
-                    ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
-                    : 'text-white bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600';
+                    ? 'badge-amber'
+                    : 'badge-teal';
                 return (
                   <div key={grant.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg theme-glass-panel-soft border-primary/15 px-3 py-2">
                     <div>
@@ -769,23 +769,23 @@ function AccessGrantManager({
 
         <div className="mt-4 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-xl theme-glass-panel p-4">
+            <div className="glass-surface rounded-xl p-4" style={{ borderTopColor: '#38bdf8', borderTopWidth: '2px' }}>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Matching Grants</p>
               <p className="mt-3 text-3xl font-semibold text-prism-sky">{filteredInventory.length}</p>
             </div>
-            <div className="rounded-xl theme-glass-panel p-4">
+            <div className="glass-surface rounded-xl p-4" style={{ borderTopColor: '#2dd4bf', borderTopWidth: '2px' }}>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Agents</p>
               <p className="mt-3 text-3xl font-semibold text-prism-teal">{filteredSummary.agents}</p>
             </div>
-            <div className="rounded-xl theme-glass-panel p-4">
+            <div className="glass-surface rounded-xl p-4" style={{ borderTopColor: '#94a3b8', borderTopWidth: '2px' }}>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Tools</p>
               <p className="mt-3 text-3xl font-semibold text-txt-primary">{filteredSummary.tools}</p>
             </div>
-            <div className="rounded-xl theme-glass-panel p-4">
+            <div className="glass-surface rounded-xl p-4" style={{ borderTopColor: '#f59e0b', borderTopWidth: '2px' }}>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Departments</p>
               <p className="mt-3 text-3xl font-semibold text-prism-elevated">{filteredSummary.departments}</p>
             </div>
-            <div className="rounded-xl theme-glass-panel p-4">
+            <div className="glass-surface rounded-xl p-4" style={{ borderTopColor: '#ef4444', borderTopWidth: '2px' }}>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Urgent / Inactive</p>
               <p className="mt-3 text-3xl font-semibold text-prism-high">{filteredSummary.expiringSoon + filteredSummary.inactiveOrExpired}</p>
             </div>

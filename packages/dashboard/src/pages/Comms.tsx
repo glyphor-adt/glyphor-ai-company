@@ -31,17 +31,17 @@ interface EmailActivity {
 }
 
 const TYPE_STYLES: Record<string, string> = {
-  request:  'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
-  response: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
-  info:     'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
-  followup: 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700',
-  task:     'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
-  alert:    'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
-  blocker:  'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
-  escalation: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
-  notification: 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
-  status_update: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
-  delegation: 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700',
+  request:  'badge-sky',
+  response: 'badge-green',
+  info:     'badge-gray',
+  followup: 'badge-violet',
+  task:     'badge-amber',
+  alert:    'badge-red',
+  blocker:  'badge-red',
+  escalation: 'badge-red',
+  notification: 'badge-cyan',
+  status_update: 'badge-gray',
+  delegation: 'badge-violet',
 };
 
 const MESSAGE_TYPES = ['all', 'request', 'response', 'task', 'followup', 'alert', 'blocker', 'escalation', 'delegation', 'info', 'notification', 'status_update'] as const;
@@ -332,9 +332,9 @@ function EmailActivityFeed() {
                   <div className="flex items-start gap-3">
                     <div className="flex flex-col items-center gap-1 min-w-[70px]">
                       <span className={`rounded-lg px-2 py-0.5 text-[9px] font-semibold uppercase ${
-                        r.status === 'completed' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
-                        : r.status === 'failed' ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
-                        : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
+                        r.status === 'completed' ? 'badge-green'
+                        : r.status === 'failed' ? 'badge-red'
+                        : 'badge-gray'
                       }`}>
                         {r.status}
                       </span>
@@ -503,7 +503,7 @@ function QuickAssign() {
           </div>
 
           {result && (
-            <p className={`text-xs rounded-lg px-3 py-2 ${result.success ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' : 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'}`}>
+            <p className={`text-xs rounded-lg px-3 py-2 ${result.success ? 'badge-green' : 'badge-red'}`}>
               {result.message}
             </p>
           )}

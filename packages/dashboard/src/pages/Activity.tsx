@@ -111,15 +111,15 @@ function normalizeRunContent(text: string): string {
 function statusConfig(status: string) {
   switch (status) {
     case 'running':
-      return { dot: 'bg-cyan animate-pulse', label: 'Running', badge: 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600' };
+      return { dot: 'bg-cyan animate-pulse', label: 'Running', badge: 'badge-cyan' };
     case 'completed':
-      return { dot: 'bg-tier-green', label: 'Completed', badge: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' };
+      return { dot: 'bg-tier-green', label: 'Completed', badge: 'badge-green' };
     case 'failed':
-      return { dot: 'bg-prism-critical', label: 'Failed', badge: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600' };
+      return { dot: 'bg-prism-critical', label: 'Failed', badge: 'badge-red' };
     case 'skipped_precheck':
-      return { dot: 'bg-tier-yellow', label: 'Skipped', badge: 'text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600' };
+      return { dot: 'bg-tier-yellow', label: 'Skipped', badge: 'badge-yellow' };
     default:
-      return { dot: 'bg-txt-faint', label: status, badge: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600' };
+      return { dot: 'bg-txt-faint', label: status, badge: 'badge-gray' };
   }
 }
 

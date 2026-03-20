@@ -95,30 +95,30 @@ function parseTaskMappings(raw: string): UploadTaskMapping[] {
   return mappings;
 }
 
-const CATEGORY_META: Record<string, { label: string; color: string; gradient: string; icon: ReactNode }> = {
-  finance:            { label: 'Finance',           color: '#0369A1', gradient: 'from-sky-600 via-sky-700 to-sky-800', icon: <MdAttachMoney className="inline h-4 w-4" /> },
-  engineering:        { label: 'Engineering',       color: '#2563EB', gradient: 'from-blue-500 via-blue-600 to-blue-700', icon: <MdSettings className="inline h-4 w-4" /> },
-  marketing:          { label: 'Marketing',         color: '#7C3AED', gradient: 'from-violet-500 via-violet-600 to-violet-700', icon: <MdCampaign className="inline h-4 w-4" /> },
-  product:            { label: 'Product',           color: '#0891B2', gradient: 'from-cyan-500 via-cyan-600 to-cyan-700', icon: <MdExplore className="inline h-4 w-4" /> },
-  sales:              { label: 'Sales',             color: '#1D4ED8', gradient: 'from-blue-600 via-blue-700 to-blue-800', icon: <MdTrackChanges className="inline h-4 w-4" /> },
-  design:             { label: 'Design',            color: '#DB2777', gradient: 'from-pink-500 via-pink-600 to-pink-700', icon: <MdPalette className="inline h-4 w-4" /> },
-  leadership:         { label: 'Leadership',        color: '#7C3AED', gradient: 'from-violet-500 via-violet-600 to-violet-700', icon: <MdStars className="inline h-4 w-4" /> },
-  operations:         { label: 'Operations',        color: '#EA580C', gradient: 'from-orange-500 via-orange-600 to-orange-700', icon: <MdBarChart className="inline h-4 w-4" /> },
-  analytics:          { label: 'Analytics',         color: '#059669', gradient: 'from-emerald-500 via-emerald-600 to-emerald-700', icon: <MdTrendingUp className="inline h-4 w-4" /> },
-  legal:              { label: 'Legal',             color: '#4F46E5', gradient: 'from-indigo-500 via-indigo-600 to-indigo-700', icon: <MdGavel className="inline h-4 w-4" /> },
-  hr:                 { label: 'HR',                color: '#0F766E', gradient: 'from-teal-600 via-teal-700 to-teal-800', icon: <MdBadge className="inline h-4 w-4" /> },
-  'human-resources':  { label: 'HR',                color: '#0F766E', gradient: 'from-teal-600 via-teal-700 to-teal-800', icon: <MdBadge className="inline h-4 w-4" /> },
-  human_resources:    { label: 'HR',                color: '#0F766E', gradient: 'from-teal-600 via-teal-700 to-teal-800', icon: <MdBadge className="inline h-4 w-4" /> },
-  research:           { label: 'Research',          color: '#6D28D9', gradient: 'from-violet-600 via-violet-700 to-violet-800', icon: <MdManageSearch className="inline h-4 w-4" /> },
+const CATEGORY_META: Record<string, { label: string; color: string; badge: string; icon: ReactNode }> = {
+  finance:            { label: 'Finance',           color: '#0369A1', badge: 'badge-sky',     icon: <MdAttachMoney className="inline h-4 w-4" /> },
+  engineering:        { label: 'Engineering',       color: '#2563EB', badge: 'badge-blue',    icon: <MdSettings className="inline h-4 w-4" /> },
+  marketing:          { label: 'Marketing',         color: '#7C3AED', badge: 'badge-violet',  icon: <MdCampaign className="inline h-4 w-4" /> },
+  product:            { label: 'Product',           color: '#0891B2', badge: 'badge-cyan',    icon: <MdExplore className="inline h-4 w-4" /> },
+  sales:              { label: 'Sales',             color: '#1D4ED8', badge: 'badge-blue',    icon: <MdTrackChanges className="inline h-4 w-4" /> },
+  design:             { label: 'Design',            color: '#DB2777', badge: 'badge-pink',    icon: <MdPalette className="inline h-4 w-4" /> },
+  leadership:         { label: 'Leadership',        color: '#7C3AED', badge: 'badge-violet',  icon: <MdStars className="inline h-4 w-4" /> },
+  operations:         { label: 'Operations',        color: '#EA580C', badge: 'badge-orange',  icon: <MdBarChart className="inline h-4 w-4" /> },
+  analytics:          { label: 'Analytics',         color: '#059669', badge: 'badge-emerald', icon: <MdTrendingUp className="inline h-4 w-4" /> },
+  legal:              { label: 'Legal',             color: '#4F46E5', badge: 'badge-indigo',  icon: <MdGavel className="inline h-4 w-4" /> },
+  hr:                 { label: 'HR',                color: '#0F766E', badge: 'badge-teal',    icon: <MdBadge className="inline h-4 w-4" /> },
+  'human-resources':  { label: 'HR',                color: '#0F766E', badge: 'badge-teal',    icon: <MdBadge className="inline h-4 w-4" /> },
+  human_resources:    { label: 'HR',                color: '#0F766E', badge: 'badge-teal',    icon: <MdBadge className="inline h-4 w-4" /> },
+  research:           { label: 'Research',          color: '#6D28D9', badge: 'badge-violet',  icon: <MdManageSearch className="inline h-4 w-4" /> },
 };
 
 const ACTION_BTN_CLS = 'flex h-10 w-40 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-4 text-sm font-semibold transition-all';
 
 const PROFICIENCY_COLOR: Record<string, string> = {
-  learning:  'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
-  competent: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
-  expert:    'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
-  master:    'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
+  learning:  'badge-gray',
+  competent: 'badge-sky',
+  expert:    'badge-cyan',
+  master:    'badge-amber',
 };
 
 export default function Skills() {
@@ -271,7 +271,7 @@ export default function Skills() {
               <Card className="h-full transition-all hover:border-cyan/30 hover:shadow-[0_0_15px_rgba(34,211,238,0.08)]">
                 <div className="flex items-start justify-between mb-2">
                   <span
-                    className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white bg-gradient-to-r ${meta?.gradient ?? 'from-gray-400 via-gray-500 to-gray-600'}`}
+                    className={`badge badge-sm badge-up ${meta?.badge ?? 'badge-gray'}`}
                   >
                     {meta?.icon} {meta?.label ?? skill.category}
                   </span>

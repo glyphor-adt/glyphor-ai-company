@@ -237,7 +237,7 @@ function ActionReceipts({ actions }: { actions: ActionReceipt[] }) {
               </span>{' '}
               <span className="text-foreground">{action.tool}</span>
               {action.constitutional_check?.blocked && (
-                <span className="ml-2 px-1.5 py-0.5 rounded-lg text-[10px] font-semibold text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600">
+                <span className="ml-2 px-1.5 py-0.5 rounded-lg text-[10px] font-semibold badge badge-red">
                   Blocked by principles
                 </span>
               )}

@@ -850,10 +850,10 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
                     <span
                       className={`rounded-lg px-1.5 py-0.5 text-[10px] font-medium ${
                         inc.severity === 'critical'
-                          ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
+                          ? 'badge-red'
                           : inc.severity === 'high'
-                          ? 'text-white bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600'
-                          : 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600'
+                          ? 'badge-orange'
+                          : 'badge-sky'
                       }`}
                     >
                       {inc.severity}
@@ -1037,10 +1037,10 @@ function workflowStatusColor(status: string) {
 }
 
 function workflowStatusBadge(status: string) {
-  if (status === 'completed') return 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600';
-  if (status === 'failed' || status === 'cancelled') return 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600';
-  if (status === 'waiting') return 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600';
-  return 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600';
+  if (status === 'completed') return 'badge-green';
+  if (status === 'failed' || status === 'cancelled') return 'badge-red';
+  if (status === 'waiting') return 'badge-amber';
+  return 'badge-cyan';
 }
 
 function stepStatusIcon(status: string) {
@@ -1324,25 +1324,25 @@ function MemoryHealthSection({
 
       {/* Summary stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <Card>
+        <Card className="" style={{ borderTopColor: '#38bdf8', borderTopWidth: '2px' }}>
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Total Tracked</p>
           <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">
             {layersLoading ? '…' : totalTracked}
           </p>
         </Card>
-        <Card>
+        <Card className="" style={{ borderTopColor: '#a78bfa', borderTopWidth: '2px' }}>
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Raw Traces</p>
           <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">
             {layersLoading ? '…' : rawCount}
           </p>
         </Card>
-        <Card>
+        <Card className="" style={{ borderTopColor: '#34d399', borderTopWidth: '2px' }}>
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Promoted (30d)</p>
           <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">
             {consolidationLoading ? '…' : consolidationActivity.reduce((s, d) => s + d.promoted, 0)}
           </p>
         </Card>
-        <Card>
+        <Card className="" style={{ borderTopColor: '#94a3b8', borderTopWidth: '2px' }}>
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Archived</p>
           <p className="mt-1 font-mono text-2xl font-semibold text-txt-primary">
             {layersLoading ? '…' : (layerCounts.find(l => l.layer === 'archived')?.count ?? 0)}
@@ -1511,17 +1511,17 @@ function PlanQualityCard({ verifications, loading }: { verifications: PlanVerifi
     <Card>
       <SectionHeader title="Plan Quality (30 days)" />
       <div className="grid grid-cols-4 gap-4 mt-3">
-        <div>
+        <div className="glass-surface rounded-xl px-3 py-2.5" style={{ borderTopColor: approvalRate >= 80 ? '#34d399' : approvalRate >= 50 ? '#f59e0b' : '#ef4444', borderTopWidth: '2px' }}>
           <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Approval Rate</p>
           <p className={`font-mono text-xl font-semibold ${approvalRate >= 80 ? 'text-tier-green' : approvalRate >= 50 ? 'text-prism-elevated' : 'text-prism-critical'}`}>
             {approvalRate}%
           </p>
         </div>
-        <div>
+        <div className="glass-surface rounded-xl px-3 py-2.5" style={{ borderTopColor: '#38bdf8', borderTopWidth: '2px' }}>
           <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Total Checks</p>
           <p className="font-mono text-xl font-semibold text-txt-primary">{total}</p>
         </div>
-        <div>
+        <div className="glass-surface rounded-xl px-3 py-2.5" style={{ borderTopColor: '#a78bfa', borderTopWidth: '2px' }}>
           <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Verdicts</p>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-[11px] text-tier-green font-medium">{approved} ✓</span>
@@ -1529,7 +1529,7 @@ function PlanQualityCard({ verifications, loading }: { verifications: PlanVerifi
             <span className="text-[11px] text-prism-critical font-medium">{revised} ✗</span>
           </div>
         </div>
-        <div>
+        <div className="glass-surface rounded-xl px-3 py-2.5" style={{ borderTopColor: '#94a3b8', borderTopWidth: '2px' }}>
           <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Avg Assignments</p>
           <p className="font-mono text-xl font-semibold text-txt-primary">{avgAssignments}</p>
         </div>
@@ -1932,9 +1932,9 @@ function DelegationOverview() {
                   </p>
                 </div>
                 <span className={`rounded-lg px-1.5 py-0.5 text-[10px] font-medium ${
-                  d.status === 'completed' ? 'text-white bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600' :
-                  d.status === 'active' ? 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600' :
-                  'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
+                  d.status === 'completed' ? 'badge-teal' :
+                  d.status === 'active' ? 'badge-cyan' :
+                  'badge-gray'
                 }`}>
                   {d.status}
                 </span>

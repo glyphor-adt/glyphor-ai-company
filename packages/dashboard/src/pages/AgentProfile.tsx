@@ -319,9 +319,9 @@ export default function AgentProfile() {
             </p>
             <div className="mt-1.5 flex items-center gap-2">
               <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-medium ${
-                agent.status === 'active' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
-                : agent.status === 'paused' ? 'text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600'
-                : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
+                agent.status === 'active' ? 'badge-green'
+                : agent.status === 'paused' ? 'badge-yellow'
+                : 'badge-gray'
               }`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${
                   agent.status === 'active' ? 'bg-green-200' : agent.status === 'paused' ? 'bg-yellow-200' : 'bg-gray-200'
@@ -622,10 +622,10 @@ function OverviewTab({
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Tier</p>
             <span className={`mt-1 inline-flex rounded-lg px-2.5 py-0.5 text-[11px] font-medium ${
-              tier === 'Orchestrator' ? 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600'
-              : tier === 'Executive' ? 'text-white bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700'
-              : tier === 'Specialist' ? 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600'
-              : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
+              tier === 'Orchestrator' ? 'badge-cyan'
+              : tier === 'Executive' ? 'badge-blue'
+              : tier === 'Specialist' ? 'badge-cyan'
+              : 'badge-gray'
             }`}>
               {tier}
             </span>
@@ -645,9 +645,9 @@ function OverviewTab({
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Status</p>
             <span className={`mt-1 inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-medium ${
-              agent.status === 'active' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
-              : agent.status === 'paused' ? 'text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600'
-              : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
+              agent.status === 'active' ? 'badge-green'
+              : agent.status === 'paused' ? 'badge-yellow'
+              : 'badge-gray'
             }`}>
               <span className={`h-1.5 w-1.5 rounded-full ${
                 agent.status === 'active' ? 'bg-green-200' : agent.status === 'paused' ? 'bg-yellow-200' : 'bg-gray-200'
@@ -1198,11 +1198,11 @@ function MemoryTab({ agent }: { agent: AgentRow }) {
   if (loading) return <Skeleton className="h-48" />;
 
   const typeColor: Record<string, string> = {
-    fact: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
-    pattern: 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700',
-    learning: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
-    observation: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
-    preference: 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
+    fact: 'badge-sky',
+    pattern: 'badge-violet',
+    learning: 'badge-green',
+    observation: 'badge-amber',
+    preference: 'badge-cyan',
   };
 
   const oldest = memories.length
@@ -1228,7 +1228,7 @@ function MemoryTab({ agent }: { agent: AgentRow }) {
           <ul className="space-y-2">
             {memories.map((m) => (
               <li key={m.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5">
-                <span className={`mt-0.5 rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${typeColor[m.memory_type] ?? 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'}`}>
+                <span className={`mt-0.5 rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${typeColor[m.memory_type] ?? 'badge-gray'}`}>
                   {m.memory_type}
                 </span>
                 <span className="flex-1 text-sm text-txt-secondary">{m.content}</span>
@@ -1296,10 +1296,10 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
   const displayName = DISPLAY_NAME_MAP[agent.role] ?? agent.display_name;
 
   const typeColor: Record<string, string> = {
-    request: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
-    response: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
-    info: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
-    followup: 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700',
+    request: 'badge-sky',
+    response: 'badge-green',
+    info: 'badge-gray',
+    followup: 'badge-violet',
   };
 
   const statusIcon: Record<string, ReactNode> = {
@@ -1345,7 +1345,7 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
                       {m.message_type}
                     </span>
                     {m.priority === 'urgent' && (
-                      <span className="rounded-lg text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 px-1.5 py-0.5 text-[9px] font-bold">!</span>
+                      <span className="rounded-lg badge badge-red px-1.5 py-0.5 text-[9px] font-bold">!</span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1395,9 +1395,9 @@ function MessagesTab({ agent }: { agent: AgentRow }) {
                   )}
                 </div>
                 <span className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                  m.status === 'completed' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
-                  : m.status === 'in_progress' ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
-                  : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
+                  m.status === 'completed' ? 'badge-green'
+                  : m.status === 'in_progress' ? 'badge-amber'
+                  : 'badge-gray'
                 }`}>
                   {m.status}
                 </span>
@@ -1438,25 +1438,25 @@ interface SkillCatalogRow {
 }
 
 const PROF_COLOR: Record<string, string> = {
-  learning:  'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
-  competent: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
-  expert:    'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
-  master:    'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
+  learning:  'badge-gray',
+  competent: 'badge-sky',
+  expert:    'badge-cyan',
+  master:    'badge-amber',
 };
 
-const CAT_COLOR: Record<string, { hex: string; gradient: string }> = {
-  finance: { hex: '#0369A1', gradient: 'from-sky-600 via-sky-700 to-sky-800' },
-  engineering: { hex: '#2563EB', gradient: 'from-blue-500 via-blue-600 to-blue-700' },
-  marketing: { hex: '#7C3AED', gradient: 'from-violet-500 via-violet-600 to-violet-700' },
-  product: { hex: '#0891B2', gradient: 'from-cyan-500 via-cyan-600 to-cyan-700' },
-  sales: { hex: '#1D4ED8', gradient: 'from-blue-600 via-blue-700 to-blue-800' },
-  design: { hex: '#DB2777', gradient: 'from-pink-500 via-pink-600 to-pink-700' },
-  leadership: { hex: '#7C3AED', gradient: 'from-violet-500 via-violet-600 to-violet-700' },
-  operations: { hex: '#EA580C', gradient: 'from-orange-500 via-orange-600 to-orange-700' },
-  analytics: { hex: '#059669', gradient: 'from-emerald-500 via-emerald-600 to-emerald-700' },
-  legal: { hex: '#9333EA', gradient: 'from-purple-500 via-purple-600 to-purple-700' },
-  research: { hex: '#0F766E', gradient: 'from-teal-600 via-teal-700 to-teal-800' },
-  hr: { hex: '#0F766E', gradient: 'from-teal-600 via-teal-700 to-teal-800' },
+const CAT_COLOR: Record<string, { hex: string; badge: string }> = {
+  finance: { hex: '#0369A1', badge: 'badge-sky' },
+  engineering: { hex: '#2563EB', badge: 'badge-blue' },
+  marketing: { hex: '#7C3AED', badge: 'badge-violet' },
+  product: { hex: '#0891B2', badge: 'badge-cyan' },
+  sales: { hex: '#1D4ED8', badge: 'badge-blue' },
+  design: { hex: '#DB2777', badge: 'badge-pink' },
+  leadership: { hex: '#7C3AED', badge: 'badge-violet' },
+  operations: { hex: '#EA580C', badge: 'badge-orange' },
+  analytics: { hex: '#059669', badge: 'badge-emerald' },
+  legal: { hex: '#9333EA', badge: 'badge-purple' },
+  research: { hex: '#0F766E', badge: 'badge-teal' },
+  hr: { hex: '#0F766E', badge: 'badge-teal' },
 };
 
 function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null }) {
@@ -1540,7 +1540,7 @@ function SkillsTab({ agent, brief }: { agent: AgentRow; brief: AgentBrief | null
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-white/5"
                 >
                   <span
-                    className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white bg-gradient-to-r ${catMeta?.gradient ?? 'from-gray-400 via-gray-500 to-gray-600'}`}
+                    className={`badge badge-sm badge-up ${catMeta?.badge ?? 'badge-gray'}`}
                   >
                     {s?.category ?? '?'}
                   </span>
@@ -1721,17 +1721,17 @@ function WorldModelTab({ agent }: { agent: AgentRow }) {
     <div className="space-y-6">
       {/* Summary header */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-4 text-center">
+        <Card className="p-4 text-center" style={{ borderTopColor: '#34d399', borderTopWidth: '2px' }}>
           <p className="text-xs text-txt-muted">Prediction Accuracy</p>
           <p className={`text-2xl font-bold ${wmScoreColor(model.prediction_accuracy * 5)}`}>
             {(model.prediction_accuracy * 100).toFixed(0)}%
           </p>
         </Card>
-        <Card className="p-4 text-center">
+        <Card className="p-4 text-center" style={{ borderTopColor: '#2dd4bf', borderTopWidth: '2px' }}>
           <p className="text-xs text-txt-muted">Strengths</p>
           <p className="text-2xl font-bold text-prism-teal">{model.strengths.length}</p>
         </Card>
-        <Card className="p-4 text-center">
+        <Card className="p-4 text-center" style={{ borderTopColor: '#ef4444', borderTopWidth: '2px' }}>
           <p className="text-xs text-txt-muted">Failure Patterns</p>
           <p className="text-2xl font-bold text-prism-critical">{model.failure_patterns.length}</p>
         </Card>
@@ -2201,8 +2201,8 @@ function SettingsTab({
             <h3 className="text-sm font-semibold uppercase tracking-wider text-txt-primary">System Prompt</h3>
             <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${
               promptSource === 'db'
-                ? 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600'
-                : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
+                ? 'badge-cyan'
+                : 'badge-gray'
             }`}>
               {promptSource === 'db' ? 'Custom' : 'Defined in code'}
             </span>
