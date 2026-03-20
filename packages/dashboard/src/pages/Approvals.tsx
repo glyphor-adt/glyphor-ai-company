@@ -298,15 +298,19 @@ export default function Approvals() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleDecide(d.id, 'approved')}
-                      className="text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-green-300 dark:focus:ring-green-800 shadow-md shadow-green-500/50 dark:shadow-md dark:shadow-green-800/80 font-medium rounded-lg text-[12px] px-3 py-1.5 text-center leading-5 transition-all"
+                      className="relative inline-flex items-center justify-center p-0.5 overflow-hidden text-[12px] font-medium text-txt-primary rounded-lg group bg-gradient-to-br from-green-400 to-blue-600 group-hover:from-green-400 group-hover:to-blue-600 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-green-200 dark:focus:ring-green-800"
                     >
-                      Approve
+                      <span className="relative px-3 py-1.5 transition-all ease-in duration-75 bg-surface rounded-md group-hover:bg-transparent group-hover:dark:bg-transparent leading-5">
+                        Approve
+                      </span>
                     </button>
                     <button
                       onClick={() => handleDecide(d.id, 'rejected')}
-                      className="text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 shadow-md shadow-red-500/50 dark:shadow-md dark:shadow-red-800/80 font-medium rounded-lg text-[12px] px-3 py-1.5 text-center leading-5 transition-all"
+                      className="relative inline-flex items-center justify-center p-0.5 overflow-hidden text-[12px] font-medium text-txt-primary rounded-lg group bg-gradient-to-br from-red-500 to-rose-600 group-hover:from-red-500 group-hover:to-rose-600 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-red-200 dark:focus:ring-red-800"
                     >
-                      Reject
+                      <span className="relative px-3 py-1.5 transition-all ease-in duration-75 bg-surface rounded-md group-hover:bg-transparent group-hover:dark:bg-transparent leading-5">
+                        Reject
+                      </span>
                     </button>
                   </div>
                 )}
