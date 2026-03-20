@@ -566,12 +566,12 @@ export function formatDirectiveProposalCard(data: DirectiveProposalCardData): Ad
         type: 'Action.OpenUrl',
         title: '✓ Approve Directive',
         url: data.approveUrl,
-      } as AdaptiveCardAction,
+      },
       {
         type: 'Action.OpenUrl',
         title: '✕ Reject Directive',
         url: data.rejectUrl,
-      } as AdaptiveCardAction,
+      },
     ],
   };
 }

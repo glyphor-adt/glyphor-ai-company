@@ -286,6 +286,21 @@ export function createInitiativeTools(
           initial_directives: params.initial_directives as InitiativeDirectiveDraft[] | undefined,
         });
 
+        // Dedup guard: reject if a similar proposal already exists and is pending
+        const [existingProposal] = await systemQuery<{ id: string; title: string; status: string }>(
+          `SELECT id, title, status FROM proposed_initiatives
+           WHERE status = 'pending' AND LOWER(title) = LOWER($1)
+           ORDER BY created_at DESC LIMIT 1`,
+          [title],
+        );
+        if (existingProposal) {
+          return {
+            success: true,
+            data: `A proposal with the same title already exists (id=${existingProposal.id}, status=${existingProposal.status}). ` +
+              `No duplicate created. Wait for Sarah to review the existing proposal.`,
+          };
+        }
+
         const [row] = await systemQuery<{ id: string }>(
           `INSERT INTO proposed_initiatives
              (proposed_by, title, justification, proposed_assignments, expected_outcome, priority, estimated_days, tenant_id)

@@ -574,6 +574,21 @@ export function createChiefOfStaffTools(
           };
         }
 
+        // Dedup guard: reject if a similar initiative already exists in proposed/active status
+        const [existingInitiative] = await systemQuery<{ id: string; title: string; status: string; created_at: string }>(
+          `SELECT id, title, status, created_at FROM initiatives
+           WHERE status IN ('proposed', 'active') AND LOWER(title) = LOWER($1)
+           ORDER BY created_at DESC LIMIT 1`,
+          [title],
+        );
+        if (existingInitiative) {
+          return {
+            success: true,
+            data: `An initiative with the same title already exists (id=${existingInitiative.id}, status=${existingInitiative.status}, created=${existingInitiative.created_at}). ` +
+              `No duplicate created. If you need to update it, modify the existing initiative instead.`,
+          };
+        }
+
         const [initiative] = await systemQuery<{ id: string }>(
           `INSERT INTO initiatives
              (proposed_initiative_id, title, description, doctrine_alignment, owner_role, status, priority, dependencies, target_date, success_criteria, created_by)
