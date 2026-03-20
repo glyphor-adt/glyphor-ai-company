@@ -379,7 +379,7 @@ const MUTATION_PREFIXES = ['update_', 'create_', 'delete_', 'set_', 'assign_', '
 const isMutation = (toolName: string): boolean =>
   MUTATION_PREFIXES.some(p => toolName.startsWith(p));
 
-const 0.CROSS_AGENT_VERIFICATION_TOOLS = new Set([
+const CROSS_AGENT_VERIFICATION_TOOLS = new Set([
   ...HIGH_STAKES_TOOLS,
   'submit_assignment_output',
   'send_dm',
