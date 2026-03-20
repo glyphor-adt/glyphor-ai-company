@@ -99,6 +99,61 @@ async function postWithDelegatedToken(
   return true;
 }
 
+// ─── POWER PLATFORM AUTH (for direct-API webhook URLs) ────────
+
+let _powerPlatformTokenCache: { token: string; expiresAt: number } | null = null;
+
+/**
+ * Power Platform direct API webhook URLs require a bearer token.
+ * Use the delegated refresh token to get a Flow-scoped access token.
+ * The Teams message still posts as the Power Automate flow bot, not the user.
+ */
+async function getPowerPlatformToken(): Promise<string | null> {
+  const now = Date.now();
+  if (_powerPlatformTokenCache && _powerPlatformTokenCache.expiresAt > now + 60_000) {
+    return _powerPlatformTokenCache.token;
+  }
+
+  const tenantId = process.env.AZURE_TENANT_ID?.trim();
+  const clientId = process.env.AZURE_CLIENT_ID?.trim();
+  const refreshToken = process.env.GRAPH_DELEGATED_REFRESH_TOKEN?.trim();
+  if (!tenantId || !clientId || !refreshToken) return null;
+
+  try {
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: clientId,
+      refresh_token: refreshToken,
+      scope: 'https://service.flow.microsoft.com/.default offline_access',
+    });
+
+    const res = await fetch(
+      `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`,
+      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() },
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`[GraphClient] Power Platform token failed (${res.status}): ${text.substring(0, 200)}`);
+      return null;
+    }
+
+    const data = (await res.json()) as { access_token: string; expires_in: number };
+    _powerPlatformTokenCache = {
+      token: data.access_token,
+      expiresAt: now + data.expires_in * 1000,
+    };
+    return data.access_token;
+  } catch (err) {
+    console.error('[GraphClient] Power Platform token error:', err);
+    return null;
+  }
+}
+
+/** Returns true if the webhook URL is a Power Platform direct API that requires auth */
+function isPowerPlatformDirectUrl(url: string): boolean {
+  return url.includes('.api.powerplatform.com') || url.includes('/powerautomate/automations/direct/');
+}
+
 // ─── CONFIG ─────────────────────────────────────────────────────
 
 export interface GraphTeamsConfig {
@@ -451,7 +506,15 @@ export async function postCardToChannel(
   const webhookUrl = getChannelWebhookUrl(channelName);
   if (webhookUrl) {
     try {
-      await sendTeamsWebhook(webhookUrl, webhookPayload);
+      // Power Platform direct API URLs require a bearer token
+      let authToken: string | undefined;
+      if (isPowerPlatformDirectUrl(webhookUrl)) {
+        authToken = (await getPowerPlatformToken()) ?? undefined;
+        if (!authToken) {
+          console.warn(`[GraphClient] No Power Platform token for ${channelName} webhook — trying unauthenticated`);
+        }
+      }
+      await sendTeamsWebhook(webhookUrl, webhookPayload, authToken);
       return { method: 'webhook' };
     } catch (err) {
       console.warn(`[GraphClient] Webhook failed for ${channelName}:`, (err as Error).message);
@@ -517,7 +580,15 @@ export async function postTextToChannel(
       }],
     };
     try {
-      await sendTeamsWebhook(webhookUrl, payload);
+      // Power Platform direct API URLs require a bearer token
+      let authToken: string | undefined;
+      if (isPowerPlatformDirectUrl(webhookUrl)) {
+        authToken = (await getPowerPlatformToken()) ?? undefined;
+        if (!authToken) {
+          console.warn(`[GraphClient] No Power Platform token for ${channelName} webhook — trying unauthenticated`);
+        }
+      }
+      await sendTeamsWebhook(webhookUrl, payload, authToken);
       return { method: 'webhook' };
     } catch (err) {
       console.warn(`[GraphClient] Webhook failed for ${channelName}:`, (err as Error).message);

@@ -7,14 +7,21 @@
 
 /**
  * Send a message/card to a Teams channel via incoming webhook.
+ * For Power Platform direct API URLs, pass a bearer token via authToken.
  */
 export async function sendTeamsWebhook(
   webhookUrl: string,
   payload: TeamsWebhookPayload,
+  authToken?: string,
 ): Promise<void> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
   const response = await fetch(webhookUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(payload),
   });
 
