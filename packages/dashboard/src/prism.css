@@ -64,10 +64,10 @@
 
 .dark {
   /* ── Backgrounds ──────────────────────────── */
-  --prism-bg:        11  12  16;   /* #0B0C10 – Deep dark canvas */
-  --prism-bg2:       14  16  20;   /* deeper sidebar foundation */
-  --prism-card:      22  24  32;   /* #16182a – glassmorphic card */
-  --prism-card-alt:  16  18  24;   /* #10121a – nested surface */
+  --prism-bg:         8  13  28;   /* #080D1C – Deep navy canvas */
+  --prism-bg2:       10  15  30;   /* deeper sidebar foundation */
+  --prism-card:      14  20  38;   /* #0E1426 – glassmorphic card */
+  --prism-card-alt:  10  16  30;   /* #0A101E – nested surface */
 
   /* ── Text ─────────────────────────────────── */
   --prism-primary:  236 238 244;   /* #ECEEF4 */

@@ -45,26 +45,26 @@
 
 .dark {
   color-scheme: dark;
-  --color-base: #0B0C10;
-  --color-surface: rgba(0, 0, 0, 0.22);
-  --color-surface-raised: rgba(0, 0, 0, 0.42);
-  --color-raised: rgba(16, 18, 24, 0.9);
-  --color-border: rgba(255, 255, 255, 0.04);
-  --color-border-hover: rgba(255, 255, 255, 0.20);
-  --color-border-highlight: rgba(255, 255, 255, 0.28);
+  --color-base: #080D1C;
+  --color-surface: rgba(8, 14, 30, 0.55);
+  --color-surface-raised: rgba(6, 12, 26, 0.65);
+  --color-raised: rgba(10, 16, 30, 0.9);
+  --color-border: rgba(130, 180, 255, 0.06);
+  --color-border-hover: rgba(130, 180, 255, 0.18);
+  --color-border-highlight: rgba(130, 180, 255, 0.25);
   --color-txt-primary: #ECEEF4;
   --color-txt-secondary: rgba(255, 255, 255, 0.6);
   --color-txt-muted: rgba(255, 255, 255, 0.45);
   --color-txt-faint: rgba(255, 255, 255, 0.28);
-  --color-hover-bg: rgba(255, 255, 255, 0.06);
+  --color-hover-bg: rgba(130, 180, 255, 0.06);
   --color-shimmer: rgb(var(--prism-accent-1) / 0.1);
-  --scrollbar-thumb: rgba(255, 255, 255, 0.12);
-  --scrollbar-hover: rgba(255, 255, 255, 0.2);
-  --glass-filter: blur(24px) saturate(200%);
-  --glass-bg: rgba(255, 255, 255, 0.04);
-  --sidebar-glass-bg: rgba(0, 0, 0, 0.12);
-  --sidebar-glass-border: rgba(255, 255, 255, 0.08);
-  --sidebar-glass-highlight: rgba(255, 255, 255, 0.04);
+  --scrollbar-thumb: rgba(130, 180, 255, 0.10);
+  --scrollbar-hover: rgba(130, 180, 255, 0.18);
+  --glass-filter: blur(20px) saturate(180%);
+  --glass-bg: rgba(10, 16, 34, 0.45);
+  --sidebar-glass-bg: rgba(8, 14, 28, 0.35);
+  --sidebar-glass-border: rgba(130, 180, 255, 0.08);
+  --sidebar-glass-highlight: rgba(130, 180, 255, 0.04);
   /* Accent colors – bright shades from Prism */
   --cyan: var(--prism-accent-1);
   --azure: var(--prism-accent-3);
@@ -106,7 +106,7 @@ body {
 
 .dark body,
 .dark #root {
-  background: #0B0C10;
+  background: #080D1C;
 }
 
 #root {
@@ -127,13 +127,13 @@ body {
 }
 
 .dark .dashboard-shell {
-  background: rgba(255, 255, 255, 0.04);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 14, 30, 0.50);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(130, 180, 255, 0.06);
   box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 8px 40px rgba(4, 8, 20, 0.45),
+    inset 0 1px 0 rgba(130, 180, 255, 0.04);
 }
 
 :not(.dark) .dashboard-shell {
@@ -159,7 +159,7 @@ body {
 }
 
 .dark .mesh-gradient-bg {
-  background-color: #07090f;
+  background-color: #060B18;
   background-image: url('/gradient-dark.svg');
   background-position: center var(--gradient-offset, 0px);
   background-size: 100% 4200px;
@@ -236,7 +236,7 @@ body {
 }
 
 .nav-item-active--dark {
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(6, 12, 28, 0.55);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
 }
@@ -335,11 +335,11 @@ button, a[role="button"], .glass-btn {
 }
 
 .dark .theme-glass-panel {
-  border-color: rgba(255, 255, 255, 0.04);
-  background-color: rgba(0, 0, 0, 0.22);
+  border-color: rgba(130, 180, 255, 0.06);
+  background-color: rgba(8, 14, 30, 0.55);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 rgba(130, 180, 255, 0.03);
 }
 
 .theme-glass-panel-strong {
@@ -348,11 +348,11 @@ button, a[role="button"], .glass-btn {
 }
 
 .dark .theme-glass-panel-strong {
-  border-color: rgba(255, 255, 255, 0.04);
-  background-color: rgba(0, 0, 0, 0.30);
+  border-color: rgba(130, 180, 255, 0.06);
+  background-color: rgba(6, 12, 26, 0.65);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  box-shadow: inset 0 1px 0 rgba(130, 180, 255, 0.02);
 }
 
 .theme-glass-panel-soft {
@@ -361,8 +361,8 @@ button, a[role="button"], .glass-btn {
 }
 
 .dark .theme-glass-panel-soft {
-  border-color: rgba(255, 255, 255, 0.03);
-  background-color: rgba(0, 0, 0, 0.14);
+  border-color: rgba(130, 180, 255, 0.04);
+  background-color: rgba(10, 16, 32, 0.40);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -373,7 +373,7 @@ button, a[role="button"], .glass-btn {
 }
 
 .dark .theme-glass-input {
-  background-color: rgba(0, 0, 0, 0.20);
+  background-color: rgba(6, 12, 26, 0.50);
 }
 
 .theme-glass-input-strong {
@@ -382,7 +382,7 @@ button, a[role="button"], .glass-btn {
 }
 
 .dark .theme-glass-input-strong {
-  background-color: rgba(0, 0, 0, 0.30);
+  background-color: rgba(6, 12, 26, 0.65);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -393,7 +393,7 @@ button, a[role="button"], .glass-btn {
 }
 
 .dark .theme-glass-chip {
-  background-color: rgba(0, 0, 0, 0.20);
+  background-color: rgba(8, 14, 28, 0.50);
 }
 
 .theme-overlay-backdrop {
@@ -403,7 +403,7 @@ button, a[role="button"], .glass-btn {
 }
 
 .dark .theme-overlay-backdrop {
-  background: rgba(0, 0, 0, 0.50);
+  background: rgba(4, 8, 18, 0.60);
 }
 
 .theme-overlay-backdrop-strong {
@@ -413,7 +413,7 @@ button, a[role="button"], .glass-btn {
 }
 
 .dark .theme-overlay-backdrop-strong {
-  background: rgba(0, 0, 0, 0.60);
+  background: rgba(4, 8, 18, 0.70);
 }
 
 /* ─── Input Fields ───────────────────────────── */
@@ -484,7 +484,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .stat-card {
-  background: var(--glass-bg) !important;
+  background: rgba(10, 16, 34, 0.45) !important;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -532,10 +532,10 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .stat-card-icon-badge {
-  background: rgba(7, 9, 15, 0.45);
+  background: rgba(4, 8, 20, 0.55);
   color: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 2px 8px rgba(7, 9, 15, 0.32);
+  border: 1px solid rgba(130, 180, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(4, 8, 20, 0.35);
 }
 
 /* Stat card variants — all use uniform glass */
@@ -578,8 +578,8 @@ input:focus, textarea:focus, select:focus {
   border: 1px solid var(--sidebar-glass-border);
   box-shadow:
     inset 0 1px 0 var(--sidebar-glass-highlight),
-    0 0 0 1px rgba(0, 224, 255, 0.05) inset,
-    0 8px 20px rgba(7, 9, 15, 0.3);
+    0 0 0 1px rgba(0, 160, 255, 0.05) inset,
+    0 8px 20px rgba(4, 8, 18, 0.35);
 }
 
 .banner-inner {
@@ -609,11 +609,11 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .workforce-avatar-card {
-  background: rgba(7, 9, 15, 0.25);
+  background: rgba(6, 12, 26, 0.40);
 }
 
 .dark .workforce-avatar-card:hover {
-  background: rgba(7, 9, 15, 0.35);
+  background: rgba(6, 12, 26, 0.55);
 }
 
 .agent-bar {
@@ -632,7 +632,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .agent-bar--dark {
-  background: var(--glass-bg) !important;
+  background: rgba(10, 16, 34, 0.45) !important;
   border-color: var(--color-border) !important;
   box-shadow: none;
   backdrop-filter: none;
@@ -708,11 +708,11 @@ input:focus, textarea:focus, select:focus {
 
 /* ─── Dark glass surfaces ─────────────────────── */
 .dark .glass-surface {
-  background-color: rgba(0, 0, 0, 0.22) !important;
+  background-color: rgba(8, 14, 30, 0.55) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border: 1px solid rgba(255, 255, 255, 0.04) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(130, 180, 255, 0.06) !important;
+  box-shadow: inset 0 1px 0 rgba(130, 180, 255, 0.03) !important;
 }
 
 /* Nested glass panels (NOT the sidebar itself — that has its own rule below) */
@@ -728,11 +728,11 @@ input:focus, textarea:focus, select:focus {
 .dark .sidebar-glass .bg-surface,
 .dark .glass-surface .bg-raised,
 .dark .glass-surface .bg-surface {
-  background-color: rgba(0, 0, 0, 0.18) !important;
+  background-color: rgba(6, 12, 26, 0.50) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border: 1px solid rgba(255, 255, 255, 0.03) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(130, 180, 255, 0.04) !important;
+  box-shadow: inset 0 1px 0 rgba(130, 180, 255, 0.02) !important;
 }
 
 .dark .dashboard-sidebar.sidebar-glass {
@@ -740,21 +740,21 @@ input:focus, textarea:focus, select:focus {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   border: 0 !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-right: 1px solid rgba(130, 180, 255, 0.06) !important;
   box-shadow: none !important;
 }
 
 .dark .dashboard-home .dashboard-home-primary.sidebar-glass {
-  background-color: rgba(0, 0, 0, 0.22) !important;
-  border-color: rgba(255, 255, 255, 0.04) !important;
+  background-color: rgba(8, 14, 30, 0.55) !important;
+  border-color: rgba(130, 180, 255, 0.06) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+  box-shadow: inset 0 1px 0 rgba(130, 180, 255, 0.03) !important;
 }
 
 .dark .dashboard-home .dashboard-home-nested.sidebar-glass {
-  background-color: rgba(0, 0, 0, 0.16) !important;
-  border-color: rgba(255, 255, 255, 0.03) !important;
+  background-color: rgba(6, 12, 26, 0.45) !important;
+  border-color: rgba(130, 180, 255, 0.04) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
@@ -766,13 +766,13 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .bg-raised {
-  background-color: rgba(0, 0, 0, 0.30) !important;
+  background-color: rgba(6, 12, 26, 0.65) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
 .dark .bg-surface {
-  background-color: rgba(0, 0, 0, 0.22) !important;
+  background-color: rgba(8, 14, 30, 0.55) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -824,7 +824,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .dark .modal-shell {
-  background: rgba(7, 9, 15, 0.62);
+  background: rgba(4, 8, 18, 0.65);
 }
 
 .modal-panel {
