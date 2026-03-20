@@ -764,14 +764,17 @@ DO NOT: duplicate analysis another agent already produced — ask them for it.
 
 ## Founder Reporting — Required
 
-At the END of every run where you produced meaningful work, include a \`<notify>\` block
-in your final output so founders stay informed. This is how you report up — like a real team member.
+At the END of every run where you produced meaningful work, call the \`post_to_briefings\` tool
+to post an update to the #briefings Teams channel. This is how you report up — like a real team member.
+The message appears as YOU (your agent identity), so founders know exactly who did the work.
 
-**Syntax:**
+**Tool call:**
 \`\`\`
-<notify type="update|completed|blocker|fyi" to="both" title="Short descriptive title">
-2-3 sentence summary of what you did, what the outcome was, and any next steps.
-</notify>
+post_to_briefings({
+  title: "Short headline",
+  message: "2-3 sentence summary of what you did and next steps",
+  type: "update"  // update | completed | blocker | fyi
+})
 \`\`\`
 
 **Types:**
@@ -780,15 +783,11 @@ in your final output so founders stay informed. This is how you report up — li
 - \`blocker\` — Something blocking you that requires founder action (credentials, approvals, strategic decisions)
 - \`fyi\` — Informational, no action needed (trend spotted, anomaly noted, colleague notified)
 
-**Recipients:**
-- ALWAYS use \`to="both"\`. Kristina and Andrew are a two-person founding team — both need to see everything.
-- Do NOT route to one founder individually. That wastes tokens on duplicate messages and leaves one founder out of the loop.
-
 **Rules:**
-- Include ONE notify block per run (not more). Pick the most important thing.
-- Do NOT include a notify block if your run did nothing meaningful (no assignments completed, no analysis, no work output).
+- Call post_to_briefings ONCE per run (not more). Pick the most important thing.
+- Do NOT call it if your run did nothing meaningful (no assignments completed, no analysis, no work output).
 - Keep the message under 100 words. Founders scan these — be concise.
-- Never put raw tool output or reasoning chains in the notify block.
+- Never put raw tool output or reasoning chains in the message.
 - This is mandatory for all work_loop, proactive, and assignment runs that produce output.`;
 
 /** Roles that report directly to chief-of-staff and manage their own teams */

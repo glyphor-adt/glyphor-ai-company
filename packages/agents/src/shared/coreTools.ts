@@ -23,6 +23,7 @@ import { createDmTools } from './dmTools.js';
 import { createDeliverableTools } from './deliverableTools.js';
 import { createExternalA2aTools } from './externalA2aTools.js';
 import { createKnowledgeRetrievalTools } from './knowledgeRetrievalTools.js';
+import { createChannelNotifyTools } from './channelNotifyTools.js';
 
 export const CORE_TOOL_NAMES: Set<string> = new Set([
   // Assignment lifecycle
@@ -47,6 +48,8 @@ export const CORE_TOOL_NAMES: Set<string> = new Set([
   // Teams DM
   'send_teams_dm',
   'read_teams_dm',
+  // Channel updates
+  'post_to_briefings',
   // Shared artifacts
   'publish_deliverable',
   'get_deliverables',
@@ -71,6 +74,7 @@ export function createCoreTools(deps: CoreToolDeps): ToolDefinition[] {
     ...createToolRequestTools(),
     ...createEventTools(deps.glyphorEventBus),
     ...createDmTools(),
+    ...createChannelNotifyTools(),
     ...createDeliverableTools(deps.glyphorEventBus),
     ...createExternalA2aTools(deps.externalA2aRegistryUrl ?? process.env.A2A_REGISTRY_URL),
     ...createKnowledgeRetrievalTools(),

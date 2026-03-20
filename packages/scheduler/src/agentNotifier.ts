@@ -1,25 +1,13 @@
 /**
- * Agent Notifier — Proactive agent-to-founder communication
+ * Agent Notifier — LEGACY fallback for <notify> blocks
  *
- * Parses agent outputs for notification intents and delivers them
- * to founders via Teams DM or channel posts. Agents can include
- * structured notification blocks in their output to trigger
- * proactive outreach.
+ * Primary path: Agents call `post_to_briefings` tool during their run to post
+ * updates as their own identity via Agent 365.
  *
- * Notification intent format (embedded in agent output):
- *   <notify type="update|question|blocker|completed|fyi" to="kristina|andrew|both" title="...">
- *     Message body here
- *   </notify>
- *
- * Examples:
- *   <notify type="question" to="kristina" title="Content approval needed">
- *     Maya drafted a case study. Should we publish it this week or wait for metrics?
- *     Options: Publish now | Wait for next week's data | Revise angle
- *   </notify>
- *
- *   <notify type="update" to="both" title="API costs trending up 22%">
- *     Gemini costs rose from $180 to $220 this week due to hero section variants.
- *   </notify>
+ * Fallback path (this file): If an agent still emits old-style <notify> blocks
+ * in their output, this parser catches them and posts to #briefings via the
+ * shared delegated Graph token. This exists for backward compatibility during
+ * the transition to direct agent channel posting.
  */
 
 import {
