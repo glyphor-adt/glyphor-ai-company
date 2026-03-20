@@ -7,10 +7,11 @@
 import type {
   TeamsWebhookPayload,
   AdaptiveCard,
+  AdaptiveCardAction,
   AdaptiveCardElement,
 } from './webhooks.js';
 
-export type { AdaptiveCard, AdaptiveCardElement };
+export type { AdaptiveCard, AdaptiveCardAction, AdaptiveCardElement };
 
 // ─── BRIEFING CARD ──────────────────────────────────────────────
 
