@@ -1,23 +1,31 @@
 name: Request Copilot Review
 
 # Copilot auto-review only triggers on non-draft PRs.
-# Copilot coding agent always creates drafts, so this workflow
-# marks them ready → which triggers the auto-review setting.
+# Copilot coding agent creates drafts and pushes multiple commits.
+# Bot pushes do NOT re-trigger pull_request_target events, so the
+# `opened` handler fires too early (while Copilot is still working)
+# and subsequent pushes never re-trigger. The scheduled sweep catches
+# completed Copilot draft PRs that the event-driven path missed.
 
 on:
   pull_request_target:
-    types: [opened, synchronize]
+    types: [opened, synchronize, ready_for_review]
     branches: [main]
+  schedule:
+    # Every 10 minutes — catch stale Copilot draft PRs
+    - cron: '*/10 * * * *'
 
 permissions:
   pull-requests: write
   contents: read
 
 jobs:
-  mark-ready-and-request-review:
+  # ── Event-driven: attempt to mark an individual PR ready ──
+  mark-ready:
+    if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
     steps:
-      - name: Mark draft PR ready & request Copilot review
+      - name: Mark draft PR ready for review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -28,13 +36,41 @@ jobs:
 
           echo "PR #${PR_NUMBER} | Author: ${AUTHOR} | Draft: ${IS_DRAFT}"
 
-          # If the PR is still a draft, mark it ready for review.
-          # This triggers the repo's "Automatically review pull requests" setting.
           if [ "$IS_DRAFT" = "true" ]; then
             echo "Marking PR #${PR_NUMBER} as ready for review..."
             gh pr ready "$PR_NUMBER" --repo "$REPO" && \
               echo "✓ PR #${PR_NUMBER} is now ready for review." || \
-              echo "✗ Could not mark PR ready (may already be ready)."
+              echo "✗ Could not mark PR ready (may still be in progress)."
           else
             echo "PR is already ready for review."
           fi
+
+  # ── Scheduled sweep: catch completed Copilot draft PRs ──
+  sweep-stale-drafts:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark completed Copilot draft PRs as ready
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+
+          # List all open draft PRs authored by Copilot
+          DRAFT_PRS=$(gh pr list \
+            --repo "$REPO" \
+            --state open \
+            --json number,isDraft,author \
+            --jq '.[] | select(.isDraft and .author.login == "Copilot") | .number')
+
+          if [ -z "$DRAFT_PRS" ]; then
+            echo "No Copilot draft PRs found."
+            exit 0
+          fi
+
+          for PR in $DRAFT_PRS; do
+            echo "Marking Copilot draft PR #${PR} as ready..."
+            gh pr ready "$PR" --repo "$REPO" && \
+              echo "✓ PR #${PR} is now ready for review." || \
+              echo "✗ Could not mark PR #${PR} ready."
+          done
