@@ -2728,7 +2728,7 @@ export function createOrchestrationTools(
 
         const directiveId = data.id;
 
-        // 2. Generate approval tokens and send Adaptive Card with approve/reject buttons
+        // 2. Generate approval tokens (URL fallback) and send Adaptive Card with inline buttons
         const baseUrl = process.env.PUBLIC_URL ?? process.env.SERVICE_URL ?? '';
         let approveUrl = `${baseUrl}/directives/approve/`;
         let rejectUrl = `${baseUrl}/directives/reject/`;
@@ -2748,7 +2748,7 @@ export function createOrchestrationTools(
           console.warn('[CoS] Could not generate approval tokens:', (e as Error).message);
         }
 
-        // Build and send Adaptive Card with interactive buttons
+        // Build Adaptive Card with Action.Execute inline buttons (no browser redirect)
         try {
           const card = formatDirectiveProposalCard({
             directiveId,
@@ -2759,15 +2759,12 @@ export function createOrchestrationTools(
             targetAgents,
             proposalReason,
             dueDate,
-            approveUrl,
-            rejectUrl,
           });
 
           // Try sending card via Teams DM
-          const sendDmTool = tools.find(t => t.name === 'send_dm');
           let cardSent = false;
 
-          // Attempt A365 → Graph DM card delivery
+          // Attempt Graph DM card delivery
           try {
             const graphClient = GraphTeamsClient.fromEnv();
             if (graphClient) {
@@ -2787,17 +2784,20 @@ export function createOrchestrationTools(
           }
 
           // Fallback: send plain text DM with approve/reject links
-          if (!cardSent && sendDmTool) {
-            const agentList = targetAgents.join(', ');
-            const deadlineLine = dueDate ? `\nSuggested deadline: ${dueDate}` : '';
-            const dmMessage =
-              `PROPOSED DIRECTIVE: ${title}\n\n` +
-              `Why: ${proposalReason}\n` +
-              `Scope: ${agentList}\n` +
-              `Priority: ${priority} | Category: ${category}${deadlineLine}\n\n` +
-              `✓ Approve: ${approveUrl}\n` +
-              `✕ Reject: ${rejectUrl}`;
-            await sendDmTool.execute({ recipient: notify, message: dmMessage }, ctx);
+          if (!cardSent) {
+            const sendDmTool = tools.find(t => t.name === 'send_dm');
+            if (sendDmTool) {
+              const agentList = targetAgents.join(', ');
+              const deadlineLine = dueDate ? `\nSuggested deadline: ${dueDate}` : '';
+              const dmMessage =
+                `PROPOSED DIRECTIVE: ${title}\n\n` +
+                `Why: ${proposalReason}\n` +
+                `Scope: ${agentList}\n` +
+                `Priority: ${priority} | Category: ${category}${deadlineLine}\n\n` +
+                `✓ Approve: ${approveUrl}\n` +
+                `✕ Reject: ${rejectUrl}`;
+              await sendDmTool.execute({ recipient: notify, message: dmMessage }, ctx);
+            }
           }
         } catch (e) {
           console.warn('[CoS] Could not DM founder about proposed directive:', (e as Error).message);

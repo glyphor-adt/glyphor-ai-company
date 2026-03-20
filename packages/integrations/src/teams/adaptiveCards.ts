@@ -461,8 +461,6 @@ export interface DirectiveProposalCardData {
   targetAgents: string[];
   proposalReason: string;
   dueDate?: string;
-  approveUrl: string;
-  rejectUrl: string;
 }
 
 export function formatDirectiveProposalCard(data: DirectiveProposalCardData): AdaptiveCard {
@@ -563,14 +561,16 @@ export function formatDirectiveProposalCard(data: DirectiveProposalCardData): Ad
     body,
     actions: [
       {
-        type: 'Action.OpenUrl',
+        type: 'Action.Execute',
         title: '✓ Approve Directive',
-        url: data.approveUrl,
+        verb: 'directive.approve',
+        data: { directiveId: data.directiveId },
       },
       {
-        type: 'Action.OpenUrl',
+        type: 'Action.Execute',
         title: '✕ Reject Directive',
-        url: data.rejectUrl,
+        verb: 'directive.reject',
+        data: { directiveId: data.directiveId },
       },
     ],
   };

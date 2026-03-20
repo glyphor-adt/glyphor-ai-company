@@ -439,6 +439,15 @@ interface DecisionActionExecutePayload {
   } & Record<string, unknown>;
 }
 
+interface DirectiveActionExecutePayload {
+  type?: string;
+  verb?: string;
+  data?: {
+    directiveId?: string;
+    directive_id?: string;
+  } & Record<string, unknown>;
+}
+
 let ensureDecisionApprovalsSchemaPromise: Promise<void> | null = null;
 let agent365DecisionAppSingleton: AgentApplication<TurnState> | null = null;
 let agent365DecisionAdapterSingleton: CloudAdapter | null = null;
@@ -740,6 +749,72 @@ async function handleAgent365DecisionAction(
     : `Decision "${decision.title}" rejected by ${capitalizeFounder(founder)}.`;
 }
 
+async function handleDirectiveActionExecute(
+  activity: { from?: Record<string, unknown> | undefined; channelData?: unknown },
+  action: DirectiveActionExecutePayload,
+  approved: boolean,
+): Promise<string> {
+  const directiveId = typeof action.data?.directiveId === 'string'
+    ? action.data.directiveId.trim()
+    : typeof action.data?.directive_id === 'string'
+      ? action.data.directive_id.trim()
+      : '';
+
+  if (!directiveId) {
+    return 'Directive action is missing a directive ID.';
+  }
+
+  const founder = resolveFounderFromActivity(activity);
+  if (!founder) {
+    return 'Only founders can approve or reject directives.';
+  }
+
+  const [directive] = await systemQuery<{
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    target_agents: string[];
+  }>(
+    'SELECT id, title, status, priority, target_agents FROM founder_directives WHERE id = $1 LIMIT 1',
+    [directiveId],
+  );
+
+  if (!directive) {
+    return `Directive ${directiveId} was not found.`;
+  }
+
+  if (directive.status !== 'proposed') {
+    return `Directive "${directive.title}" is already ${directive.status}.`;
+  }
+
+  const newStatus = approved ? 'active' : 'rejected';
+
+  await systemQuery(
+    `UPDATE founder_directives SET status = $1, updated_at = NOW() WHERE id = $2`,
+    [newStatus, directive.id],
+  );
+
+  // Burn any outstanding URL-based approval tokens for this directive
+  await systemQuery(
+    `UPDATE directive_approval_tokens SET used_at = NOW() WHERE directive_id = $1 AND used_at IS NULL`,
+    [directive.id],
+  ).catch(() => {});
+
+  await systemQuery(
+    `INSERT INTO activity_log (agent_role, action, summary)
+     VALUES ('system', $1, $2)`,
+    [
+      approved ? 'directive_approved' : 'directive_rejected',
+      `Directive "${directive.title}" ${newStatus} by ${capitalizeFounder(founder)} via Teams button`,
+    ],
+  );
+
+  return approved
+    ? `✓ Directive "${directive.title}" approved by ${capitalizeFounder(founder)}. Now active.`
+    : `✕ Directive "${directive.title}" rejected by ${capitalizeFounder(founder)}.`;
+}
+
 function getAgent365DecisionApp(): { adapter: CloudAdapter; app: AgentApplication<TurnState> } | null {
   if (agent365DecisionAppSingleton && agent365DecisionAdapterSingleton) {
     return { adapter: agent365DecisionAdapterSingleton, app: agent365DecisionAppSingleton };
@@ -763,6 +838,14 @@ function getAgent365DecisionApp(): { adapter: CloudAdapter; app: AgentApplicatio
 
   app.adaptiveCards.actionExecute<DecisionActionExecutePayload>('decision.reject', async (context, _state, action) => {
     return await handleAgent365DecisionAction(context.activity as Record<string, unknown>, action, false);
+  });
+
+  app.adaptiveCards.actionExecute<DirectiveActionExecutePayload>('directive.approve', async (context, _state, action) => {
+    return await handleDirectiveActionExecute(context.activity as Record<string, unknown>, action, true);
+  });
+
+  app.adaptiveCards.actionExecute<DirectiveActionExecutePayload>('directive.reject', async (context, _state, action) => {
+    return await handleDirectiveActionExecute(context.activity as Record<string, unknown>, action, false);
   });
 
   agent365DecisionAdapterSingleton = adapter;
