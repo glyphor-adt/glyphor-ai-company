@@ -1,1 +1,5 @@
 Creating temporary archive of 1397 file(s) totalling 137.1 MiB before compression.
+Uploading tarball of [.] to [gs://ai-glyphor-company_cloudbuild/source/1774030721.625773-256312b07b1e461caa46de398ad10f72.tgz]
+Created [https://cloudbuild.googleapis.com/v1/projects/ai-glyphor-company/locations/global/builds/f9b2603a-da1f-40bc-9035-8b792b4dde23].
+Logs are available at [ https://console.cloud.google.com/cloud-build/builds/f9b2603a-da1f-40bc-9035-8b792b4dde23?project=610179349713 ].
+Waiting for build to complete. Polling interval: 1 second(s).
