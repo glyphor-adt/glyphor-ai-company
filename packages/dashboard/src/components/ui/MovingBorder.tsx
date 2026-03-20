@@ -43,7 +43,7 @@ function TrailDot({
     if (!length) return;
     const pxPerMs = length / duration;
     const base = (time * pxPerMs) % length;
-    const offset = offsetFraction * length * 0.15;
+    const offset = offsetFraction * length * 0.35;
     progress.set((base - offset + length) % length);
   });
 
@@ -68,9 +68,9 @@ function TrailDot({
         width: size,
         height: size,
         borderRadius: '50%',
-        background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
+        background: `radial-gradient(circle, ${color} 0%, ${color}88 30%, transparent 70%)`,
         opacity,
-        filter: 'blur(6px)',
+        filter: 'blur(12px)',
         transform,
         willChange: 'transform',
         pointerEvents: 'none',
@@ -81,12 +81,12 @@ function TrailDot({
 
 // ── GradientMovingBorder (the SVG path + trail dots) ───────────────
 export function GradientMovingBorder({
-  duration = 3000,
+  duration = 6000,
   rx = '30%',
   ry = '30%',
   colors = PALETTES.prismMidnight,
-  trailCount = 6,
-  dotSize = 40,
+  trailCount = 20,
+  dotSize = 70,
 }: {
   duration?: number;
   rx?: string;
@@ -98,8 +98,9 @@ export function GradientMovingBorder({
   const pathRef = useRef<SVGRectElement>(null);
 
   const dots = Array.from({ length: trailCount }, (_, i) => {
-    const colorIndex = Math.floor((i / trailCount) * colors.length) % colors.length;
-    const opacity = 0.9 - (i / trailCount) * 0.6;
+    const t = i / trailCount;
+    const colorIndex = Math.floor(t * colors.length) % colors.length;
+    const opacity = 0.85 - t * 0.65;
     return (
       <TrailDot
         key={i}
@@ -143,10 +144,10 @@ export function MovingBorderContainer({
   as: Component = 'div',
   containerClassName,
   innerClassName,
-  duration = 3000,
+  duration = 6000,
   colors = PALETTES.prismMidnight,
-  trailCount = 6,
-  dotSize = 40,
+  trailCount = 20,
+  dotSize = 70,
   ...otherProps
 }: {
   children: React.ReactNode;
