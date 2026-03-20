@@ -354,6 +354,14 @@ button, a[role="button"], .glass-btn {
   background-color: var(--color-surface);
 }
 
+html:not(.dark) .theme-glass-panel {
+  background-color: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
 .dark .theme-glass-panel {
   border-color: rgba(255, 255, 255, 0.04);
   background-color: rgba(0, 0, 0, 0.22);
@@ -367,6 +375,14 @@ button, a[role="button"], .glass-btn {
   background-color: var(--color-surface);
 }
 
+html:not(.dark) .theme-glass-panel-strong {
+  background-color: rgba(255, 255, 255, 0.65);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
 .dark .theme-glass-panel-strong {
   border-color: rgba(255, 255, 255, 0.04);
   background-color: rgba(0, 0, 0, 0.30);
@@ -378,6 +394,13 @@ button, a[role="button"], .glass-btn {
 .theme-glass-panel-soft {
   border: 1px solid var(--color-border);
   background-color: var(--color-surface);
+}
+
+html:not(.dark) .theme-glass-panel-soft {
+  background-color: rgba(255, 255, 255, 0.40);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .dark .theme-glass-panel-soft {
@@ -471,12 +494,12 @@ input:focus, textarea:focus, select:focus {
 
 .glass-card-layout:hover,
 .glass-card:hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .glass-card-layout:active,
 .glass-card:active {
-  transform: translateY(0);
+  transform: none;
 }
 
 /* Inner layout shell (no surface styling) */

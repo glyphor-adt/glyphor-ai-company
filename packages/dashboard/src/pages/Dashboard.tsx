@@ -571,7 +571,7 @@ function MetricRibbon({ label, value, detail, toneClass = 'text-white', color }:
 
 function PulseStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border/80 bg-raised/40 px-4 py-3">
+    <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white/60 shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3">
       <p className="text-[10px] uppercase tracking-[0.18em] text-txt-faint">{label}</p>
       <p className="mt-2 text-[1.6rem] font-semibold text-txt-primary">{value}</p>
     </div>
