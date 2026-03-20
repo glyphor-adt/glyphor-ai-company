@@ -72,7 +72,7 @@ export default function WorldStateTab({ agentId }: WorldStateTabProps) {
   useEffect(() => { refresh(); }, [refresh]);
 
   if (loading) {
-    return <div className="h-[200px] animate-pulse rounded-lg bg-white/5" />;
+    return <div className="h-[200px] animate-pulse rounded-lg bg-raised/40" />;
   }
 
   return (
@@ -85,12 +85,12 @@ export default function WorldStateTab({ agentId }: WorldStateTabProps) {
       {/* World model corrections timeline */}
       {corrections.length > 0 && (
         <div>
-          <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-3">
+          <p className="text-[10px] font-semibold text-txt-faint uppercase tracking-widest mb-3">
             World Model Corrections
           </p>
           <div className="space-y-2">
             {corrections.map(c => (
-              <div key={c.id} className="rounded-lg border border-white/5 bg-white/5 p-3">
+              <div key={c.id} className="rounded-lg border border-border bg-raised/40 p-3">
                 <div className="flex items-center gap-2">
                   <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                     c.correction_type === 'weakness_added'
@@ -99,12 +99,12 @@ export default function WorldStateTab({ agentId }: WorldStateTabProps) {
                   }`}>
                     {c.correction_type.replace(/_/g, ' ')}
                   </span>
-                  <span className="text-xs text-white/70">{c.field_name.replace(/_/g, ' ')}</span>
+                  <span className="text-xs text-txt-secondary">{c.field_name.replace(/_/g, ' ')}</span>
                 </div>
                 {c.corrected_value?.description && (
-                  <p className="text-[11px] text-white/50 mt-1">{c.corrected_value.description}</p>
+                  <p className="text-[11px] text-txt-muted mt-1">{c.corrected_value.description}</p>
                 )}
-                <p className="text-[10px] text-white/30 mt-1">
+                <p className="text-[10px] text-txt-faint mt-1">
                   {new Date(c.applied_at).toLocaleDateString()} · via {c.source}
                   {c.evidence_eval_score != null && ` · eval score: ${(c.evidence_eval_score * 100).toFixed(0)}%`}
                 </p>
@@ -117,7 +117,7 @@ export default function WorldStateTab({ agentId }: WorldStateTabProps) {
       {/* World state entries */}
       {entries.length > 0 ? (
         <div>
-          <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-3">
+          <p className="text-[10px] font-semibold text-txt-faint uppercase tracking-widest mb-3">
             World State Entries
           </p>
           <div className="space-y-2">
@@ -127,7 +127,7 @@ export default function WorldStateTab({ agentId }: WorldStateTabProps) {
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-white/5 bg-white/5 p-4 text-xs text-white/40 text-center">
+        <div className="rounded-lg border border-border bg-raised/40 p-4 text-xs text-txt-muted text-center">
           No world state entries for this agent.
         </div>
       )}
@@ -150,35 +150,35 @@ function PredictionAccuracyPanel({ data }: { data: PredictionAccuracy }) {
     biasLabel === 'underconfident' ? '#F59E0B' : '#666';
 
   return (
-    <div className="rounded-lg border border-white/5 bg-white/5 p-4">
-      <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-3">
+    <div className="rounded-lg border border-border bg-raised/40 p-4">
+      <p className="text-[10px] font-semibold text-txt-faint uppercase tracking-widest mb-3">
         Prediction Accuracy
       </p>
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <p className="text-[10px] text-white/30">Accuracy</p>
+          <p className="text-[10px] text-txt-faint">Accuracy</p>
           <p className="text-lg font-mono text-[#00E0FF]">
             {data.prediction_accuracy != null
               ? `${(data.prediction_accuracy * 100).toFixed(0)}%`
               : '—'}
           </p>
-          <p className="text-[10px] text-white/20">{data.total_predictions} predictions</p>
+          <p className="text-[10px] text-txt-faint">{data.total_predictions} predictions</p>
         </div>
         <div>
-          <p className="text-[10px] text-white/30">Calibration</p>
+          <p className="text-[10px] text-txt-faint">Calibration</p>
           <p className="text-lg font-mono" style={{ color: biasColor }}>
             {bias != null ? `${bias > 0 ? '+' : ''}${(bias * 100).toFixed(0)}pts` : '—'}
           </p>
           <p className="text-[10px]" style={{ color: biasColor }}>{biasLabel}</p>
         </div>
         <div>
-          <p className="text-[10px] text-white/30">Self vs External</p>
-          <p className="text-sm font-mono text-white/60">
+          <p className="text-[10px] text-txt-faint">Self vs External</p>
+          <p className="text-sm font-mono text-txt-secondary">
             {data.avg_self_score != null ? `${(data.avg_self_score * 100).toFixed(0)}` : '—'}
             {' / '}
             {data.avg_external_score != null ? `${(data.avg_external_score * 100).toFixed(0)}` : '—'}
           </p>
-          <p className="text-[10px] text-white/20">self / external</p>
+          <p className="text-[10px] text-txt-faint">self / external</p>
         </div>
       </div>
     </div>
@@ -202,25 +202,25 @@ function freshnessBadge(freshness: string) {
 
 function WorldStateRow({ entry }: { entry: WorldStateEntry }) {
   return (
-    <div className="rounded-lg border border-white/5 bg-white/5 p-3">
+    <div className="rounded-lg border border-border bg-raised/40 p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-white/70">{entry.key}</span>
+            <span className="text-xs font-medium text-txt-secondary">{entry.key}</span>
             {freshnessBadge(entry.freshness)}
           </div>
-          <span className="text-[10px] text-white/30 mt-0.5 block">
+          <span className="text-[10px] text-txt-faint mt-0.5 block">
             {entry.domain}{entry.entity_id ? ` / ${entry.entity_id}` : ''}
           </span>
         </div>
         {entry.confidence !== null && (
-          <span className="text-[10px] text-white/30 shrink-0">
+          <span className="text-[10px] text-txt-faint shrink-0">
             conf: {(entry.confidence * 100).toFixed(0)}%
           </span>
         )}
       </div>
 
-      <p className="text-[10px] text-white/30 mt-2">
+      <p className="text-[10px] text-txt-faint mt-2">
         Updated {Math.round(entry.age_hours)}h ago
         {entry.written_by_agent && ` by ${entry.written_by_agent}`}
         {entry.valid_until && ` · expires ${new Date(entry.valid_until).toLocaleDateString()}`}

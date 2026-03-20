@@ -40,7 +40,7 @@ export default function Fleet() {
   }
 
   return (
-    <div className="min-h-screen text-white">
+    <div className="min-h-screen text-txt-primary">
       {/* Summary bar — always visible */}
       <div className="sticky top-0 z-30 p-4 pb-0">
         <EvalSummaryBar agents={agents} activeFilter={filter} onFilterChange={handleFilterChange} />
@@ -56,7 +56,7 @@ export default function Fleet() {
 
         {/* Fleet grid */}
         <section>
-          <h2 className="text-sm font-semibold text-white/40 uppercase tracking-widest mb-4">
+          <h2 className="text-sm font-semibold text-txt-muted uppercase tracking-widest mb-4">
             Agent Fleet
           </h2>
           <EvalFleetGrid onAgentClick={setSelectedAgent} filter={filter} />

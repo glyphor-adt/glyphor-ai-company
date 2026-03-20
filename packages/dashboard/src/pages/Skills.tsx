@@ -202,18 +202,18 @@ export default function Skills() {
     <div className="space-y-6">
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-4">
-        <Card className="text-center py-3">
+        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white/60 shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift">
           <p className="text-2xl font-bold text-txt-primary">{totalSkills}</p>
           <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">Total Skills</p>
-        </Card>
-        <Card className="text-center py-3">
+        </div>
+        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white/60 shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift">
           <p className="text-2xl font-bold text-txt-primary">{categories.length}</p>
           <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">Categories</p>
-        </Card>
-        <Card className="text-center py-3">
+        </div>
+        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white/60 shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift">
           <p className="text-2xl font-bold text-txt-primary">{totalAssignments}</p>
           <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">Agent Assignments</p>
-        </Card>
+        </div>
       </div>
 
       {/* Category filter + actions */}

@@ -52,7 +52,7 @@ export default function PerformanceTab({ agentId }: PerformanceTabProps) {
   useEffect(() => { refresh(); }, [refresh]);
 
   if (loading) {
-    return <div className="h-[200px] animate-pulse rounded-lg bg-white/5" />;
+    return <div className="h-[200px] animate-pulse rounded-lg bg-raised/40" />;
   }
 
   // Compute week-over-week delta
@@ -88,13 +88,13 @@ export default function PerformanceTab({ agentId }: PerformanceTabProps) {
       <div className="flex items-center gap-4">
         {avgThis !== null && (
           <div>
-            <span className="text-[10px] text-white/30 uppercase">This week</span>
-            <p className="text-lg font-semibold text-white">{(avgThis * 100).toFixed(0)}%</p>
+            <span className="text-[10px] text-txt-faint uppercase">This week</span>
+            <p className="text-lg font-semibold text-txt-primary">{(avgThis * 100).toFixed(0)}%</p>
           </div>
         )}
         {delta !== null && (
           <div>
-            <span className="text-[10px] text-white/30 uppercase">vs last week</span>
+            <span className="text-[10px] text-txt-faint uppercase">vs last week</span>
             <p className={`text-lg font-semibold ${delta >= 0 ? 'text-[#00E0FF]' : 'text-red-400'}`}>
               {delta >= 0 ? '↑' : '↓'} {Math.abs(delta * 100).toFixed(1)}%
             </p>
@@ -106,14 +106,14 @@ export default function PerformanceTab({ agentId }: PerformanceTabProps) {
       {trend.length > 0 && (
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={trend} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-            <XAxis dataKey="day" tick={{ fill: '#ffffff40', fontSize: 10 }}
+            <XAxis dataKey="day" tick={{ fill: 'var(--color-txt-muted)', fontSize: 10 }}
                    tickFormatter={v => new Date(v).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
                    axisLine={false} tickLine={false} />
-            <YAxis domain={[0, 1]} tick={{ fill: '#ffffff40', fontSize: 10 }}
+            <YAxis domain={[0, 1]} tick={{ fill: 'var(--color-txt-muted)', fontSize: 10 }}
                    tickFormatter={v => `${Math.round(v * 100)}%`} axisLine={false} tickLine={false} />
             <Tooltip
-              contentStyle={{ background: '#131620', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-              labelStyle={{ color: '#ffffffcc' }}
+              contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8 }}
+              labelStyle={{ color: 'var(--color-txt-primary)' }}
               labelFormatter={v => new Date(v).toLocaleDateString()}
               formatter={(value: number, name: string) => [
                 `${(value * 100).toFixed(1)}%`,

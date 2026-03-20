@@ -42,12 +42,12 @@ export default function HandoffsTab({ agentId }: HandoffsTabProps) {
   useEffect(() => { refresh(); }, [refresh]);
 
   if (loading) {
-    return <div className="h-[200px] animate-pulse rounded-lg bg-white/5" />;
+    return <div className="h-[200px] animate-pulse rounded-lg bg-raised/40" />;
   }
 
   if (!data || (data.as_upstream.length === 0 && data.as_downstream.length === 0)) {
     return (
-      <div className="rounded-lg border border-white/5 bg-white/5 p-4 text-xs text-white/40 text-center">
+      <div className="rounded-lg border border-border bg-raised/40 p-4 text-xs text-txt-muted text-center">
         No handoff traces for this agent yet.
       </div>
     );
@@ -86,7 +86,7 @@ function HandoffSection({
 }) {
   return (
     <div>
-      <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-3">
+      <p className="text-[10px] font-semibold text-txt-faint uppercase tracking-widest mb-3">
         {title}
       </p>
       <div className="space-y-2">
@@ -100,13 +100,13 @@ function HandoffSection({
               className={`rounded-lg border p-3 ${
                 isRedFlag
                   ? 'border-red-500/20 bg-red-500/5'
-                  : 'border-white/5 bg-white/5'
+                  : 'border-border bg-raised/40'
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-white/70">{partner}</span>
-                  <span className="text-[10px] text-white/30">{row.handoff_count} handoffs</span>
+                  <span className="text-xs font-medium text-txt-secondary">{partner}</span>
+                  <span className="text-[10px] text-txt-faint">{row.handoff_count} handoffs</span>
                   {isRedFlag && (
                     <span className="text-[10px] text-red-400 border border-red-400/20 bg-red-400/10 px-1.5 py-0.5 rounded-full">
                       high context loss
@@ -117,7 +117,7 @@ function HandoffSection({
 
               <div className="grid grid-cols-3 gap-4 mt-2">
                 <div>
-                  <p className="text-[10px] text-white/30">Avg usability</p>
+                  <p className="text-[10px] text-txt-faint">Avg usability</p>
                   <p className="text-sm font-mono" style={{ color: scoreColor(row.avg_usability) }}>
                     {row.avg_usability != null
                       ? `${Math.round(row.avg_usability * 100)}%`
@@ -125,13 +125,13 @@ function HandoffSection({
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-white/30">Context loss</p>
-                  <p className={`text-sm font-mono ${isRedFlag ? 'text-red-400' : 'text-white/60'}`}>
+                  <p className="text-[10px] text-txt-faint">Context loss</p>
+                  <p className={`text-sm font-mono ${isRedFlag ? 'text-red-400' : 'text-txt-secondary'}`}>
                     {row.context_loss_rate_pct}%
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-white/30">Upstream quality</p>
+                  <p className="text-[10px] text-txt-faint">Upstream quality</p>
                   <p className="text-sm font-mono" style={{ color: scoreColor(row.avg_upstream_quality) }}>
                     {row.avg_upstream_quality != null
                       ? `${Math.round(row.avg_upstream_quality * 100)}%`

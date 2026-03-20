@@ -37,17 +37,17 @@ export default function CostLatencyPanel() {
 
   // Loading
   if (data === undefined) {
-    return <div className="h-[200px] animate-pulse rounded-xl bg-[#131620]" />;
+    return <div className="h-[200px] animate-pulse rounded-xl glass-surface" />;
   }
 
   // Not instrumented
   if (data === null) {
     return (
-      <div className="rounded-xl border border-white/5 bg-[#131620] p-6">
-        <h3 className="text-sm font-semibold text-white/60 uppercase tracking-widest mb-2">
+      <div className="rounded-xl border border-border glass-surface p-6">
+        <h3 className="text-sm font-semibold text-txt-secondary uppercase tracking-widest mb-2">
           Cost &amp; Latency Tracking
         </h3>
-        <p className="text-sm text-white/40 leading-relaxed">
+        <p className="text-sm text-txt-muted leading-relaxed">
           Not yet instrumented. Add <code className="text-[#00E0FF]/70">total_tokens</code>,{' '}
           <code className="text-[#00E0FF]/70">duration_ms</code>, and{' '}
           <code className="text-[#00E0FF]/70">estimated_cost_usd</code> to{' '}
@@ -85,8 +85,8 @@ export default function CostLatencyPanel() {
   }
 
   return (
-    <div className="rounded-xl border border-white/5 bg-[#131620] p-5">
-      <h3 className="text-sm font-semibold text-white/60 uppercase tracking-widest mb-4">
+    <div className="rounded-xl border border-border glass-surface p-5">
+      <h3 className="text-sm font-semibold text-txt-secondary uppercase tracking-widest mb-4">
         Cost &amp; Latency (30d)
       </h3>
       <ResponsiveContainer width="100%" height={Math.max(data.length * 32, 120)}>
@@ -95,12 +95,12 @@ export default function CostLatencyPanel() {
             const value = typeof v === 'number' && Number.isFinite(v) ? v : 0;
             return `$${value.toFixed(3)}`;
           }}
-                 tick={{ fill: '#ffffff60', fontSize: 10 }} axisLine={false} tickLine={false} />
+                 tick={{ fill: 'var(--color-txt-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
           <YAxis type="category" dataKey="agent_id" width={90}
-                 tick={{ fill: '#ffffff80', fontSize: 11 }} axisLine={false} tickLine={false} />
+                 tick={{ fill: 'var(--color-txt-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
           <Tooltip
-            contentStyle={{ background: '#131620', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-            labelStyle={{ color: '#ffffffcc' }}
+            contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8 }}
+            labelStyle={{ color: 'var(--color-txt-primary)' }}
             formatter={(rawValue: number, name: string) => {
               const value = asFiniteNumber(rawValue);
               if (name === 'avg_cost_usd') return [value === null ? '—' : `$${value.toFixed(4)}`, 'Avg Cost'];
@@ -124,7 +124,7 @@ export default function CostLatencyPanel() {
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-white/30 border-b border-white/5">
+            <tr className="text-txt-faint border-b border-border">
               <th className="text-left py-1.5 font-medium">Agent</th>
               <th className="text-right py-1.5 font-medium">Avg Cost</th>
               <th className="text-right py-1.5 font-medium">p95 Latency</th>
@@ -140,20 +140,20 @@ export default function CostLatencyPanel() {
               const runCount = asRunCount(row.run_count);
 
               return (
-                <tr key={row.agent_id} className="border-b border-white/5">
-                  <td className="py-1.5 text-white/70">{row.agent_id}</td>
+                <tr key={row.agent_id} className="border-b border-border">
+                  <td className="py-1.5 text-txt-secondary">{row.agent_id}</td>
                   <td className={`py-1.5 text-right ${
                     avgCost !== null && avgCost > 1
                       ? 'text-red-400'
                       : avgCost !== null && avgCost > 0.5
                         ? 'text-amber-400'
-                        : 'text-white/60'
+                        : 'text-txt-secondary'
                   }`}>
                     {avgCost === null ? '—' : `$${avgCost.toFixed(4)}`}
                   </td>
-                  <td className="py-1.5 text-right text-white/60">{p95Latency === null ? '—' : `${Math.round(p95Latency)}ms`}</td>
-                  <td className="py-1.5 text-right text-white/60">{avgTokens === null ? '—' : Math.round(avgTokens).toLocaleString()}</td>
-                  <td className="py-1.5 text-right text-white/40">{runCount}</td>
+                  <td className="py-1.5 text-right text-txt-secondary">{p95Latency === null ? '—' : `${Math.round(p95Latency)}ms`}</td>
+                  <td className="py-1.5 text-right text-txt-secondary">{avgTokens === null ? '—' : Math.round(avgTokens).toLocaleString()}</td>
+                  <td className="py-1.5 text-right text-txt-muted">{runCount}</td>
                 </tr>
               );
             })}

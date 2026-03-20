@@ -60,14 +60,14 @@ export default function ToolAccuracySection({ agentId }: ToolAccuracySectionProp
   useEffect(() => { refresh(); }, [refresh]);
 
   if (loading) {
-    return <div className="mt-6 pt-6 border-t border-white/5 h-[80px] animate-pulse rounded-lg bg-white/5" />;
+    return <div className="mt-6 pt-6 border-t border-border h-[80px] animate-pulse rounded-lg bg-raised/40" />;
   }
 
   if (!data || data.eval_count === 0) return null;
 
   return (
-    <div className="mt-6 pt-6 border-t border-white/5">
-      <h4 className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-4">
+    <div className="mt-6 pt-6 border-t border-border">
+      <h4 className="text-xs font-semibold text-txt-muted uppercase tracking-widest mb-4">
         Tool Usage
       </h4>
 
@@ -76,7 +76,7 @@ export default function ToolAccuracySection({ agentId }: ToolAccuracySectionProp
         <div className="text-2xl font-bold" style={{ color: scoreColor(data.avg_score) }}>
           {data.avg_score != null ? Math.round(data.avg_score * 100) : '—'}
         </div>
-        <div className="text-xs text-white/40">
+        <div className="text-xs text-txt-muted">
           avg tool accuracy<br />last {data.eval_count} eval{data.eval_count !== 1 ? 's' : ''}
         </div>
       </div>
@@ -84,10 +84,10 @@ export default function ToolAccuracySection({ agentId }: ToolAccuracySectionProp
       {/* Problem tools — most frequently flagged */}
       {data.problem_tools.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] text-white/30 uppercase tracking-widest">Frequent issues</p>
+          <p className="text-[10px] text-txt-faint uppercase tracking-widest">Frequent issues</p>
           {data.problem_tools.map((tool) => (
-            <div key={tool.tool_name} className="flex justify-between items-center bg-white/[0.03] rounded-lg px-3 py-2">
-              <span className="text-xs text-white/70 font-mono">{tool.tool_name}</span>
+            <div key={tool.tool_name} className="flex justify-between items-center bg-raised/40 rounded-lg px-3 py-2">
+              <span className="text-xs text-txt-secondary font-mono">{tool.tool_name}</span>
               <div className="flex gap-2 text-[10px]">
                 {tool.repeated_failures > 0 && (
                   <span className="text-red-400">{tool.repeated_failures}&times; failed</span>
@@ -104,10 +104,10 @@ export default function ToolAccuracySection({ agentId }: ToolAccuracySectionProp
       {/* Retrieval breakdown — how tools are being selected */}
       {data.retrieval_breakdown && (data.retrieval_breakdown.pinned_pct != null || data.retrieval_breakdown.semantic_pct != null) && (
         <div className="mt-4">
-          <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2">
+          <p className="text-[10px] text-txt-faint uppercase tracking-widest mb-2">
             How tools are selected
           </p>
-          <div className="h-1.5 rounded-full bg-white/5 flex overflow-hidden">
+          <div className="h-1.5 rounded-full bg-raised/40 flex overflow-hidden">
             <div
               style={{ width: `${data.retrieval_breakdown.pinned_pct ?? 0}%` }}
               className="bg-[#6E77DF]"
@@ -133,11 +133,11 @@ export default function ToolAccuracySection({ agentId }: ToolAccuracySectionProp
       {/* Risk tools — fleet vs agent cross-signal */}
       {data.risk_tools?.length > 0 && (
         <div className="mt-4">
-          <p className="text-[10px] text-white/30 uppercase tracking-widest mb-2">Tool Risk Signals</p>
+          <p className="text-[10px] text-txt-faint uppercase tracking-widest mb-2">Tool Risk Signals</p>
           <div className="space-y-1.5">
             {data.risk_tools.map((tool) => (
-              <div key={tool.tool_name} className="flex justify-between items-center bg-white/[0.03] rounded-lg px-3 py-2">
-                <span className="text-xs text-white/70 font-mono truncate mr-2">{tool.tool_name}</span>
+              <div key={tool.tool_name} className="flex justify-between items-center bg-raised/40 rounded-lg px-3 py-2">
+                <span className="text-xs text-txt-secondary font-mono truncate mr-2">{tool.tool_name}</span>
                 <div className="flex gap-1.5 shrink-0">
                   {tool.agent_underperforming_vs_fleet && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">

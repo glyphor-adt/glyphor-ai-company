@@ -42,17 +42,17 @@ export default function AgentDetailDrawer({ agent, open, onClose }: AgentDetailD
 
       {/* Drawer */}
       <div
-        className={`fixed right-0 top-0 h-full w-[480px] max-w-full bg-[#0D0F18] border-l border-white/5
+        className={`fixed right-0 top-0 h-full w-[480px] max-w-full bg-surface border-l border-border
                      shadow-2xl transform transition-transform duration-300 z-50
                      ${open ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {agent && (
           <>
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-white/5">
+            <div className="flex items-center justify-between p-6 border-b border-border">
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-white truncate">{agent.name}</h2>
-                <p className="text-xs text-white/40">
+                <h2 className="text-lg font-semibold text-txt-primary truncate">{agent.name}</h2>
+                <p className="text-xs text-txt-muted">
                   {agent.department ?? 'Unassigned'} · v{agent.prompt_version ?? '?'}
                 </p>
               </div>
@@ -60,7 +60,7 @@ export default function AgentDetailDrawer({ agent, open, onClose }: AgentDetailD
                 <ScoreRadial score={agent.performance_score} color={scoreColor(agent.performance_score)} />
                 <button
                   onClick={onClose}
-                  className="text-white/30 hover:text-white/60 transition-colors"
+                  className="text-txt-faint hover:text-txt-secondary transition-colors"
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -70,7 +70,7 @@ export default function AgentDetailDrawer({ agent, open, onClose }: AgentDetailD
             </div>
 
             {/* Tab bar */}
-            <div className="flex border-b border-white/5 px-6">
+            <div className="flex border-b border-border px-6">
               {TABS.map((tab, i) => (
                 <button
                   key={tab}
@@ -78,7 +78,7 @@ export default function AgentDetailDrawer({ agent, open, onClose }: AgentDetailD
                   className={`px-3 py-2.5 text-xs font-medium transition-colors relative
                     ${activeTab === i
                       ? 'text-[#00E0FF]'
-                      : 'text-white/40 hover:text-white/60'
+                      : 'text-txt-muted hover:text-txt-secondary'
                     }`}
                 >
                   {tab}

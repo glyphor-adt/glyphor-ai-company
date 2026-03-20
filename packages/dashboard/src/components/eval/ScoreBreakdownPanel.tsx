@@ -33,7 +33,7 @@ const COMPONENTS = [
 export default function ScoreBreakdownPanel({ runs }: ScoreBreakdownPanelProps) {
   if (runs.length === 0) {
     return (
-      <div className="rounded-lg border border-white/5 bg-white/5 p-4 text-xs text-white/40">
+      <div className="rounded-lg border border-border bg-raised/40 p-4 text-xs text-txt-muted">
         No recent evaluation data available.
       </div>
     );
@@ -41,20 +41,20 @@ export default function ScoreBreakdownPanel({ runs }: ScoreBreakdownPanelProps) 
 
   return (
     <div>
-      <h4 className="text-xs font-semibold text-white/50 uppercase tracking-widest mb-3">
+      <h4 className="text-xs font-semibold text-txt-muted uppercase tracking-widest mb-3">
         Score Components (Last {runs.length} Runs)
       </h4>
 
       {/* Stacked bar chart */}
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={runs} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-          <XAxis dataKey="run_index" tick={{ fill: '#ffffff40', fontSize: 10 }}
+          <XAxis dataKey="run_index" tick={{ fill: 'var(--color-txt-muted)', fontSize: 10 }}
                  axisLine={false} tickLine={false} />
-          <YAxis domain={[0, 1]} tick={{ fill: '#ffffff40', fontSize: 10 }}
+          <YAxis domain={[0, 1]} tick={{ fill: 'var(--color-txt-muted)', fontSize: 10 }}
                  axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v * 100)}%`} />
           <Tooltip
-            contentStyle={{ background: '#131620', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-            labelStyle={{ color: '#ffffffcc' }}
+            contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8 }}
+            labelStyle={{ color: 'var(--color-txt-primary)' }}
             formatter={(value: number, name: string) => [
               `${(value * 100).toFixed(1)}%`,
               COMPONENTS.find(c => c.key === name)?.label ?? name,
@@ -63,7 +63,7 @@ export default function ScoreBreakdownPanel({ runs }: ScoreBreakdownPanelProps) 
           <Legend
             iconType="circle" iconSize={8}
             formatter={(value: string) => (
-              <span className="text-[10px] text-white/60">
+              <span className="text-[10px] text-txt-secondary">
                 {COMPONENTS.find(c => c.key === value)?.label ?? value}
               </span>
             )}
@@ -78,29 +78,29 @@ export default function ScoreBreakdownPanel({ runs }: ScoreBreakdownPanelProps) 
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-[11px]">
           <thead>
-            <tr className="text-white/30 border-b border-white/5">
+            <tr className="text-txt-faint border-b border-border">
               <th className="text-left py-1 font-medium">Run</th>
               {COMPONENTS.map(c => (
                 <th key={c.key} className="text-right py-1 font-medium" style={{ color: c.color + '99' }}>
                   {c.label}
                 </th>
               ))}
-              <th className="text-right py-1 font-medium text-white/50">Composite</th>
-              <th className="text-center py-1 font-medium text-white/30">⟳</th>
+              <th className="text-right py-1 font-medium text-txt-muted">Composite</th>
+              <th className="text-center py-1 font-medium text-txt-faint">⟳</th>
             </tr>
           </thead>
           <tbody>
             {runs.map(run => (
-              <tr key={run.run_index} className="border-b border-white/5">
-                <td className="py-1 text-white/50">#{run.run_index}</td>
+              <tr key={run.run_index} className="border-b border-border">
+                <td className="py-1 text-txt-muted">#{run.run_index}</td>
                 {COMPONENTS.map(c => (
-                  <td key={c.key} className="py-1 text-right text-white/60">
+                  <td key={c.key} className="py-1 text-right text-txt-secondary">
                     {run[c.key] !== null && run[c.key] !== undefined
                       ? `${(run[c.key]! * 100).toFixed(0)}%`
                       : '—'}
                   </td>
                 ))}
-                <td className="py-1 text-right text-white/80 font-medium">
+                <td className="py-1 text-right text-txt-primary font-medium">
                   {run.composite !== null ? `${(run.composite * 100).toFixed(0)}%` : '—'}
                 </td>
                 <td className="py-1 text-center">

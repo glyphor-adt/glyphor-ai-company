@@ -123,7 +123,7 @@ export default function EvalFleetGrid({ onAgentClick, filter }: EvalFleetGridPro
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="h-[160px] animate-pulse rounded-xl bg-[#131620]" />
+          <div key={i} className="h-[160px] animate-pulse rounded-xl glass-surface" />
         ))}
       </div>
     );
@@ -135,7 +135,7 @@ export default function EvalFleetGrid({ onAgentClick, filter }: EvalFleetGridPro
         <div
           key={agent.id}
           style={{ '--rim': scoreColor(agent.performance_score) } as React.CSSProperties}
-          className="relative rounded-xl border border-white/5 bg-[#131620] p-4 cursor-pointer
+          className="relative rounded-xl border border-border glass-surface p-4 cursor-pointer
                      shadow-lg transition-all duration-200 hover:scale-[1.02]
                      before:absolute before:inset-0 before:rounded-xl
                      before:border before:border-[var(--rim)]/30 before:pointer-events-none"
@@ -164,8 +164,8 @@ export default function EvalFleetGrid({ onAgentClick, filter }: EvalFleetGridPro
 
           <ScoreRadial score={agent.performance_score} color={scoreColor(agent.performance_score)} />
 
-          <p className="text-sm font-semibold text-white/90 mt-2 truncate">{agent.name}</p>
-          <p className="text-xs text-white/40">{agent.department ?? 'Unassigned'}</p>
+          <p className="text-sm font-semibold text-txt-primary mt-2 truncate">{agent.name}</p>
+          <p className="text-xs text-txt-muted">{agent.department ?? 'Unassigned'}</p>
 
           {agent.prompt_source === 'reflection' && (
             <span className="text-[10px] text-[#00E0FF]/70 mt-1 block">↑ self-improved v{agent.prompt_version}</span>
@@ -174,7 +174,7 @@ export default function EvalFleetGrid({ onAgentClick, filter }: EvalFleetGridPro
             <span className="text-[10px] text-[#6E77DF]/70 mt-1 block">⇑ promoted v{agent.prompt_version}</span>
           )}
 
-          <p className="text-[10px] text-white/30 mt-2">
+          <p className="text-[10px] text-txt-faint mt-2">
             {agent.last_run_at ? `last run ${formatRelative(agent.last_run_at)}` : 'no runs'}
           </p>
         </div>

@@ -47,8 +47,8 @@ export default function EvalSummaryBar({ agents, activeFilter, onFilterChange }:
         onClick={() => onFilterChange(isActive ? null : filterKey)}
         className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all
           ${isActive
-            ? 'bg-white/15 text-white ring-1 ring-white/20'
-            : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80'
+            ? 'bg-raised text-txt-primary ring-1 ring-border'
+            : 'bg-raised/40 text-txt-secondary hover:bg-raised hover:text-txt-primary'
           }`}
       >
         {color && <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />}
@@ -58,18 +58,18 @@ export default function EvalSummaryBar({ agents, activeFilter, onFilterChange }:
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/5 bg-[#131620] px-5 py-3">
-      <span className="text-xs font-semibold text-white/50 mr-2">{total} agents</span>
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border glass-surface px-5 py-3">
+      <span className="text-xs font-semibold text-txt-muted mr-2">{total} agents</span>
       {chip('healthy', healthy, 'healthy', '#00E0FF')}
       {chip('degraded', degraded, 'degraded', '#F59E0B')}
       {chip('unhealthy', unhealthy, 'unhealthy', '#EF4444')}
-      <span className="mx-1 h-4 w-px bg-white/10" />
+      <span className="mx-1 h-4 w-px bg-raised" />
       {chip('P0s open', p0Count, 'p0', '#EF4444')}
       {chip('self-improved', selfImproved, 'self-improved', '#00E0FF')}
       {worldSummary && (
         <>
-          <span className="mx-1 h-4 w-px bg-white/10" />
-          <span className="text-[11px] text-white/40">
+          <span className="mx-1 h-4 w-px bg-raised" />
+          <span className="text-[11px] text-txt-muted">
             world state: {worldSummary.stale > 0 && <span className="text-amber-400">{worldSummary.stale} stale </span>}
             {worldSummary.expired > 0 && <span className="text-red-400">{worldSummary.expired} expired</span>}
             {worldSummary.stale === 0 && worldSummary.expired === 0 && <span className="text-[#00E0FF]">all fresh</span>}

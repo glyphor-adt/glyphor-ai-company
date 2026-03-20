@@ -47,7 +47,7 @@ export default function FindingsTab({ agentId }: FindingsTabProps) {
   }
 
   if (loading) {
-    return <div className="h-[200px] animate-pulse rounded-lg bg-white/5" />;
+    return <div className="h-[200px] animate-pulse rounded-lg bg-raised/40" />;
   }
 
   const open = findings.filter(f => !f.resolved_at);
@@ -57,7 +57,7 @@ export default function FindingsTab({ agentId }: FindingsTabProps) {
     const colors: Record<string, string> = {
       P0: 'bg-red-500/20 text-red-400',
       P1: 'bg-amber-500/20 text-amber-400',
-      P2: 'bg-white/10 text-white/50',
+      P2: 'bg-raised text-txt-muted',
     };
     return (
       <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${colors[severity] ?? colors.P2}`}>
@@ -68,11 +68,11 @@ export default function FindingsTab({ agentId }: FindingsTabProps) {
 
   function renderFinding(f: Finding, allowResolve: boolean) {
     return (
-      <div key={f.id} className="rounded-lg border border-white/5 bg-white/5 p-3 mb-2">
+      <div key={f.id} className="rounded-lg border border-border bg-raised/40 p-3 mb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {severityBadge(f.severity)}
-            <span className="text-xs text-white/70 font-medium truncate">{f.finding_type}</span>
+            <span className="text-xs text-txt-secondary font-medium truncate">{f.finding_type}</span>
           </div>
           {allowResolve && (
             <button
@@ -84,9 +84,9 @@ export default function FindingsTab({ agentId }: FindingsTabProps) {
           )}
         </div>
         {f.description && (
-          <p className="text-xs text-white/50 mt-1.5 leading-relaxed">{f.description}</p>
+          <p className="text-xs text-txt-muted mt-1.5 leading-relaxed">{f.description}</p>
         )}
-        <div className="flex items-center gap-3 mt-2 text-[10px] text-white/30">
+        <div className="flex items-center gap-3 mt-2 text-[10px] text-txt-faint">
           <span>Detected {new Date(f.detected_at).toLocaleDateString()}</span>
           {!f.resolved_at && f.days_open > 0 && (
             <span className={f.days_open > 7 ? 'text-red-400' : ''}>
@@ -105,12 +105,12 @@ export default function FindingsTab({ agentId }: FindingsTabProps) {
     <div className="space-y-4">
       {/* Open findings */}
       {open.length === 0 ? (
-        <div className="rounded-lg border border-white/5 bg-white/5 p-4 text-xs text-white/40 text-center">
+        <div className="rounded-lg border border-border bg-raised/40 p-4 text-xs text-txt-muted text-center">
           No open findings — all clear ✓
         </div>
       ) : (
         <div>
-          <h4 className="text-xs font-semibold text-white/50 uppercase tracking-widest mb-3">
+          <h4 className="text-xs font-semibold text-txt-muted uppercase tracking-widest mb-3">
             Open ({open.length})
           </h4>
           {open.map(f => renderFinding(f, true))}
@@ -121,7 +121,7 @@ export default function FindingsTab({ agentId }: FindingsTabProps) {
       {closed.length > 0 && (
         <div>
           <button
-            className="flex items-center gap-2 text-xs text-white/30 hover:text-white/50 transition-colors"
+            className="flex items-center gap-2 text-xs text-txt-faint hover:text-txt-muted transition-colors"
             onClick={() => setShowClosed(!showClosed)}
           >
             <svg
