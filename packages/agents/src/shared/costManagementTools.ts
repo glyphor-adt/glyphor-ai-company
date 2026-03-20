@@ -286,13 +286,36 @@ export function createCostManagementTools(): ToolDefinition[] {
       parameters: {},
       async execute(): Promise<ToolResult> {
         try {
-          const monthlyCosts = await systemQuery<{ month: string; total_cost: number }>(
-            `SELECT TO_CHAR(date, 'YYYY-MM') AS month, SUM(value) AS total_cost
+          // Use the pre-computed burn_rate metric from Mercury sync (most accurate).
+          // Falls back to summing cash_outflow if burn_rate rows don't exist.
+          const burnRateRows = await systemQuery<{ month: string; burn_rate: number }>(
+            `SELECT TO_CHAR(date, 'YYYY-MM') AS month, value AS burn_rate
              FROM financials
-             GROUP BY TO_CHAR(date, 'YYYY-MM')
-             ORDER BY month DESC
+             WHERE metric = 'burn_rate'
+             ORDER BY date DESC
              LIMIT 6`,
           );
+
+          let monthlyCosts: Array<{ month: string; total_cost: number }>;
+
+          if (burnRateRows.length > 0) {
+            // Deduplicate: keep latest burn_rate per month
+            const byMonth = new Map<string, number>();
+            for (const row of burnRateRows) {
+              if (!byMonth.has(row.month)) byMonth.set(row.month, Number(row.burn_rate));
+            }
+            monthlyCosts = Array.from(byMonth.entries()).map(([month, total_cost]) => ({ month, total_cost }));
+          } else {
+            // Fallback: sum only cash_outflow metrics (actual spending)
+            monthlyCosts = await systemQuery<{ month: string; total_cost: number }>(
+              `SELECT TO_CHAR(date, 'YYYY-MM') AS month, SUM(value) AS total_cost
+               FROM financials
+               WHERE metric IN ('cash_outflow', 'vendor_subscription')
+               GROUP BY TO_CHAR(date, 'YYYY-MM')
+               ORDER BY month DESC
+               LIMIT 6`,
+            );
+          }
 
           const cashRows = await systemQuery<{ cash_balance: number }>(
             `SELECT value AS cash_balance
