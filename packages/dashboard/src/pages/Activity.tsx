@@ -489,6 +489,14 @@ export default function Activity() {
 }
 
 /* ─── Mini Stat Card ──────────────────────── */
+const MINI_STAT_COLORS: Record<string, string> = {
+  'Total Runs': '#3B82F6',
+  'Running Now': '#0891B2',
+  'Completed': '#34D399',
+  'Failed': '#EF4444',
+  'Total Cost': '#F59E0B',
+};
+
 function MiniStat({
   label,
   value,
@@ -503,17 +511,13 @@ function MiniStat({
   alert?: boolean;
 }) {
   if (loading) return <Skeleton className="h-[72px]" />;
+  const color = MINI_STAT_COLORS[label] ?? '#64748b';
   return (
-    <Card
-      className={
-        highlight
-          ? 'border-cyan/20 bg-cyan/5'
-          : alert
-          ? 'border-prism-critical/20 bg-prism-critical/5'
-          : ''
-      }
+    <div
+      className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3"
+      style={{ borderTopColor: color, borderTopWidth: '2px' }}
     >
-      <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">{label}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color }}>{label}</p>
       <p
         className={`mt-1 font-mono text-xl font-bold ${
           highlight ? 'text-cyan' : alert ? 'text-prism-critical' : 'text-txt-primary'
@@ -521,6 +525,6 @@ function MiniStat({
       >
         {value}
       </p>
-    </Card>
+    </div>
   );
 }

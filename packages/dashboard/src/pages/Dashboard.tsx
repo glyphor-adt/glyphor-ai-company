@@ -14,8 +14,8 @@ import { Link } from 'react-router-dom';
 import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useActiveDirectives, useCompanyPulse, useDecisions, useOpenIncidents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP } from '../lib/types';
-import { SectionHeader, Skeleton, timeAgo } from '../components/ui';
-import { GlowingStarsBackgroundCard } from '../components/ui/glowing-stars';
+import { GradientButton, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import { DottedGlowBackground } from '../components/ui/dotted-glow-background';
 import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 
@@ -75,9 +75,9 @@ const PRIORITY_ORDER: Record<ActionCenterItem['priority'], number> = {
 };
 
 const PRIORITY_BADGE: Record<ActionCenterItem['priority'], string> = {
-  critical: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white',
-  high: 'bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 text-white',
-  medium: 'bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600 text-white',
+  critical: 'bg-red-500/15 text-red-400',
+  high: 'bg-orange-500/15 text-orange-400',
+  medium: 'bg-cyan-500/15 text-cyan',
 };
 
 const QUICK_ACTIONS = [
@@ -349,7 +349,7 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-home space-y-5">
-      <GlowingStarsBackgroundCard>
+      <div className="relative overflow-hidden rounded-xl">
         <HomeCard className="border-white/10 py-4 bg-transparent">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -366,7 +366,21 @@ export default function Dashboard() {
             </div>
           </div>
         </HomeCard>
-      </GlowingStarsBackgroundCard>
+        <DottedGlowBackground
+          className="pointer-events-none"
+          opacity={1}
+          gap={10}
+          radius={1.6}
+          colorLightVar="--color-neutral-500"
+          glowColorLightVar="--color-neutral-600"
+          colorDarkVar="--color-neutral-500"
+          glowColorDarkVar="--color-sky-800"
+          backgroundOpacity={0}
+          speedMin={0.3}
+          speedMax={1.6}
+          speedScale={1}
+        />
+      </div>
 
       {/* ── Row 1: Action Center (left) + Company Vitals (right) ── */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.1fr_0.9fr]">
@@ -399,45 +413,38 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <Link to={item.reviewTo} className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-[#00E0FF] to-[#3730A3] p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none">
-                      <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-2.5 py-1 leading-4 text-[11px] text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
-                        Review
-                      </span>
-                    </Link>
+                    <GradientButton as={Link} to={item.reviewTo} variant="primary">
+                      Review
+                    </GradientButton>
                     {item.approveDecisionId ? (
                       <>
-                        <button
+                        <GradientButton
+                          variant="approve"
                           onClick={() => updateDecision(item.approveDecisionId!, 'approved', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                          className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-green-400 to-emerald-600 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
                         >
-                          <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-2.5 py-1 leading-4 text-[11px] text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
-                            Approve
-                          </span>
-                        </button>
-                        <button
+                          Approve
+                        </GradientButton>
+                        <GradientButton
+                          variant="reject"
                           onClick={() => updateDecision(item.approveDecisionId!, 'rejected', user?.email?.toLowerCase().includes('andrew') ? 'andrew' : 'kristina')}
-                          className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-red-500 to-orange-500 p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
                         >
-                          <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-2.5 py-1 leading-4 text-[11px] text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
-                            Reject
-                          </span>
-                        </button>
+                          Reject
+                        </GradientButton>
                       </>
                     ) : (
                       (item.kind === 'incident' || item.kind === 'briefing') ? (
-                        <Link
+                        <GradientButton
+                          as={Link}
                           to="/ora"
                           state={{
                             origin: 'action-center',
                             actionItemId: item.id,
                             prefillPrompt: buildOraActionPrompt(item),
                           }}
-                          className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br from-[#C084FC] to-[#00E0FF] p-[1.5px] text-xs font-medium text-white dark:text-white focus:outline-none"
+                          variant="purple"
                         >
-                          <span className="relative rounded-[5px] bg-white dark:bg-gray-900 px-2.5 py-1 leading-4 text-[11px] text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white">
-                            Discuss with Ora
-                          </span>
-                        </Link>
+                          Discuss with Ora
+                        </GradientButton>
                       ) : null
                     )}
                   </div>
@@ -569,10 +576,20 @@ function MetricRibbon({ label, value, detail, toneClass = 'text-white', color }:
   );
 }
 
+const PULSE_COLORS: Record<string, string> = {
+  Runs: '#3B82F6',
+  Active: '#34D399',
+  Pending: '#F59E0B',
+};
+
 function PulseStat({ label, value }: { label: string; value: string }) {
+  const color = PULSE_COLORS[label] ?? '#0891B2';
   return (
-    <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white/60 shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-txt-faint">{label}</p>
+    <div
+      className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3"
+      style={{ borderTopColor: color, borderTopWidth: '2px' }}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color }}>{label}</p>
       <p className="mt-2 text-[1.6rem] font-semibold text-txt-primary">{value}</p>
     </div>
   );

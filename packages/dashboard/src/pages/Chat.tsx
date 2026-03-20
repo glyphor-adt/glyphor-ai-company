@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAgents } from '../lib/hooks';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
-import { Card, AgentAvatar } from '../components/ui';
+import { Card, AgentAvatar, GradientButton } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch, MdDeleteOutline } from 'react-icons/md';
@@ -275,13 +275,9 @@ function SidebarContent({
   return (
     <>
       <div className="p-3 space-y-2">
-        <button
-          onClick={() => setShowOrgChart(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-2 text-[13px] font-medium text-cyan hover:bg-cyan/20 transition-colors"
-        >
-          <MdAdd size={18} />
-          New Chat
-        </button>
+        <GradientButton variant="primary" size="md" className="w-full" onClick={() => setShowOrgChart(true)}>
+          <span className="flex items-center justify-center gap-2"><MdAdd size={18} />New Chat</span>
+        </GradientButton>
         {recentChats.length > 3 && (
           <div className="sidebar-glass flex items-center gap-2 rounded-lg border border-border px-3 py-1.5">
             <MdSearch size={14} className="text-txt-faint flex-shrink-0" />
@@ -1283,14 +1279,14 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                 <HiMiniSignal size={18} />
               )}
             </button>
-            <button
-              type="button"
+            <GradientButton
+              variant="primary"
+              size="md"
               onClick={sendMessage}
               disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
-              className="flex-shrink-0 rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
             >
               Send
-            </button>
+            </GradientButton>
           </div>
         </div>
         </>
@@ -1313,14 +1309,15 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               Paste a Teams meeting join link and {codename} will join the call with voice, listen, and respond in real-time.
             </p>
             {currentMeetingUrl && (
-              <button
+              <GradientButton
+                variant="primary"
+                size="md"
+                className="w-full mb-3 flex items-center gap-2"
                 onClick={() => { joinTeamsCall(currentMeetingUrl); }}
                 disabled={teamsJoining}
-                className="w-full rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-3 text-[12px] font-medium text-cyan hover:bg-cyan/20 transition-colors mb-3 flex items-center gap-2 disabled:opacity-40"
               >
-                <MdVideoCall size={18} />
-                {teamsJoining ? 'Joining…' : 'Add to current meeting'}
-              </button>
+                <span className="flex items-center gap-2"><MdVideoCall size={18} />{teamsJoining ? 'Joining…' : 'Add to current meeting'}</span>
+              </GradientButton>
             )}
             <div className="flex items-center gap-2 mb-3">
               {currentMeetingUrl && <span className="text-[10px] text-txt-faint uppercase tracking-wider">or paste a link</span>}
@@ -1338,19 +1335,17 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               <p className="text-[11px] text-prism-critical mb-3">{teamsError}</p>
             )}
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowTeamsModal(false)}
-                className="sidebar-glass rounded-lg border border-border px-4 py-2 text-[12px] text-txt-muted transition-colors hover:bg-[var(--color-hover-bg)]"
-              >
+              <GradientButton variant="neutral" size="md" onClick={() => setShowTeamsModal(false)}>
                 Cancel
-              </button>
-              <button
+              </GradientButton>
+              <GradientButton
+                variant="primary"
+                size="md"
                 onClick={() => joinTeamsCall()}
                 disabled={teamsJoining || !teamsMeetingUrl.trim()}
-                className="rounded-lg border border-cyan bg-transparent px-4 py-2 text-[12px] font-medium text-cyan hover:bg-cyan/10 disabled:opacity-40 transition-colors"
               >
                 {teamsJoining ? 'Joining…' : 'Join Call'}
-              </button>
+              </GradientButton>
             </div>
           </div>
         </div>

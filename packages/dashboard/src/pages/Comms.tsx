@@ -3,7 +3,7 @@ import Chat from './Chat';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
-import { Card, PageTabs, Skeleton, timeAgo } from '../components/ui';
+import { Card, GradientButton, PageTabs, Skeleton, timeAgo } from '../components/ui';
 
 /* ─── Types ────────────────────────────────── */
 interface AgentMessage {
@@ -508,13 +508,14 @@ function QuickAssign() {
             </p>
           )}
 
-          <button
+          <GradientButton
+            variant="primary"
+            size="md"
             onClick={handleSubmit}
             disabled={!selectedAgent || !task.trim() || submitting}
-            className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
           >
             {submitting ? 'Assigning…' : 'Assign Task'}
-          </button>
+          </GradientButton>
         </div>
       </Card>
     </div>

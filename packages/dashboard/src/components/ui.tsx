@@ -48,9 +48,9 @@ export function AgentAvatar({
 /* ─── Tier Badge (green / yellow / red) ──── */
 export function TierBadge({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
-    green: 'bg-gradient-to-r from-green-400 via-green-500 to-green-600 text-white',
-    yellow: 'bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-gray-900',
-    red: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white',
+    green: 'bg-green-500/15 text-green-400',
+    yellow: 'bg-amber-500/15 text-amber-400',
+    red: 'bg-red-500/15 text-red-400',
   };
   return (
     <span
@@ -66,10 +66,10 @@ export function TierBadge({ tier }: { tier: string }) {
 /* ─── Impact Badge ────────────────────────── */
 export function ImpactBadge({ impact }: { impact: string }) {
   const colors: Record<string, string> = {
-    low: 'bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600 text-white',
-    medium: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white',
-    high: 'bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 text-white',
-    critical: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white',
+    low: 'bg-gray-500/15 text-gray-400',
+    medium: 'bg-amber-500/15 text-amber-400',
+    high: 'bg-orange-500/15 text-orange-400',
+    critical: 'bg-red-500/15 text-red-400',
   };
   return (
     <span
@@ -79,6 +79,51 @@ export function ImpactBadge({ impact }: { impact: string }) {
     >
       {impact}
     </span>
+  );
+}
+
+/* ─── Gradient Border Button ──────────────── */
+type GradientVariant = 'primary' | 'approve' | 'reject' | 'purple' | 'warning' | 'neutral';
+type GradientSize = 'sm' | 'md';
+
+const GRADIENT_MAP: Record<GradientVariant, string> = {
+  primary: 'from-[#00E0FF] to-[#3730A3]',
+  approve: 'from-green-400 to-emerald-600',
+  reject: 'from-red-500 to-orange-500',
+  purple: 'from-[#C084FC] to-[#00E0FF]',
+  warning: 'from-amber-400 to-yellow-600',
+  neutral: 'from-gray-400 to-gray-600',
+};
+
+const SIZE_MAP: Record<GradientSize, string> = {
+  sm: 'px-2.5 py-1 text-[11px] leading-4',
+  md: 'px-4 py-2 text-sm',
+};
+
+export function GradientButton({
+  children,
+  variant = 'primary',
+  size = 'sm',
+  className = '',
+  as: Component = 'button',
+  ...rest
+}: {
+  children: React.ReactNode;
+  variant?: GradientVariant;
+  size?: GradientSize;
+  className?: string;
+  as?: React.ElementType;
+  [key: string]: unknown;
+}) {
+  return (
+    <Component
+      className={`group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br ${GRADIENT_MAP[variant]} p-[1.5px] font-medium focus:outline-none ${className}`}
+      {...rest}
+    >
+      <span className={`relative rounded-[5px] bg-white dark:bg-gray-900 ${SIZE_MAP[size]} font-semibold text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white`}>
+        {children}
+      </span>
+    </Component>
   );
 }
 

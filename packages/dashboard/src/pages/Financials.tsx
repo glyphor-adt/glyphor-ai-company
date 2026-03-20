@@ -3,6 +3,7 @@ import { apiCall } from '../lib/firebase';
 import { GLYPHOR_PALETTE } from '../lib/types';
 import {
   Card,
+  GradientButton,
   SectionHeader,
   Skeleton,
 } from '../components/ui';
@@ -744,19 +745,16 @@ export default function Financials() {
             <p className="mt-1 text-sm text-txt-muted">A tighter readout focused on runway, margin, and spend concentration.</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowSyncPanel((v) => !v)}
-              className="rounded-lg border border-border bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-txt-secondary transition hover:bg-white/[0.06]"
-            >
+            <GradientButton variant="neutral" onClick={() => setShowSyncPanel((v) => !v)}>
               {showSyncPanel ? 'Hide Sources' : 'Data Sources'}
-            </button>
-            <button
+            </GradientButton>
+            <GradientButton
+              variant="primary"
               onClick={triggerAllSyncs}
               disabled={syncingIds.size > 0}
-              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent/90 disabled:opacity-50"
             >
               {syncingIds.size > 0 ? 'Syncing…' : 'Refresh All'}
-            </button>
+            </GradientButton>
           </div>
         </div>
       </div>

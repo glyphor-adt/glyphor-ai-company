@@ -3,7 +3,7 @@ import Markdown from 'react-markdown';
 import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { useAuth } from '../lib/auth';
-import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import { Card, GradientButton, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 import { MdCheckCircle, MdEdit, MdCancel, MdChevronRight, MdDelete, MdBlock, MdVerifiedUser, MdWarning, MdRefresh, MdExpandMore } from 'react-icons/md';
 
 /* ── Plan Verification Types ───────────────── */
@@ -269,12 +269,9 @@ export default function Directives() {
               {selected.size > 0 ? 'Deselect All' : 'Select All'}
             </button>
           )}
-          <button
-            onClick={() => setShowForm(true)}
-            className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-opacity hover:bg-cyan/20"
-          >
+          <GradientButton variant="primary" size="md" onClick={() => setShowForm(true)}>
             + New Directive
-          </button>
+          </GradientButton>
         </div>
       </div>
 
@@ -662,27 +659,27 @@ function DirectiveCard({
           <div className="flex items-center gap-2 mb-1">
             <p className="text-sm font-semibold text-txt-primary truncate">{cleanText(d.title)}</p>
             {d.status === 'paused' && (
-              <span className="rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+              <span className="rounded-full bg-amber-500/15 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium">
                 paused
               </span>
             )}
             {d.status === 'completed' && (
-              <span className="rounded-full bg-gradient-to-r from-green-400 via-green-500 to-green-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+              <span className="rounded-full bg-green-500/15 text-green-400 px-1.5 py-0.5 text-[10px] font-medium">
                 completed
               </span>
             )}
             {d.delegated_to && (
-              <span className="rounded-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 px-1.5 py-0.5 text-[10px] font-medium text-white">
+              <span className="rounded-full bg-purple-500/15 text-purple-400 px-1.5 py-0.5 text-[10px] font-medium">
                 Delegated to {DISPLAY_NAME_MAP[d.delegated_to] ?? d.delegated_to}
               </span>
             )}
             {!d.delegated_to && d.delegation_type === 'cross-domain' && (
-              <span className="rounded-full bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+              <span className="rounded-full bg-teal-500/15 text-teal-400 px-1.5 py-0.5 text-[10px] font-medium">
                 Cross-domain
               </span>
             )}
             {!d.delegated_to && !d.delegation_type && d.status === 'active' && (
-              <span className="rounded-full bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+              <span className="rounded-full bg-cyan-500/15 text-cyan px-1.5 py-0.5 text-[10px] font-medium">
                 Self-orchestrated
               </span>
             )}
@@ -1511,13 +1508,14 @@ function NewDirectiveModal({
           >
             Cancel
           </button>
-          <button
+          <GradientButton
+            variant="primary"
+            size="md"
             onClick={handleCreate}
             disabled={saving || !title.trim() || !description.trim()}
-            className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-opacity hover:bg-cyan/20 disabled:opacity-40"
           >
             {saving ? 'Creating…' : 'Create Directive'}
-          </button>
+          </GradientButton>
         </div>
       </div>
     </div>

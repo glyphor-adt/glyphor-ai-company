@@ -403,12 +403,22 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
 }
 
 /* ─── Stats Card ──────────────────────────── */
+const STAT_COLORS: Record<string, string> = {
+  'Active': '#34D399',
+  'Paused': '#F59E0B',
+  'Error': '#EF4444',
+};
+
 function StatCard({ label, value, total, color, loading }: { label: string; value: number; total: number; color: string; loading: boolean }) {
   if (loading) return <Skeleton className="h-20" />;
   const pct = total > 0 ? (value / total) * 100 : 0;
+  const topColor = STAT_COLORS[label] ?? '#64748b';
   return (
-    <Card>
-      <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">{label}</p>
+    <div
+      className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3"
+      style={{ borderTopColor: topColor, borderTopWidth: '2px' }}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: topColor }}>{label}</p>
       <p className="mt-1 font-mono text-xl font-semibold text-txt-primary">
         {value}
         <span className="text-sm text-txt-faint">/{total}</span>
@@ -416,7 +426,7 @@ function StatCard({ label, value, total, color, loading }: { label: string; valu
       <div className="mt-2 h-1.5 w-full rounded-full bg-border">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-    </Card>
+    </div>
   );
 }
 

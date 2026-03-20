@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SCHEDULER_URL } from '../lib/firebase';
-import { Card, SectionHeader } from '../components/ui';
+import { Card, GradientButton, SectionHeader } from '../components/ui';
 import { MODELS, DEFAULT_MODEL } from '../lib/models';
 
 const DEPARTMENTS = [
@@ -283,19 +283,17 @@ export default function AgentBuilder() {
 
       {/* Submit */}
       <div className="flex justify-end gap-3 pb-8">
-        <button
-          onClick={() => navigate('/workforce')}
-          className="rounded-lg border border-border px-5 py-2 text-sm font-medium text-txt-muted hover:border-border-hover hover:text-txt-secondary transition-colors"
-        >
+        <GradientButton variant="neutral" size="md" onClick={() => navigate('/workforce')}>
           Cancel
-        </button>
-        <button
+        </GradientButton>
+        <GradientButton
+          variant="primary"
+          size="md"
           onClick={handleCreate}
           disabled={creating || !name.trim()}
-          className="rounded-lg bg-cyan/10 border border-cyan/40 px-6 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
         >
           {creating ? 'Creating...' : 'Create Agent'}
-        </button>
+        </GradientButton>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { apiCall } from '../lib/firebase';
-import { Card, SectionHeader, Skeleton, timeAgo, PageTabs } from '../components/ui';
+import { Card, GradientButton, SectionHeader, Skeleton, timeAgo, PageTabs } from '../components/ui';
 import {
   MdConstruction, MdRocketLaunch, MdCelebration, MdFitnessCenter,
   MdTrackChanges, MdWarning, MdHelpOutline, MdExpandMore, MdClose, MdArrowForward,
@@ -577,13 +577,14 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
           <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-muted hover:text-txt-primary transition-colors">
             Cancel
           </button>
-          <button
+          <GradientButton
+            variant="primary"
+            size="md"
             onClick={handleCreate}
             disabled={saving || !content.trim()}
-            className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan hover:bg-cyan/20 disabled:opacity-40"
           >
             {saving ? 'Posting…' : 'Post Bulletin'}
-          </button>
+          </GradientButton>
         </div>
       </div>
     </div>

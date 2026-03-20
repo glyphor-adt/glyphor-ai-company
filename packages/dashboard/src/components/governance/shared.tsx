@@ -176,13 +176,13 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
 };
 
 const SEVERITY_STYLES: Record<Severity, string> = {
-  critical: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white',
-  high: 'bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 text-white',
-  medium: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white',
-  low: 'bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white',
-  info: 'bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600 text-white',
-  warning: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white',
-  good: 'bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600 text-white',
+  critical: 'bg-red-500/15 text-red-400',
+  high: 'bg-orange-500/15 text-orange-400',
+  medium: 'bg-amber-500/15 text-amber-400',
+  low: 'bg-blue-500/15 text-blue-400',
+  info: 'bg-gray-500/15 text-gray-400',
+  warning: 'bg-amber-500/15 text-amber-400',
+  good: 'bg-teal-500/15 text-teal-400',
 };
 
 export function getAgentsByDepartment(): { dept: string; roles: string[] }[] {

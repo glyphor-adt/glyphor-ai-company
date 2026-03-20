@@ -12,7 +12,7 @@ import {
   ROLE_TITLE,
   ROLE_MANAGER_OVERRIDES,
 } from '../lib/types';
-import { Card, AgentAvatar, Skeleton, timeAgo } from '../components/ui';
+import { Card, AgentAvatar, GradientButton, Skeleton, timeAgo } from '../components/ui';
 
 interface AgentRow {
   id: string;
@@ -389,12 +389,9 @@ export default function AgentSettings() {
 
         {/* Action buttons */}
         <div className="flex items-center gap-2">
-          <Link
-            to={`/chat/${agent.role}`}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan"
-          >
+          <GradientButton as={Link} to={`/chat/${agent.role}`} variant="neutral" size="md">
             Chat
-          </Link>
+          </GradientButton>
           <button
             onClick={() => setEditMode(!editMode)}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
@@ -405,9 +402,9 @@ export default function AgentSettings() {
           >
             {editMode ? 'Close Settings' : 'Edit Settings'}
           </button>
-          <button onClick={handleDelete} className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-4 py-2 text-sm font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors">
+          <GradientButton variant="reject" size="md" onClick={handleDelete}>
             Delete
-          </button>
+          </GradientButton>
         </div>
       </div>
 
@@ -418,17 +415,17 @@ export default function AgentSettings() {
             <h2 className="text-lg font-semibold text-txt-primary">Agent Settings</h2>
             <div className="flex items-center gap-2">
               {agent.status === 'active' ? (
-                <button onClick={handlePause} className="rounded-lg border border-tier-yellow/30 bg-tier-yellow/10 px-3 py-1.5 text-xs font-medium text-tier-yellow hover:bg-tier-yellow/20 transition-colors">
+                <GradientButton variant="warning" onClick={handlePause}>
                   Pause
-                </button>
+                </GradientButton>
               ) : agent.status === 'paused' ? (
-                <button onClick={handleResume} className="rounded-lg border border-tier-green/30 bg-tier-green/10 px-3 py-1.5 text-xs font-medium text-tier-green hover:bg-tier-green/20 transition-colors">
+                <GradientButton variant="approve" onClick={handleResume}>
                   Resume
-                </button>
+                </GradientButton>
               ) : null}
-              <button onClick={handleDelete} className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors">
+              <GradientButton variant="reject" onClick={handleDelete}>
                 Delete
-              </button>
+              </GradientButton>
             </div>
           </div>
 
@@ -493,9 +490,9 @@ export default function AgentSettings() {
 
           <div className="mt-4 flex items-center justify-end gap-3">
             {saveError && <span className="text-sm text-prism-critical">{saveError}</span>}
-            <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan/10 border border-cyan/40 px-6 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40">
+            <GradientButton variant="primary" size="md" onClick={handleSave} disabled={saving}>
               {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Changes'}
-            </button>
+            </GradientButton>
           </div>
         </Card>
       )}
@@ -600,13 +597,9 @@ export default function AgentSettings() {
                     Reset to Default
                   </button>
                 )}
-                <button
-                  onClick={handleSavePrompt}
-                  disabled={savingPrompt}
-                  className="rounded-lg bg-cyan/10 border border-cyan/40 px-5 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
-                >
+                <GradientButton variant="primary" size="md" onClick={handleSavePrompt} disabled={savingPrompt}>
                   {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving...' : 'Save Prompt'}
-                </button>
+                </GradientButton>
               </div>
             </div>
           </div>

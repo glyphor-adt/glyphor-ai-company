@@ -24,7 +24,7 @@ import {
   ROLE_MANAGER_OVERRIDES,
 } from '../lib/types';
 import { getToolPlatformMeta } from '../lib/toolPlatform';
-import { Card, InnerCard, AgentAvatar, Skeleton, timeAgo } from '../components/ui';
+import { Card, InnerCard, AgentAvatar, GradientButton, Skeleton, timeAgo } from '../components/ui';
 import { QualityChart } from '../components/QualityChart';
 import { GrowthAreas } from '../components/GrowthAreas';
 import { PeerFeedback } from '../components/PeerFeedback';
@@ -336,42 +336,38 @@ export default function AgentProfile() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setShowQuickAssign(true); setQaResult(null); }}
-            className="rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-medium text-cyan transition-colors hover:bg-cyan/20"
-          >
+          <GradientButton variant="primary" size="md" onClick={() => { setShowQuickAssign(true); setQaResult(null); }}>
             Quick Assign
-          </button>
-          <Link to={`/chat/${agent.role}`} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan">
+          </GradientButton>
+          <GradientButton as={Link} to={`/chat/${agent.role}`} variant="neutral" size="md">
             Chat
-          </Link>
+          </GradientButton>
           {agent.status === 'active' ? (
-            <button
+            <GradientButton
+              variant="warning"
+              size="md"
               onClick={async () => {
                 await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/pause`, { method: 'POST' });
                 setAgent((prev) => prev ? { ...prev, status: 'paused' } : prev);
               }}
-              className="rounded-lg border border-tier-yellow/30 bg-tier-yellow/10 px-4 py-2 text-sm font-medium text-tier-yellow hover:bg-tier-yellow/20 transition-colors"
             >
               Pause
-            </button>
+            </GradientButton>
           ) : agent.status === 'paused' ? (
-            <button
+            <GradientButton
+              variant="approve"
+              size="md"
               onClick={async () => {
                 await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/resume`, { method: 'POST' });
                 setAgent((prev) => prev ? { ...prev, status: 'active' } : prev);
               }}
-              className="rounded-lg border border-tier-green/30 bg-tier-green/10 px-4 py-2 text-sm font-medium text-tier-green hover:bg-tier-green/20 transition-colors"
             >
               Resume
-            </button>
+            </GradientButton>
           ) : null}
-          <button
-            onClick={() => setShowDelete(true)}
-            className="rounded-lg border border-tier-red/30 bg-tier-red/10 px-4 py-2 text-sm font-medium text-tier-red hover:bg-tier-red/20 transition-colors"
-          >
+          <GradientButton variant="reject" size="md" onClick={() => setShowDelete(true)}>
             Delete
-          </button>
+          </GradientButton>
         </div>
       </div>
 
@@ -470,7 +466,9 @@ export default function AgentProfile() {
             </p>
           )}
           <div className="flex items-center gap-2">
-            <button
+            <GradientButton
+              variant="primary"
+              size="md"
               onClick={async () => {
                 if (!qaTask.trim()) return;
                 setQaSubmitting(true);
@@ -504,16 +502,12 @@ export default function AgentProfile() {
                 }
               }}
               disabled={!qaTask.trim() || qaSubmitting}
-              className="rounded-lg bg-cyan px-5 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
             >
               {qaSubmitting ? 'Assigning…' : 'Assign'}
-            </button>
-            <button
-              onClick={() => { setShowQuickAssign(false); setQaTask(''); setQaExpected(''); setQaPriority('normal'); setQaResult(null); }}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-secondary hover:text-txt-primary transition-colors"
-            >
+            </GradientButton>
+            <GradientButton variant="neutral" size="md" onClick={() => { setShowQuickAssign(false); setQaTask(''); setQaExpected(''); setQaPriority('normal'); setQaResult(null); }}>
               Cancel
-            </button>
+            </GradientButton>
           </div>
         </div>
       )}
@@ -2229,13 +2223,9 @@ function SettingsTab({
                     Reset to Default
                   </button>
                 )}
-                <button
-                  onClick={handleSavePrompt}
-                  disabled={savingPrompt}
-                  className="rounded-lg bg-cyan/10 border border-cyan/40 px-5 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
-                >
+                <GradientButton variant="primary" size="md" onClick={handleSavePrompt} disabled={savingPrompt}>
                   {savedPrompt ? 'Saved!' : savingPrompt ? 'Saving…' : 'Save Prompt'}
-                </button>
+                </GradientButton>
               </div>
             </div>
           </div>
@@ -2248,13 +2238,13 @@ function SettingsTab({
           <h3 className="text-sm font-semibold uppercase tracking-wider text-txt-primary">Model & Budget</h3>
           <div className="flex items-center gap-2">
             {agent.status === 'active' ? (
-              <button onClick={handlePause} className="rounded-lg border border-tier-yellow/30 bg-tier-yellow/10 px-3 py-1.5 text-xs font-medium text-tier-yellow hover:bg-tier-yellow/20 transition-colors">
+              <GradientButton variant="warning" onClick={handlePause}>
                 Pause Agent
-              </button>
+              </GradientButton>
             ) : agent.status === 'paused' ? (
-              <button onClick={handleResume} className="rounded-lg border border-tier-green/30 bg-tier-green/10 px-3 py-1.5 text-xs font-medium text-tier-green hover:bg-tier-green/20 transition-colors">
+              <GradientButton variant="approve" onClick={handleResume}>
                 Resume Agent
-              </button>
+              </GradientButton>
             ) : null}
           </div>
         </div>
@@ -2357,9 +2347,9 @@ function SettingsTab({
         )}
 
         <div className="mt-4 flex justify-end">
-          <button onClick={handleSave} disabled={saving} className="rounded-lg bg-cyan/10 border border-cyan/40 px-6 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40">
+          <GradientButton variant="primary" size="md" onClick={handleSave} disabled={saving}>
             {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          </GradientButton>
         </div>
       </Card>
 
@@ -2509,13 +2499,9 @@ function SettingsTab({
             )}
 
             <div className="flex justify-end">
-              <button
-                onClick={handleSaveReasoning}
-                disabled={savingReasoning}
-                className="rounded-lg bg-cyan/10 border border-cyan/40 px-6 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
-              >
+              <GradientButton variant="primary" size="md" onClick={handleSaveReasoning} disabled={savingReasoning}>
                 {savedReasoning ? 'Saved!' : savingReasoning ? 'Saving…' : 'Save Reasoning Config'}
-              </button>
+              </GradientButton>
             </div>
           </div>
         )}

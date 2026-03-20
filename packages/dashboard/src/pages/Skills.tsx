@@ -7,7 +7,7 @@ import {
 } from 'react-icons/md';
 import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
-import { Card, SectionHeader, Skeleton, AgentAvatar } from '../components/ui';
+import { Card, GradientButton, SectionHeader, Skeleton, AgentAvatar } from '../components/ui';
 
 /* ── Types ── */
 interface SkillRow {
@@ -480,13 +480,14 @@ function CreateSkillModal({
 
         <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
           <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-muted hover:text-txt-primary transition-colors">Cancel</button>
-          <button
+          <GradientButton
+            variant="primary"
+            size="md"
             onClick={handleCreate}
             disabled={saving || !name.trim()}
-            className="rounded-lg bg-cyan/10 border border-cyan/40 px-5 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
           >
             {saving ? 'Creating…' : 'Create Skill'}
-          </button>
+          </GradientButton>
         </div>
       </div>
     </div>
@@ -638,13 +639,14 @@ function UploadSkillModal({
 
         <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
           <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-muted hover:text-txt-primary transition-colors">Cancel</button>
-          <button
+          <GradientButton
+            variant="primary"
+            size="md"
             onClick={handleSync}
             disabled={syncing || !file}
-            className="rounded-lg bg-prism-fill-3/10 border border-prism-fill-3/40 px-5 py-2 text-sm font-semibold text-prism-fill-3 transition-all hover:bg-prism-fill-3/20 disabled:opacity-40"
           >
             {syncing ? 'Syncing…' : 'Upload & Sync'}
-          </button>
+          </GradientButton>
         </div>
       </div>
     </div>
