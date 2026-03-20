@@ -105,6 +105,39 @@ function normalizeRunContent(text: string): string {
     value = value.replace(closeTag, '');
   }
 
+  // Convert <notify> blocks into formatted markdown callouts
+  value = value.replace(
+    /<notify\s+type="([^"]*?)"\s+to="([^"]*?)"\s+title="([^"]*?)">([\s\S]*?)<\/notify>/gi,
+    (_match, type: string, to: string, title: string, body: string) => {
+      const label = type.toUpperCase();
+      return `\n\n> **[${label}]** **${title}**\n> *${type}* → ${to}\n>\n> ${body.trim().replace(/\n/g, '\n> ')}\n`;
+    },
+  );
+
+  // Convert <action> blocks
+  value = value.replace(
+    /<action\b[^>]*>([\s\S]*?)<\/action>/gi,
+    (_match, body: string) => `\n\n**Action:** ${body.trim()}\n`,
+  );
+
+  // Convert <result> blocks
+  value = value.replace(
+    /<result\b[^>]*>([\s\S]*?)<\/result>/gi,
+    (_match, body: string) => `\n\n**Result:** ${body.trim()}\n`,
+  );
+
+  // Strip any remaining unhandled XML-like agent tags (but keep their content)
+  value = value.replace(/<\/?(plan|summary|observation|diagnosis|recommendation)\b[^>]*>/gi, '');
+
+  // Wrap top-level JSON objects/arrays as fenced code blocks when not already inside one
+  value = value.replace(
+    /(?:^|\n)([ \t]*\{[\s\S]*?\n[ \t]*\})/g,
+    (match) => {
+      if (/```/.test(match)) return match;
+      return `\n\`\`\`json\n${match.trim()}\n\`\`\`\n`;
+    },
+  );
+
   return value.replace(/\n{3,}/g, '\n\n').trim();
 }
 
