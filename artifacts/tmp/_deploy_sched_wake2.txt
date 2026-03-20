@@ -1,0 +1,310 @@
+Creating temporary archive of 1356 file(s) totalling 136.9 MiB before compression.
+Uploading tarball of [.] to [gs://ai-glyphor-company_cloudbuild/source/1773967222.877757-c9b6c49fc5254e018b28701ff48fa4f1.tgz]
+Created [https://cloudbuild.googleapis.com/v1/projects/ai-glyphor-company/locations/global/builds/3295d77d-6dd3-41de-8573-a4b11de9423c].
+Logs are available at [ https://console.cloud.google.com/cloud-build/builds/3295d77d-6dd3-41de-8573-a4b11de9423c?project=610179349713 ].
+Waiting for build to complete. Polling interval: 1 second(s).
+----------------------------- REMOTE BUILD OUTPUT ------------------------------
+starting build "3295d77d-6dd3-41de-8573-a4b11de9423c"
+
+FETCHSOURCE
+Fetching storage object: gs://ai-glyphor-company_cloudbuild/source/1773967222.877757-c9b6c49fc5254e018b28701ff48fa4f1.tgz#1773967293106665
+Copying gs://ai-glyphor-company_cloudbuild/source/1773967222.877757-c9b6c49fc5254e018b28701ff48fa4f1.tgz#1773967293106665...
+/ [0 files][    0.0 B/126.8 MiB]                                                
+-
+- [0 files][ 96.7 MiB/126.8 MiB]                                                
+\
+\ [1 files][126.8 MiB/126.8 MiB]                                                
+
+Operation completed over 1 objects/126.8 MiB.
+BUILD
+Already have image (with digest): gcr.io/cloud-builders/docker
+Sending build context to Docker daemon  144.7MB
+
+
+Step 1/37 : FROM node:22-slim AS builder
+22-slim: Pulling from library/node
+6db0909c4473: Pulling fs layer
+e260c4bd6721: Pulling fs layer
+1cb89e70384b: Pulling fs layer
+5b65622f4612: Pulling fs layer
+1f07293921e5: Pulling fs layer
+1f07293921e5: Verifying Checksum
+1f07293921e5: Download complete
+e260c4bd6721: Verifying Checksum
+e260c4bd6721: Download complete
+5b65622f4612: Verifying Checksum
+5b65622f4612: Download complete
+6db0909c4473: Verifying Checksum
+6db0909c4473: Download complete
+1cb89e70384b: Verifying Checksum
+1cb89e70384b: Download complete
+6db0909c4473: Pull complete
+e260c4bd6721: Pull complete
+1cb89e70384b: Pull complete
+5b65622f4612: Pull complete
+1f07293921e5: Pull complete
+Digest: sha256:4f77a690f2f8946ab16fe1e791a3ac0667ae1c3575c3e4d0d4589e9ed5bfaf3d
+Status: Downloaded newer image for node:22-slim
+ c7d2ba7d15bc
+Step 2/37 : WORKDIR /app
+ Running in d5ce69b5be1b
+Removing intermediate container d5ce69b5be1b
+ 82155d3190ca
+Step 3/37 : COPY package.json package-lock.json turbo.json tsconfig.base.json ./
+ a8de75aaade6
+Step 4/37 : COPY packages/agent-runtime/package.json ./packages/agent-runtime/package.json
+ 96ef5cbf2d4b
+Step 5/37 : COPY packages/company-memory/package.json ./packages/company-memory/package.json
+ fe5b74c57dd9
+Step 6/37 : COPY packages/agents/package.json ./packages/agents/package.json
+ 034c3af00b73
+Step 7/37 : COPY packages/integrations/package.json ./packages/integrations/package.json
+ bf088c31fcea
+Step 8/37 : COPY packages/shared/package.json ./packages/shared/package.json
+ b821bbcf76df
+Step 9/37 : COPY packages/scheduler/package.json ./packages/scheduler/package.json
+ e23ad85f85d9
+Step 10/37 : RUN npm ci
+ Running in 60f5fc7636ed
+[91mnpm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+[0m[91mnpm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+[0m
+added 644 packages, and audited 668 packages in 21s
+
+118 packages are looking for funding
+  run `npm fund` for details
+
+18 vulnerabilities (10 low, 4 moderate, 4 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[91mnpm notice
+npm notice New major version of npm available! 10.9.4 -> 11.12.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.0
+npm notice To update run: npm install -g npm@11.12.0
+npm notice
+[0mRemoving intermediate container 60f5fc7636ed
+ fbcd28820306
+Step 11/37 : COPY packages/ packages/
+ 8b7f745658ce
+Step 12/37 : RUN npx turbo build --filter=@glyphor/scheduler...
+ Running in 8d79435e8226
+[91m
+Attention:
+Turborepo now collects completely anonymous telemetry regarding usage.
+This information is used to shape the Turborepo roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://turborepo.dev/docs/telemetry
+
+[0m[91m? turbo 2.8.10
+[0m? Packages in scope: @glyphor/agent-runtime, @glyphor/agents, @glyphor/company-memory, @glyphor/integrations, @glyphor/scheduler, @glyphor/shared
+? Running build in 6 packages
+? Remote caching disabled
+@glyphor/shared:build: cache miss, executing b177dddcb806a2b3
+@glyphor/shared:build: 
+@glyphor/shared:build: > @glyphor/shared@0.1.0 build
+@glyphor/shared:build: > tsc
+@glyphor/shared:build:
+@glyphor/agent-runtime:build: cache miss, executing 3f98c0505f2a70b4
+@glyphor/agent-runtime:build: 
+@glyphor/agent-runtime:build: > @glyphor/agent-runtime@0.1.0 build
+@glyphor/agent-runtime:build: > tsc && node scripts/copy-config.mjs
+@glyphor/agent-runtime:build:
+@glyphor/company-memory:build: cache miss, executing 954a925c4a457aa1
+@glyphor/integrations:build: cache miss, executing 50d585b5b872b4ea
+@glyphor/integrations:build: 
+@glyphor/integrations:build: > @glyphor/integrations@0.1.0 build
+@glyphor/integrations:build: > tsc
+@glyphor/integrations:build: 
+@glyphor/company-memory:build: 
+@glyphor/company-memory:build: > @glyphor/company-memory@0.1.0 build
+@glyphor/company-memory:build: > tsc
+@glyphor/company-memory:build:
+@glyphor/agents:build: cache miss, executing 203d77e2a3d083d8
+@glyphor/agents:build: 
+@glyphor/agents:build: > @glyphor/agents@0.1.0 build
+@glyphor/agents:build: > tsc
+@glyphor/agents:build:
+@glyphor/scheduler:build: cache miss, executing 8b12b096a9d8970d
+@glyphor/scheduler:build: 
+@glyphor/scheduler:build: > @glyphor/scheduler@0.1.0 build
+@glyphor/scheduler:build: > tsc
+@glyphor/scheduler:build:
+
+ Tasks:    6 successful, 6 total
+Cached:    0 cached, 6 total
+  Time:    49.862s
+Removing intermediate container 8d79435e8226
+ bc086da46db4
+Step 13/37 : FROM node:22-slim AS runtime
+ c7d2ba7d15bc
+Step 14/37 : WORKDIR /app
+ Using cache
+ 82155d3190ca
+Step 15/37 : COPY package.json package-lock.json ./
+ 9f07407c2789
+Step 16/37 : COPY ToolingManifest.json ./
+ d80fe3d3a623
+Step 17/37 : COPY packages/agent-runtime/package.json ./packages/agent-runtime/package.json
+ 791e8fce8bba
+Step 18/37 : COPY packages/company-memory/package.json ./packages/company-memory/package.json
+ 578038e65451
+Step 19/37 : COPY packages/agents/package.json ./packages/agents/package.json
+ 9948ad09a67b
+Step 20/37 : COPY packages/integrations/package.json ./packages/integrations/package.json
+ 67cef038ae61
+Step 21/37 : COPY packages/shared/package.json ./packages/shared/package.json
+ 1d396a99ecfb
+Step 22/37 : COPY packages/scheduler/package.json ./packages/scheduler/package.json
+ 337e0d221f2d
+Step 23/37 : RUN npm ci --omit=dev
+ Running in e1277e3234fc
+[91mnpm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+[0m[91mnpm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+[0m
+added 535 packages, and audited 559 packages in 18s
+
+94 packages are looking for funding
+  run `npm fund` for details
+
+17 vulnerabilities (10 low, 4 moderate, 3 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[91mnpm notice
+npm notice New major version of npm available! 10.9.4 -> 11.12.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.0
+npm notice To update run: npm install -g npm@11.12.0
+npm notice
+[0mRemoving intermediate container e1277e3234fc
+ cd12b8b5ac38
+Step 24/37 : RUN npm install -g @openai/codex
+ Running in a819f60c37fd
+
+added 2 packages in 4s
+Removing intermediate container a819f60c37fd
+ 3e98dda88737
+Step 25/37 : COPY --from=builder /app/packages/agent-runtime/dist packages/agent-runtime/dist
+ 5dfacb0e6411
+Step 26/37 : COPY --from=builder /app/packages/company-memory/dist packages/company-memory/dist
+ ffc7821a8db4
+Step 27/37 : COPY --from=builder /app/packages/agents/dist packages/agents/dist
+ 0963d40f675e
+Step 28/37 : COPY --from=builder /app/packages/integrations/dist packages/integrations/dist
+ 71984e6f9322
+Step 29/37 : COPY --from=builder /app/packages/shared/dist packages/shared/dist
+ 5e7ca9a363f1
+Step 30/37 : COPY --from=builder /app/packages/scheduler/dist packages/scheduler/dist
+ a5f9616617de
+Step 31/37 : COPY --from=builder /app/packages/agent-runtime/src/config/ packages/agent-runtime/dist/config/
+ 11042bac8e5d
+Step 32/37 : COPY packages/agent-runtime/src/config/ packages/agent-runtime/src/config/
+ 270af970cb82
+Step 33/37 : COPY packages/company-knowledge/ packages/company-knowledge/
+ ead6890fbbea
+Step 34/37 : COPY --from=builder /app/packages/dashboard/public/glyphor-logo.png ./public/glyphor-logo.png
+ f2b333be742f
+Step 35/37 : ENV NODE_ENV=production
+ Running in 81e277cf84bc
+Removing intermediate container 81e277cf84bc
+ 51294c44bf86
+Step 36/37 : EXPOSE 8080
+ Running in 7de17cd6d0f8
+Removing intermediate container 7de17cd6d0f8
+ bc96c171bc60
+Step 37/37 : CMD ["node", "packages/scheduler/dist/server.js"]
+ Running in c580f44564db
+Removing intermediate container c580f44564db
+ 72240ea97100
+Successfully built 72240ea97100
+Successfully tagged us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest
+PUSH
+Pushing us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest
+The push refers to repository [us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler]
+78aaa2fbc020: Preparing
+dda33bca48a9: Preparing
+03d931c85726: Preparing
+bced288c2e50: Preparing
+bb336e93a1c4: Preparing
+eef3e4054aa2: Preparing
+04fad8e12505: Preparing
+75d7483a77a0: Preparing
+53668b4fb6b6: Preparing
+ca273a6cee7e: Preparing
+7701624a9766: Preparing
+245a218e7406: Preparing
+c9e9c3a8d62f: Preparing
+0e91938ab275: Preparing
+2f9e274128b2: Preparing
+4ff3c5ae262e: Preparing
+8f98ec324375: Preparing
+3234d07e9119: Preparing
+4e6e05bbd111: Preparing
+5f255d2d0463: Preparing
+785f190d802d: Preparing
+91ea465689b5: Preparing
+17db811a82c8: Preparing
+baa30d2615a7: Preparing
+d91a4ca5dda0: Preparing
+6143ee9e3de0: Preparing
+0e91938ab275: Waiting
+2f9e274128b2: Waiting
+4ff3c5ae262e: Waiting
+8f98ec324375: Waiting
+3234d07e9119: Waiting
+4e6e05bbd111: Waiting
+5f255d2d0463: Waiting
+785f190d802d: Waiting
+91ea465689b5: Waiting
+17db811a82c8: Waiting
+baa30d2615a7: Waiting
+d91a4ca5dda0: Waiting
+6143ee9e3de0: Waiting
+7701624a9766: Waiting
+c9e9c3a8d62f: Waiting
+245a218e7406: Waiting
+dda33bca48a9: Pushed
+53668b4fb6b6: Pushed
+eef3e4054aa2: Pushed
+bced288c2e50: Pushed
+03d931c85726: Pushed
+78aaa2fbc020: Pushed
+ca273a6cee7e: Pushed
+04fad8e12505: Pushed
+bb336e93a1c4: Pushed
+75d7483a77a0: Pushed
+4e6e05bbd111: Pushed
+0e91938ab275: Pushed
+8f98ec324375: Pushed
+4ff3c5ae262e: Pushed
+3234d07e9119: Pushed
+c9e9c3a8d62f: Pushed
+2f9e274128b2: Pushed
+91ea465689b5: Layer already exists
+5f255d2d0463: Pushed
+17db811a82c8: Layer already exists
+baa30d2615a7: Layer already exists
+d91a4ca5dda0: Layer already exists
+6143ee9e3de0: Layer already exists
+785f190d802d: Pushed
+7701624a9766: Pushed
+245a218e7406: Pushed
+latest: digest: sha256:fede5fc3bb4af66f8527ac0ef4d9d36a271be4333fc5cdd7b4753a9afde904a7 size: 5754
+DONE
+--------------------------------------------------------------------------------
+ID: 3295d77d-6dd3-41de-8573-a4b11de9423c
+CREATE_TIME: 2026-03-20T00:41:33+00:00
+DURATION: 3M26S
+SOURCE: gs://ai-glyphor-company_cloudbuild/source/1773967222.877757-c9b6c49fc5254e018b28701ff48fa4f1.tgz
+IMAGES: us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler (+1 more)
+STATUS: SUCCESS
