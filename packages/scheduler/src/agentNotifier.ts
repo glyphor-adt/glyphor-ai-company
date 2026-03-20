@@ -100,7 +100,8 @@ export class AgentNotifier {
 
   /**
    * Process an agent's output and deliver any notification intents.
-   * Posts to #briefings channel so both founders see it. Falls back to DMs.
+   * Posts to #briefings channel AS THE AGENT'S OWN IDENTITY via A365 Graph token.
+   * Falls back to webhook/delegated Graph, then DMs.
    * Returns the number of notifications sent.
    */
   async processAgentOutput(
@@ -115,38 +116,57 @@ export class AgentNotifier {
 
     for (const notif of notifications) {
       try {
-        const cardData: NotificationCardData = {
-          type: notif.type,
-          agent: agentName,
-          agentRole,
-          title: notif.title,
-          message: notif.message,
-          options: notif.options,
-        };
-
-        const card = formatNotificationCard(cardData);
-        const cardContent = card.attachments[0].content as unknown as Record<string, unknown>;
-
         let delivered = false;
         let deliveryMethod = 'none';
         let deliveryError: string | undefined;
 
-        // Primary: post to #briefings channel (both founders see it)
-        try {
-          const result = await postCardToChannel('briefings', cardContent as unknown as AdaptiveCard, this.graphClient);
-          if (result.method !== 'none') {
+        const textContent = this.formatNotificationText(agentName, notif);
+
+        // 1. Primary: Post as agent's own identity via A365 Graph token
+        if (this.a365Client && this.channels.briefings) {
+          try {
+            await this.a365Client.postChannelMessage(
+              this.channels.briefings.teamId,
+              this.channels.briefings.channelId,
+              textContent,
+              agentRole,
+            );
             delivered = true;
-            deliveryMethod = 'channel';
-            console.log(`[AgentNotifier] ${agentName} → #briefings channel: ${notif.title}`);
-          } else {
-            throw new Error(result.error ?? 'No channel delivery method');
+            deliveryMethod = 'a365_identity';
+            console.log(`[AgentNotifier] ${agentName} (A365) → #briefings: ${notif.title}`);
+          } catch (a365Err) {
+            console.warn(`[AgentNotifier] A365 identity post failed for ${agentName}:`, (a365Err as Error).message);
           }
-        } catch (err) {
-          deliveryError = (err as Error).message;
-          console.warn(`[AgentNotifier] Channel post failed for ${agentName}:`, deliveryError);
         }
 
-        // Fallback: DM both founders via A365
+        // 2. Fallback: webhook or delegated Graph (may appear as bot or token owner)
+        if (!delivered) {
+          try {
+            const cardData: NotificationCardData = {
+              type: notif.type,
+              agent: agentName,
+              agentRole,
+              title: notif.title,
+              message: notif.message,
+              options: notif.options,
+            };
+            const card = formatNotificationCard(cardData);
+            const cardContent = card.attachments[0].content as unknown as Record<string, unknown>;
+            const result = await postCardToChannel('briefings', cardContent as unknown as AdaptiveCard, this.graphClient);
+            if (result.method !== 'none') {
+              delivered = true;
+              deliveryMethod = `channel_${result.method}`;
+              console.log(`[AgentNotifier] ${agentName} → #briefings (${result.method}): ${notif.title}`);
+            } else {
+              throw new Error(result.error ?? 'No channel delivery method');
+            }
+          } catch (err) {
+            deliveryError = (err as Error).message;
+            console.warn(`[AgentNotifier] Channel fallback failed for ${agentName}:`, deliveryError);
+          }
+        }
+
+        // 3. Last resort: DM both founders via A365
         if (!delivered && this.a365Client) {
           const textMessage = this.formatNotificationText(agentName, notif);
           for (const target of ['kristina', 'andrew'] as const) {
@@ -173,7 +193,7 @@ export class AgentNotifier {
               agentRole,
               delivered ? 'alert' : 'alert_failed',
               delivered
-                ? `${deliveryMethod === 'channel' ? 'Posted to #briefings channel' : 'DM fallback to both founders'}: ${notif.title}`
+                ? `${deliveryMethod} → ${notif.title}`
                 : `Failed to deliver notification: ${notif.title} — ${deliveryError ?? 'unknown error'}`,
             ],
           );
