@@ -1095,8 +1095,8 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               <div
                 className={`max-w-[85%] md:max-w-[70%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-cyan/15 text-txt-primary'
-                    : 'sidebar-glass border border-border text-txt-secondary'
+                    ? 'chat-bubble-user text-txt-primary'
+                    : 'chat-bubble-agent glass-panel panel-nested border border-border text-txt-secondary'
                 }`}
               >
                 {/* Attachment chips */}
@@ -1146,7 +1146,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           {Array.from(respondingAgents.entries()).filter(([_, targetChat]) => targetChat === selectedRole).map(([respondingRole]) => (
             <div key={respondingRole} className="flex gap-3">
               <AgentAvatar role={respondingRole} size={28} />
-              <div className="sidebar-glass rounded-xl border border-border px-4 py-3">
+              <div className="chat-bubble-agent rounded-xl border border-border px-4 py-3">
                 <div className="flex items-center gap-1.5">
                   {respondingRole !== selectedRole && (
                     <span className="text-[10px] font-semibold mr-1" style={{ color: AGENT_META[respondingRole]?.color ?? '#06b6d4' }}>
