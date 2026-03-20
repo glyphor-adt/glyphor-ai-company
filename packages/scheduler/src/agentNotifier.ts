@@ -33,6 +33,7 @@ import {
   type ChannelMap,
   type AdaptiveCard,
 } from '@glyphor/integrations';
+import { systemQuery } from '@glyphor/shared/db';
 
 // Agent role → display name
 const AGENT_NAMES: Record<string, string> = {
@@ -144,24 +145,65 @@ export class AgentNotifier {
 
         for (const target of targets) {
           const upn = this.founderUpns[target];
+          let delivered = false;
+          let deliveryMethod = 'none';
+          let deliveryError: string | undefined;
 
           // Try A365 MCP DM first (plain text — Adaptive Cards not supported)
           if (this.a365Client && upn) {
-            try {
-              const chatId = await this.a365Client.createOrGetOneOnOneChat(upn, undefined, agentRole);
-              const textMessage = this.formatNotificationText(agentName, notif);
-              await this.a365Client.postChatMessage(chatId, textMessage, agentRole);
-              console.log(`[AgentNotifier] ${agentName} → DM to ${target}: ${notif.title}`);
-              sent++;
-              continue;
-            } catch (err) {
-              console.warn(`[AgentNotifier] A365 DM to ${target} failed, falling back to channel:`, (err as Error).message);
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try {
+                const chatId = await this.a365Client.createOrGetOneOnOneChat(upn, undefined, agentRole);
+                const textMessage = this.formatNotificationText(agentName, notif);
+                await this.a365Client.postChatMessage(chatId, textMessage, agentRole);
+                console.log(`[AgentNotifier] ${agentName} → DM to ${target}: ${notif.title}`);
+                delivered = true;
+                deliveryMethod = 'dm';
+                break;
+              } catch (err) {
+                const msg = (err as Error).message;
+                if (attempt === 0 && (msg.includes('401') || msg.includes('Unauthorized'))) {
+                  console.warn(`[AgentNotifier] A365 DM to ${target} got 401, retrying once...`);
+                  continue;
+                }
+                deliveryError = msg;
+                console.warn(`[AgentNotifier] A365 DM to ${target} failed:`, msg);
+                break;
+              }
             }
           }
 
           // Fall back to channel post (Adaptive Card via Graph API)
-          await this.sendToFallbackChannel(agentRole, cardContent);
-          sent++;
+          if (!delivered) {
+            try {
+              await this.sendToFallbackChannel(agentRole, cardContent);
+              delivered = true;
+              deliveryMethod = 'channel';
+              console.log(`[AgentNotifier] ${agentName} → channel fallback for ${target}: ${notif.title}`);
+            } catch (err) {
+              deliveryError = (err as Error).message;
+              console.error(`[AgentNotifier] Channel fallback also failed for ${target}:`, deliveryError);
+            }
+          }
+
+          // Log to activity_log for founder visibility
+          try {
+            await systemQuery(
+              `INSERT INTO activity_log (agent_role, action, details, created_at)
+               VALUES ($1, $2, $3, NOW())`,
+              [
+                agentRole,
+                delivered ? (deliveryMethod === 'dm' ? 'alert' : 'briefing') : 'alert_failed',
+                delivered
+                  ? `${deliveryMethod === 'dm' ? 'DM sent' : 'Briefing posted to Teams channel'} to ${target}: ${notif.title}`
+                  : `Failed to deliver notification to ${target}: ${notif.title} — ${deliveryError ?? 'unknown error'}`,
+              ],
+            );
+          } catch (logErr) {
+            console.warn('[AgentNotifier] Failed to log to activity_log:', (logErr as Error).message);
+          }
+
+          if (delivered) sent++;
         }
       } catch (err) {
         console.error(`[AgentNotifier] Failed to process notification from ${agentName}:`, (err as Error).message);

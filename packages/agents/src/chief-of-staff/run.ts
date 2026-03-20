@@ -213,14 +213,18 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   switch (task) {
     case 'generate_briefing': {
       const recipient = params.recipient || 'kristina';
-      initialMessage = `Generate the morning briefing for ${recipient} for ${today}.
+      const isBoth = recipient === 'both';
+      initialMessage = `Generate the ${isBoth ? 'morning briefings for BOTH Kristina and Andrew' : `morning briefing for ${recipient}`} for ${today}.
 
 Steps:
 1. Use get_recent_activity to see what happened in the last 24 hours
 2. Use get_pending_decisions to check for items needing approval
 3. Use get_financials for the last 7 days
-4. Synthesize everything into a concise morning briefing
-5. Use send_briefing to deliver it to ${recipient} via Teams
+${isBoth ? `4. Synthesize into TWO separate briefings — one for each founder
+5. Use send_briefing to deliver Kristina's briefing (recipient="kristina")
+6. Use send_briefing to deliver Andrew's briefing (recipient="andrew")
+   You MUST send both. Do NOT skip Andrew.` : `4. Synthesize everything into a concise morning briefing
+5. Use send_briefing to deliver it to ${recipient} via Teams`}
 
 Remember:
 - Kristina cares about: product/market, growth, competitive landscape, enterprise opportunities
