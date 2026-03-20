@@ -42,6 +42,33 @@
   .badge-gray     { background-image: linear-gradient(to right, #9ca3af, #6b7280, #4b5563); }
 }
 
+/* ─── Moving Border (animated gradient border) ── */
+.moving-border-container {
+  overflow: hidden;
+  position: relative;
+}
+
+.moving-border-gradient {
+  background: conic-gradient(
+    from 0deg,
+    #00E0FF,
+    #2DE6C8,
+    #7DD3FC,
+    #C084FC,
+    #E879F9,
+    #C084FC,
+    #7DD3FC,
+    #2DE6C8,
+    #00E0FF
+  );
+  animation: moving-border-spin 4s linear infinite;
+}
+
+@keyframes moving-border-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 /* ─── Theme Variables (derived from Prism) ────── */
 :root {
   --color-base: rgb(var(--prism-bg));

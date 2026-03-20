@@ -1556,7 +1556,6 @@ export default function OraChat() {
           <MovingBorderContainer
             borderRadius="0.75rem"
             containerClassName="flex-1"
-            duration={4000}
           >
             <div className="relative">
             <textarea
