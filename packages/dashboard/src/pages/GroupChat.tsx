@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useAgents } from '../lib/hooks';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP, AGENT_META, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../lib/types';
-import { Card, AgentAvatar } from '../components/ui';
+import { Card, AgentAvatar, GradientButton } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdSearch, MdExpandMore, MdChevronRight } from 'react-icons/md';
@@ -1004,24 +1004,21 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
               className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
               onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px`; }}
             />
-            <button
-              type="button"
+            <GradientButton
               onClick={sendMessage}
               disabled={sending || (!input.trim() && pendingFiles.length === 0) || selectedRoles.size === 0}
-              className="flex-shrink-0 rounded-lg bg-cyan/10 border border-cyan/40 px-5 py-2.5 text-[13px] font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
             >
               Send
-            </button>
+            </GradientButton>
             {messages.length > 0 && (
-              <button
-                type="button"
+              <GradientButton
+                variant="neutral"
                 onClick={continueDiscussion}
                 disabled={sending || selectedRoles.size === 0}
                 title="Let agents continue discussing with each other"
-                className="flex-shrink-0 rounded-lg border border-cyan/30 bg-cyan/10 px-4 py-2.5 text-[13px] font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
               >
                 Continue&nbsp;↻
-              </button>
+              </GradientButton>
             )}
           </div>
         </div>

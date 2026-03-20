@@ -6,6 +6,7 @@ import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { DISPLAY_NAME_MAP, GLYPHOR_PALETTE } from '../lib/types';
 import {
   Card,
+  GradientButton,
   SectionHeader,
   AgentAvatar,
   Skeleton,
@@ -1127,13 +1128,14 @@ function ActiveWorkflowsSection({
                   </p>
                 </div>
               </div>
-              <button
+              <GradientButton
+                variant="reject"
+                size="sm"
                 onClick={() => cancelWorkflow(w.id)}
                 disabled={actionLoading !== null}
-                className="rounded-md border border-prism-critical/30 bg-prism-critical/10 px-3 py-1 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 disabled:opacity-50"
               >
                 Cancel
-              </button>
+              </GradientButton>
             </div>
           ))}
         </div>
@@ -1240,24 +1242,26 @@ function ActiveWorkflowsSection({
                     {/* Controls */}
                     {(w.status === 'running' || w.status === 'waiting') && (
                       <div className="flex gap-2 pt-2 border-t border-border/50">
-                        <button
+                        <GradientButton
+                          variant="reject"
+                          size="sm"
                           onClick={() => cancelWorkflow(w.id)}
                           disabled={actionLoading !== null}
-                          className="rounded-md border border-prism-critical/30 bg-prism-critical/10 px-3 py-1 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 disabled:opacity-50"
                         >
                           {actionLoading === `cancel-${w.id}` ? 'Cancelling…' : 'Cancel'}
-                        </button>
+                        </GradientButton>
                       </div>
                     )}
                     {w.status === 'failed' && (
                       <div className="flex gap-2 pt-2 border-t border-border/50">
-                        <button
+                        <GradientButton
+                          variant="primary"
+                          size="sm"
                           onClick={() => retryWorkflow(w.id)}
                           disabled={actionLoading !== null}
-                          className="rounded-md border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-medium text-cyan hover:bg-cyan/20 disabled:opacity-50"
                         >
                           {actionLoading === `retry-${w.id}` ? 'Retrying…' : 'Retry'}
-                        </button>
+                        </GradientButton>
                       </div>
                     )}
 

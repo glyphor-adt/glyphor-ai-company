@@ -202,17 +202,17 @@ export default function Skills() {
     <div className="space-y-6">
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white/60 shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift">
+        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift" style={{ borderTopColor: '#0891B2', borderTopWidth: '2px' }}>
           <p className="text-2xl font-bold text-txt-primary">{totalSkills}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">Total Skills</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#0891B2' }}>Total Skills</p>
         </div>
-        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white/60 shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift">
+        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift" style={{ borderTopColor: '#8B5CF6', borderTopWidth: '2px' }}>
           <p className="text-2xl font-bold text-txt-primary">{categories.length}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">Categories</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#8B5CF6' }}>Categories</p>
         </div>
-        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white/60 shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift">
+        <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-4 py-3 text-center inner-card-lift" style={{ borderTopColor: '#F59E0B', borderTopWidth: '2px' }}>
           <p className="text-2xl font-bold text-txt-primary">{totalAssignments}</p>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-faint">Agent Assignments</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#F59E0B' }}>Agent Assignments</p>
         </div>
       </div>
 
@@ -249,18 +249,12 @@ export default function Skills() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowUpload(true)}
-            className={`${ACTION_BTN_CLS} bg-prism-fill-3/10 border border-prism-fill-3/40 text-prism-fill-3 hover:bg-prism-fill-3/20`}
-          >
+          <GradientButton variant="purple" size="sm" onClick={() => setShowUpload(true)}>
             <MdUploadFile className="h-4 w-4" /> Upload Skill File
-          </button>
-          <button
-            onClick={() => setShowCreate(true)}
-            className={`${ACTION_BTN_CLS} bg-cyan/10 border border-cyan/40 text-cyan hover:bg-cyan/20`}
-          >
+          </GradientButton>
+          <GradientButton size="sm" onClick={() => setShowCreate(true)}>
             <MdAdd className="h-4 w-4" /> New Skill
-          </button>
+          </GradientButton>
         </div>
       </div>
 

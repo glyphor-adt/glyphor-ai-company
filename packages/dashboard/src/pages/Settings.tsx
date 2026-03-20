@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiCall } from '../lib/firebase';
 import { useAuth, invalidateAllowedCache, FALLBACK_ADMINS } from '../lib/auth';
-import { Card, SectionHeader } from '../components/ui';
+import { Card, GradientButton, SectionHeader } from '../components/ui';
 
 interface DashboardUser {
   id: string;
@@ -140,13 +140,12 @@ export default function Settings() {
               <option value="admin">Admin</option>
             </select>
           </div>
-          <button
+          <GradientButton
             onClick={addUser}
             disabled={saving || !email.trim()}
-            className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-colors hover:bg-cyan/20 disabled:opacity-50"
           >
             {saving ? 'Adding…' : 'Add'}
-          </button>
+          </GradientButton>
         </div>
         {error && <p className="mt-2 text-xs text-prism-critical">{error}</p>}
       </Card>

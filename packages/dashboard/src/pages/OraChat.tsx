@@ -4,7 +4,7 @@ import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff, MessageSquarePlus, PanelLeftClose, PanelLeft, Search, Trash2 } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
-import { Card } from '../components/ui';
+import { Card, GradientButton } from '../components/ui';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { getModelLabel, getModelsByProvider, PROVIDER_LABELS, getReasoningSupport, normalizeReasoningLevel, type ReasoningLevel } from '../lib/models';
 import { useAuth, getEmailAliases } from '../lib/auth';
@@ -1582,14 +1582,12 @@ export default function OraChat() {
             {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           </button>
 
-          <button
-            type="button"
+          <GradientButton
             onClick={send}
             disabled={isLoading || (!input.trim() && attachments.length === 0)}
-            className="flex-shrink-0 rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-2 md:px-5 md:py-2.5 text-[13px] font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40"
           >
             Send
-          </button>
+          </GradientButton>
         </div>
       </div>
       </Card>

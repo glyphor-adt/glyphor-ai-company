@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
-import { Card, Skeleton, timeAgo } from '../components/ui';
+import { Card, GradientButton, Skeleton, timeAgo } from '../components/ui';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import type { DashboardChangeRequest } from '../lib/types';
 import { normalizeText } from '../lib/normalizeText';
@@ -100,13 +100,10 @@ export default function ChangeRequests() {
             Submit feature requests and bug fixes — IT agents will implement them via GitHub
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-opacity hover:bg-cyan/20"
-        >
+        <GradientButton variant="primary" size="md" onClick={() => setShowForm(true)}>
           <MdAdd className="text-base" />
           New Request
-        </button>
+        </GradientButton>
       </div>
 
       {/* Filters */}
@@ -246,20 +243,14 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
         <div className="flex items-center gap-2">
           {showApprovalActions && (
             <>
-              <button
-                onClick={handleApprove}
-                className="flex items-center gap-1 rounded-lg bg-prism-fill-2/10 px-2.5 py-1.5 text-[11px] font-medium text-prism-teal hover:bg-prism-fill-2/20 transition-colors"
-              >
+              <GradientButton variant="approve" size="sm" onClick={handleApprove}>
                 <MdCheck className="text-sm" />
                 Approve
-              </button>
-              <button
-                onClick={handleReject}
-                className="flex items-center gap-1 rounded-lg bg-prism-critical/10 px-2.5 py-1.5 text-[11px] font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors"
-              >
+              </GradientButton>
+              <GradientButton variant="reject" size="sm" onClick={handleReject}>
                 <MdBlock className="text-sm" />
                 Reject
-              </button>
+              </GradientButton>
             </>
           )}
           {r.github_issue_url && (
@@ -506,13 +497,12 @@ function NewRequestModal({
             >
               Cancel
             </button>
-            <button
+            <GradientButton
               type="submit"
               disabled={submitting || !title.trim() || !description.trim()}
-              className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-opacity hover:bg-cyan/20 disabled:opacity-50"
             >
               {submitting ? 'Submitting...' : 'Submit Request'}
-            </button>
+            </GradientButton>
           </div>
         </form>
       </div>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { MdSearch, MdClose } from 'react-icons/md';
-import { Card, SectionHeader, Skeleton } from '../ui';
+import { Card, GradientButton, SectionHeader, Skeleton } from '../ui';
 import {
   EmptyState,
   GovernanceSurface,
@@ -71,6 +71,13 @@ function ToolHealthOverview({
   const highRiskCount = activeTools.filter((tool) => tool.severity === 'critical' || tool.severity === 'high').length;
   const staleCount = activeTools.filter((tool) => (daysSince(tool.last_used_at) ?? 0) > 7).length;
 
+  const TONE_COLOR: Record<string, string> = {
+    'text-prism-sky': '#0EA5E9',
+    'text-prism-teal': '#14B8A6',
+    'text-prism-critical': '#EF4444',
+    'text-prism-elevated': '#F59E0B',
+  };
+
   const cards: { label: string; value: string; tone: string; filter?: HealthFilter }[] = [
     { label: 'Active Tools', value: activeTools.length.toString(), tone: 'text-prism-sky' },
     { label: 'Avg Reliability', value: formatPercent(avgReliability, 0), tone: 'text-prism-teal' },
@@ -85,14 +92,14 @@ function ToolHealthOverview({
         title="Tool Health Overview"
         subtitle="Reliability, freshness, and risk status across all active tools."
         action={activeFilter ? (
-          <button
-            type="button"
+          <GradientButton
+            variant="neutral"
+            size="sm"
             onClick={() => onFilter(null)}
-            className="flex items-center gap-1.5 rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-1.5 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/20"
           >
             <MdClose className="h-3.5 w-3.5" />
             Clear filter
-          </button>
+          </GradientButton>
         ) : undefined}
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -108,10 +115,11 @@ function ToolHealthOverview({
               className={`rounded-xl border p-4 text-left transition-colors ${
                 isActive
                   ? 'border-cyan/40 bg-cyan/8 ring-1 ring-cyan/20'
-                  : 'theme-glass-panel'
+                  : 'border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm'
               } ${isClickable ? 'cursor-pointer hover:border-border-hover' : 'cursor-default'}`}
+              style={{ borderTopColor: TONE_COLOR[card.tone] ?? '#0EA5E9', borderTopWidth: '2px' }}
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-txt-muted">{card.label}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-txt-muted" style={{ color: TONE_COLOR[card.tone] }}>{card.label}</p>
               <p className={`mt-3 text-3xl font-semibold ${card.tone}`}>{card.value}</p>
               {isClickable && (
                 <p className="mt-2 text-[10px] text-txt-muted">{isActive ? 'Showing filtered' : 'Click to filter'}</p>

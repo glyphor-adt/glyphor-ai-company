@@ -5,6 +5,7 @@ import {
   MdBiotech, MdCampaign, MdHeadsetMic, MdStar, MdClose, MdFileDownload, MdArrowForward,
 } from 'react-icons/md';
 import { SCHEDULER_URL } from '../lib/firebase';
+import { GradientButton } from '../components/ui';
 import { getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 
 /* ═══════════════════════════════════════════════════
@@ -277,9 +278,9 @@ export default function WorkforceBuilder() {
           <button onClick={exportJSON} disabled={!nodes.length} className="theme-glass-panel-soft rounded-lg px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan disabled:opacity-40">
             <span className="flex items-center gap-1"><MdFileDownload /> Export JSON</span>
           </button>
-          <button onClick={deployAll} disabled={deploying || !nodes.length} className="rounded-lg bg-cyan/10 border border-cyan/40 px-5 py-2 text-sm font-semibold text-cyan transition-all hover:bg-cyan/20 disabled:opacity-40">
+          <GradientButton onClick={deployAll} disabled={deploying || !nodes.length}>
             {deploying ? 'Deploying...' : 'Deploy All'}
-          </button>
+          </GradientButton>
         </div>
       </div>
 
@@ -504,12 +505,14 @@ export default function WorkforceBuilder() {
 
                 {/* Actions */}
                 <div className="border-t border-primary/20 pt-3">
-                  <button
+                  <GradientButton
+                    variant="reject"
+                    size="sm"
                     onClick={deleteSelected}
-                    className="w-full rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-2 text-xs font-medium text-prism-critical hover:bg-prism-critical/20 transition-colors"
+                    className="w-full"
                   >
                     Remove Agent
-                  </button>
+                  </GradientButton>
                 </div>
               </div>
             </div>

@@ -216,7 +216,7 @@ function HealthSummary({
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {layers.map(l => (
-          <div key={l.name} className="rounded-lg theme-glass-panel px-3 py-2.5">
+          <div key={l.name} className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-3 py-2.5" style={{ borderTopColor: l.status ? '#34D399' : '#EF4444', borderTopWidth: '2px' }}>
             <div className="flex items-center gap-2 mb-1">
               <span className={`h-2 w-2 rounded-full ${l.status ? 'bg-prism-fill-2' : 'bg-prism-critical'}`} />
               <span className="text-[12px] font-medium text-txt-primary">{l.name}</span>
@@ -338,13 +338,12 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
             </div>
           </div>
           <div className="flex justify-end">
-            <button
+            <GradientButton
               onClick={handleSave}
               disabled={saving}
-              className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan hover:bg-cyan/20 disabled:opacity-40"
             >
               {saving ? 'Saving…' : 'Save'}
-            </button>
+            </GradientButton>
           </div>
         </div>
       ) : (
@@ -352,8 +351,8 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <MetricCard label="MRR" value={`$${(pulse.mrr ?? 0).toLocaleString()}`} sub={`${(pulse.mrr_change_pct ?? 0) >= 0 ? '+' : ''}${(pulse.mrr_change_pct ?? 0)}% MoM`} positive={(pulse.mrr_change_pct ?? 0) >= 0} />
             <MetricCard label="Active Users" value={String(pulse.active_users ?? 0)} />
-            <div className="rounded-lg theme-glass-panel px-3 py-2.5">
-              <p className="text-[11px] text-txt-muted mb-1">Platform Status</p>
+            <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-3 py-2.5" style={{ borderTopColor: '#F59E0B', borderTopWidth: '2px' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#F59E0B' }}>Platform Status</p>
               <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-semibold ${st.bg} ${st.color}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${
                   pulse.platform_status === 'healthy' ? 'bg-prism-fill-2' :
@@ -362,8 +361,8 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
                 {st.label}
               </span>
             </div>
-            <div className="rounded-lg theme-glass-panel px-3 py-2.5">
-              <p className="text-[11px] text-txt-muted mb-1">Company Mood</p>
+            <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-3 py-2.5" style={{ borderTopColor: '#8B5CF6', borderTopWidth: '2px' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#8B5CF6' }}>Company Mood</p>
               <p className="text-lg"><MoodIcon className="inline-block text-lg mr-1" /> <span className="text-[12px] font-medium text-txt-primary capitalize">{pulse.company_mood}</span></p>
             </div>
           </div>
@@ -390,10 +389,12 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
 }
 
 function MetricCard({ label, value, sub, positive }: { label: string; value: string; sub?: string; positive?: boolean }) {
+  const colors: Record<string, string> = { MRR: '#34D399', 'Active Users': '#3B82F6' };
+  const color = colors[label] ?? '#0891B2';
   return (
-    <div className="rounded-lg theme-glass-panel px-3 py-2.5">
-      <p className="text-[11px] text-txt-muted mb-1">{label}</p>
-      <p className="text-lg font-semibold text-txt-primary">{value}</p>
+    <div className="rounded-xl border border-white/10 dark:bg-black/30 bg-white shadow-md dark:shadow-none backdrop-blur-sm px-3 py-2.5" style={{ borderTopColor: color, borderTopWidth: '2px' }}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color }}>{label}</p>
+      <p className="mt-1 text-lg font-semibold text-txt-primary">{value}</p>
       {sub && (
         <p className={`text-[11px] ${positive ? 'text-prism-teal' : 'text-prism-critical'}`}>{sub}</p>
       )}
@@ -419,12 +420,9 @@ function BulletinSection({ bulletins, onRefresh }: { bulletins: Bulletin[]; onRe
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-txt-primary">Founder Bulletins</h2>
-          <button
-            onClick={() => setShowForm(true)}
-            className="rounded-lg bg-cyan/10 border border-cyan/40 px-3 py-1.5 text-[12px] font-medium text-cyan hover:bg-cyan/20"
-          >
+          <GradientButton size="sm" onClick={() => setShowForm(true)}>
             + New Bulletin
-          </button>
+          </GradientButton>
         </div>
 
         {bulletins.length === 0 ? (
@@ -713,13 +711,13 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
                       >
                         Cancel
                       </button>
-                      <button
+                      <GradientButton
+                        size="sm"
                         onClick={() => handleSave(s)}
                         disabled={saving}
-                        className="rounded-md bg-cyan/10 border border-cyan/40 px-3 py-1.5 text-[11px] font-medium text-cyan hover:bg-cyan/20 disabled:opacity-40"
                       >
                         {saving ? 'Saving…' : 'Save'}
-                      </button>
+                      </GradientButton>
                     </div>
                   </div>
                 </div>

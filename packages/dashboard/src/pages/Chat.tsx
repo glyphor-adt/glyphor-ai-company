@@ -997,24 +997,26 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           {/* Teams call button */}
           {VOICE_GW && (
             teamsSessionId ? (
-              <button
+              <GradientButton
+                variant="reject"
+                size="sm"
                 onClick={leaveTeamsCall}
-                className="flex items-center gap-1.5 rounded-full bg-prism-critical/15 px-3 py-1.5 text-[11px] font-medium text-prism-critical hover:bg-prism-critical/25 transition-colors"
                 title="Remove agent from Teams call"
               >
                 <MdCallEnd size={14} />
                 In Call — Leave
-              </button>
+              </GradientButton>
             ) : currentMeetingUrl ? (
-              <button
+              <GradientButton
+                variant="primary"
+                size="sm"
                 onClick={() => joinTeamsCall(currentMeetingUrl)}
                 disabled={teamsJoining}
-                className="flex items-center gap-1.5 rounded-full bg-cyan/10 border border-cyan/40 px-3 py-1.5 text-[11px] font-medium text-cyan hover:bg-cyan/20 transition-colors disabled:opacity-40"
                 title="Add this agent to your current Teams call"
               >
                 <MdVideoCall size={16} />
                 {teamsJoining ? 'Joining…' : 'Add to This Call'}
-              </button>
+              </GradientButton>
             ) : (
               <button
                 onClick={() => setShowTeamsModal(true)}

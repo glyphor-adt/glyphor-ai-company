@@ -32,9 +32,9 @@ interface PlanVerification {
 }
 
 const VERDICT_CONFIG: Record<string, { label: string; dot: string; border: string; bg: string; text: string }> = {
-  APPROVE: { label: 'APPROVED', dot: 'bg-tier-green', border: '', bg: 'bg-gradient-to-r from-green-400 via-green-500 to-green-600', text: 'text-white' },
-  WARN:    { label: 'WARNING',  dot: 'bg-prism-elevated', border: '', bg: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600', text: 'text-white' },
-  REVISE:  { label: 'REVISE',   dot: 'bg-prism-critical', border: '', bg: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600', text: 'text-white' },
+  APPROVE: { label: 'APPROVED', dot: 'bg-tier-green', border: '', bg: 'bg-green-500/15', text: 'text-green-400' },
+  WARN:    { label: 'WARNING',  dot: 'bg-prism-elevated', border: '', bg: 'bg-amber-500/15', text: 'text-amber-400' },
+  REVISE:  { label: 'REVISE',   dot: 'bg-prism-critical', border: '', bg: 'bg-red-500/15', text: 'text-red-400' },
 };
 
 /* ── Types ─────────────────────────────────────── */
@@ -468,10 +468,10 @@ export default function Directives() {
                             }`} />
                             <span className="text-sm font-medium text-txt-primary">{init.title}</span>
                             <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
-                              init.priority === 'critical' ? 'bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white'
-                              : init.priority === 'high' ? 'bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 text-white'
-                              : init.priority === 'medium' ? 'bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white'
-                              : 'bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600 text-white'
+                              init.priority === 'critical' ? 'bg-red-500/15 text-red-400'
+                              : init.priority === 'high' ? 'bg-orange-500/15 text-orange-400'
+                              : init.priority === 'medium' ? 'bg-blue-500/15 text-blue-400'
+                              : 'bg-gray-500/15 text-gray-400'
                             }`}>
                               {init.priority.toUpperCase()}
                             </span>
@@ -756,10 +756,10 @@ function DirectiveCard({
             const childrenOf = (parentId: string) => subTasks.filter(s => s.parent_assignment_id === parentId);
 
             const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
-              executive_outcome: { label: 'Exec Outcome', cls: 'bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white' },
-              team_task: { label: 'Team Task', cls: 'bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white' },
-              peer_request: { label: 'Peer Request', cls: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-white' },
-              standard: { label: 'Standard', cls: 'bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600 text-white' },
+              executive_outcome: { label: 'Exec Outcome', cls: 'bg-purple-500/15 text-purple-400' },
+              team_task: { label: 'Team Task', cls: 'bg-blue-500/15 text-blue-400' },
+              peer_request: { label: 'Peer Request', cls: 'bg-amber-500/15 text-amber-400' },
+              standard: { label: 'Standard', cls: 'bg-gray-500/15 text-gray-400' },
             };
 
             const renderAssignment = (a: WorkAssignment, indent = false) => {
@@ -949,22 +949,24 @@ function DirectiveCard({
           {(canCancel || canDelete) && (
             <div className="flex items-center gap-2 border-t border-border pt-3">
               {canCancel && (
-                <button
+                <GradientButton
+                  variant="warning"
+                  size="sm"
                   onClick={handleCancel}
                   disabled={acting}
-                  className="rounded-lg border border-prism-elevated/30 bg-prism-elevated/10 px-3 py-1.5 text-[12px] font-medium text-prism-elevated transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
                   <MdBlock className="inline-block text-[14px] mr-1" /> Cancel
-                </button>
+                </GradientButton>
               )}
               {canDelete && !confirmDelete && (
-                <button
+                <GradientButton
+                  variant="reject"
+                  size="sm"
                   onClick={() => setConfirmDelete(true)}
                   disabled={acting}
-                  className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
                   <MdDelete className="inline-block text-[14px] mr-1" /> Delete
-                </button>
+                </GradientButton>
               )}
               {confirmDelete && (
                 <div className="flex items-center gap-2">
@@ -1111,13 +1113,14 @@ function ProposedDirectiveCard({
 
         {/* Action buttons */}
         <div className="mt-3 flex items-center gap-2 border-t border-prism-violet/10 pt-3">
-          <button
+          <GradientButton
+            variant="approve"
+            size="sm"
             onClick={handleApprove}
             disabled={acting}
-            className="rounded-lg bg-prism-fill-2 px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
                         <MdCheckCircle className="inline-block text-[14px] mr-1" /> Approve
-          </button>
+          </GradientButton>
           <button
             onClick={() => setShowEdit(true)}
             disabled={acting}
@@ -1125,21 +1128,23 @@ function ProposedDirectiveCard({
           >
                         <MdEdit className="inline-block text-[14px] mr-1" /> Edit & Approve
           </button>
-          <button
+          <GradientButton
+            variant="reject"
+            size="sm"
             onClick={handleReject}
             disabled={acting}
-            className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-opacity hover:opacity-90 disabled:opacity-40"
           >
                         <MdCancel className="inline-block text-[14px] mr-1" /> Reject
-          </button>
+          </GradientButton>
           {!confirmDelete ? (
-            <button
+            <GradientButton
+              variant="reject"
+              size="sm"
               onClick={() => setConfirmDelete(true)}
               disabled={acting}
-              className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-opacity hover:opacity-90 disabled:opacity-40"
             >
                           <MdDelete className="inline-block text-[14px] mr-1" /> Delete
-            </button>
+            </GradientButton>
           ) : (
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-prism-critical">Delete this directive and all its assignments?</span>

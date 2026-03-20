@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Card, SectionHeader, Skeleton } from '../ui';
+import { Card, GradientButton, SectionHeader, Skeleton } from '../ui';
 import {
   AccessPostureResponse,
   AGENT_ROLES,
@@ -1008,13 +1008,13 @@ function AccessGrantManager({
                         </td>
                         <td className="px-4 py-3">
                           {isAdmin && grant.is_active ? (
-                            <button
-                              type="button"
+                            <GradientButton
+                              variant="reject"
+                              size="sm"
                               onClick={() => onRevoke(grant)}
-                              className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-colors hover:bg-prism-critical/20"
                             >
                               Revoke
-                            </button>
+                            </GradientButton>
                           ) : (
                             <span className="text-txt-muted">—</span>
                           )}
@@ -1093,13 +1093,13 @@ function AccessGrantManager({
                                 </span>
                               )}
                               {isAdmin && (
-                                <button
-                                  type="button"
+                                <GradientButton
+                                  variant="reject"
+                                  size="sm"
                                   onClick={() => onRevoke(grant)}
-                                  className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-colors hover:bg-prism-critical/20"
                                 >
                                   Revoke
-                                </button>
+                                </GradientButton>
                               )}
                             </div>
                           </div>

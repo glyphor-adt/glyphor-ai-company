@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward, MdChevronRight, MdSearch, MdPerson, MdExpandMore } from 'react-icons/md';
 import Markdown from 'react-markdown';
 import { SCHEDULER_URL } from '../lib/firebase';
-import { Card, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import { Card, GradientButton, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 import { normalizeText } from '../lib/normalizeText';
 
 /* ── Types ─────────────────────────────────────── */
@@ -1226,13 +1226,12 @@ function SimulationsPanel() {
               ))}
             </select>
           </div>
-          <button
+          <GradientButton
             onClick={launch}
             disabled={launching || !action.trim()}
-            className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-opacity hover:bg-cyan/20 disabled:opacity-40"
           >
             {launching ? 'Launching…' : 'Run Cascade'}
-          </button>
+          </GradientButton>
         </div>
       </Card>
 
@@ -1603,13 +1602,12 @@ function ChainOfThoughtPanel() {
               onKeyDown={(e) => e.key === 'Enter' && launch()}
             />
           </div>
-          <button
+          <GradientButton
             onClick={launch}
             disabled={launching || !query.trim()}
-            className="rounded-lg bg-cyan/10 border border-cyan/40 px-4 py-2 text-sm font-medium text-cyan transition-opacity hover:bg-cyan/20 disabled:opacity-40"
           >
             {launching ? 'Launching…' : 'Analyze'}
-          </button>
+          </GradientButton>
         </div>
       </Card>
 
