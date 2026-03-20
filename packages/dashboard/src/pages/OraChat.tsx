@@ -603,7 +603,7 @@ export default function OraChat() {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
   }, []);
 
   // Load sessions list on mount
@@ -1542,22 +1542,12 @@ export default function OraChat() {
           </div>
         )}
 
-        <div className="flex gap-2 items-end">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((prev) => !prev)}
-            disabled={isLoading}
-            className={`flex-shrink-0 rounded-lg bg-raised px-2.5 py-2.5 text-txt-muted hover:text-cyan transition-colors ${isLoading ? 'opacity-50' : ''}`}
-            aria-label="Open Ora options"
-          >
-            <Plus className={`h-4 w-4 transition-transform ${menuOpen ? 'rotate-45' : ''}`} />
-          </button>
-
-          <MovingBorderContainer
-            borderRadius="0.75rem"
-            containerClassName="flex-1"
-          >
-            <div className="relative">
+        <MovingBorderContainer
+          borderRadius="1rem"
+          containerClassName="w-full"
+        >
+          <div className="flex flex-col bg-raised rounded-[calc(1rem-1.5px)]">
+            {/* Textarea */}
             <textarea
               ref={textareaRef}
               value={input}
@@ -1568,38 +1558,53 @@ export default function OraChat() {
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder="Ask Ora... (Shift+Enter for new line)"
-              rows={1}
-              className="w-full rounded-xl bg-raised pl-4 pr-20 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 resize-none min-h-[44px] max-h-[140px]"
-              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; }}
+              rows={2}
+              className="w-full bg-transparent px-4 pt-3.5 pb-1 text-[14px] text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 resize-none min-h-[72px] max-h-[180px]"
+              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; }}
               disabled={isLoading}
             />
-            <div className="absolute right-2 bottom-1.5 flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={toggleDictation}
-                disabled={isLoading}
-                className={`hidden md:flex flex-shrink-0 w-[32px] h-[32px] items-center justify-center rounded-full transition-all ${
-                  isListening
-                    ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
-                    : 'text-txt-muted hover:text-cyan'
-                } ${isLoading ? 'opacity-50' : ''}`}
-                title={isListening ? 'Stop dictation' : 'Dictate'}
-              >
-                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-              </button>
+
+            {/* Bottom toolbar */}
+            <div className="flex items-center justify-between px-2.5 pb-2.5 pt-1">
+              {/* Left actions */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((prev) => !prev)}
+                  disabled={isLoading}
+                  className={`flex-shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-full text-txt-muted hover:text-cyan hover:bg-white/5 transition-colors ${isLoading ? 'opacity-50' : ''}`}
+                  aria-label="Open Ora options"
+                >
+                  <Plus className={`h-4.5 w-4.5 transition-transform ${menuOpen ? 'rotate-45' : ''}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleDictation}
+                  disabled={isLoading}
+                  className={`hidden md:flex flex-shrink-0 w-[34px] h-[34px] items-center justify-center rounded-full transition-all ${
+                    isListening
+                      ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
+                      : 'text-txt-muted hover:text-cyan hover:bg-white/5'
+                  } ${isLoading ? 'opacity-50' : ''}`}
+                  title={isListening ? 'Stop dictation' : 'Dictate'}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </button>
+              </div>
+
+              {/* Right – send */}
               <button
                 type="button"
                 onClick={send}
                 disabled={isLoading || (!input.trim() && attachments.length === 0)}
-                className="flex-shrink-0 w-[32px] h-[32px] flex items-center justify-center rounded-full bg-cyan text-white transition-all hover:bg-cyan/80 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex-shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-full bg-cyan text-white transition-all hover:bg-cyan/80 disabled:opacity-30 disabled:cursor-not-allowed"
                 aria-label="Send message"
               >
                 <ArrowUp className="h-4 w-4" />
               </button>
             </div>
-            </div>
-          </MovingBorderContainer>
-        </div>
+          </div>
+        </MovingBorderContainer>
       </div>
       </Card>
     </div>

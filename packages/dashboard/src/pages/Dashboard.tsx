@@ -370,9 +370,9 @@ export default function Dashboard() {
           className="absolute pointer-events-none"
           style={{
             inset: '8px',
-            maskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 18%, transparent 38%), linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+            maskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 16%, transparent 26%), linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
             maskComposite: 'intersect',
-            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 18%, transparent 38%), linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 16%, transparent 26%), linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
             WebkitMaskComposite: 'source-in',
           }}
         >
@@ -389,6 +389,9 @@ export default function Dashboard() {
             speedMin={0.12}
             speedMax={0.55}
             speedScale={0.7}
+            shimmerCount={18}
+            shimmerColor="rgba(255,255,255,0.9)"
+            shimmerRadius={1.0}
           />
         </div>
       </div>

@@ -1908,7 +1908,7 @@ function SettingsTab({
   onUpdate: (updater: (prev: AgentRow | null) => AgentRow | null) => void;
 }) {
   const navigate = useNavigate();
-  const [model, setModel] = useState(agent.model ?? 'gemini-3-flash-preview');
+  const [model, setModel] = useState(agent.model ?? 'gemini-3.1-flash-lite-preview');
   const [temperature, setTemperature] = useState(agent.temperature ?? 0.3);
   const [maxTurns, setMaxTurns] = useState(agent.max_turns ?? 10);
   const [thinkingEnabled, setThinkingEnabled] = useState(agent.thinking_enabled ?? true);

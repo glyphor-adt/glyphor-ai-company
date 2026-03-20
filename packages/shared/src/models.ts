@@ -476,7 +476,7 @@ export function normalizeReasoningLevel(modelId: string, requested?: ReasoningLe
 // Tiers:
 //   economy  → gemini-2.5-flash-lite ($0.10/$0.40) — triage, classification, boolean checks
 //   standard → gemini-3.1-flash-lite-preview ($0.25/$1.50)  — default workhorse for all agents
-//   pro      → gemini-3-flash-preview ($0.50/$3.00)  — orchestration, strategic, founder-chat
+//   pro      → gemini-3.1-flash-lite-preview ($0.25/$1.50)  — orchestration, strategic, founder-chat
 //
 // Gemini-dominant — using our GCP API key.
 
@@ -486,11 +486,11 @@ export type CostTier = 'economy' | 'standard' | 'pro';
 export const TIER_MODELS: Record<CostTier, string> = {
   economy:  'gemini-2.5-flash-lite',          // $0.10 / $0.40
   standard: 'gemini-3.1-flash-lite-preview',  // $0.25 / $1.50
-  pro:      'gemini-3-flash-preview',         // $0.50 / $3.00
+  pro:      'gemini-3.1-flash-lite-preview',  // $0.25 / $1.50
 };
 
 /** Model used for on_demand chat with founder-facing executives. */
-export const EXEC_CHAT_MODEL = 'gemini-3-flash-preview';
+export const EXEC_CHAT_MODEL = 'gemini-3.1-flash-lite-preview';
 
 /** Role → tier mapping. Unlisted roles default to 'standard'. */
 export const ROLE_COST_TIER: Record<string, CostTier> = {

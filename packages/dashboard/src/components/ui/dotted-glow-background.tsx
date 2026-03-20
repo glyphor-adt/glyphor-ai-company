@@ -34,6 +34,12 @@ type DottedGlowBackgroundProps = {
   speedMax?: number;
   /** global speed multiplier for all dots */
   speedScale?: number;
+  /** number of random white shimmer dots scattered across the canvas */
+  shimmerCount?: number;
+  /** color of shimmer dots */
+  shimmerColor?: string;
+  /** radius of shimmer dots */
+  shimmerRadius?: number;
 };
 
 /**
@@ -59,6 +65,9 @@ export const DottedGlowBackground = ({
   speedMin = 0.4,
   speedMax = 1.3,
   speedScale = 1,
+  shimmerCount = 0,
+  shimmerColor = "rgba(255,255,255,0.9)",
+  shimmerRadius = 1,
 }: DottedGlowBackgroundProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -177,9 +186,11 @@ export const DottedGlowBackground = ({
 
     // Precompute dot metadata for a medium-sized grid and regenerate on resize
     let dots: { x: number; y: number; phase: number; speed: number }[] = [];
+    let shimmerDots: { x: number; y: number; phase: number; speed: number }[] = [];
 
     const regenDots = () => {
       dots = [];
+      shimmerDots = [];
       const { width, height } = container.getBoundingClientRect();
       const cols = Math.ceil(width / gap) + 2;
       const rows = Math.ceil(height / gap) + 2;
@@ -195,6 +206,15 @@ export const DottedGlowBackground = ({
           const speed = min + Math.random() * span; // configurable rad/s
           dots.push({ x, y, phase, speed });
         }
+      }
+      // Generate random shimmer dots
+      for (let s = 0; s < shimmerCount; s++) {
+        shimmerDots.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.3 + Math.random() * 0.8,
+        });
       }
     };
 
@@ -267,6 +287,26 @@ export const DottedGlowBackground = ({
       }
       ctx.restore();
 
+      // Draw shimmer dots (random white sparkle)
+      if (shimmerDots.length > 0) {
+        ctx.save();
+        for (let s = 0; s < shimmerDots.length; s++) {
+          const sd = shimmerDots[s];
+          const raw = Math.sin(time * sd.speed * 1.4 + sd.phase);
+          // Heavily biased toward invisible — only briefly flash bright
+          const pulse = Math.max(0, raw * 2 - 1); // 0 most of the time, peaks at 1
+          if (pulse <= 0.01) continue;
+          ctx.globalAlpha = pulse * opacity;
+          ctx.shadowColor = shimmerColor;
+          ctx.shadowBlur = 6 * pulse;
+          ctx.fillStyle = shimmerColor;
+          ctx.beginPath();
+          ctx.arc(sd.x, sd.y, shimmerRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
       raf = requestAnimationFrame(draw);
     };
 
@@ -303,6 +343,9 @@ export const DottedGlowBackground = ({
     speedMin,
     speedMax,
     speedScale,
+    shimmerCount,
+    shimmerColor,
+    shimmerRadius,
   ]);
 
   return (
