@@ -367,10 +367,13 @@ export default function Dashboard() {
           </div>
         </HomeCard>
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute pointer-events-none"
           style={{
-            maskImage: 'linear-gradient(to right, black 30%, transparent 52%)',
-            WebkitMaskImage: 'linear-gradient(to right, black 30%, transparent 52%)',
+            inset: '8px',
+            maskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 18%, transparent 38%), linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+            maskComposite: 'intersect',
+            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 18%, transparent 38%), linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+            WebkitMaskComposite: 'source-in',
           }}
         >
           <DottedGlowBackground

@@ -88,14 +88,7 @@ export default function GtmReadinessPanel() {
     setRunning(false);
   }, [fetchLatest, fetchHistory]);
 
-  if (!report) {
-    return (
-      <div className="rounded-xl border border-border glass-surface p-6 animate-pulse">
-        <div className="h-4 w-48 bg-raised/40 rounded mb-3" />
-        <div className="h-8 w-32 bg-raised/40 rounded" />
-      </div>
-    );
-  }
+  if (!report) return null;
 
   const statusColor: Record<string, string> = {
     READY: '#00E0FF',

@@ -135,7 +135,7 @@ export default function EvalFleetGrid({ onAgentClick, filter }: EvalFleetGridPro
         <div
           key={agent.id}
           style={{ '--rim': scoreColor(agent.performance_score) } as React.CSSProperties}
-          className="relative rounded-xl border border-border glass-surface p-4 cursor-pointer
+          className="relative rounded-xl glass-surface p-4 cursor-pointer
                      shadow-lg transition-all duration-200 hover:scale-[1.02]
                      before:absolute before:inset-0 before:rounded-xl
                      before:border before:border-[var(--rim)]/30 before:pointer-events-none"

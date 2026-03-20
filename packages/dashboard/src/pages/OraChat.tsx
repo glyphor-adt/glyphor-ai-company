@@ -5,6 +5,7 @@ import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff, MessageSquarePlus, PanelLeftClose, PanelLeft, Search, Trash2, ArrowUp } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
 import { Card } from '../components/ui';
+import { MovingBorderContainer } from '../components/ui/MovingBorder';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { getModelLabel, getModelsByProvider, PROVIDER_LABELS, getReasoningSupport, normalizeReasoningLevel, type ReasoningLevel } from '../lib/models';
 import { useAuth, getEmailAliases } from '../lib/auth';
@@ -1552,7 +1553,12 @@ export default function OraChat() {
             <Plus className={`h-4 w-4 transition-transform ${menuOpen ? 'rotate-45' : ''}`} />
           </button>
 
-          <div className="flex-1 relative">
+          <MovingBorderContainer
+            borderRadius="0.75rem"
+            containerClassName="flex-1"
+            duration={4000}
+          >
+            <div className="relative">
             <textarea
               ref={textareaRef}
               value={input}
@@ -1592,7 +1598,8 @@ export default function OraChat() {
                 <ArrowUp className="h-4 w-4" />
               </button>
             </div>
-          </div>
+            </div>
+          </MovingBorderContainer>
         </div>
       </div>
       </Card>

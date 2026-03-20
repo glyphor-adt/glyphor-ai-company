@@ -91,7 +91,7 @@ export default function WorldStateFreshnessPanel() {
   }, {});
 
   return (
-    <div className="rounded-xl border border-border glass-surface p-5">
+    <div className="rounded-xl glass-surface p-5">
       {/* Summary header */}
       <button
         className="flex w-full items-center justify-between"
