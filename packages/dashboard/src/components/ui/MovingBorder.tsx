@@ -1,43 +1,199 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import {
+  motion,
+  useAnimationFrame,
+  useMotionValue,
+  useTransform,
+  useMotionTemplate,
+} from 'motion/react';
 import { cn } from '../../lib/utils';
 
-/**
- * Animated gradient border container.
- * Uses a rotating conic-gradient behind the content to create
- * a thin, continuously-moving colour trace around the border
- * (similar to Google Gemini's textarea).
- *
- * Requires the `.moving-border-spin` keyframes in index.css.
- */
+// ── Palette presets ────────────────────────────────────────────────
+export const PALETTES = {
+  prismMidnight: ['#00E0FF', '#00A3FF', '#1171ED', '#6E77DF'],
+  gemini: ['#4285f4', '#a855f7', '#ec4899', '#4285f4'],
+  aurora: ['#00ff87', '#60efff', '#0061ff', '#a855f7'],
+  fire: ['#ff6b35', '#f7c948', '#ff3860', '#ff6b35'],
+} as const;
+
+export type PaletteKey = keyof typeof PALETTES;
+
+// ── Single trail dot ───────────────────────────────────────────────
+function TrailDot({
+  pathRef,
+  duration,
+  offsetFraction,
+  color,
+  opacity,
+  size,
+}: {
+  pathRef: React.RefObject<SVGRectElement | null>;
+  duration: number;
+  offsetFraction: number;
+  color: string;
+  opacity: number;
+  size: number;
+}) {
+  const progress = useMotionValue(0);
+
+  useAnimationFrame((time) => {
+    const path = pathRef.current;
+    if (!path) return;
+    const length = path.getTotalLength();
+    if (!length) return;
+    const pxPerMs = length / duration;
+    const base = (time * pxPerMs) % length;
+    const offset = offsetFraction * length * 0.15;
+    progress.set((base - offset + length) % length);
+  });
+
+  const x = useTransform(progress, (val) => {
+    const path = pathRef.current;
+    return path ? path.getPointAtLength(val).x : 0;
+  });
+
+  const y = useTransform(progress, (val) => {
+    const path = pathRef.current;
+    return path ? path.getPointAtLength(val).y : 0;
+  });
+
+  const transform = useMotionTemplate`translate(${x}px, ${y}px) translate(-50%, -50%)`;
+
+  return (
+    <motion.div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
+        opacity,
+        filter: 'blur(6px)',
+        transform,
+        willChange: 'transform',
+        pointerEvents: 'none',
+      }}
+    />
+  );
+}
+
+// ── GradientMovingBorder (the SVG path + trail dots) ───────────────
+export function GradientMovingBorder({
+  duration = 3000,
+  rx = '30%',
+  ry = '30%',
+  colors = PALETTES.prismMidnight,
+  trailCount = 6,
+  dotSize = 40,
+}: {
+  duration?: number;
+  rx?: string;
+  ry?: string;
+  colors?: readonly string[] | string[];
+  trailCount?: number;
+  dotSize?: number;
+}) {
+  const pathRef = useRef<SVGRectElement>(null);
+
+  const dots = Array.from({ length: trailCount }, (_, i) => {
+    const colorIndex = Math.floor((i / trailCount) * colors.length) % colors.length;
+    const opacity = 0.9 - (i / trailCount) * 0.6;
+    return (
+      <TrailDot
+        key={i}
+        pathRef={pathRef}
+        duration={duration}
+        offsetFraction={i / trailCount}
+        color={colors[colorIndex]}
+        opacity={opacity}
+        size={dotSize}
+      />
+    );
+  });
+
+  return (
+    <>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        preserveAspectRatio="none"
+        className="absolute h-full w-full"
+        width="100%"
+        height="100%"
+      >
+        <rect
+          fill="none"
+          width="100%"
+          height="100%"
+          rx={rx}
+          ry={ry}
+          ref={pathRef}
+        />
+      </svg>
+      {dots}
+    </>
+  );
+}
+
+// ── Main container component ───────────────────────────────────────
 export function MovingBorderContainer({
   children,
-  borderRadius = '0.75rem',
+  borderRadius = '1.75rem',
+  as: Component = 'div',
   containerClassName,
-  className,
+  innerClassName,
+  duration = 3000,
+  colors = PALETTES.prismMidnight,
+  trailCount = 6,
+  dotSize = 40,
+  ...otherProps
 }: {
   children: React.ReactNode;
   borderRadius?: string;
+  as?: React.ElementType;
   containerClassName?: string;
-  className?: string;
+  innerClassName?: string;
+  duration?: number;
+  colors?: readonly string[] | string[];
+  trailCount?: number;
+  dotSize?: number;
+  [key: string]: any;
 }) {
   return (
-    <div
-      className={cn('moving-border-container relative rounded-xl p-[1.5px]', containerClassName)}
+    <Component
+      className={cn(
+        'relative overflow-hidden bg-transparent p-[2px]',
+        containerClassName,
+      )}
       style={{ borderRadius }}
+      {...otherProps}
     >
-      {/* Spinning conic-gradient — clipped to border-radius via overflow:hidden on parent */}
+      {/* Animated gradient border layer */}
       <div
-        className="moving-border-gradient pointer-events-none absolute inset-[-150%] z-0"
-        aria-hidden
-      />
+        className="absolute inset-0 overflow-hidden"
+        style={{ borderRadius: `calc(${borderRadius} * 0.96)` }}
+      >
+        <GradientMovingBorder
+          duration={duration}
+          rx={borderRadius}
+          ry={borderRadius}
+          colors={colors}
+          trailCount={trailCount}
+          dotSize={dotSize}
+        />
+      </div>
 
-      {/* Content — opaque bg masks the gradient; only the 1.5px padding gap is visible */}
+      {/* Inner content */}
       <div
-        className={cn('relative z-10 h-full w-full bg-raised', className)}
-        style={{ borderRadius: `calc(${borderRadius} - 1.5px)` }}
+        className={cn(
+          'relative flex h-full w-full items-center bg-raised antialiased',
+          innerClassName,
+        )}
+        style={{ borderRadius: `calc(${borderRadius} * 0.96)` }}
       >
         {children}
       </div>
-    </div>
+    </Component>
   );
 }

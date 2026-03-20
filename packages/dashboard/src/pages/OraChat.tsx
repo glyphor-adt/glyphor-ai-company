@@ -1545,8 +1545,9 @@ export default function OraChat() {
         <MovingBorderContainer
           borderRadius="1rem"
           containerClassName="w-full"
+          innerClassName="flex-col items-stretch"
+          duration={3000}
         >
-          <div className="flex flex-col bg-raised rounded-[calc(1rem-1.5px)]">
             {/* Textarea */}
             <textarea
               ref={textareaRef}
@@ -1603,7 +1604,6 @@ export default function OraChat() {
                 <ArrowUp className="h-4 w-4" />
               </button>
             </div>
-          </div>
         </MovingBorderContainer>
       </div>
       </Card>
