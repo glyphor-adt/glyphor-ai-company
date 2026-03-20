@@ -53,7 +53,6 @@ export async function listCloudBuilds(
 
   const [builds] = await cb.listBuilds({
     parent: `projects/${projectId}/locations/-`,
-    projectId,
     pageSize: limit,
     filter: filter || undefined,
   });
