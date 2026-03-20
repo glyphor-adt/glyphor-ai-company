@@ -1358,7 +1358,7 @@ export default function OraChat() {
         {/* Menu flyout (opens above) */}
         {menuOpen && (
           <div className="fixed left-3 right-3 bottom-[max(10px,var(--sat))] z-[90] max-h-[72vh] overflow-y-auto pr-1 md:left-auto md:right-6 flex flex-col md:flex-row items-start gap-2 max-w-[calc(100vw-1.5rem)] md:max-w-none">
-            <div className="w-[min(320px,calc(100vw-1.5rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
+            <div className="w-[min(320px,calc(100vw-1.5rem))] rounded-[24px] bg-prism-card/70 backdrop-blur-2xl backdrop-saturate-150 border border-prism-border/10 p-3 shadow-prism-lg">
               <MenuAction
                 icon={<Paperclip className="h-4 w-4" />}
                 title="Add files or photos"
@@ -1423,7 +1423,7 @@ export default function OraChat() {
             </div>
 
             {menuFlyout === 'model' && (
-              <div className="w-[min(384px,calc(100vw-1.5rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
+              <div className="w-[min(384px,calc(100vw-1.5rem))] rounded-[24px] bg-prism-card/70 backdrop-blur-2xl backdrop-saturate-150 border border-prism-border/10 p-3 shadow-prism-lg">
                 <div className="mb-2 px-3 py-2">
                   <div className="text-[12px] font-medium text-prism-primary">Model</div>
                   <div className="text-[11px] text-prism-tertiary">Pick a single model or configure the triangulated trio.</div>
@@ -1513,7 +1513,7 @@ export default function OraChat() {
             )}
 
             {menuFlyout === 'type' && (
-              <div className="w-[min(320px,calc(100vw-1.5rem))] rounded-[24px] bg-prism-card p-3 shadow-prism-lg">
+              <div className="w-[min(320px,calc(100vw-1.5rem))] rounded-[24px] bg-prism-card/70 backdrop-blur-2xl backdrop-saturate-150 border border-prism-border/10 p-3 shadow-prism-lg">
                 <div className="mb-2 px-3 py-2">
                   <div className="text-[12px] font-medium text-prism-primary">Type</div>
                   <div className="text-[11px] text-prism-tertiary">
