@@ -32,7 +32,6 @@ export const HIGH_STAKES_TOOLS = new Set([
   'register_tool',
   'create_specialist_agent',
   'grant_tool_access',
-  'submit_assignment_output',
 ]);
 
 /** Tools that are externally visible and require LLM principle checks. */
