@@ -503,7 +503,7 @@ function QuickAssign() {
           </div>
 
           {result && (
-            <p className={`text-xs rounded-lg px-3 py-2 ${result.success ? 'bg-tier-green/10 text-tier-green' : 'bg-tier-red/10 text-tier-red'}`}>
+            <p className={`text-xs rounded-lg px-3 py-2 ${result.success ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' : 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'}`}>
               {result.message}
             </p>
           )}

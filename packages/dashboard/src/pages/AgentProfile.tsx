@@ -2199,10 +2199,10 @@ function SettingsTab({
         >
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-txt-primary">System Prompt</h3>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${
               promptSource === 'db'
-                ? 'bg-cyan/10 text-cyan'
-                : 'bg-prism-moderate/15 text-prism-moderate'
+                ? 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600'
+                : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
             }`}>
               {promptSource === 'db' ? 'Custom' : 'Defined in code'}
             </span>

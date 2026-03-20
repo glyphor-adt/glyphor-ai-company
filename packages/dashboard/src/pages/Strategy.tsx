@@ -2225,12 +2225,12 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
       <div className="flex items-center gap-2 justify-center flex-wrap">
         {waves.map((w, i) => (
           <div key={w.label} className="flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium ${
+            <div className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-[11px] font-medium ${
               w.active
-                ? 'border-cyan/40 bg-cyan/15 text-cyan'
+                ? 'border border-cyan/40 bg-cyan/15 text-cyan'
                 : w.done || r.status === 'completed'
-                  ? 'border-tier-green/30 bg-tier-green/10 text-tier-green'
-                  : 'border-border bg-surface text-txt-faint'
+                  ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
+                  : 'border border-border bg-surface text-txt-faint'
             }`}>
               {w.icon}
               {w.label}
