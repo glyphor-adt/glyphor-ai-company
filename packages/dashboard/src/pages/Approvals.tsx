@@ -316,10 +316,10 @@ export default function Approvals() {
 
                 {d.status !== 'pending' && (
                   <span
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-medium ${
                       d.status === 'approved'
-                        ? 'bg-cyan/10 text-cyan'
-                        : 'bg-accent/10 text-accent'
+                        ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
+                        : 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
                     }`}
                   >
                     {d.status}

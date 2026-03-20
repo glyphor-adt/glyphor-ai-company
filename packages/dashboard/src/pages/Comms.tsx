@@ -331,10 +331,10 @@ function EmailActivityFeed() {
                 <li key={r.id} className="py-3 first:pt-0 last:pb-0">
                   <div className="flex items-start gap-3">
                     <div className="flex flex-col items-center gap-1 min-w-[70px]">
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${
-                        r.status === 'completed' ? 'bg-tier-green/15 text-tier-green'
-                        : r.status === 'failed' ? 'bg-prism-critical/15 text-prism-critical'
-                        : 'bg-prism-moderate/15 text-prism-moderate'
+                      <span className={`rounded-lg px-2 py-0.5 text-[9px] font-semibold uppercase ${
+                        r.status === 'completed' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
+                        : r.status === 'failed' ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
+                        : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
                       }`}>
                         {r.status}
                       </span>

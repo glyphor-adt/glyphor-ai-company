@@ -186,7 +186,7 @@ export default function OrgChartPicker({ agents, onSelect, onClose }: Props) {
                         </p>
                       </div>
                       {isLead && (
-                        <span className="text-[9px] font-medium uppercase px-1.5 py-0.5 rounded-full bg-cyan/10 text-cyan tracking-wider flex-shrink-0">
+                        <span className="text-[9px] font-medium uppercase px-1.5 py-0.5 rounded-lg text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600 tracking-wider flex-shrink-0">
                           {tier === 'Orchestrator' ? 'CoS' : 'Lead'}
                         </span>
                       )}

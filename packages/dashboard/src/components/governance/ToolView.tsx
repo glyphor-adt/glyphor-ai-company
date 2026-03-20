@@ -197,7 +197,7 @@ function ToolReputationBoard({
                       {(() => {
                         const pm = getToolPlatformMeta(tool.tool_name);
                         return (
-                          <span className={`rounded border ${pm.borderColor} ${pm.bgColor} px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider ${pm.color}`}>
+                          <span className={`rounded-lg text-white bg-gradient-to-r ${pm.gradient} px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider`}>
                             {pm.label}
                           </span>
                         );
@@ -209,7 +209,7 @@ function ToolReputationBoard({
                     <div className="flex flex-wrap items-center gap-2">
                       <SeverityBadge severity={tool.severity} />
                       {staleDays != null && staleDays > 7 && (
-                        <span className="rounded-full border border-prism-elevated/25 bg-prism-elevated/10 px-2 py-0.5 text-[11px] text-prism-elevated">
+                        <span className="rounded-lg text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-2 py-0.5 text-[11px]">
                           {staleDays}d stale
                         </span>
                       )}
@@ -477,7 +477,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
                                     {tools.map((t) => (
                                       <span
                                         key={t}
-                                        className={`rounded-lg border ${pm.borderColor} ${pm.bgColor} px-2 py-1 text-[11px] ${pm.color}`}
+                                        className={`rounded-lg text-white bg-gradient-to-r ${pm.gradient} px-2 py-1 text-[11px]`}
                                       >
                                         {toHumanWords(t)}
                                       </span>
@@ -499,7 +499,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
                 return (
                   <div key={result.key} className="rounded-xl theme-glass-panel p-4">
                     <div className="flex items-center gap-2">
-                      <span className={`rounded-full border ${toolPm.borderColor} ${toolPm.bgColor} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${toolPm.color}`}>
+                      <span className={`rounded-lg text-white bg-gradient-to-r ${toolPm.gradient} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider`}>
                         {toolPm.label}
                       </span>
                       <p className="text-sm font-semibold text-txt-primary">{result.label}</p>

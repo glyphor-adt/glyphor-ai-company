@@ -92,10 +92,10 @@ export default function WorldStateTab({ agentId }: WorldStateTabProps) {
             {corrections.map(c => (
               <div key={c.id} className="rounded-lg border border-border bg-raised/40 p-3">
                 <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-lg ${
                     c.correction_type === 'weakness_added'
-                      ? 'bg-red-500/15 text-red-400'
-                      : 'bg-amber-500/15 text-amber-400'
+                      ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
+                      : 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
                   }`}>
                     {c.correction_type.replace(/_/g, ' ')}
                   </span>
@@ -189,12 +189,12 @@ function PredictionAccuracyPanel({ data }: { data: PredictionAccuracy }) {
 
 function freshnessBadge(freshness: string) {
   const styles: Record<string, string> = {
-    fresh: 'bg-[#00E0FF]/15 text-[#00E0FF]',
-    stale: 'bg-amber-500/15 text-amber-400',
-    expired: 'bg-red-500/15 text-red-400',
+    fresh: 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600',
+    stale: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
+    expired: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
   };
   return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${styles[freshness] ?? styles.fresh}`}>
+    <span className={`inline-block rounded-lg px-2 py-0.5 text-[10px] font-medium ${styles[freshness] ?? styles.fresh}`}>
       {freshness}
     </span>
   );

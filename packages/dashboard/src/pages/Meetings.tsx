@@ -168,10 +168,10 @@ function MeetingCard({
   onToggle: () => void;
 }) {
   const statusColor: Record<MeetingStatus, string> = {
-    scheduled: 'bg-prism-fill-3/15 text-prism-sky',
-    in_progress: 'bg-prism-elevated/15 text-prism-elevated',
-    completed: 'bg-tier-green/15 text-tier-green',
-    cancelled: 'bg-prism-critical/15 text-prism-critical',
+    scheduled: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
+    in_progress: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
+    completed: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
+    cancelled: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
   };
 
   const typeIcon: Record<MeetingType, ReactNode> = {
@@ -202,7 +202,7 @@ function MeetingCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${statusColor[meeting.status]}`}>
+          <span className={`rounded-lg px-2.5 py-0.5 text-[10px] font-semibold uppercase ${statusColor[meeting.status]}`}>
             {meeting.status === 'in_progress' ? 'in progress' : meeting.status}
           </span>
           <span className="text-txt-faint transition-transform" style={{ transform: isExpanded ? 'rotate(90deg)' : 'none' }}>▸</span>
@@ -318,20 +318,20 @@ function MeetingCard({
 
 function MessageRow({ message }: { message: MessageRecord }) {
   const typeColor: Record<string, string> = {
-    request: 'bg-prism-fill-3/15 text-prism-sky',
-    response: 'bg-tier-green/15 text-tier-green',
-    info: 'bg-prism-moderate/15 text-prism-moderate',
-    followup: 'bg-prism-violet/15 text-prism-violet',
+    request: 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600',
+    response: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600',
+    info: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
+    followup: 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700',
   };
 
   return (
     <div className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2.5">
       <div className="mt-0.5 flex flex-col items-center gap-1">
-        <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${typeColor[message.message_type] ?? typeColor.info}`}>
+        <span className={`rounded-lg px-2 py-0.5 text-[9px] font-semibold uppercase ${typeColor[message.message_type] ?? typeColor.info}`}>
           {message.message_type}
         </span>
         {message.priority === 'urgent' && (
-          <span className="rounded-full bg-prism-critical/15 px-1.5 py-0.5 text-[9px] font-bold text-prism-critical">URGENT</span>
+          <span className="rounded-lg text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 px-1.5 py-0.5 text-[9px] font-bold">URGENT</span>
         )}
       </div>
       <div className="flex-1 min-w-0">

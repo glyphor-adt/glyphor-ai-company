@@ -55,12 +55,12 @@ export default function FindingsTab({ agentId }: FindingsTabProps) {
 
   function severityBadge(severity: string) {
     const colors: Record<string, string> = {
-      P0: 'bg-red-500/20 text-red-400',
-      P1: 'bg-amber-500/20 text-amber-400',
-      P2: 'bg-raised text-txt-muted',
+      P0: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600',
+      P1: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600',
+      P2: 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600',
     };
     return (
-      <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${colors[severity] ?? colors.P2}`}>
+      <span className={`inline-block rounded-lg px-1.5 py-0.5 text-[10px] font-bold ${colors[severity] ?? colors.P2}`}>
         {severity}
       </span>
     );

@@ -175,17 +175,17 @@ function LeastPrivilegeMatrix({ items }: { items: LeastPrivilegeGrant[] }) {
             <div className="mt-3 space-y-3">
               {grants.map((grant) => {
                 const tone = grant.usesLast30d === 0
-                  ? 'border-prism-critical/25 bg-prism-critical/8 text-prism-critical'
+                  ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
                   : grant.usesLast30d < 3
-                    ? 'border-prism-elevated/25 bg-prism-elevated/8 text-prism-elevated'
-                    : 'border-prism-teal/25 bg-prism-teal/8 text-prism-teal';
+                    ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
+                    : 'text-white bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600';
                 return (
                   <div key={grant.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg theme-glass-panel-soft border-primary/15 px-3 py-2">
                     <div>
                       <p className="text-[13px] font-medium text-txt-primary">{getDisplayName(grant.agentRole)}</p>
                       <p className="mt-1 text-[11px] text-txt-muted">{grant.agentRole}</p>
                     </div>
-                    <div className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${tone}`}>
+                    <div className={`rounded-lg px-2.5 py-1 text-[11px] font-medium ${tone}`}>
                       {toHumanWords(grant.toolName)} · {grant.usesLast30d} uses / 30d
                     </div>
                     <p className="text-[12px] text-txt-muted">

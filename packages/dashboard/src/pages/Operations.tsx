@@ -848,12 +848,12 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
                     />
                     <span className="text-sm font-medium text-txt-secondary">{inc.title}</span>
                     <span
-                      className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
+                      className={`rounded-lg px-1.5 py-0.5 text-[10px] font-medium ${
                         inc.severity === 'critical'
-                          ? 'border-prism-critical/30 bg-prism-critical/15 text-prism-critical'
+                          ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
                           : inc.severity === 'high'
-                          ? 'border-prism-high/30 bg-prism-high/15 text-prism-high'
-                          : 'border-prism-fill-3/30 bg-prism-fill-3/15 text-prism-sky'
+                          ? 'text-white bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600'
+                          : 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600'
                       }`}
                     >
                       {inc.severity}
@@ -1037,10 +1037,10 @@ function workflowStatusColor(status: string) {
 }
 
 function workflowStatusBadge(status: string) {
-  if (status === 'completed') return 'border-tier-green/30 bg-tier-green/15 text-tier-green';
-  if (status === 'failed' || status === 'cancelled') return 'border-prism-critical/30 bg-prism-critical/15 text-prism-critical';
-  if (status === 'waiting') return 'border-prism-elevated/30 bg-prism-elevated/15 text-prism-elevated';
-  return 'border-cyan/30 bg-cyan/15 text-cyan';
+  if (status === 'completed') return 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600';
+  if (status === 'failed' || status === 'cancelled') return 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600';
+  if (status === 'waiting') return 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600';
+  return 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600';
 }
 
 function stepStatusIcon(status: string) {
@@ -1206,7 +1206,7 @@ function ActiveWorkflowsSection({
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <span className="text-[11px] font-mono text-txt-muted">{w.current_step}/{w.total_steps}</span>
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${workflowStatusBadge(w.status)}`}>
+                      <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${workflowStatusBadge(w.status)}`}>
                         {w.status}
                       </span>
                       <span className="text-[10px] text-txt-faint">{elapsedSince(w.started_at)}</span>
@@ -1931,10 +1931,10 @@ function DelegationOverview() {
                     )}
                   </p>
                 </div>
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                  d.status === 'completed' ? 'bg-prism-fill-2/15 text-prism-teal border border-prism-fill-2/30' :
-                  d.status === 'active' ? 'bg-cyan/15 text-cyan border border-cyan/30' :
-                  'bg-neutral-500/15 text-neutral-400 border border-neutral-500/30'
+                <span className={`rounded-lg px-1.5 py-0.5 text-[10px] font-medium ${
+                  d.status === 'completed' ? 'text-white bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600' :
+                  d.status === 'active' ? 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600' :
+                  'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
                 }`}>
                   {d.status}
                 </span>

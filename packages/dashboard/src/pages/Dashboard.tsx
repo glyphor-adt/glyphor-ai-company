@@ -371,10 +371,10 @@ export default function Dashboard() {
           opacity={1}
           gap={10}
           radius={1.2}
-          colorLightVar="--color-neutral-500"
-          glowColorLightVar="--color-neutral-600"
-          colorDarkVar="--color-neutral-500"
-          glowColorDarkVar="--color-sky-800"
+          color="rgba(0,180,200,0.5)"
+          glowColor="rgba(0,210,255,0.85)"
+          darkColor="rgba(0,210,255,0.45)"
+          darkGlowColor="rgba(0,235,255,0.9)"
           backgroundOpacity={0}
           speedMin={0.12}
           speedMax={0.55}

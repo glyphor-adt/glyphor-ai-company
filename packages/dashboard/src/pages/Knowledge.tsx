@@ -204,12 +204,12 @@ function HealthSummary({
     <Card>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-txt-primary">Knowledge Health</h2>
-        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+        <span className={`rounded-lg px-2.5 py-0.5 text-[11px] font-semibold ${
           healthyCount === layers.length
-            ? 'bg-prism-fill-2/15 text-prism-teal'
+            ? 'text-white bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600'
             : healthyCount >= 3
-            ? 'bg-prism-elevated/15 text-prism-elevated'
-            : 'bg-prism-critical/15 text-prism-critical'
+            ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
+            : 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
         }`}>
           {healthyCount}/{layers.length} layers active
         </span>
@@ -646,10 +646,10 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
           const isEditing = editingId === s.id;
           const layerLabel = s.layer === 1 ? 'Doctrine' : s.layer === 2 ? 'Role' : 'Reference';
           const layerColor = s.layer === 1
-            ? 'bg-prism-violet/15 text-prism-violet border-prism-violet/30'
+            ? 'text-white bg-gradient-to-r from-violet-500 via-violet-600 to-violet-700'
             : s.layer === 2
-              ? 'bg-cyan/10 text-cyan border-cyan/30'
-              : 'bg-prism-moderate/10 text-prism-moderate border-prism-moderate/30';
+              ? 'text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600'
+              : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600';
           return (
             <div key={s.id} className={`rounded-lg theme-glass-panel ${s.is_stale ? 'ring-1 ring-prism-critical/40' : ''}`}>
               {/* Section Header */}
@@ -658,7 +658,7 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
                 className="flex w-full items-center justify-between px-4 py-3 text-left"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase flex-shrink-0 ${layerColor}`}>
+                  <span className={`rounded-lg px-1.5 py-0.5 text-[9px] font-bold uppercase flex-shrink-0 ${layerColor}`}>
                     {layerLabel}
                   </span>
                   <span className="text-[13px] font-semibold text-txt-primary truncate">{s.title}</span>

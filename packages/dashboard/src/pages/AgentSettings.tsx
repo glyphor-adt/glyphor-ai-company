@@ -371,15 +371,15 @@ export default function AgentSettings() {
             <p className="text-sm text-txt-muted">{titleText}</p>
             <div className="mt-1.5 flex items-center gap-2">
               {/* Status badge */}
-              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+              <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-medium ${
                 agent.status === 'active'
-                  ? 'bg-tier-green/15 text-tier-green'
+                  ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
                   : agent.status === 'paused'
-                  ? 'bg-tier-yellow/15 text-tier-yellow'
-                  : 'bg-prism-moderate/15 text-prism-moderate'
+                  ? 'text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600'
+                  : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
               }`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${
-                  agent.status === 'active' ? 'bg-tier-green' : agent.status === 'paused' ? 'bg-tier-yellow' : 'bg-prism-moderate'
+                  agent.status === 'active' ? 'bg-green-200' : agent.status === 'paused' ? 'bg-yellow-200' : 'bg-gray-200'
                 }`} />
                 {agent.status}
               </span>

@@ -74,9 +74,9 @@ function statusColor(status: string) {
 }
 
 function recommendationBadge(rec: string) {
-  if (rec === 'proceed') return { text: 'Proceed', cls: 'border-tier-green/30 bg-tier-green/15 text-tier-green' };
-  if (rec === 'proceed_with_caution') return { text: 'Proceed with Caution', cls: 'border-prism-elevated/30 bg-prism-elevated/15 text-prism-elevated' };
-  return { text: 'Reconsider', cls: 'border-prism-critical/30 bg-prism-critical/15 text-prism-critical' };
+  if (rec === 'proceed') return { text: 'Proceed', cls: 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' };
+  if (rec === 'proceed_with_caution') return { text: 'Proceed with Caution', cls: 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' };
+  return { text: 'Reconsider', cls: 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600' };
 }
 
 function voteIcon(vote: string): ReactNode {
@@ -1054,7 +1054,7 @@ function DDWatchlist({ items }: { items?: WatchlistItem[] }) {
               <span className="text-sm font-medium text-txt-primary flex-1">{w.item}</span>
               <div className="flex gap-2 shrink-0 ml-2">
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${colors.text}`}>{w.category}</span>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${w.priority === 'high' ? 'bg-prism-critical/15 text-prism-critical' : w.priority === 'medium' ? 'bg-prism-elevated/15 text-prism-elevated' : 'bg-tier-green/15 text-tier-green'}`}>{w.priority}</span>
+                <span className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${w.priority === 'high' ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600' : w.priority === 'medium' ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' : 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'}`}>{w.priority}</span>
               </div>
             </div>
             <p className="text-[12px] text-txt-muted">{w.current_status}</p>
@@ -1696,12 +1696,12 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
               {report.problems.map((p, i) => (
                 <div key={i} className="rounded-lg border border-border bg-raised px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
+                    <span className={`rounded-lg px-1.5 py-0.5 text-[10px] font-medium ${
                       p.severity === 'high'
-                        ? 'border-prism-critical/30 bg-prism-critical/15 text-prism-critical'
+                        ? 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
                         : p.severity === 'medium'
-                        ? 'border-prism-elevated/30 bg-prism-elevated/15 text-prism-elevated'
-                        : 'border-prism-fill-3/30 bg-prism-fill-3/15 text-prism-sky'
+                        ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
+                        : 'text-white bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600'
                     }`}>
                       {p.severity}
                     </span>
@@ -1849,12 +1849,12 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-txt-primary">{v.assumption}</span>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                    <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${
                       v.status === 'valid'
-                        ? 'border-tier-green/30 bg-tier-green/15 text-tier-green'
+                        ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600'
                         : v.status === 'questionable'
-                        ? 'border-prism-elevated/30 bg-prism-elevated/15 text-prism-elevated'
-                        : 'border-prism-critical/30 bg-prism-critical/15 text-prism-critical'
+                        ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600'
+                        : 'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
                     }`}>
                       {v.status}
                     </span>
@@ -2245,10 +2245,10 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
         <div className="rounded-lg border border-prism-elevated/20 bg-prism-elevated/5 px-3 py-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-prism-elevated">Sophia QC</span>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-              r.overall_confidence === 'high' ? 'bg-tier-green/15 text-tier-green' :
-              r.overall_confidence === 'medium' ? 'bg-prism-elevated/15 text-prism-elevated' :
-              'bg-prism-critical/15 text-prism-critical'
+            <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${
+              r.overall_confidence === 'high' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' :
+              r.overall_confidence === 'medium' ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' :
+              'text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600'
             }`}>{r.overall_confidence} confidence</span>
           </div>
           {r.gaps_filled?.length > 0 && (
@@ -2490,13 +2490,13 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
               <div className="flex items-start justify-between mb-1.5">
                 <span className="text-sm font-medium text-txt-primary">{rec.title}</span>
                 <div className="flex gap-1.5">
-                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
-                    rec.impact === 'high' ? 'border-tier-green/30 bg-tier-green/10 text-tier-green' : rec.impact === 'medium' ? 'border-prism-elevated/30 bg-prism-elevated/10 text-prism-elevated' : 'border-border bg-surface text-txt-faint'
+                  <span className={`rounded-lg px-2 py-0.5 text-[9px] font-medium ${
+                    rec.impact === 'high' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' : rec.impact === 'medium' ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
                   }`}>
                     Impact: {rec.impact}
                   </span>
-                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${
-                    rec.feasibility === 'high' ? 'border-tier-green/30 bg-tier-green/10 text-tier-green' : rec.feasibility === 'medium' ? 'border-prism-elevated/30 bg-prism-elevated/10 text-prism-elevated' : 'border-border bg-surface text-txt-faint'
+                  <span className={`rounded-lg px-2 py-0.5 text-[9px] font-medium ${
+                    rec.feasibility === 'high' ? 'text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600' : rec.feasibility === 'medium' ? 'text-white bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600' : 'text-white bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
                   }`}>
                     Feasibility: {rec.feasibility}
                   </span>

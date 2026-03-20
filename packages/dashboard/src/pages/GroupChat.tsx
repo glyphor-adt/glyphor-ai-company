@@ -720,7 +720,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                         <p className="text-[9px] text-txt-faint truncate">{ROLE_TITLE[agent.role] ?? agent.role}</p>
                       </div>
                       {isLead && (
-                        <span className="text-[8px] font-medium uppercase px-1 py-0.5 rounded-full bg-cyan/10 text-cyan tracking-wider flex-shrink-0">
+                        <span className="text-[8px] font-medium uppercase px-1 py-0.5 rounded-lg text-white bg-gradient-to-r from-cyan-400 via-cyan-500 to-cyan-600 tracking-wider flex-shrink-0">
                           {tier === 'Orchestrator' ? 'CoS' : 'Lead'}
                         </span>
                       )}
