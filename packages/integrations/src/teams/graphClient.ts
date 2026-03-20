@@ -82,7 +82,7 @@ async function postWithDelegatedToken(
   const token = await getDelegatedGraphToken();
   if (!token) return false;
 
-  const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(target.teamId)}/channels/${encodeURIComponent(target.channelId)}/messages`;
+  const url = `https://graph.microsoft.com/v1.0/teams/${target.teamId}/channels/${target.channelId}/messages`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -195,7 +195,7 @@ export class GraphTeamsClient {
     }
 
     const token = await this.getToken();
-    const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(target.teamId)}/channels/${encodeURIComponent(target.channelId)}/messages`;
+    const url = `https://graph.microsoft.com/v1.0/teams/${target.teamId}/channels/${target.channelId}/messages`;
 
     const body = {
       body: {
@@ -241,7 +241,7 @@ export class GraphTeamsClient {
     }
 
     const token = await this.getToken();
-    const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(target.teamId)}/channels/${encodeURIComponent(target.channelId)}/messages`;
+    const url = `https://graph.microsoft.com/v1.0/teams/${target.teamId}/channels/${target.channelId}/messages`;
 
     const body = {
       body: { contentType: 'html', content: markdownToTeamsHtml(content) },
