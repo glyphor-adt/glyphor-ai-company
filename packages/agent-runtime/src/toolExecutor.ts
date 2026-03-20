@@ -381,6 +381,7 @@ const isMutation = (toolName: string): boolean =>
 
 const CROSS_AGENT_VERIFICATION_TOOLS = new Set([
   ...HIGH_STAKES_TOOLS,
+  'submit_assignment_output',
   'send_dm',
   'send_teams_dm',
   'create_calendar_event',
