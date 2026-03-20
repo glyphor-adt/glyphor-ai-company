@@ -298,13 +298,13 @@ export default function Approvals() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleDecide(d.id, 'approved')}
-                      className="rounded-lg bg-cyan/10 px-3 py-1.5 text-[12px] font-medium text-cyan border border-cyan/20 hover:bg-cyan/20 transition-colors"
+                      className="text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-green-300 dark:focus:ring-green-800 shadow-md shadow-green-500/50 dark:shadow-md dark:shadow-green-800/80 font-medium rounded-lg text-[12px] px-3 py-1.5 text-center leading-5 transition-all"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => handleDecide(d.id, 'rejected')}
-                      className="rounded-lg bg-accent/10 px-3 py-1.5 text-[12px] font-medium text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+                      className="text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 shadow-md shadow-red-500/50 dark:shadow-md dark:shadow-red-800/80 font-medium rounded-lg text-[12px] px-3 py-1.5 text-center leading-5 transition-all"
                     >
                       Reject
                     </button>

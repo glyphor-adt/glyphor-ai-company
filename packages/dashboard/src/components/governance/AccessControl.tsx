@@ -698,7 +698,7 @@ function AccessGrantManager({
                       type="button"
                       disabled={busyDecisionId === approval.id}
                       onClick={() => onResolveApproval(approval.id, true)}
-                      className="rounded-lg border border-prism-teal/30 bg-prism-teal/10 px-3 py-1.5 text-[12px] font-medium text-prism-teal transition-colors hover:bg-prism-teal/20 disabled:opacity-50"
+                      className="text-white bg-gradient-to-r from-green-400 via-green-500 to-green-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-green-300 dark:focus:ring-green-800 shadow-md shadow-green-500/50 dark:shadow-md dark:shadow-green-800/80 font-medium rounded-lg text-[12px] px-3 py-1.5 text-center leading-5 transition-all disabled:opacity-50"
                     >
                       {busyDecisionId === approval.id ? 'Saving…' : 'Approve'}
                     </button>
@@ -706,7 +706,7 @@ function AccessGrantManager({
                       type="button"
                       disabled={busyDecisionId === approval.id}
                       onClick={() => onResolveApproval(approval.id, false)}
-                      className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-1.5 text-[12px] font-medium text-prism-critical transition-colors hover:bg-prism-critical/20 disabled:opacity-50"
+                      className="text-white bg-gradient-to-r from-red-400 via-red-500 to-red-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 shadow-md shadow-red-500/50 dark:shadow-md dark:shadow-red-800/80 font-medium rounded-lg text-[12px] px-3 py-1.5 text-center leading-5 transition-all disabled:opacity-50"
                     >
                       Reject
                     </button>
