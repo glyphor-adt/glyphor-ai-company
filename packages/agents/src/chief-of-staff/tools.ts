@@ -1076,16 +1076,16 @@ export function createChiefOfStaffTools(
 
     {
       name: 'send_briefing',
-      description: 'Post the morning/EOD briefing to the #briefings Teams channel. Both founders see it there — do NOT call this twice.',
+      description: 'Post the morning/EOD briefing to the #briefings Teams channel. Both founders see it there — do NOT call this twice. IMPORTANT: Every metric value MUST come from a tool call result in this run (get_product_metrics, read_company_vitals, get_financials). Do NOT invent burn rates, dollar amounts, or percentages. If data is unavailable, omit the metric entirely.',
       parameters: {
         briefing_markdown: {
           type: 'string',
-          description: 'The full briefing content in markdown format',
+          description: 'The full briefing content in markdown. Must only contain facts retrieved from tool calls — never fabricate numbers.',
           required: true,
         },
         metrics: {
           type: 'array',
-          description: 'Key metrics to highlight at the top of the briefing card',
+          description: 'Key metrics from tool results ONLY. Each metric MUST have been returned by a tool call (get_product_metrics, read_company_vitals, get_financials). Do NOT invent values.',
           required: true,
           items: {
             type: 'object',
@@ -1106,8 +1106,30 @@ export function createChiefOfStaffTools(
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         const markdown = params.briefing_markdown as string;
-        const metrics = params.metrics as BriefingData['metrics'];
+        let metrics = params.metrics as BriefingData['metrics'];
         const actionItems = (params.action_items as string[]) || [];
+
+        // ── Fabrication guard: strip metrics that look hallucinated ──
+        // Known fabricated patterns from prior runs — aggressive filter
+        const SUSPECT_PATTERNS = [
+          /\d+%\s*MoM/i,        // "164% MoM" — no tool produces this
+          /\$\d{2,}k/i,         // "$60k" — no tool produces this format
+          /burn\s*(rate|increase)/i,
+          /cash\s*reserve/i,
+          /runway/i,
+        ];
+        if (Array.isArray(metrics)) {
+          const originalCount = metrics.length;
+          metrics = metrics.filter((m) => {
+            const text = `${m.label ?? ''} ${m.value ?? ''}`;
+            return !SUSPECT_PATTERNS.some((p) => p.test(text));
+          });
+          if (metrics.length < originalCount) {
+            console.warn(
+              `[send_briefing] Stripped ${originalCount - metrics.length} suspect metric(s) — likely fabricated`,
+            );
+          }
+        }
 
         // Format as Teams Adaptive Card
         const card = formatBriefingCard({

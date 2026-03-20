@@ -40,7 +40,8 @@ export function createChannelNotifyTools(): ToolDefinition[] {
         'Post an update to the #briefings Teams channel so both founders see it. ' +
         'Use this at the end of any run where you did meaningful work. ' +
         'The message appears as YOU (your agent identity), not as a bot or human. ' +
-        'Keep messages concise: 2-4 sentences summarizing what you did and any next steps.',
+        'Keep messages concise: 2-4 sentences summarizing what you did and any next steps. ' +
+        'NEVER include fabricated numbers, dollar amounts, or percentages — only facts from tool results.',
       parameters: {
         title: {
           type: 'string',
