@@ -69,22 +69,22 @@ export function createPlatformIntelTools(): ToolDefinition[] {
         const queryParams: unknown[] = [];
         let filter = '';
         if (agentId) {
-          filter = 'WHERE a.id = $1';
+          filter = 'WHERE a.role = $1';
           queryParams.push(agentId);
         }
         const rows = await systemQuery(
-          `SELECT a.id, a.name, a.department, a.performance_score, a.model,
+          `SELECT a.role AS id, a.display_name AS name, a.department, a.performance_score, a.model,
                   apv.version AS prompt_version, apv.source AS prompt_source,
                   COUNT(ff.id) FILTER (WHERE ff.severity='P0' AND ff.resolved_at IS NULL) AS open_p0s,
                   COUNT(ff.id) FILTER (WHERE ff.severity='P1' AND ff.resolved_at IS NULL) AS open_p1s,
                   MAX(ar.created_at) AS last_run_at,
                   AVG(CASE WHEN ar.status='completed' THEN 1.0 ELSE 0.0 END) AS success_rate
-           FROM agents a
-           LEFT JOIN agent_prompt_versions apv ON apv.agent_id = a.id AND apv.deployed_at IS NOT NULL AND apv.retired_at IS NULL
-           LEFT JOIN fleet_findings ff ON ff.agent_id = a.id
-           LEFT JOIN agent_runs ar ON ar.agent_id = a.id AND ar.created_at > NOW() - INTERVAL '30 days'
+           FROM company_agents a
+           LEFT JOIN agent_prompt_versions apv ON apv.agent_id = a.role AND apv.deployed_at IS NOT NULL AND apv.retired_at IS NULL
+           LEFT JOIN fleet_findings ff ON ff.agent_id = a.role
+           LEFT JOIN agent_runs ar ON ar.agent_id = a.role AND ar.created_at > NOW() - INTERVAL '30 days'
            ${filter}
-           GROUP BY a.id, a.name, a.department, a.performance_score, a.model, apv.version, apv.source
+           GROUP BY a.role, a.display_name, a.department, a.performance_score, a.model, apv.version, apv.source
            ORDER BY a.performance_score ASC NULLS LAST`,
           queryParams,
         );
@@ -217,9 +217,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
         if (!targetRunId) {
           const [row] = await systemQuery<{ id: string }>(
             `SELECT ar.id FROM agent_runs ar
-             JOIN work_assignments wa ON wa.id = ar.assignment_id
-             JOIN assignment_evaluations ae ON ae.assignment_id = wa.id
-             WHERE ar.agent_id = $1 AND ae.score_normalized < 0.65
+             WHERE ar.agent_id = $1 AND ar.status = 'failed'
              ORDER BY ar.created_at DESC LIMIT 1`,
             [agentId],
           );
@@ -333,7 +331,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
         }
 
         await systemQuery(
-          `UPDATE agents SET status = 'paused', updated_at = NOW() WHERE id = $1`,
+          `UPDATE company_agents SET status = 'paused', updated_at = NOW() WHERE role = $1`,
           [agentId],
         );
 
@@ -939,7 +937,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
         const reason = params.reason as string;
 
         await systemQuery(
-          `UPDATE agents SET status = 'active', updated_at = NOW() WHERE id = $1`,
+          `UPDATE company_agents SET status = 'active', updated_at = NOW() WHERE role = $1`,
           [agentId],
         );
 
@@ -965,8 +963,8 @@ export function createPlatformIntelTools(): ToolDefinition[] {
           `SELECT a.id, a.role, a.display_name, a.model, a.status, a.config,
                   (SELECT COUNT(*) FROM agent_tool_grants g WHERE g.agent_role = a.role AND g.is_active = true) AS active_grants,
                   (SELECT COUNT(*) FROM agent_tool_grants g WHERE g.agent_role = a.role AND g.is_blocked = true) AS blocked_tools,
-                  (SELECT MAX(ar.created_at) FROM agent_runs ar WHERE ar.agent_id = a.id) AS last_run_at,
-                  (SELECT status FROM agent_runs ar WHERE ar.agent_id = a.id ORDER BY created_at DESC LIMIT 1) AS last_run_status
+                  (SELECT MAX(ar.created_at) FROM agent_runs ar WHERE ar.agent_id = a.role) AS last_run_at,
+                  (SELECT status FROM agent_runs ar WHERE ar.agent_id = a.role ORDER BY created_at DESC LIMIT 1) AS last_run_status
            FROM company_agents a
            WHERE a.role = $1 OR a.id = $1
            LIMIT 1`,
