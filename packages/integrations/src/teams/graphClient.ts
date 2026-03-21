@@ -105,12 +105,13 @@ let _powerPlatformTokenCache: { token: string; expiresAt: number } | null = null
 
 /**
  * Power Platform direct API webhook URLs require a bearer token.
- * Try multiple audiences — Power Platform API (newer) then Flow Service (legacy).
- * The Teams message still posts as the Power Automate flow bot, not the user.
+ * Uses client_credentials (app-only) — the refresh token was issued for
+ * Graph and cannot be exchanged for Power Platform scopes.
+ * The Teams message posts as the Power Automate flow bot, not any user.
  */
 const POWER_PLATFORM_SCOPES = [
-  'https://api.powerplatform.com/.default offline_access',
-  'https://service.flow.microsoft.com/.default offline_access',
+  'https://service.flow.microsoft.com/.default',
+  'https://api.powerplatform.com/.default',
 ];
 
 async function getPowerPlatformToken(): Promise<string | null> {
@@ -121,15 +122,18 @@ async function getPowerPlatformToken(): Promise<string | null> {
 
   const tenantId = process.env.AZURE_TENANT_ID?.trim();
   const clientId = process.env.AZURE_CLIENT_ID?.trim();
-  const refreshToken = process.env.GRAPH_DELEGATED_REFRESH_TOKEN?.trim();
-  if (!tenantId || !clientId || !refreshToken) return null;
+  const clientSecret = process.env.AZURE_CLIENT_SECRET?.trim();
+  if (!tenantId || !clientId || !clientSecret) {
+    console.warn('[GraphClient] Missing AZURE_CLIENT_SECRET — cannot get Power Platform token');
+    return null;
+  }
 
   for (const scope of POWER_PLATFORM_SCOPES) {
     try {
       const params = new URLSearchParams({
-        grant_type: 'refresh_token',
+        grant_type: 'client_credentials',
         client_id: clientId,
-        refresh_token: refreshToken,
+        client_secret: clientSecret,
         scope,
       });
 
@@ -148,7 +152,7 @@ async function getPowerPlatformToken(): Promise<string | null> {
         token: data.access_token,
         expiresAt: now + data.expires_in * 1000,
       };
-      console.log(`[GraphClient] Power Platform token acquired (scope: ${scope.split(' ')[0]})`);
+      console.log(`[GraphClient] Power Platform token acquired (scope: ${scope})`);
       return data.access_token;
     } catch (err) {
       console.warn(`[GraphClient] Power Platform token error for scope "${scope}":`, err);
