@@ -56,12 +56,13 @@ jobs:
         run: |
           REPO="${{ github.repository }}"
 
-          # List all open draft PRs authored by Copilot
+          # List all open draft PRs authored by Copilot coding agent
+          # gh CLI returns author.login as "app/copilot-swe-agent" (not "Copilot")
           DRAFT_PRS=$(gh pr list \
             --repo "$REPO" \
             --state open \
             --json number,isDraft,author \
-            --jq '.[] | select(.isDraft and .author.login == "Copilot") | .number')
+            --jq '.[] | select(.isDraft and (.author.login == "app/copilot-swe-agent" or .author.login == "Copilot" or .author.login == "copilot[bot]")) | .number')
 
           if [ -z "$DRAFT_PRS" ]; then
             echo "No Copilot draft PRs found."
