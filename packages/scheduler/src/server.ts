@@ -2822,6 +2822,7 @@ const server = createServer(async (req, res) => {
         await systemQuery('DELETE FROM agent_profiles WHERE agent_id=$1', [agentRole]);
         await systemQuery('DELETE FROM agent_reasoning_config WHERE agent_role=$1', [agentRole]);
         await systemQuery('DELETE FROM agent_tool_grants WHERE agent_role=$1', [agentRole]);
+        await systemQuery('DELETE FROM proposed_skills WHERE source_agent=$1', [agentRole]);
         await systemQuery('DELETE FROM activity_log WHERE agent_role=$1', [agentRole]);
         await systemQuery('DELETE FROM company_agents WHERE id::text=$1 OR role=$1', [agentId]);
 
