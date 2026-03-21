@@ -101,16 +101,16 @@ export async function handleToolTestFailure(
     });
     
     // safe upsert logic manually
-    const existingWs = await dbQuery(SELECT id FROM world_state WHERE domain = 'tool_health' AND entity_id = $1 AND key = 'critical_failure', [result.toolName]).catch(() => []);
+    const existingWs = await dbQuery(`SELECT id FROM world_state WHERE domain = 'tool_health' AND entity_id = $1 AND key = 'critical_failure'`, [result.toolName]).catch(() => []);
     if (existingWs && existingWs.length > 0) {
-      await dbQuery(UPDATE world_state SET value = $1, updated_at = NOW(), valid_until = NOW() + INTERVAL '48 hours' WHERE id = $2`, [wsValue, existingWs[0].id]).catch(e => console.warn("Failed world_state update:", e.message));
+      await dbQuery(`UPDATE world_state SET value = $1, updated_at = NOW(), valid_until = NOW() + INTERVAL '48 hours' WHERE id = $2`, [wsValue, existingWs[0].id]).catch(e => console.warn("Failed world_state update:", e.message));
     } else {
-      await dbQuery(
+      await dbQuery(`
         INSERT INTO world_state
           (domain, entity_id, key, value, written_by_agent, confidence, valid_until)
         VALUES
           ('tool_health', $1, 'critical_failure', $2, 'tool-test-runner', 1.0, NOW() + INTERVAL '48 hours')
-      , [result.toolName, wsValue]).catch(e => console.warn("Failed world_state insert:", e.message));
+      `, [result.toolName, wsValue]).catch(e => console.warn("Failed world_state insert:", e.message));
     }
   }
 }
