@@ -191,7 +191,12 @@ export function MovingBorderContainer({
           'relative flex h-full w-full items-center antialiased',
           innerClassName,
         )}
-        style={{ borderRadius: `calc(${borderRadius} * 0.96)`, background: 'rgba(6, 12, 28, 0.95)' }}
+        style={{
+          borderRadius: `calc(${borderRadius} * 0.96)`,
+          background: 'linear-gradient(180deg, rgba(8, 14, 30, 0.97) 0%, rgba(6, 12, 28, 0.97) 100%)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 0 20px rgba(0,224,255,0.02)',
+          backdropFilter: 'blur(12px) saturate(140%)',
+        }}
       >
         {children}
       </div>
