@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { systemQuery as dbQuery } from '@glyphor/shared/db';
 import { getAllKnownTools } from '../toolRegistry.js';
-import { autoClassifyTool } from './toolClassifier.js';
+import { classifyTool, type ToolClassification } from './toolClassifier.js';
 
 export async function classifyAllTools() {
   const tools = getAllKnownTools();
@@ -14,9 +14,13 @@ export async function classifyAllTools() {
     ...dynamicTools.map((t) => t.name),
   ])];
 
-  const classifications = allToolNames.map((name) => {
+  const classifications: ToolClassification[] = allToolNames.map((name) => {
     const isDynamic = dynamicTools.some((t) => t.name === name);
-    return autoClassifyTool(name, isDynamic ? 'dynamic' : 'static');
+    const base = classifyTool(name);
+    return {
+      ...base,
+      source: isDynamic ? 'dynamic' : base.source,
+    };
   });
 
   for (const c of classifications) {
