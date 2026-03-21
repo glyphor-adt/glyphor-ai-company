@@ -120,13 +120,43 @@ function avg(values: number[]): number {
 
 /**
  * Queue a challenger version for shadow evaluation.
- * Inserts placeholder rows that the scheduler picks up and executes.
+ * Marks the version so the scheduler's shadow-eval cron picks it up.
  */
 export async function queueShadowEvaluation(
   agentId: string,
   challengerVersion: number,
 ): Promise<void> {
+  // Mark the version with a shadow_queued_at timestamp so the cron can find it
+  await systemQuery(
+    `UPDATE agent_prompt_versions
+     SET source = COALESCE(source, 'reflection'),
+         updated_at = NOW()
+     WHERE agent_id = $1 AND version = $2
+       AND deployed_at IS NULL AND retired_at IS NULL`,
+    [agentId, challengerVersion],
+  );
   console.log(`[ShadowPromotion] Queued shadow evaluation for ${agentId} v${challengerVersion}`);
-  // The scheduler's shadow-eval loop will pick up unevaluated versions
-  // by checking agent_prompt_versions where deployed_at IS NULL AND retired_at IS NULL
+}
+
+/**
+ * Find all challenger prompt versions that are pending shadow evaluation:
+ * not yet deployed, not retired, and with fewer than MIN_SHADOW_RUNS shadow runs.
+ */
+export async function getPendingChallengerVersions(): Promise<Array<{ agent_id: string; version: number }>> {
+  const rows = await systemQuery<{ agent_id: string; version: number }>(
+    `SELECT pv.agent_id, pv.version
+     FROM agent_prompt_versions pv
+     LEFT JOIN (
+       SELECT agent_id, challenger_prompt_version, COUNT(*) AS run_count
+       FROM shadow_runs
+       WHERE status = 'evaluated'
+       GROUP BY agent_id, challenger_prompt_version
+     ) sr ON sr.agent_id = pv.agent_id AND sr.challenger_prompt_version = pv.version
+     WHERE pv.deployed_at IS NULL
+       AND pv.retired_at IS NULL
+       AND COALESCE(sr.run_count, 0) < ${MIN_SHADOW_RUNS}
+     ORDER BY pv.created_at ASC
+     LIMIT 20`,
+  );
+  return rows;
 }

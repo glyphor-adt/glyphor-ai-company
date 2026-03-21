@@ -56,7 +56,7 @@ import { verifyPlan } from './planVerifier.js';
 import { consolidateMemory } from './memoryConsolidator.js';
 import { archiveExpiredMemory } from './memoryArchiver.js';
 import { evaluateBatch } from './batchOutcomeEvaluator.js';
-import { runShadow, getPendingShadowTasks, evaluatePromotion, getWorldStateHealth } from '@glyphor/agent-runtime';
+import { runShadow, getPendingShadowTasks, evaluatePromotion, getPendingChallengerVersions, getWorldStateHealth } from '@glyphor/agent-runtime';
 import { evaluateCascadePredictions } from './cascadePredictionEvaluator.js';
 import { handlePlatformIntelApproval } from './platformIntelApproval.js';
 import { handleDirectiveApproval } from './directiveApproval.js';
@@ -2159,6 +2159,31 @@ const server = createServer(async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[ShadowEval] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Shadow evaluation — run ALL pending challenger versions (cron-driven dequeue)
+    if (method === 'POST' && url === '/shadow-eval/run-pending') {
+      try {
+        const pending = await getPendingChallengerVersions();
+        console.log(`[ShadowEval] Found ${pending.length} pending challenger versions`);
+        const results: Array<{ agentId: string; version: number; shadowRuns: number; promotion: string }> = [];
+        for (const { agent_id: agentId, version } of pending) {
+          const tasks = await getPendingShadowTasks(agentId, 5);
+          let runCount = 0;
+          for (const taskInput of tasks) {
+            const result = await runShadow(agentId, taskInput, version);
+            if (result) runCount++;
+          }
+          const promotion = await evaluatePromotion(agentId, version);
+          results.push({ agentId, version, shadowRuns: runCount, promotion });
+        }
+        json(res, 200, { success: true, evaluated: results.length, results });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[ShadowEval] Run-pending error:', message);
         json(res, 500, { success: false, error: message });
       }
       return;

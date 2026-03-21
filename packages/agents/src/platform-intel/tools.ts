@@ -531,7 +531,9 @@ export function createPlatformIntelTools(): ToolDefinition[] {
           '',
           `Expires in 48h · Action ID: ${action.id}`,
         ].filter(Boolean).join('\n');
-        notifyFounders(dmMessage).catch(() => {});
+        notifyFounders(dmMessage).catch((err) => {
+          console.error('[Nexus] Approval card DM delivery failed — founders will not see this card:', (err as Error).message);
+        });
 
         return {
           success: true,
@@ -979,7 +981,9 @@ export function createPlatformIntelTools(): ToolDefinition[] {
             '',
             `Proposal ID: ${row?.id}`,
           ].join('\n');
-          notifyFounders(dmMessage).catch(() => {});
+          notifyFounders(dmMessage).catch((err) => {
+            console.error('[Nexus] Fix proposal DM delivery failed:', (err as Error).message);
+          });
         }
 
         await logPlatformAction(
@@ -1066,7 +1070,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
                   (SELECT MAX(ar.created_at) FROM agent_runs ar WHERE ar.agent_id = a.role) AS last_run_at,
                   (SELECT status FROM agent_runs ar WHERE ar.agent_id = a.role ORDER BY created_at DESC LIMIT 1) AS last_run_status
            FROM company_agents a
-           WHERE a.role = $1 OR a.id = $1
+           WHERE a.role = $1 OR a.id::text = $1
            LIMIT 1`,
           [agentId],
         );

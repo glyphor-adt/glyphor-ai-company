@@ -86,8 +86,13 @@ async function persistToolCallTrace(
         retrievalMeta?.modelCap ?? null,
       ],
     );
-  } catch {
-    // fire-and-forget — never block tool execution
+  } catch (err) {
+    console.error('[persistToolCallTrace] INSERT failed', {
+      agentId: log.agentId,
+      toolName: log.toolName,
+      runId,
+      error: String(err),
+    });
   }
 }
 

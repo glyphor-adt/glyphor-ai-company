@@ -492,6 +492,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/gtm-readiness/run',
     enabled: true,
   },
+  // Shadow eval dequeue — run pending challenger A/B tests after batch-eval
+  {
+    id: 'shadow-eval-pending',
+    schedule: '0 15 * * *',    // 15:00 UTC = 10:00 AM CT, daily — after batch-eval + GTM
+    timezone: 'UTC',
+    endpoint: '/shadow-eval/run-pending',
+    enabled: true,
+  },
 ];
 
 /**

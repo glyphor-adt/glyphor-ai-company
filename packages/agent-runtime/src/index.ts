@@ -214,7 +214,7 @@ export { readWorldState, writeWorldState, formatWorldStateForPrompt, getStaleEnt
 export type { WorldStateEntry, WorldStateHealthSummary } from './worldStateClient.js';
 // Shadow runs
 export { runShadow, getPendingShadowTasks } from './shadowRunner.js';
-export { evaluatePromotion, queueShadowEvaluation } from './shadowPromotion.js';
+export { evaluatePromotion, queueShadowEvaluation, getPendingChallengerVersions } from './shadowPromotion.js';
 export type { PromotionOutcome } from './shadowPromotion.js';
 // Reflection + Prompt Mutation
 export { reflect, writeWorldModelCorrection } from './reflectionAgent.js';
