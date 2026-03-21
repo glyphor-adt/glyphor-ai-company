@@ -143,19 +143,27 @@ export function useOpenIncidents() {
   const [data, setData] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const rows = await apiCall<Incident[]>('/api/incidents?status=open&limit=5');
-        setData(rows ?? []);
-      } catch {
-        setData([]);
-      }
-      setLoading(false);
-    })();
+  const refresh = useCallback(async () => {
+    try {
+      const rows = await apiCall<Incident[]>('/api/incidents?status=open&limit=5');
+      setData(rows ?? []);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
   }, []);
 
-  return { data, loading };
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const resolveIncident = async (id: string) => {
+    await apiCall(`/api/incidents/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'resolved', resolved_at: new Date().toISOString() }),
+    });
+    setData((prev) => prev.filter((inc) => inc.id !== id));
+  };
+
+  return { data, loading, refresh, resolveIncident };
 }
 
 /* ─── Top Agent Reflections (recent, high quality) ── */

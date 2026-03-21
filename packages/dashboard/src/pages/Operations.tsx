@@ -296,7 +296,16 @@ function useIncidents() {
     const id = setInterval(refresh, POLL_INTERVAL);
     return () => clearInterval(id);
   }, [refresh]);
-  return { data, loading };
+
+  const resolveIncident = useCallback(async (id: string) => {
+    await apiCall(`/api/incidents/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'resolved', resolved_at: new Date().toISOString() }),
+    });
+    setData((prev) => prev.map((inc) => inc.id === id ? { ...inc, status: 'resolved', resolved_at: new Date().toISOString() } : inc));
+  }, []);
+
+  return { data, loading, resolveIncident };
 }
 
 interface PlanVerificationRow {
@@ -566,7 +575,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
   const { data: reflections, loading: reflectionsLoading } = useReflections(14);
   const { data: recentRuns, loading: recentRunsLoading } = useRecentRuns(48);
   const { data: syncs, loading: syncsLoading } = useDataSyncs();
-  const { data: incidents, loading: incidentsLoading } = useIncidents();
+  const { data: incidents, loading: incidentsLoading, resolveIncident } = useIncidents();
   const { data: planVerifications, loading: pvLoading } = usePlanVerifications(30);
   const { data: layerCounts, loading: layersLoading, refresh: refreshLayers } = useMemoryLayerCounts();
   const { data: tableCounts, loading: tableCountsLoading } = useMemoryTableCounts();
@@ -859,7 +868,17 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
                       {inc.severity}
                     </span>
                   </div>
-                  <span className="text-[10px] text-txt-faint">{timeAgo(inc.created_at)}</span>
+                  <div className="flex items-center gap-2">
+                    {inc.status === 'open' && (
+                      <button
+                        onClick={() => resolveIncident(inc.id)}
+                        className="rounded-md px-2 py-0.5 text-[10px] font-medium text-tier-green border border-tier-green/30 hover:bg-tier-green/10 transition-colors"
+                      >
+                        Resolve
+                      </button>
+                    )}
+                    <span className="text-[10px] text-txt-faint">{timeAgo(inc.created_at)}</span>
+                  </div>
                 </div>
                 );
               })}

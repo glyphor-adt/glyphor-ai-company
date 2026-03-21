@@ -66,6 +66,7 @@ interface ActionCenterItem {
   timestamp?: string;
   reviewTo: string;
   approveDecisionId?: string;
+  resolveIncidentId?: string;
 }
 
 const PRIORITY_ORDER: Record<ActionCenterItem['priority'], number> = {
@@ -207,7 +208,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { data: pulse, loading: pulseLoading } = useCompanyPulse();
   const { data: decisions, loading: decisionsLoading, updateDecision } = useDecisions();
-  const { data: incidents, loading: incidentsLoading } = useOpenIncidents();
+  const { data: incidents, loading: incidentsLoading, resolveIncident } = useOpenIncidents();
   const { data: directives, loading: directivesLoading } = useActiveDirectives();
 
   const [financialRows, setFinancialRows] = useState<FinancialRow[]>([]);
@@ -296,6 +297,7 @@ export default function Dashboard() {
         recommendation: detail.recommendation,
         timestamp: incident.created_at,
         reviewTo: `/operations?tab=overview&focus=incident&id=${encodeURIComponent(incident.id)}`,
+        resolveIncidentId: incident.id,
       };
     });
 
@@ -445,22 +447,22 @@ export default function Dashboard() {
                           Reject
                         </GradientButton>
                       </>
-                    ) : (
-                      (item.kind === 'incident' || item.kind === 'briefing') ? (
+                    ) : item.resolveIncidentId ? (
+                      <>
                         <GradientButton
-                          as={Link}
-                          to="/ora"
-                          state={{
-                            origin: 'action-center',
-                            actionItemId: item.id,
-                            prefillPrompt: buildOraActionPrompt(item),
-                          }}
-                          variant="purple"
+                          variant="approve"
+                          onClick={() => resolveIncident(item.resolveIncidentId!)}
                         >
-                          Discuss with Ora
+                          Resolve
                         </GradientButton>
-                      ) : null
-                    )}
+                        <GradientButton
+                          variant="neutral"
+                          onClick={() => resolveIncident(item.resolveIncidentId!)}
+                        >
+                          Dismiss
+                        </GradientButton>
+                      </>
+                    ) : null}
                   </div>
                 </HomeInnerCard>
               ))}
