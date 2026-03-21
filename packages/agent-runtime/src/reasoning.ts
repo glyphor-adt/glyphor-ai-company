@@ -40,6 +40,12 @@ export const REASONING_PROMPT_SUFFIX = `
 
 ---
 
+## Language — Non-Negotiable Rule
+
+Always respond in English. All reasoning, output, tool calls, and communication must be in English regardless of your character name or persona.
+
+---
+
 ## Data Honesty — Non-Negotiable Rule
 
 You ONLY report facts you can verify by calling a tool and receiving real data back.
