@@ -206,7 +206,7 @@ async function evaluateAgent(agentId: string): Promise<AgentGateResult> {
       FROM agent_eval_results aer
       JOIN agent_eval_scenarios aes ON aes.id = aer.scenario_id
       WHERE aes.agent_role = $1
-      AND aer.run_date > (NOW() - INTERVAL '90 days')::text
+      AND aer.run_date > NOW() - INTERVAL '90 days'
     `, [agentId]),
 
     // Open fleet findings
