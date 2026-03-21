@@ -19,20 +19,10 @@ export async function sendTeamsWebhook(
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
-  // Power Automate Workflows connectors require attachments[].content to be
-  // a JSON **string**, not an embedded object.  Stringify it if needed.
-  const outPayload = {
-    ...payload,
-    attachments: payload.attachments.map(a => ({
-      ...a,
-      content: typeof a.content === 'string' ? a.content : JSON.stringify(a.content),
-    })),
-  };
-
   const response = await fetch(webhookUrl, {
     method: 'POST',
     headers,
-    body: JSON.stringify(outPayload),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -49,7 +39,7 @@ export interface TeamsWebhookPayload {
   attachments: Array<{
     contentType: 'application/vnd.microsoft.card.adaptive';
     contentUrl: null;
-    content: AdaptiveCard | string;
+    content: AdaptiveCard;
   }>;
 }
 

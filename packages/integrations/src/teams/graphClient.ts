@@ -495,7 +495,6 @@ export async function postCardToChannel(
       };
 
   const card = webhookPayload.attachments[0].content;
-  const cardObj: AdaptiveCard = typeof card === 'string' ? JSON.parse(card) : card;
   const channels = buildChannelMap();
   const target = channels[channelName as keyof ChannelMap];
 
@@ -503,7 +502,7 @@ export async function postCardToChannel(
   if (agentRole && target) {
     const graphBody = {
       body: { contentType: 'html', content: '<attachment id="adaptiveCard"></attachment>' },
-      attachments: [{ id: 'adaptiveCard', contentType: 'application/vnd.microsoft.card.adaptive', content: JSON.stringify(cardObj) }],
+      attachments: [{ id: 'adaptiveCard', contentType: 'application/vnd.microsoft.card.adaptive', content: JSON.stringify(card) }],
     };
     const ok = await postAsAgentIdentity(target, graphBody, agentRole);
     if (ok) return { method: 'agent' };
@@ -532,7 +531,7 @@ export async function postCardToChannel(
   if (target) {
     const graphBody = {
       body: { contentType: 'html', content: '<attachment id="adaptiveCard"></attachment>' },
-      attachments: [{ id: 'adaptiveCard', contentType: 'application/vnd.microsoft.card.adaptive', content: JSON.stringify(cardObj) }],
+      attachments: [{ id: 'adaptiveCard', contentType: 'application/vnd.microsoft.card.adaptive', content: JSON.stringify(card) }],
     };
     const ok = await postWithDelegatedToken(target, graphBody);
     if (ok) return { method: 'graph' };
@@ -541,7 +540,7 @@ export async function postCardToChannel(
   // 3. App-only Graph API (will likely 401 for posting, but try anyway)
   if (graphClient && target) {
     try {
-      await graphClient.sendCard(target, cardObj);
+      await graphClient.sendCard(target, card);
       return { method: 'graph' };
     } catch { /* fall through */ }
   }
