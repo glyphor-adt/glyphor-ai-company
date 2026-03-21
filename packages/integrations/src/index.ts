@@ -168,7 +168,7 @@ export {
   type DocxConvertOptions,
 } from './sharepoint/index.js';
 
-// Web search (OpenAI GPT-5.2 web_search_preview)
+// Web search (OpenAI Responses API + web_search_preview; OPENAI_API_KEY only)
 export {
   searchWeb,
   searchNews,

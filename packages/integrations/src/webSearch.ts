@@ -84,22 +84,11 @@ function shouldRetryWithoutFlex(status: number, body: string): boolean {
 }
 
 /**
- * Build the Responses API URL and auth headers.
- * Uses Azure Foundry when AZURE_FOUNDRY_ENDPOINT + AZURE_FOUNDRY_API are set,
- * otherwise falls back to direct OpenAI with OPENAI_API_KEY.
+ * Build the Responses API URL and auth headers for direct OpenAI only.
+ * Web search uses OPENAI_API_KEY (same path as other agent tooling); it does not
+ * route through Azure Foundry (misconfigured relative endpoints break fetch).
  */
 function getResponsesEndpoint(): { url: string; headers: Record<string, string> } | null {
-  const azureEndpoint = process.env.AZURE_FOUNDRY_ENDPOINT;
-  const azureApiKey = process.env.AZURE_FOUNDRY_API;
-  if (azureEndpoint && azureApiKey) {
-    return {
-      url: `${azureEndpoint}/openai/responses?api-version=2025-04-01-preview`,
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': azureApiKey,
-      },
-    };
-  }
   const apiKey = process.env.OPENAI_API_KEY;
   if (apiKey) {
     return {
@@ -115,7 +104,6 @@ function getResponsesEndpoint(): { url: string; headers: Record<string, string> 
 
 /**
  * Call OpenAI Responses API with web_search_preview to get grounded search results.
- * Routes through Azure OpenAI when configured.
  */
 async function openaiWebSearch(
   prompt: string,

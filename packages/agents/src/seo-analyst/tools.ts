@@ -23,7 +23,8 @@ export function createSeoAnalystTools(memory: CompanyMemoryStore): ToolDefinitio
       description: 'Research keyword volume, difficulty, and competition via web search.',
       parameters: { keyword: { type: 'string', description: 'Keyword to research', required: true } },
       async execute(params) {
-        const results = await searchWeb(`"${params.keyword}" keyword search volume difficulty CPC SEO`, { num: 8 });
+        const q = `Keyword research for "${params.keyword}": search volume, keyword difficulty, CPC, competition, and search intent. Cite authoritative SEO and publisher sources.`;
+        const results = await searchWeb(q, { num: 8 });
         return { success: true, data: results };
       },
     },
@@ -32,7 +33,8 @@ export function createSeoAnalystTools(memory: CompanyMemoryStore): ToolDefinitio
       description: 'Discover new keyword opportunities based on a seed topic.',
       parameters: { seed: { type: 'string', description: 'Seed topic or keyword', required: true }, limit: { type: 'number', description: 'Max results (default 10)' } },
       async execute(params) {
-        const results = await searchWeb(`${params.seed} related keywords SEO opportunities long tail`, { num: Number(params.limit) || 10 });
+        const q = `Keyword discovery for seed topic "${params.seed}": related keywords, long-tail variants, question-based keywords, and content opportunities (blogs, landing pages).`;
+        const results = await searchWeb(q, { num: Number(params.limit) || 10 });
         return { success: true, data: results };
       },
     },
