@@ -215,7 +215,7 @@ export function createCFOTools(memory: CompanyMemoryStore): ToolDefinition[] {
             },
           };
         } catch (err) {
-          return { success: false, error: (err as Error).message };
+          return { success: false, error: err instanceof Error ? err.message : String(err) };
         }
       },
     },
@@ -258,7 +258,7 @@ export function createCFOTools(memory: CompanyMemoryStore): ToolDefinition[] {
             },
           };
         } catch (err) {
-          return { success: false, error: (err as Error).message };
+          return { success: false, error: err instanceof Error ? err.message : String(err) };
         }
       },
     },

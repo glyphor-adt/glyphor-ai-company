@@ -38,6 +38,12 @@ function readUrlUser(connectionString: string): string | undefined {
 }
 
 function resolvedDbUser(): string | undefined {
+  const authSource = resolveAuthSource();
+  if (authSource === 'database_url') {
+    const connectionString = process.env.DATABASE_URL?.trim();
+    if (connectionString) return readUrlUser(connectionString);
+  }
+
   return firstDefined(
     process.env.DB_USER,
     process.env.PGUSER,
@@ -45,18 +51,33 @@ function resolvedDbUser(): string | undefined {
   );
 }
 
+type DbAuthSource = 'database_url' | 'env';
+
+function resolveAuthSource(): DbAuthSource {
+  const explicit = process.env.DB_AUTH_SOURCE?.trim().toLowerCase();
+  if (explicit === 'database_url' || explicit === 'url') return 'database_url';
+  if (explicit === 'env' || explicit === 'host') return 'env';
+
+  // Default to DATABASE_URL when present to keep one canonical source.
+  return process.env.DATABASE_URL?.trim() ? 'database_url' : 'env';
+}
+
 function buildPoolConfig(): PoolConfig {
   const connectionString = process.env.DATABASE_URL?.trim();
   const fallbackPassword = firstDefined(process.env.DB_PASSWORD, process.env.PGPASSWORD);
+  const authSource = resolveAuthSource();
 
-  if (connectionString) {
+  if (authSource === 'database_url') {
+    if (!connectionString) {
+      throw new Error('DB auth configuration invalid: DB_AUTH_SOURCE resolves to DATABASE_URL, but DATABASE_URL is not set.');
+    }
+
     const passwordFromUrl = readUrlPassword(connectionString);
 
     return {
       connectionString,
-      // Prefer explicit env password so rotated secrets can override stale DATABASE_URL values.
-      // Ensure SCRAM auth always receives a string even if env setup is partial.
-      password: fallbackPassword ?? passwordFromUrl ?? '',
+      // Keep DATABASE_URL as the single source of truth when selected.
+      password: passwordFromUrl ?? '',
       ...basePoolConfig(),
     };
   }
@@ -74,8 +95,8 @@ function buildPoolConfig(): PoolConfig {
 }
 
 function buildPasswordGuidance(): string {
-  if (process.env.DATABASE_URL?.trim()) {
-    return 'DATABASE_URL is set but missing a usable password. Provide postgres://user:pass@host/db or set DB_PASSWORD/PGPASSWORD.';
+  if (resolveAuthSource() === 'database_url') {
+    return 'DATABASE_URL auth is selected but DATABASE_URL is missing a usable password. Update DATABASE_URL with the current DB credentials.';
   }
   return 'Set DB_PASSWORD (or PGPASSWORD) from GCP Secret Manager before running DB scripts.';
 }
@@ -84,24 +105,31 @@ function buildAuthFailureGuidance(): string {
   const user = resolvedDbUser();
   const connectionString = process.env.DATABASE_URL?.trim();
   const urlUser = connectionString ? readUrlUser(connectionString) : undefined;
+  const authSource = resolveAuthSource();
   const hasExplicitPassword = Boolean(firstDefined(process.env.DB_PASSWORD, process.env.PGPASSWORD));
   const hasUrlPassword = Boolean(connectionString && readUrlPassword(connectionString));
 
   const hints: string[] = [];
   hints.push(`Database authentication failed${user ? ` for user \"${user}\"` : ''}.`);
 
-  if (connectionString && hasExplicitPassword && hasUrlPassword) {
-    hints.push('Both DATABASE_URL and DB_PASSWORD/PGPASSWORD are set; DB_PASSWORD/PGPASSWORD is used as override. Ensure it matches the active DB user password.');
+  if (authSource === 'database_url') {
+    hints.push('DATABASE_URL is the source of truth for DB credentials in this process.');
+    if (hasExplicitPassword) {
+      hints.push('DB_PASSWORD/PGPASSWORD is set but ignored while DATABASE_URL auth is active.');
+    }
+    hints.push('If credentials were rotated, update DATABASE_URL to match the active DB user password.');
+  } else if (hasExplicitPassword) {
+    hints.push('Using DB_PASSWORD/PGPASSWORD with host-based DB config. Ensure DB_USER and password come from the same secret pairing.');
   } else if (connectionString && hasUrlPassword) {
-    hints.push('Using password from DATABASE_URL. If the password was rotated, update DATABASE_URL or provide DB_PASSWORD/PGPASSWORD to override it.');
+    hints.push('DATABASE_URL is present but DB_AUTH_SOURCE is env; set DB_PASSWORD/PGPASSWORD or switch DB_AUTH_SOURCE to database_url.');
   } else {
     hints.push('Set DB_PASSWORD/PGPASSWORD (or include the password in DATABASE_URL).');
   }
 
-  if (connectionString) {
+  if (authSource === 'database_url' && connectionString) {
     hints.push('When DATABASE_URL is set, the DB user comes from DATABASE_URL (not DB_USER/PGUSER).');
   }
-  if (urlUser && process.env.DB_USER && process.env.DB_USER !== urlUser) {
+  if (authSource === 'database_url' && urlUser && process.env.DB_USER && process.env.DB_USER !== urlUser) {
     hints.push(`DB_USER (${process.env.DB_USER}) differs from DATABASE_URL user (${urlUser}); align them or unset DATABASE_URL for host-based local proxy auth.`);
   }
 

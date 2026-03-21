@@ -120,5 +120,48 @@ export function createMemoryTools(memory: CompanyMemoryStore): ToolDefinition[] 
         return { success: true, data: memories };
       },
     },
+
+    {
+      name: 'search_memories',
+      description: 'Search your past memories by text query. Returns matching memories ordered by relevance.',
+      parameters: {
+        query: {
+          type: 'string',
+          description: 'Text to search for in memory content',
+          required: true,
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of matches to return (default: 10)',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        if (!memory || typeof memory.getMemories !== 'function') {
+          return { success: false, error: 'Memory store is not configured' };
+        }
+
+        const query = String(params.query ?? '').trim();
+        if (!query) {
+          return { success: false, error: 'query is required' };
+        }
+
+        const limit = (params.limit as number) ?? 10;
+
+        const nativeSearch = (memory as any).searchMemories;
+        if (typeof nativeSearch === 'function') {
+          const matches = await nativeSearch(ctx.agentRole, query, { limit });
+          return { success: true, data: matches ?? [] };
+        }
+
+        const memories = await memory.getMemories(ctx.agentRole, { limit: Math.max(limit, 50) });
+        const q = query.toLowerCase();
+        const matches = (memories ?? [])
+          .filter((m: any) => String(m?.content ?? '').toLowerCase().includes(q))
+          .slice(0, limit);
+
+        return { success: true, data: matches };
+      },
+    },
   ];
 }

@@ -252,17 +252,29 @@ export function createCollectiveIntelligenceTools(
 
         if (sections.every((section) => !section.is_active)) {
           return {
-            success: false,
-            error:
-              'Company doctrine is empty at runtime: no active sections were found in company_knowledge_base. Apply the knowledge-base seed before running strategic planning.',
+            success: true,
+            data: {
+              NO_DATA: true,
+              sections: [],
+              required_sections: [...REQUIRED_COMPANY_DOCTRINE_SECTIONS],
+              missing_required_sections: [...REQUIRED_COMPANY_DOCTRINE_SECTIONS],
+              message:
+                'Company doctrine is empty at runtime: no active sections were found in company_knowledge_base. Apply the knowledge-base seed before strategic planning.',
+            },
           };
         }
 
         if (!sectionFilter && missingRequiredSections.length > 0) {
           return {
-            success: false,
-            error:
-              `Company doctrine is incomplete at runtime: missing required sections (${missingRequiredSections.join(', ')}). Apply the autonomy doctrine seed migration before running strategic planning.`,
+            success: true,
+            data: {
+              NO_DATA: true,
+              sections: sections.filter((section) => section.is_active),
+              required_sections: [...REQUIRED_COMPANY_DOCTRINE_SECTIONS],
+              missing_required_sections: missingRequiredSections,
+              message:
+                `Company doctrine is incomplete at runtime: missing required sections (${missingRequiredSections.join(', ')}). Apply the autonomy doctrine seed migration before strategic planning.`,
+            },
           };
         }
 

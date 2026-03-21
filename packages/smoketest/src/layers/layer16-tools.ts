@@ -127,6 +127,10 @@ const MOCK_COMPANY_MEMORY = {
   getCollectiveIntelligence: () => MOCK_COLLECTIVE_INTELLIGENCE,
 } as unknown as CompanyMemoryStore;
 
+const MOCK_EVENT_BUS = {
+  emit: async () => undefined,
+} as unknown as GlyphorEventBus;
+
 const FACTORIES: FactoryEntry[] = [
   // Wave 0 — Pre-existing (Design Team)
   { name: 'figmaTools', wave: 0, factory: createFigmaTools },
@@ -203,7 +207,27 @@ export function collectLayer16ToolDefinitions(): ToolDefinition[] {
       // Layer 16 already reports factory failures in T16.1.
     }
   }
-  return allTools;
+
+  try {
+    allTools.push(
+      ...createCoreTools({
+        glyphorEventBus: MOCK_EVENT_BUS,
+        memory: MOCK_COMPANY_MEMORY,
+      }),
+    );
+  } catch {
+    // Keep fallback resilient even if core tool composition changes.
+  }
+
+  // Keep first-seen tool definitions stable while removing duplicates.
+  const deduped = new Map<string, ToolDefinition>();
+  for (const tool of allTools) {
+    if (!deduped.has(tool.name)) {
+      deduped.set(tool.name, tool);
+    }
+  }
+
+  return [...deduped.values()];
 }
 
 /** Required env vars — services that are provisioned and should have keys. */

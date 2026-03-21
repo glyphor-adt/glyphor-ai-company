@@ -1,7 +1,7 @@
 import { systemQuery as dbQuery } from '@glyphor/shared/db';
 import { runTier1ForAllTools } from './tier1SchemaValidator.js';
-import { runTier2 } from './tier2ConnectivityTester.js';
-import { runTier3Single } from './tier3TestCases.js';
+import { runTier2 } from './tier2ConnectivityTester';
+import { runTier3Single } from './tier3TestCases';
 import { handleToolTestFailure } from './failureHandler.js';
 import type { ToolTestResult } from './failureHandler.js';
 import { getAllKnownTools } from '../toolRegistry.js';

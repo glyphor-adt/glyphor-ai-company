@@ -237,6 +237,7 @@ function main(): void {
       stdio: 'inherit',
       env: {
         ...process.env,
+        DB_AUTH_SOURCE: 'database_url',
         DATABASE_URL: databaseUrl,
         DB_HOST: dbHost,
         DB_PORT: dbPort,
