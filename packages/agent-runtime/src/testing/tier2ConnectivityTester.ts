@@ -37,11 +37,25 @@ export async function runConnectivityTest(
 
       if (!result) throw new Error('Dynamic tool execute returned null');
 
+      if (result.success === false) {
+        const err = result.error ?? 'Dynamic tool returned success=false';
+        const errorType = classifyError(err);
+        return {
+          ok: false,
+          responseMs: Date.now() - start,
+          connectivityOk: errorType === 'connection' ? false : true,
+          executionOk: false,
+          response: result,
+          error: err,
+          errorType,
+        };
+      }
+
       return {
-        ok: result.success !== false,
+        ok: true,
         responseMs: Date.now() - start,
         connectivityOk: true,
-        executionOk: result.success !== false,
+        executionOk: true,
         response: result,
       };
     }

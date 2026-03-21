@@ -8,6 +8,43 @@ export interface SchemaValidationResult {
   warnings: string[];
 }
 
+const ALLOWED_JSON_SCHEMA_TYPES = new Set([
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'object',
+  'array',
+  'null',
+]);
+
+function normalizeSchemaType(typeValue: unknown): string | null {
+  if (typeof typeValue !== 'string') return null;
+  return typeValue.trim().toLowerCase();
+}
+
+function validateParamType(paramName: string, rawType: unknown, errors: string[]): void {
+  if (Array.isArray(rawType)) {
+    if (rawType.length === 0) {
+      errors.push(`Parameter '${paramName}' has an empty type array`);
+      return;
+    }
+
+    for (const entry of rawType) {
+      const normalized = normalizeSchemaType(entry);
+      if (!normalized || !ALLOWED_JSON_SCHEMA_TYPES.has(normalized)) {
+        errors.push(`Parameter '${paramName}' has invalid type entry: ${String(entry)}`);
+      }
+    }
+    return;
+  }
+
+  const normalized = normalizeSchemaType(rawType);
+  if (!normalized || !ALLOWED_JSON_SCHEMA_TYPES.has(normalized)) {
+    errors.push(`Parameter '${paramName}' has invalid type: ${String(rawType)}`);
+  }
+}
+
 export async function validateToolSchema(
   toolName: string
 ): Promise<SchemaValidationResult> {
@@ -38,11 +75,12 @@ export async function validateToolSchema(
       const properties: any = (tool.parameters as any).properties || tool.parameters;
       for (const [paramName, param] of Object.entries(properties)) {
         const p = param as any;
-        if (!p.type) errors.push(`Parameter '${paramName}' missing type`);
-        if (!p.description) warnings.push(`Parameter '${paramName}' missing description`);
-        if (!['string','number','boolean','object','array'].includes(p.type)) {
-          errors.push(`Parameter '${paramName}' has invalid type: ${p.type}`);
+        if (!p.type) {
+          errors.push(`Parameter '${paramName}' missing type`);
+          continue;
         }
+        if (!p.description) warnings.push(`Parameter '${paramName}' missing description`);
+        validateParamType(paramName, p.type, errors);
       }
     }
 

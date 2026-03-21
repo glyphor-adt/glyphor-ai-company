@@ -59,35 +59,18 @@ export async function handleToolTestFailure(
     }
   }
 
-  // Write to tool_reputation table — affects ToolRetriever scoring
-  // Try to update it safely - ignore if it doesn't exist. Let's make sure the table exists, but we can do an insert if it doesn't? Let's just update.
-  await dbQuery(`
-    UPDATE tool_reputation
-    SET
-      last_test_status = $2,
-      last_test_at = NOW(),
-      last_test_error = $3,
-      health_score = CASE
-        WHEN $2 = 'fail' THEN GREATEST(0, health_score - 0.2)
-        WHEN $2 = 'pass' THEN LEAST(1.0, health_score + 0.1)
-        ELSE health_score
-      END
-    WHERE tool_slug = $1
-  `, [result.toolName, result.status, result.errorMessage]).catch(() => {
-    // some systems use tool_name, some tool_slug in tool_reputation. DB says tool_slug
-    return dbQuery(`
-      UPDATE tool_reputation
-      SET
-        last_test_status = $2,
-        last_test_at = NOW(),
-        last_test_error = $3,
-        health_score = CASE
-          WHEN $2 = 'fail' THEN GREATEST(0, health_score - 0.2)
-          WHEN $2 = 'pass' THEN LEAST(1.0, health_score + 0.1)
-          ELSE health_score
-        END
-      WHERE tool_name = $1
-    `, [result.toolName, result.status, result.errorMessage]).catch(e => console.warn("Failed tool_reputation update:", e.message));
+  // Write to tool_reputation via canonical DB function.
+  await dbQuery(
+    `SELECT update_tool_stats($1, $2, $3, $4, $5)`,
+    [
+      result.toolName,
+      'dynamic_registry',
+      result.status === 'pass',
+      result.status === 'timeout',
+      Number(result.responseMs ?? 0),
+    ],
+  ).catch((e) => {
+    console.warn('Failed tool_reputation update:', e.message);
   });
 
   // If P0 or P1 — notify Nexus immediately via world_state
@@ -115,7 +98,7 @@ export async function handleToolTestFailure(
   }
 }
 
-function getFailureSeverity(result: ToolTestResult): 'P0' | 'P1' | 'P2' | 'P3' {
+function getFailureSeverity(result: ToolTestResult): 'P0' | 'P1' | 'P2' {
   // Auth errors on critical tools = P0
   if (result.errorType === 'auth' && isCriticalTool(result.toolName)) return 'P0';
   // Connection failures on external APIs = P1
@@ -124,8 +107,8 @@ function getFailureSeverity(result: ToolTestResult): 'P0' | 'P1' | 'P2' | 'P3' {
   if (result.errorType === 'auth') return 'P1';
   // Schema validation failures = P2
   if (result.schemaValid === false) return 'P2';
-  // Everything else = P3
-  return 'P3';
+  // Everything else = P2 (fleet_findings supports P0/P1/P2 only)
+  return 'P2';
 }
 
 // Tools that are critical for GTM agents
