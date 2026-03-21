@@ -26,12 +26,7 @@ export async function classifyAllTools() {
           (tool_name, risk_tier, test_strategy, source)
         VALUES
           ($1, $2, $3, $4)
-        ON CONFLICT (tool_name) DO UPDATE
-        SET
-          risk_tier = EXCLUDED.risk_tier,
-          test_strategy = EXCLUDED.test_strategy,
-          source = EXCLUDED.source,
-          updated_at = NOW()
+        ON CONFLICT (tool_name) DO NOTHING
       `,
       [c.toolName, c.riskTier, c.testStrategy, c.source],
     );
