@@ -13,6 +13,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { getFileContents, GLYPHOR_REPOS } from '@glyphor/integrations';
+import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
 
 interface StoryEntry {
   id: string;
@@ -25,12 +26,6 @@ interface StoryEntry {
 function getStorybookUrl(): string {
   const url = process.env.STORYBOOK_URL;
   if (!url) throw new Error('STORYBOOK_URL not configured — deploy Storybook as a static site first');
-  return url;
-}
-
-function getScreenshotServiceUrl(): string {
-  const url = process.env.SCREENSHOT_SERVICE_URL;
-  if (!url) throw new Error('SCREENSHOT_SERVICE_URL not configured');
   return url;
 }
 
@@ -95,7 +90,7 @@ export function createStorybookTools(): ToolDefinition[] {
           if (!storyId) return { success: false, error: 'Parameter "story_id" is required.' };
 
           const storybookUrl = getStorybookUrl();
-          const serviceUrl = getScreenshotServiceUrl();
+          const serviceUrl = getPlaywrightServiceUrl();
           const width = (params.viewport_width as number) || 1440;
           const height = (params.viewport_height as number) || 900;
           const theme = (params.theme as string) || 'light';
@@ -156,7 +151,7 @@ export function createStorybookTools(): ToolDefinition[] {
       async execute(params): Promise<ToolResult> {
         try {
           const storybookUrl = getStorybookUrl();
-          const serviceUrl = getScreenshotServiceUrl();
+          const serviceUrl = getPlaywrightServiceUrl();
 
           const viewports = ((params.viewports as string) || '375,768,1440')
             .split(',')
@@ -222,7 +217,7 @@ export function createStorybookTools(): ToolDefinition[] {
       async execute(params): Promise<ToolResult> {
         try {
           const storybookUrl = getStorybookUrl();
-          const serviceUrl = getScreenshotServiceUrl();
+          const serviceUrl = getPlaywrightServiceUrl();
           const baselineUrl = process.env.BASELINE_STORAGE_URL || 'gs://glyphor-company/storybook-baselines';
 
           const allStories = await fetchStoryIndex(storybookUrl);
@@ -294,7 +289,7 @@ export function createStorybookTools(): ToolDefinition[] {
       async execute(params): Promise<ToolResult> {
         try {
           const storybookUrl = getStorybookUrl();
-          const serviceUrl = getScreenshotServiceUrl();
+          const serviceUrl = getPlaywrightServiceUrl();
           const baselineUrl = process.env.BASELINE_STORAGE_URL || 'gs://glyphor-company/storybook-baselines';
 
           const viewports = ((params.viewports as string) || '375,768,1440')

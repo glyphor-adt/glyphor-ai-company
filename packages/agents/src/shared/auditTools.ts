@@ -12,6 +12,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { getGitHubClient, GLYPHOR_REPOS, type GlyphorRepo } from '@glyphor/integrations';
+import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
 
 const ALL_CATEGORIES = ['performance', 'accessibility', 'best-practices', 'seo'] as const;
 
@@ -40,12 +41,6 @@ const BRAND_TOKENS = {
   },
   fonts: ['Segoe UI', 'Cascadia Code'],
 };
-
-function getScreenshotServiceUrl(): string {
-  const url = process.env.SCREENSHOT_SERVICE_URL;
-  if (!url) throw new Error('SCREENSHOT_SERVICE_URL not configured');
-  return url;
-}
 
 function resolveRepo(repo?: string): { repoKey: GlyphorRepo; repoName: string } | null {
   const key = (repo || 'company') as GlyphorRepo;
@@ -154,7 +149,7 @@ export function createAuditTools(): ToolDefinition[] {
         const url = params.url as string;
 
         try {
-          const serviceUrl = getScreenshotServiceUrl();
+          const serviceUrl = getPlaywrightServiceUrl();
           const res = await fetch(`${serviceUrl}/audit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -251,7 +246,7 @@ export function createAuditTools(): ToolDefinition[] {
         try {
           // Try screenshot service first for HTML + screenshot
           try {
-            const serviceUrl = getScreenshotServiceUrl();
+            const serviceUrl = getPlaywrightServiceUrl();
             const res = await fetch(`${serviceUrl}/screenshot`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -361,7 +356,7 @@ export function createAuditTools(): ToolDefinition[] {
 
         try {
           // Capture page via screenshot service
-          const serviceUrl = getScreenshotServiceUrl();
+          const serviceUrl = getPlaywrightServiceUrl();
           const res = await fetch(`${serviceUrl}/screenshot`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

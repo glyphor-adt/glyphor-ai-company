@@ -250,7 +250,7 @@ const AZURE_FOUNDRY_ALTERNATIVE: Record<string, string[]> = {
 
 /** Optional env vars — services not yet provisioned (informational). */
 const ENV_OPTIONAL: Record<string, string[]> = {
-  'Screenshot Service': ['SCREENSHOT_SERVICE_URL'],
+  'Playwright Screenshot Service': ['PLAYWRIGHT_SERVICE_URL', 'SCREENSHOT_SERVICE_URL'],
   'Storybook': ['STORYBOOK_URL'],
   'Vercel (deploy previews)': ['VERCEL_DEPLOY_HOOK_URL'],
   'SendGrid (email)': ['SENDGRID_API_KEY'],

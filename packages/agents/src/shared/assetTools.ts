@@ -14,6 +14,7 @@
 import type { GlyphorEventBus, ToolDefinition, ToolResult, ToolContext } from '@glyphor/agent-runtime';
 import { uploadToSharePoint } from '@glyphor/integrations';
 import { createDeliverableTools } from './deliverableTools.js';
+import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
 
 const PRISM_STYLE_AUGMENT =
   'Use the Glyphor Prism brand palette: deep indigo (#1E1B4B), electric violet (#7C3AED), ' +
@@ -33,12 +34,6 @@ type AssetCategory = (typeof VALID_ASSET_CATEGORIES)[number];
 function getAssetServiceUrl(): string {
   const url = process.env.ASSET_SERVICE_URL;
   if (!url) throw new Error('ASSET_SERVICE_URL not configured');
-  return url;
-}
-
-function getScreenshotServiceUrl(): string {
-  const url = process.env.SCREENSHOT_SERVICE_URL;
-  if (!url) throw new Error('SCREENSHOT_SERVICE_URL not configured');
   return url;
 }
 
@@ -723,7 +718,7 @@ export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinit
       },
       execute: async (params): Promise<ToolResult> => {
         try {
-          const screenshotUrl = getScreenshotServiceUrl();
+          const screenshotUrl = getPlaywrightServiceUrl();
           const format = (params.format as string) || 'webp';
           const quality = (params.quality as number) || 80;
 
@@ -777,7 +772,7 @@ export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinit
       },
       execute: async (params): Promise<ToolResult> => {
         try {
-          const screenshotUrl = getScreenshotServiceUrl();
+          const screenshotUrl = getPlaywrightServiceUrl();
 
           const res = await fetch(`${screenshotUrl}/favicon-set`, {
             method: 'POST',

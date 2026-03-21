@@ -9,6 +9,7 @@
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
 
 const VIEWPORT_MAP: Record<string, { width: number; height: number }> = {
   mobile: { width: 375, height: 812 },
@@ -16,14 +17,8 @@ const VIEWPORT_MAP: Record<string, { width: number; height: number }> = {
   desktop: { width: 1440, height: 900 },
 };
 
-function getScreenshotServiceUrl(): string {
-  const url = process.env.SCREENSHOT_SERVICE_URL;
-  if (!url) throw new Error('SCREENSHOT_SERVICE_URL not configured — deploy the Playwright screenshot service');
-  return url;
-}
-
 async function postJson(path: string, body: Record<string, unknown>): Promise<Response> {
-  const serviceUrl = getScreenshotServiceUrl();
+  const serviceUrl = getPlaywrightServiceUrl();
   return fetch(`${serviceUrl}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
