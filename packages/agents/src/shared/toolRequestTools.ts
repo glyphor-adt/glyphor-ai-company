@@ -361,7 +361,7 @@ export function createToolRequestTools(): ToolDefinition[] {
         // Check for duplicate pending request
         const existing = await systemQuery(
           'SELECT id, status FROM tool_requests WHERE tool_name = $1 AND status = ANY($2) LIMIT 1',
-          [toolName, ['pending', 'approved', 'building']],
+          [toolName, ['pending', 'pending_approval', 'approved', 'building']],
         );
 
         if (existing.length > 0) {
@@ -487,6 +487,32 @@ export function createToolRequestTools(): ToolDefinition[] {
                 tool_name: toolName,
                 status: 'pending',
                 warning: `Restricted tool request created but approval routing failed: ${(decisionErr as Error).message}.`,
+              },
+            };
+          }
+
+          // Mark the tool request as pending_approval so its DB status accurately
+          // reflects that founder sign-off is required before the CTO can build it.
+          // list_tool_requests and review_tool_request both accept pending_approval.
+          const [updated] = await systemQuery<{ id: string }>(
+            'UPDATE tool_requests SET status = $1 WHERE id = $2 RETURNING id',
+            ['pending_approval', request.id],
+          );
+
+          if (!updated) {
+            // The request was already modified (e.g., auto-built by a concurrent process).
+            // Return success with the original pending status so the caller is not blocked.
+            return {
+              success: true,
+              data: {
+                request_id: request.id,
+                tool_name: toolName,
+                status: 'pending',
+                approval_required: true,
+                approval_reason: permissionPolicy.reason,
+                message:
+                  `Restricted request received (${permissionPolicy.reason}). ` +
+                  'Founder approval is required before this tool can be built/granted.',
               },
             };
           }

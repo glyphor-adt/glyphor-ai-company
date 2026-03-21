@@ -21,12 +21,12 @@ export function createToolRegistryTools(): ToolDefinition[] {
       name: 'list_tool_requests',
       description:
         'List pending tool requests from agents. Shows who requested what tool and why. ' +
-        'Filter by status: pending (default), approved, rejected, building, completed.',
+        'Filter by status: pending (default, includes pending_approval), approved, rejected, building, completed.',
       parameters: {
         status: {
           type: 'string',
-          description: 'Filter by status (default: "pending")',
-          enum: ['pending', 'approved', 'rejected', 'building', 'completed'],
+          description: 'Filter by status (default: "pending", which also includes "pending_approval")',
+          enum: ['pending', 'pending_approval', 'approved', 'rejected', 'building', 'completed'],
           required: false,
         },
         limit: {
@@ -40,9 +40,16 @@ export function createToolRegistryTools(): ToolDefinition[] {
         const limit = (params.limit as number) ?? 20;
 
         try {
+          // When filtering by 'pending', also include 'pending_approval' rows.
+          // Restricted tool requests go through a Yellow decision flow and may be
+          // stored with status 'pending_approval' rather than plain 'pending'.
+          const statusFilter = status === 'pending'
+            ? ['pending', 'pending_approval']
+            : [status];
+
           const data = await systemQuery(
-            'SELECT id, requested_by, tool_name, description, justification, use_case, suggested_category, suggested_api_config, suggested_parameters, status, created_at FROM tool_requests WHERE status = $1 ORDER BY created_at DESC LIMIT $2',
-            [status, limit],
+            'SELECT id, requested_by, tool_name, description, justification, use_case, suggested_category, suggested_api_config, suggested_parameters, status, created_at FROM tool_requests WHERE status = ANY($1) ORDER BY created_at DESC LIMIT $2',
+            [statusFilter, limit],
           );
           return {
             success: true,
@@ -58,11 +65,12 @@ export function createToolRegistryTools(): ToolDefinition[] {
       name: 'review_tool_request',
       description:
         'Approve or reject a tool request. Approved requests move to "approved" status ' +
-        'and can then be registered. Rejected requests get review notes explaining why.',
+        'and can then be registered. Rejected requests get review notes explaining why. ' +
+        'Use the "id" field from list_tool_requests as the request_id.',
       parameters: {
         request_id: {
           type: 'string',
-          description: 'UUID of the tool request to review',
+          description: 'UUID of the tool request to review. Use the "id" field returned by list_tool_requests.',
           required: true,
         },
         action: {
@@ -78,22 +86,49 @@ export function createToolRegistryTools(): ToolDefinition[] {
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const requestId = params.request_id as string;
+        const requestId = typeof params.request_id === 'string' ? params.request_id.trim() : '';
         const action = params.action as 'approve' | 'reject';
         const notes = params.review_notes as string;
+
+        if (!requestId) {
+          return { success: false, error: 'request_id is required. Pass the "id" field from list_tool_requests.' };
+        }
 
         const newStatus = action === 'approve' ? 'approved' : 'rejected';
 
         try {
+          // First, look up the request to give a precise error if something is wrong.
+          const [existing] = await systemQuery<{ id: string; status: string; tool_name: string; requested_by: string }>(
+            'SELECT id, status, tool_name, requested_by FROM tool_requests WHERE id = $1',
+            [requestId],
+          );
+
+          if (!existing) {
+            return { success: false, error: `Tool request "${requestId}" not found.` };
+          }
+
+          // Accept both 'pending' and 'pending_approval' — the latter is used for
+          // restricted-tool requests that went through the Yellow decision flow.
+          const reviewableStatuses = ['pending', 'pending_approval'];
+          if (!reviewableStatuses.includes(existing.status)) {
+            return {
+              success: false,
+              error: `Tool request "${requestId}" cannot be reviewed: current status is "${existing.status}". Only pending requests can be approved or rejected.`,
+            };
+          }
+
           const rows = await systemQuery(
-            'UPDATE tool_requests SET status = $1, reviewed_by = $2, review_notes = $3 WHERE id = $4 AND status = $5 RETURNING id, tool_name, requested_by, status',
-            [newStatus, ctx.agentRole, notes, requestId, 'pending'],
+            'UPDATE tool_requests SET status = $1, reviewed_by = $2, review_notes = $3 WHERE id = $4 AND status = ANY($5) RETURNING id, tool_name, requested_by, status',
+            [newStatus, ctx.agentRole, notes, requestId, reviewableStatuses],
           );
 
           if (rows.length === 0) {
+            // This can happen in a race condition where two processes concurrently
+            // select the same pending request and both pass the status check above,
+            // but only the first UPDATE succeeds. Return a clear message.
             return {
               success: false,
-              error: 'Request not found or not in pending status.',
+              error: `Tool request "${requestId}" could not be updated — it may have already been reviewed by another process.`,
             };
           }
 
