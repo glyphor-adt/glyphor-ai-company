@@ -17,6 +17,18 @@ export { GlyphorEventBus } from './glyphorEventBus.js';
 export type { GlyphorEventBusConfig } from './glyphorEventBus.js';
 export { SUBSCRIPTIONS, getSubscribers } from './subscriptions.js';
 export { extractReasoning, stripReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
+// Shared behavioral rules (Step 2 of prompt decomposition)
+export {
+  CONVERSATION_MODE, CHAT_REASONING_PROTOCOL, CHAT_DATA_HONESTY,
+  REASONING_PROTOCOL, DATA_GROUNDING_PROTOCOL, ACTION_HONESTY_PROTOCOL,
+  EXTERNAL_COMMUNICATION_PROTOCOL, TEAMS_COMMUNICATION_PROTOCOL,
+  INSTRUCTION_ECHO_PROTOCOL, WORK_ASSIGNMENTS_PROTOCOL, ALWAYS_ON_PROTOCOL,
+  COLLABORATION_PROTOCOL, EXECUTIVE_ORCHESTRATION_PROTOCOL,
+  ANTI_PATTERNS, COST_AWARENESS_BLOCK,
+} from './prompts/behavioralRules.js';
+// Skill registry (Step 3 of prompt decomposition)
+export { registerSkill, getSkillsForAgent, selectSkillsForTask } from './prompts/skillRegistry.js';
+export type { SkillDefinition } from './prompts/skillRegistry.js';
 export {
   isKnownTool,
   filterKnownTools,

@@ -48,9 +48,9 @@ const ROLE_DEPARTMENT: Record<string, string> = {
   'adi-rose': 'operations',
 };
 
-const SKILL_CONTEXT_MAX_ITEMS = 5;
-const SKILL_CONTEXT_MAPPED_BUDGET = 3;
-const SKILL_CONTEXT_FALLBACK_BUDGET = 2;
+const SKILL_CONTEXT_MAX_ITEMS = 2;
+const SKILL_CONTEXT_MAPPED_BUDGET = 1;
+const SKILL_CONTEXT_FALLBACK_BUDGET = 1;
 const TASK_KEYWORD_MIN_LENGTH = 4;
 
 /** Resolve {live_ref_key} placeholders in KB section content. */
@@ -465,17 +465,8 @@ export function createRunDeps(
         }
       }
 
-      if (contextSkills.length < SKILL_CONTEXT_MAX_ITEMS) {
-        const remaining = (skills as SkillRow[])
-          .filter((skill) => !seen.has(skill.id))
-          .sort((left, right) => proficiencyRank(right.id) - proficiencyRank(left.id))
-          .slice(0, SKILL_CONTEXT_MAX_ITEMS - contextSkills.length);
-
-        for (const skill of remaining) {
-          contextSkills.push(buildContextSkill(skill));
-          seen.add(skill.id);
-        }
-      }
+      // No backfill — only load skills matched by task regex or semantic match.
+      // Unmatched skills stay un-loaded to keep prompt size minimal.
 
       return contextSkills.length > 0 ? { skills: contextSkills.slice(0, SKILL_CONTEXT_MAX_ITEMS) } : null;
     },
