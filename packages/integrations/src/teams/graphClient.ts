@@ -105,9 +105,14 @@ let _powerPlatformTokenCache: { token: string; expiresAt: number } | null = null
 
 /**
  * Power Platform direct API webhook URLs require a bearer token.
- * Use the delegated refresh token to get a Flow-scoped access token.
+ * Try multiple audiences — Power Platform API (newer) then Flow Service (legacy).
  * The Teams message still posts as the Power Automate flow bot, not the user.
  */
+const POWER_PLATFORM_SCOPES = [
+  'https://api.powerplatform.com/.default offline_access',
+  'https://service.flow.microsoft.com/.default offline_access',
+];
+
 async function getPowerPlatformToken(): Promise<string | null> {
   const now = Date.now();
   if (_powerPlatformTokenCache && _powerPlatformTokenCache.expiresAt > now + 60_000) {
@@ -119,34 +124,38 @@ async function getPowerPlatformToken(): Promise<string | null> {
   const refreshToken = process.env.GRAPH_DELEGATED_REFRESH_TOKEN?.trim();
   if (!tenantId || !clientId || !refreshToken) return null;
 
-  try {
-    const params = new URLSearchParams({
-      grant_type: 'refresh_token',
-      client_id: clientId,
-      refresh_token: refreshToken,
-      scope: 'https://service.flow.microsoft.com/.default offline_access',
-    });
+  for (const scope of POWER_PLATFORM_SCOPES) {
+    try {
+      const params = new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: clientId,
+        refresh_token: refreshToken,
+        scope,
+      });
 
-    const res = await fetch(
-      `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`,
-      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() },
-    );
-    if (!res.ok) {
-      const text = await res.text();
-      console.error(`[GraphClient] Power Platform token failed (${res.status}): ${text.substring(0, 200)}`);
-      return null;
+      const res = await fetch(
+        `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`,
+        { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() },
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        console.warn(`[GraphClient] Power Platform token failed for scope "${scope}" (${res.status}): ${text.substring(0, 200)}`);
+        continue;
+      }
+
+      const data = (await res.json()) as { access_token: string; expires_in: number };
+      _powerPlatformTokenCache = {
+        token: data.access_token,
+        expiresAt: now + data.expires_in * 1000,
+      };
+      console.log(`[GraphClient] Power Platform token acquired (scope: ${scope.split(' ')[0]})`);
+      return data.access_token;
+    } catch (err) {
+      console.warn(`[GraphClient] Power Platform token error for scope "${scope}":`, err);
     }
-
-    const data = (await res.json()) as { access_token: string; expires_in: number };
-    _powerPlatformTokenCache = {
-      token: data.access_token,
-      expiresAt: now + data.expires_in * 1000,
-    };
-    return data.access_token;
-  } catch (err) {
-    console.error('[GraphClient] Power Platform token error:', err);
-    return null;
   }
+
+  return null;
 }
 
 /** Returns true if the webhook URL is a Power Platform direct API that requires auth */
