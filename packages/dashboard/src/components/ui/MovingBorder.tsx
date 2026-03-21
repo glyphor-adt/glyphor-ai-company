@@ -188,7 +188,7 @@ export function MovingBorderContainer({
       {/* Inner content */}
       <div
         className={cn(
-          'relative flex h-full w-full items-center antialiased',
+          'relative flex h-full w-full items-center antialiased chat-input-inner',
           innerClassName,
         )}
         style={{

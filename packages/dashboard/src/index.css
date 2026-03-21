@@ -985,6 +985,14 @@ html:not(.dark) .glass-surface {
   -webkit-backdrop-filter: none;
 }
 
+/* Override for textareas inside the animated-border chat input */
+.dark .chat-input-inner textarea,
+.dark .chat-input-inner textarea:focus {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
 @media (max-width: 1024px) {
   .dashboard-home-grid {
     grid-template-columns: 1fr;
