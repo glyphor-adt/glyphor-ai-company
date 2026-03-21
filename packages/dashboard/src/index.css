@@ -985,6 +985,17 @@ html:not(.dark) .glass-surface {
   -webkit-backdrop-filter: none;
 }
 
+/* Force native select dropdowns to use solid dark backgrounds (semi-transparent renders as light grey) */
+.dark select {
+  background: var(--color-base);
+  color: var(--color-txt-primary);
+}
+.dark select option,
+.dark select optgroup {
+  background: var(--color-base);
+  color: var(--color-txt-primary);
+}
+
 /* Override for textareas inside the animated-border chat input */
 .dark .chat-input-inner textarea,
 .dark .chat-input-inner textarea:focus {
