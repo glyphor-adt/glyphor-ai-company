@@ -24,25 +24,40 @@ export async function handleToolTestFailure(
   const severity = getFailureSeverity(result);
 
   // Write fleet finding
-  const findingResp = await dbQuery(`
-    INSERT INTO fleet_findings
-      (agent_id, severity, finding_type, description, score_penalty)
-    VALUES ($1, $2, $3, $4, $5)
-    ON CONFLICT (agent_id, finding_type)
-      DO UPDATE SET
-        description = EXCLUDED.description,
+  const findingType = `tool_health_failure:${result.toolName}`;
+  const findingDesc = buildFindingDescription(result);
+  const scorePenalty = severity === 'P0' ? 0.15 : severity === 'P1' ? 0.05 : 0;
+  
+  let findingId;
+  const existingFindResp = await dbQuery(`SELECT id FROM fleet_findings WHERE agent_id = $1 AND finding_type = $2`, ['tool-registry', findingType]);
+  if (existingFindResp && existingFindResp.length > 0) {
+    findingId = existingFindResp[0].id;
+    await dbQuery(`
+      UPDATE fleet_findings SET
+        description = $1,
+        severity = $2,
+        score_penalty = $3,
         detected_at = NOW(),
         resolved_at = NULL
-    RETURNING id
-  `, [
-    'tool-registry',       // not an agent — tool registry is the owner
-    severity,
-    `tool_health_failure:${result.toolName}`,
-    buildFindingDescription(result),
-    severity === 'P0' ? 0.15 : severity === 'P1' ? 0.05 : 0,
-  ]);
-
-  const finding = findingResp[0];
+      WHERE id = $4
+    `, [findingDesc, severity, scorePenalty, findingId]);
+  } else {
+    const findingResp = await dbQuery(`
+      INSERT INTO fleet_findings
+        (agent_id, severity, finding_type, description, score_penalty)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
+    `, [
+      'tool-registry',
+      severity,
+      findingType,
+      findingDesc,
+      scorePenalty,
+    ]);
+    if (findingResp && findingResp.length > 0) {
+      findingId = findingResp[0].id;
+    }
+  }
 
   // Write to tool_reputation table — affects ToolRetriever scoring
   // Try to update it safely - ignore if it doesn't exist. Let's make sure the table exists, but we can do an insert if it doesn't? Let's just update.
@@ -77,24 +92,26 @@ export async function handleToolTestFailure(
 
   // If P0 or P1 — notify Nexus immediately via world_state
   if (severity === 'P0' || severity === 'P1') {
-    await dbQuery(`
-      INSERT INTO world_state
-        (domain, entity_id, key, value, written_by_agent, confidence, valid_until)
-      VALUES
-        ('tool_health', $1, 'critical_failure', $2, 'tool-test-runner', 1.0,
-         NOW() + INTERVAL '48 hours')
-      ON CONFLICT (domain, entity_id, key) DO UPDATE SET
-        value = EXCLUDED.value, updated_at = NOW()
-    `, [
-      result.toolName,
-      JSON.stringify({
-        severity,
-        error: result.errorMessage,
-        errorType: result.errorType,
-        failedAt: result.testedAt || new Date().toISOString(),
-        findingId: finding?.id,
-      })
-    ]).catch(e => console.warn("Failed world_state insert:", e.message));
+    const wsValue = JSON.stringify({
+      severity,
+      error: result.errorMessage,
+      errorType: result.errorType,
+      failedAt: result.testedAt || new Date().toISOString(),
+      findingId: findingId,
+    });
+    
+    // safe upsert logic manually
+    const existingWs = await dbQuery(SELECT id FROM world_state WHERE domain = 'tool_health' AND entity_id = $1 AND key = 'critical_failure', [result.toolName]).catch(() => []);
+    if (existingWs && existingWs.length > 0) {
+      await dbQuery(UPDATE world_state SET value = $1, updated_at = NOW(), valid_until = NOW() + INTERVAL '48 hours' WHERE id = $2`, [wsValue, existingWs[0].id]).catch(e => console.warn("Failed world_state update:", e.message));
+    } else {
+      await dbQuery(
+        INSERT INTO world_state
+          (domain, entity_id, key, value, written_by_agent, confidence, valid_until)
+        VALUES
+          ('tool_health', $1, 'critical_failure', $2, 'tool-test-runner', 1.0, NOW() + INTERVAL '48 hours')
+      , [result.toolName, wsValue]).catch(e => console.warn("Failed world_state insert:", e.message));
+    }
   }
 }
 
@@ -133,3 +150,4 @@ function buildFindingDescription(result: ToolTestResult): string {
     `Tested at: ${result.testedAt ?? new Date().toISOString()}`,
   ].join('\n');
 }
+
