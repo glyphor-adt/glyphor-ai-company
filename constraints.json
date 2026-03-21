@@ -1,0 +1,12 @@
+[eval]:1
+const {Client}=require('pg'); (async()=>{ const c=new Client({host:process.env.DB_HOST,port:Number(process.env.DB_PORT),database:process.env.DB_NAME,user:process.env.DB_USER,password:process.env.DB_PASSWORD}); await c.connect(); const q= 'SELECT constraint_name, table_name FROM information_schema.key_column_usage WHERE table_name IN (''fleet_findings'', ''world_state'', ''tool_reputation'', ''tool_test_results'')'; const r=await c.query(q); console.log(JSON.stringify(r.rows)); await c.end(); })().catch(console.error);
+                                                                                                                                                                                                                                                                                                                                                 ^^^^^^^^^^^^^^^^
+Expected a semicolon
+
+SyntaxError: Unexpected string
+    at makeContextifyScript (node:internal/vm:194:14)
+    at compileScript (node:internal/process/execution:388:10)
+    at evalTypeScript (node:internal/process/execution:260:22)
+    at node:internal/main/eval_string:71:3
+
+Node.js v24.13.0

@@ -5,6 +5,99 @@ import { buildTestContext } from './testContext.js';
 import { systemQuery as dbQuery } from '@glyphor/shared/db';
 import { executeDynamicTool } from '../dynamicToolExecutor.js';
 
+let staticToolMapPromise: Promise<Map<string, ToolDefinition>> | null = null;
+
+function dynamicImportModule(modulePath: string): Promise<any> {
+  return new Function('p', 'return import(p);')(modulePath) as Promise<any>;
+}
+
+async function getStaticToolMap(): Promise<Map<string, ToolDefinition>> {
+  if (!staticToolMapPromise) {
+    staticToolMapPromise = (async () => {
+      try {
+        const mod = await dynamicImportModule('../../../smoketest/src/layers/layer16-tools.js');
+        const collect = mod?.collectLayer16ToolDefinitions;
+        if (typeof collect !== 'function') {
+          console.warn('[Tier2] collectLayer16ToolDefinitions export not found; static fallback unavailable');
+          return new Map<string, ToolDefinition>();
+        }
+
+        const defs = collect() as ToolDefinition[];
+        return new Map(defs.map((def) => [def.name, def]));
+      } catch (err) {
+        console.warn('[Tier2] Failed to load static tool catalog:', String(err));
+        return new Map<string, ToolDefinition>();
+      }
+    })();
+  }
+
+  return staticToolMapPromise;
+}
+
+async function loadStaticToolDefinition(toolName: string): Promise<ToolDefinition | null> {
+  const map = await getStaticToolMap();
+  return map.get(toolName) ?? null;
+}
+
+async function executeStaticTool(
+  tool: ToolDefinition,
+  testInput: Record<string, unknown>,
+  startedAt: number,
+): Promise<ConnectivityResult> {
+  try {
+    const context = buildTestContext();
+    const result = await Promise.race([
+      tool.execute(testInput, context),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT: static tool execution exceeded 8000ms')), 8000),
+      ),
+    ]);
+
+    if (!result || typeof result.success !== 'boolean') {
+      return {
+        ok: false,
+        responseMs: Date.now() - startedAt,
+        connectivityOk: null,
+        executionOk: false,
+        error: 'Static tool returned invalid result shape',
+        errorType: 'unknown',
+      };
+    }
+
+    if (result.success === false) {
+      const err = result.error ?? 'Static tool returned success=false';
+      const errorType = classifyError(err);
+      return {
+        ok: false,
+        responseMs: Date.now() - startedAt,
+        connectivityOk: errorType === 'connection' ? false : true,
+        executionOk: false,
+        response: result,
+        error: err,
+        errorType,
+      };
+    }
+
+    return {
+      ok: true,
+      responseMs: Date.now() - startedAt,
+      connectivityOk: true,
+      executionOk: true,
+      response: result,
+    };
+  } catch (err: any) {
+    const errorType = classifyError(err);
+    return {
+      ok: false,
+      responseMs: Date.now() - startedAt,
+      connectivityOk: errorType === 'connection' ? false : null,
+      executionOk: false,
+      error: String(err),
+      errorType,
+    };
+  }
+}
+
 export interface ConnectivityResult {
   ok: boolean;
   responseMs: number;
@@ -28,8 +121,19 @@ export async function runConnectivityTest(
     if (classification.riskTier === 'read_only') {
       const tool = await loadRegisteredTool(toolName);
       if (!tool) {
-        // Must be a static tool. Real test harnesses would look it up from agent maps.
-        return { ok: true, responseMs: 0, connectivityOk: null, executionOk: null, skipReason: 'Static tool not fully loadable by string in test context' };
+        const staticTool = await loadStaticToolDefinition(toolName);
+        if (!staticTool) {
+          return {
+            ok: true,
+            responseMs: 0,
+            connectivityOk: null,
+            executionOk: null,
+            skipReason: 'Static tool not found in Layer 16 factory catalog',
+          };
+        }
+
+        const staticInput = classification.testInput ?? buildSafeTestInput(staticTool);
+        return executeStaticTool(staticTool, staticInput, start);
       }
       
       const testInput = classification.testInput ?? buildSafeTestInput(tool);
@@ -99,16 +203,30 @@ export async function runConnectivityTest(
 function buildSafeTestInput(tool: any): Record<string, unknown> {
   const input: Record<string, unknown> = {};
   const params = tool.parameters?.properties || tool.parameters || {};
-  const required = tool.parameters?.required || [];
+  const requiredFromSchema = Array.isArray(tool.parameters?.required)
+    ? tool.parameters.required
+    : [];
+  const requiredFromDefs = Object.entries(params)
+    .filter(([, def]) => Boolean((def as any)?.required))
+    .map(([name]) => name);
+  const required = new Set<string>([...requiredFromSchema, ...requiredFromDefs]);
+
   for (const [name, param] of Object.entries(params)) {
     const p = param as any;
-    if (!required.includes(name)) continue;
-    switch (p.type) {
+    if (!required.has(name)) continue;
+
+    const type = Array.isArray(p.type)
+      ? p.type.find((t: string) => t !== 'null') ?? p.type[0]
+      : p.type;
+
+    switch (type) {
       case 'string':  input[name] = p.enum?.[0] ?? 'test'; break;
       case 'number':  input[name] = 0; break;
+      case 'integer': input[name] = 0; break;
       case 'boolean': input[name] = false; break;
       case 'array':   input[name] = []; break;
       case 'object':  input[name] = {}; break;
+      default:        input[name] = null; break;
     }
   }
   return input;

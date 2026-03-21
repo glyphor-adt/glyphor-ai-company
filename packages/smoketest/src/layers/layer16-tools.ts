@@ -190,6 +190,22 @@ const FACTORIES: FactoryEntry[] = [
   { name: 'toolGrantTools', wave: 7, factory: () => createToolGrantTools('smoketest') },
 ];
 
+/**
+ * Shared helper for other harnesses that need concrete static ToolDefinition instances.
+ * Factory errors are swallowed here so callers can fall back gracefully.
+ */
+export function collectLayer16ToolDefinitions(): ToolDefinition[] {
+  const allTools: ToolDefinition[] = [];
+  for (const entry of FACTORIES) {
+    try {
+      allTools.push(...entry.factory());
+    } catch {
+      // Layer 16 already reports factory failures in T16.1.
+    }
+  }
+  return allTools;
+}
+
 /** Required env vars — services that are provisioned and should have keys. */
 const ENV_REQUIRED: Record<string, string[]> = {
   'Figma (design)': ['FIGMA_CLIENT_ID', 'FIGMA_CLIENT_SECRET'],

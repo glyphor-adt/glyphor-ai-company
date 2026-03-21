@@ -152,6 +152,15 @@ $env:DB_NAME = $DbName
 $env:DB_USER = $identity.User
 $env:DB_PASSWORD = $dbPassword
 $env:PGPASSWORD = $dbPassword
+$env:PGHOST = $env:DB_HOST
+$env:PGPORT = $env:DB_PORT
+$env:PGDATABASE = $env:DB_NAME
+$env:PGUSER = $env:DB_USER
+
+$encodedUser = [System.Uri]::EscapeDataString($env:DB_USER)
+$encodedPassword = [System.Uri]::EscapeDataString($dbPassword)
+$encodedDbName = [System.Uri]::EscapeDataString($env:DB_NAME)
+$env:DATABASE_URL = "postgresql://${encodedUser}:${encodedPassword}@127.0.0.1:$($env:DB_PORT)/${encodedDbName}"
 
 if ($PrintEnv) {
   Write-Host "DB_HOST=$env:DB_HOST"
@@ -159,6 +168,7 @@ if ($PrintEnv) {
   Write-Host "DB_NAME=$env:DB_NAME"
   Write-Host "DB_USER=$env:DB_USER"
   Write-Host "DB_PASSWORD=[set]"
+  Write-Host "DATABASE_URL=[set]"
 }
 
 if (-not $Run) {

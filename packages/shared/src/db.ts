@@ -83,6 +83,7 @@ function buildPasswordGuidance(): string {
 function buildAuthFailureGuidance(): string {
   const user = resolvedDbUser();
   const connectionString = process.env.DATABASE_URL?.trim();
+  const urlUser = connectionString ? readUrlUser(connectionString) : undefined;
   const hasExplicitPassword = Boolean(firstDefined(process.env.DB_PASSWORD, process.env.PGPASSWORD));
   const hasUrlPassword = Boolean(connectionString && readUrlPassword(connectionString));
 
@@ -95,6 +96,13 @@ function buildAuthFailureGuidance(): string {
     hints.push('Using password from DATABASE_URL. If the password was rotated, update DATABASE_URL or provide DB_PASSWORD/PGPASSWORD to override it.');
   } else {
     hints.push('Set DB_PASSWORD/PGPASSWORD (or include the password in DATABASE_URL).');
+  }
+
+  if (connectionString) {
+    hints.push('When DATABASE_URL is set, the DB user comes from DATABASE_URL (not DB_USER/PGUSER).');
+  }
+  if (urlUser && process.env.DB_USER && process.env.DB_USER !== urlUser) {
+    hints.push(`DB_USER (${process.env.DB_USER}) differs from DATABASE_URL user (${urlUser}); align them or unset DATABASE_URL for host-based local proxy auth.`);
   }
 
   if (user === 'glyphor_system_user') {
