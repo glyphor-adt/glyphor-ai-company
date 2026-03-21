@@ -492,6 +492,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/gtm-readiness/run',
     enabled: true,
   },
+  // Tool health testing — daily run of all 3 tiers
+  {
+    id: 'tool-health-check',
+    schedule: '0 6 * * *',     // 6:00 AM UTC daily
+    timezone: 'UTC',
+    endpoint: '/tool-health/run',
+    enabled: true,
+  },
   // Shadow eval dequeue — run pending challenger A/B tests after batch-eval
   {
     id: 'shadow-eval-pending',

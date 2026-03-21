@@ -1750,6 +1750,44 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Tool health tests (called by Cron or Dashboard)
+    if (method === 'POST' && url === '/tool-health/run') {
+      try {
+        const rawBody = await readBody(req);
+        const parsed = rawBody ? JSON.parse(rawBody) : {};
+        const tiers = parsed.tiers ?? [1, 2, 3];
+        const triggeredBy = parsed.triggeredBy ?? 'scheduled';
+        
+        const { runFullToolHealthCheck } = await import('@glyphor/agent-runtime');
+        const summary = await runFullToolHealthCheck({
+          triggeredBy,
+          tiers,
+        });
+
+        json(res, 200, { success: true, summary });
+      } catch (err) {
+        json(res, 500, { success: false, error: String(err) });
+      }
+      return;
+    }
+
+    if (method === 'GET' && url === '/tool-health/latest') {
+      try {
+        const { pool } = await import('@glyphor/shared/db');
+        const run = await pool.query(`SELECT * FROM tool_test_runs ORDER BY started_at DESC LIMIT 1`);
+        const topFailures = await pool.query(`
+          SELECT tool_name, risk_tier, error_type, error_message, tested_at
+          FROM tool_test_results
+          WHERE test_run_id = $1 AND status = 'fail'
+          ORDER BY tested_at DESC
+        `, [run.rows[0]?.id]);
+        json(res, 200, { success: true, run: run.rows[0], topFailures: topFailures.rows });
+      } catch (err) {
+        json(res, 500, { success: false, error: String(err) });
+      }
+      return;
+    }
+
     // Stripe data sync endpoint (called by Cloud Scheduler)
     if (method === 'POST' && url === '/sync/stripe') {
       try {

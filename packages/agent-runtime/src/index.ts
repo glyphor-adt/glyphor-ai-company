@@ -238,3 +238,4 @@ export { calculateLlmCost, MODEL_RATES } from './costs/modelRates.js';
 export { AGENT_WORLD_STATE_KEYS, AGENT_WORLD_STATE_DOMAIN } from './worldStateKeys.js';
 export { AGENT_DEPENDENCIES } from './agentDependencies.js';
 export { resolveUpstreamContext } from './dependencyResolver.js';
+export * from './testing/index.js';
