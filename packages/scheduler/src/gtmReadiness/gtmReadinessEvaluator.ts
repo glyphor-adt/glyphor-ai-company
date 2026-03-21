@@ -164,7 +164,8 @@ async function evaluateAgent(agentId: string): Promise<AgentGateResult> {
         COUNT(DISTINCT wa.id) AS eval_run_count,
         AVG(ae_exec.score_normalized) AS exec_quality,
         AVG(ae_team.score_normalized) AS team_quality,
-        AVG(CASE WHEN ar.status = 'completed' THEN 1.0 ELSE 0.0 END) AS success_rate,
+        (SELECT AVG(CASE WHEN status = 'completed' THEN 1.0 ELSE 0.0 END)
+         FROM agent_runs WHERE agent_id = $1 AND created_at > NOW() - INTERVAL '60 days') AS success_rate,
         AVG(ae_con.score_normalized) AS constitutional_score,
         AVG(ae_tool.score_normalized) AS tool_accuracy,
         COUNT(ae_con.id) FILTER (
@@ -172,7 +173,6 @@ async function evaluateAgent(agentId: string): Promise<AgentGateResult> {
           AND ae_con.evaluated_at > NOW() - INTERVAL '30 days'
         ) AS constitutional_hard_fails
       FROM work_assignments wa
-      JOIN agent_runs ar ON ar.assignment_id = wa.id
       LEFT JOIN assignment_evaluations ae_exec ON ae_exec.assignment_id = wa.id AND ae_exec.evaluator_type = 'executive'
       LEFT JOIN assignment_evaluations ae_team ON ae_team.assignment_id = wa.id AND ae_team.evaluator_type = 'team'
       LEFT JOIN assignment_evaluations ae_con  ON ae_con.assignment_id  = wa.id AND ae_con.evaluator_type  = 'constitutional'
