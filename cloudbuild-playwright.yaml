@@ -1,0 +1,15 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--progress=plain'
+      - '-f'
+      - 'docker/Dockerfile.playwright'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/playwright:latest'
+      - '.'
+images:
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/playwright:latest'
+options:
+  logging: CLOUD_LOGGING_ONLY
+  logStreamingOption: STREAM_ON
