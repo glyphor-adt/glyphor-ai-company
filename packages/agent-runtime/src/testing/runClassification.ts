@@ -28,12 +28,8 @@ export async function classifyAllTools() {
     await dbQuery(`
       INSERT INTO tool_test_classifications
         (tool_name, risk_tier, test_strategy, source)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (tool_name) DO NOTHING
-    `, [c.toolName, c.riskTier, c.testStrategy, c.source]);
-  }
-
-  console.log(`Classified ${classifications.length} tools`);
+        SELECT $1, $2, $3, $4
+        WHERE NOT EXISTS (SELECT 1 FROM tool_test_classifications WHERE tool_name = $1)
   console.log('Risk distribution:', classifications.reduce((acc, c) => {
     acc[c.riskTier] = (acc[c.riskTier] ?? 0) + 1;
     return acc;
