@@ -37,7 +37,10 @@ interface JudgeResult {
 }
 
 interface EvalOptions {
+  /** Single role filter (legacy). */
   agentRole?: string;
+  /** One or more agent role slugs (e.g. from POST body `agentIds`). */
+  agentRoles?: string[];
 }
 
 const LOCK_KEY = 'agent-knowledge-eval-lock';
@@ -83,9 +86,16 @@ export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Pro
       SELECT id, agent_role, scenario_name, input_prompt, pass_criteria, fail_indicators, knowledge_tags, tenant_id
       FROM agent_eval_scenarios
     `;
-    if (options.agentRole) {
-      sql += ' WHERE agent_role = $1';
-      params.push(options.agentRole);
+    const roleFilter: string[] = [];
+    if (options.agentRoles && options.agentRoles.length > 0) {
+      roleFilter.push(...options.agentRoles);
+    } else if (options.agentRole) {
+      roleFilter.push(options.agentRole);
+    }
+    const uniqueRoles = [...new Set(roleFilter.map((r) => r.trim()).filter(Boolean))];
+    if (uniqueRoles.length > 0) {
+      sql += ' WHERE agent_role = ANY($1::text[])';
+      params.push(uniqueRoles);
     }
     sql += ' ORDER BY agent_role, scenario_name';
 

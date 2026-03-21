@@ -2283,10 +2283,28 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && url === '/agent-evals/run') {
       try {
         const rawBody = await readBody(req).catch(() => '{}');
-        const body = (rawBody.trim() ? JSON.parse(rawBody) : {}) as { agentRole?: string };
-        const report = await evaluateAgentKnowledgeGaps({
-          agentRole: typeof body.agentRole === 'string' ? body.agentRole : undefined,
-        });
+        const body = (rawBody.trim() ? JSON.parse(rawBody) : {}) as {
+          agentRole?: string;
+          agentRoles?: unknown;
+          agentIds?: unknown;
+        };
+        const fromArrays: string[] = [];
+        if (Array.isArray(body.agentIds)) {
+          for (const id of body.agentIds) {
+            if (typeof id === 'string' && id.trim()) fromArrays.push(id.trim());
+          }
+        }
+        if (Array.isArray(body.agentRoles)) {
+          for (const r of body.agentRoles) {
+            if (typeof r === 'string' && r.trim()) fromArrays.push(r.trim());
+          }
+        }
+        const uniqueFromArrays = [...new Set(fromArrays)];
+        const report = await evaluateAgentKnowledgeGaps(
+          uniqueFromArrays.length > 0
+            ? { agentRoles: uniqueFromArrays }
+            : { agentRole: typeof body.agentRole === 'string' ? body.agentRole : undefined },
+        );
         json(res, 200, { success: true, ...report });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
