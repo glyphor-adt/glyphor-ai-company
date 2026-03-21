@@ -87,12 +87,18 @@ export class ModelClient {
       request = { ...request, model: normalizedRequestedModel };
     }
 
+    const agentRole = request.metadata?.agentRole;
+    // Atlas (ops): agent runners pass same-provider to stay on one vendor, but Gemini fallbacks
+    // hit tool-schema / thought_signature errors. Use cross-provider + Gemini-free chain instead.
     const fallbackScope = request.fallbackScope ?? 'cross-provider';
-    const fallbackChain = fallbackScope === 'none'
-      ? []
-      : fallbackScope === 'same-provider'
-        ? getProviderLocalFallbackChain(normalizedRequestedModel)
-        : getFallbackChain(normalizedRequestedModel);
+    const effectiveScope =
+      agentRole === 'ops' ? 'cross-provider' : fallbackScope;
+    const fallbackChain =
+      effectiveScope === 'none'
+        ? []
+        : effectiveScope === 'same-provider'
+          ? getProviderLocalFallbackChain(normalizedRequestedModel, agentRole)
+          : getFallbackChain(normalizedRequestedModel, agentRole);
     const modelsToTry = [normalizedRequestedModel, ...fallbackChain];
 
     for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {

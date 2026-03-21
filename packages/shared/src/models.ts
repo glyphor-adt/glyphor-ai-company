@@ -204,6 +204,32 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'claude-haiku-4-5':       ['gemini-3-flash-preview', 'gpt-5.4-mini'],
 };
 
+/**
+ * When primary model's cross-provider chain is entirely Gemini, use these for Atlas (ops) instead.
+ * Temporary mitigation for Gemini tool-schema errors (defer_loading, thought_signature, etc.).
+ */
+const OPS_AGENT_FALLBACK_WHEN_ALL_GEMINI: Record<string, readonly string[]> = {
+  'gpt-5.4': ['claude-sonnet-4-6', 'gpt-5.4-mini'],
+  'gpt-5.4-pro': ['claude-sonnet-4-6', 'gpt-5.4'],
+  'gpt-5.2': ['claude-sonnet-4-6', 'gpt-5.4-mini'],
+  'gpt-5.2-pro': ['claude-sonnet-4-6', 'gpt-5.4'],
+  'gpt-5.1': ['claude-sonnet-4-6', 'gpt-5.4-mini'],
+  'gpt-5': ['claude-sonnet-4-6', 'gpt-5.4-mini'],
+  'gpt-5.4-nano': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'claude-haiku-4-5'],
+  'gpt-5-nano': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'claude-haiku-4-5'],
+};
+
+/** Last resort when no Gemini-free chain can be derived (should be rare). */
+const OPS_AGENT_FALLBACK_DEFAULT: readonly string[] = ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'claude-sonnet-4-6'];
+
+function getOpsFallbackChainExcludingGemini(model: string): readonly string[] {
+  const base = FALLBACK_CHAINS[model] ?? [];
+  const filtered = base.filter((m) => !m.startsWith('gemini-'));
+  if (filtered.length > 0) return filtered;
+
+  return OPS_AGENT_FALLBACK_WHEN_ALL_GEMINI[model] ?? OPS_AGENT_FALLBACK_DEFAULT;
+}
+
 // ─── Provider-local fallback chains ─────────────────────────
 // Used when a workflow needs to preserve provider identity, such as
 // triangulation slots where the OpenAI/Gemini/Claude lanes must remain stable.
@@ -359,16 +385,26 @@ export function detectProvider(model: string): ModelProvider {
 
 /**
  * Get the fallback chain for a model. Returns empty array if no fallbacks defined.
+ * When `agentRole` is `ops` (Atlas), omits Gemini models so fallbacks use OpenAI/Anthropic only
+ * (mitigates Gemini tool declaration / thought_signature client errors).
  */
-export function getFallbackChain(model: string): readonly string[] {
+export function getFallbackChain(model: string, agentRole?: string): readonly string[] {
+  if (agentRole === 'ops') {
+    return getOpsFallbackChainExcludingGemini(model);
+  }
   return FALLBACK_CHAINS[model] ?? [];
 }
 
 /**
  * Get a fallback chain that stays within the same provider family.
+ * For `ops`, Gemini entries are stripped when present.
  */
-export function getProviderLocalFallbackChain(model: string): readonly string[] {
-  return PROVIDER_LOCAL_FALLBACK_CHAINS[model] ?? [];
+export function getProviderLocalFallbackChain(model: string, agentRole?: string): readonly string[] {
+  const chain = PROVIDER_LOCAL_FALLBACK_CHAINS[model] ?? [];
+  if (agentRole === 'ops') {
+    return chain.filter((m) => !m.startsWith('gemini-'));
+  }
+  return chain;
 }
 
 /**
