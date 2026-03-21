@@ -8,6 +8,7 @@ import { MovingBorderContainer } from '../components/ui/MovingBorder';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch, MdDeleteOutline } from 'react-icons/md';
+import { ArrowUp } from 'lucide-react';
 import { HiMiniSignal, HiStop, HiMicrophone } from 'react-icons/hi2';
 import { useVoiceChat } from '../lib/useVoiceChat';
 import VoiceOverlay from '../components/VoiceOverlay';
@@ -276,9 +277,12 @@ function SidebarContent({
   return (
     <>
       <div className="p-3 space-y-2">
-        <GradientButton variant="primary" size="md" className="w-full" onClick={() => setShowOrgChart(true)}>
-          <span className="flex items-center justify-center gap-2"><MdAdd size={18} />New Chat</span>
-        </GradientButton>
+        <button
+          onClick={() => setShowOrgChart(true)}
+          className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan to-prism-fill-2 px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-85"
+        >
+          <MdAdd size={18} />New Chat
+        </button>
         {recentChats.length > 3 && (
           <div className="sidebar-glass flex items-center gap-2 rounded-lg border border-border px-3 py-1.5">
             <MdSearch size={14} className="text-txt-faint flex-shrink-0" />
@@ -1096,7 +1100,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               <div
                 className={`max-w-[85%] md:max-w-[70%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
-                    ? 'chat-bubble-user text-txt-primary'
+                    ? 'text-txt-primary'
                     : 'chat-bubble-agent glass-panel panel-nested border border-border text-txt-secondary'
                 }`}
               >
@@ -1295,14 +1299,15 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               </div>
 
               {/* Right – send */}
-              <GradientButton
-                variant="primary"
-                size="md"
+              <button
+                type="button"
                 onClick={sendMessage}
                 disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
+                className="flex-shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-full text-txt-muted hover:text-cyan hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Send message"
               >
-                Send
-              </GradientButton>
+                <ArrowUp className="h-4 w-4" />
+              </button>
             </div>
           </MovingBorderContainer>
         </div>
