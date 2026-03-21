@@ -64,10 +64,30 @@ export const TIER3_TEST_CASES: ToolTestCase[] = [
     validateResponse: (r) => { const d = r.data as any; return r.success === true && d?.finding_id != null; },
     sandboxOnly: false,
   },
+  {
+    toolName: 'propose_initiative',
+    description: 'Minimal initiative proposal for harness / Tier 2 connectivity input',
+    input: {
+      title: 'Tool health test initiative',
+      justification: 'Automated harness validation — safe to ignore.',
+      proposed_assignments: '[{"agent_role":"cto","task_description":"Review"}]',
+      expected_outcome: 'Harness validation only',
+      priority: 'medium',
+    },
+    expectedOutcome: 'success',
+    validateResponse: (r) => r.success === true,
+    sandboxOnly: false,
+  },
 ];
 
 function getTier3TestCase(toolName: string): ToolTestCase | null {
   return TIER3_TEST_CASES.find(tc => tc.toolName === toolName) ?? null;
+}
+
+/** Input from TIER3_TEST_CASES for Tier 2 connectivity, or null if none. */
+export function getTier3TestInputForConnectivity(toolName: string): Record<string, unknown> | null {
+  const tc = getTier3TestCase(toolName);
+  return tc ? { ...tc.input } : null;
 }
 
 function classifyError(err: unknown): string {

@@ -1,5 +1,6 @@
 import { systemQuery as dbQuery } from '@glyphor/shared/db';
-import { runTier1ForAllTools } from './tier1SchemaValidator.js';
+import { runTier1ForAllTools, runTier1ForToolNames } from './tier1SchemaValidator.js';
+import { classifyTool } from './toolClassifier.js';
 import { runTier2 } from './tier2ConnectivityTester';
 import { runTier3Single } from './tier3TestCases';
 import { handleToolTestFailure } from './failureHandler.js';
@@ -34,35 +35,63 @@ async function countAllTools(): Promise<number> {
 export async function runFullToolHealthCheck(options: {
   triggeredBy: 'scheduled' | 'manual' | 'deploy';
   tiers?: (1 | 2 | 3)[];  // default: all tiers
+  /** When set, only these tools are tested (tiers 1–2 respect this; tier 3 unchanged if included). */
+  onlyToolNames?: string[];
 }): Promise<ToolTestRunSummary> {
 
   const tiers = options.tiers ?? [1, 2, 3];
   const testRunId = crypto.randomUUID();
+  const only = options.onlyToolNames?.length
+    ? [...new Set(options.onlyToolNames)]
+    : undefined;
+
+  const totalForRun = only?.length ?? await countAllTools();
 
   // Create run record
   await dbQuery(`
     INSERT INTO tool_test_runs (id, triggered_by, total_tools)
     VALUES ($1, $2, $3)
-  `, [testRunId, options.triggeredBy, await countAllTools()]);
+  `, [testRunId, options.triggeredBy, totalForRun]);
 
-  const allClassificationsResult = await dbQuery(
-    `SELECT tool_name as "toolName", risk_tier as "riskTier", test_strategy as "testStrategy", source FROM tool_test_classifications`
+  let allClassificationsResult = await dbQuery(
+    `SELECT tool_name as "toolName", risk_tier as "riskTier", test_strategy as "testStrategy", source FROM tool_test_classifications`,
   );
-  const allClassifications = allClassificationsResult as ToolClassification[];
+  let allClassifications = allClassificationsResult as ToolClassification[];
+
+  if (only) {
+    const byName = new Map(allClassifications.map((c) => [c.toolName, c]));
+    allClassifications = [];
+    for (const name of only) {
+      const row = byName.get(name);
+      if (row) {
+        allClassifications.push(row);
+      } else {
+        allClassifications.push(classifyTool(name));
+      }
+    }
+  }
 
   // Tier 1: Schema validation — all tools, fast
   if (tiers.includes(1)) {
     console.log('--- TIER 1: Schema Validation ---');
-    await runTier1ForAllTools(testRunId);
+    if (only) {
+      await runTier1ForToolNames(testRunId, only);
+    } else {
+      await runTier1ForAllTools(testRunId);
+    }
   }
 
   // Tier 2: Connectivity — read_only + external_api tools
   if (tiers.includes(2)) {
     console.log('--- TIER 2: Connectivity Tests ---');
-    const tier2 = allClassifications.filter(c =>
+    let tier2 = allClassifications.filter(c =>
       c.testStrategy === 'live' || c.testStrategy === 'probe'
     );
-    await runTier2(testRunId, tier2);
+    if (only) {
+      const allow = new Set(only);
+      tier2 = tier2.filter((c) => allow.has(c.toolName));
+    }
+    await runTier2(testRunId, tier2, { triggeredBy: options.triggeredBy });
   }
 
   // Tier 3: Execution — destructive + write tools with test cases

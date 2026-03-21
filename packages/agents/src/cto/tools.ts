@@ -238,13 +238,24 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         const date = new Date().toISOString().split('T')[0];
-        await memory.writeDocument(
-          `reports/cto/health/${date}.md`,
-          params.report_markdown as string,
-        );
+        const path = `reports/cto/health/${date}.md`;
+        const markdown = params.report_markdown as string;
+        // CompanyMemoryStore implements GCS writeDocument; IMemoryBus stubs may not — fall back to KV only.
+        const store = memory as CompanyMemoryStore & {
+          writeDocument?: (p: string, c: string) => Promise<void>;
+        };
+        if (typeof store.writeDocument === 'function') {
+          await store.writeDocument(path, markdown);
+        } else {
+          await memory.write(
+            `infra.health.report.${date}`,
+            { path, report: markdown, status: params.status },
+            ctx.agentId,
+          );
+        }
         await memory.write(
           'infra.health.latest',
-          { status: params.status, date, report: params.report_markdown },
+          { status: params.status, date, report: markdown },
           ctx.agentId,
         );
         return { success: true, data: { archived: true }, memoryKeysWritten: 1 };

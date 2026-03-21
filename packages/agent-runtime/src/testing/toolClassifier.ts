@@ -289,6 +289,8 @@ export interface ToolClassification {
   matchedRule?: string;
   source: 'static' | 'dynamic' | 'mcp';
   manuallyReviewed: boolean;
+  /** Optional overrides merged into generated Tier 2 test input (when present). */
+  testInput?: Record<string, unknown>;
 }
 
 export function classifyTool(toolName: string): ToolClassification {

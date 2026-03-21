@@ -10,6 +10,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { isValidUUID } from './uuidUtils.js';
 import { ModelClient } from './modelClient.js';
 import { getActivePrompt } from './activePromptResolver.js';
 
@@ -302,6 +303,8 @@ export async function writeWorldModelCorrection(
   const wmc = reflection.world_model_correction;
   if (!wmc || wmc.confidence < 0.7) return;
 
+  const safeRunId = isValidUUID(runId) ? runId : null;
+
   try {
     await systemQuery(
       `INSERT INTO agent_world_model_corrections
@@ -316,7 +319,7 @@ export async function writeWorldModelCorrection(
           description: wmc.description,
           confidence: wmc.confidence,
         }),
-        runId,
+        safeRunId,
         performanceScore ?? null,
       ],
     );

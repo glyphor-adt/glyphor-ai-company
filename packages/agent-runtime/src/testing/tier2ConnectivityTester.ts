@@ -4,6 +4,7 @@ import { ToolClassification } from './toolClassifier.js';
 import { buildTestContext } from './testContext.js';
 import { systemQuery as dbQuery } from '@glyphor/shared/db';
 import { executeDynamicTool } from '../dynamicToolExecutor.js';
+import { getTier3TestInputForConnectivity } from './tier3TestCases.js';
 
 let staticToolMapPromise: Promise<Map<string, ToolDefinition>> | null = null;
 
@@ -164,7 +165,10 @@ async function executeStaticTool(
     }
 
     if (result.success === false) {
-      const err = result.error ?? 'Static tool returned success=false';
+      const err =
+        result.error ??
+        (result.data as { error?: string } | undefined)?.error ??
+        'Static tool returned success=false';
       const errorType = classifyError(err);
 
       if (shouldSkipForPrerequisite(err)) {
@@ -233,6 +237,21 @@ export async function runConnectivityTest(
     if (classification.riskTier === 'read_only') {
       const staticTool = await loadStaticToolDefinition(toolName);
       const tool = await loadRegisteredTool(toolName);
+
+      const tier3Input = getTier3TestInputForConnectivity(toolName);
+      if (!tier3Input) {
+        const schemaForCheck = staticTool ?? (tool ? { parameters: tool.parameters } : null);
+        if (schemaForCheck && requiresRealResourceIdentifierFromToolSchema(schemaForCheck)) {
+          return {
+            ok: true,
+            responseMs: 0,
+            connectivityOk: null,
+            executionOk: null,
+            skipReason: 'requires real resource identifier',
+          };
+        }
+      }
+
       if (!tool) {
         if (!staticTool) {
           return {
@@ -254,7 +273,10 @@ export async function runConnectivityTest(
       if (!result) throw new Error('Dynamic tool execute returned null');
 
       if (result.success === false) {
-        const err = result.error ?? 'Dynamic tool returned success=false';
+        const err =
+          result.error ??
+          (result.data as { error?: string } | undefined)?.error ??
+          'Dynamic tool returned success=false';
         const errorType = classifyError(err);
 
         const stripeWithoutError = !result.error && toolName.startsWith('query_stripe_');
@@ -317,6 +339,7 @@ export async function runConnectivityTest(
         connectivityOk: response.ok,
         executionOk: null,  // not tested at tier 2 for external APIs
         statusCode: response.status,
+        error: response.ok ? undefined : `HTTP ${response.status}`,
       };
     }
 
@@ -390,8 +413,43 @@ function sanitizeTestInput(toolName: string, input: Record<string, unknown>): Re
   return out;
 }
 
+/** Required parameter names from static or registry JSON-schema-style tool definitions. */
+function getRequiredParamNamesFromSchema(tool: { parameters?: any }): Set<string> {
+  const params = tool.parameters?.properties || tool.parameters || {};
+  const requiredFromSchema = Array.isArray(tool.parameters?.required)
+    ? tool.parameters.required
+    : [];
+  const requiredFromDefs = Object.entries(params)
+    .filter(([, def]) => Boolean((def as any)?.required))
+    .map(([name]) => name);
+  return new Set<string>([...requiredFromSchema, ...requiredFromDefs]);
+}
+
+function isIdentifierLikeParamName(paramName: string): boolean {
+  const n = paramName.toLowerCase();
+  if (n === 'id' || n === 'key' || n === 'file_key' || n === 'design_id' || n === 'template_id') {
+    return true;
+  }
+  if (/_id$/.test(n)) return true;
+  if (/_key$/.test(n)) return true;
+  return false;
+}
+
+function requiresRealResourceIdentifierFromToolSchema(tool: { parameters?: any }): boolean {
+  for (const name of getRequiredParamNamesFromSchema(tool)) {
+    if (isIdentifierLikeParamName(name)) return true;
+  }
+  return false;
+}
+
 function buildSafeTestInput(tool: any, toolName?: string): Record<string, unknown> {
-  const normalizedToolName = String(toolName ?? tool?.name ?? '').toLowerCase();
+  const name = String(toolName ?? tool?.name ?? '');
+  const tier3 = getTier3TestInputForConnectivity(name);
+  if (tier3) {
+    return { ...tier3 };
+  }
+
+  const normalizedToolName = name.toLowerCase();
 
   if (normalizedToolName === 'list_frontend_files') {
     return { path: 'packages/dashboard/src' };
@@ -516,27 +574,47 @@ function getServiceHealthUrl(toolName: string): string | null {
 
 const TIER2_CONCURRENCY = 5;
 const TIER2_DELAY_MS = 200;
+/** PageSpeed / PSI quota — space out Lighthouse connectivity probes in manual runs. */
+const LIGHTHOUSE_RATE_LIMIT_TOOLS = new Set(['run_lighthouse', 'run_lighthouse_audit']);
+const LIGHTHOUSE_TIER2_GAP_MS = 3000;
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-export async function runTier2(testRunId: string, tools: ToolClassification[]) {
-  const tier2Tools = tools.filter(t =>
-    t.testStrategy === 'live' || t.testStrategy === 'probe'
+function extractConnectivityErrorMessage(conn: ConnectivityResult): string | null {
+  if (conn.skipReason) return conn.skipReason;
+  const nested = conn.response as { error?: string; data?: { error?: string } } | undefined;
+  const fromNested = nested?.error ?? nested?.data?.error ?? null;
+  return conn.error ?? fromNested ?? null;
+}
+
+export async function runTier2(
+  testRunId: string,
+  tools: ToolClassification[],
+  opts?: { triggeredBy?: 'scheduled' | 'manual' | 'deploy' },
+): Promise<void> {
+  const triggeredBy = opts?.triggeredBy ?? 'manual';
+
+  const tier2Tools = tools.filter(
+    (t) => t.testStrategy === 'live' || t.testStrategy === 'probe',
   );
 
-  console.log(`Running Tier 2 connectivity tests for ${tier2Tools.length} tools...`);
+  const nonLh = tier2Tools.filter((t) => !LIGHTHOUSE_RATE_LIMIT_TOOLS.has(t.toolName));
+  const lhTools = tier2Tools.filter((t) => LIGHTHOUSE_RATE_LIMIT_TOOLS.has(t.toolName));
 
-  for (let i = 0; i < tier2Tools.length; i += TIER2_CONCURRENCY) {
-    const batch = tier2Tools.slice(i, i + TIER2_CONCURRENCY);
-    await Promise.all(batch.map(async t => {
-      const result = await runConnectivityTest(t.toolName, t);
-      const status = result.skipReason ? 'skip' : (result.ok ? 'pass' : 'fail');
-      await dbQuery(`
+  console.log(
+    `Running Tier 2 connectivity tests for ${tier2Tools.length} tools (${nonLh.length} + ${lhTools.length} lighthouse)...`,
+  );
+
+  async function recordResult(t: ToolClassification, result: ConnectivityResult): Promise<void> {
+    const status = result.skipReason ? 'skip' : result.ok ? 'pass' : 'fail';
+    await dbQuery(
+      `
         INSERT INTO tool_test_results (
           test_run_id, tool_name, risk_tier, test_strategy, status,
           response_ms, connectivity_ok, execution_ok, error_message, error_type
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      `, [
-        testRunId, 
+      `,
+      [
+        testRunId,
         t.toolName,
         t.riskTier,
         t.testStrategy,
@@ -544,12 +622,42 @@ export async function runTier2(testRunId: string, tools: ToolClassification[]) {
         result.responseMs,
         result.connectivityOk,
         result.executionOk,
-        result.skipReason || result.error || null,
+        extractConnectivityErrorMessage(result),
         result.errorType || null,
-      ]);
-    }));
-    if (i + TIER2_CONCURRENCY < tier2Tools.length) {
+      ],
+    );
+  }
+
+  for (let i = 0; i < nonLh.length; i += TIER2_CONCURRENCY) {
+    const batch = nonLh.slice(i, i + TIER2_CONCURRENCY);
+    await Promise.all(
+      batch.map(async (t) => {
+        const result = await runConnectivityTest(t.toolName, t);
+        await recordResult(t, result);
+      }),
+    );
+    if (i + TIER2_CONCURRENCY < nonLh.length) {
       await sleep(TIER2_DELAY_MS);
     }
+  }
+
+  let firstLh = true;
+  for (const t of lhTools) {
+    if (triggeredBy === 'scheduled') {
+      await recordResult(t, {
+        ok: true,
+        responseMs: 0,
+        connectivityOk: null,
+        executionOk: null,
+        skipReason: 'rate limited (Lighthouse): run manually or use dedicated audit',
+      });
+      continue;
+    }
+    if (!firstLh) {
+      await sleep(LIGHTHOUSE_TIER2_GAP_MS);
+    }
+    firstLh = false;
+    const result = await runConnectivityTest(t.toolName, t);
+    await recordResult(t, result);
   }
 }

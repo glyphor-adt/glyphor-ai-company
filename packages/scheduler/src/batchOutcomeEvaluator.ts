@@ -213,7 +213,7 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
             ).catch(() => {});
             const newVersion = await applyMutation(agent.role, reflection);
             if (newVersion) {
-              queueShadowEvaluation(agent.role, newVersion);
+              await queueShadowEvaluation(agent.role, newVersion);
               console.log(`[BatchOutcomeEvaluator] Reflection queued shadow eval for ${agent.role} v${newVersion}`);
             }
           })

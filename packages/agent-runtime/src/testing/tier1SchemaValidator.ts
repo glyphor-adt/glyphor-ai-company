@@ -91,6 +91,44 @@ export async function validateToolSchema(
   return { toolName, valid: errors.length === 0, errors, warnings };
 }
 
+async function insertTier1Result(
+  testRunId: string,
+  toolName: string,
+  result: SchemaValidationResult,
+): Promise<void> {
+  await dbQuery(
+    `
+        INSERT INTO tool_test_results (
+          test_run_id, tool_name, risk_tier, test_strategy, status,
+          schema_valid, error_message, error_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `,
+    [
+      testRunId,
+      toolName,
+      'any',
+      'schema_only',
+      result.valid ? 'pass' : 'fail',
+      result.valid,
+      result.errors.join('; ') || null,
+      result.errors.length > 0 ? 'schema' : null,
+    ],
+  );
+}
+
+export async function runTier1ForToolNames(
+  testRunId: string,
+  toolNames: string[],
+): Promise<void> {
+  const unique = [...new Set(toolNames)];
+  console.log(`Running Tier 1 schema validation for ${unique.length} tool(s)...`);
+
+  for (const toolName of unique) {
+    const result = await validateToolSchema(toolName);
+    await insertTier1Result(testRunId, toolName, result);
+  }
+}
+
 export async function runTier1ForAllTools(testRunId: string): Promise<void> {
   const allTools = getAllKnownTools();
   const dynamicQuery = await dbQuery<{ name: string }>(
@@ -106,21 +144,7 @@ export async function runTier1ForAllTools(testRunId: string): Promise<void> {
     const batch = allToolNames.slice(i, i + batchSize);
     await Promise.all(batch.map(async toolName => {
       const result = await validateToolSchema(toolName);
-      await dbQuery(`
-        INSERT INTO tool_test_results (
-          test_run_id, tool_name, risk_tier, test_strategy, status,
-          schema_valid, error_message, error_type
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      `, [
-        testRunId, 
-        toolName,
-        'any', 
-        'schema_only',
-        result.valid ? 'pass' : 'fail',
-        result.valid,
-        result.errors.join('; ') || null,
-        result.errors.length > 0 ? 'schema' : null,
-      ]);
+      await insertTier1Result(testRunId, toolName, result);
     }));
   }
 }

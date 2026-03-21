@@ -484,10 +484,11 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/tools/expire',
     enabled: true,
   },
-  // GTM Readiness — daily Marketing Department pass/fail gate (runs after batch-eval)
+  // GTM Readiness — daily Marketing gate (8:00 AM America/Chicago ≈ 13:00 UTC during CDT)
+  // Scheduled after the morning batch-eval window (02:00 UTC); see batch-outcome-eval above.
   {
     id: 'gtm-readiness-eval',
-    schedule: '0 13 * * *',    // 13:00 UTC = 8:00 AM CT, daily
+    schedule: '0 13 * * *',
     timezone: 'UTC',
     endpoint: '/gtm-readiness/run',
     enabled: true,
@@ -500,10 +501,11 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/tool-health/run',
     enabled: true,
   },
-  // Shadow eval dequeue — run pending challenger A/B tests after batch-eval
+  // Shadow eval dequeue — pending challenger A/B tests (queueShadowEvaluation → run-pending)
+  // Every 6h so work is picked up regularly after batch-eval cycles (02:00 / 14:00 UTC).
   {
     id: 'shadow-eval-pending',
-    schedule: '0 15 * * *',    // 15:00 UTC = 10:00 AM CT, daily — after batch-eval + GTM
+    schedule: '0 */6 * * *',
     timezone: 'UTC',
     endpoint: '/shadow-eval/run-pending',
     enabled: true,

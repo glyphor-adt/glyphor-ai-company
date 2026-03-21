@@ -7,6 +7,7 @@
  */
 
 import type { ToolDefinition, ToolContext, ToolResult } from '@glyphor/agent-runtime';
+import { isValidUUID } from '@glyphor/agent-runtime';
 import { invalidateGrantCache, refreshDynamicToolCache, isKnownToolAsync } from '@glyphor/agent-runtime';
 import { A365TeamsChatClient } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
@@ -45,12 +46,13 @@ async function logPlatformAction(
   payload: Record<string, unknown>,
   runId?: string,
 ): Promise<string | undefined> {
+  const safeRunId = isValidUUID(runId) ? runId : null;
   const [row] = await systemQuery<{ id: string }>(
     `INSERT INTO platform_intel_actions
       (run_id, action_type, tier, target_agent_id, description, payload, status)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING id`,
-    [runId ?? null, actionType, tier, targetAgentId, description, JSON.stringify(payload), tier === 'autonomous' ? 'executed' : 'pending'],
+    [safeRunId, actionType, tier, targetAgentId, description, JSON.stringify(payload), tier === 'autonomous' ? 'executed' : 'pending'],
   );
   return row?.id;
 }
