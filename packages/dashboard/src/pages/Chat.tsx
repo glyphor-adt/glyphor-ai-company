@@ -1231,7 +1231,6 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             borderRadius="1rem"
             containerClassName="w-full"
             innerClassName="flex-col items-stretch"
-            duration={6000}
           >
             {/* Textarea */}
             <textarea

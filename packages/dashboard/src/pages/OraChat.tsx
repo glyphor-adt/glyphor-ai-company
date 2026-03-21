@@ -1546,7 +1546,6 @@ export default function OraChat() {
           borderRadius="1rem"
           containerClassName="w-full"
           innerClassName="flex-col items-stretch"
-          duration={6000}
         >
             {/* Textarea */}
             <textarea

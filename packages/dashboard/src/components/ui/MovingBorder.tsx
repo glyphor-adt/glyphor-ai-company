@@ -81,7 +81,7 @@ function TrailDot({
 
 // ── GradientMovingBorder (the SVG path + trail dots) ───────────────
 export function GradientMovingBorder({
-  duration = 6000,
+  duration = 12000,
   rx = '30%',
   ry = '30%',
   colors = PALETTES.prismMidnight,
@@ -144,7 +144,7 @@ export function MovingBorderContainer({
   as: Component = 'div',
   containerClassName,
   innerClassName,
-  duration = 6000,
+  duration = 12000,
   colors = PALETTES.prismMidnight,
   trailCount = 20,
   dotSize = 70,
@@ -188,10 +188,10 @@ export function MovingBorderContainer({
       {/* Inner content */}
       <div
         className={cn(
-          'relative flex h-full w-full items-center bg-raised antialiased',
+          'relative flex h-full w-full items-center antialiased',
           innerClassName,
         )}
-        style={{ borderRadius: `calc(${borderRadius} * 0.96)` }}
+        style={{ borderRadius: `calc(${borderRadius} * 0.96)`, background: 'rgba(6, 12, 28, 0.95)' }}
       >
         {children}
       </div>
