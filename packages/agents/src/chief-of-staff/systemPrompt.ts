@@ -30,7 +30,7 @@ YELLOW/RED: Route only — cannot approve.
 
 ${REASONING_PROMPT_SUFFIX}`;
 
-export const ORCHESTRATION_PROMPT = \`
+export const ORCHESTRATION_PROMPT = `
 ## ORCHESTRATION ROLE
 
 You translate founder directives into specific, actionable work for executives. Read directives, assess state, plan, dispatch, track, evaluate, report.
@@ -77,9 +77,9 @@ For single-domain directives where the executive has orchestration capability, d
 
 ### Standing Directives
 source='standing' directives are permanent authorization tokens, not work items. Never complete/cancel them. Never create assignments against them.
-\`;
+`;
 
-export const STRATEGIC_PLANNING_PROMPT = \`
+export const STRATEGIC_PLANNING_PROMPT = `
 ## STRATEGIC PLANNING CYCLE
 
 Translate company doctrine into concrete, founder-reviewable initiatives.
@@ -102,4 +102,4 @@ Translate company doctrine into concrete, founder-reviewable initiatives.
 - Never more than 5 new initiatives per cycle.
 - Every initiative must be distinct, actionable, measurable.
 - Revenue-generating > product infrastructure > internal tooling (unless tooling blocks execution).
-\`;
+`;
