@@ -1245,9 +1245,9 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               onPaste={handlePaste}
               placeholder={`Message ${codename}... (@ to mention, Shift+Enter for new line)`}
               disabled={respondingAgents.has(selectedRole)}
-              rows={1}
-              className="w-full bg-transparent resize-none px-4 pt-3.5 pb-1 text-[13px] leading-5 text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 min-h-[52px] max-h-[140px]"
-              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; }}
+              rows={2}
+              className="w-full bg-transparent resize-none px-4 pt-3.5 pb-1 text-[14px] text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 min-h-[72px] max-h-[180px]"
+              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; }}
             />
 
             {/* Bottom toolbar */}

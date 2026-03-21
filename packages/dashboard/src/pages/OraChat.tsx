@@ -1597,7 +1597,7 @@ export default function OraChat() {
                 type="button"
                 onClick={send}
                 disabled={isLoading || (!input.trim() && attachments.length === 0)}
-                className="flex-shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-full bg-cyan text-white transition-all hover:bg-cyan/80 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex-shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-full text-txt-muted hover:text-cyan hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 aria-label="Send message"
               >
                 <ArrowUp className="h-4 w-4" />
