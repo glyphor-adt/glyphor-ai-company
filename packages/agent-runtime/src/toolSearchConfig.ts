@@ -80,6 +80,22 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
       'approve_content_draft',
       'validate_brand_compliance',
     ],
+    'content-creator': [
+      'create_content_draft',
+      'submit_content_for_review',
+      'read_company_knowledge',
+    ],
+    'seo-analyst': [
+      'analyze_content_seo',
+      'analyze_page_seo',
+      'discover_keywords',
+      'read_company_knowledge',
+    ],
+    'social-media-manager': [
+      'schedule_social_post',
+      'reply_to_social',
+      'read_company_knowledge',
+    ],
     ops: [
       'get_platform_health',
       'query_agent_health',

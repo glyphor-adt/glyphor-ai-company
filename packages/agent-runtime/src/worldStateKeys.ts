@@ -53,6 +53,15 @@ export const AGENT_WORLD_STATE_KEYS: Record<string, string[]> = {
     'active_campaigns',
     'audience_segments',
   ],
+  'chief-of-staff': [
+    'brand_voice',
+    'marketing_strategy',
+    'active_campaigns',
+    'content_calendar',
+    'audience_segments',
+    'social_calendar',
+    'keyword_targets',
+  ],
 };
 
 /**
@@ -68,4 +77,5 @@ export const AGENT_WORLD_STATE_DOMAIN: Record<string, string> = {
   'user-researcher': 'customer',
   'market-research-analyst': 'market',
   'marketing-intelligence-analyst': 'market',
+  'chief-of-staff': 'strategy',
 };
