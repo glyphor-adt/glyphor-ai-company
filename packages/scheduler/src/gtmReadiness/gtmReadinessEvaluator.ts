@@ -146,12 +146,12 @@ async function evaluateAgent(agentId: string): Promise<AgentGateResult> {
       id: string; name: string; performance_score: number | null;
       prompt_version: number | null; prompt_source: string | null;
     }>(`
-      SELECT a.id, a.name, a.performance_score,
+      SELECT a.role AS id, a.display_name AS name, a.performance_score,
              apv.version AS prompt_version, apv.source AS prompt_source
-      FROM agents a
+      FROM company_agents a
       LEFT JOIN agent_prompt_versions apv
-        ON apv.agent_id = a.id AND apv.deployed_at IS NOT NULL AND apv.retired_at IS NULL
-      WHERE a.id = $1
+        ON apv.agent_id = a.role AND apv.deployed_at IS NOT NULL AND apv.retired_at IS NULL
+      WHERE a.role = $1
     `, [agentId]),
 
     // Output quality + success rate + constitutional + tool accuracy + eval run count
