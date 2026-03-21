@@ -278,7 +278,7 @@ export function createChiefOfStaffTools(
       ?? (recipient === 'kristina' ? 'kristina@glyphor.ai' : 'andrew@glyphor.ai');
     const chatId = await a365Client.createOrGetOneOnOneChat(recipientUpn, undefined, 'chief-of-staff');
 
-    const metricLines = metrics.slice(0, 4).map((metric) => `- ${metric.label}: ${metric.value}`);
+    const metricLines = (metrics || []).slice(0, 4).map((metric) => `- ${metric.label}: ${metric.value}`);
     const actionLines = actionItems.map((item) => `- ${item}`);
     const message = [
       `Glyphor daily brief for ${capitalize(recipient)} — ${new Date().toLocaleDateString('en-US')}`,
@@ -693,7 +693,7 @@ export function createChiefOfStaffTools(
             initiative_id: initiative.id,
             decision_id: decisionId,
             status: 'proposed',
-            ...(teamsNotifyError ? { teams_notification_error: teamsNotifyError } : {}),
+            ...(teamsNotifyError ? { note_teams_notification_failed_but_action_succeeded: teamsNotifyError } : {}),
           },
           memoryKeysWritten: 1,
         };
@@ -1265,7 +1265,7 @@ export function createChiefOfStaffTools(
           success: true,
           data: {
             decisionId: id,
-            ...(teamsError ? { teams_notification_error: teamsError } : {}),
+            ...(teamsError ? { note_teams_notification_failed_but_action_succeeded: teamsError } : {}),
           },
           memoryKeysWritten: 1,
         };
