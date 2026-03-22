@@ -540,12 +540,17 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
       description: 'Upscale an image to higher resolution using AI (2x or 4x).',
       parameters: {
         image_url: { type: 'string', description: 'URL of the image to upscale', required: true },
-        scale: { type: 'number', description: 'Upscale factor: 2 or 4', enum: ['2', '4'] },
+        // Gemini: `enum` is only valid with STRING type — not number + string enum values
+        scale: { type: 'string', description: 'Upscale factor', enum: ['2', '4'] },
       },
       async execute(params): Promise<ToolResult> {
         const pulse = getPulseClient();
         if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const result = await pulse.callAndParse('upscale_image', { image_url: params.image_url, scale: params.scale });
+        const scale = parseInt(String(params.scale ?? '2'), 10);
+        const result = await pulse.callAndParse('upscale_image', {
+          image_url: params.image_url,
+          scale: scale === 4 ? 4 : 2,
+        });
         return { success: true, data: result };
       },
     },
