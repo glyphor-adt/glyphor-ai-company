@@ -39,6 +39,33 @@ export function normalizeAssigneeRole(rawRole: string): string {
   return ASSIGNEE_ROLE_ALIASES[normalized] ?? normalized;
 }
 
+/** Resolves role slug, hyphenated display form, or spaced display name to company_agents.role. */
+const RESOLVE_ASSIGNEE_FROM_AGENTS_SQL = `
+SELECT role FROM company_agents
+WHERE role = $1
+   OR LOWER(REPLACE(COALESCE(display_name, name, ''), ' ', '-')) = LOWER(REPLACE(TRIM($1), ' ', '-'))
+LIMIT 1`;
+
+export async function resolveAssigneeRoleFromCompanyAgents(raw: string): Promise<string | null> {
+  const trimmed = (raw ?? '').trim();
+  if (!trimmed) return null;
+  const [row] = await systemQuery<{ role: string }>(RESOLVE_ASSIGNEE_FROM_AGENTS_SQL, [trimmed]);
+  return row?.role ?? null;
+}
+
+/**
+ * Resolve assignee input to a canonical role slug: DB lookup on raw input, then on normalized alias form.
+ */
+export async function resolveAssigneeForWorkAssignment(raw: string): Promise<string | null> {
+  const trimmed = (raw ?? '').trim();
+  if (!trimmed) return null;
+  let slug = await resolveAssigneeRoleFromCompanyAgents(trimmed);
+  if (!slug) {
+    slug = await resolveAssigneeRoleFromCompanyAgents(normalizeAssigneeRole(trimmed));
+  }
+  return slug ?? null;
+}
+
 function formatStatus(status: string | null | undefined): string {
   if (!status) return 'unknown';
   return status.toLowerCase();

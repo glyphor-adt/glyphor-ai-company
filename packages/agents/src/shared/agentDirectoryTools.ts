@@ -14,10 +14,11 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
     {
       name: 'get_agent_directory',
       description:
-        'Look up agents in the company directory. Returns name, title, department, status, ' +
-        'and what they handle. Use this when you need to find the right agent to message, ' +
-        'delegate to, or collaborate with. Filter by department or get the full directory. ' +
-        'Set include_tools=true to see each agent\'s tool inventory, or include_skills=true for their skills.',
+        'Look up agents in the company directory. Each agent has `role` and `role_slug` (canonical DB identifiers) ' +
+        'and `name` (human display name only). For create_work_assignments, dispatch_assignment, send_agent_message, ' +
+        'and any tool that takes an agent role, always pass `role_slug` or `role` — never pass `name` or hyphenated ' +
+        'person-name slugs (e.g. tyler-reed). Filter by department or get the full directory. ' +
+        'Set include_tools=true for tool inventory, or include_skills=true for skills.',
       parameters: {
         department: {
           type: 'string',
@@ -46,17 +47,23 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
         try {
           if (params.role) {
             data = await systemQuery(
-              'SELECT role, display_name, title, department, status, is_core FROM company_agents WHERE role = $1 LIMIT 1',
+              `SELECT role, COALESCE(NULLIF(TRIM(display_name), ''), NULLIF(TRIM(name), ''), '') AS display_name,
+                      title, department, status, is_core
+               FROM company_agents WHERE role = $1 LIMIT 1`,
               [params.role as string],
             );
           } else if (params.department) {
             data = await systemQuery(
-              'SELECT role, display_name, title, department, status, is_core FROM company_agents WHERE status = $1 AND department = $2 ORDER BY department, is_core DESC',
+              `SELECT role, COALESCE(NULLIF(TRIM(display_name), ''), NULLIF(TRIM(name), ''), '') AS display_name,
+                      title, department, status, is_core
+               FROM company_agents WHERE status = $1 AND department = $2 ORDER BY department, is_core DESC`,
               ['active', params.department as string],
             );
           } else {
             data = await systemQuery(
-              'SELECT role, display_name, title, department, status, is_core FROM company_agents WHERE status = $1 ORDER BY department, is_core DESC',
+              `SELECT role, COALESCE(NULLIF(TRIM(display_name), ''), NULLIF(TRIM(name), ''), '') AS display_name,
+                      title, department, status, is_core
+               FROM company_agents WHERE status = $1 ORDER BY department, is_core DESC`,
               ['active'],
             );
           }
@@ -115,7 +122,9 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
           }) => {
             const entry: Record<string, unknown> = {
               role: a.role,
-              name: a.display_name,
+              role_slug: a.role,
+              // Human-readable label; assignments must use `role` / `role_slug`, not this field.
+              name: a.display_name ?? '',
               title: a.title,
               department: a.department,
               is_executive: a.is_core,
@@ -135,7 +144,12 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
 
         return {
           success: true,
-          data: { count: agents.length, agents },
+          data: {
+            count: agents.length,
+            agents,
+            hint_for_assignments:
+              'Use each agent\'s role_slug (or role) as assigned_to / to_agent. The name field is display-only and must not be used as a role.',
+          },
         };
       },
     },

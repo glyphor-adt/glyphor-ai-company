@@ -18,6 +18,7 @@ import { MsalTokenProvider } from '@microsoft/agents-hosting';
 import type { AuthConfiguration } from '@microsoft/agents-hosting';
 import { getAgentIdentityAppId, getAgentBlueprintSpId, getAgentSpId, getAgentEntraUserId, getAgentUpn } from '@glyphor/agent-runtime';
 import { markdownToTeamsHtml } from '../teams/messageFormatter.js';
+import type { AdaptiveCard } from '../teams/webhooks.js';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -515,6 +516,68 @@ export class A365TeamsChatClient {
       content: markdownToTeamsHtml(content),
       contentType: 'html',
     }, agentRole);
+  }
+
+  /**
+   * Post an Adaptive Card to a 1:1 chat as the agent identity (Graph API).
+   * Use this when MCP PostMessage cannot attach cards — matches {@link GraphTeamsClient} DM card shape.
+   */
+  async postChatAdaptiveCard(
+    chatId: string,
+    card: AdaptiveCard,
+    agentRole?: string,
+    agentDisplayName?: string,
+  ): Promise<void> {
+    const role = agentRole ?? this.defaultAgentRole;
+    const agentAppInstanceId = (role ? getAgentBlueprintSpId(role) : null)
+      ?? process.env.AGENT365_APP_INSTANCE_ID;
+    const agenticUserId = (role ? getAgentEntraUserId(role) : null)
+      ?? process.env.AGENT365_AGENTIC_USER_ID;
+
+    if (!agentAppInstanceId || !agenticUserId) {
+      throw new Error(
+        `[A365Teams] Agent identity not configured for adaptive card DM (${role ?? 'unknown'}).`,
+      );
+    }
+
+    const token = await this.tokenProvider.getAgenticUserToken(
+      this.tenantId,
+      agentAppInstanceId,
+      agenticUserId,
+      ['https://graph.microsoft.com/.default'],
+    );
+
+    const url = `https://graph.microsoft.com/v1.0/chats/${encodeURIComponent(chatId)}/messages`;
+    const htmlContent = agentDisplayName
+      ? `<b>${agentDisplayName}</b><br/><attachment id="adaptiveCard"></attachment>`
+      : '<attachment id="adaptiveCard"></attachment>';
+    const body = {
+      body: {
+        contentType: 'html',
+        content: htmlContent,
+      },
+      attachments: [
+        {
+          id: 'adaptiveCard',
+          contentType: 'application/vnd.microsoft.card.adaptive',
+          content: JSON.stringify(card),
+        },
+      ],
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`[A365Teams] Adaptive card DM failed (${res.status}): ${text.substring(0, 400)}`);
+    }
   }
 
   /**

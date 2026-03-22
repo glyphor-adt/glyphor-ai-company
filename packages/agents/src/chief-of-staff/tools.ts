@@ -29,7 +29,11 @@ import {
   parseInitiativeProposalPayload,
   type InitiativeDirectiveDraft,
 } from '../shared/initiativeTools.js';
-import { normalizeAssigneeRole, resolveActiveAssigneeBatch } from '../shared/assigneeRouting.js';
+import {
+  normalizeAssigneeRole,
+  resolveActiveAssigneeBatch,
+  resolveAssigneeForWorkAssignment,
+} from '../shared/assigneeRouting.js';
 import { evaluateToolPermissionGate } from '../shared/toolPermissionPolicy.js';
 
 const INITIATIVE_OWNER_CATEGORY: Record<string, string> = {
@@ -1714,7 +1718,11 @@ export function createOrchestrationTools(
             type: 'object',
             description: 'A work assignment',
             properties: {
-              assigned_to: { type: 'string', description: 'Agent role (e.g., cto, cpo, cmo — prefer executives)' },
+              assigned_to: {
+                type: 'string',
+                description:
+                  'Company agent role slug from get_agent_directory: use the `role_slug` or `role` field (e.g. social-media-manager, content-creator). Do not use `name` or hyphenated display names like tyler-reed.',
+              },
               task_description: { type: 'string', description: 'Clear outcome description for the executive' },
               task_type: { type: 'string', description: 'Agent task type (e.g., on_demand, blog_post)' },
               expected_output: { type: 'string', description: 'What you expect the executive to deliver' },
@@ -1760,7 +1768,28 @@ export function createOrchestrationTools(
             )
           : null;
 
-        const normalizedAssignees = assignments.map((assignment: any) =>
+        const assignmentsWithResolvedRoles: any[] = [];
+        for (let i = 0; i < assignments.length; i++) {
+          const assignment = assignments[i] as any;
+          const raw = typeof assignment?.assigned_to === 'string' ? assignment.assigned_to.trim() : '';
+          if (!raw) {
+            return {
+              success: false,
+              error: `Assignment #${i + 1}: assigned_to is required.`,
+            };
+          }
+          const resolved = await resolveAssigneeForWorkAssignment(raw);
+          if (!resolved) {
+            return {
+              success: false,
+              error:
+                `Assignment #${i + 1}: Unknown assignee "${raw}". Use the role slug (e.g. content-creator) or the agent's display name.`,
+            };
+          }
+          assignmentsWithResolvedRoles.push({ ...assignment, assigned_to: resolved });
+        }
+
+        const normalizedAssignees = assignmentsWithResolvedRoles.map((assignment: any) =>
           normalizeAssigneeRole(typeof assignment?.assigned_to === 'string' ? assignment.assigned_to : ''),
         );
         const assigneeResolution = await resolveActiveAssigneeBatch(normalizedAssignees);
@@ -1771,7 +1800,7 @@ export function createOrchestrationTools(
           };
         }
 
-        const canonicalAssignments = assignments.map((assignment: any, index: number) => {
+        const canonicalAssignments = assignmentsWithResolvedRoles.map((assignment: any, index: number) => {
           const normalized = normalizedAssignees[index];
           const canonical = assigneeResolution.canonicalByNormalized.get(normalized) ?? normalized;
           return {
@@ -2770,7 +2799,7 @@ export function createOrchestrationTools(
           console.warn('[CoS] Could not generate approval tokens:', (e as Error).message);
         }
 
-        // Build Adaptive Card with Action.Execute inline buttons (no browser redirect)
+        // Adaptive Card with OpenUrl buttons (works in DMs without Bot Framework Action.Execute routing)
         try {
           const card = formatDirectiveProposalCard({
             directiveId,
@@ -2781,17 +2810,26 @@ export function createOrchestrationTools(
             targetAgents,
             proposalReason,
             dueDate,
+            approveUrl,
+            rejectUrl,
           });
 
-          // Try sending card via Teams DM
+          let graphClientForCard: GraphTeamsClient | null = null;
+          try {
+            graphClientForCard = GraphTeamsClient.fromEnv();
+          } catch {
+            /* Optional: AZURE_* app creds for Graph DM as the Teams app */
+          }
+          const a365ForDirectives = A365TeamsChatClient.fromEnv('chief-of-staff');
+          const founderDirForDm = buildFounderDirectory();
+
           let cardSent = false;
 
-          // Attempt Graph DM card delivery
+          // 1) Graph app credentials → DM as Glyphor app (optional; needs TEAMS_USER_*_ID)
           try {
-            const graphClient = GraphTeamsClient.fromEnv();
-            if (graphClient) {
+            if (graphClientForCard) {
               const { TeamsDirectMessageClient } = await import('@glyphor/integrations');
-              const dmClient = TeamsDirectMessageClient.fromEnv(graphClient);
+              const dmClient = TeamsDirectMessageClient.fromEnv(graphClientForCard);
               if (dmClient) {
                 await dmClient.sendCard(
                   notify as 'kristina' | 'andrew',
@@ -2802,10 +2840,24 @@ export function createOrchestrationTools(
               }
             }
           } catch (cardErr) {
-            console.warn('[CoS] Card DM failed, falling back to text DM:', (cardErr as Error).message);
+            console.warn('[CoS] Graph app card DM failed, trying A365 agent card:', (cardErr as Error).message);
           }
 
-          // Fallback: send plain text DM with approve/reject links
+          // 2) Same path as send_dm: Sarah’s agent identity + Graph chat message API (Adaptive Card attachment)
+          if (!cardSent && a365ForDirectives) {
+            try {
+              const recipientContact = founderDirForDm[notify as 'kristina' | 'andrew'];
+              const recipientUpn = recipientContact?.email
+                ?? (notify === 'kristina' ? 'kristina@glyphor.ai' : 'andrew@glyphor.ai');
+              const chatId = await a365ForDirectives.createOrGetOneOnOneChat(recipientUpn, undefined, 'chief-of-staff');
+              await a365ForDirectives.postChatAdaptiveCard(chatId, card, 'chief-of-staff', 'Sarah Chen');
+              cardSent = true;
+            } catch (a365CardErr) {
+              console.warn('[CoS] A365 adaptive card DM failed, falling back to plain text:', (a365CardErr as Error).message);
+            }
+          }
+
+          // 3) Last resort: plain text with links (no card rendering)
           if (!cardSent) {
             const sendDmTool = tools.find(t => t.name === 'send_dm');
             if (sendDmTool) {

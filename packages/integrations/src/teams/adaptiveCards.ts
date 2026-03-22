@@ -461,6 +461,9 @@ export interface DirectiveProposalCardData {
   targetAgents: string[];
   proposalReason: string;
   dueDate?: string;
+  /** One-click approve/reject (token URLs). Use Action.OpenUrl so buttons work in DMs without Bot Framework. */
+  approveUrl: string;
+  rejectUrl: string;
 }
 
 export function formatDirectiveProposalCard(data: DirectiveProposalCardData): AdaptiveCard {
@@ -561,16 +564,14 @@ export function formatDirectiveProposalCard(data: DirectiveProposalCardData): Ad
     body,
     actions: [
       {
-        type: 'Action.Execute',
+        type: 'Action.OpenUrl',
         title: '✓ Approve Directive',
-        verb: 'directive.approve',
-        data: { directiveId: data.directiveId },
+        url: data.approveUrl,
       },
       {
-        type: 'Action.Execute',
+        type: 'Action.OpenUrl',
         title: '✕ Reject Directive',
-        verb: 'directive.reject',
-        data: { directiveId: data.directiveId },
+        url: data.rejectUrl,
       },
     ],
   };
