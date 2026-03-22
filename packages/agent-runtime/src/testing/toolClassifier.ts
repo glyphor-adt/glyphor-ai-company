@@ -3,7 +3,7 @@
 // Run classifyAllTools() to re-classify — existing manual_reviewed=TRUE rows
 // are preserved and never overwritten.
 
-import { db } from '../db';
+import { db } from '../db.js';
 
 export type ToolRiskTier =
   | 'read_only'
