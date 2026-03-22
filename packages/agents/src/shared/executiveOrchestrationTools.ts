@@ -18,6 +18,7 @@
 import type { ToolDefinition, ToolResult, CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { markOutcomeAccepted, markOutcomeRevised } from '@glyphor/agent-runtime';
+import { assertBatchWorkAssignmentsDeduped, assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { normalizeAssigneeRole, resolveActiveAssigneeBatch } from './assigneeRouting.js';
 
@@ -201,6 +202,25 @@ export function createExecutiveOrchestrationTools(
           ...assignment,
           assigned_to: assigneeResolution.canonicalByNormalized.get(assignment.assigned_to) ?? assignment.assigned_to,
         }));
+
+        const batchDedup = assertBatchWorkAssignmentsDeduped(
+          canonicalAssignments.map((a) => ({
+            taskDescription: a.task_description,
+            assignedTo: a.assigned_to,
+          })),
+        );
+        if (!batchDedup.ok) {
+          return { success: false, error: batchDedup.error };
+        }
+        for (const a of canonicalAssignments) {
+          const guard = await assertWorkAssignmentDispatchAllowed({
+            taskDescription: a.task_description,
+            assignedTo: a.assigned_to,
+          });
+          if (!guard.ok) {
+            return { success: false, error: guard.error };
+          }
+        }
 
         try {
           // Verify directive is delegated to this executive

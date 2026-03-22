@@ -11,6 +11,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
+import { assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { normalizeAssigneeRole } from './assigneeRouting.js';
 
@@ -84,6 +85,14 @@ export function createPeerCoordinationTools(
           }
           if (peerRole === ctx.agentRole) {
             return { success: false, error: 'Cannot request work from yourself' };
+          }
+
+          const dup = await assertWorkAssignmentDispatchAllowed({
+            taskDescription: requestDescription,
+            assignedTo: peerRole,
+          });
+          if (!dup.ok) {
+            return { success: false, error: dup.error };
           }
 
           // Create peer_request assignment

@@ -9,6 +9,7 @@
 
 import type { ToolDefinition, ToolResult, CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
+import { assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { normalizeAssigneeRole } from './assigneeRouting.js';
 
@@ -258,6 +259,13 @@ export function createCommunicationTools(
         }
 
         const priority = (params.priority as string) ?? 'normal';
+        const dup = await assertWorkAssignmentDispatchAllowed({
+          taskDescription: requestText,
+          assignedTo: toAgent,
+        });
+        if (!dup.ok) {
+          return { success: false, error: dup.error };
+        }
         const [assignment] = await systemQuery<{ id: string }>(
           `INSERT INTO work_assignments (
              assigned_to,

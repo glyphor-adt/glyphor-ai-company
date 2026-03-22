@@ -13,6 +13,7 @@
 import { AGENT_EMAIL_MAP, type CompanyAgentRole, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { A365TeamsChatClient } from '@glyphor/integrations';
+import { assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { resolveActiveAssigneeRole } from './assigneeRouting.js';
 
@@ -200,6 +201,14 @@ export function createTeamOrchestrationTools(
             };
           }
 
+          const dup = await assertWorkAssignmentDispatchAllowed({
+            taskDescription: params.task_description as string,
+            assignedTo: agentRole,
+          });
+          if (!dup.ok) {
+            return { success: false, error: dup.error };
+          }
+
           // Create work assignment
           const insertFields = [
             'assigned_to', 'assigned_by', 'task_description', 'task_type',
@@ -370,6 +379,15 @@ export function createTeamOrchestrationTools(
           if (directiveId) {
             columns.push('directive_id');
             values.push(directiveId);
+          }
+
+          const taskDescriptionForRow = `${params.title as string}: ${fullDescription}`;
+          const dup = await assertWorkAssignmentDispatchAllowed({
+            taskDescription: taskDescriptionForRow,
+            assignedTo: assignee,
+          });
+          if (!dup.ok) {
+            return { success: false, error: dup.error };
           }
 
           const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');

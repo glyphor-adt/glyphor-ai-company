@@ -10,6 +10,7 @@ import { invalidateGrantCache } from '@glyphor/agent-runtime';
 import { isKnownTool } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { markOutcomeRevised, markOutcomeAccepted } from '@glyphor/agent-runtime';
+import { assertBatchWorkAssignmentsDeduped, assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { CompanyMemoryStore, SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
@@ -1885,6 +1886,25 @@ export function createOrchestrationTools(
           assignment_type: a.assignment_type || 'executive_outcome',
           status: 'draft',
         }));
+
+        const batchDedup = assertBatchWorkAssignmentsDeduped(
+          rows.map((r) => ({
+            taskDescription: r.task_description,
+            assignedTo: r.assigned_to,
+          })),
+        );
+        if (!batchDedup.ok) {
+          return { success: false, error: batchDedup.error };
+        }
+        for (const r of rows) {
+          const guard = await assertWorkAssignmentDispatchAllowed({
+            taskDescription: r.task_description,
+            assignedTo: r.assigned_to,
+          });
+          if (!guard.ok) {
+            return { success: false, error: guard.error };
+          }
+        }
 
         // Clean up stale drafts from previous planning attempts for this directive
         await systemQuery(

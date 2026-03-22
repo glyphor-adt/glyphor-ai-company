@@ -15,6 +15,7 @@ import { GlyphorEventBus, ModelClient, promptCache, getRedisCache, WorkflowOrche
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
+import { assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
@@ -3641,6 +3642,15 @@ const server = createServer(async (req, res) => {
       );
       if (!agent) {
         json(res, 404, { error: `Agent "${agentRole}" not found or not active` });
+        return;
+      }
+
+      const guard = await assertWorkAssignmentDispatchAllowed({
+        taskDescription: taskDescription,
+        assignedTo: agentRole,
+      });
+      if (!guard.ok) {
+        json(res, 409, { error: guard.error });
         return;
       }
 

@@ -10,6 +10,13 @@ export {
   pool,
 } from './db.js';
 
+export {
+  WORK_ASSIGNMENT_DEDUP_PREFIX_LEN,
+  normalizeWorkAssignmentTaskPrefix,
+  assertWorkAssignmentDispatchAllowed,
+  assertBatchWorkAssignmentsDeduped,
+} from './workAssignmentDuplicateGuard.js';
+
 export type { Pool, PoolClient } from 'pg';
 
 export {
