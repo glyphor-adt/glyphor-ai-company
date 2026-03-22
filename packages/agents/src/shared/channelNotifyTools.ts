@@ -32,6 +32,7 @@ const AGENT_DISPLAY_NAMES: Record<string, string> = {
 export function createChannelNotifyTools(): ToolDefinition[] {
   const teamId = process.env.TEAMS_TEAM_ID?.trim();
   const briefingsChannelId = process.env.TEAMS_CHANNEL_BRIEFINGS_ID?.trim();
+  const deliverablesChannelId = process.env.TEAMS_CHANNEL_DELIVERABLES_ID?.trim();
 
   return [
     {
@@ -152,6 +153,128 @@ export function createChannelNotifyTools(): ToolDefinition[] {
             return {
               success: true,
               data: { channel: '#briefings', method: result.method, agent: agentName },
+            };
+          }
+          return { success: false, error: `Channel post unavailable: ${result.error}` };
+        } catch (err) {
+          return { success: false, error: `Channel post failed: ${(err as Error).message}` };
+        }
+      },
+    },
+
+    {
+      name: 'post_to_deliverables',
+      description:
+        'Post a message to the #Deliverables Teams channel. ' +
+        'Use when an assignment is complete and founders need to review output. ' +
+        'Tags @Kristina and @Andrew automatically. ' +
+        'The message appears as YOU (your agent identity), not as a bot or human.',
+      parameters: {
+        title: {
+          type: 'string',
+          description: 'Short headline (e.g. assignment or deliverable title)',
+          required: true,
+        },
+        message: {
+          type: 'string',
+          description: 'Full output for founder review — include complete text, not a summary, when posting finished work',
+          required: true,
+        },
+        type: {
+          type: 'string',
+          description: 'Notification type',
+          required: false,
+          enum: ['update', 'completed', 'blocker', 'fyi'],
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const role = ctx?.agentRole as CompanyAgentRole | undefined;
+        if (!role) {
+          return { success: false, error: 'Agent role not available in context' };
+        }
+
+        const title = params.title as string;
+        const message = params.message as string;
+        const type = (params.type as string) ?? 'update';
+        const agentName = AGENT_DISPLAY_NAMES[role] ?? role;
+
+        if (!teamId || !deliverablesChannelId) {
+          return {
+            success: false,
+            error: 'TEAMS_TEAM_ID or TEAMS_CHANNEL_DELIVERABLES_ID not configured. Cannot post to channel.',
+          };
+        }
+
+        try {
+          const recent = await systemQuery<{ details: string }>(
+            `SELECT details FROM activity_log
+             WHERE agent_role = $1 AND action = 'deliverables_channel_post'
+               AND created_at > NOW() - interval '2 hours'
+             ORDER BY created_at DESC LIMIT 3`,
+            [role],
+          );
+          const newWords = new Set(message.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+          for (const row of recent) {
+            try {
+              const prevMsg = (typeof row.details === 'string' ? row.details : '').toLowerCase();
+              const prevWords = new Set(prevMsg.split(/\s+/).filter(w => w.length > 3));
+              if (newWords.size === 0 || prevWords.size === 0) continue;
+              const overlap = [...newWords].filter(w => prevWords.has(w)).length;
+              if (overlap / Math.max(newWords.size, prevWords.size) > 0.6) {
+                return {
+                  success: false,
+                  error: 'Duplicate suppressed — you posted a similar update to #Deliverables within the last 2 hours.',
+                };
+              }
+            } catch { continue; }
+          }
+        } catch {
+          // dedup check failed, proceed anyway
+        }
+
+        const typeLabel = type === 'blocker' ? '🔴 BLOCKER'
+          : type === 'completed' ? '✅ COMPLETED'
+          : type === 'fyi' ? 'ℹ️ FYI'
+          : '📋 UPDATE';
+        const mentionFooter = '\n\n@Kristina @Andrew — review requested.';
+        const formatted =
+          `**${typeLabel} — ${title}**\n\n_From: ${agentName} (${role})_\n\n${message}${mentionFooter}`;
+
+        const a365Client = A365TeamsChatClient.fromEnv(role);
+        if (a365Client) {
+          try {
+            await a365Client.postChannelMessage(teamId, deliverablesChannelId, formatted, role);
+
+            try {
+              await systemQuery(
+                `INSERT INTO activity_log (agent_role, action, details, created_at) VALUES ($1, $2, $3, NOW())`,
+                [role, 'deliverables_channel_post', `${title}: ${message}`.substring(0, 500)],
+              );
+            } catch { /* non-fatal */ }
+
+            return {
+              success: true,
+              data: { channel: '#Deliverables', method: 'agent-identity', agent: agentName },
+            };
+          } catch (err) {
+            console.warn(`[post_to_deliverables] A365 channel post failed for ${role}:`, (err as Error).message);
+          }
+        }
+
+        try {
+          const { postTextToChannel } = await import('@glyphor/integrations');
+          const result = await postTextToChannel('deliverables', formatted, null, role);
+          if (result.method !== 'none') {
+            try {
+              await systemQuery(
+                `INSERT INTO activity_log (agent_role, action, details, created_at) VALUES ($1, $2, $3, NOW())`,
+                [role, 'deliverables_channel_post', `${title}: ${message}`.substring(0, 500)],
+              );
+            } catch { /* non-fatal */ }
+
+            return {
+              success: true,
+              data: { channel: '#Deliverables', method: result.method, agent: agentName },
             };
           }
           return { success: false, error: `Channel post unavailable: ${result.error}` };

@@ -7,7 +7,8 @@
  *   save_memory, recall_memories,
  *   request_tool_access, request_new_tool, list_my_tools, check_tool_access, tool_search,
  *   emit_insight, emit_alert,
- *   send_teams_dm, read_teams_dm
+ *   send_teams_dm, read_teams_dm,
+ *   post_to_briefings, post_to_deliverables
  */
 
 import type { ToolDefinition } from '@glyphor/agent-runtime';
@@ -50,6 +51,7 @@ export const CORE_TOOL_NAMES: Set<string> = new Set([
   'read_teams_dm',
   // Channel updates
   'post_to_briefings',
+  'post_to_deliverables',
   // Shared artifacts
   'publish_deliverable',
   'get_deliverables',

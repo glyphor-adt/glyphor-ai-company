@@ -55,6 +55,7 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
     'file_decision',
     'tool_search',
     'request_new_tool',
+    'post_to_deliverables',
   ],
   roles: {
     'chief-of-staff': [

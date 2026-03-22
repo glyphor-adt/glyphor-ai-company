@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import Markdown from 'react-markdown';
 import { apiCall } from '../lib/firebase';
+import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { useAuth } from '../lib/auth';
 import { Card, GradientButton, SectionHeader, Skeleton, timeAgo } from '../components/ui';
@@ -753,7 +753,9 @@ function DirectiveCard({
           {/* Description */}
           <div>
             <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-1">Description</p>
-            <div className="text-sm text-txt-secondary leading-relaxed prose-chat"><Markdown>{cleanText(d.description)}</Markdown></div>
+            <div className="text-sm text-txt-secondary leading-relaxed">
+              <ChatMarkdown>{cleanText(d.description)}</ChatMarkdown>
+            </div>
           </div>
 
           {/* Metadata */}
@@ -823,18 +825,20 @@ function DirectiveCard({
                     <summary className="text-[11px] text-txt-muted leading-relaxed cursor-pointer line-clamp-2">
                       {desc.slice(0, 180)}…
                     </summary>
-                    <div className="mt-1 text-[11px] text-txt-muted leading-relaxed prose-chat">
-                      <Markdown>{desc}</Markdown>
+                    <div className="mt-1 text-[11px] text-txt-muted leading-relaxed">
+                      <ChatMarkdown>{desc}</ChatMarkdown>
                     </div>
                   </details>
                 ) : (
-                  <p className="mt-1 text-[11px] text-txt-muted leading-relaxed">{desc}</p>
+                  <div className="mt-1 text-[11px] text-txt-muted leading-relaxed">
+                    <ChatMarkdown>{desc}</ChatMarkdown>
+                  </div>
                 )}
                 {a.agent_output && (
                   <details className="mt-2">
                     <summary className="text-[10px] font-medium text-cyan cursor-pointer">View Output</summary>
-                    <div className="mt-1 text-[11px] text-txt-muted leading-relaxed prose-chat border-t border-border pt-2">
-                      <Markdown>{cleanText(a.agent_output)}</Markdown>
+                    <div className="mt-1 border-t border-border pt-2 text-[11px] text-txt-muted leading-relaxed">
+                      <ChatMarkdown>{cleanText(a.agent_output)}</ChatMarkdown>
                     </div>
                   </details>
                 )}
@@ -954,8 +958,8 @@ function DirectiveCard({
               </p>
               <div className="space-y-1">
                 {d.progress_notes.map((note, i) => (
-                  <div key={i} className="text-[11px] text-txt-muted leading-relaxed prose-chat">
-                    <Markdown>{cleanText(note)}</Markdown>
+                  <div key={i} className="text-[11px] text-txt-muted leading-relaxed">
+                    <ChatMarkdown>{cleanText(note)}</ChatMarkdown>
                   </div>
                 ))}
               </div>
@@ -966,7 +970,9 @@ function DirectiveCard({
           {d.completion_summary && (
             <div className="rounded-lg border border-prism-fill-2/20 bg-prism-tint-2 px-3 py-2">
               <p className="text-[11px] font-medium text-prism-teal mb-1">Completion Summary</p>
-              <div className="text-[12px] text-txt-secondary leading-relaxed prose-chat"><Markdown>{cleanText(d.completion_summary)}</Markdown></div>
+              <div className="text-[12px] text-txt-secondary leading-relaxed">
+                <ChatMarkdown>{cleanText(d.completion_summary)}</ChatMarkdown>
+              </div>
             </div>
           )}
 
