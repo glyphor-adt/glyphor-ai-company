@@ -946,7 +946,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden" onClick={() => setMobileSidebarOpen(false)}>
           <div className="theme-overlay-backdrop absolute inset-0" />
-          <div className="sidebar-glass relative z-10 flex h-full w-72 flex-col overflow-hidden border-r border-border" onClick={(e) => e.stopPropagation()}>
+          <div className="chat-sidebar-glass sidebar-glass relative z-10 flex h-full w-72 flex-col overflow-hidden border-r border-border" onClick={(e) => e.stopPropagation()}>
             <SidebarContent
               recentChats={recentChats}
               sidebarItems={sidebarItems}
@@ -962,7 +962,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         </div>
       )}
       {/* ── Chat Sidebar (Left) — desktop only ────── */}
-      <div className="sidebar-glass glass-inner-layout hidden w-72 flex-shrink-0 flex-col overflow-hidden rounded-2xl border md:flex">
+      <div className="chat-sidebar-glass sidebar-glass glass-inner-layout hidden w-72 flex-shrink-0 flex-col overflow-hidden rounded-2xl border md:flex">
         <SidebarContent
           recentChats={recentChats}
           sidebarItems={sidebarItems}
