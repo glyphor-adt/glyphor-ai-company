@@ -646,6 +646,36 @@ function DirectiveCard({
     onAction();
   }
 
+  const statusBadges = (
+    <>
+      {d.status === 'paused' && (
+        <span className="rounded-lg badge badge-amber px-1.5 py-0.5 text-[10px] font-medium">
+          paused
+        </span>
+      )}
+      {d.status === 'completed' && (
+        <span className="rounded-lg badge badge-green px-1.5 py-0.5 text-[10px] font-medium">
+          completed
+        </span>
+      )}
+      {d.delegated_to && (
+        <span className="rounded-lg badge badge-purple px-1.5 py-0.5 text-[10px] font-medium">
+          Delegated to {DISPLAY_NAME_MAP[d.delegated_to] ?? d.delegated_to}
+        </span>
+      )}
+      {!d.delegated_to && d.delegation_type === 'cross-domain' && (
+        <span className="rounded-lg badge badge-teal px-1.5 py-0.5 text-[10px] font-medium">
+          Cross-domain
+        </span>
+      )}
+      {!d.delegated_to && !d.delegation_type && d.status === 'active' && (
+        <span className="rounded-lg badge badge-cyan px-1.5 py-0.5 text-[10px] font-medium">
+          Self-orchestrated
+        </span>
+      )}
+    </>
+  );
+
   return (
     <Card>
       <div className="flex items-start gap-2">
@@ -657,35 +687,25 @@ function DirectiveCard({
             className="mt-1.5 h-4 w-4 shrink-0 rounded border-border accent-cyan cursor-pointer"
           />
         )}
-      <button onClick={onToggle} className="flex w-full items-start justify-between text-left gap-4">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full min-w-0 flex-col gap-2 text-left sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+      >
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="text-sm font-semibold text-txt-primary truncate">{cleanText(d.title)}</p>
-            {d.status === 'paused' && (
-              <span className="rounded-lg badge badge-amber px-1.5 py-0.5 text-[10px] font-medium">
-                paused
-              </span>
-            )}
-            {d.status === 'completed' && (
-              <span className="rounded-lg badge badge-green px-1.5 py-0.5 text-[10px] font-medium">
-                completed
-              </span>
-            )}
-            {d.delegated_to && (
-              <span className="rounded-lg badge badge-purple px-1.5 py-0.5 text-[10px] font-medium">
-                Delegated to {DISPLAY_NAME_MAP[d.delegated_to] ?? d.delegated_to}
-              </span>
-            )}
-            {!d.delegated_to && d.delegation_type === 'cross-domain' && (
-              <span className="rounded-lg badge badge-teal px-1.5 py-0.5 text-[10px] font-medium">
-                Cross-domain
-              </span>
-            )}
-            {!d.delegated_to && !d.delegation_type && d.status === 'active' && (
-              <span className="rounded-lg badge badge-cyan px-1.5 py-0.5 text-[10px] font-medium">
-                Self-orchestrated
-              </span>
-            )}
+          {/* Mobile: two-line header — title (line-clamp-2), then badges + timestamp */}
+          <div className="mb-1 sm:hidden">
+            <p className="text-sm font-semibold text-txt-primary line-clamp-2">{cleanText(d.title)}</p>
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+              {statusBadges}
+              <span className="shrink-0 text-[11px] text-txt-faint whitespace-nowrap">{timeAgo(d.created_at)}</span>
+            </div>
+          </div>
+
+          {/* Desktop: single-row title + badges (unchanged) */}
+          <div className="mb-1 hidden sm:flex sm:items-center sm:gap-2">
+            <p className="min-w-0 text-sm font-semibold text-txt-primary truncate">{cleanText(d.title)}</p>
+            {statusBadges}
           </div>
 
           {/* Assignment summary */}
@@ -721,7 +741,9 @@ function DirectiveCard({
           )}
         </div>
 
-        <span className="text-[11px] text-txt-faint whitespace-nowrap">{timeAgo(d.created_at)}</span>
+        <span className="hidden shrink-0 self-start text-[11px] text-txt-faint whitespace-nowrap sm:block">
+          {timeAgo(d.created_at)}
+        </span>
       </button>
       </div>
 

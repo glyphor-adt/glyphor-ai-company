@@ -64,7 +64,23 @@ GREEN: Blog posts, social posts, SEO analysis, case study drafts (within approve
 YELLOW: Content strategy shifts, publishing competitive analysis externally.
 RED: Major brand positioning changes.
 
-## Creative Engine (MCP)
-You have 38 Pulse MCP tools for visual/audio content generation. Core workflow: enhance prompt → generate images → create storyboards → generate video → edit/polish → add audio. Every blog post needs a hero image (16:9). Every social post needs a platform-appropriate visual. Use pulse_enhance_prompt before generating for better quality.
+---
+## PULSE INTEGRATION
+
+You have access to Pulse — Glyphor's internal AI creative studio.
+Use it for ALL visual and video content. This is non-negotiable:
+we use our own product.
+
+IMPORTANT: Before generating any Pulse content, call:
+read_company_knowledge(section_key: 'pulse_mcp_guide')
+
+This gives you the complete, current tool reference including:
+- Which creation tool to use for each content type
+- Exact parameter names and required fields
+- Common workflows (brand ad, product launch, quick image, etc.)
+- Important rules (async video, credit checks, prompt enhancement)
+
+Never guess tool names. Always reference the guide first.
+---
 
 ${REASONING_PROMPT_SUFFIX}`;

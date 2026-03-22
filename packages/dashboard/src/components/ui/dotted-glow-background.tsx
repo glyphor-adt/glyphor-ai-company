@@ -1,6 +1,29 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
+
+/** Tailwind `sm` is 640px — viewport widths below this get subtler particles. */
+const MOBILE_MAX_WIDTH = 639;
+
+function subscribeNarrow(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+  const mq = window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH}px)`);
+  mq.addEventListener("change", callback);
+  return () => mq.removeEventListener("change", callback);
+}
+
+function getNarrowSnapshot() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH}px)`).matches;
+}
+
+function getServerNarrowSnapshot() {
+  return false;
+}
+
+function useIsBelowSm() {
+  return useSyncExternalStore(subscribeNarrow, getNarrowSnapshot, getServerNarrowSnapshot);
+}
 
 type DottedGlowBackgroundProps = {
   className?: string;
@@ -73,6 +96,7 @@ export const DottedGlowBackground = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [resolvedColor, setResolvedColor] = useState<string>(color);
   const [resolvedGlowColor, setResolvedGlowColor] = useState<string>(glowColor);
+  const isBelowSm = useIsBelowSm();
 
   // Resolve CSS variable value from the container or root
   const resolveCssVariable = (
@@ -165,6 +189,18 @@ export const DottedGlowBackground = ({
     const ctx = el.getContext("2d");
     if (!ctx) return;
 
+    /** Mobile (below sm): ~50% smaller dots, ~45% lower layer opacity, ~50% fewer shimmers, wider gap → ~50% fewer grid dots */
+    const narrow = isBelowSm;
+    const effectiveGap = narrow ? gap * 1.35 : gap;
+    const effectiveRadius = narrow ? radius * 0.5 : radius;
+    const layerOpacity = narrow ? opacity * 0.55 : opacity;
+    const effectiveShimmerCount = narrow
+      ? Math.max(0, Math.round(shimmerCount * 0.5))
+      : shimmerCount;
+    const effectiveShimmerRadius = narrow ? shimmerRadius * 0.5 : shimmerRadius;
+    const glowBlurScale = narrow ? 0.5 : 1;
+    const shimmerBlurScale = narrow ? 0.5 : 1;
+
     let raf = 0;
     let stopped = false;
     let isVisible = true;
@@ -192,14 +228,14 @@ export const DottedGlowBackground = ({
       dots = [];
       shimmerDots = [];
       const { width, height } = container.getBoundingClientRect();
-      const cols = Math.ceil(width / gap) + 2;
-      const rows = Math.ceil(height / gap) + 2;
+      const cols = Math.ceil(width / effectiveGap) + 2;
+      const rows = Math.ceil(height / effectiveGap) + 2;
       const min = Math.min(speedMin, speedMax);
       const max = Math.max(speedMin, speedMax);
       for (let i = -1; i < cols; i++) {
         for (let j = -1; j < rows; j++) {
-          const x = i * gap + (j % 2 === 0 ? 0 : gap * 0.5); // offset every other row
-          const y = j * gap;
+          const x = i * effectiveGap + (j % 2 === 0 ? 0 : effectiveGap * 0.5); // offset every other row
+          const y = j * effectiveGap;
           // Randomize phase and speed slightly per dot
           const phase = Math.random() * Math.PI * 2;
           const span = Math.max(max - min, 0);
@@ -208,7 +244,7 @@ export const DottedGlowBackground = ({
         }
       }
       // Generate random shimmer dots
-      for (let s = 0; s < shimmerCount; s++) {
+      for (let s = 0; s < effectiveShimmerCount; s++) {
         shimmerDots.push({
           x: Math.random() * width,
           y: Math.random() * height,
@@ -237,7 +273,7 @@ export const DottedGlowBackground = ({
       const { width, height } = container.getBoundingClientRect();
 
       ctx.clearRect(0, 0, el.width, el.height);
-      ctx.globalAlpha = opacity;
+      ctx.globalAlpha = layerOpacity;
 
       // optional subtle background fade for depth (defaults to 0 = transparent)
       if (backgroundOpacity > 0) {
@@ -274,15 +310,15 @@ export const DottedGlowBackground = ({
         if (a > 0.5) {
           const glow = (a - 0.5) / 0.5; // 0..1
           ctx.shadowColor = resolvedGlowColor;
-          ctx.shadowBlur = 10 * glow;
+          ctx.shadowBlur = 10 * glow * glowBlurScale;
         } else {
           ctx.shadowColor = "transparent";
           ctx.shadowBlur = 0;
         }
 
-        ctx.globalAlpha = a * opacity;
+        ctx.globalAlpha = a * layerOpacity;
         ctx.beginPath();
-        ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
+        ctx.arc(d.x, d.y, effectiveRadius, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
@@ -296,12 +332,12 @@ export const DottedGlowBackground = ({
           // Heavily biased toward invisible — only briefly flash bright
           const pulse = Math.max(0, raw * 2 - 1); // 0 most of the time, peaks at 1
           if (pulse <= 0.01) continue;
-          ctx.globalAlpha = pulse * opacity;
+          ctx.globalAlpha = pulse * layerOpacity;
           ctx.shadowColor = shimmerColor;
-          ctx.shadowBlur = 6 * pulse;
+          ctx.shadowBlur = 6 * pulse * shimmerBlurScale;
           ctx.fillStyle = shimmerColor;
           ctx.beginPath();
-          ctx.arc(sd.x, sd.y, shimmerRadius, 0, Math.PI * 2);
+          ctx.arc(sd.x, sd.y, effectiveShimmerRadius, 0, Math.PI * 2);
           ctx.fill();
         }
         ctx.restore();
@@ -346,13 +382,14 @@ export const DottedGlowBackground = ({
     shimmerCount,
     shimmerColor,
     shimmerRadius,
+    isBelowSm,
   ]);
 
   return (
     <div
       ref={containerRef}
       className={className}
-      style={{ position: "absolute", inset: 0 }}
+      style={{ position: "absolute", inset: 0, zIndex: 0 }}
     >
       <canvas
         ref={canvasRef}

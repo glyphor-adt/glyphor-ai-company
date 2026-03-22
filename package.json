@@ -16,6 +16,7 @@
     "db:local:query": "powershell -ExecutionPolicy Bypass -File scripts/run-with-local-db-proxy.ps1 -Run node _run_queries.js",
     "db:drift-check": "tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/check-schema-drift.ts",
     "db:activate-founder-directives": "tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/activate-founder-directives.ts",
+    "db:seed-pulse-mcp-knowledge": "tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/seed-pulse-mcp-knowledge.ts",
     "db:reconcile-ledger": "tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/reconcile-migration-ledger.ts",
     "db:apply-migration": "tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/apply-migration.ts",
     "db:apply-pending": "tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/apply-pending-migrations.ts",

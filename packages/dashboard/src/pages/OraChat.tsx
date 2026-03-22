@@ -1093,7 +1093,7 @@ export default function OraChat() {
       )}
       {/* Session Sidebar — responsive: fixed overlay on mobile, inline on desktop */}
       {sidebarOpen && (
-        <div className="fixed inset-y-0 left-0 z-50 w-72 flex-shrink-0 flex-col bg-black/20 backdrop-blur-2xl backdrop-saturate-150 border-r border-white/[0.06] md:relative md:inset-auto md:z-auto flex md:rounded-2xl md:border md:border-white/[0.06]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-y-0 left-0 z-50 flex w-full max-w-full flex-shrink-0 flex-col border-r border-white/[0.06] bg-black/20 backdrop-blur-2xl backdrop-saturate-150 md:relative md:inset-auto md:z-auto md:w-72 md:max-w-none md:rounded-2xl md:border md:border-white/[0.06]" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2 px-3 py-3">
             <button
               type="button"
@@ -1169,8 +1169,10 @@ export default function OraChat() {
         </div>
       )}
 
-      {/* Main chat area */}
-      <Card className="flex flex-1 flex-col min-h-0 min-w-0 transition-all overflow-visible border-transparent">
+      {/* Main chat area — hidden below md when sidebar is open so only one panel shows at a time */}
+      <Card
+        className={`flex flex-1 flex-col min-h-0 min-w-0 overflow-visible border-transparent transition-all ${sidebarOpen ? 'max-md:hidden' : ''}`}
+      >
         {/* Header */}
         <div className="flex items-center gap-2 md:gap-3 pb-3 md:pb-4">
           {/* Sidebar toggle — always visible on mobile, only when closed on desktop */}

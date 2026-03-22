@@ -216,39 +216,38 @@ export default function Skills() {
         </div>
       </div>
 
-      {/* Category filter + actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setFilter(null)}
-          className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
-            !filter
-              ? 'bg-cyan/15 text-cyan border border-cyan/30'
-              : 'bg-raised text-txt-muted border border-border hover:text-txt-secondary'
-          }`}
-        >
-          All ({totalSkills})
-        </button>
-        {categoryCounts.map(({ category, count }) => {
-          const meta = CATEGORY_META[category];
-          return (
-            <button
-              key={category}
-              onClick={() => setFilter(filter === category ? null : category)}
-              className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                filter === category
-                  ? 'border text-white'
-                  : 'bg-raised text-txt-muted border border-border hover:text-txt-secondary'
-              }`}
-              style={filter === category ? { backgroundColor: `${meta?.color ?? '#666'}25`, borderColor: `${meta?.color ?? '#666'}50`, color: meta?.color } : undefined}
-            >
-              {meta?.icon} {meta?.label ?? category} ({count})
-            </button>
-          );
-        })}
+      {/* Category filter row (full width, wraps) — separate from action buttons */}
+      <div className="flex w-full flex-col gap-0">
+        <div className="flex w-full flex-wrap gap-2">
+          <button
+            onClick={() => setFilter(null)}
+            className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              !filter
+                ? 'bg-cyan/15 text-cyan border border-cyan/30'
+                : 'bg-raised text-txt-muted border border-border hover:text-txt-secondary'
+            }`}
+          >
+            All ({totalSkills})
+          </button>
+          {categoryCounts.map(({ category, count }) => {
+            const meta = CATEGORY_META[category];
+            return (
+              <button
+                key={category}
+                onClick={() => setFilter(filter === category ? null : category)}
+                className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                  filter === category
+                    ? 'border text-white'
+                    : 'bg-raised text-txt-muted border border-border hover:text-txt-secondary'
+                }`}
+                style={filter === category ? { backgroundColor: `${meta?.color ?? '#666'}25`, borderColor: `${meta?.color ?? '#666'}50`, color: meta?.color } : undefined}
+              >
+                {meta?.icon} {meta?.label ?? category} ({count})
+              </button>
+            );
+          })}
         </div>
-
-        <div className="flex items-center gap-2">
+        <div className="mt-3 flex w-full flex-wrap items-center justify-end gap-2">
           <GradientButton variant="purple" size="sm" onClick={() => setShowUpload(true)}>
             <MdUploadFile className="h-4 w-4" /> Upload Skill File
           </GradientButton>

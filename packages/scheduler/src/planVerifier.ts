@@ -46,6 +46,11 @@ export interface PlanVerificationResult {
 }
 
 // ─── Keyword → Tool Mapping ─────────────────────────────────────
+//
+// Substring match on task_description (lowercased). Ambiguous words:
+// - "calendar" often means editorial/content calendar for marketing — not Google Calendar APIs.
+// - "onboarding" often means onboarding *copy* for creatives — not funnel analytics.
+// Those keywords are skipped for CREATIVE_MARKETING_ROLES (see checkToolCoverage).
 
 const KEYWORD_TOOL_MAP: Record<string, string[]> = {
   email:       ['draft_email', 'send_dm'],
@@ -66,6 +71,12 @@ const KEYWORD_TOOL_MAP: Record<string, string[]> = {
   social:      ['schedule_social_post', 'query_social_metrics'],
   onboarding:  ['query_onboarding_funnel', 'query_activation_rate'],
 };
+
+/** Marketing/creative agents — "calendar" / "onboarding" in copy usually do not imply scheduling or analytics tools. */
+const CREATIVE_MARKETING_ROLES = new Set(['cmo', 'content-creator', 'social-media-manager']);
+
+/** Keywords not subjected to KEYWORD_TOOL_MAP for creative marketing roles (avoid false positives). */
+const KEYWORD_TOOL_SKIPS_FOR_CREATIVE_ROLES = new Set(['calendar', 'onboarding']);
 
 const MAX_ASSIGNMENTS_PER_AGENT = 3;
 
@@ -172,8 +183,14 @@ async function checkToolCoverage(
     }
 
     const desc = a.task_description.toLowerCase();
+    const role = a.assigned_to.trim().toLowerCase();
+    const isCreativeMarketing = CREATIVE_MARKETING_ROLES.has(role);
+
     for (const [keyword, requiredTools] of Object.entries(KEYWORD_TOOL_MAP)) {
       if (!desc.includes(keyword)) continue;
+      if (isCreativeMarketing && KEYWORD_TOOL_SKIPS_FOR_CREATIVE_ROLES.has(keyword)) {
+        continue;
+      }
       const hasAny = requiredTools.some((t) => agentTools.has(t));
       if (!hasAny) {
         issues.push(

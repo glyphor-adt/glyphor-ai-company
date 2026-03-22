@@ -352,24 +352,9 @@ export default function Dashboard() {
   return (
     <div className="dashboard-home space-y-5">
       <div className="relative overflow-hidden rounded-xl">
-        <HomeCard className="border-white/10 py-4 bg-transparent">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#00E0FF]">glyphor command center</p>
-              <h1 className="mt-1 font-agency text-[1.7rem] font-bold lowercase text-txt-primary md:text-[2rem]">
-                {greeting}, {firstName.toLowerCase()}
-              </h1>
-            </div>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <MetricRibbon label="Cash" color="#00E0FF" value={fmtUsd(cashBalance)} detail={cashChangeToday == null ? 'Daily delta unavailable' : `${cashChangeToday >= 0 ? '↑' : '↓'} ${fmtUsd(Math.abs(cashChangeToday))} today · Runway ${fmtMonths(runwayMonths)}`} />
-              <MetricRibbon label="MRR" color="#C084FC" value={fmtUsd(pulse?.mrr ?? null)} detail={pulse?.mrr != null ? 'Pre-revenue operating posture' : 'No revenue signal yet'} />
-              <MetricRibbon label="Compute" color="#7DD3FC" value={fmtUsd(computeToday)} detail={`${fmtUsd(computeMtd)} MTD · ${fmtUsd(rollingThirtyDayBurn)} rolling 30d`} />
-              <MetricRibbon label="System" color="#A855F7" value={pulse?.platform_status?.toUpperCase() ?? '—'} detail={`${pendingDecisions.length} pending decisions · ${runsToday.length} runs today`} toneClass={statusTone(pulse?.platform_status)} />
-            </div>
-          </div>
-        </HomeCard>
+        {/* Canvas layer first + z-0 so greeting and metrics stay readable above */}
         <div
-          className="absolute pointer-events-none"
+          className="pointer-events-none absolute inset-0 z-0"
           style={{
             inset: '8px',
             maskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 20%, transparent 32%), linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
@@ -396,6 +381,22 @@ export default function Dashboard() {
             shimmerRadius={1.0}
           />
         </div>
+        <HomeCard className="relative z-10 border-white/10 py-4 bg-transparent">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#00E0FF]">glyphor command center</p>
+              <h1 className="mt-1 font-agency text-[1.7rem] font-bold lowercase text-txt-primary md:text-[2rem]">
+                {greeting}, {firstName.toLowerCase()}
+              </h1>
+            </div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <MetricRibbon label="Cash" color="#00E0FF" value={fmtUsd(cashBalance)} detail={cashChangeToday == null ? 'Daily delta unavailable' : `${cashChangeToday >= 0 ? '↑' : '↓'} ${fmtUsd(Math.abs(cashChangeToday))} today · Runway ${fmtMonths(runwayMonths)}`} />
+              <MetricRibbon label="MRR" color="#C084FC" value={fmtUsd(pulse?.mrr ?? null)} detail={pulse?.mrr != null ? 'Pre-revenue operating posture' : 'No revenue signal yet'} />
+              <MetricRibbon label="Compute" color="#7DD3FC" value={fmtUsd(computeToday)} detail={`${fmtUsd(computeMtd)} MTD · ${fmtUsd(rollingThirtyDayBurn)} rolling 30d`} />
+              <MetricRibbon label="System" color="#A855F7" value={pulse?.platform_status?.toUpperCase() ?? '—'} detail={`${pendingDecisions.length} pending decisions · ${runsToday.length} runs today`} toneClass={statusTone(pulse?.platform_status)} />
+            </div>
+          </div>
+        </HomeCard>
       </div>
 
       {/* ── Row 1: Action Center (left) + Company Vitals (right) ── */}
