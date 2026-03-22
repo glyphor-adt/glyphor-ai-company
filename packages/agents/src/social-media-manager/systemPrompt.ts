@@ -40,5 +40,5 @@ POSTING GUIDELINES:
 - Optimal times vary by audience — check analytics first
 
 CREATIVE ENGINE (MCP Tools):
-You have 41 MCP tools for visual/audio content. Generate images for every post using pulse_generate_concept_image with platform-appropriate aspect ratios (16:9 Twitter/LinkedIn, 1:1 Instagram, 9:16 Stories/TikTok). For video: pulse_generate_video → pulse_poll_video_status. Use pulse_enhance_prompt before generating. Use pulse_batch_resize for multi-platform sizing. Posts with visuals get 2-3x more engagement.
+You have 38 Pulse MCP tools for visual/audio content. Generate images for every post using pulse_generate_concept_image with platform-appropriate aspect ratios (16:9 Twitter/LinkedIn, 1:1 Instagram, 9:16 Stories/TikTok). For multiple sizes, call pulse_generate_concept_image (or pulse_expand_image) per platform. For video: pulse_generate_video → pulse_poll_video_status. Use pulse_enhance_prompt before generating. Posts with visuals get 2-3x more engagement.
 `;

@@ -35,6 +35,11 @@ export interface WebSearchOptions {
   gl?: string;
   /** Time range: 'day' | 'week' | 'month' | 'year' */
   timeRange?: string;
+  /**
+   * When true, logs the exact Responses API `input` (full prompt) to stdout.
+   * Also enabled if env `WEB_SEARCH_DEBUG=1`.
+   */
+  logPrompt?: boolean;
 }
 
 /* ── OpenAI Responses API types ─────────────── */
@@ -61,7 +66,49 @@ interface OpenAIResponseItem {
 
 interface OpenAIResponsesResult {
   id: string;
-  output: OpenAIResponseItem[];
+  output?: OpenAIResponseItem[];
+  error?: { message?: string; type?: string };
+  status?: string;
+  [key: string]: unknown;
+}
+
+const WEB_SEARCH_DEBUG =
+  typeof process !== 'undefined' && process.env.WEB_SEARCH_DEBUG?.trim() === '1';
+
+function logEmptySearchDebug(
+  phase: string,
+  promptSent: string,
+  data: OpenAIResponsesResult,
+  textLen: number,
+  annotationCount: number,
+): void {
+  const output = data.output ?? [];
+  const itemTypes = output.map((i) => i.type);
+  const rawJson = JSON.stringify(data);
+  const truncated = rawJson.length > 12_000 ? `${rawJson.slice(0, 12_000)}…(truncated ${rawJson.length} chars)` : rawJson;
+
+  console.warn(
+    `[WebSearch] ${phase}: no structured results. ` +
+      `textLen=${textLen} annotationCount=${annotationCount} outputItemTypes=${JSON.stringify(itemTypes)} status=${String(data.status ?? '')}`,
+  );
+  console.warn(`[WebSearch] Responses API input (exact prompt sent):\n---\n${promptSent}\n---`);
+  console.warn(`[WebSearch] Raw Responses API JSON (full body):\n${truncated}`);
+}
+
+/** Extract http(s) URLs from model text when url_citation annotations are missing. */
+function extractUrlsFromText(text: string, max: number): string[] {
+  const re = /https?:\/\/[^\s\])"'<>]+/gi;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null && out.length < max) {
+    const u = m[0].replace(/[.,;:!?)]+$/g, '');
+    if (!seen.has(u)) {
+      seen.add(u);
+      out.push(u);
+    }
+  }
+  return out;
 }
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
@@ -108,11 +155,15 @@ function getResponsesEndpoint(): { url: string; headers: Record<string, string> 
 async function openaiWebSearch(
   prompt: string,
   searchContextSize: 'low' | 'medium' | 'high' = 'medium',
-): Promise<{ text: string; annotations: Array<{ url: string; title: string }> }> {
+): Promise<{
+  text: string;
+  annotations: Array<{ url: string; title: string }>;
+  rawResponse: OpenAIResponsesResult | null;
+}> {
   const endpoint = getResponsesEndpoint();
   if (!endpoint) {
     console.warn('[WebSearch] No OpenAI or Azure OpenAI API key configured — returning empty results');
-    return { text: '', annotations: [] };
+    return { text: '', annotations: [], rawResponse: null };
   }
 
   const isDirectOpenAI = 'Authorization' in endpoint.headers;
@@ -144,17 +195,17 @@ async function openaiWebSearch(
       });
     } else {
       console.error(`[WebSearch] OpenAI Responses API error: ${res.status} ${errText}`);
-      return { text: '', annotations: [] };
+      return { text: '', annotations: [], rawResponse: null };
     }
   }
 
   if (!res.ok) {
     const errText = await res.text().catch(() => 'unknown');
     console.error(`[WebSearch] OpenAI Responses API error: ${res.status} ${errText}`);
-    return { text: '', annotations: [] };
+    return { text: '', annotations: [], rawResponse: null };
   }
 
-  const data = await res.json() as OpenAIResponsesResult;
+  const data = (await res.json()) as OpenAIResponsesResult;
 
   // Extract text and URL annotations from the response output
   const annotations: Array<{ url: string; title: string }> = [];
@@ -177,7 +228,7 @@ async function openaiWebSearch(
     }
   }
 
-  return { text, annotations };
+  return { text, annotations, rawResponse: data };
 }
 
 /**
@@ -203,6 +254,19 @@ function parseSearchResults(
     });
   }
 
+  // Fallback: model sometimes returns output_text with URLs but no url_citation annotations
+  if (results.length === 0 && text.trim()) {
+    for (const url of extractUrlsFromText(text, maxResults)) {
+      if (seen.has(url)) continue;
+      seen.add(url);
+      results.push({
+        title: url,
+        url,
+        snippet: text.slice(0, 400),
+      });
+    }
+  }
+
   // Use the full response text as context — split into rough per-source snippets
   // by finding text near each citation
   if (text && results.length > 0) {
@@ -226,6 +290,19 @@ function parseSearchResults(
 }
 
 /**
+ * Build the exact `input` string sent to the Responses API (natural language, not API-style keywords).
+ */
+export function buildSearchWebPrompt(query: string, options: WebSearchOptions = {}): string {
+  const timeContext = options.timeRange
+    ? ` Prefer sources and facts from the last ${options.timeRange}.`
+    : '';
+  const q = query.trim();
+  return `${q}${timeContext}
+
+Answer with current web information, name your sources, and include specific page URLs in the answer so they can be cited.`;
+}
+
+/**
  * Execute a web search and return structured results.
  * Uses the shared OpenAI web-search model with grounded results.
  */
@@ -234,15 +311,29 @@ export async function searchWeb(
   options: WebSearchOptions = {},
 ): Promise<SearchResult[]> {
   const maxResults = options.num ?? 10;
-  const timeContext = options.timeRange
-    ? ` Focus on results from the last ${options.timeRange}.`
-    : '';
-  const prompt = `Search the web for: ${query}${timeContext}\n\nProvide comprehensive results with specific sources and URLs.`;
+  const prompt = buildSearchWebPrompt(query, options);
 
-  const { text, annotations } = await openaiWebSearch(prompt, 'medium');
-  if (!text && annotations.length === 0) return [];
+  if (options.logPrompt || WEB_SEARCH_DEBUG) {
+    console.log(`[WebSearch] Responses API input (exact prompt):\n---\n${prompt}\n---`);
+  }
 
-  return parseSearchResults(text, annotations, maxResults);
+  const { text, annotations, rawResponse } = await openaiWebSearch(prompt, 'medium');
+
+  if (!text && annotations.length === 0) {
+    if (rawResponse) {
+      logEmptySearchDebug('openaiWebSearch:empty_text_and_annotations', prompt, rawResponse, 0, 0);
+    }
+    return [];
+  }
+
+  const parsed = parseSearchResults(text, annotations, maxResults);
+
+  if (parsed.length === 0) {
+    const raw = rawResponse ?? ({ id: '', output: [] } as OpenAIResponsesResult);
+    logEmptySearchDebug('searchWeb:parse_yielded_empty', prompt, raw, text.length, annotations.length);
+  }
+
+  return parsed;
 }
 
 /**
@@ -254,10 +345,17 @@ export async function searchNews(
   options: WebSearchOptions = {},
 ): Promise<NewsResult[]> {
   const maxResults = options.num ?? 10;
-  const prompt = `Search for the latest news about: ${query}\n\nFocus on recent news articles, press releases, and breaking developments. Include publication dates and source names.`;
+  const prompt = `Latest news about: ${query.trim()}
 
-  const { text, annotations } = await openaiWebSearch(prompt, 'high');
-  if (!text && annotations.length === 0) return [];
+Focus on recent articles and press releases; name outlets and include specific article URLs.`;
+
+  const { text, annotations, rawResponse } = await openaiWebSearch(prompt, 'high');
+  if (!text && annotations.length === 0) {
+    if (rawResponse) {
+      logEmptySearchDebug('searchNews:empty', prompt, rawResponse, 0, 0);
+    }
+    return [];
+  }
 
   // Parse into news results
   const seen = new Set<string>();
@@ -280,6 +378,22 @@ export async function searchNews(
     });
   }
 
+  if (results.length === 0 && text.trim()) {
+    for (const url of extractUrlsFromText(text, maxResults)) {
+      if (seen.has(url)) continue;
+      seen.add(url);
+      let source = '';
+      try { source = new URL(url).hostname.replace('www.', ''); } catch { /* skip */ }
+      results.push({
+        title: url,
+        url,
+        snippet: text.slice(0, 300),
+        date: new Date().toISOString().split('T')[0],
+        source,
+      });
+    }
+  }
+
   // Fill snippets from the grounded text
   if (text && results.length > 0) {
     const sentences = text.split(/(?<=[.!?])\s+/);
@@ -293,6 +407,11 @@ export async function searchNews(
         ? relevant.slice(0, 3).join(' ')
         : text.slice(0, 300);
     }
+  }
+
+  if (results.length === 0 && (text || annotations.length)) {
+    const raw = rawResponse ?? ({ id: '', output: [] } as OpenAIResponsesResult);
+    logEmptySearchDebug('searchNews:yielded_empty', prompt, raw, text.length, annotations.length);
   }
 
   return results;

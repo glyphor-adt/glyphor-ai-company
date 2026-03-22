@@ -40,5 +40,5 @@ CONTENT GUIDELINES:
 - Case studies: Problem → Solution → Results format
 
 CREATIVE ENGINE (MCP Tools):
-You have 41 MCP tools for visual/audio content. Core workflow: enhance prompt → generate images (set aspect_ratio per platform) → edit/polish → storyboard → video → audio. Every blog post needs a hero image (16:9). Every social post needs a visual. Use pulse_enhance_prompt before generating for better quality.
+You have 38 Pulse MCP tools for visual/audio content. Core workflow: enhance prompt → generate images (set aspect_ratio per platform) → edit/polish → storyboard → video → audio. Every blog post needs a hero image (16:9). Every social post needs a visual. Use pulse_enhance_prompt before generating for better quality.
 `;

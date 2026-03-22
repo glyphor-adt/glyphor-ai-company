@@ -174,6 +174,7 @@ export {
   searchNews,
   batchSearch,
   searchResultsToContext,
+  buildSearchWebPrompt,
   type SearchResult,
   type NewsResult,
   type WebSearchOptions,

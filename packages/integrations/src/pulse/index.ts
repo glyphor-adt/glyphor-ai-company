@@ -16,6 +16,9 @@
  *   poll_video_status          — Check video generation progress
  *
  * Used by: Maya (CMO), Tyler (Content Creator), Kai (Social Media Manager)
+ *
+ * Tool surface matches Pulse MCP (38 tools): storyboard, orchestration, video, image, audio,
+ * prompt enhancement, analysis, utility — see company `pulseTools.ts` wrappers.
  */
 
 export interface PulseConfig {
@@ -38,7 +41,8 @@ export interface GenerateSceneImagesArgs {
 
 export interface GenerateVideoArgs {
   prompt: string;
-  model?: 'veo-3.1' | 'veo-3.0' | 'kling-2.1';
+  /** Defaults to Veo 3.1 on the MCP server */
+  model?: 'veo-3.1' | 'veo-3.0';
   aspect_ratio?: '16:9' | '9:16' | '1:1';
   source_image_url?: string;
 }

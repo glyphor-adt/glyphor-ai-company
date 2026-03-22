@@ -14,7 +14,10 @@ export function createSeoAnalystTools(memory: CompanyMemoryStore): ToolDefinitio
       description: 'Search the web for current keyword ranking data and position changes for glyphor.com.',
       parameters: { keyword: { type: 'string', description: 'Keyword to check rankings for', required: true } },
       async execute(params) {
-        const results = await searchWeb(`glyphor.com "${params.keyword}" site ranking position`, { num: 8 });
+        const results = await searchWeb(
+          `Where does glyphor.com rank for ${params.keyword} in Google search results and what position changes are people reporting?`,
+          { num: 8 },
+        );
         return { success: true, data: results };
       },
     },
@@ -23,7 +26,7 @@ export function createSeoAnalystTools(memory: CompanyMemoryStore): ToolDefinitio
       description: 'Research keyword volume, difficulty, and competition via web search.',
       parameters: { keyword: { type: 'string', description: 'Keyword to research', required: true } },
       async execute(params) {
-        const q = `Keyword research for "${params.keyword}": search volume, keyword difficulty, CPC, competition, and search intent. Cite authoritative SEO and publisher sources.`;
+        const q = `Keyword research for ${params.keyword} for small business marketing — typical search volume, how hard it is to rank, CPC, competition, and search intent. Include trustworthy SEO or publisher sources.`;
         const results = await searchWeb(q, { num: 8 });
         return { success: true, data: results };
       },
@@ -33,7 +36,7 @@ export function createSeoAnalystTools(memory: CompanyMemoryStore): ToolDefinitio
       description: 'Discover new keyword opportunities based on a seed topic.',
       parameters: { seed: { type: 'string', description: 'Seed topic or keyword', required: true }, limit: { type: 'number', description: 'Max results (default 10)' } },
       async execute(params) {
-        const q = `Keyword discovery for seed topic "${params.seed}": related keywords, long-tail variants, question-based keywords, and content opportunities (blogs, landing pages).`;
+        const q = `Keyword discovery and related searches for ${params.seed} for content marketing and SEO — long-tail ideas, questions people ask, and blog or landing page angles.`;
         const results = await searchWeb(q, { num: Number(params.limit) || 10 });
         return { success: true, data: results };
       },
@@ -43,7 +46,10 @@ export function createSeoAnalystTools(memory: CompanyMemoryStore): ToolDefinitio
       description: 'Research competitor SEO rankings and organic keyword positions.',
       parameters: { competitor: { type: 'string', description: 'Competitor domain', required: true }, limit: { type: 'number', description: 'Max results (default 10)' } },
       async execute(params) {
-        const results = await searchWeb(`${params.competitor} top organic keywords rankings SEO`, { num: Number(params.limit) || 10 });
+        const results = await searchWeb(
+          `What organic keywords and rankings does ${params.competitor} get traffic from in SEO tools and industry writeups?`,
+          { num: Number(params.limit) || 10 },
+        );
         return { success: true, data: results };
       },
     },
@@ -53,7 +59,10 @@ export function createSeoAnalystTools(memory: CompanyMemoryStore): ToolDefinitio
       parameters: { domain: { type: 'string', description: 'Domain to check (default: glyphor.com)' } },
       async execute(params) {
         const target = params.domain || 'glyphor.com';
-        const results = await searchWeb(`${target} backlinks referring domains domain authority`, { num: 8 });
+        const results = await searchWeb(
+          `Backlink profile for ${target}: referring domains, domain authority estimates, and link quality mentions.`,
+          { num: 8 },
+        );
         return { success: true, data: results };
       },
     },
@@ -63,7 +72,10 @@ export function createSeoAnalystTools(memory: CompanyMemoryStore): ToolDefinitio
       parameters: { url: { type: 'string', description: 'Content URL or topic', required: true }, targetKeyword: { type: 'string', description: 'Target keyword to optimize for' } },
       async execute(params) {
         const kwPart = params.targetKeyword ? ` "${params.targetKeyword}"` : '';
-        const results = await searchWeb(`${params.url}${kwPart} SEO optimization analysis`, { num: 8 });
+        const results = await searchWeb(
+          `SEO optimization tips and analysis for ${params.url}${kwPart ? ` targeting ${params.targetKeyword}` : ''} from reputable guides.`,
+          { num: 8 },
+        );
         return { success: true, data: results, targetKeyword: params.targetKeyword };
       },
     },
