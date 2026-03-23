@@ -1,0 +1,1276 @@
+{
+  "generatedAt": "2026-03-23T17:52:21.399Z",
+  "results": [
+    {
+      "title": "1. Model usage breakdown (30d, model_used not null)",
+      "rows": [
+        {
+          "model_used": "gemini-2.5-pro",
+          "run_count": "282",
+          "avg_cost_per_run": 0.2361,
+          "total_cost": 66.5893,
+          "avg_input_tokens": 160986,
+          "avg_output_tokens": 1176,
+          "avg_duration_ms": 111808
+        },
+        {
+          "model_used": "gemini-3.1-flash-lite-preview",
+          "run_count": "717",
+          "avg_cost_per_run": 0.0265,
+          "total_cost": 19.003,
+          "avg_input_tokens": 102736,
+          "avg_output_tokens": 443,
+          "avg_duration_ms": 61262
+        },
+        {
+          "model_used": "gemini-3-flash-preview",
+          "run_count": "120",
+          "avg_cost_per_run": 0.1332,
+          "total_cost": 15.9844,
+          "avg_input_tokens": 162120,
+          "avg_output_tokens": 802,
+          "avg_duration_ms": 147304
+        },
+        {
+          "model_used": "gemini-2.5-flash-lite",
+          "run_count": "32",
+          "avg_cost_per_run": 0.0078,
+          "total_cost": 0.2506,
+          "avg_input_tokens": 75201,
+          "avg_output_tokens": 608,
+          "avg_duration_ms": 40260
+        },
+        {
+          "model_used": "gemini-2.5-flash",
+          "run_count": "1",
+          "avg_cost_per_run": 0.0304,
+          "total_cost": 0.0304,
+          "avg_input_tokens": 51422,
+          "avg_output_tokens": 479,
+          "avg_duration_ms": 33596
+        }
+      ],
+      "rowCount": 5
+    },
+    {
+      "title": "2. Cost per agent (30d, total_cost_usd not null)",
+      "rows": [
+        {
+          "agent_id": "chief-of-staff",
+          "agent_name": "Sarah Chen",
+          "runs": "111",
+          "total_cost": 36.3635,
+          "avg_cost_per_run": 0.3276,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "cto",
+          "agent_name": "Marcus Reeves",
+          "runs": "142",
+          "total_cost": 7.4355,
+          "avg_cost_per_run": 0.0524,
+          "model_used": null
+        },
+        {
+          "agent_id": "chief-of-staff",
+          "agent_name": "Sarah Chen",
+          "runs": "277",
+          "total_cost": 6.7833,
+          "avg_cost_per_run": 0.0245,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "cmo",
+          "agent_name": "Maya Brooks",
+          "runs": "18",
+          "total_cost": 5.9504,
+          "avg_cost_per_run": 0.3306,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "cmo",
+          "agent_name": "Maya Brooks",
+          "runs": "57",
+          "total_cost": 4.9423,
+          "avg_cost_per_run": 0.0867,
+          "model_used": null
+        },
+        {
+          "agent_id": "cfo",
+          "agent_name": "Nadia Okafor",
+          "runs": "21",
+          "total_cost": 4.0855,
+          "avg_cost_per_run": 0.1945,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "cfo",
+          "agent_name": "Nadia Okafor",
+          "runs": "26",
+          "total_cost": 3.6846,
+          "avg_cost_per_run": 0.1417,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "vp-design",
+          "agent_name": "Mia Tanaka",
+          "runs": "24",
+          "total_cost": 3.2513,
+          "avg_cost_per_run": 0.1355,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "frontend-engineer",
+          "agent_name": "Ava Chen",
+          "runs": "14",
+          "total_cost": 2.9832,
+          "avg_cost_per_run": 0.2131,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "cmo",
+          "agent_name": "Maya Brooks",
+          "runs": "19",
+          "total_cost": 2.9124,
+          "avg_cost_per_run": 0.1533,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "cmo",
+          "agent_name": "Maya Brooks",
+          "runs": "59",
+          "total_cost": 2.9048,
+          "avg_cost_per_run": 0.0492,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "ops",
+          "agent_name": "Atlas Vega",
+          "runs": "18",
+          "total_cost": 2.5816,
+          "avg_cost_per_run": 0.1434,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "cfo",
+          "agent_name": "Nadia Okafor",
+          "runs": "19",
+          "total_cost": 2.2981,
+          "avg_cost_per_run": 0.121,
+          "model_used": null
+        },
+        {
+          "agent_id": "cpo",
+          "agent_name": "Elena Vasquez",
+          "runs": "12",
+          "total_cost": 2.1803,
+          "avg_cost_per_run": 0.1817,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "head-of-hr",
+          "agent_name": "Jasmine Rivera",
+          "runs": "8",
+          "total_cost": 2.1046,
+          "avg_cost_per_run": 0.2631,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "cto",
+          "agent_name": "Marcus Reeves",
+          "runs": "10",
+          "total_cost": 1.988,
+          "avg_cost_per_run": 0.1988,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "ops",
+          "agent_name": "Atlas Vega",
+          "runs": "72",
+          "total_cost": 1.9187,
+          "avg_cost_per_run": 0.0266,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "chief-of-staff",
+          "agent_name": "Sarah Chen",
+          "runs": "15",
+          "total_cost": 1.8052,
+          "avg_cost_per_run": 0.1203,
+          "model_used": null
+        },
+        {
+          "agent_id": "cpo",
+          "agent_name": "Elena Vasquez",
+          "runs": "15",
+          "total_cost": 1.696,
+          "avg_cost_per_run": 0.1131,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "cto",
+          "agent_name": "Marcus Reeves",
+          "runs": "12",
+          "total_cost": 1.6007,
+          "avg_cost_per_run": 0.1334,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "vp-design",
+          "agent_name": "Mia Tanaka",
+          "runs": "10",
+          "total_cost": 1.5821,
+          "avg_cost_per_run": 0.1582,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "vp-design",
+          "agent_name": "Mia Tanaka",
+          "runs": "28",
+          "total_cost": 1.5041,
+          "avg_cost_per_run": 0.0537,
+          "model_used": null
+        },
+        {
+          "agent_id": "clo",
+          "agent_name": "Victoria Chase",
+          "runs": "20",
+          "total_cost": 1.4424,
+          "avg_cost_per_run": 0.0721,
+          "model_used": null
+        },
+        {
+          "agent_id": "platform-intel",
+          "agent_name": "Nexus",
+          "runs": "59",
+          "total_cost": 1.3212,
+          "avg_cost_per_run": 0.0224,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "platform-intel",
+          "agent_name": "Nexus",
+          "runs": "14",
+          "total_cost": 1.2587,
+          "avg_cost_per_run": 0.0899,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "vp-design",
+          "agent_name": "Mia Tanaka",
+          "runs": "64",
+          "total_cost": 1.2563,
+          "avg_cost_per_run": 0.0196,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "devops-engineer",
+          "agent_name": "Jordan Hayes",
+          "runs": "2",
+          "total_cost": 1.1069,
+          "avg_cost_per_run": 0.5534,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "head-of-hr",
+          "agent_name": "Jasmine Rivera",
+          "runs": "13",
+          "total_cost": 0.8883,
+          "avg_cost_per_run": 0.0683,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "platform-intel",
+          "agent_name": "Nexus",
+          "runs": "7",
+          "total_cost": 0.7727,
+          "avg_cost_per_run": 0.1104,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "platform-engineer",
+          "agent_name": "Alex Park",
+          "runs": "59",
+          "total_cost": 0.6856,
+          "avg_cost_per_run": 0.0116,
+          "model_used": null
+        },
+        {
+          "agent_id": "cpo",
+          "agent_name": "Elena Vasquez",
+          "runs": "6",
+          "total_cost": 0.6725,
+          "avg_cost_per_run": 0.1121,
+          "model_used": null
+        },
+        {
+          "agent_id": "cpo",
+          "agent_name": "Elena Vasquez",
+          "runs": "22",
+          "total_cost": 0.6716,
+          "avg_cost_per_run": 0.0305,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "cto",
+          "agent_name": "Marcus Reeves",
+          "runs": "22",
+          "total_cost": 0.6657,
+          "avg_cost_per_run": 0.0303,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "content-creator",
+          "agent_name": "Tyler Reed",
+          "runs": "24",
+          "total_cost": 0.6499,
+          "avg_cost_per_run": 0.0271,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "ops",
+          "agent_name": "Atlas Vega",
+          "runs": "7",
+          "total_cost": 0.6437,
+          "avg_cost_per_run": 0.092,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "content-creator",
+          "agent_name": "Tyler Reed",
+          "runs": "6",
+          "total_cost": 0.632,
+          "avg_cost_per_run": 0.1053,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "social-media-manager",
+          "agent_name": "Kai Johnson",
+          "runs": "26",
+          "total_cost": 0.4733,
+          "avg_cost_per_run": 0.0182,
+          "model_used": null
+        },
+        {
+          "agent_id": "frontend-engineer",
+          "agent_name": "Ava Chen",
+          "runs": "26",
+          "total_cost": 0.4426,
+          "avg_cost_per_run": 0.017,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "head-of-hr",
+          "agent_name": "Jasmine Rivera",
+          "runs": "5",
+          "total_cost": 0.3863,
+          "avg_cost_per_run": 0.0773,
+          "model_used": null
+        },
+        {
+          "agent_id": "frontend-engineer",
+          "agent_name": "Ava Chen",
+          "runs": "2",
+          "total_cost": 0.3846,
+          "avg_cost_per_run": 0.1923,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "ops",
+          "agent_name": "Atlas Vega",
+          "runs": "63",
+          "total_cost": 0.3541,
+          "avg_cost_per_run": 0.0056,
+          "model_used": null
+        },
+        {
+          "agent_id": "content-creator",
+          "agent_name": "Tyler Reed",
+          "runs": "10",
+          "total_cost": 0.3519,
+          "avg_cost_per_run": 0.0352,
+          "model_used": null
+        },
+        {
+          "agent_id": "clo",
+          "agent_name": "Victoria Chase",
+          "runs": "1",
+          "total_cost": 0.2742,
+          "avg_cost_per_run": 0.2742,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "platform-engineer",
+          "agent_name": "Alex Park",
+          "runs": "3",
+          "total_cost": 0.2597,
+          "avg_cost_per_run": 0.0866,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "content-creator",
+          "agent_name": "Tyler Reed",
+          "runs": "3",
+          "total_cost": 0.2524,
+          "avg_cost_per_run": 0.0841,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "seo-analyst",
+          "agent_name": "Lisa Chen",
+          "runs": "4",
+          "total_cost": 0.2502,
+          "avg_cost_per_run": 0.0625,
+          "model_used": null
+        },
+        {
+          "agent_id": "quality-engineer",
+          "agent_name": "Sam DeLuca",
+          "runs": "3",
+          "total_cost": 0.2483,
+          "avg_cost_per_run": 0.0828,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "chief-of-staff",
+          "agent_name": "Sarah Chen",
+          "runs": "3",
+          "total_cost": 0.2235,
+          "avg_cost_per_run": 0.0745,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "platform-engineer",
+          "agent_name": "Alex Park",
+          "runs": "13",
+          "total_cost": 0.2166,
+          "avg_cost_per_run": 0.0167,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "design-critic",
+          "agent_name": "Sofia Marchetti",
+          "runs": "1",
+          "total_cost": 0.2123,
+          "avg_cost_per_run": 0.2123,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "global-admin",
+          "agent_name": "Morgan Blake",
+          "runs": "7",
+          "total_cost": 0.2121,
+          "avg_cost_per_run": 0.0303,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "design-critic",
+          "agent_name": "Sofia Marchetti",
+          "runs": "1",
+          "total_cost": 0.2035,
+          "avg_cost_per_run": 0.2035,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "frontend-engineer",
+          "agent_name": "Ava Chen",
+          "runs": "3",
+          "total_cost": 0.1852,
+          "avg_cost_per_run": 0.0617,
+          "model_used": null
+        },
+        {
+          "agent_id": "quality-engineer",
+          "agent_name": "Sam DeLuca",
+          "runs": "9",
+          "total_cost": 0.178,
+          "avg_cost_per_run": 0.0198,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "devops-engineer",
+          "agent_name": "Jordan Hayes",
+          "runs": "12",
+          "total_cost": 0.1689,
+          "avg_cost_per_run": 0.0141,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "social-media-manager",
+          "agent_name": "Kai Johnson",
+          "runs": "10",
+          "total_cost": 0.147,
+          "avg_cost_per_run": 0.0147,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "platform-intel",
+          "agent_name": "Nexus",
+          "runs": "2",
+          "total_cost": 0.1438,
+          "avg_cost_per_run": 0.0719,
+          "model_used": null
+        },
+        {
+          "agent_id": "template-architect",
+          "agent_name": "Ryan Park",
+          "runs": "6",
+          "total_cost": 0.1403,
+          "avg_cost_per_run": 0.0234,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "m365-admin",
+          "agent_name": "Riley Morgan",
+          "runs": "1",
+          "total_cost": 0.1299,
+          "avg_cost_per_run": 0.1299,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "ui-ux-designer",
+          "agent_name": "Leo Vargas",
+          "runs": "4",
+          "total_cost": 0.1202,
+          "avg_cost_per_run": 0.0301,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "ops",
+          "agent_name": "Atlas Vega",
+          "runs": "9",
+          "total_cost": 0.1197,
+          "avg_cost_per_run": 0.0133,
+          "model_used": "gemini-2.5-flash-lite"
+        },
+        {
+          "agent_id": "ui-ux-designer",
+          "agent_name": "Leo Vargas",
+          "runs": "2",
+          "total_cost": 0.1066,
+          "avg_cost_per_run": 0.0533,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "clo",
+          "agent_name": "Victoria Chase",
+          "runs": "4",
+          "total_cost": 0.1018,
+          "avg_cost_per_run": 0.0254,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "social-media-manager",
+          "agent_name": "Kai Johnson",
+          "runs": "1",
+          "total_cost": 0.1011,
+          "avg_cost_per_run": 0.1011,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "m365-admin",
+          "agent_name": "Riley Morgan",
+          "runs": "6",
+          "total_cost": 0.0901,
+          "avg_cost_per_run": 0.015,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "platform-engineer",
+          "agent_name": "Alex Park",
+          "runs": "1",
+          "total_cost": 0.09,
+          "avg_cost_per_run": 0.09,
+          "model_used": "gemini-3-flash-preview"
+        },
+        {
+          "agent_id": "template-architect",
+          "agent_name": "Ryan Park",
+          "runs": "1",
+          "total_cost": 0.0714,
+          "avg_cost_per_run": 0.0714,
+          "model_used": "gemini-2.5-pro"
+        },
+        {
+          "agent_id": "content-creator",
+          "agent_name": "Tyler Reed",
+          "runs": "7",
+          "total_cost": 0.0604,
+          "avg_cost_per_run": 0.0086,
+          "model_used": "gemini-2.5-flash-lite"
+        },
+        {
+          "agent_id": "m365-admin",
+          "agent_name": "Riley Morgan",
+          "runs": "2",
+          "total_cost": 0.0591,
+          "avg_cost_per_run": 0.0295,
+          "model_used": null
+        },
+        {
+          "agent_id": "ui-ux-designer",
+          "agent_name": "Leo Vargas",
+          "runs": "1",
+          "total_cost": 0.0549,
+          "avg_cost_per_run": 0.0549,
+          "model_used": null
+        },
+        {
+          "agent_id": "cpo",
+          "agent_name": "Elena Vasquez",
+          "runs": "1",
+          "total_cost": 0.0304,
+          "avg_cost_per_run": 0.0304,
+          "model_used": "gemini-2.5-flash"
+        },
+        {
+          "agent_id": "platform-intel",
+          "agent_name": "Nexus",
+          "runs": "3",
+          "total_cost": 0.027,
+          "avg_cost_per_run": 0.009,
+          "model_used": "gemini-2.5-flash-lite"
+        },
+        {
+          "agent_id": "global-admin",
+          "agent_name": "Morgan Blake",
+          "runs": "1",
+          "total_cost": 0.0247,
+          "avg_cost_per_run": 0.0247,
+          "model_used": null
+        },
+        {
+          "agent_id": "head-of-hr",
+          "agent_name": "Jasmine Rivera",
+          "runs": "2",
+          "total_cost": 0.0229,
+          "avg_cost_per_run": 0.0114,
+          "model_used": "gemini-2.5-flash-lite"
+        },
+        {
+          "agent_id": "design-critic",
+          "agent_name": "Sofia Marchetti",
+          "runs": "3",
+          "total_cost": 0.0219,
+          "avg_cost_per_run": 0.0073,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "seo-analyst",
+          "agent_name": "Lisa Chen",
+          "runs": "4",
+          "total_cost": 0.0109,
+          "avg_cost_per_run": 0.0027,
+          "model_used": "gemini-2.5-flash-lite"
+        },
+        {
+          "agent_id": "seo-analyst",
+          "agent_name": "Lisa Chen",
+          "runs": "1",
+          "total_cost": 0.0066,
+          "avg_cost_per_run": 0.0066,
+          "model_used": "gemini-3.1-flash-lite-preview"
+        },
+        {
+          "agent_id": "social-media-manager",
+          "agent_name": "Kai Johnson",
+          "runs": "6",
+          "total_cost": 0.006,
+          "avg_cost_per_run": 0.001,
+          "model_used": "gemini-2.5-flash-lite"
+        },
+        {
+          "agent_id": "m365-admin",
+          "agent_name": "Riley Morgan",
+          "runs": "1",
+          "total_cost": 0.0037,
+          "avg_cost_per_run": 0.0037,
+          "model_used": "gemini-2.5-flash-lite"
+        }
+      ],
+      "rowCount": 79
+    },
+    {
+      "title": "3. Tool call costs (30d, top 30)",
+      "rows": [],
+      "rowCount": 0
+    },
+    {
+      "title": "4. Agents vs models (7d, active roster)",
+      "rows": [
+        {
+          "role": "cfo",
+          "display_name": "Nadia Okafor",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": null,
+          "runs": "119"
+        },
+        {
+          "role": "cfo",
+          "display_name": "Nadia Okafor",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "26"
+        },
+        {
+          "role": "cfo",
+          "display_name": "Nadia Okafor",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "21"
+        },
+        {
+          "role": "chief-of-staff",
+          "display_name": "Sarah Chen",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "364"
+        },
+        {
+          "role": "chief-of-staff",
+          "display_name": "Sarah Chen",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "277"
+        },
+        {
+          "role": "chief-of-staff",
+          "display_name": "Sarah Chen",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "111"
+        },
+        {
+          "role": "chief-of-staff",
+          "display_name": "Sarah Chen",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "3"
+        },
+        {
+          "role": "clo",
+          "display_name": "Victoria Chase",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": null,
+          "runs": "71"
+        },
+        {
+          "role": "clo",
+          "display_name": "Victoria Chase",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "4"
+        },
+        {
+          "role": "clo",
+          "display_name": "Victoria Chase",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "1"
+        },
+        {
+          "role": "cmo",
+          "display_name": "Maya Brooks",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "141"
+        },
+        {
+          "role": "cmo",
+          "display_name": "Maya Brooks",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "59"
+        },
+        {
+          "role": "cmo",
+          "display_name": "Maya Brooks",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "19"
+        },
+        {
+          "role": "cmo",
+          "display_name": "Maya Brooks",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "18"
+        },
+        {
+          "role": "content-creator",
+          "display_name": "Tyler Reed",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "24"
+        },
+        {
+          "role": "content-creator",
+          "display_name": "Tyler Reed",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "23"
+        },
+        {
+          "role": "content-creator",
+          "display_name": "Tyler Reed",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-flash-lite",
+          "runs": "7"
+        },
+        {
+          "role": "content-creator",
+          "display_name": "Tyler Reed",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "6"
+        },
+        {
+          "role": "content-creator",
+          "display_name": "Tyler Reed",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "3"
+        },
+        {
+          "role": "cpo",
+          "display_name": "Elena Vasquez",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": null,
+          "runs": "35"
+        },
+        {
+          "role": "cpo",
+          "display_name": "Elena Vasquez",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "22"
+        },
+        {
+          "role": "cpo",
+          "display_name": "Elena Vasquez",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "15"
+        },
+        {
+          "role": "cpo",
+          "display_name": "Elena Vasquez",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "12"
+        },
+        {
+          "role": "cpo",
+          "display_name": "Elena Vasquez",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-2.5-flash",
+          "runs": "1"
+        },
+        {
+          "role": "cto",
+          "display_name": "Marcus Reeves",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": null,
+          "runs": "316"
+        },
+        {
+          "role": "cto",
+          "display_name": "Marcus Reeves",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "22"
+        },
+        {
+          "role": "cto",
+          "display_name": "Marcus Reeves",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "12"
+        },
+        {
+          "role": "cto",
+          "display_name": "Marcus Reeves",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "10"
+        },
+        {
+          "role": "design-critic",
+          "display_name": "Sofia Marchetti",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "12"
+        },
+        {
+          "role": "design-critic",
+          "display_name": "Sofia Marchetti",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "3"
+        },
+        {
+          "role": "design-critic",
+          "display_name": "Sofia Marchetti",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "1"
+        },
+        {
+          "role": "design-critic",
+          "display_name": "Sofia Marchetti",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "1"
+        },
+        {
+          "role": "devops-engineer",
+          "display_name": "Jordan Hayes",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "12"
+        },
+        {
+          "role": "devops-engineer",
+          "display_name": "Jordan Hayes",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "10"
+        },
+        {
+          "role": "devops-engineer",
+          "display_name": "Jordan Hayes",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "2"
+        },
+        {
+          "role": "frontend-engineer",
+          "display_name": "Ava Chen",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "33"
+        },
+        {
+          "role": "frontend-engineer",
+          "display_name": "Ava Chen",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "26"
+        },
+        {
+          "role": "frontend-engineer",
+          "display_name": "Ava Chen",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "14"
+        },
+        {
+          "role": "frontend-engineer",
+          "display_name": "Ava Chen",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "2"
+        },
+        {
+          "role": "global-admin",
+          "display_name": "Morgan Blake",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "10"
+        },
+        {
+          "role": "global-admin",
+          "display_name": "Morgan Blake",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "7"
+        },
+        {
+          "role": "m365-admin",
+          "display_name": "Riley Morgan",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "13"
+        },
+        {
+          "role": "m365-admin",
+          "display_name": "Riley Morgan",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "6"
+        },
+        {
+          "role": "m365-admin",
+          "display_name": "Riley Morgan",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "1"
+        },
+        {
+          "role": "m365-admin",
+          "display_name": "Riley Morgan",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-flash-lite",
+          "runs": "1"
+        },
+        {
+          "role": "marketing-intelligence-analyst",
+          "display_name": "Zara Petrov",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "3"
+        },
+        {
+          "role": "ops",
+          "display_name": "Atlas Vega",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": null,
+          "runs": "351"
+        },
+        {
+          "role": "ops",
+          "display_name": "Atlas Vega",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "72"
+        },
+        {
+          "role": "ops",
+          "display_name": "Atlas Vega",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "18"
+        },
+        {
+          "role": "ops",
+          "display_name": "Atlas Vega",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-2.5-flash-lite",
+          "runs": "9"
+        },
+        {
+          "role": "ops",
+          "display_name": "Atlas Vega",
+          "configured_model": "gpt-5-mini-2025-08-07",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "7"
+        },
+        {
+          "role": "platform-engineer",
+          "display_name": "Alex Park",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "94"
+        },
+        {
+          "role": "platform-engineer",
+          "display_name": "Alex Park",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "13"
+        },
+        {
+          "role": "platform-engineer",
+          "display_name": "Alex Park",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "3"
+        },
+        {
+          "role": "platform-engineer",
+          "display_name": "Alex Park",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "1"
+        },
+        {
+          "role": "platform-intel",
+          "display_name": "Nexus",
+          "configured_model": "claude-opus-4-6",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "59"
+        },
+        {
+          "role": "platform-intel",
+          "display_name": "Nexus",
+          "configured_model": "claude-opus-4-6",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "14"
+        },
+        {
+          "role": "platform-intel",
+          "display_name": "Nexus",
+          "configured_model": "claude-opus-4-6",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "7"
+        },
+        {
+          "role": "platform-intel",
+          "display_name": "Nexus",
+          "configured_model": "claude-opus-4-6",
+          "actual_model_used": null,
+          "runs": "5"
+        },
+        {
+          "role": "platform-intel",
+          "display_name": "Nexus",
+          "configured_model": "claude-opus-4-6",
+          "actual_model_used": "gemini-2.5-flash-lite",
+          "runs": "3"
+        },
+        {
+          "role": "quality-engineer",
+          "display_name": "Sam DeLuca",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "10"
+        },
+        {
+          "role": "quality-engineer",
+          "display_name": "Sam DeLuca",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "9"
+        },
+        {
+          "role": "quality-engineer",
+          "display_name": "Sam DeLuca",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "3"
+        },
+        {
+          "role": "seo-analyst",
+          "display_name": "Lisa Chen",
+          "configured_model": "gemini-2.5-flash-lite",
+          "actual_model_used": null,
+          "runs": "14"
+        },
+        {
+          "role": "seo-analyst",
+          "display_name": "Lisa Chen",
+          "configured_model": "gemini-2.5-flash-lite",
+          "actual_model_used": "gemini-2.5-flash-lite",
+          "runs": "4"
+        },
+        {
+          "role": "seo-analyst",
+          "display_name": "Lisa Chen",
+          "configured_model": "gemini-2.5-flash-lite",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "1"
+        },
+        {
+          "role": "social-media-manager",
+          "display_name": "Kai Johnson",
+          "configured_model": "gemini-2.5-flash-lite",
+          "actual_model_used": null,
+          "runs": "35"
+        },
+        {
+          "role": "social-media-manager",
+          "display_name": "Kai Johnson",
+          "configured_model": "gemini-2.5-flash-lite",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "10"
+        },
+        {
+          "role": "social-media-manager",
+          "display_name": "Kai Johnson",
+          "configured_model": "gemini-2.5-flash-lite",
+          "actual_model_used": "gemini-2.5-flash-lite",
+          "runs": "6"
+        },
+        {
+          "role": "social-media-manager",
+          "display_name": "Kai Johnson",
+          "configured_model": "gemini-2.5-flash-lite",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "1"
+        },
+        {
+          "role": "template-architect",
+          "display_name": "Ryan Park",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "9"
+        },
+        {
+          "role": "template-architect",
+          "display_name": "Ryan Park",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "6"
+        },
+        {
+          "role": "template-architect",
+          "display_name": "Ryan Park",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "1"
+        },
+        {
+          "role": "ui-ux-designer",
+          "display_name": "Leo Vargas",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "10"
+        },
+        {
+          "role": "ui-ux-designer",
+          "display_name": "Leo Vargas",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "4"
+        },
+        {
+          "role": "ui-ux-designer",
+          "display_name": "Leo Vargas",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "2"
+        },
+        {
+          "role": "vp-design",
+          "display_name": "Mia Tanaka",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": null,
+          "runs": "65"
+        },
+        {
+          "role": "vp-design",
+          "display_name": "Mia Tanaka",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3.1-flash-lite-preview",
+          "runs": "64"
+        },
+        {
+          "role": "vp-design",
+          "display_name": "Mia Tanaka",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-2.5-pro",
+          "runs": "24"
+        },
+        {
+          "role": "vp-design",
+          "display_name": "Mia Tanaka",
+          "configured_model": "gemini-3.1-flash-lite-preview",
+          "actual_model_used": "gemini-3-flash-preview",
+          "runs": "10"
+        }
+      ],
+      "rowCount": 80
+    },
+    {
+      "title": "5. Web search family tools (30d)",
+      "rows": [],
+      "rowCount": 0
+    },
+    {
+      "title": "6. ai_usage_log (30d, top 30) — table may be absent",
+      "error": "relation \"ai_usage_log\" does not exist",
+      "rows": [],
+      "rowCount": 0
+    }
+  ]
+}
