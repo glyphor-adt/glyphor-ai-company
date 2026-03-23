@@ -11,7 +11,7 @@ import { systemQuery } from '@glyphor/shared/db';
 import {
   queryCloudRunMetrics, pingServices,
   listOpenPRs, getRepoStats, listRecentCommits, type GlyphorRepo,
-  listCloudBuilds, getCloudBuildDetails,
+  listCloudBuilds, getCloudBuildDetails, resolveGcpProjectIdForCloudBuild,
   createIssueForCopilot,
 } from '@glyphor/integrations';
 
@@ -200,8 +200,10 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
         status: { type: 'string', description: 'Filter: SUCCESS, FAILURE, WORKING, QUEUED', required: false },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const projectId = process.env.GCP_PROJECT_ID;
-        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        const projectId = resolveGcpProjectIdForCloudBuild();
+        if (!projectId) {
+          return { success: false, error: 'No GCP project id (set GCP_PROJECT_ID or GOOGLE_CLOUD_PROJECT)' };
+        }
         try {
           const builds = await listCloudBuilds(projectId, (params.limit as number) || 10, params.status as string | undefined);
           const failed = builds.filter((b) => b.status === 'FAILURE');
@@ -219,8 +221,10 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
         build_id: { type: 'string', description: 'Cloud Build ID', required: true },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const projectId = process.env.GCP_PROJECT_ID;
-        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        const projectId = resolveGcpProjectIdForCloudBuild();
+        if (!projectId) {
+          return { success: false, error: 'No GCP project id (set GCP_PROJECT_ID or GOOGLE_CLOUD_PROJECT)' };
+        }
         try {
           const details = await getCloudBuildDetails(projectId, params.build_id as string);
           return { success: true, data: details };

@@ -20,6 +20,7 @@
     "db:reconcile-ledger": "tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/reconcile-migration-ledger.ts",
     "db:apply-migration": "tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/apply-migration.ts",
     "db:apply-pending": "tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/apply-pending-migrations.ts",
+    "db:pool-activity": "tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/db-pool-activity.ts",
     "skills:it:generate-migration": "tsx scripts/generate-it-skill-migration.ts",
     "skills:test": "tsx scripts/test-skills.ts",
     "skills:canary-report": "tsx scripts/skill-canary-report.ts",

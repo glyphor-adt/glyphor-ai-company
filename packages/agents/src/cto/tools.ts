@@ -28,6 +28,7 @@ import {
   type GlyphorRepo,
   listCloudBuilds,
   getCloudBuildDetails,
+  resolveGcpProjectIdForCloudBuild,
   GraphTeamsClient,
   buildChannelMap,
   postTextToChannel,
@@ -449,16 +450,19 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const projectId = process.env.GCP_PROJECT_ID;
+        const projectId = resolveGcpProjectIdForCloudBuild();
         if (!projectId) {
-          return { success: false, error: 'GCP_PROJECT_ID not configured' };
+          return {
+            success: false,
+            error:
+              'Cloud Build listBuilds skipped: no GCP project id. Set GCP_PROJECT_ID (or GOOGLE_CLOUD_PROJECT / GCLOUD_PROJECT). ' +
+              'API would be: CloudBuildClient.listBuilds({ projectId, pageSize, filter? })',
+          };
         }
+        const limit = (params.limit as number) || 10;
+        const statusFilter = params.status as string | undefined;
         try {
-          const builds = await listCloudBuilds(
-            projectId,
-            (params.limit as number) || 10,
-            params.status as string | undefined,
-          );
+          const builds = await listCloudBuilds(projectId, limit, statusFilter);
           const failed = builds.filter((b) => b.status === 'FAILURE' || b.status === 'TIMEOUT');
           return {
             success: true,
@@ -469,7 +473,11 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
             },
           };
         } catch (err) {
-          return { success: false, error: (err as Error).message };
+          const msg = (err as Error).message;
+          return {
+            success: false,
+            error: `${msg} | API: listBuilds({ projectId: "${projectId}", pageSize: ${Math.min(100, Math.max(1, limit))}, filter: ${statusFilter ? `"status=\\"${statusFilter}\\""` : 'none'} })`,
+          };
         }
       },
     },
@@ -485,15 +493,25 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const projectId = process.env.GCP_PROJECT_ID;
+        const projectId = resolveGcpProjectIdForCloudBuild();
+        const buildId = params.build_id as string;
         if (!projectId) {
-          return { success: false, error: 'GCP_PROJECT_ID not configured' };
+          return {
+            success: false,
+            error:
+              'Cloud Build getBuild skipped: no GCP project id. Set GCP_PROJECT_ID (or GOOGLE_CLOUD_PROJECT / GCLOUD_PROJECT). ' +
+              `API would be: getBuild({ name: "projects/{project}/locations/-/builds/${buildId}" })`,
+          };
         }
         try {
-          const details = await getCloudBuildDetails(projectId, params.build_id as string);
+          const details = await getCloudBuildDetails(projectId, buildId);
           return { success: true, data: details };
         } catch (err) {
-          return { success: false, error: (err as Error).message };
+          const msg = (err as Error).message;
+          return {
+            success: false,
+            error: `${msg} | API: getBuild({ name: "projects/${projectId}/locations/-/builds/${buildId}" })`,
+          };
         }
       },
     },

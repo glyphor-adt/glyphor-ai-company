@@ -103,6 +103,7 @@ export function createCostManagementTools(): ToolDefinition[] {
         const days = params.date_range === '7d' ? 7 : params.date_range === '30d' ? 30 : 90;
 
         try {
+          // cost_metrics uses unit_type (not model) — see db/migrations cost_metrics
           const byModel = await systemQuery<{
             model: string;
             total_cost: number;
@@ -113,7 +114,7 @@ export function createCostManagementTools(): ToolDefinition[] {
                     COUNT(*) AS run_count
              FROM cost_metrics
              WHERE recorded_at >= NOW() - INTERVAL '${days} days'
-             GROUP BY unit_type
+             GROUP BY COALESCE(unit_type, 'unknown')
              ORDER BY total_cost DESC`,
           );
 

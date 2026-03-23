@@ -614,23 +614,27 @@ export function createEngineeringGapTools(): ToolDefinition[] {
         const provider = (params.provider as string) || 'all';
 
         try {
+          // data_sync_status: id, last_success_at, last_failure_at, status, updated_at (no sync_name / last_run)
           let syncQuery = `
-            SELECT sync_name, status, last_success, last_failure, last_run
+            SELECT id AS sync_name, status,
+                   last_success_at AS last_success,
+                   last_failure_at AS last_failure,
+                   updated_at AS last_run
             FROM data_sync_status`;
           const syncParams: unknown[] = [];
 
           if (provider !== 'all') {
-            syncQuery += ` WHERE sync_name ILIKE $1`;
+            syncQuery += ` WHERE id ILIKE $1`;
             syncParams.push(`%${provider}%`);
           }
-          syncQuery += ` ORDER BY sync_name`;
+          syncQuery += ` ORDER BY id`;
 
           const syncs = await systemQuery<{
             sync_name: string;
             status: string;
-            last_success: string;
-            last_failure: string;
-            last_run: string;
+            last_success: string | null;
+            last_failure: string | null;
+            last_run: string | null;
           }>(syncQuery, syncParams);
 
           let infraQuery = `

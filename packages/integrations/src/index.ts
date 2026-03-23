@@ -103,6 +103,8 @@ export {
   pingServices,
   listCloudBuilds,
   getCloudBuildDetails,
+  resolveGcpProjectIdForCloudBuild,
+  normalizeCloudBuildId,
   type CloudRunMetrics,
   type DailyCost,
   type ServiceHealth,

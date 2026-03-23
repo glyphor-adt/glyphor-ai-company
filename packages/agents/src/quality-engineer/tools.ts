@@ -7,7 +7,7 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import {
-  listCloudBuilds, getCloudBuildDetails,
+  listCloudBuilds, getCloudBuildDetails, resolveGcpProjectIdForCloudBuild,
   listWorkflowRuns, createIssueForCopilot, type GlyphorRepo,
   submitPRReview, getPRDiff, createCheckRun, listOpenPRs,
   type ReviewEvent,
@@ -28,7 +28,7 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
         const results: Record<string, unknown> = {};
 
         if (source === 'cloud_build' || source === 'all') {
-          const projectId = process.env.GCP_PROJECT_ID;
+          const projectId = resolveGcpProjectIdForCloudBuild();
           if (projectId) {
             try {
               const builds = await listCloudBuilds(projectId, limit);
@@ -56,8 +56,10 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
         limit: { type: 'number', description: 'Number of recent failed builds to analyze (default: 5)', required: false },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const projectId = process.env.GCP_PROJECT_ID;
-        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        const projectId = resolveGcpProjectIdForCloudBuild();
+        if (!projectId) {
+          return { success: false, error: 'No GCP project id (set GCP_PROJECT_ID or GOOGLE_CLOUD_PROJECT)' };
+        }
         try {
           const builds = await listCloudBuilds(projectId, 20, 'FAILURE');
           const toAnalyze = builds.slice(0, (params.limit as number) || 5);
@@ -165,8 +167,10 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
         status: { type: 'string', description: 'Filter: SUCCESS, FAILURE, WORKING, QUEUED', required: false },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const projectId = process.env.GCP_PROJECT_ID;
-        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        const projectId = resolveGcpProjectIdForCloudBuild();
+        if (!projectId) {
+          return { success: false, error: 'No GCP project id (set GCP_PROJECT_ID or GOOGLE_CLOUD_PROJECT)' };
+        }
         try {
           const builds = await listCloudBuilds(projectId, (params.limit as number) || 10, params.status as string | undefined);
           const failed = builds.filter((b) => b.status === 'FAILURE');
@@ -184,8 +188,10 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
         build_id: { type: 'string', description: 'Cloud Build ID', required: true },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const projectId = process.env.GCP_PROJECT_ID;
-        if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
+        const projectId = resolveGcpProjectIdForCloudBuild();
+        if (!projectId) {
+          return { success: false, error: 'No GCP project id (set GCP_PROJECT_ID or GOOGLE_CLOUD_PROJECT)' };
+        }
         try {
           const details = await getCloudBuildDetails(projectId, params.build_id as string);
           return { success: true, data: details };

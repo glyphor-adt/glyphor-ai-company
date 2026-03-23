@@ -155,21 +155,26 @@ export function createOpsExtensionTools(): ToolDefinition[] {
     {
       name: 'get_data_freshness',
       description:
-        'Check data sync staleness. Returns each sync name, last success time, last failure time, ' +
+        'Check data sync staleness. Returns each sync id (stripe, mercury, gcp-billing, …), last success time, last failure time, ' +
         'and data age from the data_sync_status table.',
       parameters: {},
       execute: async (): Promise<ToolResult> => {
         try {
+          // Schema: data_sync_status(id, last_success_at, last_failure_at, last_error, status, updated_at, …)
           const syncs = await systemQuery<{
             sync_name: string;
-            last_success: string;
-            last_failure: string;
-            last_run: string;
+            last_success: string | null;
+            last_failure: string | null;
+            last_run: string | null;
             status: string;
           }>(
-            `SELECT sync_name, last_success, last_failure, last_run, status
+            `SELECT id AS sync_name,
+                    last_success_at AS last_success,
+                    last_failure_at AS last_failure,
+                    updated_at AS last_run,
+                    status
              FROM data_sync_status
-             ORDER BY last_run DESC`,
+             ORDER BY updated_at DESC NULLS LAST`,
           );
 
           const now = new Date();
@@ -286,10 +291,14 @@ export function createOpsExtensionTools(): ToolDefinition[] {
              WHERE started_at >= NOW() - INTERVAL '${lookbackHours} hours'`,
           );
 
-          const syncStatus = await systemQuery<{ sync_name: string; status: string; last_success: string }>(
-            `SELECT sync_name, status, last_success
+          const syncStatus = await systemQuery<{
+            sync_name: string;
+            status: string;
+            last_success: string | null;
+          }>(
+            `SELECT id AS sync_name, status, last_success_at AS last_success
              FROM data_sync_status
-             ORDER BY last_run DESC`,
+             ORDER BY updated_at DESC NULLS LAST`,
           );
 
           const recentEvents = await systemQuery<{ event_type: string; event_count: number }>(

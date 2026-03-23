@@ -11,11 +11,47 @@ function firstDefined(...values: Array<string | undefined>): string | undefined 
   return undefined;
 }
 
+/**
+ * Pool defaults tuned for Cloud Run (scheduler/worker share this package).
+ * Cloud SQL `max_connections` is 200 (see infra/terraform/main.tf). Each Cloud Run
+ * instance is one process = one pool; Tier2 tool health runs batches of 5 concurrent
+ * tools, each may hold 1+ DB clients briefly — a low max causes
+ * "timeout exceeded when trying to connect" under burst load.
+ *
+ * Override: PG_POOL_MAX (1–100), PG_POOL_CONNECTION_TIMEOUT_MS, PG_POOL_IDLE_TIMEOUT_MS
+ */
 function basePoolConfig(): Pick<PoolConfig, 'max' | 'idleTimeoutMillis' | 'connectionTimeoutMillis'> {
+  const maxRaw = process.env.PG_POOL_MAX?.trim();
+  let max = 32;
+  if (maxRaw) {
+    const n = parseInt(maxRaw, 10);
+    if (Number.isFinite(n)) {
+      max = Math.min(100, Math.max(1, n));
+    }
+  }
+
+  const connTimeoutRaw = process.env.PG_POOL_CONNECTION_TIMEOUT_MS?.trim();
+  let connectionTimeoutMillis = 10_000;
+  if (connTimeoutRaw) {
+    const n = parseInt(connTimeoutRaw, 10);
+    if (Number.isFinite(n) && n >= 1000 && n <= 120_000) {
+      connectionTimeoutMillis = n;
+    }
+  }
+
+  const idleRaw = process.env.PG_POOL_IDLE_TIMEOUT_MS?.trim();
+  let idleTimeoutMillis = 30_000;
+  if (idleRaw) {
+    const n = parseInt(idleRaw, 10);
+    if (Number.isFinite(n) && n >= 1000 && n <= 600_000) {
+      idleTimeoutMillis = n;
+    }
+  }
+
   return {
-    max: 20,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000,
+    max,
+    idleTimeoutMillis,
+    connectionTimeoutMillis,
   };
 }
 

@@ -121,7 +121,9 @@ export function createPlatformIntelTools(): ToolDefinition[] {
 
     {
       name: 'read_fleet_health',
-      description: 'Read full fleet health for all agents or a specific agent. Returns performance scores, open findings, prompt version, last run, eval component breakdown.',
+      description:
+        'Read full fleet health for all agents or a specific agent. Returns performance scores, open findings, prompt version, last run, eval component breakdown. ' +
+        'Uses company_agents.role as the canonical id (matches agent_runs.agent_id, fleet_findings.agent_id, work_assignments.assigned_to).',
       parameters: {
         agent_id: { type: 'string', description: 'Specific agent ID. Omit for full fleet.', required: false },
         include_score_components: { type: 'boolean', description: 'Include breakdown of score components', required: false },
@@ -142,7 +144,8 @@ export function createPlatformIntelTools(): ToolDefinition[] {
                   MAX(ar.created_at) AS last_run_at,
                   AVG(CASE WHEN ar.status='completed' THEN 1.0 ELSE 0.0 END) AS success_rate
            FROM company_agents a
-           LEFT JOIN agent_prompt_versions apv ON apv.agent_id = a.role AND apv.deployed_at IS NOT NULL AND apv.retired_at IS NULL
+           LEFT JOIN agent_prompt_versions apv ON apv.agent_id = a.role
+             AND apv.deployed_at IS NOT NULL AND apv.retired_at IS NULL
            LEFT JOIN fleet_findings ff ON ff.agent_id = a.role
            LEFT JOIN agent_runs ar ON ar.agent_id = a.role AND ar.created_at > NOW() - INTERVAL '30 days'
            ${filter}
@@ -1072,7 +1075,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
                   (SELECT MAX(ar.created_at) FROM agent_runs ar WHERE ar.agent_id = a.role) AS last_run_at,
                   (SELECT status FROM agent_runs ar WHERE ar.agent_id = a.role ORDER BY created_at DESC LIMIT 1) AS last_run_status
            FROM company_agents a
-           WHERE a.role = $1 OR a.id::text = $1
+           WHERE a.role = $1::text OR a.id::text = $1::text
            LIMIT 1`,
           [agentId],
         );
