@@ -164,8 +164,12 @@ async function evaluateAgent(agentId: string): Promise<AgentGateResult> {
         COUNT(DISTINCT wa.id) AS eval_run_count,
         AVG(ae_exec.score_normalized) AS exec_quality,
         AVG(ae_team.score_normalized) AS team_quality,
-        (SELECT AVG(CASE WHEN status = 'completed' THEN 1.0 ELSE 0.0 END)
-         FROM agent_runs WHERE agent_id = $1 AND created_at > NOW() - INTERVAL '60 days') AS success_rate,
+        (SELECT
+          ROUND(COUNT(DISTINCT wa2.id) FILTER (WHERE wa2.status = 'completed')::numeric /
+            NULLIF(COUNT(DISTINCT wa2.id), 0), 4)
+         FROM work_assignments wa2
+         WHERE wa2.assigned_to = $1
+         AND wa2.created_at > NOW() - INTERVAL '60 days') AS success_rate,
         AVG(ae_con.score_normalized) AS constitutional_score,
         AVG(ae_tool.score_normalized) AS tool_accuracy,
         COUNT(ae_con.id) FILTER (

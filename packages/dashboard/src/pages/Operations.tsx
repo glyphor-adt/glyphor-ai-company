@@ -116,6 +116,14 @@ interface RecentRunRow {
   started_at: string;
 }
 
+interface AgentWorkSignalRow {
+  agent_role: string;
+  total_assignments: number;
+  completed_assignments: number;
+  completion_rate: number | null;
+  avg_external_quality: number | null;
+}
+
 interface AgentHealthMetrics {
   successRate: number | null;
   avgDuration: number | null;
@@ -123,6 +131,10 @@ interface AgentHealthMetrics {
   qualityScore: number | null;
   totalRuns: number;
   composite: number;
+  /** work_assignments in API window (default 60d), same basis as GTM success_rate */
+  assignmentTotal: number;
+  assignmentCompleted: number;
+  assignmentCompletionRate: number | null;
 }
 
 function useAgentRuns() {
@@ -180,6 +192,35 @@ function useReflections(days = 14) {
   return { data, loading, error };
 }
 
+/** Assignment completion (default 60d) + external eval quality (default 14d) — aligns Health Matrix with GTM signals */
+function useAgentWorkSignals(assignmentsDays = 60, evalDays = 14) {
+  const [data, setData] = useState<AgentWorkSignalRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const rows = await apiCall<AgentWorkSignalRow[]>(
+        `/api/ops/agent-work-signals?assignments_days=${assignmentsDays}&eval_days=${evalDays}`,
+      );
+      setData(rows ?? []);
+      setError(null);
+    } catch (e) {
+      setData([]);
+      setError(e instanceof Error ? e.message : String(e));
+    }
+    setLoading(false);
+  }, [assignmentsDays, evalDays]);
+
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  return { data, loading, error };
+}
+
 function useRecentRuns(hours = 48) {
   const [data, setData] = useState<RecentRunRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,7 +251,7 @@ function useRecentRuns(hours = 48) {
 function computeHealthMap(
   agents: AgentRow[],
   recentRuns: RecentRunRow[],
-  reflections: ReflectionRow[],
+  workSignalsByRole: Map<string, AgentWorkSignalRow>,
 ): Map<string, AgentHealthMetrics> {
   const map = new Map<string, AgentHealthMetrics>();
 
@@ -219,13 +260,6 @@ function computeHealthMap(
     const arr = byAgent.get(run.agent_id) ?? [];
     arr.push(run);
     byAgent.set(run.agent_id, arr);
-  }
-
-  const reflByAgent = new Map<string, number[]>();
-  for (const r of reflections) {
-    const arr = reflByAgent.get(r.agent_role) ?? [];
-    arr.push(r.quality_score);
-    reflByAgent.set(r.agent_role, arr);
   }
 
   for (const agent of agents) {
@@ -238,21 +272,31 @@ function computeHealthMap(
       ? durations.reduce((a, b) => a + b, 0) / durations.length
       : null;
 
-    const qualityScores = reflByAgent.get(agent.role) ?? [];
-    const avgQuality = qualityScores.length > 0
-      ? qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length
-      : null;
+    const signal = workSignalsByRole.get(agent.role);
+    const assignmentTotal = signal?.total_assignments ?? 0;
+    const assignmentCompleted = signal?.completed_assignments ?? 0;
+    const assignmentCompletionRate =
+      assignmentTotal > 0 && signal?.completion_rate != null ? signal.completion_rate : null;
+
+    const avgQuality = signal?.avg_external_quality ?? null;
 
     const successRate = total > 0 ? successes / total : null;
     const perfScore = agent.performance_score ?? 0;
 
+    const successForComposite =
+      assignmentTotal > 0 && assignmentCompletionRate != null
+        ? assignmentCompletionRate
+        : successRate;
+
     // Composite health: weighted average of available signals
     let composite = perfScore;
-    if (total > 0) {
+    const hasRunSignal = total > 0;
+    const hasAssignmentSignal = assignmentTotal > 0;
+    if (hasRunSignal || hasAssignmentSignal) {
       let weight = 0;
       let score = 0;
 
-      if (successRate !== null) { score += successRate * 0.4; weight += 0.4; }
+      if (successForComposite !== null) { score += successForComposite * 0.4; weight += 0.4; }
       if (avgQuality !== null) { score += (avgQuality / 100) * 0.25; weight += 0.25; }
       score += perfScore * 0.2; weight += 0.2;
 
@@ -271,6 +315,9 @@ function computeHealthMap(
       qualityScore: avgQuality,
       totalRuns: total,
       composite,
+      assignmentTotal,
+      assignmentCompleted,
+      assignmentCompletionRate,
     });
   }
 
@@ -641,6 +688,7 @@ export default function Operations() {
 function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusId: string | null }) {
   const { data: agents, loading: agentsLoading, refresh: refreshAgents, error: agentsError } = useAgentRuns();
   const { data: reflections, loading: reflectionsLoading, error: reflectionsError } = useReflections(14);
+  const { data: workSignals, loading: workSignalsLoading, error: workSignalsError } = useAgentWorkSignals(60, 14);
   const { data: recentRuns, loading: recentRunsLoading, error: recentRunsError } = useRecentRuns(48);
   const { data: syncs, loading: syncsLoading } = useDataSyncs();
   const { data: incidents, loading: incidentsLoading, resolveIncident } = useIncidents();
@@ -650,7 +698,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
   const { data: consolidationActivity, loading: consolidationLoading } = useConsolidationActivity(30);
   const { workflows, metrics: wfMetrics, loading: wfLoading, refresh: refreshWorkflows, error: wfError } = useWorkflows();
 
-  const loading = agentsLoading || reflectionsLoading || recentRunsLoading;
+  const loading = agentsLoading || reflectionsLoading || workSignalsLoading || recentRunsLoading;
   const lastRefresh = useRef(new Date());
   const didAutoFocusRef = useRef(false);
   const dataSyncRef = useRef<HTMLDivElement>(null);
@@ -666,15 +714,24 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
     [agents],
   );
 
+  const workSignalsByRole = useMemo(() => {
+    const m = new Map<string, AgentWorkSignalRow>();
+    for (const row of workSignals) {
+      m.set(row.agent_role, row);
+    }
+    return m;
+  }, [workSignals]);
+
   const healthMap = useMemo(
-    () => computeHealthMap(rosterAgents, recentRuns, reflections),
-    [rosterAgents, recentRuns, reflections],
+    () => computeHealthMap(rosterAgents, recentRuns, workSignalsByRole),
+    [rosterAgents, recentRuns, workSignalsByRole],
   );
 
   const dataLoadErrors = useMemo(() => {
     const raw = [
       agentsError ? { label: 'Company agents', message: agentsError } : null,
       reflectionsError ? { label: 'Reflections', message: reflectionsError } : null,
+      workSignalsError ? { label: 'Work signals (assignments / evals)', message: workSignalsError } : null,
       recentRunsError ? { label: 'Recent runs', message: recentRunsError } : null,
       wfError ? { label: 'Workflows (scheduler)', message: wfError } : null,
     ].filter((x): x is { label: string; message: string } => x != null);
@@ -688,7 +745,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
       label: labels.join(' · '),
       message,
     }));
-  }, [agentsError, reflectionsError, recentRunsError, wfError]);
+  }, [agentsError, reflectionsError, workSignalsError, recentRunsError, wfError]);
 
   // One row per person / chart label (duplicate roles & aliases merged)
   const chartAgentRows = useMemo(() => aggregateAgentChartRows(rosterAgents), [rosterAgents]);
@@ -1070,7 +1127,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
       <Card>
         <SectionHeader
           title="Agent Health Matrix"
-          subtitle="Composite score: 40% success rate + 25% quality + 20% performance + 15% recency · Retired, inactive, or deleted agents are hidden"
+          subtitle="Composite: 40% success (60d assignment completion when present, else 48h run rate) + 25% external eval quality (exec/team/cos, 14d) + 20% performance + 15% recency · Retired, inactive, or deleted agents are hidden"
         />
         {loading ? (
           <Skeleton className="h-40" />
@@ -1152,6 +1209,26 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
                         </span>
                       ) : (
                         <span className="text-txt-faint">{h?.totalRuns ?? 0} runs</span>
+                      )}
+                    </div>
+
+                    {/* Metrics row 3: assignment completion (60d, same basis as GTM success_rate) */}
+                    <div className="text-[10px] leading-tight text-txt-muted">
+                      {h != null && h.assignmentTotal > 0 ? (
+                        <span
+                          className={
+                            (h.assignmentCompletionRate ?? 0) < 0.5
+                              ? 'font-medium text-prism-critical'
+                              : (h.assignmentCompletionRate ?? 0) < 0.8
+                                ? 'font-medium text-tier-yellow'
+                                : 'text-tier-green'
+                          }
+                        >
+                          Assignments: {h.assignmentCompleted}/{h.assignmentTotal} (
+                          {Math.round((h.assignmentCompletionRate ?? 0) * 100)}%)
+                        </span>
+                      ) : (
+                        <span className="text-txt-faint">Assignments: — (60d)</span>
                       )}
                     </div>
 

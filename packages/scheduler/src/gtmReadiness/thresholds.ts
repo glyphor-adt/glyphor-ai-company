@@ -2,7 +2,7 @@ export const GTM_THRESHOLDS = {
   // Core performance
   performance_score_min: 0.65,          // composite must clear this
   output_quality_min: 0.70,             // exec+team avg normalized
-  success_rate_min: 0.85,               // completed runs / total runs
+  success_rate_min: 0.85,               // completed assignments / total assignments (60d)
   constitutional_min: 0.75,             // constitutional compliance
   tool_accuracy_min: 0.70,              // tool selection accuracy
 

@@ -287,6 +287,75 @@ function jsonResponse(res: ServerResponse, status: number, data: unknown) {
   res.end(JSON.stringify(data));
 }
 
+/** GET /api/ops/agent-work-signals — assignment completion + external eval quality per roster agent */
+async function handleAgentWorkSignals(
+  res: ServerResponse,
+  queryString: string,
+): Promise<void> {
+  const params = new URLSearchParams(queryString ?? '');
+  const assignmentDays = Math.min(366, Math.max(1, parseInt(params.get('assignments_days') ?? '60', 10) || 60));
+  const evalDays = Math.min(366, Math.max(1, parseInt(params.get('eval_days') ?? '14', 10) || 14));
+
+  const rows = await systemQuery<{
+    agent_role: string;
+    total_assignments: string | number;
+    completed_assignments: string | number;
+    completion_rate: string | number | null;
+    avg_external_quality: string | number | null;
+  }>(
+    `
+    WITH roles AS (
+      SELECT role FROM company_agents
+      WHERE COALESCE(NULLIF(TRIM(LOWER(status)), ''), 'active') NOT IN ('retired', 'inactive', 'deleted')
+    ),
+    wa_agg AS (
+      SELECT
+        assigned_to,
+        COUNT(DISTINCT id)::int AS total_assignments,
+        COUNT(DISTINCT id) FILTER (WHERE status = 'completed')::int AS completed_assignments,
+        ROUND(
+          COUNT(DISTINCT id) FILTER (WHERE status = 'completed')::numeric / NULLIF(COUNT(DISTINCT id), 0),
+          4
+        ) AS completion_rate
+      FROM work_assignments
+      WHERE created_at > NOW() - ($1::int * INTERVAL '1 day')
+      GROUP BY assigned_to
+    ),
+    ae_agg AS (
+      SELECT
+        wa.assigned_to,
+        ROUND((AVG(ae.score_normalized) * 100)::numeric, 2) AS avg_external_quality
+      FROM assignment_evaluations ae
+      INNER JOIN work_assignments wa ON wa.id = ae.assignment_id
+      WHERE ae.evaluator_type IN ('executive', 'team', 'cos')
+        AND ae.evaluated_at > NOW() - ($2::int * INTERVAL '1 day')
+      GROUP BY wa.assigned_to
+    )
+    SELECT
+      r.role AS agent_role,
+      COALESCE(w.total_assignments, 0) AS total_assignments,
+      COALESCE(w.completed_assignments, 0) AS completed_assignments,
+      w.completion_rate,
+      a.avg_external_quality
+    FROM roles r
+    LEFT JOIN wa_agg w ON w.assigned_to = r.role
+    LEFT JOIN ae_agg a ON a.assigned_to = r.role
+    ORDER BY r.role
+    `,
+    [assignmentDays, evalDays],
+  );
+
+  const normalized = rows.map((row) => ({
+    agent_role: row.agent_role,
+    total_assignments: Number(row.total_assignments ?? 0),
+    completed_assignments: Number(row.completed_assignments ?? 0),
+    completion_rate: row.completion_rate != null ? Number(row.completion_rate) : null,
+    avg_external_quality: row.avg_external_quality != null ? Number(row.avg_external_quality) : null,
+  }));
+
+  jsonResponse(res, 200, normalized);
+}
+
 /**
  * Parse PostgREST-style query parameters into SQL clauses.
  *
@@ -510,6 +579,16 @@ export async function handleDashboardApi(
 
   // Parse: /api/company_agents or /api/decisions/123 or /api/company-pulse/current
   const apiPath = url.slice(5); // remove "/api/"
+  if (method === 'GET' && apiPath === 'ops/agent-work-signals') {
+    try {
+      await handleAgentWorkSignals(res, queryString);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      jsonResponse(res, 500, { error: message });
+    }
+    return true;
+  }
+
   const segments = apiPath.split('/');
   const tableSlug = segments[0];
   const resourceId = segments[1]; // may be undefined
