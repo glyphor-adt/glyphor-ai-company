@@ -81,6 +81,13 @@ function isDisabledMailTool(tool: McpClientTool, serverName: string): boolean {
   return name.includes('search');
 }
 
+/** M365 Copilot tools that don't exist or timeout (~30s). Exclude to avoid wasted runs. */
+function isDisabledCopilotTool(tool: McpClientTool, serverName: string): boolean {
+  if (serverName !== 'mcp_M365Copilot') return false;
+  const name = (tool.name ?? '').toLowerCase();
+  return name === 'copilot_chat' || name === 'askcopilot';
+}
+
 // ── Email Sanitization ───────────────────────────────────────────
 
 /** Field names in MCP Mail tool arguments that may contain email body content. */
@@ -723,6 +730,10 @@ export async function createAgent365Tools(
       for (const mcpTool of tools) {
         if (isDisabledMailTool(mcpTool, serverConfig.mcpServerName)) {
           console.warn(`[Agent365] Skipping unstable MailTools search tool: ${mcpTool.name}`);
+          continue;
+        }
+        if (isDisabledCopilotTool(mcpTool, serverConfig.mcpServerName)) {
+          console.warn(`[Agent365] Skipping broken Copilot tool (non-existent, times out): ${mcpTool.name}`);
           continue;
         }
         allTools.push(mcpToolToToolDefinition(mcpTool, conn, serverConfig.mcpServerName, reconnect, config.senderEmail));

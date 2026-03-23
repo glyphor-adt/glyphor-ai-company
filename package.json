@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "dotenv": "^17.3.1",
     "pg": "^8.16.3",
     "tsx": "^4.19.0",
     "turbo": "^2.4.0",

@@ -2,12 +2,15 @@
  * Web Search Integration
  *
  * Provides real web search capability for agent research threads.
- * Uses OpenAI's Responses API with the shared web-search model to perform
- * grounded web searches. Direct OpenAI calls prefer flex processing for cost,
- * with automatic fallback to the standard tier when flex is unavailable.
+ * Uses OpenAI's Responses API with web search to perform grounded searches.
  *
- * Environment variables:
- *   OPENAI_API_KEY — OpenAI API key (already configured in Cloud Run)
+ * Supports both Azure OpenAI and direct OpenAI:
+ *   Azure (preferred when configured):
+ *     AZURE_OPENAI_ENDPOINT or AZURE_FOUNDRY_ENDPOINT — e.g. https://my-resource.openai.azure.com
+ *     AZURE_OPENAI_API_KEY or AZURE_FOUNDRY_API — API key
+ *     WEB_SEARCH_AZURE_DEPLOYMENT (optional) — deployment name (default: gpt-5.4-mini)
+ *   Direct OpenAI (fallback):
+ *     OPENAI_API_KEY — direct API key
  */
 
 /* ── Types ──────────────────────────────────── */
@@ -131,12 +134,40 @@ function shouldRetryWithoutFlex(status: number, body: string): boolean {
 }
 
 /**
- * Build the Responses API URL and auth headers for direct OpenAI only.
- * Web search uses OPENAI_API_KEY (same path as other agent tooling); it does not
- * route through Azure Foundry (misconfigured relative endpoints break fetch).
+ * Build the Responses API endpoint — prefers Azure OpenAI when configured,
+ * falls back to direct OpenAI.
  */
-function getResponsesEndpoint(): { url: string; headers: Record<string, string> } | null {
-  const apiKey = process.env.OPENAI_API_KEY;
+function getResponsesEndpoint(): {
+  url: string;
+  headers: Record<string, string>;
+  isAzure: boolean;
+  model: string;
+} | null {
+  const azureEndpoint = (
+    process.env.AZURE_OPENAI_ENDPOINT?.trim() ||
+    process.env.AZURE_FOUNDRY_ENDPOINT?.trim()
+  ) || undefined;
+  const azureApiKey = (
+    process.env.AZURE_OPENAI_API_KEY?.trim() ||
+    process.env.AZURE_FOUNDRY_API?.trim()
+  ) || undefined;
+
+  if (azureEndpoint && azureApiKey) {
+    const base = azureEndpoint.replace(/\/$/, '');
+    const url = `${base}/openai/v1/responses`;
+    const deployment = process.env.WEB_SEARCH_AZURE_DEPLOYMENT?.trim() || 'gpt-5.4-mini';
+    return {
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': azureApiKey,
+      },
+      isAzure: true,
+      model: deployment,
+    };
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (apiKey) {
     return {
       url: OPENAI_RESPONSES_URL,
@@ -144,8 +175,11 @@ function getResponsesEndpoint(): { url: string; headers: Record<string, string> 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
+      isAzure: false,
+      model: SEARCH_MODEL,
     };
   }
+
   return null;
 }
 
@@ -162,23 +196,34 @@ async function openaiWebSearch(
 }> {
   const endpoint = getResponsesEndpoint();
   if (!endpoint) {
-    console.warn('[WebSearch] No OpenAI or Azure OpenAI API key configured — returning empty results');
+    console.warn('[WebSearch] No OpenAI or Azure OpenAI configured — set AZURE_OPENAI_ENDPOINT+AZURE_OPENAI_API_KEY or OPENAI_API_KEY');
     return { text: '', annotations: [], rawResponse: null };
   }
 
-  const isDirectOpenAI = 'Authorization' in endpoint.headers;
+  const isDirectOpenAI = !endpoint.isAzure;
   const preferredTier = isDirectOpenAI ? getPreferredDirectOpenAIServiceTier() : undefined;
+  // Azure recommends web_search; direct OpenAI uses web_search_preview
+  const tools = endpoint.isAzure
+    ? [{ type: 'web_search' as const }]
+    : [{ type: 'web_search_preview' as const, search_context_size: searchContextSize }];
   const requestBody = {
-    model: SEARCH_MODEL,
-    tools: [{ type: 'web_search_preview', search_context_size: searchContextSize }],
+    model: endpoint.model,
+    tools,
     input: prompt,
   };
+
+  // [DIAG] Temporary logging for discover_keywords empty-array diagnosis
+  console.log('[WebSearch DIAG] Before fetch:');
+  console.log('[WebSearch DIAG]   provider:', endpoint.isAzure ? 'Azure' : 'OpenAI');
+  console.log('[WebSearch DIAG]   prompt:', JSON.stringify(prompt, null, 2).slice(0, 800));
+  console.log('[WebSearch DIAG]   model:', endpoint.model);
+  console.log('[WebSearch DIAG]   tools:', JSON.stringify(requestBody.tools, null, 2));
 
   let res = await fetch(endpoint.url, {
     method: 'POST',
     headers: endpoint.headers,
     body: JSON.stringify(
-      preferredTier
+      isDirectOpenAI && preferredTier
         ? { ...requestBody, service_tier: preferredTier }
         : requestBody,
     ),
@@ -206,6 +251,17 @@ async function openaiWebSearch(
   }
 
   const data = (await res.json()) as OpenAIResponsesResult;
+
+  // [DIAG] Temporary logging after response
+  console.log('[WebSearch DIAG] After response:');
+  console.log('[WebSearch DIAG]   raw response keys:', Object.keys(data));
+  console.log('[WebSearch DIAG]   output exists:', Array.isArray(data.output));
+  console.log('[WebSearch DIAG]   output length:', data.output?.length ?? 0);
+  console.log('[WebSearch DIAG]   error:', data.error ?? '(none)');
+  console.log('[WebSearch DIAG]   status:', data.status ?? '(none)');
+  if (data.output?.length) {
+    console.log('[WebSearch DIAG]   first output item type:', data.output[0]?.type);
+  }
 
   // Extract text and URL annotations from the response output
   const annotations: Array<{ url: string; title: string }> = [];

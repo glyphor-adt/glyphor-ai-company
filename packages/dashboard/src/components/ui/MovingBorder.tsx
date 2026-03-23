@@ -170,10 +170,14 @@ export function MovingBorderContainer({
       style={{ borderRadius }}
       {...otherProps}
     >
-      {/* Animated gradient border layer */}
+      {/* Animated gradient border layer — clip-path contains filter:blur which overflow:hidden often fails to clip */}
       <div
         className="absolute inset-0 overflow-hidden"
-        style={{ borderRadius: `calc(${borderRadius} * 0.96)` }}
+        style={{
+          borderRadius: `calc(${borderRadius} * 0.96)`,
+          clipPath: `inset(0 round calc(${borderRadius} * 0.96))`,
+          isolation: 'isolate',
+        }}
       >
         <GradientMovingBorder
           duration={duration}

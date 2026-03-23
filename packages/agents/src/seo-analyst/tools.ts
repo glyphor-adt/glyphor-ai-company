@@ -37,7 +37,11 @@ export function createSeoAnalystTools(memory: CompanyMemoryStore): ToolDefinitio
       parameters: { seed: { type: 'string', description: 'Seed topic or keyword', required: true }, limit: { type: 'number', description: 'Max results (default 10)' } },
       async execute(params) {
         const q = `Keyword discovery and related searches for ${params.seed} for content marketing and SEO — long-tail ideas, questions people ask, and blog or landing page angles.`;
+        // [DIAG] Temporary logging for empty-array diagnosis
+        console.log('[discover_keywords DIAG] query string:', JSON.stringify(q));
         const results = await searchWeb(q, { num: Number(params.limit) || 10 });
+        console.log('[discover_keywords DIAG] raw result count:', results.length);
+        console.log('[discover_keywords DIAG] raw results:', JSON.stringify(results, null, 2).slice(0, 1500));
         return { success: true, data: results };
       },
     },
