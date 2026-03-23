@@ -502,7 +502,11 @@ export default function OraChat() {
   // Session state
   const [sessions, setSessions] = useState<OraSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Mobile: default closed so the main chat isn't hidden (max-md:hidden on Card when open).
+  // Desktop (md+): default open like a classic split layout.
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches,
+  );
   const [sessionSearch, setSessionSearch] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1086,7 +1090,7 @@ export default function OraChat() {
     });
   }, []);
   return (
-    <div className="flex h-[calc(100dvh-10rem-var(--sat))] md:h-[calc(100vh-6rem)] gap-2 md:gap-5">
+    <div className="flex h-[calc(100dvh-10rem-var(--sat))] min-h-[min(360px,70dvh)] w-full min-w-0 flex-1 md:h-[calc(100vh-6rem)] gap-2 md:gap-5">
       {/* Session Sidebar — mobile overlay backdrop */}
       {sidebarOpen && (
         <div className="theme-overlay-backdrop fixed inset-0 z-50 md:hidden" onClick={() => setSidebarOpen(false)} />

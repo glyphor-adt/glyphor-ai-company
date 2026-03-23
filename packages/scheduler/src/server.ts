@@ -285,8 +285,16 @@ const agentExecutor = async (
   // case picks it up. Keep 'work_loop' as the task so the config ID
   // contains it and the runner applies task-tier limits (6 turns / 120s)
   // instead of on_demand limits (3 / 45s).
-  if ((task === 'work_loop' || task === 'proactive') && !message) {
-    const effectiveMessage = (payload.wake_reason as string) ?? `Work loop: ${task}`;
+  // CMO scheduled work_loop rows use payload.context; handle in cmo branch below (skip generic recursion).
+  if (
+    (task === 'work_loop' || task === 'proactive') &&
+    !message &&
+    agentRole !== 'cmo'
+  ) {
+    const effectiveMessage =
+      (payload.wake_reason as string) ||
+      (typeof payload.context === 'string' ? `Work loop — ${String(payload.context)}` : '') ||
+      `Work loop: ${task}`;
     return agentExecutor(agentRole, task, { ...payload, message: effectiveMessage });
   }
 
@@ -322,7 +330,34 @@ const agentExecutor = async (
   } else if (agentRole === 'cpo') {
     return runCPO({ task: (task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cmo') {
-    return runCMO({ task: (task as 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'on_demand'), message, conversationHistory });
+    let cmoMessage = message;
+    if (!cmoMessage && typeof payload.context === 'string') {
+      const ctx = payload.context;
+      if (task === 'work_loop') {
+        cmoMessage =
+          ctx === 'morning_planning'
+            ? 'Morning planning (scheduled): review marketing directives, team assignment queue, and set priorities for the day.'
+            : ctx === 'midday_review'
+              ? 'Midday review (scheduled): check progress on marketing assignments and directives; unblock, evaluate, or escalate as needed.'
+              : `Scheduled CMO work_loop (${ctx}). Review directives and team work.`;
+      } else if (task === 'process_assignments') {
+        cmoMessage =
+          'Scheduled: check and execute pending marketing assignments — review work queue, orchestrate team output, flag blockers to Sarah.';
+      }
+    }
+    return runCMO({
+      task: task as
+        | 'weekly_content_planning'
+        | 'generate_content'
+        | 'seo_analysis'
+        | 'orchestrate'
+        | 'content_planning_cycle'
+        | 'work_loop'
+        | 'process_assignments'
+        | 'on_demand',
+      message: cmoMessage,
+      conversationHistory,
+    });
   } else if (agentRole === 'vp-sales') {
     return runVPSales({ task: (task as 'pipeline_review' | 'market_sizing' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'vp-design') {

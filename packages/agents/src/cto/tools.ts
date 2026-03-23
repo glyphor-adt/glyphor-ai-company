@@ -2096,6 +2096,72 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
     },
 
     {
+      name: 'list_secrets',
+      description:
+        'List Secret Manager secrets in a GCP project (resource id and create time only — never returns secret values). ' +
+        'Use to audit what exists before creating duplicates or when wiring Cloud Run --set-secrets.',
+      parameters: {
+        project_id: {
+          type: 'string',
+          description: 'GCP project ID (defaults to GCP_PROJECT_ID env)',
+          required: false,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const projectId = ((params.project_id as string | undefined)?.trim()
+          || process.env.GCP_PROJECT_ID
+          || 'ai-glyphor-company'
+        ).trim();
+
+        try {
+          const token = await getGCPAccessToken();
+          const secrets: Array<{ name: string; fullName: string; created: string }> = [];
+          let pageToken: string | undefined;
+          do {
+            const url = new URL(
+              `https://secretmanager.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/secrets`,
+            );
+            url.searchParams.set('pageSize', '500');
+            if (pageToken) url.searchParams.set('pageToken', pageToken);
+
+            const res = await fetch(url.toString(), {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) {
+              return {
+                success: false,
+                error: `Secret Manager API ${res.status}: ${await res.text()}`,
+              };
+            }
+            const data = await res.json() as {
+              secrets?: Array<{ name: string; createTime: string }>;
+              nextPageToken?: string;
+            };
+            for (const s of data.secrets ?? []) {
+              secrets.push({
+                name: s.name.split('/').pop() ?? s.name,
+                fullName: s.name,
+                created: s.createTime,
+              });
+            }
+            pageToken = data.nextPageToken;
+          } while (pageToken);
+
+          return {
+            success: true,
+            data: {
+              projectId,
+              count: secrets.length,
+              secrets,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
+    {
       name: 'gcp_create_secret',
       description:
         'Create a new secret in Google Secret Manager (or add a new version if the secret already exists). ' +

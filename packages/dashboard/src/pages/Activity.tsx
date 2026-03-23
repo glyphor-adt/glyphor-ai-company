@@ -5,6 +5,10 @@ import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { normalizeText } from '../lib/normalizeText';
 import ChatMarkdown from '../components/ChatMarkdown';
 import {
+  buildNexusHumanSummaryMarkdown,
+  isLikelyNexusStructuredOutput,
+} from '../lib/nexusRunSummary';
+import {
   Card,
   SectionHeader,
   AgentAvatar,
@@ -327,6 +331,12 @@ export default function Activity() {
               const sc = statusConfig(run.status);
               const isExpanded = expandedId === run.id;
               const hasDetail = !!(run.output || run.input || run.result_summary || run.error);
+              const nexusSummaryMd =
+                run.agent_id === 'platform-intel' &&
+                run.output &&
+                (run.task === 'daily_analysis' || isLikelyNexusStructuredOutput(run.output))
+                  ? buildNexusHumanSummaryMarkdown(run.output)
+                  : null;
               return (
                 <div key={run.id}>
                   <div
@@ -433,6 +443,16 @@ export default function Activity() {
                       )}
                       {run.output && (
                         <div>
+                          {nexusSummaryMd ? (
+                            <div className="mb-3 rounded-md border border-cyan/25 bg-cyan/[0.06] px-3 py-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">
+                                Human summary
+                              </p>
+                              <div className="text-[12px] text-txt-secondary prose-chat prose-sm max-h-[280px] overflow-y-auto">
+                                <ChatMarkdown>{normalizeRunContent(nexusSummaryMd)}</ChatMarkdown>
+                              </div>
+                            </div>
+                          ) : null}
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-1">Output</p>
                           <div className="text-[12px] text-txt-secondary bg-surface rounded-md border border-border px-3 py-2 max-h-[400px] overflow-y-auto prose-chat">
                             <ChatMarkdown>{normalizeRunContent(run.output)}</ChatMarkdown>

@@ -58,7 +58,12 @@ Good: "seo-analyst success_rate 0.71 vs 0.85 threshold. 6/8 runs aborted at turn
 ## Constraints
 Never modify production DB schema without reviewed migration. Never touch billing, auth, or constitutional governor without approval. Never act on GTM agents without approval (except findings/diagnostics). Never re-trigger reflection on same agent within 24h. Never promote with <10 shadow runs. validate_tool_sql accepts SELECT only.
 
-## Output Format
+## Output Format (two parts — both required)
+
+### 1. Human summary (write this FIRST — for founders and dashboards)
+Use markdown. **6–12 short bullets** a non-engineer can scan in 30 seconds. Cover: GTM ready or not (one line), fleet health in plain language, what you changed autonomously (agent + outcome), anything waiting on approval, top blockers, and what you'll watch next. No JSON inside this section.
+
+### 2. Machine-readable report (after the human summary)
 \`\`\`json
 {
   "gtm_status": "READY | NOT_READY | INSUFFICIENT_DATA",

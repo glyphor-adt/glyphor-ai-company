@@ -356,6 +356,66 @@ async function handleAgentWorkSignals(
   jsonResponse(res, 200, normalized);
 }
 
+/** GET /api/ops/assignment-flow-metrics — work_assignments summary for Operations when orchestrator workflows table is empty */
+async function handleAssignmentFlowMetrics(
+  res: ServerResponse,
+  queryString: string,
+): Promise<void> {
+  const params = new URLSearchParams(queryString ?? '');
+  const days = Math.min(366, Math.max(1, parseInt(params.get('days') ?? '30', 10) || 30));
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+
+  const [summary] = await systemQuery<{
+    total_started: string | number;
+    total_completed: string | number;
+    total_failed: string | number;
+    avg_completion_time_ms: string | number | null;
+  }>(
+    `SELECT
+      COUNT(*)::int AS total_started,
+      COUNT(*) FILTER (WHERE status = 'completed')::int AS total_completed,
+      COUNT(*) FILTER (WHERE status = 'failed')::int AS total_failed,
+      COALESCE(
+        AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) * 1000)
+          FILTER (WHERE status = 'completed' AND completed_at IS NOT NULL),
+        0
+      ) AS avg_completion_time_ms
+     FROM work_assignments
+     WHERE created_at >= $1`,
+    [since],
+  );
+
+  const recent = await systemQuery<{
+    id: string;
+    status: string;
+    assigned_to: string;
+    task_preview: string;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `SELECT id,
+            status,
+            assigned_to,
+            LEFT(task_description, 100) AS task_preview,
+            created_at,
+            updated_at
+       FROM work_assignments
+      WHERE created_at >= $1 OR updated_at >= $1
+      ORDER BY updated_at DESC
+      LIMIT 25`,
+    [since],
+  );
+
+  jsonResponse(res, 200, {
+    window_days: days,
+    total_started: Number(summary?.total_started ?? 0),
+    total_completed: Number(summary?.total_completed ?? 0),
+    total_failed: Number(summary?.total_failed ?? 0),
+    avg_completion_time_ms: Math.round(Number(summary?.avg_completion_time_ms ?? 0)),
+    recent,
+  });
+}
+
 /**
  * Parse PostgREST-style query parameters into SQL clauses.
  *
@@ -582,6 +642,16 @@ export async function handleDashboardApi(
   if (method === 'GET' && apiPath === 'ops/agent-work-signals') {
     try {
       await handleAgentWorkSignals(res, queryString);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      jsonResponse(res, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'GET' && apiPath === 'ops/assignment-flow-metrics') {
+    try {
+      await handleAssignmentFlowMetrics(res, queryString);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       jsonResponse(res, 500, { error: message });

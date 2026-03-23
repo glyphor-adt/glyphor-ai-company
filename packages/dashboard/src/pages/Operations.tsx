@@ -72,11 +72,15 @@ const OPS_BAR_GRADIENTS: { id: string; from: string; to: string }[] = [
 ];
 
 async function schedulerApi<T>(path: string, opts?: RequestInit): Promise<T> {
-  const res = await fetch(`${SCHEDULER_URL}${path}`, {
+  const base = SCHEDULER_URL?.trim();
+  if (!base) {
+    throw new Error('VITE_SCHEDULER_URL is not set');
+  }
+  const res = await fetch(`${base}${path}`, {
     ...opts,
     headers: { 'Content-Type': 'application/json', ...opts?.headers },
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) throw new Error(`Scheduler API error: ${res.status}`);
   return res.json();
 }
 
@@ -488,40 +492,134 @@ interface WorkflowMetrics {
   by_type: { type: string; count: number; avg_time_ms: number; avg_cost: number }[];
 }
 
+/** REST summary of work_assignments — shown when orchestrator `workflows` rows are empty */
+interface AssignmentFlowResponse {
+  window_days: number;
+  total_started: number;
+  total_completed: number;
+  total_failed: number;
+  avg_completion_time_ms: number;
+  recent: Array<{
+    id: string;
+    status: string;
+    assigned_to: string;
+    task_preview: string;
+    created_at: string;
+    updated_at: string;
+  }>;
+}
+
 const WORKFLOW_POLL = 10_000;
+
+function mapAssignmentStatusToWorkflow(status: string): WorkflowRecord['status'] {
+  switch (status) {
+    case 'completed':
+      return 'completed';
+    case 'failed':
+      return 'failed';
+    case 'cancelled':
+      return 'cancelled';
+    case 'pending':
+    case 'blocked':
+      return 'waiting';
+    default:
+      return 'running';
+  }
+}
+
+function assignmentFlowRowToWorkflowRecord(r: AssignmentFlowResponse['recent'][0]): WorkflowRecord {
+  const st = mapAssignmentStatusToWorkflow(r.status);
+  return {
+    id: r.id,
+    type: 'work_assignment',
+    initiator: r.assigned_to,
+    directive_title: r.task_preview?.trim() || null,
+    status: st,
+    steps: [],
+    current_step: 0,
+    total_steps: 0,
+    waiting_for: null,
+    started_at: r.created_at,
+    completed_at: st === 'completed' ? r.updated_at : null,
+    total_cost_usd: 0,
+    error: null,
+  };
+}
+
+function orchestratorHasRows(
+  wfs: WorkflowRecord[],
+  m: WorkflowMetrics | null,
+): boolean {
+  if (wfs.length > 0) return true;
+  if (!m) return false;
+  return m.total_started > 0 || m.total_completed > 0 || m.total_failed > 0;
+}
+
+function assignmentFlowHasRows(af: AssignmentFlowResponse | null): boolean {
+  if (!af) return false;
+  return af.total_started > 0 || af.recent.length > 0;
+}
+
+function workflowRowTypeLabel(w: WorkflowRecord): string {
+  return w.type === 'work_assignment' ? 'Assignment' : w.type;
+}
 
 function useWorkflows() {
   const [workflows, setWorkflows] = useState<WorkflowRecord[]>([]);
   const [metrics, setMetrics] = useState<WorkflowMetrics | null>(null);
+  const [assignmentFlow, setAssignmentFlow] = useState<AssignmentFlowResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [assignmentFlowError, setAssignmentFlowError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    setLoading(true);
+    let wfs: WorkflowRecord[] = [];
+    let m: WorkflowMetrics | null = null;
+    let schedulerErr: string | null = null;
+
     try {
-      const [wfs, m] = await Promise.all([
+      const [wfList, wfMetrics] = await Promise.all([
         schedulerApi<WorkflowRecord[]>('/workflows'),
         schedulerApi<WorkflowMetrics>('/workflows/metrics?days=30'),
       ]);
-      setWorkflows(wfs ?? []);
-      setMetrics(m ?? null);
-      setError(null);
+      wfs = wfList ?? [];
+      m = wfMetrics ?? null;
     } catch (e) {
-      setWorkflows([]);
-      setMetrics(null);
-      setError(e instanceof Error ? e.message : String(e));
+      schedulerErr = e instanceof Error ? e.message : String(e);
+      wfs = [];
+      m = null;
     }
+
+    let af: AssignmentFlowResponse | null = null;
+    let assignErr: string | null = null;
+    try {
+      af = await apiCall<AssignmentFlowResponse>('/api/ops/assignment-flow-metrics?days=30');
+    } catch (e) {
+      assignErr = e instanceof Error ? e.message : String(e);
+    }
+    setAssignmentFlowError(assignErr);
+
+    setWorkflows(wfs);
+    setMetrics(m);
+    setAssignmentFlow(af);
+
+    const orch = orchestratorHasRows(wfs, m);
+    const asg = assignmentFlowHasRows(af);
+    setError(!orch && !asg ? schedulerErr ?? assignErr : null);
+
     setLoading(false);
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { void refresh(); }, [refresh]);
 
   useEffect(() => {
     const hasActive = workflows.some(w => w.status === 'running' || w.status === 'waiting');
-    const interval = setInterval(refresh, hasActive ? WORKFLOW_POLL : POLL_INTERVAL);
+    const interval = setInterval(() => { void refresh(); }, hasActive ? WORKFLOW_POLL : POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [workflows, refresh]);
 
-  return { workflows, metrics, loading, refresh, error };
+  return { workflows, metrics, assignmentFlow, loading, refresh, error, assignmentFlowError };
 }
 
 // ─── Memory Health hooks ────────────────────────────────────────
@@ -696,7 +794,15 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
   const { data: layerCounts, loading: layersLoading, refresh: refreshLayers } = useMemoryLayerCounts();
   const { data: tableCounts, loading: tableCountsLoading } = useMemoryTableCounts();
   const { data: consolidationActivity, loading: consolidationLoading } = useConsolidationActivity(30);
-  const { workflows, metrics: wfMetrics, loading: wfLoading, refresh: refreshWorkflows, error: wfError } = useWorkflows();
+  const {
+    workflows,
+    metrics: wfMetrics,
+    assignmentFlow,
+    loading: wfLoading,
+    refresh: refreshWorkflows,
+    error: wfError,
+    assignmentFlowError,
+  } = useWorkflows();
 
   const loading = agentsLoading || reflectionsLoading || workSignalsLoading || recentRunsLoading;
   const lastRefresh = useRef(new Date());
@@ -733,7 +839,12 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
       reflectionsError ? { label: 'Reflections', message: reflectionsError } : null,
       workSignalsError ? { label: 'Work signals (assignments / evals)', message: workSignalsError } : null,
       recentRunsError ? { label: 'Recent runs', message: recentRunsError } : null,
-      wfError ? { label: 'Workflows (scheduler)', message: wfError } : null,
+      wfError && !assignmentFlowHasRows(assignmentFlow)
+        ? { label: 'Orchestrator workflows (scheduler)', message: wfError }
+        : null,
+      assignmentFlowError
+        ? { label: 'Assignment activity (REST)', message: assignmentFlowError }
+        : null,
     ].filter((x): x is { label: string; message: string } => x != null);
     const byMessage = new Map<string, string[]>();
     for (const e of raw) {
@@ -745,7 +856,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
       label: labels.join(' · '),
       message,
     }));
-  }, [agentsError, reflectionsError, workSignalsError, recentRunsError, wfError]);
+  }, [agentsError, reflectionsError, workSignalsError, recentRunsError, wfError, assignmentFlow, assignmentFlowError]);
 
   // One row per person / chart label (duplicate roles & aliases merged)
   const chartAgentRows = useMemo(() => aggregateAgentChartRows(rosterAgents), [rosterAgents]);
@@ -849,6 +960,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
       <ActiveWorkflowsSection
         workflows={workflows}
         metrics={wfMetrics}
+        assignmentFlow={assignmentFlow}
         loading={wfLoading}
         onRefresh={refreshWorkflows}
       />
@@ -1343,25 +1455,47 @@ function elapsedSince(iso: string) {
 function ActiveWorkflowsSection({
   workflows,
   metrics,
+  assignmentFlow,
   loading,
   onRefresh,
 }: {
   workflows: WorkflowRecord[];
   metrics: WorkflowMetrics | null;
+  assignmentFlow: AssignmentFlowResponse | null;
   loading: boolean;
   onRefresh: () => void;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const waitingWorkflows = workflows.filter(w => w.status === 'waiting');
-  const activeWorkflows = workflows.filter(w => w.status === 'running' || w.status === 'waiting');
-  const recentWorkflows = workflows.slice(0, 20);
+  const useOrchestrator = orchestratorHasRows(workflows, metrics);
+  const displayMetrics: WorkflowMetrics | null = useOrchestrator
+    ? metrics
+    : assignmentFlow
+      ? {
+          total_started: assignmentFlow.total_started,
+          total_completed: assignmentFlow.total_completed,
+          total_failed: assignmentFlow.total_failed,
+          avg_completion_time_ms: assignmentFlow.avg_completion_time_ms,
+          by_type: [],
+        }
+      : null;
+
+  const displayWorkflows: WorkflowRecord[] = useOrchestrator
+    ? workflows
+    : (assignmentFlow?.recent ?? []).map(assignmentFlowRowToWorkflowRecord);
+
+  const waitingWorkflows = displayWorkflows.filter(w => w.status === 'waiting');
+  const activeWorkflows = displayWorkflows.filter(w => w.status === 'running' || w.status === 'waiting');
+  const recentWorkflows = displayWorkflows.slice(0, 20);
 
   const cancelWorkflow = async (id: string) => {
+    if (!useOrchestrator) return;
     setActionLoading(`cancel-${id}`);
     try {
-      await fetch(`${SCHEDULER_URL}/workflows/${id}/cancel`, {
+      const base = SCHEDULER_URL?.trim();
+      if (!base) return;
+      await fetch(`${base}/workflows/${id}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -1371,9 +1505,12 @@ function ActiveWorkflowsSection({
   };
 
   const retryWorkflow = async (id: string) => {
+    if (!useOrchestrator) return;
     setActionLoading(`retry-${id}`);
     try {
-      await fetch(`${SCHEDULER_URL}/workflows/${id}/retry`, {
+      const base = SCHEDULER_URL?.trim();
+      if (!base) return;
+      await fetch(`${base}/workflows/${id}/retry`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -1382,12 +1519,18 @@ function ActiveWorkflowsSection({
     setActionLoading(null);
   };
 
+  const subtitle = useOrchestrator
+    ? 'Multi-step orchestrator runs (Strategy Lab / Deep Dive) · polls every 10s when active'
+    : assignmentFlowHasRows(assignmentFlow)
+      ? `Directive work assignments (last ${assignmentFlow?.window_days ?? 30} days) — orchestrator workflows table is empty`
+      : 'Orchestrator workflows and assignment activity — connect scheduler + REST API to populate';
+
   return (
     <>
-      <SectionHeader title="Active Workflows" subtitle="Real-time workflow monitoring · polls every 10s for active workflows" />
+      <SectionHeader title="Active Workflows" subtitle={subtitle} />
 
       {/* Waiting workflows highlight */}
-      {waitingWorkflows.length > 0 && (
+      {useOrchestrator && waitingWorkflows.length > 0 && (
         <div className="space-y-2">
           {waitingWorkflows.map(w => (
             <div
@@ -1418,18 +1561,18 @@ function ActiveWorkflowsSection({
         </div>
       )}
 
-      {/* Workflow Metrics (30 days) */}
-      {metrics && (
+      {/* Metrics (30 days): orchestrator workflows or work_assignments cohort */}
+      {displayMetrics && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          <SummaryCard label="Started (30d)" value={String(metrics.total_started)} loading={loading} color="#00E0FF" />
-          <SummaryCard label="Completed" value={String(metrics.total_completed)} loading={loading} color="#7DD3FC" />
-          <SummaryCard label="Failed" value={String(metrics.total_failed)} loading={loading} color="#A855F7" />
-          <SummaryCard label="Avg Time" value={formatMs(metrics.avg_completion_time_ms)} loading={loading} color="#C084FC" />
+          <SummaryCard label="Started (30d)" value={String(displayMetrics.total_started)} loading={loading} color="#00E0FF" />
+          <SummaryCard label="Completed" value={String(displayMetrics.total_completed)} loading={loading} color="#7DD3FC" />
+          <SummaryCard label="Failed" value={String(displayMetrics.total_failed)} loading={loading} color="#A855F7" />
+          <SummaryCard label="Avg Time" value={formatMs(displayMetrics.avg_completion_time_ms)} loading={loading} color="#C084FC" />
         </div>
       )}
 
       {/* Cost by workflow type */}
-      {metrics && metrics.by_type.length > 0 && (
+      {useOrchestrator && metrics && metrics.by_type.length > 0 && (
         <Card>
           <SectionHeader title="Workflow Metrics by Type (30 days)" />
           <div className="overflow-x-auto">
@@ -1459,11 +1602,17 @@ function ActiveWorkflowsSection({
 
       {/* Workflows table */}
       <Card>
-        <SectionHeader title={`Workflows${activeWorkflows.length > 0 ? ` (${activeWorkflows.length} active)` : ''}`} />
+        <SectionHeader
+          title={`${useOrchestrator ? 'Workflows' : 'Recent assignments'}${activeWorkflows.length > 0 ? ` (${activeWorkflows.length} active)` : ''}`}
+        />
         {loading ? (
           <Skeleton className="h-40" />
         ) : recentWorkflows.length === 0 ? (
-          <p className="py-4 text-center text-sm text-txt-faint">No workflows recorded</p>
+          <p className="py-4 text-center text-sm text-txt-faint">
+            No orchestrator workflows and no assignments in the window. Multi-step runs live in the{' '}
+            <code className="rounded bg-raised px-1 font-mono text-[10px]">workflows</code> table; day-to-day tasks use{' '}
+            <code className="rounded bg-raised px-1 font-mono text-[10px]">work_assignments</code>.
+          </p>
         ) : (
           <div className="space-y-1">
             {recentWorkflows.map(w => (
@@ -1475,14 +1624,16 @@ function ActiveWorkflowsSection({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={`h-2 w-2 rounded-full shrink-0 ${workflowStatusColor(w.status)}`} />
-                      <span className="text-sm font-medium text-txt-secondary truncate">{w.type}</span>
+                      <span className="text-sm font-medium text-txt-secondary truncate">{workflowRowTypeLabel(w)}</span>
                       <span className="text-[11px] text-txt-faint truncate">{w.initiator}</span>
                       {w.directive_title && (
                         <span className="text-[11px] text-txt-muted truncate hidden md:inline">{w.directive_title}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-[11px] font-mono text-txt-muted">{w.current_step}/{w.total_steps}</span>
+                      <span className="text-[11px] font-mono text-txt-muted">
+                        {w.type === 'work_assignment' ? '—' : `${w.current_step}/${w.total_steps}`}
+                      </span>
                       <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${workflowStatusBadge(w.status)}`}>
                         {w.status}
                       </span>
@@ -1493,6 +1644,12 @@ function ActiveWorkflowsSection({
 
                 {expanded === w.id && (
                   <div className="ml-4 mt-1 mb-2 rounded-lg border border-border/50 bg-surface px-4 py-3 space-y-2">
+                    {w.type === 'work_assignment' && w.steps.length === 0 && (
+                      <p className="text-[12px] text-txt-muted">
+                        Single assignment row — manage in <span className="font-medium text-txt-secondary">Directives</span> or the DB.
+                        Cancel/retry apply only to multi-step orchestrator workflows.
+                      </p>
+                    )}
                     {/* Step progress */}
                     {w.steps.map((step, i) => (
                       <div key={step.id} className="flex items-center gap-3 text-[12px]">
@@ -1516,8 +1673,10 @@ function ActiveWorkflowsSection({
                       </div>
                     ))}
 
-                    {/* Controls */}
-                    {(w.status === 'running' || w.status === 'waiting') && (
+                    {/* Controls — scheduler orchestrator only */}
+                    {useOrchestrator &&
+                      w.type !== 'work_assignment' &&
+                      (w.status === 'running' || w.status === 'waiting') && (
                       <div className="flex gap-2 pt-2 border-t border-border/50">
                         <GradientButton
                           variant="reject"
@@ -1529,7 +1688,7 @@ function ActiveWorkflowsSection({
                         </GradientButton>
                       </div>
                     )}
-                    {w.status === 'failed' && (
+                    {useOrchestrator && w.type !== 'work_assignment' && w.status === 'failed' && (
                       <div className="flex gap-2 pt-2 border-t border-border/50">
                         <GradientButton
                           variant="primary"

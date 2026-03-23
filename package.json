@@ -43,7 +43,9 @@
     "validate:doctrine": "tsx scripts/validate-doctrine-consistency.ts",
     "validate:agent365": "tsx scripts/validate-agent365-setup.ts",
     "validate:agent365:strict": "tsx scripts/validate-agent365-setup.ts --strict-env",
-    "ops:autonomy:slo": "tsx scripts/check-agent-autonomy-slo.ts"
+    "ops:autonomy:slo": "tsx scripts/check-agent-autonomy-slo.ts",
+    "db:agent-schedules-subset": "tsx scripts/query-agent-schedules-subset.ts",
+    "smoke:all-agents": "tsx scripts/smoke-test-all-agents.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

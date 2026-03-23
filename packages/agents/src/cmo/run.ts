@@ -41,7 +41,15 @@ import { createFuseTools } from '../shared/fuseTools.js';
 import { systemQuery } from '@glyphor/shared/db';
 
 export interface CMORunParams {
-  task?: 'weekly_content_planning' | 'generate_content' | 'seo_analysis' | 'orchestrate' | 'content_planning_cycle' | 'on_demand';
+  task?:
+    | 'weekly_content_planning'
+    | 'generate_content'
+    | 'seo_analysis'
+    | 'orchestrate'
+    | 'content_planning_cycle'
+    | 'work_loop'
+    | 'process_assignments'
+    | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
@@ -189,6 +197,18 @@ Steps:
    - Market intelligence needs → marketing-intelligence-analyst
 4. Track progress on existing assignments
 5. Report status to Sarah`;
+      break;
+
+    case 'work_loop':
+      initialMessage =
+        params.message ||
+        `Scheduled work loop for ${today}. Review marketing directives delegated to you, check_team_status for your team's assignments, and orchestrate (decompose / evaluate / synthesize) as needed.`;
+      break;
+
+    case 'process_assignments':
+      initialMessage =
+        params.message ||
+        `Assignment sweep for ${today}. Process pending marketing work: read_founder_directives, check_team_status, dispatch or evaluate outputs, use synthesize_team_deliverable when ready, escalate blockers to Sarah.`;
       break;
 
     default:

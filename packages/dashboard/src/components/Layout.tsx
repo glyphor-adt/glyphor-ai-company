@@ -199,10 +199,10 @@ export default function Layout() {
       )}
 
       {/* ── Main Content ────────────────────── */}
-      <main ref={mainRef} className={`dashboard-main flex-1 transition-colors duration-200 ${isFullBleed ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'} pb-16 md:pb-0 safe-top`}>
-        <div className="dashboard-content">
+      <main ref={mainRef} className={`dashboard-main flex-1 transition-colors duration-200 ${isFullBleed ? 'flex min-h-0 flex-col overflow-hidden' : 'overflow-y-auto'} pb-16 md:pb-0 safe-top`}>
+        <div className={`dashboard-content ${isFullBleed ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
           {isFullBleed ? (
-            <div className="page-enter min-h-0 flex-1 px-4 py-4 md:px-8 md:py-8">
+            <div className="page-enter flex min-h-0 flex-1 flex-col px-4 py-4 md:px-8 md:py-8">
               <Outlet />
             </div>
           ) : (
