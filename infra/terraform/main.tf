@@ -48,6 +48,18 @@ variable "cfo_billing_console_users" {
   default     = []
 }
 
+variable "enable_chief_of_staff_cloud_run" {
+  description = "Create glyphor-chief-of-staff Cloud Run (needs image + all Secret Manager versions referenced in env)"
+  type        = bool
+  default     = false
+}
+
+variable "enable_decisions_api_cloud_run" {
+  description = "Create glyphor-decisions-api Cloud Run (needs decisions-api image in Artifact Registry)"
+  type        = bool
+  default     = false
+}
+
 provider "google" {
   project = var.project_id
   region  = var.region
@@ -77,6 +89,7 @@ resource "google_project_service" "apis" {
 resource "google_service_account" "glyphor" {
   account_id   = "glyphor-agent-runner"
   display_name = "Glyphor Agent Runner"
+  description  = "Service account for Glyphor AI agent Cloud Run services"
 }
 
 resource "google_service_account" "worker" {
@@ -143,9 +156,10 @@ resource "google_service_account" "agent_owner" {
 
 # ─── Artifact Registry ───────────────────────────────────────
 resource "google_artifact_registry_repository" "glyphor" {
-  location      = var.region
+  location        = var.region
   repository_id = "glyphor"
-  format        = "DOCKER"
+  format          = "DOCKER"
+  description     = "Glyphor AI Company container images"
 
   depends_on = [google_project_service.apis["artifactregistry.googleapis.com"]]
 }
@@ -169,6 +183,10 @@ resource "google_pubsub_subscription" "agent_tasks_push" {
   }
 
   ack_deadline_seconds = 300
+
+  lifecycle {
+    ignore_changes = [push_config, ack_deadline_seconds]
+  }
 }
 
 resource "google_pubsub_topic" "glyphor_events" {
@@ -229,6 +247,9 @@ locals {
     "firebase-client-email",
     "firebase-private-key",
   ]
+
+  # db-password is injected explicitly as DB_PASSWORD on Cloud Run services that use Cloud SQL — do not duplicate via dynamic env.
+  cloud_run_secret_env_keys = [for s in local.secrets : s if s != "db-password"]
 }
 
 resource "google_secret_manager_secret" "secrets" {
@@ -328,18 +349,20 @@ resource "google_sql_database_instance" "glyphor_db" {
       value = "200"
     }
 
-    database_flags {
-      name  = "log_min_duration_statement"
-      value = "1000"
-    }
-
+    # Matches live instance (public IP + authorized networks). Do not switch to private-only here without a migration plan.
     ip_configuration {
-      ipv4_enabled    = false
-      private_network = "projects/${var.project_id}/global/networks/default"
+      ipv4_enabled = true
+      authorized_networks {
+        value = "104.190.175.230/32"
+      }
     }
   }
 
   deletion_protection = true
+
+  lifecycle {
+    ignore_changes = [settings]
+  }
 
   depends_on = [google_project_service.apis["sqladmin.googleapis.com"]]
 }
@@ -353,6 +376,9 @@ resource "google_sql_user" "glyphor_app" {
   name     = "glyphor_app"
   instance = google_sql_database_instance.glyphor_db.name
   password = data.google_secret_manager_secret_version.db_password.secret_data
+  lifecycle {
+    ignore_changes = [password]
+  }
 }
 
 # Password is not read from Secret Manager here: the principal running Terraform may lack
@@ -408,6 +434,10 @@ resource "google_cloud_tasks_queue" "agent_runs" {
   }
 
   depends_on = [google_project_service.apis["cloudtasks.googleapis.com"]]
+
+  lifecycle {
+    ignore_changes = [rate_limits, retry_config]
+  }
 }
 
 resource "google_cloud_tasks_queue" "agent_runs_priority" {
@@ -427,6 +457,10 @@ resource "google_cloud_tasks_queue" "agent_runs_priority" {
   }
 
   depends_on = [google_project_service.apis["cloudtasks.googleapis.com"]]
+
+  lifecycle {
+    ignore_changes = [rate_limits, retry_config]
+  }
 }
 
 resource "google_cloud_tasks_queue" "delivery" {
@@ -446,6 +480,10 @@ resource "google_cloud_tasks_queue" "delivery" {
   }
 
   depends_on = [google_project_service.apis["cloudtasks.googleapis.com"]]
+
+  lifecycle {
+    ignore_changes = [rate_limits, retry_config]
+  }
 }
 
 # ─── Cloud Run: Scheduler ────────────────────────────────────
@@ -493,7 +531,7 @@ resource "google_cloud_run_v2_service" "scheduler" {
       }
 
       dynamic "env" {
-        for_each = local.secrets
+        for_each = local.cloud_run_secret_env_keys
         content {
           name = upper(replace(env.value, "-", "_"))
           value_source {
@@ -551,10 +589,16 @@ resource "google_cloud_run_v2_service" "scheduler" {
     google_project_service.apis["run.googleapis.com"],
     google_secret_manager_secret_iam_member.runner_access,
   ]
+
+  # Deployed revision is source of truth (image digests, env order, probes) until CI pins digests in TF
+  lifecycle {
+    ignore_changes = [template, client, client_version]
+  }
 }
 
 # ─── Cloud Run: Chief of Staff Agent ─────────────────────────
 resource "google_cloud_run_v2_service" "chief_of_staff" {
+  count    = var.enable_chief_of_staff_cloud_run ? 1 : 0
   name     = "glyphor-chief-of-staff"
   location = var.region
 
@@ -598,7 +642,7 @@ resource "google_cloud_run_v2_service" "chief_of_staff" {
       }
 
       dynamic "env" {
-        for_each = local.secrets
+        for_each = local.cloud_run_secret_env_keys
         content {
           name = upper(replace(env.value, "-", "_"))
           value_source {
@@ -710,7 +754,7 @@ resource "google_cloud_run_v2_service" "voice_gateway" {
       }
 
       dynamic "env" {
-        for_each = local.secrets
+        for_each = local.cloud_run_secret_env_keys
         content {
           name = upper(replace(env.value, "-", "_"))
           value_source {
@@ -767,6 +811,10 @@ resource "google_cloud_run_v2_service" "voice_gateway" {
     google_project_service.apis["run.googleapis.com"],
     google_secret_manager_secret_iam_member.runner_access,
   ]
+
+  lifecycle {
+    ignore_changes = [template, client, client_version]
+  }
 }
 
 # ─── Cloud Run: Worker ────────────────────────────────────────
@@ -818,7 +866,7 @@ resource "google_cloud_run_v2_service" "worker" {
       }
 
       dynamic "env" {
-        for_each = local.secrets
+        for_each = local.cloud_run_secret_env_keys
         content {
           name = upper(replace(env.value, "-", "_"))
           value_source {
@@ -877,10 +925,15 @@ resource "google_cloud_run_v2_service" "worker" {
     google_project_service.apis["run.googleapis.com"],
     google_secret_manager_secret_iam_member.worker_secret_access,
   ]
+
+  lifecycle {
+    ignore_changes = [template, client, client_version]
+  }
 }
 
 # ─── Cloud Run: Decisions API ────────────────────────────────
 resource "google_cloud_run_v2_service" "decisions_api" {
+  count    = var.enable_decisions_api_cloud_run ? 1 : 0
   name     = "glyphor-decisions-api"
   location = var.region
 
@@ -913,7 +966,7 @@ resource "google_cloud_run_v2_service" "decisions_api" {
       }
 
       dynamic "env" {
-        for_each = local.secrets
+        for_each = local.cloud_run_secret_env_keys
         content {
           name = upper(replace(env.value, "-", "_"))
           value_source {
@@ -1301,7 +1354,8 @@ resource "google_cloud_run_v2_service_iam_member" "scheduler_invoker" {
 }
 
 resource "google_cloud_run_v2_service_iam_member" "cos_invoker" {
-  name     = google_cloud_run_v2_service.chief_of_staff.name
+  count    = var.enable_chief_of_staff_cloud_run ? 1 : 0
+  name     = google_cloud_run_v2_service.chief_of_staff[0].name
   location = var.region
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.glyphor.email}"
@@ -1366,7 +1420,8 @@ resource "google_cloud_run_v2_service_iam_member" "worker_invoker" {
 }
 
 resource "google_cloud_run_v2_service_iam_member" "decisions_api_invoker" {
-  name     = google_cloud_run_v2_service.decisions_api.name
+  count    = var.enable_decisions_api_cloud_run ? 1 : 0
+  name     = google_cloud_run_v2_service.decisions_api[0].name
   location = var.region
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.glyphor.email}"
@@ -1418,6 +1473,10 @@ resource "google_cloud_run_v2_service" "dashboard" {
   depends_on = [
     google_project_service.apis["run.googleapis.com"],
   ]
+
+  lifecycle {
+    ignore_changes = [template, client, client_version]
+  }
 }
 
 # Dashboard is publicly accessible — app handles Google Sign-In auth
@@ -1593,7 +1652,7 @@ output "scheduler_url" {
 }
 
 output "chief_of_staff_url" {
-  value = google_cloud_run_v2_service.chief_of_staff.uri
+  value = var.enable_chief_of_staff_cloud_run ? google_cloud_run_v2_service.chief_of_staff[0].uri : null
 }
 
 output "voice_gateway_url" {
@@ -1631,7 +1690,7 @@ output "worker_url" {
 }
 
 output "decisions_api_url" {
-  value = google_cloud_run_v2_service.decisions_api.uri
+  value = var.enable_decisions_api_cloud_run ? google_cloud_run_v2_service.decisions_api[0].uri : null
 }
 
 output "worker_service_account_email" {
