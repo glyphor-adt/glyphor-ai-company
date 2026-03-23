@@ -1,5 +1,41 @@
 # Terraform (GCP)
 
+## `terraform: command not found` (Windows)
+
+**Git Bash** only sees what’s on your user **PATH**. Common causes:
+
+1. **Terraform never installed** — install one of these ways:
+   - **Recommended (reliable):** from repo root, in **PowerShell**:
+     ```powershell
+     powershell -ExecutionPolicy Bypass -File infra/terraform/install-terraform-windows.ps1
+     ```
+     Then **fully quit and reopen** Cursor / VS Code / Git Bash so the updated user `PATH` loads.
+   - **winget:** `winget install Hashicorp.Terraform` — if it still isn’t found, the portable install may be broken; close any process locking `terraform.exe`, or use the script above.
+
+2. **Verify:** new terminal → `terraform version`
+
+### Git Bash still says `terraform: command not found`
+
+Windows **user** PATH updates often don’t appear in Git Bash until you log out/in. Use either:
+
+- **Wrapper (always works from repo):**
+  ```bash
+  cd infra/terraform
+  chmod +x tf   # once, if needed
+  ./tf init -backend-config=backend.hcl
+  ./tf plan -var-file=terraform.tfvars
+  ```
+- **Full path:**
+  ```bash
+  "$HOME/AppData/Local/Programs/Terraform/terraform.exe" version
+  ```
+- **Permanent fix for Git Bash** — add to `~/.bashrc`:
+  ```bash
+  export PATH="$PATH:$HOME/AppData/Local/Programs/Terraform"
+  ```
+
+**Don’t paste multi-line snippets** that include prose (e.g. “Use your usual -var-file…”). Bash will try to run each line; lines starting with `(` are subshells/commands. Run **one command at a time**.
+
 ## Per-agent service accounts
 
 All `sa-*` identities from `packages/integrations/src/governance/iamSync.ts` are defined in `main.tf`: `google_service_account.cfo_agent` (`sa-nadia`) plus `google_service_account.agent_owner` (for_each). After apply, use output `agent_owner_service_account_emails` and `cfo_agent_service_account_email`.

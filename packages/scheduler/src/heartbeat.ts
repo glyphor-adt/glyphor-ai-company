@@ -557,28 +557,49 @@ export class HeartbeatManager {
       console.warn('[Heartbeat] Failed to reap stale runs:', (err as Error).message);
     }
 
-    // Auto-fail assignments stuck in dispatched for >48h or pending for >24h.
+    // Stale assignment policy (pre-GTM): warn on long-dispatched work, fail only after longer windows.
+    // - dispatched >48h and <7d: set blocker_reason warning (once)
+    // - dispatched >7d → failed
+    // - pending >48h → failed
     // Also auto-block in_progress assignments stale for >6h (supplements
     // the 2h check in workLoop which only fires when the agent is dispatched).
     try {
-      const failedDispatched = await systemQuery<{id: string; assigned_to: string}>(
-        `UPDATE work_assignments SET status = 'failed', evaluation = 'Auto-failed: dispatched > 48 hours without execution'
-         WHERE status = 'dispatched' AND created_at < NOW() - INTERVAL '48 hours'
+      const warnedDispatched = await systemQuery<{ id: string }>(
+        `UPDATE work_assignments
+           SET blocker_reason = 'Warning: dispatched > 48 hours, agent may not be processing queue'
+         WHERE status = 'dispatched'
+           AND created_at < NOW() - INTERVAL '48 hours'
+           AND created_at > NOW() - INTERVAL '7 days'
+           AND blocker_reason IS NULL
+         RETURNING id`,
+      );
+      if ((warnedDispatched?.length ?? 0) > 0) {
+        console.log(
+          `[Heartbeat] Assignment warning: ${warnedDispatched?.length ?? 0} dispatched rows flagged (>48h, <7d)`,
+        );
+      }
+
+      const failedDispatched = await systemQuery<{ id: string; assigned_to: string }>(
+        `UPDATE work_assignments SET status = 'failed', evaluation = 'Auto-failed: dispatched > 7 days without execution'
+         WHERE status = 'dispatched' AND created_at < NOW() - INTERVAL '7 days'
          RETURNING id, assigned_to`,
       );
-      const failedPending = await systemQuery<{id: string; assigned_to: string}>(
-        `UPDATE work_assignments SET status = 'failed', evaluation = 'Auto-failed: pending > 24 hours without dispatch'
-         WHERE status = 'pending' AND created_at < NOW() - INTERVAL '24 hours'
+      const failedPending = await systemQuery<{ id: string; assigned_to: string }>(
+        `UPDATE work_assignments SET status = 'failed', evaluation = 'Auto-failed: pending > 48 hours without dispatch'
+         WHERE status = 'pending' AND created_at < NOW() - INTERVAL '48 hours'
          RETURNING id, assigned_to`,
       );
-      const blockedStale = await systemQuery<{id: string; assigned_to: string}>(
+      const blockedStale = await systemQuery<{ id: string; assigned_to: string }>(
         `UPDATE work_assignments SET status = 'blocked', blocker_reason = 'Auto-escalated: in_progress > 6 hours without update'
          WHERE status = 'in_progress' AND updated_at < NOW() - INTERVAL '6 hours'
          RETURNING id, assigned_to`,
       );
-      const totalCleaned = (failedDispatched?.length ?? 0) + (failedPending?.length ?? 0) + (blockedStale?.length ?? 0);
+      const totalCleaned =
+        (failedDispatched?.length ?? 0) + (failedPending?.length ?? 0) + (blockedStale?.length ?? 0);
       if (totalCleaned > 0) {
-        console.log(`[Heartbeat] Assignment cleanup: ${failedDispatched?.length ?? 0} dispatched→failed, ${failedPending?.length ?? 0} pending→failed, ${blockedStale?.length ?? 0} in_progress→blocked`);
+        console.log(
+          `[Heartbeat] Assignment cleanup: ${failedDispatched?.length ?? 0} dispatched→failed, ${failedPending?.length ?? 0} pending→failed, ${blockedStale?.length ?? 0} in_progress→blocked`,
+        );
       }
     } catch (err) {
       console.warn('[Heartbeat] Failed to clean stale assignments:', (err as Error).message);

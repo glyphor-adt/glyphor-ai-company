@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Git Bash: terraform often not on PATH after Windows user-PATH install.
+# From this directory:  ./tf init -backend-config=backend.hcl
+# Or from anywhere:      infra/terraform/tf -chdir=infra/terraform init -backend-config=backend.hcl
+
+set -e
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WIN_TF="${HOME}/AppData/Local/Programs/Terraform/terraform.exe"
+if [[ -f "$WIN_TF" ]]; then
+  exec "$WIN_TF" "$@"
+fi
+if command -v terraform >/dev/null 2>&1; then
+  exec terraform "$@"
+fi
+echo "terraform not found. Run: powershell -ExecutionPolicy Bypass -File infra/terraform/install-terraform-windows.ps1" >&2
+exit 1

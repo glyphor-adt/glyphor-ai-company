@@ -231,6 +231,9 @@ locals {
     "teams-channel-product-pulse-id",
     "teams-user-andrew-id",
     "teams-user-kristina-id",
+    # Graph @mentions on #Deliverables — Entra user object IDs
+    "teams-founder-kristina-aad-id",
+    "teams-founder-andrew-aad-id",
     "stripe-secret-key",
     "stripe-webhook-secret",
     "gcp-billing-dataset",

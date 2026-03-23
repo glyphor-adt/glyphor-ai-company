@@ -198,23 +198,38 @@ export async function harvestTaskOutcome(
 /** Mark the outcome row as having been sent back for revision. */
 export async function markOutcomeRevised(assignmentId: string): Promise<void> {
   await systemQuery(
-    `UPDATE task_run_outcomes
-       SET downstream_status = 'revised', updated_at = NOW()
-     WHERE assignment_id = $1
-       AND downstream_status IS NULL`,
+    `UPDATE task_run_outcomes tro
+       SET downstream_status = 'revised',
+           was_revised = true,
+           revision_count = COALESCE(tro.revision_count, 0) + 1,
+           updated_at = NOW()
+     FROM (
+       SELECT id FROM task_run_outcomes
+       WHERE assignment_id = $1 AND downstream_status IS NULL
+       ORDER BY created_at DESC
+       LIMIT 1
+     ) pick
+     WHERE tro.id = pick.id`,
     [assignmentId],
   );
 }
 
 /** Mark the outcome row as accepted by the orchestrator. */
 export async function markOutcomeAccepted(assignmentId: string, submittedAt?: Date): Promise<void> {
+  const ts = submittedAt?.toISOString() ?? new Date().toISOString();
   await systemQuery(
-    `UPDATE task_run_outcomes
+    `UPDATE task_run_outcomes tro
        SET downstream_status = 'accepted',
            accepted_at = $2,
+           was_accepted = true,
            updated_at = NOW()
-     WHERE assignment_id = $1
-       AND downstream_status IS NULL`,
-    [assignmentId, submittedAt?.toISOString() ?? new Date().toISOString()],
+     FROM (
+       SELECT id FROM task_run_outcomes
+       WHERE assignment_id = $1 AND downstream_status IS NULL
+       ORDER BY created_at DESC
+       LIMIT 1
+     ) pick
+     WHERE tro.id = pick.id`,
+    [assignmentId, ts],
   );
 }

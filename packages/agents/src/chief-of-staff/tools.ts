@@ -1810,6 +1810,28 @@ export function createOrchestrationTools(
           };
         });
 
+        const maxActiveAssignmentsPerAssignee = 5;
+        const addingByAssignee = new Map<string, number>();
+        for (const assignment of canonicalAssignments) {
+          const role = String((assignment as { assigned_to?: string }).assigned_to ?? '');
+          addingByAssignee.set(role, (addingByAssignee.get(role) ?? 0) + 1);
+        }
+        for (const [assigneeRole, adding] of addingByAssignee) {
+          const [depthRow] = await systemQuery<{ count: string }>(
+            `SELECT COUNT(*)::text AS count FROM work_assignments
+             WHERE assigned_to = $1
+               AND status IN ('pending', 'dispatched', 'in_progress')`,
+            [assigneeRole],
+          );
+          const depth = Number(depthRow?.count ?? 0);
+          if (depth + adding > maxActiveAssignmentsPerAssignee) {
+            return {
+              success: false,
+              error: `Cannot dispatch to ${assigneeRole} — they already have ${depth} assignments in queue (cap ${maxActiveAssignmentsPerAssignee} including this request). Wait for current work to complete before assigning more.`,
+            };
+          }
+        }
+
         // Resolve depends_on entries before writing:
         // - Accept UUIDs as-is
         // - Accept role references that point to exactly one assignment in this batch

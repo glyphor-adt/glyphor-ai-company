@@ -29,6 +29,20 @@ Find Object IDs in **Azure Portal → Microsoft Entra ID → Users → user → 
 
 If these are unset, the footer stays plain text (same behavior as before).
 
+### GCP Secret Manager (Cloud Run / Terraform)
+
+Terraform defines secrets `teams-founder-kristina-aad-id` and `teams-founder-andrew-aad-id`; Cloud Run maps them to `TEAMS_FOUNDER_KRISTINA_AAD_ID` and `TEAMS_FOUNDER_ANDREW_AAD_ID`.
+
+After `terraform apply` (or once the secrets exist), add versions:
+
+```bash
+# Replace with your project if needed: --project=YOUR_PROJECT_ID
+echo -n "YOUR-KRISTINA-OBJECT-ID" | gcloud secrets versions add teams-founder-kristina-aad-id --data-file=-
+echo -n "YOUR-ANDREW-OBJECT-ID" | gcloud secrets versions add teams-founder-andrew-aad-id --data-file=-
+```
+
+`infra/scripts/deploy.sh` includes these in `--set-secrets` for scheduler and chief-of-staff deploys.
+
 ## URLs not clickable
 
 Bare `https://...` links in the body are now wrapped as HTML `<a href>` when converting markdown to Teams HTML (in addition to `[text](url)` markdown links).
