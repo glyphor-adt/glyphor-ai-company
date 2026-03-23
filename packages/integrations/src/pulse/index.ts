@@ -2,7 +2,8 @@
  * Pulse Creative Studio — MCP Client
  *
  * Calls the Pulse MCP server (Model Context Protocol).
- * Configure via PULSE_MCP_ENDPOINT env var.
+ * Configure via PULSE_MCP_ENDPOINT and PULSE_SERVICE_ROLE_KEY.
+ * Server-to-server auth uses header `x-pulse-key` (see repo `scripts/data/pulse_mcp_guide.md`).
  *
  * Available MCP tools:
  *   create_storyboard_from_idea — Idea → screenplay → parsed scenes → saved storyboard
@@ -22,8 +23,9 @@
  */
 
 export interface PulseConfig {
-  mcpEndpoint: string;     // Full URL to the Pulse MCP server
-  serviceRoleKey: string;  // Bearer token for auth
+  mcpEndpoint: string; // Full URL, e.g. …/functions/v1/pulse-mcp
+  /** Value sent as `x-pulse-key` (Service Key mode). Env: PULSE_SERVICE_ROLE_KEY (name is legacy). */
+  serviceRoleKey: string;
 }
 
 // ── MCP tool argument types ──
@@ -128,14 +130,29 @@ export class PulseClient {
     return new PulseClient({ mcpEndpoint, serviceRoleKey });
   }
 
+  /**
+   * Pulse MCP (see `scripts/data/pulse_mcp_guide.md`):
+   * - User flows: `Authorization: Bearer <jwt>`
+   * - Server-to-server: `x-pulse-key: <service key>` (required for agent / pipeline calls)
+   * We send x-pulse-key for PULSE_SERVICE_ROLE_KEY. Optional legacy: set PULSE_MCP_ALSO_SEND_BEARER=true
+   * if a deployment still expects Bearer with the same secret.
+   */
+  private pulseRequestHeaders(): Record<string, string> {
+    const h: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-pulse-key': this.serviceRoleKey,
+    };
+    if (process.env.PULSE_MCP_ALSO_SEND_BEARER === 'true' || process.env.PULSE_MCP_ALSO_SEND_BEARER === '1') {
+      h['Authorization'] = `Bearer ${this.serviceRoleKey}`;
+    }
+    return h;
+  }
+
   /** Send an MCP tools/call request to the Pulse server */
   private async callTool(toolName: string, args: Record<string, unknown>): Promise<McpToolResult> {
     const res = await fetch(this.mcpEndpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.serviceRoleKey}`,
-      },
+      headers: this.pulseRequestHeaders(),
       body: JSON.stringify({
         jsonrpc: '2.0',
         id: ++mcpRequestId,

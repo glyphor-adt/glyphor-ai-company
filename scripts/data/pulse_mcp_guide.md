@@ -17,6 +17,19 @@ Two authentication modes are supported:
 
 All tools require authentication. Unauthenticated requests will fail.
 
+### Glyphor company agents (server-to-server)
+
+Company agents (CMO, Content Creator, Social Media Manager) use **Service Key** mode only — not user JWTs.
+
+| Env var | Maps to |
+|--------|---------|
+| `PULSE_MCP_ENDPOINT` | Server URL above (no trailing slash required) |
+| `PULSE_SERVICE_ROLE_KEY` | The `<key>` for header **`x-pulse-key`** |
+
+Implementation: `@glyphor/integrations` `PulseClient` sends `x-pulse-key` on every MCP request. For rare deployments that still expect Bearer with the same secret, set `PULSE_MCP_ALSO_SEND_BEARER=1`.
+
+The edge function is documented as **MCP Streamable HTTP**; the Node client in this repo (`PulseClient`) sends JSON-RPC `tools/call` over POST. If tool calls fail with parse or transport errors, verify the deployed function’s expected request shape (streamable session vs single JSON response).
+
 ---
 
 ## Tool Categories & Usage Guide

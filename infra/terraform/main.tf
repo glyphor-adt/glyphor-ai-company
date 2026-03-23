@@ -239,6 +239,9 @@ locals {
     "azure-mail-client-secret",
     "github-token",
     "gcp-project-id",
+    # Pulse Creative Studio MCP (CMO, content-creator, social-media-manager) — versions must exist in Secret Manager
+    "pulse-service-role-key",
+    "pulse-mcp-endpoint",
     "acs-connection-string",
     "bot-app-id",
     "bot-app-secret",

@@ -9,11 +9,18 @@ import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import { PulseClient } from '@glyphor/integrations';
 
 function getPulseClient(): PulseClient | null {
-  try { return PulseClient.fromEnv(); } catch { return null; }
+  try {
+    return PulseClient.fromEnv();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn('[Pulse] PulseClient.fromEnv() failed — pulse_* tools will return unavailable:', msg);
+    return null;
+  }
 }
 
 const PULSE_UNAVAILABLE_MSG = 'Pulse is not yet deployed — the product is still in development. Pulse tools will be available once Pulse launches. Report this as a blocker to Sarah (Chief of Staff) so it can be tracked.';
-const PULSE_TOOL_TIMEOUT_MS = 7000;
+/** Pulse MCP (Supabase edge + model calls) often exceeds 7s; keep under Cloud Run tool budget but realistic */
+const PULSE_TOOL_TIMEOUT_MS = Number(process.env.PULSE_TOOL_TIMEOUT_MS) || 60_000;
 
 function wrapPulseTools(tools: ToolDefinition[]): ToolDefinition[] {
   return tools.map((tool) => {
@@ -643,7 +650,11 @@ export function createAllPulseTools(memory: CompanyMemoryStore): ToolDefinition[
       async execute(params): Promise<ToolResult> {
         const pulse = getPulseClient();
         if (!pulse) return { success: false, error: PULSE_UNAVAILABLE_MSG };
-        const result = await pulse.callAndParse('analyze_brand_website', { url: params.url });
+        // Pulse MCP expects `website_url` (see scripts/data/pulse_mcp_guide.md)
+        const result = await pulse.callAndParse('analyze_brand_website', {
+          website_url: params.url,
+          url: params.url,
+        });
         return { success: true, data: result };
       },
     },
