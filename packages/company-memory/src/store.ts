@@ -259,10 +259,16 @@ export class CompanyMemoryStore implements IMemoryBus {
         [role, durationMs, costUsd],
       );
     } catch {
-      // Fall back to direct update if RPC doesn't exist yet
+      // Match record_agent_run RPC: last run fields + increment totals (RPC missing or transient failure)
       await systemQuery(
-        'UPDATE company_agents SET last_run_at = $1, last_run_duration_ms = $2, last_run_cost_usd = $3 WHERE role = $4',
-        [new Date().toISOString(), durationMs, costUsd, role],
+        `UPDATE company_agents SET
+          last_run_at = NOW(),
+          last_run_duration_ms = $1,
+          last_run_cost_usd = $2,
+          total_runs = total_runs + 1,
+          total_cost_usd = COALESCE(total_cost_usd, 0) + $2
+        WHERE role = $3`,
+        [durationMs, costUsd, role],
       );
     }
   }

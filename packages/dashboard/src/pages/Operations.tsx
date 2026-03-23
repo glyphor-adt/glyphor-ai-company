@@ -75,14 +75,17 @@ interface AgentHealthMetrics {
 function useAgentRuns() {
   const [data, setData] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const rows = await apiCall<AgentRow[]>('/api/company-agents?fields=id,role,total_runs,total_cost_usd,last_run_at,last_run_duration_ms,performance_score');
       setData(rows ?? []);
-    } catch {
+      setError(null);
+    } catch (e) {
       setData([]);
+      setError(e instanceof Error ? e.message : String(e));
     }
     setLoading(false);
   }, []);
@@ -92,20 +95,23 @@ function useAgentRuns() {
     const id = setInterval(refresh, POLL_INTERVAL);
     return () => clearInterval(id);
   }, [refresh]);
-  return { data, loading, refresh };
+  return { data, loading, refresh, error };
 }
 
 function useReflections(days = 14) {
   const [data, setData] = useState<ReflectionRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     try {
       const rows = await apiCall<ReflectionRow[]>(`/api/agent-reflections?since=${since}`);
       setData(rows ?? []);
-    } catch {
+      setError(null);
+    } catch (e) {
       setData([]);
+      setError(e instanceof Error ? e.message : String(e));
     }
     setLoading(false);
   }, [days]);
@@ -116,20 +122,23 @@ function useReflections(days = 14) {
     return () => clearInterval(id);
   }, [refresh]);
 
-  return { data, loading };
+  return { data, loading, error };
 }
 
 function useRecentRuns(hours = 48) {
   const [data, setData] = useState<RecentRunRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
     try {
       const rows = await apiCall<RecentRunRow[]>(`/api/agent-runs?since=${since}`);
       setData(rows ?? []);
-    } catch {
+      setError(null);
+    } catch (e) {
       setData([]);
+      setError(e instanceof Error ? e.message : String(e));
     }
     setLoading(false);
   }, [hours]);
@@ -140,7 +149,7 @@ function useRecentRuns(hours = 48) {
     return () => clearInterval(id);
   }, [refresh]);
 
-  return { data, loading };
+  return { data, loading, error };
 }
 
 function computeHealthMap(
@@ -383,6 +392,7 @@ function useWorkflows() {
   const [workflows, setWorkflows] = useState<WorkflowRecord[]>([]);
   const [metrics, setMetrics] = useState<WorkflowMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -392,8 +402,11 @@ function useWorkflows() {
       ]);
       setWorkflows(wfs ?? []);
       setMetrics(m ?? null);
-    } catch {
+      setError(null);
+    } catch (e) {
       setWorkflows([]);
+      setMetrics(null);
+      setError(e instanceof Error ? e.message : String(e));
     }
     setLoading(false);
   }, []);
@@ -406,7 +419,7 @@ function useWorkflows() {
     return () => clearInterval(interval);
   }, [workflows, refresh]);
 
-  return { workflows, metrics, loading, refresh };
+  return { workflows, metrics, loading, refresh, error };
 }
 
 // ─── Memory Health hooks ────────────────────────────────────────
@@ -571,16 +584,16 @@ export default function Operations() {
 }
 
 function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusId: string | null }) {
-  const { data: agents, loading: agentsLoading, refresh: refreshAgents } = useAgentRuns();
-  const { data: reflections, loading: reflectionsLoading } = useReflections(14);
-  const { data: recentRuns, loading: recentRunsLoading } = useRecentRuns(48);
+  const { data: agents, loading: agentsLoading, refresh: refreshAgents, error: agentsError } = useAgentRuns();
+  const { data: reflections, loading: reflectionsLoading, error: reflectionsError } = useReflections(14);
+  const { data: recentRuns, loading: recentRunsLoading, error: recentRunsError } = useRecentRuns(48);
   const { data: syncs, loading: syncsLoading } = useDataSyncs();
   const { data: incidents, loading: incidentsLoading, resolveIncident } = useIncidents();
   const { data: planVerifications, loading: pvLoading } = usePlanVerifications(30);
   const { data: layerCounts, loading: layersLoading, refresh: refreshLayers } = useMemoryLayerCounts();
   const { data: tableCounts, loading: tableCountsLoading } = useMemoryTableCounts();
   const { data: consolidationActivity, loading: consolidationLoading } = useConsolidationActivity(30);
-  const { workflows, metrics: wfMetrics, loading: wfLoading, refresh: refreshWorkflows } = useWorkflows();
+  const { workflows, metrics: wfMetrics, loading: wfLoading, refresh: refreshWorkflows, error: wfError } = useWorkflows();
 
   const loading = agentsLoading || reflectionsLoading || recentRunsLoading;
   const lastRefresh = useRef(new Date());
@@ -597,6 +610,25 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
     () => computeHealthMap(agents, recentRuns, reflections),
     [agents, recentRuns, reflections],
   );
+
+  const dataLoadErrors = useMemo(() => {
+    const raw = [
+      agentsError ? { label: 'Company agents', message: agentsError } : null,
+      reflectionsError ? { label: 'Reflections', message: reflectionsError } : null,
+      recentRunsError ? { label: 'Recent runs', message: recentRunsError } : null,
+      wfError ? { label: 'Workflows (scheduler)', message: wfError } : null,
+    ].filter((x): x is { label: string; message: string } => x != null);
+    const byMessage = new Map<string, string[]>();
+    for (const e of raw) {
+      const arr = byMessage.get(e.message) ?? [];
+      arr.push(e.label);
+      byMessage.set(e.message, arr);
+    }
+    return Array.from(byMessage.entries()).map(([message, labels]) => ({
+      label: labels.join(' · '),
+      message,
+    }));
+  }, [agentsError, reflectionsError, recentRunsError, wfError]);
 
   // Agent runs per agent
   const runsData = useMemo(() =>
@@ -664,6 +696,27 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
 
   return (
     <div className="space-y-8">
+      {dataLoadErrors.length > 0 && (
+        <div
+          className="rounded-lg border border-prism-critical/25 bg-prism-critical/5 px-4 py-3 text-sm"
+          role="alert"
+        >
+          <p className="font-medium text-prism-critical">Some operations data failed to load</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-txt-muted">
+            {dataLoadErrors.map((e) => (
+              <li key={e.label}>
+                <span className="font-medium text-txt-secondary">{e.label}:</span> {e.message}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-txt-faint">
+            Confirm{' '}
+            <code className="rounded bg-raised px-1 font-mono text-[10px]">VITE_API_URL</code> (REST API) and{' '}
+            <code className="rounded bg-raised px-1 font-mono text-[10px]">VITE_SCHEDULER_URL</code> (workflows) in the
+            dashboard build match your deployed services, and that you are signed in if the API requires auth.
+          </p>
+        </div>
+      )}
       {/* Refresh bar */}
       <div className="flex items-center justify-end gap-3">
         <span className="text-xs text-txt-faint">Auto-refreshes every 60s</span>
