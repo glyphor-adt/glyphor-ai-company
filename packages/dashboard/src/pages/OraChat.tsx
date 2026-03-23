@@ -1551,7 +1551,7 @@ export default function OraChat() {
         <MovingBorderContainer
           borderRadius="1rem"
           containerClassName="w-full"
-          innerClassName="flex-col items-stretch"
+          innerClassName="flex-col items-stretch chat-composer-glass"
         >
             {/* Textarea */}
             <textarea

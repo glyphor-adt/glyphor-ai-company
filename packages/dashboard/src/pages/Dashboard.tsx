@@ -509,8 +509,8 @@ export default function Dashboard() {
             {QUICK_ACTIONS.map((action) => {
               const Icon = action.icon;
               return (
-                <Link key={action.label} to={action.to} className="glass-surface inner-card-lift flex items-center gap-2.5 rounded-lg border border-border/60 px-3 py-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan/10 text-cyan">
+                <Link key={action.label} to={action.to} className="group glass-surface inner-card-lift flex items-center gap-2.5 rounded-lg border border-border/60 px-3 py-2">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-surface/60 text-txt-muted shadow-sm transition-colors group-hover:border-cyan/35 group-hover:bg-cyan/10 group-hover:text-cyan">
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">

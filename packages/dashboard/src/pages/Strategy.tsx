@@ -3,6 +3,7 @@ import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, Md
 import Markdown from 'react-markdown';
 import { SCHEDULER_URL } from '../lib/firebase';
 import { Card, GradientButton, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import { MovingBorderContainer } from '../components/ui/MovingBorder';
 import { normalizeText } from '../lib/normalizeText';
 
 /* ── Types ─────────────────────────────────────── */
@@ -404,30 +405,40 @@ function DeepDivesPanel() {
       {/* Launch Form */}
       <Card>
         <SectionHeader title="Launch Strategic Deep Dive" subtitle="8 areas × 5 queries × multi-model analysis → cross-model challenge → verification → cited synthesis" />
-        <div className="mt-4 space-y-3">
-          <input
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            placeholder="Enter company name, market, or topic — e.g. 'Eaton Corporation plc'"
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-txt-primary placeholder:text-txt-faint focus:outline-none focus:ring-1 focus:ring-cyan/50"
-          />
-          <textarea
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
-            placeholder="Optional context — e.g. 'Focus on their electrification strategy and industrial automation segment'"
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-txt-primary placeholder:text-txt-faint focus:outline-none focus:ring-1 focus:ring-cyan/50 resize-none"
-            rows={2}
-          />
-          <div className="flex justify-end">
-            <button
-              onClick={launch}
-              disabled={launching || !target.trim()}
-              className="rounded-lg bg-cyan/20 border border-cyan/30 px-5 py-2 text-sm font-medium text-cyan transition-all hover:bg-cyan/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              <MdSearch className="text-base" />
-              {launching ? 'Launching…' : 'Launch Deep Dive'}
-            </button>
-          </div>
+        <div className="mt-4">
+          <MovingBorderContainer
+            borderRadius="1rem"
+            containerClassName="w-full"
+            innerClassName="flex-col items-stretch chat-composer-glass"
+          >
+            <input
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              placeholder="Enter company name, market, or topic — e.g. 'Eaton Corporation plc'"
+              disabled={launching}
+              className="w-full border-b border-white/[0.06] bg-transparent px-4 py-3 text-sm text-txt-secondary placeholder:text-txt-faint outline-none transition-colors disabled:opacity-50"
+            />
+            <textarea
+              value={context}
+              onChange={(e) => setContext(e.target.value)}
+              placeholder="Optional context — e.g. 'Focus on their electrification strategy and industrial automation segment'"
+              className="w-full resize-none bg-transparent px-4 py-3 text-sm text-txt-secondary placeholder:text-txt-faint outline-none transition-colors min-h-[72px] max-h-[180px] disabled:opacity-50"
+              rows={2}
+              disabled={launching}
+            />
+            <div className="flex items-center justify-end px-2.5 pb-2.5 pt-1">
+              <GradientButton
+                variant="primary"
+                size="md"
+                onClick={launch}
+                disabled={launching || !target.trim()}
+                className="inline-flex items-center gap-2"
+              >
+                <MdSearch className="text-base" />
+                {launching ? 'Launching…' : 'Launch Deep Dive'}
+              </GradientButton>
+            </div>
+          </MovingBorderContainer>
         </div>
       </Card>
 
@@ -527,20 +538,25 @@ function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: De
 
   return (
     <div className="border-t border-border">
-      {/* Document counts banner */}
-      <div className="flex gap-4 px-5 py-3 bg-raised/40 border-b border-border">
-        {[
-          { label: 'SEC Filings', val: report.documentCounts.secFilings, color: 'text-cyan' },
-          { label: 'News Articles', val: report.documentCounts.newsArticles, color: 'text-tier-green' },
-          { label: 'Patents', val: report.documentCounts.patents, color: 'text-prism-elevated' },
-          { label: 'Research Sources', val: report.documentCounts.researchSources, color: 'text-prism-violet' },
-        ].map((d) => (
-          <div key={d.label} className="text-center">
-            <span className={`text-lg font-bold ${d.color}`}>{d.val}</span>
-            <span className="block text-[10px] text-txt-muted">{d.label}</span>
-          </div>
-        ))}
-        <div className="ml-auto flex items-center gap-2">
+      {/* Document counts + exports — same glass language as dashboard home */}
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          {[
+            { label: 'SEC Filings', val: report.documentCounts.secFilings },
+            { label: 'News Articles', val: report.documentCounts.newsArticles },
+            { label: 'Patents', val: report.documentCounts.patents },
+            { label: 'Research Sources', val: report.documentCounts.researchSources },
+          ].map((d) => (
+            <div
+              key={d.label}
+              className="glass-surface min-w-[5.5rem] rounded-xl border border-border border-t-2 border-t-cyan/50 px-3 py-2 text-center"
+            >
+              <span className="text-lg font-bold tabular-nums text-txt-primary">{d.val}</span>
+              <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-[0.16em] text-txt-muted">{d.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <ExportButton label="DOCX" href={`${SCHEDULER_URL}/deep-dive/${record.id}/export?format=docx`} />
           <ExportButton label="PPTX" href={`${SCHEDULER_URL}/deep-dive/${record.id}/export?format=pptx`} />
           <ExportButton label="MD" href={`${SCHEDULER_URL}/deep-dive/${record.id}/export?format=markdown`} />
@@ -548,19 +564,21 @@ function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: De
         </div>
       </div>
 
-      {/* Inner tab navigation */}
-      <div className="flex gap-1 px-5 py-2 border-b border-border overflow-x-auto">
-        {TAB_ITEMS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setDdTab(t.key)}
-            className={`rounded-md px-3 py-1 text-[12px] font-medium whitespace-nowrap transition-colors ${
-              ddTab === t.key ? 'bg-cyan/15 text-cyan' : 'text-txt-muted hover:text-txt-secondary'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Inner tab navigation — match Strategy Lab tab chrome */}
+      <div className="border-b border-border px-4 py-2 sm:px-5">
+        <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-border bg-raised p-1">
+          {TAB_ITEMS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setDdTab(t.key)}
+              className={`shrink-0 rounded-md px-3 py-1.5 text-[12px] font-medium whitespace-nowrap transition-colors ${
+                ddTab === t.key ? 'bg-cyan/15 text-cyan' : 'text-txt-muted hover:text-txt-secondary'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab content */}
@@ -585,54 +603,96 @@ function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: De
 /* ── Deep Dive Sub-Tab Views ─────────────────── */
 
 function DDCurrentState({ report }: { report: DeepDiveReport }) {
-  const momColor = report.currentState.momentum === 'positive' ? 'text-tier-green' : report.currentState.momentum === 'negative' ? 'text-prism-critical' : 'text-prism-elevated';
-  const momBg = report.currentState.momentum === 'positive' ? 'bg-tier-green/10 border-tier-green/30' : report.currentState.momentum === 'negative' ? 'bg-prism-critical/10 border-prism-critical/30' : 'bg-prism-elevated/10 border-prism-elevated/30';
+  const momentum = report.currentState.momentum;
+  const momTop =
+    momentum === 'positive'
+      ? 'border-t-emerald-400/70'
+      : momentum === 'negative'
+        ? 'border-t-rose-400/70'
+        : 'border-t-cyan/50';
+  const momDot =
+    momentum === 'positive' ? 'bg-emerald-400' : momentum === 'negative' ? 'bg-rose-400' : 'bg-cyan';
   const fs = report.currentState.financialSnapshot;
+
+  const financialFields = [
+    { label: 'Revenue', val: fs.revenue },
+    { label: 'Growth', val: fs.revenueGrowth },
+    { label: 'Headcount', val: fs.headcount },
+    { label: 'Funding', val: fs.funding },
+    { label: 'Valuation', val: fs.valuation },
+    { label: 'Profitability', val: fs.profitability },
+  ];
+
+  const formatMetric = (raw: string | undefined) => {
+    const v = raw?.trim();
+    if (!v) return null;
+    return v;
+  };
 
   return (
     <div className="space-y-4">
-      <div className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 border ${momBg}`}>
-        <MdTrendingUp className={`text-base ${momColor}`} />
-        <span className={`text-sm font-semibold ${momColor}`}>Momentum: {report.currentState.momentum.toUpperCase()}</span>
+      <div className={`glass-surface rounded-xl border border-border px-4 py-3 border-t-2 ${momTop}`}>
+        <div className="flex items-center gap-2.5">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${momDot}`} />
+          <MdTrendingUp className="text-base text-txt-muted" />
+          <span className="text-sm font-semibold text-txt-primary">
+            Momentum:{' '}
+            <span className="text-txt-secondary">{momentum.toUpperCase()}</span>
+          </span>
+        </div>
       </div>
 
-      {(fs.revenue || fs.funding) && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[
-            { label: 'Revenue', val: fs.revenue },
-            { label: 'Growth', val: fs.revenueGrowth },
-            { label: 'Headcount', val: fs.headcount },
-            { label: 'Funding', val: fs.funding },
-            { label: 'Valuation', val: fs.valuation },
-            { label: 'Profitability', val: fs.profitability },
-          ].filter((f) => f.val).map((f) => (
-            <div key={f.label} className="glass-surface rounded-lg p-3 border border-border">
-              <span className="text-[10px] text-txt-muted uppercase tracking-wider">{f.label}</span>
-              <p className="text-sm font-semibold text-txt-primary mt-0.5">{f.val}</p>
-            </div>
-          ))}
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-txt-muted">Financial snapshot</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {financialFields.map((f) => {
+            const display = formatMetric(f.val);
+            return (
+              <div
+                key={f.label}
+                className="glass-surface rounded-xl border border-border px-3 py-3 border-t-2 border-t-cyan/30"
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-txt-muted">{f.label}</span>
+                <p className="mt-2 text-sm font-semibold leading-snug text-txt-primary">
+                  {display ?? <span className="font-normal text-txt-faint">Not available</span>}
+                </p>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div>
-          <h4 className="text-xs font-semibold text-tier-green uppercase tracking-wider mb-2">Key Strengths</h4>
+          <h4 className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
+            <span className="h-px w-4 bg-cyan/50" />
+            Key strengths
+          </h4>
           <div className="space-y-2">
             {report.currentState.keyStrengths.map((s, i) => (
-              <div key={i} className="rounded-lg bg-tier-green/5 border border-tier-green/20 p-3">
+              <div
+                key={i}
+                className="glass-surface rounded-lg border border-border border-l-2 border-l-cyan/45 p-3"
+              >
                 <p className="text-sm font-medium text-txt-primary">{s.point}</p>
-                <p className="text-[12px] text-txt-muted mt-1">{s.evidence}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-txt-muted">{s.evidence}</p>
               </div>
             ))}
           </div>
         </div>
         <div>
-          <h4 className="text-xs font-semibold text-prism-critical uppercase tracking-wider mb-2">Key Challenges</h4>
+          <h4 className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
+            <span className="h-px w-4 bg-rose-400/50" />
+            Key challenges
+          </h4>
           <div className="space-y-2">
             {report.currentState.keyChallenges.map((c, i) => (
-              <div key={i} className="rounded-lg bg-prism-critical/5 border border-prism-critical/20 p-3">
+              <div
+                key={i}
+                className="glass-surface rounded-lg border border-border border-l-2 border-l-rose-400/40 p-3"
+              >
                 <p className="text-sm font-medium text-txt-primary">{c.point}</p>
-                <p className="text-[12px] text-txt-muted mt-1">{c.evidence}</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-txt-muted">{c.evidence}</p>
               </div>
             ))}
           </div>
@@ -1203,35 +1263,45 @@ function SimulationsPanel() {
         <p className="mt-1 mb-3 text-[12px] text-txt-muted">
           Describe a proposed action and the AI executive team will forecast its cascading impact across Revenue, Engineering, Product, Marketing, and Finance.
         </p>
-        <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-end">
-          <div>
-            <label className="text-[11px] font-medium text-txt-muted mb-1 block">Proposed Action</label>
-            <input
+        <div>
+          <label className="text-[11px] font-medium text-txt-muted mb-1 block">Proposed Action</label>
+          <MovingBorderContainer
+            borderRadius="1rem"
+            containerClassName="w-full"
+            innerClassName="flex-col items-stretch chat-composer-glass"
+          >
+            <textarea
               value={action}
               onChange={(e) => setAction(e.target.value)}
               placeholder="e.g. 'Raise prices 20% across all tiers'"
-              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none"
-              onKeyDown={(e) => e.key === 'Enter' && launch()}
+              rows={3}
+              disabled={launching}
+              className="w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-sm text-txt-secondary placeholder:text-txt-faint outline-none transition-colors min-h-[72px] max-h-[180px] disabled:opacity-50"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void launch();
+                }
+              }}
             />
-          </div>
-          <div>
-            <label className="text-[11px] font-medium text-txt-muted mb-1 block">Perspective</label>
-            <select
-              value={perspective}
-              onChange={(e) => setPerspective(e.target.value as 'optimistic' | 'neutral' | 'pessimistic')}
-              className="rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
-            >
-              {Object.entries(PERSPECTIVE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-          </div>
-          <GradientButton
-            onClick={launch}
-            disabled={launching || !action.trim()}
-          >
-            {launching ? 'Launching…' : 'Run Cascade'}
-          </GradientButton>
+            <div className="flex flex-wrap items-end justify-between gap-3 px-2.5 pb-2.5 pt-1">
+              <div>
+                <label className="text-[10px] font-medium text-txt-muted mb-1 block">Perspective</label>
+                <select
+                  value={perspective}
+                  onChange={(e) => setPerspective(e.target.value as 'optimistic' | 'neutral' | 'pessimistic')}
+                  className="rounded-lg border border-border/70 bg-base px-3 py-2 text-sm text-txt-primary outline-none focus:border-cyan/40"
+                >
+                  {Object.entries(PERSPECTIVE_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+              </div>
+              <GradientButton variant="primary" size="md" onClick={launch} disabled={launching || !action.trim()}>
+                {launching ? 'Launching…' : 'Run Cascade'}
+              </GradientButton>
+            </div>
+          </MovingBorderContainer>
         </div>
       </Card>
 
@@ -1591,23 +1661,33 @@ function ChainOfThoughtPanel() {
         <p className="mt-1 mb-3 text-[12px] text-txt-muted">
           Decompose complex strategic problems into structured reasoning chains. The AI executive team will identify core problems, map root causes, evaluate strategic options, and validate logical consistency.
         </p>
-        <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
-          <div>
-            <label className="text-[11px] font-medium text-txt-muted mb-1 block">Strategic Question</label>
-            <input
+        <div>
+          <label className="text-[11px] font-medium text-txt-muted mb-1 block">Strategic Question</label>
+          <MovingBorderContainer
+            borderRadius="1rem"
+            containerClassName="w-full"
+            innerClassName="flex-col items-stretch chat-composer-glass"
+          >
+            <textarea
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="e.g. 'Should we narrow ICP to founder-led SMB teams already on Slack?'"
-              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none"
-              onKeyDown={(e) => e.key === 'Enter' && launch()}
+              rows={3}
+              className="w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-sm text-txt-secondary placeholder:text-txt-faint outline-none transition-colors min-h-[72px] max-h-[180px] disabled:opacity-50"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void launch();
+                }
+              }}
+              disabled={launching}
             />
-          </div>
-          <GradientButton
-            onClick={launch}
-            disabled={launching || !query.trim()}
-          >
-            {launching ? 'Launching…' : 'Analyze'}
-          </GradientButton>
+            <div className="flex items-center justify-end px-2.5 pb-2.5 pt-1">
+              <GradientButton variant="primary" size="md" onClick={launch} disabled={launching || !query.trim()}>
+                {launching ? 'Launching…' : 'Analyze'}
+              </GradientButton>
+            </div>
+          </MovingBorderContainer>
         </div>
       </Card>
 
@@ -1669,21 +1749,23 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
       {/* Summary */}
       <p className="text-sm text-txt-secondary leading-relaxed">{report.summary}</p>
 
-      {/* Phase Tabs */}
-      <div className="flex gap-1 rounded-lg bg-base p-1 border border-border">
-        {(['decomposition', 'solution_space', 'options', 'validation'] as CotPhase[]).map((p) => (
-          <button
-            key={p}
-            onClick={() => setPhase(p)}
-            className={`flex-1 rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${
-              phase === p
-                ? 'bg-cyan/15 text-cyan'
-                : 'text-txt-muted hover:text-txt-secondary'
-            }`}
-          >
-            {COT_PHASE_LABELS[p]}
-          </button>
-        ))}
+      {/* Phase Tabs — Strategy Lab–style segmented control */}
+      <div className="w-full overflow-x-auto">
+        <div className="inline-flex min-w-0 gap-1 rounded-lg border border-border bg-raised p-1">
+          {(['decomposition', 'solution_space', 'options', 'validation'] as CotPhase[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPhase(p)}
+              className={`shrink-0 rounded-md px-3 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                phase === p
+                  ? 'bg-cyan/15 text-cyan'
+                  : 'text-txt-muted hover:text-txt-secondary'
+              }`}
+            >
+              {COT_PHASE_LABELS[p]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Phase Content */}
@@ -1782,40 +1864,44 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Strategic Options</p>
           <div className="space-y-3">
             {report.options.map((opt, i) => (
-              <div key={i} className="rounded-lg border border-border bg-raised px-4 py-3">
-                <div className="flex items-center justify-between mb-2">
+              <div key={i} className="glass-surface rounded-xl border border-border px-4 py-3">
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <span className="text-sm font-medium text-txt-primary">{opt.title}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-txt-faint">Feasibility</span>
-                    <span className={`font-mono text-sm font-semibold ${
-                      opt.feasibilityScore >= 7 ? 'text-tier-green' : opt.feasibilityScore >= 4 ? 'text-prism-elevated' : 'text-prism-critical'
-                    }`}>
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-surface/40 px-2.5 py-1">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Feasibility</span>
+                    <span
+                      className={`font-mono text-sm font-semibold tabular-nums ${
+                        opt.feasibilityScore >= 7
+                          ? 'text-cyan'
+                          : opt.feasibilityScore >= 4
+                            ? 'text-txt-secondary'
+                            : 'text-txt-muted'
+                      }`}
+                    >
                       {opt.feasibilityScore}/10
                     </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Pros */}
-                  <div className="rounded-lg border border-tier-green/20 bg-tier-green/5 p-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-tier-green mb-1.5">Pros</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-border border-l-2 border-l-cyan/45 bg-surface/20 p-2.5">
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-cyan">Pros</p>
                     {opt.pros.length > 0 ? (
                       <ul className="space-y-1">
                         {opt.pros.map((p, j) => (
-                          <li key={j} className="text-[11px] text-txt-secondary leading-relaxed">+ {p}</li>
+                          <li key={j} className="text-[11px] leading-relaxed text-txt-secondary">+ {p}</li>
                         ))}
                       </ul>
                     ) : (
                       <p className="text-[11px] text-txt-faint">—</p>
                     )}
                   </div>
-                  {/* Cons */}
-                  <div className="rounded-lg border border-prism-critical/20 bg-prism-critical/5 p-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-prism-critical mb-1.5">Cons</p>
+                  <div className="rounded-lg border border-border border-l-2 border-l-rose-400/40 bg-surface/20 p-2.5">
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-rose-300/90">Cons</p>
                     {opt.cons.length > 0 ? (
                       <ul className="space-y-1">
                         {opt.cons.map((c, j) => (
-                          <li key={j} className="text-[11px] text-txt-secondary leading-relaxed">- {c}</li>
+                          <li key={j} className="text-[11px] leading-relaxed text-txt-secondary">- {c}</li>
                         ))}
                       </ul>
                     ) : (
@@ -1824,10 +1910,10 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
                   </div>
                 </div>
 
-                <p className="mt-2 text-[11px] text-txt-muted leading-relaxed">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-txt-faint">Reasoning: </span>
-                  {opt.reasoning}
-                </p>
+                <div className="mt-3 rounded-lg border border-border/80 bg-surface/15 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted">Reasoning</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-txt-secondary">{opt.reasoning}</p>
+                </div>
               </div>
             ))}
             {report.options.length === 0 && (
@@ -1883,14 +1969,17 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
 
 function ExportButton({ label, href }: { label: string; href: string }) {
   return (
-    <a
+    <GradientButton
+      as="a"
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="rounded-lg border border-border bg-raised px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:text-txt-secondary hover:border-cyan/30"
+      variant="primary"
+      size="sm"
+      className="no-underline"
     >
       {label}
-    </a>
+    </GradientButton>
   );
 }
 
@@ -2058,57 +2147,69 @@ function StrategyLabV2Panel() {
       {/* Launch Form */}
       <Card>
         <SectionHeader title="Launch Multi-Agent Strategy Analysis" subtitle="Research team → Executive analysis → Sarah synthesis" />
-        <div className="mt-4 space-y-3">
-          <textarea
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="e.g. 'Analyze competitor landscape for AI-powered website builders targeting SMBs'"
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-txt-primary placeholder:text-txt-faint focus:outline-none focus:ring-1 focus:ring-cyan/50 resize-none"
-            rows={2}
-          />
-          <div className="flex gap-3 items-end flex-wrap">
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-[11px] font-medium text-txt-muted mb-1 block">Analysis Type</label>
-              <select
-                value={analysisType}
-                onChange={(e) => setAnalysisType(e.target.value as SLv2AnalysisType)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-txt-primary focus:outline-none focus:ring-1 focus:ring-cyan/50"
-              >
-                {Object.entries(SLV2_TYPE_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
+        <div className="mt-4">
+          <MovingBorderContainer
+            borderRadius="1rem"
+            containerClassName="w-full"
+            innerClassName="flex-col items-stretch chat-composer-glass"
+          >
+            <textarea
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="e.g. 'Analyze competitor landscape for AI-powered website builders targeting SMBs'"
+              className="w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-sm text-txt-secondary placeholder:text-txt-faint outline-none transition-colors min-h-[88px] max-h-[220px] disabled:opacity-50"
+              rows={3}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void launch();
+                }
+              }}
+              disabled={launching}
+            />
+            <div className="flex flex-col gap-3 px-2.5 pb-2.5 pt-1 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+              <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <div className="min-w-[180px] flex-1">
+                  <label className="mb-1 block text-[10px] font-medium text-txt-muted">Analysis Type</label>
+                  <select
+                    value={analysisType}
+                    onChange={(e) => setAnalysisType(e.target.value as SLv2AnalysisType)}
+                    className="w-full rounded-lg border border-border/70 bg-base px-3 py-2 text-sm text-txt-primary outline-none focus:border-cyan/40"
+                  >
+                    {Object.entries(SLV2_TYPE_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="min-w-[180px] flex-1">
+                  <label className="mb-1 block text-[10px] font-medium text-txt-muted">Depth</label>
+                  <select
+                    value={depth}
+                    onChange={(e) => setDepth(e.target.value as SLv2Depth)}
+                    className="w-full rounded-lg border border-border/70 bg-base px-3 py-2 text-sm text-txt-primary outline-none focus:border-cyan/40"
+                  >
+                    {Object.entries(SLV2_DEPTH_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+                <label className="flex min-h-[42px] min-w-[200px] cursor-pointer items-center gap-2 rounded-lg border border-border/70 bg-base/80 px-3 py-2 text-[12px] text-txt-secondary sm:mb-0">
+                  <input
+                    type="checkbox"
+                    checked={includeDeepDiveResearch}
+                    onChange={(e) => setIncludeDeepDiveResearch(e.target.checked)}
+                    className="h-3.5 w-3.5 shrink-0 rounded border-border text-cyan focus:ring-cyan/40"
+                  />
+                  Also run Deep Dive research
+                </label>
+              </div>
+              <div className="flex shrink-0 justify-end sm:justify-start">
+                <GradientButton variant="primary" size="md" onClick={launch} disabled={launching || !query.trim()}>
+                  {launching ? 'Launching…' : 'Launch Analysis'}
+                </GradientButton>
+              </div>
             </div>
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-[11px] font-medium text-txt-muted mb-1 block">Depth</label>
-              <select
-                value={depth}
-                onChange={(e) => setDepth(e.target.value as SLv2Depth)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-txt-primary focus:outline-none focus:ring-1 focus:ring-cyan/50"
-              >
-                {Object.entries(SLV2_DEPTH_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-            </div>
-            <label className="flex min-w-[220px] items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-txt-secondary">
-              <input
-                type="checkbox"
-                checked={includeDeepDiveResearch}
-                onChange={(e) => setIncludeDeepDiveResearch(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-border bg-surface text-cyan focus:ring-cyan/40"
-              />
-              Also run Deep Dive research
-            </label>
-            <GradientButton
-              variant="primary"
-              size="md"
-              onClick={launch}
-              disabled={launching || !query.trim()}
-            >
-              {launching ? 'Launching…' : 'Launch Analysis'}
-            </GradientButton>
-          </div>
+          </MovingBorderContainer>
         </div>
       </Card>
 
