@@ -9,7 +9,7 @@ terraform {
   }
 
   backend "gcs" {
-    # Configure via: terraform init -backend-config="bucket=<tfstate-bucket>"
+    # Bucket + prefix: see backend.hcl — run: terraform init -backend-config=backend.hcl
   }
 }
 
@@ -42,10 +42,10 @@ variable "billing_account_id" {
   default     = "012B03-F562EC-184CD8"
 }
 
-variable "cfo_emails" {
-  description = "CFO / finance Google accounts granted read-only billing access"
+variable "cfo_billing_console_users" {
+  description = "Optional Google accounts (Workspace users) that also get read-only billing console + BigQuery export access. Nadia the CFO agent uses the dedicated SA sa-nadia (see google_service_account.cfo_agent), not an inbox."
   type        = list(string)
-  default     = ["cfo@glyphor.ai"]
+  default     = []
 }
 
 provider "google" {
@@ -82,6 +82,63 @@ resource "google_service_account" "glyphor" {
 resource "google_service_account" "worker" {
   account_id   = "glyphor-worker"
   display_name = "Glyphor Worker"
+}
+
+# Nadia (CFO) — matches packages/integrations/src/governance/iamSync.ts (sa-nadia@…)
+resource "google_service_account" "cfo_agent" {
+  account_id   = "sa-nadia"
+  display_name = "Nadia (CFO agent)"
+  description  = "Dedicated service account for the CFO agent; grant BigQuery/billing read for tools or future direct export queries"
+}
+
+# Per-agent service accounts — keep in sync with packages/integrations/src/governance/iamSync.ts SERVICE_ACCOUNTS
+# (sa-nadia is google_service_account.cfo_agent above, not repeated here)
+locals {
+  agent_owner_service_accounts = {
+    marcus = {
+      account_id   = "sa-marcus"
+      display_name = "Marcus Reeves (CTO agent)"
+    }
+    alex = {
+      account_id   = "sa-alex"
+      display_name = "Alex Park (platform engineer agent)"
+    }
+    jordan = {
+      account_id   = "sa-jordan"
+      display_name = "Jordan Hayes (devops engineer agent)"
+    }
+    elena = {
+      account_id   = "sa-elena"
+      display_name = "Elena Vasquez (CPO agent)"
+    }
+    maya = {
+      account_id   = "sa-maya"
+      display_name = "Maya Brooks (CMO agent)"
+    }
+    rachel = {
+      account_id   = "sa-rachel"
+      display_name = "Rachel Kim (VP sales agent)"
+    }
+    mia = {
+      account_id   = "sa-mia"
+      display_name = "Mia Tanaka (VP design agent)"
+    }
+    sarah = {
+      account_id   = "sa-sarah"
+      display_name = "Sarah Chen (Chief of Staff agent)"
+    }
+    production_deploy = {
+      account_id   = "sa-production-deploy"
+      display_name = "Production deploy automation"
+    }
+  }
+}
+
+resource "google_service_account" "agent_owner" {
+  for_each     = local.agent_owner_service_accounts
+  account_id   = each.value.account_id
+  display_name = each.value.display_name
+  description  = "Per-agent identity; must match iamSync.ts SERVICE_ACCOUNTS emails for this project"
 }
 
 # ─── Artifact Registry ───────────────────────────────────────
@@ -288,19 +345,22 @@ resource "google_sql_user" "glyphor_app" {
   password = data.google_secret_manager_secret_version.db_password.secret_data
 }
 
+# Password is not read from Secret Manager here: the principal running Terraform may lack
+# accessor on db-readonly-password while still managing other resources. After import,
+# ignore_changes keeps the real password in Cloud SQL in sync with the secret outside TF.
 resource "google_sql_user" "glyphor_readonly" {
   name     = "glyphor_readonly"
   instance = google_sql_database_instance.glyphor_db.name
-  password = data.google_secret_manager_secret_version.db_readonly_password.secret_data
+  password = "import-placeholder-do-not-use-rotate-in-console"
+  lifecycle {
+    ignore_changes = [password]
+  }
 }
 
+# Read by secret id so plan/refresh works before all google_secret_manager_secret.secrets are in state
 data "google_secret_manager_secret_version" "db_password" {
-  secret  = google_secret_manager_secret.secrets["db-password"].secret_id
-  version = "latest"
-}
-
-data "google_secret_manager_secret_version" "db_readonly_password" {
-  secret  = google_secret_manager_secret.secrets["db-readonly-password"].secret_id
+  project = var.project_id
+  secret  = "db-password"
   version = "latest"
 }
 
@@ -1358,27 +1418,49 @@ resource "google_cloud_run_v2_service_iam_member" "dashboard_public" {
   member   = "allUsers"
 }
 
-# ─── CFO Billing Access ───────────────────────────────────────
-# billing.viewer  → GCP Console › Billing: cost reports, invoices, budgets
-# bigquery.dataViewer + bigquery.jobUser → direct SQL on the billing export dataset
+# ─── CFO billing access (Nadia = service account, not a Google user) ───
+# See packages/integrations/src/governance/iamSync.ts — sa-nadia@<project>.iam.gserviceaccount.com
+# billing.viewer → Billing API / console-style visibility for that principal
+# bigquery.dataViewer + bigquery.jobUser → query billing export table in BigQuery
+# Note: CFO tools today mostly read synced costs from Cloud SQL (gcp_billing); this SA is the
+# correct GCP identity if you run CFO as this SA or add direct BigQuery tools later.
 
-resource "google_billing_account_iam_member" "cfo_billing_viewer" {
-  for_each           = toset(var.cfo_emails)
+resource "google_billing_account_iam_member" "cfo_agent_billing_viewer" {
+  billing_account_id = var.billing_account_id
+  role               = "roles/billing.viewer"
+  member             = "serviceAccount:${google_service_account.cfo_agent.email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "cfo_agent_bq_data_viewer" {
+  project    = var.project_id
+  dataset_id = "billing_export"
+  role       = "roles/bigquery.dataViewer"
+  member     = "serviceAccount:${google_service_account.cfo_agent.email}"
+}
+
+resource "google_project_iam_member" "cfo_agent_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.cfo_agent.email}"
+}
+
+resource "google_billing_account_iam_member" "cfo_human_billing_viewer" {
+  for_each           = toset(var.cfo_billing_console_users)
   billing_account_id = var.billing_account_id
   role               = "roles/billing.viewer"
   member             = "user:${each.value}"
 }
 
-resource "google_bigquery_dataset_iam_member" "cfo_bq_data_viewer" {
-  for_each   = toset(var.cfo_emails)
+resource "google_bigquery_dataset_iam_member" "cfo_human_bq_data_viewer" {
+  for_each   = toset(var.cfo_billing_console_users)
   project    = var.project_id
   dataset_id = "billing_export"
   role       = "roles/bigquery.dataViewer"
   member     = "user:${each.value}"
 }
 
-resource "google_project_iam_member" "cfo_bq_job_user" {
-  for_each = toset(var.cfo_emails)
+resource "google_project_iam_member" "cfo_human_bq_job_user" {
+  for_each = toset(var.cfo_billing_console_users)
   project  = var.project_id
   role     = "roles/bigquery.jobUser"
   member   = "user:${each.value}"
@@ -1510,6 +1592,16 @@ output "voice_gateway_url" {
 
 output "service_account_email" {
   value = google_service_account.glyphor.email
+}
+
+output "cfo_agent_service_account_email" {
+  description = "Nadia (CFO agent) — use as Cloud Run / Workload identity for CFO workloads that need billing or BigQuery export"
+  value       = google_service_account.cfo_agent.email
+}
+
+output "agent_owner_service_account_emails" {
+  description = "Per-agent SAs (iamSync.ts); keys: marcus, alex, jordan, elena, maya, rachel, mia, sarah, production_deploy"
+  value       = { for k, sa in google_service_account.agent_owner : k => sa.email }
 }
 
 output "global_admin_email" {

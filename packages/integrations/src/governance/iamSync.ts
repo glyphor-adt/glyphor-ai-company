@@ -15,6 +15,7 @@ interface ServiceAccountMapping {
   agentRole: string | null;
 }
 
+/** Emails must match Terraform: google_service_account.agent_owner + google_service_account.cfo_agent (sa-nadia). */
 const SERVICE_ACCOUNTS: ServiceAccountMapping[] = [
   { email: 'sa-marcus@ai-glyphor-company.iam.gserviceaccount.com', agentRole: 'cto' },
   { email: 'sa-nadia@ai-glyphor-company.iam.gserviceaccount.com', agentRole: 'cfo' },

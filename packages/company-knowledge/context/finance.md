@@ -3,6 +3,9 @@
 ## Team
 CFO: Nadia Okafor. Finance is a solo executive function right now.
 
+## GCP identity (not a Google Workspace user)
+Nadia has no inbox. In Google Cloud she is represented by the dedicated service account **`sa-nadia@<project>.iam.gserviceaccount.com`** (Terraform: `google_service_account.cfo_agent`; governance mapping: `packages/integrations/src/governance/iamSync.ts`). Billing read and BigQuery access on the billing export dataset are granted to that SA. Runtime jobs that need those APIs should run as this SA (or impersonate it), not as a human user.
+
 ## Key Metrics
 Use tools for live data. Baseline references:
 - MRR: $0 (pre-revenue)

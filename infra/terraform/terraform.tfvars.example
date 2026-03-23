@@ -3,3 +3,5 @@ region            = "us-central1"
 environment       = "prod"
 supabase_anon_key = "your-supabase-anon-key"
 founder_emails    = ["kristina@glyphor.ai", "andrew@glyphor.ai"]
+# Optional: real Workspace users who need billing console + BQ export (Nadia uses SA sa-nadia, not an email)
+# cfo_billing_console_users = ["kristina@glyphor.ai"]
