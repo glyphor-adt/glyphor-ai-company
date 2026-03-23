@@ -68,9 +68,10 @@ function TrailDot({
         width: size,
         height: size,
         borderRadius: '50%',
-        background: `radial-gradient(circle, ${color} 0%, ${color}88 30%, transparent 70%)`,
+        background: `radial-gradient(circle, ${color} 0%, ${color}88 35%, transparent 72%)`,
         opacity,
-        filter: 'blur(12px)',
+        /* Keep blur modest so overflow:hidden + clip-path can contain the glow */
+        filter: 'blur(5px)',
         transform,
         willChange: 'transform',
         pointerEvents: 'none',
@@ -85,8 +86,8 @@ export function GradientMovingBorder({
   rx = '30%',
   ry = '30%',
   colors = PALETTES.prismMidnight,
-  trailCount = 20,
-  dotSize = 70,
+  trailCount = 14,
+  dotSize = 34,
 }: {
   duration?: number;
   rx?: string;
@@ -146,8 +147,8 @@ export function MovingBorderContainer({
   innerClassName,
   duration = 12000,
   colors = PALETTES.prismMidnight,
-  trailCount = 20,
-  dotSize = 70,
+  trailCount = 14,
+  dotSize = 34,
   ...otherProps
 }: {
   children: React.ReactNode;
@@ -161,22 +162,28 @@ export function MovingBorderContainer({
   dotSize?: number;
   [key: string]: any;
 }) {
+  /* Inner radius: account for p-[2px] ring so corners stay concentric with outer clip */
+  const innerRadius = `calc(${borderRadius} - 2px)`;
+
   return (
     <Component
       className={cn(
-        'relative overflow-hidden bg-transparent p-[2px]',
+        'relative isolate overflow-hidden bg-transparent p-[2px]',
         containerClassName,
       )}
-      style={{ borderRadius }}
+      style={{
+        borderRadius,
+        contain: 'paint',
+      }}
       {...otherProps}
     >
-      {/* Animated gradient border layer — clip-path contains filter:blur which overflow:hidden often fails to clip */}
+      {/* Trail sits only in this layer; clip + z-index keeps glow off the textarea */}
       <div
-        className="absolute inset-0 overflow-hidden"
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
         style={{
-          borderRadius: `calc(${borderRadius} * 0.96)`,
-          clipPath: `inset(0 round calc(${borderRadius} * 0.96))`,
-          isolation: 'isolate',
+          borderRadius,
+          clipPath: `inset(0 round ${borderRadius})`,
         }}
       >
         <GradientMovingBorder
@@ -189,14 +196,13 @@ export function MovingBorderContainer({
         />
       </div>
 
-      {/* Inner content */}
       <div
         className={cn(
-          'relative flex h-full w-full items-center antialiased chat-input-inner',
+          'relative z-[1] flex h-full w-full items-center antialiased chat-input-inner',
           innerClassName,
         )}
         style={{
-          borderRadius: `calc(${borderRadius} * 0.96)`,
+          borderRadius: innerRadius,
           background: 'rgb(var(--prism-card))',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(255,255,255,0.02)',
         }}

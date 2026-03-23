@@ -1253,29 +1253,28 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; }}
             />
 
-            {/* Bottom toolbar */}
-            <div className="flex items-center justify-between px-2.5 pb-2.5 pt-1">
-              {/* Left actions */}
-              <div className="flex items-center gap-1">
+            {/* Bottom toolbar — compact circular controls (Gemini-style density) */}
+            <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-0.5">
+              <div className="flex items-center gap-0.5">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex-shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-full text-txt-muted hover:text-cyan hover:bg-white/5 transition-colors"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-transparent text-txt-muted transition-colors hover:border-border hover:bg-white/[0.04] hover:text-cyan dark:border-white/[0.1]"
                   title="Attach file"
                 >
-                  <MdAttachFile className="text-[16px]" />
+                  <MdAttachFile className="text-[15px]" />
                 </button>
                 <button
                   type="button"
                   onClick={toggleDictation}
-                  className={`hidden md:flex flex-shrink-0 w-[34px] h-[34px] items-center justify-center rounded-full transition-all ${
+                  className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors md:flex ${
                     isListening
-                      ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
-                      : 'text-txt-muted hover:text-cyan hover:bg-white/5'
+                      ? 'animate-pulse border-red-400/35 bg-red-500/10 text-red-200'
+                      : 'border-border/70 bg-transparent text-txt-muted hover:border-border hover:bg-white/[0.04] hover:text-cyan dark:border-white/[0.1]'
                   }`}
                   title={isListening ? 'Stop dictation' : 'Dictate (speech to text)'}
                 >
-                  <HiMicrophone size={16} />
+                  <HiMicrophone size={15} />
                 </button>
                 <button
                   type="button"
@@ -1284,32 +1283,27 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                     else voice.startVoice(selectedRole, userEmail);
                   }}
                   disabled={voice.isConnecting}
-                  className={`hidden md:flex flex-shrink-0 w-[34px] h-[34px] items-center justify-center rounded-full transition-all ${
+                  className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors md:flex disabled:opacity-40 ${
                     voice.isActive
-                      ? 'bg-prism-fill-2 text-white shadow-lg shadow-prism-fill-2/25 hover:bg-prism-critical hover:shadow-prism-critical/25'
+                      ? 'border-cyan/35 bg-cyan/10 text-cyan hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-100'
                       : voice.isConnecting
-                        ? 'bg-prism-elevated/20 text-prism-elevated animate-pulse'
-                        : 'text-txt-muted hover:text-cyan hover:bg-white/5'
+                        ? 'border-prism-elevated/30 bg-prism-elevated/10 text-prism-elevated animate-pulse'
+                        : 'border-border/70 bg-transparent text-txt-muted hover:border-border hover:bg-white/[0.04] hover:text-cyan dark:border-white/[0.1]'
                   }`}
                   title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
                 >
-                  {voice.isActive ? (
-                    <HiStop size={16} />
-                  ) : (
-                    <HiMiniSignal size={16} />
-                  )}
+                  {voice.isActive ? <HiStop size={15} /> : <HiMiniSignal size={15} />}
                 </button>
               </div>
 
-              {/* Right – send */}
               <button
                 type="button"
                 onClick={sendMessage}
                 disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
-                className="flex-shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-full text-txt-muted hover:text-cyan hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-raised/50 text-txt-muted transition-colors hover:border-cyan/30 hover:bg-cyan/10 hover:text-cyan disabled:cursor-not-allowed disabled:opacity-25 dark:border-white/[0.12] dark:bg-white/[0.04]"
                 aria-label="Send message"
               >
-                <ArrowUp className="h-4 w-4" />
+                <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
               </button>
             </div>
           </MovingBorderContainer>

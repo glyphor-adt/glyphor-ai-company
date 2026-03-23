@@ -1570,43 +1570,41 @@ export default function OraChat() {
               disabled={isLoading}
             />
 
-            {/* Bottom toolbar */}
-            <div className="flex items-center justify-between px-2.5 pb-2.5 pt-1">
-              {/* Left actions */}
-              <div className="flex items-center gap-1">
+            {/* Bottom toolbar — compact circular controls (Gemini-style density) */}
+            <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-0.5">
+              <div className="flex items-center gap-0.5">
                 <button
                   type="button"
                   onClick={() => setMenuOpen((prev) => !prev)}
                   disabled={isLoading}
-                  className={`flex-shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-full text-txt-muted hover:text-cyan hover:bg-white/5 transition-colors ${isLoading ? 'opacity-50' : ''}`}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-transparent text-txt-muted transition-colors hover:border-border hover:bg-white/[0.04] hover:text-cyan disabled:opacity-40 dark:border-white/[0.1] ${menuOpen ? 'border-cyan/30 bg-cyan/5 text-cyan' : ''}`}
                   aria-label="Open Ora options"
                 >
-                  <Plus className={`h-4.5 w-4.5 transition-transform ${menuOpen ? 'rotate-45' : ''}`} />
+                  <Plus className={`h-3.5 w-3.5 transition-transform ${menuOpen ? 'rotate-45' : ''}`} strokeWidth={2.25} />
                 </button>
                 <button
                   type="button"
                   onClick={toggleDictation}
                   disabled={isLoading}
-                  className={`hidden md:flex flex-shrink-0 w-[34px] h-[34px] items-center justify-center rounded-full transition-all ${
+                  className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors md:flex disabled:opacity-40 ${
                     isListening
-                      ? 'bg-prism-critical text-white shadow-lg shadow-prism-critical/25 animate-pulse'
-                      : 'text-txt-muted hover:text-cyan hover:bg-white/5'
-                  } ${isLoading ? 'opacity-50' : ''}`}
+                      ? 'animate-pulse border-red-400/35 bg-red-500/10 text-red-200'
+                      : 'border-border/70 bg-transparent text-txt-muted hover:border-border hover:bg-white/[0.04] hover:text-cyan dark:border-white/[0.1]'
+                  }`}
                   title={isListening ? 'Stop dictation' : 'Dictate'}
                 >
-                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  {isListening ? <MicOff className="h-3.5 w-3.5" strokeWidth={2.25} /> : <Mic className="h-3.5 w-3.5" strokeWidth={2.25} />}
                 </button>
               </div>
 
-              {/* Right – send */}
               <button
                 type="button"
                 onClick={send}
                 disabled={isLoading || (!input.trim() && attachments.length === 0)}
-                className="flex-shrink-0 w-[34px] h-[34px] flex items-center justify-center rounded-full text-txt-muted hover:text-cyan hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-raised/50 text-txt-muted transition-colors hover:border-cyan/30 hover:bg-cyan/10 hover:text-cyan disabled:cursor-not-allowed disabled:opacity-25 dark:border-white/[0.12] dark:bg-white/[0.04]"
                 aria-label="Send message"
               >
-                <ArrowUp className="h-4 w-4" />
+                <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
               </button>
             </div>
         </MovingBorderContainer>
