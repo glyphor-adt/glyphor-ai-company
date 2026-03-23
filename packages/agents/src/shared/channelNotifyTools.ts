@@ -13,7 +13,7 @@
 
 import type { ToolDefinition, ToolResult, CompanyAgentRole } from '@glyphor/agent-runtime';
 import { AGENT_EMAIL_MAP } from '@glyphor/agent-runtime';
-import { A365TeamsChatClient } from '@glyphor/integrations';
+import { A365TeamsChatClient, buildDeliverablesFounderMentions } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
 
 const AGENT_DISPLAY_NAMES: Record<string, string> = {
@@ -167,8 +167,8 @@ export function createChannelNotifyTools(): ToolDefinition[] {
       description:
         'Post a message to the #Deliverables Teams channel. ' +
         'Use when an assignment is complete and founders need to review output. ' +
-        'Tags @Kristina and @Andrew automatically. ' +
-        'The message appears as YOU (your agent identity), not as a bot or human.',
+        'Founders get real Teams @mentions when TEAMS_FOUNDER_KRISTINA_AAD_ID and TEAMS_FOUNDER_ANDREW_AAD_ID are set (Entra user Object IDs). ' +
+        'The message should appear as YOUR agent identity (Agent365 per-role entraUserId). If it shows as a human, A365 posting failed and a fallback token was used — check logs.',
       parameters: {
         title: {
           type: 'string',
@@ -236,14 +236,25 @@ export function createChannelNotifyTools(): ToolDefinition[] {
           : type === 'completed' ? '✅ COMPLETED'
           : type === 'fyi' ? 'ℹ️ FYI'
           : '📋 UPDATE';
-        const mentionFooter = '\n\n@Kristina @Andrew — review requested.';
-        const formatted =
-          `**${typeLabel} — ${title}**\n\n_From: ${agentName} (${role})_\n\n${message}${mentionFooter}`;
+        const baseMarkdown =
+          `**${typeLabel} — ${title}**\n\n_From: ${agentName} (${role})_\n\n${message}`;
+        const founderRich = buildDeliverablesFounderMentions();
+        const markdownWithPlainFooter = founderRich
+          ? baseMarkdown
+          : `${baseMarkdown}\n\n@Kristina @Andrew — review requested.`;
 
         const a365Client = A365TeamsChatClient.fromEnv(role);
         if (a365Client) {
           try {
-            await a365Client.postChannelMessage(teamId, deliverablesChannelId, formatted, role);
+            await a365Client.postChannelMessage(
+              teamId,
+              deliverablesChannelId,
+              founderRich ? baseMarkdown : markdownWithPlainFooter,
+              role,
+              founderRich
+                ? { appendHtml: founderRich.appendHtml, mentions: founderRich.mentions }
+                : undefined,
+            );
 
             try {
               await systemQuery(
@@ -263,7 +274,13 @@ export function createChannelNotifyTools(): ToolDefinition[] {
 
         try {
           const { postTextToChannel } = await import('@glyphor/integrations');
-          const result = await postTextToChannel('deliverables', formatted, null, role);
+          const result = await postTextToChannel(
+            'deliverables',
+            founderRich ? baseMarkdown : markdownWithPlainFooter,
+            null,
+            role,
+            founderRich ?? undefined,
+          );
           if (result.method !== 'none') {
             try {
               await systemQuery(

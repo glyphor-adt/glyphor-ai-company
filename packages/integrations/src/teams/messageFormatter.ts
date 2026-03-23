@@ -110,7 +110,27 @@ export function markdownToTeamsHtml(md: string): string {
   // Clean up redundant <br/> sequences
   html = html.replace(/(<br\/>){3,}/g, '<br/><br/>');
 
+  // Bare https URLs (e.g. pasted SharePoint links) — Teams only linkifies [text](url) markdown above
+  html = linkifyBareUrlsInHtml(html);
+
   return html;
+}
+
+/**
+ * Wrap bare http(s) URLs in <a href> so Teams renders them as clickable links.
+ * Skips text inside HTML tags (split on `<...>`) so we do not break attributes.
+ */
+function linkifyBareUrlsInHtml(html: string): string {
+  const parts = html.split(/(<[^>]+>)/g);
+  return parts
+    .map((segment, i) => {
+      if (i % 2 === 1) return segment;
+      return segment.replace(/\b(https?:\/\/[^\s<>"']+)/gi, (url) => {
+        const href = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        return `<a href="${href}">${escapeHtml(url)}</a>`;
+      });
+    })
+    .join('');
 }
 
 // ─── Teams Markdown Cleanup ─────────────────────────────────────

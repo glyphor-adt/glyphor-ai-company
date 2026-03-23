@@ -24,6 +24,37 @@ import type { AdaptiveCard, TeamsWebhookPayload } from './webhooks.js';
 import { sendTeamsWebhook } from './webhooks.js';
 import { markdownToTeamsHtml } from './messageFormatter.js';
 import { getAgenticGraphToken } from '../agent365/index.js';
+import type { GraphChannelMention } from './founderMentions.js';
+
+/** Optional HTML footer + Graph mentions for channel posts (see founderMentions.ts). */
+export interface TeamsChannelTextOptions {
+  appendHtml?: string;
+  mentions?: GraphChannelMention[];
+}
+
+function buildGraphChannelMessageBody(
+  markdown: string,
+  rich?: TeamsChannelTextOptions,
+): Record<string, unknown> {
+  let html = markdownToTeamsHtml(markdown);
+  if (rich?.appendHtml) {
+    html += rich.appendHtml;
+  }
+  const body: Record<string, unknown> = {
+    body: { contentType: 'html', content: html },
+  };
+  if (rich?.mentions?.length) {
+    body.mentions = rich.mentions;
+  }
+  return body;
+}
+
+/** Plain footer for webhook Adaptive Cards (Graph @mentions are not supported there). */
+function plainFounderFooterFromRich(rich?: TeamsChannelTextOptions): string {
+  if (!rich?.mentions?.length) return '';
+  const names = rich.mentions.map((m) => m.mentioned.user.displayName).join(' & ');
+  return `\n\n${names} — review requested.`;
+}
 
 // ─── DELEGATED AUTH (refresh token) ─────────────────────────────
 
@@ -551,20 +582,21 @@ export async function postCardToChannel(
 /**
  * Post a plain-text message to a Teams channel.
  *
- * Tries webhook first (wraps text in a minimal Adaptive Card), then Graph API.
+ * Tries agent identity (A365), then webhook (bot), then delegated Graph (human token owner), then app-only.
  */
 export async function postTextToChannel(
   channelName: string,
   text: string,
   graphClient?: GraphTeamsClient | null,
   agentRole?: string,
+  rich?: TeamsChannelTextOptions,
 ): Promise<PostResult> {
   const channels = buildChannelMap();
   const target = channels[channelName as keyof ChannelMap];
 
   // 0. Agent identity (posts as the agent, not a human or bot)
   if (agentRole && target) {
-    const graphBody = { body: { contentType: 'html', content: markdownToTeamsHtml(text) } };
+    const graphBody = buildGraphChannelMessageBody(text, rich);
     const ok = await postAsAgentIdentity(target, graphBody, agentRole);
     if (ok) return { method: 'agent' };
   }
@@ -572,6 +604,7 @@ export async function postTextToChannel(
   // 1. Webhook (posts as bot, not as a user)
   const webhookUrl = getChannelWebhookUrl(channelName);
   if (webhookUrl) {
+    const cardText = text + plainFounderFooterFromRich(rich);
     const payload: TeamsWebhookPayload = {
       type: 'message',
       attachments: [{
@@ -581,7 +614,7 @@ export async function postTextToChannel(
           $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
           type: 'AdaptiveCard',
           version: '1.5',
-          body: [{ type: 'TextBlock', text, wrap: true }],
+          body: [{ type: 'TextBlock', text: cardText, wrap: true }],
         },
       }],
     };
@@ -603,15 +636,22 @@ export async function postTextToChannel(
 
   // 2. Delegated Graph API (ChannelMessage.Send via refresh token — posts as token owner)
   if (target) {
-    const graphBody = { body: { contentType: 'html', content: markdownToTeamsHtml(text) } };
+    const graphBody = buildGraphChannelMessageBody(text, rich);
     const ok = await postWithDelegatedToken(target, graphBody);
-    if (ok) return { method: 'graph' };
+    if (ok) {
+      console.warn(
+        '[GraphClient] Channel message sent with GRAPH_DELEGATED_REFRESH_TOKEN — appears as that user. ' +
+        'For agent attribution, fix Agent365 channel post (per-role entraUserId in agentIdentities.json) or use TEAMS_WEBHOOK_*.',
+      );
+      return { method: 'graph' };
+    }
   }
 
-  // 3. App-only Graph API fallback
+  // 3. App-only Graph API fallback (no Graph @mentions — app token often cannot post anyway)
   if (graphClient && target) {
     try {
-      await graphClient.sendText(target, text);
+      const fallbackText = text + plainFounderFooterFromRich(rich);
+      await graphClient.sendText(target, fallbackText);
       return { method: 'graph' };
     } catch { /* fall through */ }
   }

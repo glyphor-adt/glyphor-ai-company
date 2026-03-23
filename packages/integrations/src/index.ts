@@ -27,7 +27,10 @@ export {
   type GraphTeamsConfig,
   type ChannelTarget,
   type ChannelMap,
+  type TeamsChannelTextOptions,
 } from './teams/graphClient.js';
+
+export { buildDeliverablesFounderMentions, type GraphChannelMention } from './teams/founderMentions.js';
 
 // Teams Direct Messages (1:1 chat via Graph API)
 export {

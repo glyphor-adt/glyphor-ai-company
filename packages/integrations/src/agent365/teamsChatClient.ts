@@ -18,6 +18,7 @@ import { MsalTokenProvider } from '@microsoft/agents-hosting';
 import type { AuthConfiguration } from '@microsoft/agents-hosting';
 import { getAgentIdentityAppId, getAgentBlueprintSpId, getAgentSpId, getAgentEntraUserId, getAgentUpn } from '@glyphor/agent-runtime';
 import { markdownToTeamsHtml } from '../teams/messageFormatter.js';
+import type { GraphChannelMention } from '../teams/founderMentions.js';
 import type { AdaptiveCard } from '../teams/webhooks.js';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -586,12 +587,16 @@ export class A365TeamsChatClient {
    * Uses the agent's Graph token (via getAgenticUserToken with Graph audience)
    * to call POST /teams/{teamId}/channels/{channelId}/messages directly.
    * The message appears as the agent's agentic user — NOT the app or a human.
+   *
+   * @param options.appendHtml — Raw HTML appended after markdown→HTML (e.g. Graph `<at id="0">` mentions).
+   * @param options.mentions — Graph `mentions` payload; must match `<at id="N">` in the combined HTML.
    */
   async postChannelMessage(
     teamId: string,
     channelId: string,
     content: string,
     agentRole?: string,
+    options?: { appendHtml?: string; mentions?: GraphChannelMention[] },
   ): Promise<void> {
     const role = agentRole ?? this.defaultAgentRole;
 
@@ -612,10 +617,18 @@ export class A365TeamsChatClient {
       ['https://graph.microsoft.com/.default'],
     );
 
+    let html = markdownToTeamsHtml(content);
+    if (options?.appendHtml) {
+      html += options.appendHtml;
+    }
+
     const url = `https://graph.microsoft.com/v1.0/teams/${teamId}/channels/${channelId}/messages`;
-    const body = {
-      body: { contentType: 'html', content: markdownToTeamsHtml(content) },
+    const body: Record<string, unknown> = {
+      body: { contentType: 'html', content: html },
     };
+    if (options?.mentions?.length) {
+      body.mentions = options.mentions;
+    }
 
     const res = await fetch(url, {
       method: 'POST',
