@@ -264,6 +264,16 @@ resource "google_vpc_access_connector" "glyphor" {
   network       = "default"
 
   depends_on = [google_project_service.apis["vpcaccess.googleapis.com"]]
+
+  # Imported connector: GCP sets throughput/instance defaults that differ from provider defaults; avoid forced replacement
+  lifecycle {
+    ignore_changes = [
+      max_throughput,
+      min_throughput,
+      min_instances,
+      max_instances,
+    ]
+  }
 }
 
 # ─── Memorystore for Redis ───────────────────────────────────
