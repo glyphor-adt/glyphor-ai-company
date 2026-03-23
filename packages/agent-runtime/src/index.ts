@@ -31,6 +31,8 @@ export { registerSkill, getSkillsForAgent, selectSkillsForTask } from './prompts
 export type { SkillDefinition } from './prompts/skillRegistry.js';
 export {
   isKnownTool,
+  hasStaticToolName,
+  validateDynamicToolRegistry,
   filterKnownTools,
   getAllKnownTools,
   isKnownToolAsync,

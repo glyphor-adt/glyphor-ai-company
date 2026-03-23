@@ -15,7 +15,7 @@
 
 import type { ToolResult, ToolDeclaration } from './types.js';
 import type { RegisteredToolDef, ApiToolConfig } from './toolRegistry.js';
-import { loadRegisteredTool } from './toolRegistry.js';
+import { hasStaticToolName, loadRegisteredTool } from './toolRegistry.js';
 import { isKnownToolAsync } from './toolRegistry.js';
 import { systemQuery } from '@glyphor/shared/db';
 
@@ -37,6 +37,16 @@ export async function executeDynamicTool(
   // If the tool has an API config, execute the HTTP call
   if (toolDef.api_config) {
     return executeApiTool(toolDef, params);
+  }
+
+  // Code-backed tools may still appear in tool_registry for discovery/grants without api_config.
+  if (hasStaticToolName(toolName)) {
+    return {
+      success: false,
+      error:
+        `Tool "${toolName}" is implemented in application code, not via the dynamic HTTP executor. ` +
+        `Run an agent whose tool bundle includes this tool (e.g. CTO for GCP operations).`,
+    };
   }
 
   // Metadata-only tool (no api_config) — return the tool definition

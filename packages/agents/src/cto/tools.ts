@@ -2077,6 +2077,113 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       },
     },
 
+    {
+      name: 'gcp_create_secret',
+      description:
+        'Create a new secret in Google Secret Manager (or add a new version if the secret already exists). ' +
+        'Uses the Secret Manager REST API with Application Default Credentials / GCP metadata identity. ' +
+        'Requires IAM permission secretmanager.secrets.create and secretmanager.versions.add on the project.',
+      parameters: {
+        secret_name: {
+          type: 'string',
+          description: 'Secret resource id (e.g. stripe-secret-key, db-password). Must be valid Secret Manager id.',
+          required: true,
+        },
+        secret_value: {
+          type: 'string',
+          description: 'The secret payload (stored as a new secret version, base64-encoded on wire).',
+          required: true,
+        },
+        project_id: {
+          type: 'string',
+          description: 'GCP project id (defaults to GCP_PROJECT_ID env)',
+          required: false,
+        },
+      },
+      execute: async (params, ctx): Promise<ToolResult> => {
+        const projectId = ((params.project_id as string | undefined)?.trim()
+          || process.env.GCP_PROJECT_ID
+          || 'ai-glyphor-company'
+        ).trim();
+        const secretId = (params.secret_name as string).trim();
+        if (!secretId) {
+          return { success: false, error: 'secret_name is required' };
+        }
+        const secretValue = params.secret_value as string;
+        if (secretValue === undefined || secretValue === null) {
+          return { success: false, error: 'secret_value is required' };
+        }
+
+        try {
+          const token = await getGCPAccessToken();
+          const base = `https://secretmanager.googleapis.com/v1/projects/${encodeURIComponent(projectId)}`;
+          const createUrl = `${base}/secrets?secretId=${encodeURIComponent(secretId)}`;
+
+          const createRes = await fetch(createUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ replication: { automatic: {} } }),
+          });
+
+          const created = createRes.ok;
+          if (!createRes.ok && createRes.status !== 409) {
+            const errText = await createRes.text();
+            return {
+              success: false,
+              error: `CreateSecret failed: ${createRes.status} ${errText}`,
+            };
+          }
+
+          const addUrl = `${base}/secrets/${encodeURIComponent(secretId)}:addVersion`;
+          const addRes = await fetch(addUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              payload: {
+                data: Buffer.from(String(secretValue), 'utf8').toString('base64'),
+              },
+            }),
+          });
+
+          if (!addRes.ok) {
+            const errText = await addRes.text();
+            return {
+              success: false,
+              error: `AddSecretVersion failed: ${addRes.status} ${errText}`,
+            };
+          }
+
+          const versionBody = await addRes.json() as { name?: string };
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `Created/updated Secret Manager secret "${secretId}" in project ${projectId} (new version).`,
+            details: { secretId, projectId, created },
+            createdAt: new Date().toISOString(),
+          });
+
+          return {
+            success: true,
+            data: {
+              secret_name: secretId,
+              project: projectId,
+              versionResource: versionBody.name ?? null,
+              createdNewSecret: created,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+
     // ─── Web Search ──────────────────────────────────────────────
 
     {

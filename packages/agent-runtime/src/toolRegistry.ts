@@ -107,6 +107,11 @@ const KNOWN_TOOLS = new Set([
   'create_branch',
   'create_github_pr',
   'merge_github_pr',
+  'gcp_create_secret',
+  'deploy_cloud_run',
+  'rollback_cloud_run',
+  'inspect_cloud_run_service',
+  'update_cloud_run_secrets',
 
   // ── CFO tools ──
   'calculate_unit_economics',
@@ -298,6 +303,7 @@ const KNOWN_TOOLS = new Set([
 
   // ── Competitive Intel (Daniel) tools ──
   'fetch_github_releases',
+  'get_competitor_intelligence',
   'search_hacker_news',
   'search_product_hunt',
   'fetch_pricing_pages',
@@ -706,6 +712,44 @@ const KNOWN_TOOLS = new Set([
   'notify_founders',
   'escalate_to_sarah',
 ]);
+
+/** True if the tool name exists in the compiled-in static tool list (code-backed tools). */
+export function hasStaticToolName(name: string): boolean {
+  return KNOWN_TOOLS.has(name);
+}
+
+/**
+ * Validates that every active tool_registry row either has executable api_config
+ * or is marked static / exists in the static KNOWN_TOOLS set.
+ */
+export async function validateDynamicToolRegistry(): Promise<{
+  valid: boolean;
+  broken: Array<{ name: string; reason: string }>;
+}> {
+  const rows = await systemQuery<{
+    name: string;
+    api_config: unknown;
+    implementation_type: string | null;
+  }>(
+    'SELECT name, api_config, implementation_type FROM tool_registry WHERE is_active = true',
+  );
+  const broken: Array<{ name: string; reason: string }> = [];
+  for (const r of rows) {
+    const empty =
+      r.api_config == null ||
+      (typeof r.api_config === 'object' &&
+        r.api_config !== null &&
+        Object.keys(r.api_config as Record<string, unknown>).length === 0);
+    const staticBacked = r.implementation_type === 'static' || hasStaticToolName(r.name);
+    if (empty && !staticBacked) {
+      broken.push({
+        name: r.name,
+        reason: 'empty api_config and not static (dynamic executor cannot run this row)',
+      });
+    }
+  }
+  return { valid: broken.length === 0, broken };
+}
 
 /**
  * Check whether a tool name is known to the system (static registry).

@@ -3,12 +3,92 @@
  * Reports to Elena Vasquez (CPO). Market & competitor intelligence.
  */
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
-import type { ToolDefinition } from '@glyphor/agent-runtime';
+import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 import { searchWeb, searchNews } from '@glyphor/integrations';
 
-export function createCompetitiveIntelTools(memory: CompanyMemoryStore): ToolDefinition[] {
+async function resolveKnowledgeLiveRefs(content: string): Promise<string> {
+  if (!content.includes('{')) return content;
+  const refs = await systemQuery<{ key: string; cached_value: string | null }>(
+    'SELECT key, cached_value FROM knowledge_live_refs',
+  );
+  if (!refs || refs.length === 0) return content;
+  const refMap = new Map(refs.map(r => [r.key, r.cached_value ?? '—']));
+  return content.replace(/\{(\w+)\}/g, (_match, key: string) => refMap.get(key) ?? _match);
+}
+
+export function createCompetitiveIntelTools(_memory: CompanyMemoryStore): ToolDefinition[] {
   return [
+    {
+      name: 'get_competitor_intelligence',
+      description:
+        'Returns merged competitive context: the curated `competitive_landscape` section from company knowledge ' +
+        'plus a fresh web scan for recent AI-agent competitor funding and launches. ' +
+        'Prefer this over ad-hoc searches when you need both org doctrine and current signal.',
+      parameters: {
+        skip_web_scan: {
+          type: 'boolean',
+          description: 'If true, only return company knowledge (no live web search).',
+          required: false,
+        },
+      },
+      async execute(params): Promise<ToolResult> {
+        const skipWeb = params.skip_web_scan === true;
+        const year = new Date().getFullYear();
+
+        const rows = await systemQuery<{
+          section: string;
+          title: string;
+          content: string;
+          is_stale: boolean;
+        }>(
+          `SELECT section, title, content, is_stale
+           FROM company_knowledge_base
+           WHERE section = 'competitive_landscape' AND is_active = true AND is_stale = FALSE`,
+        );
+
+        let knowledge: {
+          section: string;
+          title: string;
+          content: string;
+          stale_warning: string | null;
+        } | null = null;
+
+        if (rows.length > 0) {
+          const row = rows[0];
+          knowledge = {
+            section: row.section,
+            title: row.title,
+            content: await resolveKnowledgeLiveRefs(row.content),
+            stale_warning: row.is_stale ? 'Section marked stale — verify before acting.' : null,
+          };
+        }
+
+        let webResults: Awaited<ReturnType<typeof searchWeb>> | null = null;
+        if (!skipWeb) {
+          try {
+            webResults = await searchWeb(
+              `latest AI agent automation competitors funding launches ${year}`,
+              { num: 10, timeRange: 'month' },
+            );
+          } catch (err) {
+            return {
+              success: false,
+              error: `Web scan failed: ${err instanceof Error ? err.message : String(err)}`,
+            };
+          }
+        }
+
+        return {
+          success: true,
+          data: {
+            company_knowledge: knowledge,
+            web_results: webResults,
+            web_query: skipWeb ? null : `latest AI agent automation competitors funding launches ${year}`,
+          },
+        };
+      },
+    },
     {
       name: 'search_competitor_updates',
       description: 'Search the web for recent competitor product updates, releases, and announcements.',

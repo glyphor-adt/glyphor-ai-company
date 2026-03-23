@@ -64,7 +64,7 @@ const CLASSIFICATION_RULES: Array<{
     strategy: 'probe',
   },
   {
-    pattern: /^(browse_webpage|web_search|screenshot_page|deploy_preview|check_ai_smell|run_accessibility_audit)/i,
+    pattern: /^(web_fetch|web_search|screenshot_page|deploy_preview|check_ai_smell|run_accessibility_audit)/i,
     tier: 'external_api',
     strategy: 'probe',
     notes: 'Web/browser tools — probe connectivity only',
