@@ -160,7 +160,7 @@ Every `retrieve()` call returns a trace:
     { "name": "create_document", "score": 0.009, "method": "bm25" }
   ],
   "modelCap": 64,
-  "model": "gemini-2.5-pro"
+  "model": "gemini-3.1-pro-preview"
 }
 ```
 

@@ -84,7 +84,7 @@ const MODEL_CAPS: Record<string, number> = {
   'gpt-4.1':           64,
   'gpt-4.1-mini':      40,
   'claude-sonnet-4-5': 64,
-  'gemini-2.5-pro':    64,
+  'gemini-3.1-pro-preview': 64,
   'gemini-2.5-flash':  40,
   
   // Smaller / nano models — tight caps

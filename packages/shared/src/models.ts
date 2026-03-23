@@ -65,7 +65,6 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',         provider: 'gemini',    tier: 'flagship',  inputPer1M: 2.00,  outputPer1M: 12.0,  thinkingPer1M: 12.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', tier: 'economy', inputPer1M: 0.25, outputPer1M: 1.50, thinkingPer1M: 1.50, cachedInputDiscount: 0.10, selectable: true, verifier: true  },
   { id: 'gemini-3-flash-preview',  label: 'Gemini 3 Flash',        provider: 'gemini',    tier: 'standard',  inputPer1M: 0.50,  outputPer1M: 3.00,  thinkingPer1M: 3.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
-  { id: 'gemini-2.5-pro',          label: 'Gemini 2.5 Pro (retired)', provider: 'gemini', tier: 'flagship',  inputPer1M: 1.25,  outputPer1M: 10.0,  thinkingPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: false, verifier: false },
   { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash',      provider: 'gemini',    tier: 'standard',  inputPer1M: 0.30,  outputPer1M: 2.50,  thinkingPer1M: 2.50,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gemini-2.5-flash-lite',   label: 'Gemini 2.5 Flash Lite', provider: 'gemini',    tier: 'economy',   inputPer1M: 0.10,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
 
@@ -108,6 +107,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
 // ─── Deprecated model mapping ────────────────────────────────
 // Old model IDs that may still exist in the database → their replacement.
 // Used by resolveModel() to auto-upgrade agents stuck on old models.
+// (Includes removed-from-catalog slugs like gemini-2.5-pro — never call the API with them.)
 
 export const DEPRECATED_MODELS: Record<string, string> = {
   // Gemini 2.x and older (shutdown June 1, 2026)

@@ -1,6 +1,7 @@
 import type { ModelRoutingMetadata } from '../providers/types.js';
 import { inferCapabilities, type RoutingContext } from './inferCapabilities.js';
 import { inferDomainRouting } from './domainRouter.js';
+import { resolveModel as canonicalizeModelSlug } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 
 const DEFAULT_MODEL = 'gemini-3.1-flash-lite-preview';
@@ -356,6 +357,14 @@ export async function resolveModelConfig(
     decision.routingRule = 'financial_domain_escalation';
     decision.reasoningEffort = 'medium';
     decision.enableCodeExecution = true;
+  }
+
+  // Map deprecated / removed registry slugs (e.g. stale routing_config rows) before any LLM call.
+  if (decision.model !== '__deterministic__') {
+    const normalized = canonicalizeModelSlug(decision.model);
+    if (normalized !== decision.model) {
+      decision = { ...decision, model: normalized };
+    }
   }
 
   return decision;
