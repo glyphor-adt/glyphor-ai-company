@@ -147,42 +147,66 @@ async function evaluateAgent(agentId: string): Promise<AgentGateResult> {
       prompt_version: number | null; prompt_source: string | null;
     }>(`
       SELECT a.role AS id, a.display_name AS name, a.performance_score,
-             apv.version AS prompt_version, apv.source AS prompt_source
+             apv.prompt_version, apv.prompt_source
       FROM company_agents a
-      LEFT JOIN agent_prompt_versions apv
-        ON apv.agent_id = a.role AND apv.deployed_at IS NOT NULL AND apv.retired_at IS NULL
+      LEFT JOIN (
+        SELECT DISTINCT ON (agent_id) agent_id, version AS prompt_version, source AS prompt_source
+        FROM agent_prompt_versions
+        WHERE deployed_at IS NOT NULL AND retired_at IS NULL
+        ORDER BY agent_id, deployed_at DESC
+      ) apv ON apv.agent_id = a.role
       WHERE a.role = $1
     `, [agentId]),
 
-    // Output quality + success rate + constitutional + tool accuracy + eval run count
+    // Output quality + success rate — subqueries avoid Cartesian product from multi-join on assignment_evaluations
     queryOne<{
       eval_run_count: number; exec_quality: number | null; team_quality: number | null;
       success_rate: number | null; constitutional_score: number | null;
       tool_accuracy: number | null; constitutional_hard_fails: number;
     }>(`
       SELECT
-        COUNT(DISTINCT wa.id) AS eval_run_count,
-        AVG(ae_exec.score_normalized) AS exec_quality,
-        AVG(ae_team.score_normalized) AS team_quality,
+        (SELECT COUNT(DISTINCT wa.id)
+         FROM work_assignments wa
+         WHERE wa.assigned_to = $1
+         AND wa.created_at > NOW() - INTERVAL '60 days') AS eval_run_count,
+        (SELECT AVG(ae.score_normalized)
+         FROM assignment_evaluations ae
+         INNER JOIN work_assignments wa ON wa.id = ae.assignment_id
+         WHERE wa.assigned_to = $1
+         AND wa.created_at > NOW() - INTERVAL '60 days'
+         AND ae.evaluator_type = 'executive') AS exec_quality,
+        (SELECT AVG(ae.score_normalized)
+         FROM assignment_evaluations ae
+         INNER JOIN work_assignments wa ON wa.id = ae.assignment_id
+         WHERE wa.assigned_to = $1
+         AND wa.created_at > NOW() - INTERVAL '60 days'
+         AND ae.evaluator_type = 'team') AS team_quality,
         (SELECT
           ROUND(COUNT(DISTINCT wa2.id) FILTER (WHERE wa2.status = 'completed')::numeric /
             NULLIF(COUNT(DISTINCT wa2.id), 0), 4)
          FROM work_assignments wa2
          WHERE wa2.assigned_to = $1
          AND wa2.created_at > NOW() - INTERVAL '60 days') AS success_rate,
-        AVG(ae_con.score_normalized) AS constitutional_score,
-        AVG(ae_tool.score_normalized) AS tool_accuracy,
-        COUNT(ae_con.id) FILTER (
-          WHERE ae_con.feedback::jsonb->>'hard_fail' = 'true'
-          AND ae_con.evaluated_at > NOW() - INTERVAL '30 days'
-        ) AS constitutional_hard_fails
-      FROM work_assignments wa
-      LEFT JOIN assignment_evaluations ae_exec ON ae_exec.assignment_id = wa.id AND ae_exec.evaluator_type = 'executive'
-      LEFT JOIN assignment_evaluations ae_team ON ae_team.assignment_id = wa.id AND ae_team.evaluator_type = 'team'
-      LEFT JOIN assignment_evaluations ae_con  ON ae_con.assignment_id  = wa.id AND ae_con.evaluator_type  = 'constitutional'
-      LEFT JOIN assignment_evaluations ae_tool ON ae_tool.assignment_id = wa.id AND ae_tool.evaluator_type = 'tool_accuracy'
-      WHERE wa.assigned_to = $1
-      AND wa.created_at > NOW() - INTERVAL '60 days'
+        (SELECT AVG(ae.score_normalized)
+         FROM assignment_evaluations ae
+         INNER JOIN work_assignments wa ON wa.id = ae.assignment_id
+         WHERE wa.assigned_to = $1
+         AND wa.created_at > NOW() - INTERVAL '60 days'
+         AND ae.evaluator_type = 'constitutional') AS constitutional_score,
+        (SELECT AVG(ae.score_normalized)
+         FROM assignment_evaluations ae
+         INNER JOIN work_assignments wa ON wa.id = ae.assignment_id
+         WHERE wa.assigned_to = $1
+         AND wa.created_at > NOW() - INTERVAL '60 days'
+         AND ae.evaluator_type = 'tool_accuracy') AS tool_accuracy,
+        (SELECT COUNT(*)
+         FROM assignment_evaluations ae
+         INNER JOIN work_assignments wa ON wa.id = ae.assignment_id
+         WHERE wa.assigned_to = $1
+         AND wa.created_at > NOW() - INTERVAL '60 days'
+         AND ae.evaluator_type = 'constitutional'
+         AND ae.feedback::jsonb->>'hard_fail' = 'true'
+         AND ae.evaluated_at > NOW() - INTERVAL '30 days') AS constitutional_hard_fails
     `, [agentId]),
 
     // Tool failure rate

@@ -8,6 +8,17 @@
  *   1. Resolve recipient to email/UPN
  *   2. Create or get 1:1 chat via CreateChat MCP tool
  *   3. Post message via PostMessage MCP tool
+ *
+ * Message body visibility (Graph / delegated):
+ * - Full `body.content` requires permissions that include reading chat message
+ *   content (effectively Chat.Read or Chat.ReadWrite for delegated flows, or
+ *   Chat.ReadWrite.All for many app-only integrations).
+ * - If the app only has Chat.ReadBasic (metadata), Graph returns messages but
+ *   bodies are empty — you will see senders/timestamps with blank `text`.
+ * - Agent 365 uses the blueprint’s Microsoft-issued MCP grants
+ *   (`McpServers.Teams.All` + agentic user token); if bodies are still empty,
+ *   confirm in Entra: API permissions for Teams / Chat include read access to
+ *   message content, not only Chat.ReadBasic.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
@@ -34,6 +45,23 @@ const EMAIL_ALIASES: Record<string, string> = {
   'devops@glyphor.ai': 'kristina@glyphor.ai',
 };
 
+/** Common first-name / nickname → company_agents.role (resolved before display-name / email fallback) */
+const RECIPIENT_ROLE_ALIASES: Record<string, CompanyAgentRole> = {
+  sarah: 'chief-of-staff',
+  'sarah-chen': 'chief-of-staff',
+  maya: 'cmo',
+  marcus: 'cto',
+  atlas: 'ops',
+  nexus: 'platform-intel',
+  victoria: 'clo',
+  riley: 'm365-admin',
+  morgan: 'global-admin',
+  mia: 'vp-design',
+  tyler: 'content-creator',
+  lisa: 'seo-analyst',
+  kai: 'social-media-manager',
+};
+
 /** Cache for email → Entra Object ID lookups */
 const userIdCache = new Map<string, string>();
 
@@ -48,6 +76,12 @@ function resolveRecipientEmail(recipient: string): string | null {
 
   // Founder key
   if (FOUNDER_DIR[lower]) return FOUNDER_DIR[lower];
+
+  const aliasedRole = RECIPIENT_ROLE_ALIASES[lower];
+  if (aliasedRole) {
+    const entry = AGENT_EMAIL_MAP[aliasedRole];
+    if (entry) return entry.email;
+  }
 
   // Agent role slug
   const agentEntry = AGENT_EMAIL_MAP[lower as CompanyAgentRole];
@@ -120,10 +154,15 @@ function extractMessageSender(message: Record<string, unknown>): string {
 
 function extractMessageText(message: Record<string, unknown>): string {
   const body = message.body;
-  if (!body || typeof body !== 'object') return '';
-  const content = (body as { content?: unknown }).content;
-  if (typeof content !== 'string') return '';
-  return htmlToText(content);
+  if (body && typeof body === 'object') {
+    const content = (body as { content?: unknown }).content;
+    if (typeof content === 'string' && content.trim()) return htmlToText(content);
+  }
+  const preview = message.bodyPreview;
+  if (typeof preview === 'string' && preview.trim()) return preview;
+  const summary = message.summary;
+  if (typeof summary === 'string' && summary.trim()) return summary;
+  return '';
 }
 
 /**
@@ -260,7 +299,8 @@ export function createDmTools(): ToolDefinition[] {
       name: 'read_teams_dm',
       description:
         'Read recent messages from a Teams 1:1 chat with a person. ' +
-        'Accepts a founder name, agent role slug, display name, or email address.',
+        'Accepts a founder name, agent role slug, display name, or email address. ' +
+        'If every message has empty text but senders exist, Graph/MCP likely lacks permission to read message bodies (need Chat.Read or Chat.ReadWrite class scopes, not Chat.ReadBasic alone).',
       parameters: {
         recipient: {
           type: 'string',
@@ -314,6 +354,10 @@ export function createDmTools(): ToolDefinition[] {
             text: extractMessageText(message),
           }));
 
+          const bodiesMissing =
+            orderedMessages.length > 0 &&
+            orderedMessages.every((m) => !m.text || !m.text.trim());
+
           return {
             success: true,
             data: {
@@ -322,6 +366,14 @@ export function createDmTools(): ToolDefinition[] {
               chatId,
               messageCount: orderedMessages.length,
               messages: orderedMessages,
+              ...(bodiesMissing
+                ? {
+                    permissions_hint:
+                      'All message bodies are empty. Microsoft Graph returns empty `body.content` when the app lacks permission to read chat message content. ' +
+                      'Delegated: ensure Chat.Read or Chat.ReadWrite (not Chat.ReadBasic alone). ' +
+                      'Application: often Chat.ReadWrite.All. Agent 365 uses MCP Teams grants on the agent blueprint — verify Entra API permissions and admin consent.',
+                  }
+                : {}),
             },
           };
         } catch (err) {

@@ -436,7 +436,13 @@ export function createOpsExtensionTools(): ToolDefinition[] {
         const platform = params.platform as string | undefined;
 
         try {
-          let query = `SELECT agent_role, platform, permissions, last_verified, status
+          let query = `SELECT agent_role,
+                              platform,
+                              credential_id,
+                              permissions,
+                              last_synced AS last_verified,
+                              CASE WHEN in_sync THEN 'in_sync' ELSE 'drift' END AS status,
+                              drift_details
                        FROM platform_iam_state`;
           const queryParams: unknown[] = [];
 
@@ -448,22 +454,39 @@ export function createOpsExtensionTools(): ToolDefinition[] {
           query += ` ORDER BY platform, agent_role`;
 
           const rows = await systemQuery<{
-            agent_role: string;
+            agent_role: string | null;
             platform: string;
-            permissions: string;
-            last_verified: string;
+            credential_id: string;
+            permissions: unknown;
+            last_verified: string | null;
             status: string;
+            drift_details: string | null;
           }>(query, queryParams);
 
+          const permText = (p: unknown): string =>
+            typeof p === 'string' ? p : p != null ? JSON.stringify(p) : '';
+
           // Group by platform
-          const byPlatform: Record<string, { agent_role: string; permissions: string; last_verified: string; status: string }[]> = {};
+          const byPlatform: Record<
+            string,
+            {
+              agent_role: string | null;
+              credential_id: string;
+              permissions: string;
+              last_verified: string | null;
+              status: string;
+              drift_details: string | null;
+            }[]
+          > = {};
           for (const row of rows) {
             if (!byPlatform[row.platform]) byPlatform[row.platform] = [];
             byPlatform[row.platform].push({
               agent_role: row.agent_role,
-              permissions: row.permissions,
+              credential_id: row.credential_id,
+              permissions: permText(row.permissions),
               last_verified: row.last_verified,
               status: row.status,
+              drift_details: row.drift_details,
             });
           }
 

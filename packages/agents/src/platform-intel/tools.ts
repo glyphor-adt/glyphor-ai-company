@@ -138,7 +138,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
         }
         const rows = await systemQuery(
           `SELECT a.role AS id, a.display_name AS name, a.department, a.performance_score, a.model,
-                  apv.version AS prompt_version, apv.source AS prompt_source,
+                  apv.prompt_version, apv.prompt_source,
                   COALESCE(ff.open_p0s, 0) AS open_p0s,
                   COALESCE(ff.open_p1s, 0) AS open_p1s,
                   ar.last_run_at,
