@@ -139,17 +139,33 @@ export function createPlatformIntelTools(): ToolDefinition[] {
         const rows = await systemQuery(
           `SELECT a.role AS id, a.display_name AS name, a.department, a.performance_score, a.model,
                   apv.version AS prompt_version, apv.source AS prompt_source,
-                  COUNT(ff.id) FILTER (WHERE ff.severity='P0' AND ff.resolved_at IS NULL) AS open_p0s,
-                  COUNT(ff.id) FILTER (WHERE ff.severity='P1' AND ff.resolved_at IS NULL) AS open_p1s,
-                  MAX(ar.created_at) AS last_run_at,
-                  AVG(CASE WHEN ar.status='completed' THEN 1.0 ELSE 0.0 END) AS success_rate
+                  COALESCE(ff.open_p0s, 0) AS open_p0s,
+                  COALESCE(ff.open_p1s, 0) AS open_p1s,
+                  ar.last_run_at,
+                  ar.success_rate
            FROM company_agents a
-           LEFT JOIN agent_prompt_versions apv ON apv.agent_id = a.role
-             AND apv.deployed_at IS NOT NULL AND apv.retired_at IS NULL
-           LEFT JOIN fleet_findings ff ON ff.agent_id = a.role
-           LEFT JOIN agent_runs ar ON ar.agent_id = a.role AND ar.created_at > NOW() - INTERVAL '30 days'
+           LEFT JOIN (
+             SELECT DISTINCT ON (agent_id) agent_id, version AS prompt_version, source AS prompt_source
+             FROM agent_prompt_versions
+             WHERE deployed_at IS NOT NULL AND retired_at IS NULL
+             ORDER BY agent_id, deployed_at DESC
+           ) apv ON apv.agent_id = a.role
+           LEFT JOIN (
+             SELECT agent_id,
+               COUNT(*) FILTER (WHERE severity = 'P0' AND resolved_at IS NULL) AS open_p0s,
+               COUNT(*) FILTER (WHERE severity = 'P1' AND resolved_at IS NULL) AS open_p1s
+             FROM fleet_findings
+             GROUP BY agent_id
+           ) ff ON ff.agent_id = a.role
+           LEFT JOIN (
+             SELECT agent_id,
+               MAX(created_at) AS last_run_at,
+               AVG(CASE WHEN status = 'completed' THEN 1.0 ELSE 0.0 END) AS success_rate
+             FROM agent_runs
+             WHERE created_at > NOW() - INTERVAL '30 days'
+             GROUP BY agent_id
+           ) ar ON ar.agent_id = a.role
            ${filter}
-           GROUP BY a.role, a.display_name, a.department, a.performance_score, a.model, apv.version, apv.source
            ORDER BY a.performance_score ASC NULLS LAST`,
           queryParams,
         );

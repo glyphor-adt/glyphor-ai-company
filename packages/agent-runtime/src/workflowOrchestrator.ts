@@ -38,7 +38,7 @@ export class WorkflowOrchestrator {
   async startWorkflow(definition: WorkflowDefinition): Promise<string> {
     try {
       const [workflow] = await systemQuery<{ id: string }>(
-        `INSERT INTO workflows (type, initiator_role, directive_id, context, status)
+        `INSERT INTO workflows (workflow_type, initiator_role, directive_id, workflow_context, status)
          VALUES ($1, $2, $3, $4, 'running')
          RETURNING id`,
         [
@@ -55,14 +55,13 @@ export class WorkflowOrchestrator {
       for (let i = 0; i < definition.steps.length; i++) {
         const step = definition.steps[i];
         await systemQuery(
-          `INSERT INTO workflow_steps (workflow_id, step_index, step_type, step_config, on_failure, status)
-           VALUES ($1, $2, $3, $4, $5, 'pending')`,
+          `INSERT INTO workflow_steps (workflow_id, step_index, step_type, step_config, status)
+           VALUES ($1, $2, $3, $4, 'pending')`,
           [
             workflowId,
             i,
             step.step_type,
-            JSON.stringify(step.step_config),
-            step.on_failure ?? 'abort',
+            JSON.stringify({ ...step.step_config, on_failure: step.on_failure ?? 'abort' }),
           ],
         );
       }
@@ -103,7 +102,7 @@ export class WorkflowOrchestrator {
 
       // Merge output into workflow context
       const [wf] = await systemQuery<{ context: Record<string, unknown>; id: string }>(
-        `SELECT context FROM workflows WHERE id = $1`,
+        `SELECT workflow_context AS context FROM workflows WHERE id = $1`,
         [workflowId],
       );
       const context: Record<string, unknown> =
@@ -115,7 +114,7 @@ export class WorkflowOrchestrator {
       }
 
       await systemQuery(
-        `UPDATE workflows SET context = $1, current_step_index = $2 WHERE id = $3`,
+        `UPDATE workflows SET workflow_context = $1, current_step_index = $2 WHERE id = $3`,
         [JSON.stringify(context), stepIndex + 1, workflowId],
       );
 
@@ -189,19 +188,24 @@ export class WorkflowOrchestrator {
     try {
       const [step] = await systemQuery<{
         retry_count: number;
-        on_failure: string;
         step_type: StepType;
         step_config: Record<string, unknown>;
       }>(
-        `SELECT retry_count, on_failure, step_type, step_config FROM workflow_steps
+        `SELECT retry_count, step_type, step_config FROM workflow_steps
          WHERE workflow_id = $1 AND step_index = $2`,
         [workflowId, stepIndex],
       );
 
+      const stepConfig =
+        typeof step.step_config === 'string'
+          ? JSON.parse(step.step_config as unknown as string)
+          : (step.step_config ?? {});
+      const onFailure = (stepConfig.on_failure as string) ?? 'abort';
+
       const retryCount = step.retry_count ?? 0;
       const maxRetries = RETRY_BACKOFF_SECONDS.length;
 
-      if (retryCount < maxRetries && (step.on_failure === 'retry' || step.on_failure === 'abort')) {
+      if (retryCount < maxRetries && (onFailure === 'retry' || onFailure === 'abort')) {
         // Retry with exponential backoff
         const delaySec = RETRY_BACKOFF_SECONDS[retryCount];
         await systemQuery(
@@ -211,12 +215,12 @@ export class WorkflowOrchestrator {
         );
 
         const [wf] = await systemQuery<{ context: Record<string, unknown> }>(
-          `SELECT context FROM workflows WHERE id = $1`,
+          `SELECT workflow_context AS context FROM workflows WHERE id = $1`,
           [workflowId],
         );
         const context =
           typeof wf.context === 'string' ? JSON.parse(wf.context) : (wf.context ?? {});
-        const stepConfig =
+        const dispatchStepConfig =
           typeof step.step_config === 'string'
             ? JSON.parse(step.step_config as unknown as string)
             : step.step_config;
@@ -224,7 +228,7 @@ export class WorkflowOrchestrator {
         await this.dispatchStep(
           workflowId,
           stepIndex,
-          { step_type: step.step_type, step_config: stepConfig },
+          { step_type: step.step_type, step_config: dispatchStepConfig },
           context,
           delaySec,
         );
@@ -238,7 +242,7 @@ export class WorkflowOrchestrator {
         [error, workflowId, stepIndex],
       );
 
-      if (step.on_failure === 'skip') {
+      if (onFailure === 'skip') {
         // Skip and advance
         await this.advanceWorkflow(workflowId, stepIndex, { output: null, skipped: true });
       } else {
@@ -368,7 +372,7 @@ export class WorkflowOrchestrator {
       current_step_index: number;
       context: Record<string, unknown>;
     }>(
-      `SELECT id, status, current_step_index, context FROM workflows WHERE id = $1`,
+      `SELECT id, status, current_step_index, workflow_context AS context FROM workflows WHERE id = $1`,
       [workflowId],
     );
 
