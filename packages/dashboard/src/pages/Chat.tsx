@@ -278,10 +278,13 @@ function SidebarContent({
     <>
       <div className="p-3 space-y-2">
         <button
+          type="button"
           onClick={() => setShowOrgChart(true)}
-          className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan to-prism-fill-2 px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-85"
+          aria-label="New chat"
+          title="New chat"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-surface/60 text-cyan shadow-sm transition-colors hover:border-cyan/35 hover:bg-cyan/10 hover:text-cyan"
         >
-          <MdAdd size={18} />New Chat
+          <MdAdd size={22} />
         </button>
         {recentChats.length > 3 && (
           <div className="sidebar-glass flex items-center gap-2 rounded-lg border border-border px-3 py-1.5">
@@ -372,7 +375,7 @@ function SidebarContent({
         {recentChats.length === 0 && !sidebarSearch && (
           <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
             <p className="text-[12px] text-txt-muted mb-1">No conversations yet</p>
-            <p className="text-[11px] text-txt-faint">Click <span className="text-cyan font-medium">New Chat</span> to start</p>
+            <p className="text-[11px] text-txt-faint">Use <span className="text-cyan font-medium">+</span> to start a chat</p>
           </div>
         )}
       </div>
@@ -1085,7 +1088,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             return (
             <div
               key={i}
-              className={`flex gap-3 animate-fade-up ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+              className="flex gap-3 animate-fade-up"
               style={{ animationDelay: `${i * 30}ms` }}
             >
               {msg.role === 'agent' ? (
@@ -1100,7 +1103,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               <div
                 className={`max-w-[85%] md:max-w-[70%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
-                    ? 'text-txt-primary'
+                    ? 'text-txt-primary border border-cyan/20 bg-cyan/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md'
                     : 'chat-bubble-agent glass-panel panel-nested border border-border text-txt-secondary'
                 }`}
               >
@@ -1234,7 +1237,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           <MovingBorderContainer
             borderRadius="1rem"
             containerClassName="w-full"
-            innerClassName="flex-col items-stretch"
+            innerClassName="flex-col items-stretch chat-composer-glass"
           >
             {/* Textarea */}
             <textarea

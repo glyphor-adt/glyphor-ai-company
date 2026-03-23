@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 
 const POLL_INTERVAL = 60_000;
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
-import { DISPLAY_NAME_MAP, GLYPHOR_PALETTE } from '../lib/types';
+import { DISPLAY_NAME_MAP } from '../lib/types';
 import {
   Card,
   GradientButton,
@@ -29,6 +29,48 @@ import {
 } from 'recharts';
 import Activity from './Activity';
 
+/** Resolve DB role → single chart label (person name from map, or title-cased slug — never raw role id). */
+function agentChartDisplayName(role: string): string {
+  const mapped = DISPLAY_NAME_MAP[role];
+  if (mapped) return mapped;
+  return role
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/** Merge rows that share the same display name (duplicate roles / aliases). */
+function aggregateAgentChartRows(
+  agents: AgentRow[],
+): { name: string; runs: number; cost: number }[] {
+  const byName = new Map<string, { runs: number; cost: number }>();
+  for (const a of agents) {
+    const name = agentChartDisplayName(a.role);
+    const cur = byName.get(name) ?? { runs: 0, cost: 0 };
+    cur.runs += a.total_runs;
+    cur.cost += Number(a.total_cost_usd ?? 0);
+    byName.set(name, cur);
+  }
+  return Array.from(byName.entries())
+    .map(([name, v]) => ({
+      name,
+      runs: v.runs,
+      cost: parseFloat(v.cost.toFixed(4)),
+    }))
+    .sort((a, b) => b.runs - a.runs || a.name.localeCompare(b.name));
+}
+
+/** Bar fill: gradient ids + solid fallbacks for Recharts Cells */
+const OPS_BAR_GRADIENTS: { id: string; from: string; to: string }[] = [
+  { id: 'opsBarG0', from: '#22d3ee', to: '#6366f1' },
+  { id: 'opsBarG1', from: '#34d399', to: '#059669' },
+  { id: 'opsBarG2', from: '#fbbf24', to: '#ea580c' },
+  { id: 'opsBarG3', from: '#e879f9', to: '#7c3aed' },
+  { id: 'opsBarG4', from: '#38bdf8', to: '#2563eb' },
+  { id: 'opsBarG5', from: '#fb7185', to: '#be123c' },
+];
+
 async function schedulerApi<T>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(`${SCHEDULER_URL}${path}`, {
     ...opts,
@@ -46,6 +88,17 @@ interface AgentRow {
   last_run_at: string | null;
   last_run_duration_ms: number | null;
   performance_score: number | null;
+  /** When missing, treated as active (legacy rows) */
+  status?: string | null;
+  is_temporary?: boolean | null;
+}
+
+/** Soft-deleted / deactivated agents may still exist in company_agents — hide from Operations UI */
+const HIDDEN_ROSTER_STATUSES = new Set(['retired', 'inactive', 'deleted']);
+
+function isAgentOnOperationsRoster(agent: AgentRow): boolean {
+  const s = (agent.status ?? 'active').toLowerCase();
+  return !HIDDEN_ROSTER_STATUSES.has(s);
 }
 
 interface ReflectionRow {
@@ -80,7 +133,9 @@ function useAgentRuns() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await apiCall<AgentRow[]>('/api/company-agents?fields=id,role,total_runs,total_cost_usd,last_run_at,last_run_duration_ms,performance_score');
+      const rows = await apiCall<AgentRow[]>(
+        '/api/company-agents?fields=id,role,total_runs,total_cost_usd,last_run_at,last_run_duration_ms,performance_score,status,is_temporary',
+      );
       setData(rows ?? []);
       setError(null);
     } catch (e) {
@@ -606,9 +661,14 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
     refreshAgents();
   }, [refreshAgents]);
 
+  const rosterAgents = useMemo(
+    () => agents.filter(isAgentOnOperationsRoster),
+    [agents],
+  );
+
   const healthMap = useMemo(
-    () => computeHealthMap(agents, recentRuns, reflections),
-    [agents, recentRuns, reflections],
+    () => computeHealthMap(rosterAgents, recentRuns, reflections),
+    [rosterAgents, recentRuns, reflections],
   );
 
   const dataLoadErrors = useMemo(() => {
@@ -630,29 +690,17 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
     }));
   }, [agentsError, reflectionsError, recentRunsError, wfError]);
 
-  // Agent runs per agent
-  const runsData = useMemo(() =>
-    agents
-      .sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role))
-      .map((a) => ({
-        name: DISPLAY_NAME_MAP[a.role] ?? a.role,
-        role: a.role,
-        runs: a.total_runs,
-        cost: a.total_cost_usd,
-      })),
-    [agents],
+  // One row per person / chart label (duplicate roles & aliases merged)
+  const chartAgentRows = useMemo(() => aggregateAgentChartRows(rosterAgents), [rosterAgents]);
+
+  const runsData = useMemo(
+    () => chartAgentRows.map(({ name, runs }) => ({ name, runs })),
+    [chartAgentRows],
   );
 
-  // Cost per agent
-  const costData = useMemo(() =>
-    agents
-      .sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role))
-      .map((a) => ({
-        name: DISPLAY_NAME_MAP[a.role] ?? a.role,
-        role: a.role,
-        cost: parseFloat(Number(a.total_cost_usd ?? 0).toFixed(2)),
-      })),
-    [agents],
+  const costData = useMemo(
+    () => chartAgentRows.map(({ name, cost }) => ({ name, cost: parseFloat(cost.toFixed(2)) })),
+    [chartAgentRows],
   );
 
   // Quality score over time (daily average across all agents)
@@ -674,10 +722,10 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
   }, [reflections]);
 
   // Summary stats
-  const totalRuns = agents.reduce((s, a) => s + a.total_runs, 0);
-  const totalCost = agents.reduce((s, a) => s + (a.total_cost_usd ?? 0), 0);
-  const avgScore = agents.length > 0
-    ? Math.round(agents.reduce((s, a) => s + (a.performance_score ?? 0), 0) / agents.length * 100)
+  const totalRuns = rosterAgents.reduce((s, a) => s + a.total_runs, 0);
+  const totalCost = rosterAgents.reduce((s, a) => s + (a.total_cost_usd ?? 0), 0);
+  const avgScore = rosterAgents.length > 0
+    ? Math.round(rosterAgents.reduce((s, a) => s + (a.performance_score ?? 0), 0) / rosterAgents.length * 100)
     : 0;
 
   useEffect(() => {
@@ -734,7 +782,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
         <SummaryCard label="Total Runs" value={String(totalRuns)} loading={loading} color="#00E0FF" />
         <SummaryCard label="Total AI Spend" value={`$${totalCost.toFixed(2)}`} loading={loading} color="#C084FC" />
         <SummaryCard label="Avg Score" value={`${avgScore}/100`} loading={loading} color="#7DD3FC" />
-        <SummaryCard label="Active Agents" value={`${agents.length}`} loading={loading} color="#A855F7" />
+        <SummaryCard label="Active Agents" value={`${rosterAgents.length}`} loading={loading} color="#A855F7" />
       </div>
 
       {/* Plan Quality Card */}
@@ -749,58 +797,135 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Runs per Agent */}
-        <Card>
-          <SectionHeader title="Runs per Agent" />
+        {/* Runs by agent (deduped by display name) */}
+        <Card className="overflow-hidden border-border/80">
+          <SectionHeader title="Runs by agent" subtitle="Merged by person — duplicate roles combined" />
           {loading ? (
             <Skeleton className="h-64" />
           ) : runsData.length === 0 ? (
             <EmptyChart message="No run data yet" />
           ) : (
-            <ResponsiveContainer width="100%" height={Math.max(300, runsData.length * 38)}>
-              <BarChart data={runsData} layout="vertical" margin={{ top: 5, right: 20, left: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} width={120} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                />
-                <Bar dataKey="runs" radius={[0, 4, 4, 0]} maxBarSize={28}>
-                  {runsData.map((entry, i) => (
-                    <Cell key={entry.role} fill={GLYPHOR_PALETTE[i % GLYPHOR_PALETTE.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="rounded-xl bg-gradient-to-br from-surface/80 to-raised/40 px-1 pb-2 pt-1">
+              <ResponsiveContainer width="100%" height={Math.max(320, runsData.length * 42)}>
+                <BarChart
+                  data={runsData}
+                  layout="vertical"
+                  margin={{ top: 8, right: 28, left: 8, bottom: 8 }}
+                  barCategoryGap="18%"
+                >
+                  <defs>
+                    {OPS_BAR_GRADIENTS.map((g) => (
+                      <linearGradient key={g.id} id={g.id} x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor={g.from} stopOpacity={0.95} />
+                        <stop offset="100%" stopColor={g.to} stopOpacity={0.88} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 6" stroke="var(--color-border)" strokeOpacity={0.45} horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }}
+                    axisLine={{ stroke: 'var(--color-border)' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={188}
+                    tick={{ fontSize: 11, fill: 'var(--color-txt-secondary)' }}
+                    tickMargin={6}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(56, 189, 248, 0.06)' }}
+                    contentStyle={{
+                      background: 'var(--color-surface)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 10,
+                      fontSize: 12,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                    }}
+                    labelStyle={{ color: 'var(--color-txt-secondary)', fontWeight: 600 }}
+                  />
+                  <Bar dataKey="runs" radius={[0, 10, 10, 0]} maxBarSize={26} animationDuration={600}>
+                    {runsData.map((entry, i) => (
+                      <Cell
+                        key={entry.name}
+                        fill={`url(#${OPS_BAR_GRADIENTS[i % OPS_BAR_GRADIENTS.length].id})`}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </Card>
 
-        {/* Cost per Agent */}
-        <Card>
-          <SectionHeader title="Cost per Agent" />
+        {/* Cost by agent (same merge as runs) */}
+        <Card className="overflow-hidden border-border/80">
+          <SectionHeader title="Cost by agent" subtitle="Estimated spend — merged by person" />
           {loading ? (
             <Skeleton className="h-64" />
           ) : costData.length === 0 ? (
             <EmptyChart message="No cost data yet" />
           ) : (
-            <ResponsiveContainer width="100%" height={Math.max(300, costData.length * 38)}>
-              <BarChart data={costData} layout="vertical" margin={{ top: 5, right: 20, left: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} tickFormatter={(v) => `$${v}`} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }} width={120} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }}
-                  labelStyle={{ color: 'var(--color-txt-secondary)' }}
-                  formatter={(value: number) => [`$${value.toFixed(2)}`]}
-                />
-                <Bar dataKey="cost" radius={[0, 4, 4, 0]} maxBarSize={28}>
-                  {costData.map((entry, i) => (
-                    <Cell key={entry.role} fill={GLYPHOR_PALETTE[i % GLYPHOR_PALETTE.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="rounded-xl bg-gradient-to-br from-raised/30 to-surface/90 px-1 pb-2 pt-1 ring-1 ring-border/40">
+              <ResponsiveContainer width="100%" height={Math.max(320, costData.length * 42)}>
+                <BarChart
+                  data={costData}
+                  layout="vertical"
+                  margin={{ top: 8, right: 28, left: 8, bottom: 8 }}
+                  barCategoryGap="18%"
+                >
+                  <defs>
+                    {OPS_BAR_GRADIENTS.map((g) => (
+                      <linearGradient key={`c-${g.id}`} id={`c-${g.id}`} x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor={g.from} stopOpacity={0.92} />
+                        <stop offset="100%" stopColor={g.to} stopOpacity={0.85} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 6" stroke="var(--color-border)" strokeOpacity={0.45} horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 11, fill: 'var(--color-txt-muted)' }}
+                    tickFormatter={(v) => `$${v}`}
+                    axisLine={{ stroke: 'var(--color-border)' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={188}
+                    tick={{ fontSize: 11, fill: 'var(--color-txt-secondary)' }}
+                    tickMargin={6}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(167, 139, 250, 0.07)' }}
+                    contentStyle={{
+                      background: 'var(--color-surface)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 10,
+                      fontSize: 12,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                    }}
+                    labelStyle={{ color: 'var(--color-txt-secondary)', fontWeight: 600 }}
+                    formatter={(value: number) => [`$${Number(value).toFixed(2)}`, 'Cost']}
+                  />
+                  <Bar dataKey="cost" radius={[0, 10, 10, 0]} maxBarSize={26} animationDuration={600}>
+                    {costData.map((entry, i) => (
+                      <Cell
+                        key={entry.name}
+                        fill={`url(#c-${OPS_BAR_GRADIENTS[i % OPS_BAR_GRADIENTS.length].id})`}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </Card>
       </div>
@@ -943,12 +1068,15 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
 
       {/* Agent Health Matrix */}
       <Card>
-        <SectionHeader title="Agent Health Matrix" subtitle="Composite score: 40% success rate + 25% quality + 20% performance + 15% recency" />
+        <SectionHeader
+          title="Agent Health Matrix"
+          subtitle="Composite score: 40% success rate + 25% quality + 20% performance + 15% recency · Retired, inactive, or deleted agents are hidden"
+        />
         {loading ? (
           <Skeleton className="h-40" />
         ) : (
           <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7">
-            {agents
+            {rosterAgents
               .sort((a, b) => {
                 const ai = ROLE_ORDER.indexOf(a.role);
                 const bi = ROLE_ORDER.indexOf(b.role);
@@ -1069,7 +1197,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
       <div>
         <SectionHeader title="Agent Details" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {agents.sort((a, b) => {
+          {rosterAgents.sort((a, b) => {
             const ai = ROLE_ORDER.indexOf(a.role);
             const bi = ROLE_ORDER.indexOf(b.role);
             return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);

@@ -1275,6 +1275,19 @@ resource "google_project_iam_member" "worker_cloudsql_client" {
   member  = "serviceAccount:${google_service_account.worker.email}"
 }
 
+# gcp_create_secret / tooling: add secret versions (secretAccessor alone is read-only)
+resource "google_project_iam_member" "glyphor_secret_version_adder" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretVersionAdder"
+  member  = "serviceAccount:${google_service_account.glyphor.email}"
+}
+
+resource "google_project_iam_member" "worker_secret_version_adder" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretVersionAdder"
+  member  = "serviceAccount:${google_service_account.worker.email}"
+}
+
 resource "google_cloud_run_v2_service_iam_member" "worker_invoker" {
   name     = google_cloud_run_v2_service.worker.name
   location = var.region
