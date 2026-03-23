@@ -35,6 +35,8 @@ import {
   searchWeb,
 } from '@glyphor/integrations';
 
+import { normalizeCloudRunServiceName } from '../shared/cloudRunServiceName.js';
+
 export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
     {
@@ -1384,7 +1386,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         service: {
           type: 'string',
-          description: 'Cloud Run service to deploy',
+          description: 'Cloud Run service to deploy (short id or full name, e.g. scheduler or glyphor-scheduler)',
           required: true,
           enum: ['scheduler', 'worker', 'dashboard', 'voice-gateway'],
         },
@@ -1403,16 +1405,17 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       execute: async (params, ctx): Promise<ToolResult> => {
         const environment = params.environment as string;
         const service = params.service as string;
+        const cloudRunServiceId = normalizeCloudRunServiceName(service);
 
         // Production deploys require a decision
         if (environment === 'production') {
           const decisionId = await memory.createDecision({
             tier: 'yellow',
             status: 'pending',
-            title: `Production deploy: glyphor-${service}`,
+            title: `Production deploy: ${cloudRunServiceId}`,
             summary: `${params.reason}`,
             proposedBy: ctx.agentRole,
-            reasoning: `Production deployment of glyphor-${service} requires founder approval.`,
+            reasoning: `Production deployment of ${cloudRunServiceId} requires founder approval.`,
             assignedTo: ['Kristina', 'Andrew'],
           });
           return {
@@ -1475,7 +1478,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
             agentRole: ctx.agentRole,
             action: 'deploy',
             product: 'company',
-            summary: `Triggered ${environment} deploy for glyphor-${service} via Cloud Build`,
+            summary: `Triggered ${environment} deploy for ${cloudRunServiceId} via Cloud Build`,
             details: { service, environment, buildId, trigger: trigger.name },
             createdAt: new Date().toISOString(),
           });
@@ -1487,7 +1490,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
               trigger: trigger.name,
               logUrl: buildData.metadata?.build?.logUrl,
               environment,
-              service: `glyphor-${service}`,
+              service: cloudRunServiceId,
             },
           };
         } catch (err) {
@@ -1502,7 +1505,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         service: {
           type: 'string',
-          description: 'Cloud Run service to rollback',
+          description: 'Cloud Run service to rollback (short id or full name, e.g. scheduler or glyphor-scheduler)',
           required: true,
           enum: ['scheduler', 'worker', 'dashboard', 'voice-gateway'],
         },
@@ -1518,7 +1521,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           return { success: false, error: 'GCP_PROJECT_ID not configured' };
         }
 
-        const serviceName = `glyphor-${params.service as string}`;
+        const serviceName = normalizeCloudRunServiceName(params.service as string);
         const region = 'us-central1';
 
         try {
@@ -1873,7 +1876,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         service: {
           type: 'string',
-          description: 'Cloud Run service name (e.g. "scheduler", "worker", "dashboard", "voice-gateway")',
+          description: 'Cloud Run service (short id or full name, e.g. scheduler or glyphor-scheduler)',
           required: true,
         },
       },
@@ -1881,7 +1884,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         const projectId = process.env.GCP_PROJECT_ID;
         if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
 
-        const serviceName = `glyphor-${params.service as string}`;
+        const serviceName = normalizeCloudRunServiceName(params.service as string);
         const region = 'us-central1';
 
         try {
@@ -1932,7 +1935,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
       parameters: {
         service: {
           type: 'string',
-          description: 'Cloud Run service name (e.g. "scheduler", "worker", "dashboard", "voice-gateway")',
+          description: 'Cloud Run service (short id or full name, e.g. scheduler or glyphor-scheduler)',
           required: true,
         },
         secrets: {
@@ -1950,7 +1953,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         const projectId = process.env.GCP_PROJECT_ID;
         if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
 
-        const serviceName = `glyphor-${params.service as string}`;
+        const serviceName = normalizeCloudRunServiceName(params.service as string);
         const region = 'us-central1';
         const secretsToAdd = params.secrets as Record<string, string>;
         const secretKeys = Object.keys(secretsToAdd);

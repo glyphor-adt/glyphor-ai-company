@@ -14,6 +14,8 @@ import {
   submitPRReview, getPRDiff, type ReviewEvent,
 } from '@glyphor/integrations';
 
+import { normalizeCloudRunServiceName } from '../shared/cloudRunServiceName.js';
+
 export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
   const SERVICE_IDS = ['glyphor-scheduler', 'glyphor-worker', 'glyphor-dashboard', 'glyphor-voice-gateway'];
 
@@ -32,7 +34,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
           const hours = (params.hours as number) || 6;
           const service = params.service as string | undefined;
           if (service) {
-            const serviceId = `glyphor-${service}`;
+            const serviceId = normalizeCloudRunServiceName(service);
             const metrics = await queryCloudRunMetrics(projectId, serviceId, hours);
             return { success: true, data: { service: serviceId, metrics } };
           }
@@ -91,7 +93,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
         const projectId = process.env.GCP_PROJECT_ID;
         if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
         try {
-          const serviceId = `glyphor-${params.service}`;
+          const serviceId = normalizeCloudRunServiceName(params.service as string);
           const hours = (params.hours as number) || 6;
           const metrics = await queryCloudRunMetrics(projectId, serviceId, hours);
           return { success: true, data: metrics };
@@ -110,7 +112,7 @@ export function createDevOpsEngineerTools(memory: CompanyMemoryStore): ToolDefin
         const projectId = process.env.GCP_PROJECT_ID;
         if (!projectId) return { success: false, error: 'GCP_PROJECT_ID not configured' };
         try {
-          const serviceId = `glyphor-${params.service}`;
+          const serviceId = normalizeCloudRunServiceName(params.service as string);
           const metrics = await queryCloudRunMetrics(projectId, serviceId, 1);
           return {
             success: true,
