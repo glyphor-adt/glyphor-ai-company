@@ -4201,17 +4201,32 @@ function exportStrategyLabMarkdown(record: import('./strategyLabEngine.js').Stra
 }
 
 async function startServer(): Promise<void> {
-  const modelValidation = await validateModelConfig();
-  if (!modelValidation.passed) {
-    console.error('[Startup] Model config validation failed. Fix errors before deploying.');
-    throw new Error(
-      `Model validation failed with ${modelValidation.errors.length} error(s). ` +
-      'Refusing to start scheduler until disabled model usage is resolved.',
-    );
-  }
+  const modelValidationMode = (process.env.MODEL_VALIDATION_ENFORCEMENT ?? 'warn').toLowerCase();
+  const strictModelValidation = modelValidationMode === 'strict';
 
   server.listen(PORT, () => {
     console.log(`[Scheduler] Listening on port ${PORT}`);
+
+    // Validate model config after binding the Cloud Run port so startup probes succeed.
+    validateModelConfig()
+      .then((modelValidation) => {
+        if (!modelValidation.passed) {
+          console.error(
+            `[Startup] Model config validation failed with ${modelValidation.errors.length} error(s). ` +
+            `mode=${strictModelValidation ? 'strict' : 'warn'}.`,
+          );
+          if (strictModelValidation) {
+            console.error('[Startup] Strict model validation is enabled; shutting down scheduler.');
+            process.exit(1);
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('[Startup] Model validation check failed to execute:', (err as Error).message);
+        if (strictModelValidation) {
+          process.exit(1);
+        }
+      });
 
     ensureAgentRunsRoutingSchema().catch((err) =>
       console.warn('[Scheduler] Startup schema compatibility check failed:', (err as Error).message),
