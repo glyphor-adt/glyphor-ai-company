@@ -57,18 +57,33 @@ export class ProviderFactory {
       }
       case 'openai': {
         const openaiApiKey = (this.config.openaiApiKey ?? process.env.OPENAI_API_KEY)?.trim();
-        // Azure OpenAI — only use if explicitly configured (not auto-detected from env)
-        const azureEndpoint = this.config.azureFoundryEndpoint?.trim() || undefined;
-        const azureApiKey = this.config.azureFoundryApi?.trim() || undefined;
+        // Azure OpenAI / Foundry — from config or same env vars as webSearch / voice-gateway
+        const azureEndpoint =
+          this.config.azureFoundryEndpoint?.trim() ||
+          process.env.AZURE_FOUNDRY_ENDPOINT?.trim() ||
+          process.env.AZURE_OPENAI_ENDPOINT?.trim() ||
+          undefined;
+        const azureApiKey =
+          this.config.azureFoundryApi?.trim() ||
+          process.env.AZURE_FOUNDRY_API?.trim() ||
+          process.env.AZURE_OPENAI_API_KEY?.trim() ||
+          undefined;
+        const azureApiVersion =
+          this.config.azureFoundryApiVersion?.trim() ||
+          process.env.AZURE_FOUNDRY_API_VERSION?.trim() ||
+          process.env.AZURE_OPENAI_API_VERSION?.trim() ||
+          undefined;
         const hasAzure = !!(azureEndpoint && azureApiKey);
         if (!hasAzure && !openaiApiKey) {
-          throw new Error('OpenAI not configured — set OPENAI_API_KEY for direct, or pass azureFoundryEndpoint + azureFoundryApi for Azure');
+          throw new Error(
+            'OpenAI not configured — set OPENAI_API_KEY for direct, or AZURE_FOUNDRY_ENDPOINT+AZURE_FOUNDRY_API (or AZURE_OPENAI_*) for Azure',
+          );
         }
         return new OpenAIAdapter({
           apiKey: openaiApiKey,
           azureEndpoint,
           azureApiKey,
-          azureApiVersion: this.config.azureFoundryApiVersion,
+          azureApiVersion,
         });
       }
       case 'anthropic': {

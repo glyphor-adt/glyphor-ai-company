@@ -1,4 +1,5 @@
 import { AGENT_META } from '../lib/types';
+import { cn } from '../lib/utils';
 
 function buildCardStyle(
   accent: string | undefined,
@@ -141,12 +142,104 @@ export function GradientButton({
       className={`group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-gradient-to-br ${GRADIENT_MAP[variant]} p-[1.5px] font-medium focus:outline-none ${className}`}
       {...rest}
     >
-      <span className={`relative rounded-[5px] bg-white dark:bg-gray-900 ${SIZE_MAP[size]} font-semibold text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white`}>
+      <span className={`relative rounded-[5px] bg-base dark:bg-raised ${SIZE_MAP[size]} font-semibold text-txt-primary dark:text-white transition-all duration-75 ease-in group-hover:bg-transparent group-hover:text-white`}>
         {children}
       </span>
     </Component>
   );
 }
+
+/* ─── Normalized secondary actions (aligned with PageTabs / sidebar tones) ─── */
+
+const outlineSecondarySizeClasses = {
+  xs: 'rounded-md px-2.5 py-1 text-[11px]',
+  sm: 'rounded-md px-3 py-1.5 text-[11px]',
+  md: 'rounded-lg px-4 py-2 text-sm',
+} as const;
+
+const buttonToneMutedClassName =
+  'font-medium text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan/30 dark:text-white/70 dark:hover:bg-cyan/10 dark:hover:text-white';
+
+export function ButtonOutlineSecondary({
+  size = 'md',
+  className,
+  children,
+  type = 'button',
+  ...rest
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  size?: keyof typeof outlineSecondarySizeClasses;
+}) {
+  return (
+    <button
+      type={type}
+      className={cn(
+        'inline-flex items-center justify-center border border-border bg-transparent',
+        buttonToneMutedClassName,
+        outlineSecondarySizeClasses[size],
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Borderless cancel / secondary text button (e.g. modal footer next to primary). */
+export function ButtonGhost({
+  className,
+  children,
+  type = 'button',
+  ...rest
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type={type}
+      className={cn(
+        'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm',
+        buttonToneMutedClassName,
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Modal / panel header dismiss (× or icon). */
+export function ModalCloseButton({
+  className,
+  children = '×',
+  type = 'button',
+  'aria-label': ariaLabel = 'Close',
+  ...rest
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode }) {
+  return (
+    <button
+      type={type}
+      aria-label={ariaLabel}
+      className={cn(
+        'inline-flex items-center justify-center rounded-md p-1 text-lg leading-none text-prism-tertiary transition-colors hover:bg-prism-bg2 hover:text-prism-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan/30 dark:text-white/70 dark:hover:bg-cyan/10 dark:hover:text-white',
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Compact filter / watchlist chips (inactive + “All” active). */
+export const filterChipButtonBaseClassName =
+  'rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase transition-colors';
+
+export const filterChipInactiveClassName = cn(
+  filterChipButtonBaseClassName,
+  'border border-transparent bg-raised text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary dark:text-white/70 dark:hover:bg-cyan/10 dark:hover:text-white',
+);
+
+export const filterChipActiveAllClassName = cn(filterChipButtonBaseClassName, 'bg-cyan/20 text-cyan');
 
 /* ─── Status Dot ──────────────────────────── */
 export function StatusDot({ status }: { status: string }) {

@@ -7,7 +7,15 @@ import {
 } from 'react-icons/md';
 import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
-import { Card, GradientButton, SectionHeader, Skeleton, AgentAvatar } from '../components/ui';
+import {
+  AgentAvatar,
+  ButtonOutlineSecondary,
+  Card,
+  GradientButton,
+  ModalCloseButton,
+  SectionHeader,
+  Skeleton,
+} from '../components/ui';
 
 /* ── Types ── */
 interface SkillRow {
@@ -433,7 +441,9 @@ function CreateSkillModal({
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-lg font-semibold text-txt-primary">New Skill</h2>
-          <button onClick={onClose} className="text-txt-faint hover:text-txt-primary transition-colors"><MdClose /></button>
+          <ModalCloseButton onClick={onClose} aria-label="Close">
+            <MdClose className="text-xl" />
+          </ModalCloseButton>
         </div>
 
         <div className="space-y-4 px-5 py-5">
@@ -471,7 +481,7 @@ function CreateSkillModal({
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
-          <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-muted hover:text-txt-primary transition-colors">Cancel</button>
+          <ButtonOutlineSecondary onClick={onClose}>Cancel</ButtonOutlineSecondary>
           <GradientButton
             variant="primary"
             size="md"
@@ -549,7 +559,9 @@ function UploadSkillModal({
       <div className="modal-panel max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-lg font-semibold text-txt-primary">Upload Skill File</h2>
-          <button onClick={onClose} className="text-txt-faint hover:text-txt-primary transition-colors"><MdClose /></button>
+          <ModalCloseButton onClick={onClose} aria-label="Close">
+            <MdClose className="text-xl" />
+          </ModalCloseButton>
         </div>
 
         <div className="space-y-4 px-5 py-5">
@@ -630,7 +642,7 @@ function UploadSkillModal({
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
-          <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-muted hover:text-txt-primary transition-colors">Cancel</button>
+          <ButtonOutlineSecondary onClick={onClose}>Cancel</ButtonOutlineSecondary>
           <GradientButton
             variant="primary"
             size="md"

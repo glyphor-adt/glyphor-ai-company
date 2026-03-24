@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { apiCall } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
-import { Card, GradientButton, Skeleton, timeAgo } from '../components/ui';
+import { ButtonGhost, Card, GradientButton, ModalCloseButton, Skeleton, timeAgo } from '../components/ui';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import type { DashboardChangeRequest } from '../lib/types';
 import { normalizeText } from '../lib/normalizeText';
@@ -490,13 +490,9 @@ function NewRequestModal({
 
           {/* Submit */}
           <div className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-txt-muted hover:text-txt-primary transition-colors"
-            >
+            <ButtonGhost type="button" onClick={onClose}>
               Cancel
-            </button>
+            </ButtonGhost>
             <GradientButton
               type="submit"
               disabled={submitting || !title.trim() || !description.trim()}

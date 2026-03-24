@@ -1,6 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { apiCall } from '../lib/firebase';
-import { Card, GradientButton, SectionHeader, Skeleton, timeAgo, PageTabs } from '../components/ui';
+import {
+  ButtonOutlineSecondary,
+  Card,
+  GradientButton,
+  ModalCloseButton,
+  PageTabs,
+  SectionHeader,
+  Skeleton,
+  timeAgo,
+} from '../components/ui';
 import {
   MdConstruction, MdRocketLaunch, MdCelebration, MdFitnessCenter,
   MdTrackChanges, MdWarning, MdHelpOutline, MdExpandMore, MdClose, MdArrowForward,
@@ -286,12 +295,9 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
         <h2 className="text-lg font-semibold text-txt-primary">Company Vitals</h2>
         <div className="flex items-center gap-3">
           <span className="text-[11px] text-txt-faint">Updated {timeAgo(pulse.updated_at)}</span>
-          <button
-            onClick={() => setEditing(!editing)}
-            className="rounded-md border border-primary/20 px-2.5 py-1 text-[11px] font-medium text-txt-muted hover:text-txt-primary transition-colors"
-          >
+          <ButtonOutlineSecondary size="xs" onClick={() => setEditing(!editing)}>
             {editing ? 'Cancel' : 'Edit'}
-          </button>
+          </ButtonOutlineSecondary>
         </div>
       </div>
 
@@ -522,7 +528,7 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
       <div className="modal-panel max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-lg font-semibold text-txt-primary">New Bulletin</h2>
-          <button onClick={onClose} className="text-txt-muted hover:text-txt-primary transition-colors text-lg">×</button>
+          <ModalCloseButton onClick={onClose} />
         </div>
 
         <div className="space-y-4 px-6 py-5">
@@ -572,9 +578,7 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
-          <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-txt-muted hover:text-txt-primary transition-colors">
-            Cancel
-          </button>
+          <ButtonOutlineSecondary onClick={onClose}>Cancel</ButtonOutlineSecondary>
           <GradientButton
             variant="primary"
             size="md"
@@ -708,12 +712,9 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
                       </select>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={cancelEdit}
-                        className="rounded-md border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted hover:text-txt-primary transition-colors"
-                      >
+                      <ButtonOutlineSecondary size="sm" onClick={cancelEdit}>
                         Cancel
-                      </button>
+                      </ButtonOutlineSecondary>
                       <GradientButton
                         size="sm"
                         onClick={() => handleSave(s)}

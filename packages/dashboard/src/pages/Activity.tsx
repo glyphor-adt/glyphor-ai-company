@@ -444,7 +444,7 @@ export default function Activity() {
                       {run.output && (
                         <div>
                           {nexusSummaryMd ? (
-                            <div className="mb-3 rounded-md border border-cyan/25 bg-cyan/[0.06] px-3 py-2">
+                            <div className="mb-3 rounded-md border border-cyan/35 bg-transparent px-3 py-2">
                               <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">
                                 Human summary
                               </p>
@@ -462,7 +462,7 @@ export default function Activity() {
                       {run.status === 'skipped_precheck' && run.result_summary && (
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-tier-yellow mb-1">Precheck skip</p>
-                          <p className="text-[12px] text-tier-yellow whitespace-pre-wrap bg-tier-yellow/5 rounded-md border border-tier-yellow/20 px-3 py-2">
+                          <p className="text-[12px] text-tier-yellow whitespace-pre-wrap rounded-md border border-tier-yellow/35 bg-transparent px-3 py-2">
                             {run.result_summary}
                           </p>
                         </div>
@@ -470,7 +470,7 @@ export default function Activity() {
                       {run.error && run.status !== 'skipped_precheck' && (
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-prism-critical mb-1">Error</p>
-                          <p className="text-[12px] text-prism-critical whitespace-pre-wrap bg-prism-critical/5 rounded-md border border-prism-critical/20 px-3 py-2">
+                          <p className="text-[12px] text-prism-critical whitespace-pre-wrap rounded-md border border-prism-critical/35 bg-transparent px-3 py-2">
                             {run.error}
                           </p>
                         </div>
@@ -483,7 +483,7 @@ export default function Activity() {
                         </div>
                       )}
                       {run.reasoning_passes != null && run.reasoning_passes > 0 && (
-                        <div className="mt-2 rounded-md border border-cyan/20 bg-cyan/5 px-3 py-2">
+                        <div className="mt-2 rounded-md border border-cyan/35 bg-transparent px-3 py-2">
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1">Reasoning</p>
                           <div className="flex gap-4 text-[11px] text-txt-secondary">
                             <span>{run.reasoning_passes} pass{run.reasoning_passes !== 1 ? 'es' : ''}</span>
@@ -500,7 +500,7 @@ export default function Activity() {
                         </div>
                       )}
                       {(run.thinking_tokens != null && run.thinking_tokens > 0) || (run.cached_input_tokens != null && run.cached_input_tokens > 0) ? (
-                        <div className="mt-2 rounded-md border border-emerald/20 bg-emerald/5 px-3 py-2">
+                        <div className="mt-2 rounded-md border border-emerald/35 bg-transparent px-3 py-2">
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-prism-teal mb-1">Token Breakdown</p>
                           <div className="flex gap-4 text-[11px] text-txt-secondary">
                             {run.thinking_tokens != null && run.thinking_tokens > 0 && (
@@ -513,7 +513,7 @@ export default function Activity() {
                         </div>
                       ) : null}
                       {(run.routing_rule || run.routing_model || (run.routing_capabilities && run.routing_capabilities.length > 0)) && (
-                        <div className="mt-2 rounded-md border border-fuchsia-400/20 bg-fuchsia-500/5 px-3 py-2">
+                        <div className="mt-2 rounded-md border border-fuchsia-400/35 bg-transparent px-3 py-2">
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-fuchsia-300 mb-1">Routing</p>
                           <div className="grid gap-2 text-[11px] text-txt-secondary md:grid-cols-3">
                             <span><span className="text-txt-faint">Rule:</span> {run.routing_rule ?? '—'}</span>

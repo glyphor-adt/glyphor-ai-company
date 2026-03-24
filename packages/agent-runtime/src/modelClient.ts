@@ -25,9 +25,10 @@ export type ModelResponse = UnifiedModelResponse;
 
 export function detectProvider(model: string): ModelProvider {
   if (model.startsWith('gemini-')) return 'gemini';
+  if (model === 'model-router' || model.startsWith('model-router')) return 'openai';
   if (model.startsWith('gpt-') || /^o[134](-|$)/.test(model)) return 'openai';
   if (model.startsWith('claude-')) return 'anthropic';
-  throw new Error(`Unknown model provider for "${model}". Expected prefix: gemini-, gpt-, o1/o3/o4, or claude-`);
+  throw new Error(`Unknown model provider for "${model}". Expected prefix: gemini-, gpt-, o1/o3/o4, model-router, or claude-`);
 }
 
 /** Detect quota/rate-limit errors across all providers. */
@@ -100,6 +101,7 @@ export class ModelClient {
           ? getProviderLocalFallbackChain(normalizedRequestedModel, agentRole)
           : getFallbackChain(normalizedRequestedModel, agentRole);
     const modelsToTry = [normalizedRequestedModel, ...fallbackChain];
+    let lastFailureDetail = '';
 
     for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
       const currentModel = modelsToTry[modelIdx];
@@ -147,6 +149,7 @@ export class ModelClient {
           const rawDetail = cause ? `${msg} (cause: ${cause})` : msg;
           // Strip any API keys or tokens from error messages to prevent leaking secrets
           const detail = rawDetail.replace(/sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]+/g, '[REDACTED]');
+          lastFailureDetail = `[${currentModel}] ${detail}`;
           if (request.signal?.aborted) throw err;
 
           // Auth errors (401/403) — non-retryable, affects all models in provider
@@ -166,6 +169,11 @@ export class ModelClient {
           // Quota/rate-limit error — skip retries on this model, move to fallback
           if (isQuotaError(msg)) {
             console.warn(`[ModelClient] Quota/rate-limit on ${currentModel}: ${detail}`);
+            if (modelIdx >= modelsToTry.length - 1) {
+              throw new Error(
+                `Exhausted model fallback chain after quota/rate-limit on final model. ${lastFailureDetail}`,
+              );
+            }
             break; // break retry loop → try next model in fallback chain
           }
 
@@ -186,7 +194,11 @@ export class ModelClient {
         }
       }
     }
-    throw new Error('Unexpected: exhausted all models in fallback chain');
+    throw new Error(
+      lastFailureDetail
+        ? `Exhausted model fallback chain. Last error: ${lastFailureDetail}`
+        : 'Unexpected: exhausted all models in fallback chain',
+    );
   }
 
   /**

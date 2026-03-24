@@ -8,6 +8,9 @@
  *   - Direct: pass { apiKey }
  *   - Azure:  pass { azureEndpoint, azureApiKey } — uses AzureOpenAI SDK only.
  *     When Azure is configured, the direct API key is ignored (no fallback to api.openai.com).
+ *
+ * Optional Azure deployment name override (logical id stays o3-deep-research in DB/routes):
+ *     AZURE_O3_DEEP_RESEARCH_DEPLOYMENT — e.g. o3-deep-research-2 when that is your deployment name
  */
 
 import OpenAI, { AzureOpenAI } from 'openai';
@@ -83,7 +86,12 @@ function requiresDefaultTemperature(model: string): boolean {
 }
 
 function shouldForceResponsesApi(model: string): boolean {
-  return model.startsWith('gpt-5.4') || /^gpt-5\.[0-9]+-pro$/.test(model);
+  return (
+    model.startsWith('gpt-5.4') ||
+    /^gpt-5\.[0-9]+-pro$/.test(model) ||
+    model === 'gpt-5-pro' ||
+    model.includes('-codex')
+  );
 }
 
 export class OpenAIAdapter implements ProviderAdapter {
@@ -150,6 +158,16 @@ export class OpenAIAdapter implements ProviderAdapter {
     });
   }
 
+  /** Azure uses deployment *name*; it may differ from the logical model id (e.g. o3-deep-research-2). */
+  private azureDeploymentModel(logicalModel: string): string {
+    if (!this.isAzure) return logicalModel;
+    if (logicalModel === 'o3-deep-research') {
+      const override = process.env.AZURE_O3_DEEP_RESEARCH_DEPLOYMENT?.trim();
+      if (override) return override;
+    }
+    return logicalModel;
+  }
+
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {
     const messages = this.mapConversation(request);
     const modelConfig = request.metadata?.modelConfig;
@@ -183,7 +201,10 @@ export class OpenAIAdapter implements ProviderAdapter {
     // o-series models (o1, o3, o4) don't accept temperature, top_p, or max_tokens
     const isOSeries = /^o[134](-|$)/.test(request.model);
     // GPT-5 family: gpt-5, gpt-5.1, gpt-5.2, gpt-5-mini, gpt-5-nano, etc.
-    const isGpt5Family = request.model.startsWith('gpt-5');
+    // Foundry model-router: Chat Completions; may route to GPT-5 / o4-mini — use GPT-5 parameter rules.
+    const isGpt5Family = request.model.startsWith('gpt-5')
+      || request.model === 'model-router'
+      || request.model.startsWith('model-router');
     const modelSupportsMinimalReasoning = supportsMinimalReasoning(request.model);
 
     let reasoningEffort: string | undefined;
@@ -228,9 +249,11 @@ export class OpenAIAdapter implements ProviderAdapter {
       ? (reasoningEffort && reasoningEffort !== 'minimal' ? 32768 : 16384)
       : undefined);
 
+    const deploymentModel = this.azureDeploymentModel(request.model);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const createParams: any = {
-      model: request.model,
+      model: deploymentModel,
       messages,
       ...(tools ? { tools } : {}),
       ...(resolvedMaxTokens !== undefined
@@ -402,10 +425,11 @@ export class OpenAIAdapter implements ProviderAdapter {
       : [];
 
     const maxOutputTokens = request.maxTokens ?? 32768;
+    const deploymentModel = this.azureDeploymentModel(request.model);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const createParams: any = {
-      model: request.model,
+      model: deploymentModel,
       instructions: request.systemInstruction,
       input,
       ...(reasoningEffort && reasoningEffort !== 'minimal'
@@ -736,8 +760,10 @@ export class OpenAIAdapter implements ProviderAdapter {
   private mapConversation(
     request: UnifiedModelRequest,
   ): Array<OpenAI.Chat.Completions.ChatCompletionMessageParam> {
-    // Use 'developer' role for GPT-5 and o-series (OpenAI requirement for reasoning models)
-    const systemRole = (request.model.startsWith('gpt-5') || /^o[134](-|$)/.test(request.model)) ? 'developer' : 'system';
+    // Use 'developer' role for GPT-5, model-router, and o-series (router may invoke GPT-5 / reasoning models)
+    const systemRole = (request.model.startsWith('gpt-5') || request.model === 'model-router' || /^o[134](-|$)/.test(request.model))
+      ? 'developer'
+      : 'system';
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: systemRole as 'system', content: request.systemInstruction },
     ];

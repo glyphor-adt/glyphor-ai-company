@@ -3,7 +3,7 @@ import { apiCall } from '../lib/firebase';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { useAuth } from '../lib/auth';
-import { Card, GradientButton, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import { Card, GradientButton, ModalCloseButton, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 import { MdCheckCircle, MdEdit, MdCancel, MdChevronRight, MdDelete, MdBlock, MdVerifiedUser, MdWarning, MdRefresh, MdExpandMore } from 'react-icons/md';
 
 /* ── Plan Verification Types ───────────────── */
@@ -1268,9 +1268,7 @@ function EditApproveModal({
       <div className="modal-panel mb-8 max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-prism-border px-6 py-4">
           <h2 className="text-lg font-semibold text-prism-primary">Edit & Approve Directive</h2>
-          <button onClick={onClose} className="text-txt-muted hover:text-txt-primary transition-colors text-lg">
-            ×
-          </button>
+          <ModalCloseButton onClick={onClose} />
         </div>
 
         <div className="space-y-4 px-6 py-5">
@@ -1435,9 +1433,7 @@ function NewDirectiveModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-prism-border px-6 py-4">
           <h2 className="text-lg font-semibold text-prism-primary">New Directive</h2>
-          <button onClick={onClose} className="text-txt-muted hover:text-txt-primary transition-colors text-lg">
-            ×
-          </button>
+          <ModalCloseButton onClick={onClose} />
         </div>
 
         {/* Body */}

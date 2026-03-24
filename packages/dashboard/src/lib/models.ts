@@ -46,17 +46,26 @@ export const MODELS: ModelOption[] = [
   // ── OpenAI ──
   { value: 'gpt-5.4',     label: 'GPT-5.4',       provider: 'openai', inputPer1M: 2.50, outputPer1M: 15.0 },
   { value: 'gpt-5.4-pro', label: 'GPT-5.4 Pro',   provider: 'openai', inputPer1M: 30.0, outputPer1M: 180.0 },
-  { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini',  provider: 'openai', inputPer1M: 0.75, outputPer1M: 4.50, default: true },
+  { value: 'model-router', label: 'Model Router (Foundry)', provider: 'openai', inputPer1M: 0.75, outputPer1M: 4.50, default: true },
+  { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini',  provider: 'openai', inputPer1M: 0.75, outputPer1M: 4.50 },
   { value: 'gpt-5.4-nano', label: 'GPT-5.4 Nano',  provider: 'openai', inputPer1M: 0.20, outputPer1M: 1.25 },
+  { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', provider: 'openai', inputPer1M: 1.75, outputPer1M: 14.0 },
   { value: 'gpt-5.2',     label: 'GPT-5.2',       provider: 'openai', inputPer1M: 1.75, outputPer1M: 14.0 },
   { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro',   provider: 'openai', inputPer1M: 21.0, outputPer1M: 168.0 },
+  { value: 'gpt-5.2-codex', label: 'GPT-5.2 Codex', provider: 'openai', inputPer1M: 1.75, outputPer1M: 14.0 },
   { value: 'gpt-5.1',     label: 'GPT-5.1',       provider: 'openai', inputPer1M: 1.25, outputPer1M: 10.0 },
+  { value: 'gpt-5.1-codex', label: 'GPT-5.1 Codex', provider: 'openai', inputPer1M: 1.25, outputPer1M: 10.0 },
+  { value: 'gpt-5.1-codex-mini', label: 'GPT-5.1 Codex Mini', provider: 'openai', inputPer1M: 0.75, outputPer1M: 6.00 },
+  { value: 'gpt-5.1-codex-max', label: 'GPT-5.1 Codex Max', provider: 'openai', inputPer1M: 2.50, outputPer1M: 15.0 },
   { value: 'gpt-5',       label: 'GPT-5',         provider: 'openai', inputPer1M: 1.25, outputPer1M: 10.0 },
+  { value: 'gpt-5-pro',   label: 'GPT-5 Pro',     provider: 'openai', inputPer1M: 15.0, outputPer1M: 120.0 },
+  { value: 'gpt-5-codex', label: 'GPT-5 Codex',   provider: 'openai', inputPer1M: 1.25, outputPer1M: 10.0 },
   { value: 'gpt-5-mini',  label: 'GPT-5 Mini',    provider: 'openai', inputPer1M: 0.25, outputPer1M: 2.00 },
   { value: 'gpt-5-mini-2025-08-07', label: 'GPT-5 Mini (Aug 2025)', provider: 'openai', inputPer1M: 0.25, outputPer1M: 2.00 },
   { value: 'gpt-5-nano',  label: 'GPT-5 Nano',    provider: 'openai', inputPer1M: 0.05, outputPer1M: 0.40 },
 
   { value: 'o3',           label: 'o3',            provider: 'openai', inputPer1M: 2.00, outputPer1M: 8.00 },
+  { value: 'o3-pro',       label: 'o3 Pro',        provider: 'openai', inputPer1M: 3.00, outputPer1M: 15.0 },
   { value: 'o4-mini',      label: 'o4-mini',       provider: 'openai', inputPer1M: 1.10, outputPer1M: 4.40 },
   { value: 'o3-deep-research',      label: 'o3 Deep Research',      provider: 'openai', inputPer1M: 2.00, outputPer1M: 8.00 },
   { value: 'o4-mini-deep-research', label: 'o4-mini Deep Research', provider: 'openai', inputPer1M: 1.10, outputPer1M: 4.40 },
@@ -69,7 +78,7 @@ export const MODELS: ModelOption[] = [
 
 ];
 
-export const DEFAULT_MODEL = MODELS.find(m => m.default)?.value ?? 'gpt-5.4-mini';
+export const DEFAULT_MODEL = MODELS.find(m => m.default)?.value ?? 'model-router';
 
 /** Group models by provider for optgroup rendering */
 export function getModelsByProvider(): Record<ModelProvider, ModelOption[]> {
@@ -85,6 +94,10 @@ export function getModelLabel(value: string): string {
 }
 
 export function getReasoningSupport(modelValue: string): ReasoningSupport {
+  if (modelValue === 'model-router' || modelValue.startsWith('model-router')) {
+    return { levels: ['none', 'standard', 'deep'], defaultLevel: 'standard' };
+  }
+
   if (/^gpt-5\.[12]/.test(modelValue)) {
     return { levels: ['none', 'standard'], defaultLevel: 'standard' };
   }

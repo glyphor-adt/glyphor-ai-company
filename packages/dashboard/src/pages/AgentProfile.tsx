@@ -1908,7 +1908,7 @@ function SettingsTab({
   onUpdate: (updater: (prev: AgentRow | null) => AgentRow | null) => void;
 }) {
   const navigate = useNavigate();
-  const [model, setModel] = useState(agent.model ?? 'gpt-5.4-mini');
+  const [model, setModel] = useState(agent.model ?? 'model-router');
   const [temperature, setTemperature] = useState(agent.temperature ?? 0.3);
   const [maxTurns, setMaxTurns] = useState(agent.max_turns ?? 10);
   const [thinkingEnabled, setThinkingEnabled] = useState(agent.thinking_enabled ?? true);

@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 
 export function Hero1() {
   return (
-    <section className="w-full flex items-start lg:items-center py-12 px-4 sm:px-6 lg:px-8 bg-white dark:bg-neutral-950">
+    <section className="w-full flex items-start lg:items-center py-12 px-4 sm:px-6 lg:px-8 bg-base">
       <div className="max-w-[1400px] mx-auto w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 xl:gap-16 items-center">
           {/* Left Column - Content */}
@@ -15,12 +15,12 @@ export function Hero1() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="flex items-center gap-2 sm:gap-3 rounded-full border-neutral-300 dark:border-neutral-800 border p-1 w-fit hover:border-neutral-600 dark:hover:border-neutral-500 transition-colors cursor-pointer"
+              className="flex w-fit cursor-pointer items-center gap-2 rounded-full border border-border p-1 transition-colors hover:border-border-hover sm:gap-3"
             >
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-black dark:bg-white text-white dark:text-black text-xs sm:text-sm font-medium">
+              <span className="inline-flex items-center rounded-full bg-cyan/20 px-3 py-1 text-xs font-medium text-cyan sm:text-sm">
                 New
               </span>
-              <span className="text-sm sm:text-base text-neutral-900 dark:text-neutral-100 mr-2">
+              <span className="mr-2 text-sm text-txt-primary sm:text-base">
                 AI-powered design systems
               </span>
             </motion.div>
@@ -30,7 +30,7 @@ export function Hero1() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl tracking-tight font-medium text-neutral-900 dark:text-white leading-[1.15]"
+              className="text-2xl font-medium leading-[1.15] tracking-tight text-txt-primary sm:text-3xl md:text-4xl lg:text-5xl"
             >
               Transform your product with intelligent design
             </motion.h1>
@@ -40,7 +40,7 @@ export function Hero1() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="text-base sm:text-lg text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-lg tracking-tight"
+              className="max-w-lg text-base leading-relaxed tracking-tight text-txt-secondary sm:text-lg"
             >
               Get component libraries, design tokens, and expert tooling. Ship
               your design systems faster & smarter.
@@ -56,22 +56,22 @@ export function Hero1() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="cursor-pointer px-6 py-2.5 rounded-full bg-black dark:bg-white text-white dark:text-black font-medium text-sm sm:text-base hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors duration-200 w-full sm:w-auto"
+                className="w-full cursor-pointer rounded-full bg-cyan px-6 py-2.5 text-sm font-medium text-white transition-opacity duration-200 hover:opacity-90 sm:w-auto sm:text-base"
               >
                 Start Building
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="cursor-pointer pl-5 pr-3 py-2.5 rounded-full border border-neutral-300 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium text-sm sm:text-base hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors duration-200 flex items-center justify-center gap-2 w-full sm:w-auto group"
+                className="group flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-border py-2.5 pl-5 pr-3 text-sm font-medium text-txt-primary transition-colors duration-200 hover:bg-surface sm:w-auto sm:text-base"
               >
                 Watch Demo
                 <motion.span
-                  className="flex items-center justify-center w-6 h-6 rounded-full bg-black dark:bg-white"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan"
                   whileHover={{ rotate: 90 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <Play className="w-3 h-3 fill-white dark:fill-black" />
+                  <Play className="h-3 w-3 fill-white" />
                 </motion.span>
               </motion.button>
             </motion.div>
@@ -85,23 +85,23 @@ export function Hero1() {
             >
               {/* User Avatars */}
               <div className="flex -space-x-2">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black dark:bg-white border-4 border-white dark:border-neutral-950 flex items-center justify-center text-white dark:text-black text-xs sm:text-sm font-semibold">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border-4 border-base bg-cyan/25 text-xs font-semibold text-cyan sm:h-12 sm:w-12 sm:text-sm">
                   JD
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black dark:bg-white border-4 border-white dark:border-neutral-950 flex items-center justify-center text-white dark:text-black text-xs sm:text-sm font-semibold">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border-4 border-base bg-cyan/25 text-xs font-semibold text-cyan sm:h-12 sm:w-12 sm:text-sm">
                   SK
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black dark:bg-white border-4 border-white dark:border-neutral-950 flex items-center justify-center text-white dark:text-black text-xs sm:text-sm font-semibold">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border-4 border-base bg-cyan/25 text-xs font-semibold text-cyan sm:h-12 sm:w-12 sm:text-sm">
                   AL
                 </div>
               </div>
 
               {/* Social Proof Text */}
               <div className="flex flex-col">
-                <span className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-white">
+                <span className="text-base font-semibold text-txt-primary sm:text-lg">
                   50k+
                 </span>
-                <span className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
+                <span className="text-xs text-txt-secondary sm:text-sm">
                   Engineers shipping products daily.
                 </span>
               </div>
@@ -115,7 +115,7 @@ export function Hero1() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="relative w-full h-auto"
           >
-            <div className="relative w-full h-full min-h-[250px] sm:min-h-[500px] rounded-4xl bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors overflow-hidden">
+            <div className="relative h-full min-h-[250px] w-full overflow-hidden rounded-4xl bg-surface transition-colors hover:bg-raised sm:min-h-[500px]">
               <img
                 src="https://images.unsplash.com/photo-1553877522-43269d4ea984?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
                 alt="Visual content placeholder"
@@ -132,14 +132,17 @@ export function Hero1() {
                 >
                   <path
                     d="M0 200C155.996 199.961 200.029 156.308 200 0V200H0Z"
-                    className="fill-white dark:fill-neutral-950"
+                    className="fill-base"
                   />
                 </svg>
 
                 <div className="relative">
-                  <div className="w-24 h-24 bg-white dark:bg-neutral-950 rounded-tl-4xl pl-4 pt-4">
-                    <button className="w-full h-full cursor-pointer border-none flex items-center justify-center bg-black dark:bg-white border rounded-[1.2em] hover:opacity-90 transition-opacity">
-                      <ArrowRight className="w-6 h-6 dark:text-neutral-950 text-white -rotate-45" />
+                  <div className="h-24 w-24 rounded-tl-4xl bg-base pl-4 pt-4">
+                    <button
+                      type="button"
+                      className="flex h-full w-full cursor-pointer items-center justify-center rounded-[1.2em] border border-border bg-cyan transition-opacity hover:opacity-90"
+                    >
+                      <ArrowRight className="h-6 w-6 -rotate-45 text-white" />
                     </button>
                   </div>
 
@@ -153,7 +156,7 @@ export function Hero1() {
                   >
                     <path
                       d="M0 200C155.996 199.961 200.029 156.308 200 0V200H0Z"
-                      className="fill-white dark:fill-neutral-950"
+                      className="fill-base"
                     />
                   </svg>
                 </div>

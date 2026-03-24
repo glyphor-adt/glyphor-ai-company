@@ -34,7 +34,7 @@ export interface SubtaskRoutingDecision {
   reason: string;
 }
 
-const DEFAULT_MODEL = 'gpt-5.4-mini';
+const DEFAULT_MODEL = 'model-router';
 const COMPLEXITY_RANK: Record<SubtaskComplexity, number> = {
   trivial: 0,
   standard: 1,
@@ -175,10 +175,12 @@ export async function selectSubtaskModel(
     capabilities: classification.capabilities,
   });
 
-  if (
-    classification.complexity === 'frontier' &&
-    (decision.model === 'gpt-5-nano' || decision.model === DEFAULT_MODEL)
-  ) {
+  const workhorseForFrontierEscalation =
+    decision.model === 'gpt-5-nano'
+    || decision.model === DEFAULT_MODEL
+    || decision.model === 'gpt-5.4-mini';
+
+  if (classification.complexity === 'frontier' && workhorseForFrontierEscalation) {
     decision = {
       ...decision,
       model: 'gpt-5.4',

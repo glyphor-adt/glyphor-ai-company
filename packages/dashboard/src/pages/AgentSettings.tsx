@@ -540,7 +540,7 @@ export default function AgentSettings() {
             <ConfigRow label="Type" value={titleText} />
             <ConfigRow label="Tier" value={tier} />
             <ConfigRow label="Office" value={department} />
-            <ConfigRow label="Model" value={agent.model ?? 'gpt-5.4-mini'} mono />
+            <ConfigRow label="Model" value={agent.model ?? 'model-router'} mono />
             <ConfigRow label="Score" value={agent.performance_score != null ? `${Math.round(Number(agent.performance_score) * 100)}/100` : '—'} />
             <ConfigRow label="Total Runs" value={String(agent.total_runs ?? 0)} />
             <ConfigRow label="Total Cost" value={`$${Number(agent.total_cost_usd ?? 0).toFixed(2)}`} mono />

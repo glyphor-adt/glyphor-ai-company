@@ -2,7 +2,16 @@ import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward, MdChevronRight, MdSearch, MdPerson, MdExpandMore } from 'react-icons/md';
 import Markdown from 'react-markdown';
 import { SCHEDULER_URL } from '../lib/firebase';
-import { Card, GradientButton, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import {
+  Card,
+  filterChipActiveAllClassName,
+  filterChipButtonBaseClassName,
+  filterChipInactiveClassName,
+  GradientButton,
+  SectionHeader,
+  Skeleton,
+  timeAgo,
+} from '../components/ui';
 import {
   ChatComposerFrame,
   ComposerSendButton,
@@ -771,7 +780,7 @@ function DDMarket({ report }: { report: DeepDiveReport }) {
         ))}
       </div>
 
-      <div className="rounded-lg bg-tier-green/10 border border-tier-green/20 px-4 py-2">
+      <div className="rounded-lg border border-tier-green/35 bg-transparent px-4 py-2">
         <span className="text-sm font-semibold text-tier-green">Growth Rate: {report.marketAnalysis.growthRate}</span>
       </div>
 
@@ -848,7 +857,7 @@ function DDCompetitive({ report }: { report: DeepDiveReport }) {
         })}
       </div>
 
-      <div className="rounded-lg bg-cyan/5 border border-cyan/20 p-3">
+      <div className="rounded-lg border border-cyan/35 bg-transparent p-3">
         <span className="text-[10px] text-txt-muted uppercase tracking-wider">Competitive Advantage</span>
         <p className="text-sm text-txt-primary mt-1">{report.competitiveLandscape.competitiveAdvantage}</p>
       </div>
@@ -898,7 +907,7 @@ function DDFrameworks({ record }: { record: DeepDiveRecord }) {
     <div className="space-y-4">
       {/* Convergence narrative */}
       {convergence && (
-        <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-4 py-3">
+        <div className="rounded-lg border border-cyan/35 bg-transparent px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Framework Convergence</p>
           <p className="text-[12px] text-txt-primary leading-relaxed whitespace-pre-wrap">{normalizeText(convergence)}</p>
         </div>
@@ -947,7 +956,7 @@ function FrameworkCard({ label, color, summary, keyInsight, data }: {
       </button>
       {summary && <p className="text-[12px] text-txt-secondary leading-relaxed mt-2">{summary}</p>}
       {keyInsight && (
-        <div className="mt-2 rounded-md bg-prism-elevated/5 border border-prism-elevated/15 px-3 py-1.5">
+        <div className="mt-2 rounded-md border border-prism-elevated/35 bg-transparent px-3 py-1.5">
           <span className="text-[10px] font-semibold text-prism-elevated">Key Insight: </span>
           <span className="text-[11px] text-txt-secondary">{keyInsight}</span>
         </div>
@@ -962,7 +971,12 @@ function FrameworkCard({ label, color, summary, keyInsight, data }: {
 }
 
 function DDRecommendations({ report }: { report: DeepDiveReport }) {
-  const priColor = (p: string) => p === 'immediate' ? 'text-prism-critical bg-prism-critical/10 border-prism-critical/20' : p === 'short-term' ? 'text-prism-elevated bg-prism-elevated/10 border-prism-elevated/20' : 'text-cyan bg-cyan/10 border-cyan/20';
+  const priColor = (p: string) =>
+    p === 'immediate'
+      ? 'text-prism-critical bg-transparent border-prism-critical/40'
+      : p === 'short-term'
+        ? 'text-prism-elevated bg-transparent border-prism-elevated/40'
+        : 'text-cyan bg-transparent border-cyan/40';
 
   return (
     <div className="space-y-3">
@@ -1061,12 +1075,17 @@ function DDRoi({ report }: { report: DeepDiveReport }) {
 
 function DDRisks({ report }: { report: DeepDiveReport }) {
   const probColor = (p: string) => p === 'high' ? 'text-prism-critical' : p === 'medium' ? 'text-prism-elevated' : 'text-tier-green';
-  const impactBg = (impact: string) => impact === 'high' ? 'bg-prism-critical/10 border-prism-critical/30' : impact === 'medium' ? 'bg-prism-elevated/10 border-prism-elevated/30' : 'bg-tier-green/10 border-tier-green/30';
+  const impactBorder = (impact: string) =>
+    impact === 'high'
+      ? 'border-prism-critical/40 bg-transparent'
+      : impact === 'medium'
+        ? 'border-prism-elevated/40 bg-transparent'
+        : 'border-tier-green/40 bg-transparent';
 
   return (
     <div className="space-y-2">
       {report.riskAssessment.map((risk, i) => (
-        <div key={i} className={`rounded-lg border p-3 ${impactBg(risk.impact)}`}>
+        <div key={i} className={`rounded-lg border p-3 ${impactBorder(risk.impact)}`}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm font-medium text-txt-primary">{risk.risk}</span>
             <div className="flex gap-2 text-[10px] font-semibold uppercase">
@@ -1083,11 +1102,11 @@ function DDRisks({ report }: { report: DeepDiveReport }) {
 }
 
 const WATCHLIST_CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
-  risk: { bg: 'bg-prism-critical/10 border-prism-critical/30', text: 'text-prism-critical' },
-  catalyst: { bg: 'bg-tier-green/10 border-tier-green/30', text: 'text-tier-green' },
-  transaction: { bg: 'bg-cyan/10 border-cyan/30', text: 'text-cyan' },
-  leadership: { bg: 'bg-prism-violet/10 border-prism-violet/30', text: 'text-prism-violet' },
-  regulatory: { bg: 'bg-prism-elevated/10 border-prism-elevated/30', text: 'text-prism-elevated' },
+  risk: { bg: 'border-prism-critical/40 bg-transparent', text: 'text-prism-critical' },
+  catalyst: { bg: 'border-tier-green/40 bg-transparent', text: 'text-tier-green' },
+  transaction: { bg: 'border-cyan/40 bg-transparent', text: 'text-cyan' },
+  leadership: { bg: 'border-prism-violet/40 bg-transparent', text: 'text-prism-violet' },
+  regulatory: { bg: 'border-prism-elevated/40 bg-transparent', text: 'text-prism-elevated' },
 };
 
 function DDWatchlist({ items }: { items?: WatchlistItem[] }) {
@@ -1102,14 +1121,33 @@ function DDWatchlist({ items }: { items?: WatchlistItem[] }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={() => setCategoryFilter(null)} className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${!categoryFilter ? 'bg-cyan/20 text-cyan' : 'bg-raised text-txt-muted hover:text-txt-primary'}`}>All ({items.length})</button>
+        <button
+          type="button"
+          onClick={() => setCategoryFilter(null)}
+          className={!categoryFilter ? filterChipActiveAllClassName : filterChipInactiveClassName}
+        >
+          All ({items.length})
+        </button>
         {categories.map((cat) => {
-          const colors = WATCHLIST_CATEGORY_COLORS[cat] || { text: 'text-txt-muted' };
-          return <button key={cat} onClick={() => setCategoryFilter(cat)} className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${categoryFilter === cat ? `${colors.text} bg-white/5` : 'text-txt-muted hover:text-txt-primary'}`}>{cat} ({items.filter((w) => w.category === cat).length})</button>;
+          const colors = WATCHLIST_CATEGORY_COLORS[cat] || { bg: 'border-border/60', text: 'text-txt-muted' };
+          return (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setCategoryFilter(cat)}
+              className={
+                categoryFilter === cat
+                  ? `${filterChipButtonBaseClassName} border ${colors.bg} ${colors.text} bg-cyan/10`
+                  : filterChipInactiveClassName
+              }
+            >
+              {cat} ({items.filter((w) => w.category === cat).length})
+            </button>
+          );
         })}
       </div>
       {sorted.map((w, i) => {
-        const colors = WATCHLIST_CATEGORY_COLORS[w.category] || { bg: 'bg-raised border-border', text: 'text-txt-muted' };
+        const colors = WATCHLIST_CATEGORY_COLORS[w.category] || { bg: 'border-border/60 bg-transparent', text: 'text-txt-muted' };
         return (
           <div key={i} className={`rounded-lg border p-3 ${colors.bg}`}>
             <div className="flex items-center justify-between mb-1">
@@ -1139,7 +1177,7 @@ function DDSources({ report }: { report: DeepDiveReport }) {
     <div className="space-y-1.5">
       <p className="text-xs text-txt-faint mb-3">{citations.length} sources cited in this analysis</p>
       {citations.map((src) => (
-        <div key={src.id} className="flex items-start gap-2 rounded-lg bg-raised/40 px-3 py-2">
+        <div key={src.id} className="flex items-start gap-2 rounded-lg border border-border/50 bg-transparent px-3 py-2">
           <span className="text-xs font-bold text-cyan mt-0.5">[{src.id}]</span>
           <div className="flex-1 min-w-0">
             <span className="text-sm text-txt-primary">{src.title}</span>
@@ -1162,7 +1200,12 @@ function DDVerification({ report }: { report: DeepDiveReport }) {
   if (!vs) return <p className="text-sm text-txt-muted">No verification data available.</p>;
 
   const confColor = vs.overallConfidence >= 0.8 ? 'text-tier-green' : vs.overallConfidence >= 0.6 ? 'text-prism-elevated' : 'text-prism-critical';
-  const confBg = vs.overallConfidence >= 0.8 ? 'bg-tier-green/10 border-tier-green/30' : vs.overallConfidence >= 0.6 ? 'bg-prism-elevated/10 border-prism-elevated/30' : 'bg-prism-critical/10 border-prism-critical/30';
+  const confBg =
+    vs.overallConfidence >= 0.8
+      ? 'border-tier-green/40 bg-transparent'
+      : vs.overallConfidence >= 0.6
+        ? 'border-prism-elevated/40 bg-transparent'
+        : 'border-prism-critical/40 bg-transparent';
 
   return (
     <div className="space-y-4">
@@ -1183,7 +1226,7 @@ function DDVerification({ report }: { report: DeepDiveReport }) {
           <h4 className="text-xs font-semibold text-prism-elevated uppercase mb-2">Flagged Claims</h4>
           <div className="space-y-1.5">
             {vs.flaggedClaims.map((claim, i) => (
-              <div key={i} className="rounded-lg bg-prism-elevated/5 border border-prism-elevated/20 px-3 py-2 text-sm text-txt-secondary">{claim}</div>
+              <div key={i} className="rounded-lg border border-prism-elevated/35 bg-transparent px-3 py-2 text-sm text-txt-secondary">{claim}</div>
             ))}
           </div>
         </div>
@@ -1194,7 +1237,7 @@ function DDVerification({ report }: { report: DeepDiveReport }) {
           <h4 className="text-xs font-semibold text-tier-green uppercase mb-2">Corrections Applied</h4>
           <div className="space-y-1.5">
             {vs.correctionsMade.map((corr, i) => (
-              <div key={i} className="rounded-lg bg-tier-green/5 border border-tier-green/20 px-3 py-2 text-sm text-txt-secondary">{corr}</div>
+              <div key={i} className="rounded-lg border border-tier-green/35 bg-transparent px-3 py-2 text-sm text-txt-secondary">{corr}</div>
             ))}
           </div>
         </div>
@@ -1343,7 +1386,7 @@ function SimulationsPanel() {
                   </div>
                 )}
                 {expanded === s.id && s.error && (
-                  <p className="mt-3 rounded-lg border border-prism-critical/20 bg-prism-critical/5 px-3 py-2 text-sm text-prism-critical">
+                  <p className="mt-3 rounded-lg border border-prism-critical/35 bg-transparent px-3 py-2 text-sm text-prism-critical">
                     {s.error}
                   </p>
                 )}
@@ -1395,7 +1438,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
             </p>
           </div>
           <div className="flex items-center justify-center text-cyan"><MdArrowForward /></div>
-          <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-3">
+          <div className="rounded-lg border border-cyan/35 bg-transparent px-3 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan">Proposed Action</p>
             <p className="mt-2 text-[12px] text-txt-primary leading-relaxed">{record.action}</p>
           </div>
@@ -1728,7 +1771,7 @@ function ChainOfThoughtPanel() {
                   </div>
                 )}
                 {expanded === r.id && r.error && (
-                  <p className="mt-3 rounded-lg border border-prism-critical/20 bg-prism-critical/5 px-3 py-2 text-sm text-prism-critical">
+                  <p className="mt-3 rounded-lg border border-prism-critical/35 bg-transparent px-3 py-2 text-sm text-prism-critical">
                     {r.error}
                   </p>
                 )}
@@ -2267,7 +2310,7 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
 
           {/* Error */}
           {r.error && (
-            <div className="rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-3 py-2">
+            <div className="rounded-lg border border-prism-critical/40 bg-transparent px-3 py-2">
               <p className="text-sm text-prism-critical">{r.error}</p>
             </div>
           )}
@@ -2318,7 +2361,7 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
 
       {/* Sophia QC summary */}
       {r.overall_confidence && (
-        <div className="rounded-lg border border-prism-elevated/20 bg-prism-elevated/5 px-3 py-2">
+        <div className="rounded-lg border border-prism-elevated/35 bg-transparent px-3 py-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-prism-elevated">Sophia QC</span>
             <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${
@@ -2433,7 +2476,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
 
       {showSection === 'summary' && (
         <div className="space-y-3">
-          <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-4 py-3">
+          <div className="rounded-lg border border-cyan/35 bg-transparent px-4 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Executive Summary</p>
             <div className="text-sm text-txt-primary leading-relaxed prose-chat"><Markdown>{s.executiveSummary}</Markdown></div>
           </div>
@@ -2454,10 +2497,10 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
         const swotData = frameworkOutputs?.['framework-swot'] as Record<string, unknown> | undefined;
         const matrix = swotData?.interaction_matrix as Record<string, unknown[]> | undefined;
         const QUADRANTS = [
-          { key: 'so_strategies', label: 'SO Strategies', subtitle: 'Strengths × Opportunities', color: 'text-tier-green', border: 'border-tier-green/20', bg: 'bg-tier-green/5', aLabel: 'Strength', bLabel: 'Opportunity', actionLabel: 'Strategy', actionKey: 'strategy', extraKey: 'expected_impact', extraLabel: 'Expected Impact' },
-          { key: 'st_defenses', label: 'ST Defenses', subtitle: 'Strengths × Threats', color: 'text-cyan', border: 'border-cyan/20', bg: 'bg-cyan/5', aLabel: 'Strength', bLabel: 'Threat', actionLabel: 'Defense', actionKey: 'defense', extraKey: 'defensive_action', extraLabel: 'Action' },
-          { key: 'wo_gaps', label: 'WO Gaps', subtitle: 'Weaknesses × Opportunities', color: 'text-prism-elevated', border: 'border-prism-elevated/20', bg: 'bg-prism-elevated/5', aLabel: 'Weakness', bLabel: 'Opportunity', actionLabel: 'Gap', actionKey: 'gap', extraKey: 'development_priority', extraLabel: 'Dev Priority' },
-          { key: 'wt_vulnerabilities', label: 'WT Vulnerabilities', subtitle: 'Weaknesses × Threats', color: 'text-prism-critical', border: 'border-prism-critical/20', bg: 'bg-prism-critical/5', aLabel: 'Weakness', bLabel: 'Threat', actionLabel: 'Vulnerability', actionKey: 'vulnerability', extraKey: 'urgency', extraLabel: 'Urgency' },
+          { key: 'so_strategies', label: 'SO Strategies', subtitle: 'Strengths × Opportunities', color: 'text-tier-green', border: 'border-tier-green/35', bg: 'bg-transparent', aLabel: 'Strength', bLabel: 'Opportunity', actionLabel: 'Strategy', actionKey: 'strategy', extraKey: 'expected_impact', extraLabel: 'Expected Impact' },
+          { key: 'st_defenses', label: 'ST Defenses', subtitle: 'Strengths × Threats', color: 'text-cyan', border: 'border-cyan/35', bg: 'bg-transparent', aLabel: 'Strength', bLabel: 'Threat', actionLabel: 'Defense', actionKey: 'defense', extraKey: 'defensive_action', extraLabel: 'Action' },
+          { key: 'wo_gaps', label: 'WO Gaps', subtitle: 'Weaknesses × Opportunities', color: 'text-prism-elevated', border: 'border-prism-elevated/35', bg: 'bg-transparent', aLabel: 'Weakness', bLabel: 'Opportunity', actionLabel: 'Gap', actionKey: 'gap', extraKey: 'development_priority', extraLabel: 'Dev Priority' },
+          { key: 'wt_vulnerabilities', label: 'WT Vulnerabilities', subtitle: 'Weaknesses × Threats', color: 'text-prism-critical', border: 'border-prism-critical/35', bg: 'bg-transparent', aLabel: 'Weakness', bLabel: 'Threat', actionLabel: 'Vulnerability', actionKey: 'vulnerability', extraKey: 'urgency', extraLabel: 'Urgency' },
         ] as const;
         const confidenceColor = (c: string) => c === 'high' ? 'text-tier-green' : c === 'medium' ? 'text-prism-elevated' : 'text-prism-critical';
         return (
@@ -2466,10 +2509,10 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
             <div className="grid grid-cols-2 gap-3">
               {(['strengths', 'weaknesses', 'opportunities', 'threats'] as const).map((cat) => {
                 const colors = {
-                  strengths: { border: 'border-tier-green/20', bg: 'bg-tier-green/5', label: 'text-tier-green' },
-                  weaknesses: { border: 'border-prism-critical/20', bg: 'bg-prism-critical/5', label: 'text-prism-critical' },
-                  opportunities: { border: 'border-cyan/20', bg: 'bg-cyan/5', label: 'text-cyan' },
-                  threats: { border: 'border-prism-elevated/20', bg: 'bg-prism-elevated/5', label: 'text-prism-elevated' },
+                  strengths: { border: 'border-tier-green/35', bg: 'bg-transparent', label: 'text-tier-green' },
+                  weaknesses: { border: 'border-prism-critical/35', bg: 'bg-transparent', label: 'text-prism-critical' },
+                  opportunities: { border: 'border-cyan/35', bg: 'bg-transparent', label: 'text-cyan' },
+                  threats: { border: 'border-prism-elevated/35', bg: 'bg-transparent', label: 'text-prism-elevated' },
                 };
                 const c = colors[cat];
                 return (
@@ -2534,7 +2577,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
       {showSection === 'frameworks' && hasFrameworks && (
         <div className="space-y-4">
           {frameworkConvergence && (
-            <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-4 py-3">
+            <div className="rounded-lg border border-cyan/35 bg-transparent px-4 py-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Framework Convergence</p>
               <div className="text-[12px] text-txt-primary leading-relaxed prose-chat"><Markdown>{frameworkConvergence}</Markdown></div>
             </div>

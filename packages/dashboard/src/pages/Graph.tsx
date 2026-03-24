@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { apiCall } from '../lib/firebase';
-import { Card, SectionHeader, Skeleton } from '../components/ui';
+import { Card, ModalCloseButton, SectionHeader, Skeleton } from '../components/ui';
 import {
   MdBusiness, MdLightbulb, MdBalance, MdBarChart, MdWarning,
   MdRocketLaunch, MdMenuBook, MdTrackChanges, MdAssignment,
@@ -580,9 +580,7 @@ function NodeDetail({
               </span>
             </div>
           </div>
-          <button onClick={onClose} className="text-txt-muted hover:text-txt-primary text-lg leading-none">
-            ×
-          </button>
+          <ModalCloseButton onClick={onClose} />
         </div>
 
         {/* Content */}

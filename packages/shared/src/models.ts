@@ -72,19 +72,31 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // GPT-5.x cached input = 10% of input price. o-series cached = 25% of input price.
   // Reasoning tokens (o-series) billed at output rate.
   // Source: https://developers.openai.com/api/docs/pricing (verified 2026-02-26)
+  // Azure Foundry catalog: https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure
   { id: 'gpt-5.4',                label: 'GPT-5.4',                provider: 'openai',    tier: 'flagship',  inputPer1M: 2.50,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'gpt-5.4-pro',            label: 'GPT-5.4 Pro',            provider: 'openai',    tier: 'flagship',  inputPer1M: 30.0,  outputPer1M: 180.0, selectable: true,  verifier: false },
+  { id: 'gpt-5.3-codex',          label: 'GPT-5.3 Codex',          provider: 'openai',    tier: 'specialized', inputPer1M: 1.75, outputPer1M: 14.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-5.2',                label: 'GPT-5.2',                provider: 'openai',    tier: 'flagship',  inputPer1M: 1.75,  outputPer1M: 14.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-5.2-pro',            label: 'GPT-5.2 Pro',            provider: 'openai',    tier: 'flagship',  inputPer1M: 21.0,  outputPer1M: 168.0, selectable: true,  verifier: false },
+  { id: 'gpt-5.2-codex',          label: 'GPT-5.2 Codex',          provider: 'openai',    tier: 'specialized', inputPer1M: 1.75, outputPer1M: 14.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-5.1',                label: 'GPT-5.1',                provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gpt-5.1-codex',          label: 'GPT-5.1 Codex',          provider: 'openai',    tier: 'specialized', inputPer1M: 1.25, outputPer1M: 10.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gpt-5.1-codex-mini',     label: 'GPT-5.1 Codex Mini',     provider: 'openai',    tier: 'specialized', inputPer1M: 0.75, outputPer1M: 6.00, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gpt-5.1-codex-max',      label: 'GPT-5.1 Codex Max',      provider: 'openai',    tier: 'specialized', inputPer1M: 2.50, outputPer1M: 15.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-5',                  label: 'GPT-5',                  provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gpt-5-pro',              label: 'GPT-5 Pro',              provider: 'openai',    tier: 'flagship',  inputPer1M: 15.0,  outputPer1M: 120.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gpt-5-codex',            label: 'GPT-5 Codex',            provider: 'openai',    tier: 'specialized', inputPer1M: 1.25, outputPer1M: 10.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-5-mini',             label: 'GPT-5 Mini',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'gpt-5-mini-2025-08-07',   label: 'GPT-5 Mini (Aug 2025)',  provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
   { id: 'gpt-5-nano',             label: 'GPT-5 Nano',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.05,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-5.4-mini',            label: 'GPT-5.4 Mini',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.75,  outputPer1M: 4.50,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
   { id: 'gpt-5.4-nano',            label: 'GPT-5.4 Nano',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.20,  outputPer1M: 1.25,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  // Azure AI Foundry model-router (2025-11-18): Chat Completions only; billing = underlying model picked.
+  // https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/model-router
+  { id: 'model-router',           label: 'Model Router (Foundry)', provider: 'openai',    tier: 'standard',  inputPer1M: 0.75,  outputPer1M: 4.50,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
 
   { id: 'o3',                     label: 'o3',                     provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
+  { id: 'o3-pro',                 label: 'o3 Pro',                 provider: 'openai',    tier: 'reasoning', inputPer1M: 3.00,  outputPer1M: 15.0, thinkingPer1M: 15.0, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
   { id: 'o4-mini',                label: 'o4-mini',                provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
   { id: 'o3-deep-research',       label: 'o3 Deep Research',       provider: 'openai',    tier: 'specialized', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: false, verifier: false },
   { id: 'o4-mini-deep-research',  label: 'o4-mini Deep Research',  provider: 'openai',    tier: 'specialized', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: false, verifier: false },
@@ -101,6 +113,9 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'gemini-embedding-001',       label: 'Gemini Embedding',       provider: 'gemini',    tier: 'specialized', inputPer1M: 0.15, outputPer1M: 0,    selectable: false, verifier: false },
   { id: 'gpt-realtime-2025-08-28',    label: 'GPT Realtime',            provider: 'openai',    tier: 'specialized', inputPer1M: 5.00, outputPer1M: 20.0, selectable: false, verifier: false },
   { id: 'gpt-image-1',                label: 'GPT Image 1',            provider: 'openai',    tier: 'specialized', inputPer1M: 0,    outputPer1M: 0,    selectable: false, verifier: false },
+  { id: 'gpt-image-1.5',            label: 'GPT Image 1.5',          provider: 'openai',    tier: 'specialized', inputPer1M: 0,    outputPer1M: 0,    selectable: false, verifier: false },
+  { id: 'gpt-image-1-mini',         label: 'GPT Image 1 Mini',       provider: 'openai',    tier: 'specialized', inputPer1M: 0,    outputPer1M: 0,    selectable: false, verifier: false },
+  { id: 'sora-2',                   label: 'Sora 2',                 provider: 'openai',    tier: 'specialized', inputPer1M: 0,    outputPer1M: 0,    selectable: false, verifier: false },
 
 ] as const;
 
@@ -130,7 +145,7 @@ export const DEPRECATED_MODELS: Record<string, string> = {
   'gpt-4.1-nano':               'gpt-5-nano',
   'gpt-4.1':                    'gpt-5-mini-2025-08-07',
   'gpt-4.1-mini':               'gpt-5-nano',
-  'gpt-image-1.5-2025-12-16':   'gpt-image-1',
+  'gpt-image-1.5-2025-12-16':   'gpt-image-1.5',
 
   // Anthropic legacy
   'claude-sonnet-4-20250514':   'claude-sonnet-4-6',
@@ -148,9 +163,9 @@ export const DEPRECATED_MODELS: Record<string, string> = {
 // ─── Default models by purpose ───────────────────────────────
 
 /** The default model assigned to new agents */
-export const DEFAULT_AGENT_MODEL = 'gpt-5.4-mini';
+export const DEFAULT_AGENT_MODEL = 'model-router';
 
-/** The model used for web search (needs OpenAI Responses API) */
+/** The model used for web search (needs OpenAI Responses API; not model-router) */
 export const WEB_SEARCH_MODEL = 'gpt-5.4-mini';
 
 /** The model used for realtime voice */
@@ -166,7 +181,7 @@ export const EMBEDDING_MODEL = 'gemini-embedding-001';
 export const IMAGE_MODEL = 'gpt-image-1';
 
 /** The model used for GraphRAG extraction */
-export const GRAPHRAG_MODEL = 'gpt-5.4-mini';
+export const GRAPHRAG_MODEL = 'model-router';
 
 // ─── Fallback chains ────────────────────────────────────────
 // When a model fails with a non-retryable error (e.g., rate limit, outage),
@@ -180,19 +195,29 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'gemini-2.5-flash':               ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
   'gemini-2.5-flash-lite':          ['gemini-3.1-flash-lite-preview', 'gpt-5.4-nano'],
 
-  // OpenAI primary → try Gemini first (GCP-resident, cheapest), then economy cross-provider
-  'gpt-5.4':                ['gemini-3.1-pro-preview', 'gemini-3-flash-preview'],
-  'gpt-5.4-pro':            ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  // OpenAI primary → same-provider first (required for Azure-only: deployments are on one endpoint),
+  // then Gemini / Claude as last resort when configured.
+  'gpt-5.4':                ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'gemini-3.1-pro-preview'],
+  'gpt-5.4-pro':            ['gpt-5.4', 'gpt-5.4-mini', 'claude-sonnet-4-6'],
   'gpt-5.4-mini':           ['gpt-5-mini-2025-08-07', 'gpt-5.4-nano'],
   'gpt-5.4-nano':           ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite-preview'],
+  'model-router':           ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.2':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
   'gpt-5.2-pro':            ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'gpt-5.3-codex':          ['gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5.2-codex':          ['gpt-5.1-codex', 'gpt-5.1', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5.1-codex':          ['gpt-5.1', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5.1-codex-mini':     ['gpt-5.1-codex', 'gpt-5-nano', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5.1-codex-max':      ['gpt-5.4', 'gpt-5.1-codex', 'gpt-5-mini-2025-08-07', 'claude-sonnet-4-6'],
+  'gpt-5-codex':            ['gpt-5.1-codex', 'gpt-5', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5-pro':              ['gpt-5.4', 'gpt-5.4-mini', 'claude-sonnet-4-6'],
   'gpt-5.1':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
   'gpt-5':                  ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
   'gpt-5-mini':             ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash'],
   'gpt-5-mini-2025-08-07':  ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash'],
   'gpt-5-nano':             ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite-preview'],
   'o3':                     ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'o3-pro':                 ['o3', 'gpt-5.4', 'gpt-5.4-mini', 'claude-sonnet-4-6'],
   'o4-mini':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
   'o3-deep-research':       ['gpt-5.4', 'o3'],
   'o4-mini-deep-research':  ['o4-mini', 'gpt-5.4-mini'],
@@ -213,10 +238,19 @@ const OPS_AGENT_FALLBACK_WHEN_ALL_GEMINI: Record<string, readonly string[]> = {
   'gpt-5.4-pro': ['claude-sonnet-4-6', 'gpt-5.4'],
   'gpt-5.2': ['claude-sonnet-4-6', 'gpt-5.4-mini'],
   'gpt-5.2-pro': ['claude-sonnet-4-6', 'gpt-5.4'],
+  'gpt-5.3-codex': ['gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5.4-mini'],
+  'gpt-5.2-codex': ['gpt-5.1-codex', 'gpt-5.4-mini'],
+  'gpt-5.1-codex': ['gpt-5.1', 'gpt-5.4-mini'],
+  'gpt-5.1-codex-mini': ['gpt-5.1-codex', 'gpt-5.4-mini'],
+  'gpt-5.1-codex-max': ['gpt-5.4', 'gpt-5.1-codex', 'gpt-5.4-mini'],
+  'gpt-5-codex': ['gpt-5.1-codex', 'gpt-5.4-mini'],
+  'gpt-5-pro': ['claude-sonnet-4-6', 'gpt-5.4'],
   'gpt-5.1': ['claude-sonnet-4-6', 'gpt-5.4-mini'],
   'gpt-5': ['claude-sonnet-4-6', 'gpt-5.4-mini'],
+  'o3-pro': ['o3', 'gpt-5.4', 'gpt-5.4-mini'],
   'gpt-5.4-nano': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'claude-haiku-4-5'],
   'gpt-5-nano': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'claude-haiku-4-5'],
+  'model-router': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'claude-sonnet-4-6'],
 };
 
 /** Last resort when no Gemini-free chain can be derived (should be rare). */
@@ -247,11 +281,20 @@ export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> =
   'gpt-5.4':                ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
   'gpt-5.4-mini':           ['gpt-5-mini-2025-08-07', 'gpt-5.4-nano'],
   'gpt-5.4-nano':           ['gpt-5-nano', 'gpt-5-mini-2025-08-07'],
+  'model-router':           ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
   'gpt-5.2-pro':            ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
   'gpt-5.2':                ['gpt-5.1', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.3-codex':          ['gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.2-codex':          ['gpt-5.1-codex', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.1-codex':          ['gpt-5-mini-2025-08-07', 'gpt-5-nano'],
+  'gpt-5.1-codex-mini':     ['gpt-5.1-codex', 'gpt-5-nano'],
+  'gpt-5.1-codex-max':      ['gpt-5.4', 'gpt-5.1-codex', 'gpt-5-mini-2025-08-07'],
+  'gpt-5-codex':            ['gpt-5.1-codex', 'gpt-5-mini-2025-08-07'],
+  'gpt-5-pro':              ['gpt-5.4', 'gpt-5.2', 'gpt-5-mini-2025-08-07'],
   'gpt-5.1':                ['gpt-5-mini-2025-08-07', 'gpt-5-nano'],
   'gpt-5':                  ['gpt-5-mini-2025-08-07', 'gpt-5-nano'],
   'o3':                     ['gpt-5.1', 'gpt-5-mini-2025-08-07'],
+  'o3-pro':                 ['o3', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
   'o4-mini':                ['gpt-5-mini-2025-08-07', 'gpt-5-nano'],
   'o3-deep-research':       ['o3', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
   'o4-mini-deep-research':  ['o4-mini', 'gpt-5-mini-2025-08-07'],
@@ -280,8 +323,16 @@ export const VERIFIER_MAP: Record<string, string> = {
   'gpt-5.4':                'gemini-3.1-flash-lite-preview',
   'gpt-5.4-mini':           'gemini-3.1-flash-lite-preview',
   'gpt-5.4-nano':           'gemini-2.5-flash-lite',
+  'model-router':           'gemini-3.1-flash-lite-preview',
   'gpt-5.2':                'gemini-3.1-flash-lite-preview',
   'gpt-5.2-pro':            'gemini-3.1-flash-lite-preview',
+  'gpt-5.3-codex':          'gemini-3.1-flash-lite-preview',
+  'gpt-5.2-codex':          'gemini-3.1-flash-lite-preview',
+  'gpt-5.1-codex':          'gemini-3.1-flash-lite-preview',
+  'gpt-5.1-codex-mini':     'gemini-3.1-flash-lite-preview',
+  'gpt-5.1-codex-max':      'gemini-3.1-flash-lite-preview',
+  'gpt-5-codex':            'gemini-3.1-flash-lite-preview',
+  'gpt-5-pro':              'gemini-3.1-flash-lite-preview',
   'gpt-5.1':                'gemini-3.1-flash-lite-preview',
   'gpt-5':                  'gemini-3.1-flash-lite-preview',
   'gpt-5-mini':             'gemini-3.1-flash-lite-preview',
@@ -289,6 +340,7 @@ export const VERIFIER_MAP: Record<string, string> = {
   'gpt-5-nano':             'gemini-2.5-flash-lite',
 
   'o3':                     'gemini-3.1-flash-lite-preview',
+  'o3-pro':                 'gemini-3.1-flash-lite-preview',
   'o4-mini':                'gemini-3.1-flash-lite-preview',
   'o3-deep-research':       'claude-sonnet-4-6',
   'o4-mini-deep-research':  'claude-sonnet-4-6',
@@ -378,6 +430,7 @@ export function resolveModel(modelId: string): string {
  */
 export function detectProvider(model: string): ModelProvider {
   if (model.startsWith('gemini-')) return 'gemini';
+  if (model === 'model-router' || model.startsWith('model-router')) return 'openai';
   if (model.startsWith('gpt-') || /^o[134](-|$)/.test(model)) return 'openai';
   if (model.startsWith('claude-')) return 'anthropic';
   throw new Error(`Unknown model provider for "${model}"`);
@@ -477,6 +530,11 @@ export function getProviderLabel(provider: ModelProvider): string {
 export function getReasoningSupport(modelId: string): ReasoningSupport {
   const model = resolveModel(modelId);
 
+  // Foundry model-router forwards reasoning_effort to underlying models when applicable (2025-11-18+).
+  if (model === 'model-router' || model.startsWith('model-router')) {
+    return { levels: ['none', 'standard', 'deep'], defaultLevel: 'standard' };
+  }
+
   if (/^gpt-5\.[12]/.test(model)) {
     return { levels: ['none', 'standard'], defaultLevel: 'standard' };
   }
@@ -510,20 +568,20 @@ export function normalizeReasoningLevel(modelId: string, requested?: ReasoningLe
 //
 // Tiers (OpenAI-first defaults):
 //   economy  → gpt-5.4-nano — triage, high-volume
-//   standard → gpt-5.4-mini — default workhorse
-//   pro      → gpt-5.4-mini — orchestration, strategic, founder-chat
+//   standard → model-router — default workhorse (Foundry routes to best model)
+//   pro      → model-router — orchestration, strategic, founder-chat
 
 export type CostTier = 'economy' | 'standard' | 'pro';
 
 /** Preferred model for each cost tier. */
 export const TIER_MODELS: Record<CostTier, string> = {
   economy:  'gpt-5.4-nano',
-  standard: 'gpt-5.4-mini',
-  pro:      'gpt-5.4-mini',
+  standard: 'model-router',
+  pro:      'model-router',
 };
 
 /** Model used for on_demand chat with founder-facing executives. */
-export const EXEC_CHAT_MODEL = 'gpt-5.4-mini';
+export const EXEC_CHAT_MODEL = 'model-router';
 
 /** Role → tier mapping. Unlisted roles default to 'standard'. */
 export const ROLE_COST_TIER: Record<string, CostTier> = {
