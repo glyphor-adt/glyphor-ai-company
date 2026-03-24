@@ -188,7 +188,7 @@ export default function Strategy() {
       <div>
         <h1 className="text-2xl font-bold text-txt-primary">Strategy Lab</h1>
         <p className="mt-1 text-sm text-txt-muted">
-          Multi-agent strategic analyses, strategic deep dives, Cascade Analysis forecasts, and chain-of-thought planning
+          Gemini Deep Research strategic analyses, strategic deep dives, Cascade Analysis forecasts, and chain-of-thought planning
         </p>
       </div>
 
@@ -2033,8 +2033,8 @@ function ExportButton({ label, href }: { label: string; href: string }) {
 }
 
 /* ══════════════════════════════════════════════
-   Strategy Lab v2 — Multi-Agent Strategic Analysis
-   ══════════════════════════════════════════════ */
+  Strategy Lab v2 — Gemini Deep Research Analysis
+  ══════════════════════════════════════════════ */
 
 type SLv2AnalysisType = 'competitive_landscape' | 'market_opportunity' | 'product_strategy' | 'growth_diagnostic' | 'risk_assessment' | 'market_entry' | 'due_diligence';
 type SLv2Depth = 'quick' | 'standard' | 'deep' | 'comprehensive';
@@ -2106,23 +2106,16 @@ const SLV2_TYPE_LABELS: Record<SLv2AnalysisType, string> = {
   due_diligence: 'Due Diligence',
 };
 
-const SLV2_DEPTH_LABELS: Record<SLv2Depth, string> = {
-  quick: 'Quick — Sarah only (~2 min)',
-  standard: 'Standard — 3 analysts + 2 execs (~10 min)',
-  deep: 'Deep Research — 6 analysts + 4 execs (~20 min)',
-  comprehensive: 'Comprehensive Research — full + follow-up (~35 min)',
-};
-
 const SLV2_STATUS_LABELS: Record<SLv2Status, string> = {
-  planning: 'Planning research briefs…',
-  framing: 'Phase 0: Sarah framing request…',
-  decomposing: 'Phase 0.5: Sophia decomposing research…',
-  researching: 'Wave 1: Research team gathering data…',
-  'quality-check': 'Wave 1.5: Sophia QC & packaging…',
-  'framework-analysis': 'Wave 1.75: Running 6 strategic frameworks…',
-  analyzing: 'Wave 2: Executive analysis…',
-  synthesizing: 'Wave 3: Sarah synthesizing…',
-  deepening: 'Wave 4: Follow-up research…',
+  planning: 'Preparing analysis plan…',
+  framing: 'Framing the strategic question…',
+  decomposing: 'Structuring research threads…',
+  researching: 'Collecting evidence and sources…',
+  'quality-check': 'Validating evidence quality…',
+  'framework-analysis': 'Running strategic frameworks…',
+  analyzing: 'Analyzing trade-offs and scenarios…',
+  synthesizing: 'Synthesizing recommendations…',
+  deepening: 'Expanding follow-up research…',
   completed: 'Completed',
   failed: 'Failed',
 };
@@ -2141,7 +2134,6 @@ function StrategyLabV2Panel() {
 
   const [query, setQuery] = useState('');
   const [analysisType, setAnalysisType] = useState<SLv2AnalysisType>('competitive_landscape');
-  const [depth, setDepth] = useState<SLv2Depth>('standard');
 
   const refresh = useCallback(async () => {
     try {
@@ -2168,7 +2160,7 @@ function StrategyLabV2Panel() {
       const trimmedQuery = query.trim();
       await api('/strategy-lab/run', {
         method: 'POST',
-        body: JSON.stringify({ query: trimmedQuery, analysisType, depth, requestedBy: 'dashboard' }),
+        body: JSON.stringify({ query: trimmedQuery, analysisType, requestedBy: 'dashboard' }),
       });
       setQuery('');
       await refresh();
@@ -2179,7 +2171,7 @@ function StrategyLabV2Panel() {
     <div className="space-y-6">
       {/* Launch Form */}
       <Card outline className="overflow-visible">
-        <SectionHeader title="Launch Multi-Agent Strategy Analysis" subtitle="Research team → Executive analysis → Sarah synthesis" />
+        <SectionHeader title="Launch Strategic Analysis Report" subtitle="Powered by Gemini Deep Research for evidence-backed recommendations" />
         <div className="mt-4">
           <ChatComposerFrame>
             <textarea
@@ -2210,18 +2202,6 @@ function StrategyLabV2Panel() {
                     ))}
                   </select>
                 </div>
-                <div className="min-w-[180px] flex-1">
-                  <label className={composerFieldLabelClassName}>Depth</label>
-                  <select
-                    value={depth}
-                    onChange={(e) => setDepth(e.target.value as SLv2Depth)}
-                    className={composerSelectClassName}
-                  >
-                    {Object.entries(SLV2_DEPTH_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
               <div className="flex shrink-0 items-center justify-end sm:justify-start">
                 <ComposerSendButton
@@ -2243,7 +2223,7 @@ function StrategyLabV2Panel() {
           <Skeleton className="h-20 w-full" />
         </div>
       ) : records.length === 0 ? (
-        <Card outline><p className="text-sm text-txt-faint py-4 text-center">No strategy lab v2 analyses yet</p></Card>
+        <Card outline><p className="text-sm text-txt-faint py-4 text-center">No strategic analysis reports yet</p></Card>
       ) : (
         <div className="space-y-3">
           {records.map((rec) => (
@@ -2285,8 +2265,6 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
             </div>
             <div className="mt-1 flex items-center gap-3 text-[11px] text-txt-muted">
               <span>{SLV2_TYPE_LABELS[r.analysis_type]}</span>
-              <span>•</span>
-              <span className="capitalize">{r.depth}</span>
               <span>•</span>
               <span>{timeAgo(r.created_at)}</span>
               {r.total_searches > 0 && (<><span>•</span><span>{r.total_searches} searches, {r.total_sources} sources</span></>)}
@@ -2365,11 +2343,11 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
         ))}
       </div>
 
-      {/* Sophia QC summary */}
+      {/* Quality summary */}
       {r.overall_confidence && (
         <div className="rounded-lg border border-prism-elevated/35 bg-transparent px-3 py-2">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-prism-elevated">Sophia QC</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-prism-elevated">Quality</span>
             <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-medium ${
               r.overall_confidence === 'high'
                 ? 'border-emerald-500/45 bg-transparent text-tier-green'
@@ -2387,44 +2365,12 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
         </div>
       )}
 
-      {/* Research analysts */}
-      {researchProgress.length > 0 && (
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Research Team</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-            {researchProgress.map((rp) => (
-              <div key={rp.analystRole} className="glass-outline rounded-lg border border-border px-3 py-2">
-                <div className="flex items-center gap-1.5">
-                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                    rp.status === 'completed' ? 'bg-tier-green' : rp.status === 'running' ? 'bg-cyan animate-pulse' : rp.status === 'failed' ? 'bg-prism-critical' : 'bg-txt-faint/30'
-                  }`} />
-                  <span className="text-[12px] font-medium text-txt-primary truncate">{rp.analystName}</span>
-                </div>
-                {(rp.searchCount || rp.sourceCount) && (
-                  <p className="mt-0.5 text-[10px] text-txt-faint">{rp.searchCount ?? 0} searches · {rp.sourceCount ?? 0} pages</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Executive analysts */}
-      {execProgress.length > 0 && (
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Executive Analysis</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {execProgress.map((ep) => (
-              <div key={ep.execRole} className="glass-outline rounded-lg border border-border px-3 py-2">
-                <div className="flex items-center gap-1.5">
-                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                    ep.status === 'completed' ? 'bg-tier-green' : ep.status === 'running' ? 'bg-cyan animate-pulse' : ep.status === 'failed' ? 'bg-prism-critical' : 'bg-txt-faint/30'
-                  }`} />
-                  <span className="text-[12px] font-medium text-txt-primary truncate">{ep.execName}</span>
-                </div>
-                <p className="mt-0.5 text-[10px] text-txt-faint truncate">{ep.framework}</p>
-              </div>
-            ))}
+      {(researchProgress.length > 0 || execProgress.length > 0) && (
+        <div className="rounded-lg border border-border/60 bg-transparent px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-1.5">Progress</p>
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-txt-secondary">
+            <span>Evidence: {researchProgress.filter((p) => p.status === 'completed').length}/{researchProgress.length || 0}</span>
+            <span>Evaluation: {execProgress.filter((p) => p.status === 'completed').length}/{execProgress.length || 0}</span>
           </div>
         </div>
       )}

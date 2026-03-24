@@ -3008,11 +3008,11 @@ const server = createServer(async (req, res) => {
     // Launch analysis — redirects to Strategy Lab v2 engine
     if (method === 'POST' && url === '/analysis/run') {
       const body = JSON.parse(await readBody(req));
-      const { type, query, depth, requestedBy } = body;
+      const { type, query, requestedBy } = body;
       const id = await strategyLabEngine.launch({
         query,
         analysisType: (type as StrategyAnalysisType) || 'competitive_landscape',
-        depth: (depth ?? 'standard') as 'quick' | 'standard' | 'deep',
+        depth: 'deep',
         requestedBy: requestedBy ?? 'dashboard',
       });
       json(res, 200, { success: true, id });
@@ -3437,12 +3437,12 @@ const server = createServer(async (req, res) => {
     // Launch a strategy analysis
     if (method === 'POST' && url === '/strategy-lab/run') {
       const body = JSON.parse(await readBody(req));
-      const { query, analysisType, depth, requestedBy } = body;
+      const { query, analysisType, requestedBy } = body;
       if (!query) { json(res, 400, { error: 'query is required' }); return; }
       const id = await strategyLabEngine.launch({
         query,
         analysisType: analysisType || 'competitive_landscape',
-        depth: depth || 'standard',
+        depth: 'deep',
         requestedBy: requestedBy || 'api',
       });
       json(res, 200, { id, status: 'planning' });
@@ -4148,7 +4148,7 @@ function exportStrategyLabMarkdown(record: import('./strategyLabEngine.js').Stra
   const lines: string[] = [
     `# Strategy Analysis: ${record.query}`,
     ``,
-    `**Type:** ${record.analysis_type} | **Depth:** ${record.depth} | **Sources:** ${record.total_sources} | **Searches:** ${record.total_searches}`,
+    `**Type:** ${record.analysis_type} | **Sources:** ${record.total_sources} | **Searches:** ${record.total_searches}`,
     `**Date:** ${new Date(record.created_at).toLocaleDateString()}`,
     ``,
     `---`,
