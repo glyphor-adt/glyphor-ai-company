@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useAgents } from '../lib/hooks';
+import { formatDashboardContent } from '../lib/formatDashboardContent';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP, AGENT_META, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../lib/types';
 import { Card, AgentAvatar, GradientButton } from '../components/ui';
@@ -76,11 +77,6 @@ function normalizeMessageContent(value: unknown): string {
     }
   }
   return String(value);
-}
-
-/** Strip <reasoning>...</reasoning> envelope from agent output */
-function stripReasoning(text: string): string {
-  return text.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
 }
 
 const FOUNDERS = [
@@ -201,11 +197,14 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
           rows.map((row: any) => {
             const role = row.role as 'user' | 'agent';
             const rawContent = normalizeMessageContent(row.content);
+            const formattedContent = role === 'agent'
+              ? formatDashboardContent(rawContent, { hideReasoning: true })
+              : rawContent;
             return {
               role,
               agentRole: role === 'agent' ? row.agent_role : undefined,
               founderName: role === 'user' ? FOUNDERS.find((f) => f.email === (row.user_id ?? '').toLowerCase())?.name : undefined,
-              content: role === 'agent' ? stripAgentSpeakerPrefix(rawContent) : rawContent,
+              content: role === 'agent' ? stripAgentSpeakerPrefix(formattedContent) : formattedContent,
               timestamp: new Date(row.created_at),
               attachments: row.attachments ?? undefined,
             };
@@ -419,7 +418,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       let content: string;
-      if (data.output) content = stripReasoning(data.output);
+      if (data.output) content = formatDashboardContent(data.output, { hideReasoning: true });
       else if (data.error) content = `I ran into an issue: ${data.error}`;
       else if (data.status === 'aborted') content = 'My response was cut short — try a simpler question.';
       else content = `Completed but had nothing to report. (status: ${data.status ?? 'unknown'})`;

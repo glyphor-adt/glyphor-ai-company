@@ -12,6 +12,7 @@ import {
   Skeleton,
   timeAgo,
 } from '../components/ui';
+import { MultiStepLoader } from '../components/ui/multi-step-loader';
 import {
   ChatComposerFrame,
   ComposerSendButton,
@@ -193,7 +194,7 @@ export default function Strategy() {
       </div>
 
       {/* Tab Toggle */}
-      <div className="flex w-fit gap-1 rounded-lg border border-border/60 bg-transparent p-1">
+      <div className="flex w-fit gap-1 rounded-lg border border-border/60 theme-glass-panel p-1">
         {(['strategy-lab-v2', 'deep-dives', 'simulations', 'cot'] as Tab[]).map((t) => (
           <button
             key={t}
@@ -422,7 +423,7 @@ function DeepDivesPanel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card outline className="overflow-visible">
+      <Card className="overflow-visible">
         <SectionHeader title="Launch Strategic Deep Dive" subtitle="8 areas × 5 queries × multi-model analysis → cross-model challenge → verification → cited synthesis" />
         <div className="mt-4">
           <ChatComposerFrame>
@@ -457,7 +458,7 @@ function DeepDivesPanel() {
       {loading ? (
         <div className="space-y-3">{[1, 2].map((i) => <Skeleton key={i} className="h-24" />)}</div>
       ) : records.length === 0 ? (
-        <Card outline><p className="text-center text-sm text-txt-muted py-6">No deep dives yet. Launch one above.</p></Card>
+        <Card><p className="text-center text-sm text-txt-muted py-6">No deep dives yet. Launch one above.</p></Card>
       ) : (
         <div className="space-y-3">
           {records.map((rec) => (
@@ -476,7 +477,7 @@ function DeepDivesPanel() {
 
 function DeepDiveCard({ record, expanded, onToggle }: { record: DeepDiveRecord; expanded: boolean; onToggle: () => void }) {
   return (
-    <Card outline className="overflow-hidden">
+    <Card className="overflow-hidden">
       <button onClick={onToggle} className="w-full text-left px-5 py-4 flex items-center justify-between group">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5">
@@ -577,7 +578,7 @@ function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: De
 
       {/* Inner tab navigation — match Strategy Lab tab chrome */}
       <div className="border-b border-border px-4 py-2 sm:px-5">
-        <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-border/60 bg-transparent p-1">
+        <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-border/60 theme-glass-panel p-1">
           {TAB_ITEMS.map((t) => (
             <button
               key={t.key}
@@ -1309,7 +1310,7 @@ function SimulationsPanel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card outline className="overflow-visible">
+      <Card className="overflow-visible">
         <SectionHeader title="Launch Cascade Analysis" />
         <p className="mt-1 mb-3 text-[12px] text-txt-muted">
           Describe a proposed action and the AI executive team will forecast its cascading impact across Revenue, Engineering, Product, Marketing, and Finance.
@@ -1365,7 +1366,7 @@ function SimulationsPanel() {
         ) : (
           <div className="mt-3 space-y-3">
             {simulations.map((s) => (
-              <Card outline key={s.id}>
+              <Card key={s.id}>
                 <button
                   onClick={() => setExpanded(expanded === s.id ? null : s.id)}
                   className="flex w-full items-center justify-between text-left"
@@ -1706,7 +1707,7 @@ function ChainOfThoughtPanel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card outline className="overflow-visible">
+      <Card className="overflow-visible">
         <SectionHeader title="Chain of Thought Planning" />
         <p className="mt-1 mb-3 text-[12px] text-txt-muted">
           Decompose complex strategic problems into structured reasoning chains. The AI executive team will identify core problems, map root causes, evaluate strategic options, and validate logical consistency.
@@ -1750,7 +1751,7 @@ function ChainOfThoughtPanel() {
         ) : (
           <div className="mt-3 space-y-3">
             {records.map((r) => (
-              <Card outline key={r.id}>
+              <Card key={r.id}>
                 <button
                   onClick={() => setExpanded(expanded === r.id ? null : r.id)}
                   className="flex w-full items-center justify-between text-left"
@@ -1800,7 +1801,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
 
       {/* Phase Tabs — Strategy Lab–style segmented control */}
       <div className="w-full overflow-x-auto">
-        <div className="inline-flex min-w-0 gap-1 rounded-lg border border-border/60 bg-transparent p-1">
+        <div className="inline-flex min-w-0 gap-1 rounded-lg border border-border/60 theme-glass-panel p-1">
           {(['decomposition', 'solution_space', 'options', 'validation'] as CotPhase[]).map((p) => (
             <button
               key={p}
@@ -2120,6 +2121,29 @@ const SLV2_STATUS_LABELS: Record<SLv2Status, string> = {
   failed: 'Failed',
 };
 
+const STRATEGY_REPORT_LOADING_STATES = [
+  { text: 'Caffeinating the research agents' },
+  { text: 'Asking the hard questions nobody asked' },
+  { text: 'Stalking your competitors (legally)' },
+  { text: "Reading every press release so you don't have to" },
+  { text: 'Finding the pricing pages they tried to hide' },
+  { text: 'Translating corporate speak into English' },
+  { text: 'Counting their job postings for clues' },
+  { text: 'Following the money trail' },
+  { text: "Noticing what they're NOT saying" },
+  { text: 'Separating signal from hype' },
+  { text: "Catching someone's math not mathing" },
+  { text: 'Fact-checking the thought leaders' },
+  { text: "Mapping who's actually a threat vs. vibes" },
+  { text: "Finding the gaps nobody's filling" },
+  { text: 'Arguing with ourselves for quality' },
+  { text: 'Triangulating so hard right now' },
+  { text: "Making charts you'll actually want to read" },
+  { text: 'Writing the part where you look brilliant' },
+  { text: 'One last sanity check...' },
+  { text: 'Your briefing is ready, boss' },
+];
+
 function slv2StatusColor(status: SLv2Status) {
   if (status === 'completed') return 'bg-tier-green';
   if (status === 'failed') return 'bg-prism-critical';
@@ -2170,7 +2194,7 @@ function StrategyLabV2Panel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card outline className="overflow-visible">
+      <Card className="overflow-visible">
         <SectionHeader title="Launch Strategic Analysis Report" subtitle="Powered by Gemini Deep Research for evidence-backed recommendations" />
         <div className="mt-4">
           <ChatComposerFrame>
@@ -2223,7 +2247,7 @@ function StrategyLabV2Panel() {
           <Skeleton className="h-20 w-full" />
         </div>
       ) : records.length === 0 ? (
-        <Card outline><p className="text-sm text-txt-faint py-4 text-center">No strategic analysis reports yet</p></Card>
+        <Card><p className="text-sm text-txt-faint py-4 text-center">No strategic analysis reports yet</p></Card>
       ) : (
         <div className="space-y-3">
           {records.map((rec) => (
@@ -2255,7 +2279,7 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
   const execTotal = execProgress.length;
 
   return (
-    <Card outline>
+    <Card>
       <button onClick={onToggle} className="w-full text-left">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -2306,42 +2330,19 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
 
 function SLv2WaveProgress({ record }: { record: SLv2Record }) {
   const r = record;
-  const statusOrder: SLv2Status[] = ['planning', 'framing', 'decomposing', 'researching', 'quality-check', 'analyzing', 'synthesizing', 'deepening', 'completed'];
-  const currentIdx = statusOrder.indexOf(r.status);
+  const isRunning = !['completed', 'failed'].includes(r.status);
 
   // Ensure JSONB fields are arrays (may arrive as {} from DB)
   const researchProgress = Array.isArray(r.research_progress) ? r.research_progress : [];
   const execProgress = Array.isArray(r.executive_progress) ? r.executive_progress : [];
 
-  const waves = [
-    { label: 'Frame', icon: <MdAutoAwesome className="h-4 w-4" />, active: r.status === 'framing', done: currentIdx > 1 },
-    { label: 'Decompose', icon: <MdSearch className="h-4 w-4" />, active: r.status === 'decomposing', done: currentIdx > 2 },
-    { label: 'Research', icon: <MdSearch className="h-4 w-4" />, active: r.status === 'researching', done: currentIdx > 3 },
-    { label: 'QC', icon: <MdPerson className="h-4 w-4" />, active: r.status === 'quality-check', done: currentIdx > 4 },
-    { label: 'Analysis', icon: <MdPerson className="h-4 w-4" />, active: r.status === 'analyzing', done: currentIdx > 5 },
-    { label: 'Synthesis', icon: <MdAutoAwesome className="h-4 w-4" />, active: r.status === 'synthesizing' || r.status === 'deepening', done: r.status === 'completed' },
-  ];
-
   return (
     <div className="space-y-4">
-      {/* Wave indicator */}
-      <div className="flex items-center gap-2 justify-center flex-wrap">
-        {waves.map((w, i) => (
-          <div key={w.label} className="flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-[11px] font-medium ${
-              w.active
-                ? 'border border-cyan/45 bg-transparent text-cyan'
-                : w.done || r.status === 'completed'
-                  ? 'border border-emerald-500/40 bg-transparent text-tier-green'
-                  : 'border border-border/50 bg-transparent text-txt-faint'
-            }`}>
-              {w.icon}
-              {w.label}
-            </div>
-            {i < waves.length - 1 && <MdArrowForward className="h-3 w-3 text-txt-faint" />}
-          </div>
-        ))}
-      </div>
+      <MultiStepLoader
+        loadingStates={STRATEGY_REPORT_LOADING_STATES}
+        loading={isRunning}
+        duration={2000}
+      />
 
       {/* Quality summary */}
       {r.overall_confidence && (
@@ -2407,7 +2408,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
   return (
     <div className="space-y-3">
       {/* Section tabs */}
-      <div className="flex w-fit gap-1 rounded-lg border border-border/60 bg-transparent p-1">
+      <div className="flex w-fit gap-1 rounded-lg border border-border/60 theme-glass-panel p-1">
         {([
           ['summary', 'Summary'],
           ['swot', 'SWOT'],

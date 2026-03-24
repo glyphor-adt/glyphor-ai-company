@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Chat from './Chat';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
+import { formatDashboardContent } from '../lib/formatDashboardContent';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Card, GradientButton, PageTabs, Skeleton, timeAgo } from '../components/ui';
 import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
@@ -201,7 +202,8 @@ function InterAgentFeed() {
           <ul className="divide-y divide-border">
             {filtered.map((m) => {
               const isExpanded = expandedIds.has(m.id);
-              const isLong = m.message.length > 300;
+              const formattedMessage = formatDashboardContent(m.message);
+              const isLong = formattedMessage.length > 300;
               return (
                 <li key={m.id} className="py-3 first:pt-0 last:pb-0">
                   <div className="flex items-start gap-3">
@@ -223,7 +225,7 @@ function InterAgentFeed() {
                         <span className="ml-auto text-txt-faint whitespace-nowrap">{timeAgo(m.created_at)}</span>
                       </div>
                       <div className={`mt-1 text-sm text-txt-secondary ${!isExpanded && isLong ? 'max-h-[4.5em] overflow-hidden' : ''}`}>
-                        <ChatMarkdown>{m.message}</ChatMarkdown>
+                        <ChatMarkdown>{formattedMessage}</ChatMarkdown>
                       </div>
                       {isLong && (
                         <button
@@ -326,7 +328,7 @@ function EmailActivityFeed() {
           <ul className="divide-y divide-border">
             {filtered.map((r) => {
               const isExpanded = expandedIds.has(r.id);
-              const content = r.result_summary || r.output || '';
+              const content = formatDashboardContent(r.result_summary || r.output || '');
               const isLong = content.length > 300;
               return (
                 <li key={r.id} className="py-3 first:pt-0 last:pb-0">

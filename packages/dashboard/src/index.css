@@ -18,7 +18,7 @@
 /* ─── Badge Gradient System (single source of truth) ───── */
 @layer components {
   .badge {
-    @apply inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-medium text-white;
+    @apply inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-white;
   }
   .badge-xs  { @apply text-[9px] px-1.5 py-0.5; }
   .badge-sm  { @apply text-[10px]; }
@@ -41,23 +41,23 @@
   .badge-pink     { background-image: linear-gradient(to right, #f472b6, #ec4899, #db2777); }
   .badge-gray     { background-image: linear-gradient(to right, #9ca3af, #6b7280, #4b5563); }
 
-  /* White labels on saturated gradients: subtle dark halo so text stays legible on bright stops */
-  .badge,
-  .badge-red,
-  .badge-orange,
-  .badge-amber,
-  .badge-yellow,
-  .badge-green,
-  .badge-emerald,
-  .badge-teal,
-  .badge-cyan,
-  .badge-sky,
-  .badge-blue,
-  .badge-indigo,
-  .badge-violet,
-  .badge-purple,
-  .badge-pink,
-  .badge-gray {
+  /* Keep halo only in dark mode; in light mode this reads as a heavy black outline. */
+  .dark .badge,
+  .dark .badge-red,
+  .dark .badge-orange,
+  .dark .badge-amber,
+  .dark .badge-yellow,
+  .dark .badge-green,
+  .dark .badge-emerald,
+  .dark .badge-teal,
+  .dark .badge-cyan,
+  .dark .badge-sky,
+  .dark .badge-blue,
+  .dark .badge-indigo,
+  .dark .badge-violet,
+  .dark .badge-purple,
+  .dark .badge-pink,
+  .dark .badge-gray {
     text-shadow:
       0 0 1px rgb(0 0 0 / 0.85),
       0 1px 2px rgb(0 0 0 / 0.5),

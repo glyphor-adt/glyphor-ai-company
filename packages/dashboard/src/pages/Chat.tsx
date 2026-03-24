@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAgents } from '../lib/hooks';
+import { formatDashboardContent } from '../lib/formatDashboardContent';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar, GradientButton } from '../components/ui';
@@ -94,11 +95,6 @@ function normalizeMessageContent(value: unknown): string {
     }
   }
   return String(value);
-}
-
-/** Strip <reasoning>...</reasoning> envelope from agent output */
-function stripReasoning(text: string): string {
-  return text.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
 }
 
 interface RecentChat {
@@ -585,9 +581,12 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               const metadata = extractChatMessageMetadata(row);
               const role = row.role as 'user' | 'agent';
               const rawContent = normalizeMessageContent(row.content);
+              const formattedContent = role === 'agent'
+                ? formatDashboardContent(rawContent, { hideReasoning: true })
+                : rawContent;
               return {
                 role,
-                content: role === 'agent' ? stripAgentSpeakerPrefix(rawContent) : rawContent,
+                content: role === 'agent' ? stripAgentSpeakerPrefix(formattedContent) : formattedContent,
                 timestamp: new Date(row.created_at as string),
                 attachments: (row.attachments as any[])?.map((a: any) => ({ name: a.name, type: a.type, data: '' })),
                 agentRole: (row.responding_agent as string) || undefined,
@@ -851,7 +850,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           : undefined;
 
         let content: string;
-        if (data.output) content = stripReasoning(data.output);
+        if (data.output) content = formatDashboardContent(data.output, { hideReasoning: true });
         else if (data.action === 'queued_for_approval') content = `This request was sent to your approval queue for review.`;
         else if (data.status === 'aborted') content = 'Sorry, I wasn\u2019t able to finish my response. Could you try again?';
         else if (data.error || data.reason) {

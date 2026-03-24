@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
-import { normalizeText } from '../lib/normalizeText';
+import { formatDashboardContent } from '../lib/formatDashboardContent';
 import ChatMarkdown from '../components/ChatMarkdown';
 import {
   buildNexusHumanSummaryMarkdown,
@@ -87,62 +87,6 @@ function formatTokens(n: number | null): string {
 function formatCapabilities(capabilities: string[] | null): string {
   if (!capabilities || capabilities.length === 0) return '—';
   return capabilities.join(', ');
-}
-
-function normalizeRunContent(text: string): string {
-  const sectionLabels: Record<string, string> = {
-    reasoning: 'Reasoning',
-    approach: 'Approach',
-    tradeoffs: 'Tradeoffs',
-    risks: 'Risks',
-    alternatives: 'Alternatives',
-  };
-
-  let value = normalizeText(text).trim();
-
-  value = value.replace(/^##\s*#\s*/gm, '## ');
-
-  for (const [tag, label] of Object.entries(sectionLabels)) {
-    const openTag = new RegExp(`<${tag}>`, 'gi');
-    const closeTag = new RegExp(`</${tag}>`, 'gi');
-    value = value.replace(openTag, `\n\n### ${label}\n`);
-    value = value.replace(closeTag, '');
-  }
-
-  // Convert <notify> blocks into formatted markdown callouts
-  value = value.replace(
-    /<notify\s+type="([^"]*?)"\s+to="([^"]*?)"\s+title="([^"]*?)">([\s\S]*?)<\/notify>/gi,
-    (_match, type: string, to: string, title: string, body: string) => {
-      const label = type.toUpperCase();
-      return `\n\n> **[${label}]** **${title}**\n> *${type}* → ${to}\n>\n> ${body.trim().replace(/\n/g, '\n> ')}\n`;
-    },
-  );
-
-  // Convert <action> blocks
-  value = value.replace(
-    /<action\b[^>]*>([\s\S]*?)<\/action>/gi,
-    (_match, body: string) => `\n\n**Action:** ${body.trim()}\n`,
-  );
-
-  // Convert <result> blocks
-  value = value.replace(
-    /<result\b[^>]*>([\s\S]*?)<\/result>/gi,
-    (_match, body: string) => `\n\n**Result:** ${body.trim()}\n`,
-  );
-
-  // Strip any remaining unhandled XML-like agent tags (but keep their content)
-  value = value.replace(/<\/?(plan|summary|observation|diagnosis|recommendation)\b[^>]*>/gi, '');
-
-  // Wrap top-level JSON objects/arrays as fenced code blocks when not already inside one
-  value = value.replace(
-    /(?:^|\n)([ \t]*\{[\s\S]*?\n[ \t]*\})/g,
-    (match) => {
-      if (/```/.test(match)) return match;
-      return `\n\`\`\`json\n${match.trim()}\n\`\`\`\n`;
-    },
-  );
-
-  return value.replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function statusConfig(status: string) {
@@ -437,7 +381,7 @@ export default function Activity() {
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-1">Input</p>
                           <div className="text-[12px] text-txt-secondary bg-surface rounded-md border border-border px-3 py-2 max-h-[300px] overflow-y-auto prose-chat">
-                            <ChatMarkdown>{normalizeRunContent(run.input)}</ChatMarkdown>
+                            <ChatMarkdown>{formatDashboardContent(run.input)}</ChatMarkdown>
                           </div>
                         </div>
                       )}
@@ -449,13 +393,13 @@ export default function Activity() {
                                 Human summary
                               </p>
                               <div className="text-[12px] text-txt-secondary prose-chat prose-sm max-h-[280px] overflow-y-auto">
-                                <ChatMarkdown>{normalizeRunContent(nexusSummaryMd)}</ChatMarkdown>
+                                <ChatMarkdown>{formatDashboardContent(nexusSummaryMd)}</ChatMarkdown>
                               </div>
                             </div>
                           ) : null}
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-1">Output</p>
                           <div className="text-[12px] text-txt-secondary bg-surface rounded-md border border-border px-3 py-2 max-h-[400px] overflow-y-auto prose-chat">
-                            <ChatMarkdown>{normalizeRunContent(run.output)}</ChatMarkdown>
+                            <ChatMarkdown>{formatDashboardContent(run.output)}</ChatMarkdown>
                           </div>
                         </div>
                       )}
