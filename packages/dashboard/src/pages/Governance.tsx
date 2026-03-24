@@ -542,7 +542,7 @@ export default function Governance() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="outer-cards-transparent space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <SectionHeader

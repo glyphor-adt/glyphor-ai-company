@@ -26,6 +26,8 @@ export interface DeliverablesFounderMentions {
   mentions: GraphChannelMention[];
 }
 
+export type FounderMentionTarget = 'kristina' | 'andrew';
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -35,45 +37,50 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * Returns HTML footer + Graph mentions when both founder AAD IDs are configured.
- * Otherwise returns null (caller should use a plain-text footer).
+ * Returns HTML footer + Graph mentions for requested founders.
+ * If no targets are provided, defaults to both founders.
+ * Returns null when none of the requested founders are configured.
  */
-export function buildDeliverablesFounderMentions(): DeliverablesFounderMentions | null {
+export function buildDeliverablesFounderMentions(
+  targets?: FounderMentionTarget[],
+): DeliverablesFounderMentions | null {
   const kId = process.env.TEAMS_FOUNDER_KRISTINA_AAD_ID?.trim();
   const aId = process.env.TEAMS_FOUNDER_ANDREW_AAD_ID?.trim();
-  if (!kId || !aId) return null;
 
   const kName = process.env.TEAMS_FOUNDER_KRISTINA_DISPLAY_NAME?.trim() || 'Kristina Denney';
   const aName = process.env.TEAMS_FOUNDER_ANDREW_DISPLAY_NAME?.trim() || 'Andrew Zwelling';
 
-  // Inner text of <at> must match mentionText for Teams to resolve the mention.
-  const appendHtml =
-    `<br/><br/><at id="0">${escapeHtml(kName)}</at> <at id="1">${escapeHtml(aName)}</at> — review requested.`;
+  const requestedBase: FounderMentionTarget[] = targets && targets.length > 0
+    ? targets
+    : ['kristina', 'andrew'];
+  const requested: FounderMentionTarget[] = Array.from(new Set(requestedBase));
 
-  const mentions: GraphChannelMention[] = [
-    {
-      id: 0,
-      mentionText: kName,
-      mentioned: {
-        user: {
-          displayName: kName,
-          id: kId,
-          userIdentityType: 'aadUser',
-        },
+  const founderConfig: Record<FounderMentionTarget, { id?: string; name: string }> = {
+    kristina: { id: kId, name: kName },
+    andrew: { id: aId, name: aName },
+  };
+
+  const selected = requested
+    .map((target) => founderConfig[target])
+    .filter((item): item is { id: string; name: string } => Boolean(item.id));
+
+  if (selected.length === 0) return null;
+
+  // Inner text of <at> must match mentionText for Teams to resolve the mention.
+  const atBlocks = selected.map((item, index) => `<at id="${index}">${escapeHtml(item.name)}</at>`).join(' ');
+  const appendHtml = `<br/><br/>${atBlocks} — review requested.`;
+
+  const mentions: GraphChannelMention[] = selected.map((item, index) => ({
+    id: index,
+    mentionText: item.name,
+    mentioned: {
+      user: {
+        displayName: item.name,
+        id: item.id,
+        userIdentityType: 'aadUser',
       },
     },
-    {
-      id: 1,
-      mentionText: aName,
-      mentioned: {
-        user: {
-          displayName: aName,
-          id: aId,
-          userIdentityType: 'aadUser',
-        },
-      },
-    },
-  ];
+  }));
 
   return { appendHtml, mentions };
 }

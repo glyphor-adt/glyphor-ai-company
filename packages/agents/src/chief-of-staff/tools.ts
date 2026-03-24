@@ -1255,7 +1255,7 @@ export function createChiefOfStaffTools(
             proposedBy: ctx.agentRole,
             reasoning: params.reasoning as string,
             assignedTo: params.assigned_to as string[],
-            actionMode: 'execute',
+            actionMode: 'openUrl',
           });
           const result = await postCardToChannel('decisions', card, graphClient, 'chief-of-staff');
           if (result.method === 'none') {

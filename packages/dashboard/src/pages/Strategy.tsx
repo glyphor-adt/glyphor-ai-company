@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, type ReactNode } from 'react';
+import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward, MdChevronRight, MdSearch, MdPerson, MdExpandMore } from 'react-icons/md';
 import Markdown from 'react-markdown';
 import { SCHEDULER_URL } from '../lib/firebase';
@@ -13,6 +13,8 @@ import {
   timeAgo,
 } from '../components/ui';
 import { MultiStepLoader } from '../components/ui/multi-step-loader';
+import { inferTier } from '../components/ui/multi-step-loader-states';
+import { useAsyncLoader } from '../hooks/useAsyncLoader';
 import {
   ChatComposerFrame,
   ComposerSendButton,
@@ -185,7 +187,7 @@ export default function Strategy() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="outer-cards-transparent space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-txt-primary">Strategy Lab</h1>
         <p className="mt-1 text-sm text-txt-muted">
@@ -2121,29 +2123,6 @@ const SLV2_STATUS_LABELS: Record<SLv2Status, string> = {
   failed: 'Failed',
 };
 
-const STRATEGY_REPORT_LOADING_STATES = [
-  { text: 'Caffeinating the research agents' },
-  { text: 'Asking the hard questions nobody asked' },
-  { text: 'Stalking your competitors (legally)' },
-  { text: "Reading every press release so you don't have to" },
-  { text: 'Finding the pricing pages they tried to hide' },
-  { text: 'Translating corporate speak into English' },
-  { text: 'Counting their job postings for clues' },
-  { text: 'Following the money trail' },
-  { text: "Noticing what they're NOT saying" },
-  { text: 'Separating signal from hype' },
-  { text: "Catching someone's math not mathing" },
-  { text: 'Fact-checking the thought leaders' },
-  { text: "Mapping who's actually a threat vs. vibes" },
-  { text: "Finding the gaps nobody's filling" },
-  { text: 'Arguing with ourselves for quality' },
-  { text: 'Triangulating so hard right now' },
-  { text: "Making charts you'll actually want to read" },
-  { text: 'Writing the part where you look brilliant' },
-  { text: 'One last sanity check...' },
-  { text: 'Your briefing is ready, boss' },
-];
-
 function slv2StatusColor(status: SLv2Status) {
   if (status === 'completed') return 'bg-tier-green';
   if (status === 'failed') return 'bg-prism-critical';
@@ -2331,6 +2310,29 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
 function SLv2WaveProgress({ record }: { record: SLv2Record }) {
   const r = record;
   const isRunning = !['completed', 'failed'].includes(r.status);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const previousStatusRef = useRef<SLv2Status>(r.status);
+
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    previousStatusRef.current = r.status;
+
+    if (previousStatus !== 'completed' && r.status === 'completed') {
+      setShowCompletion(true);
+      const timeout = setTimeout(() => setShowCompletion(false), 2000);
+      return () => clearTimeout(timeout);
+    }
+    return;
+  }, [r.status]);
+
+  const loading = isRunning || showCompletion;
+  const complete = showCompletion && r.status === 'completed';
+  const tier = inferTier({
+    type: r.analysis_type,
+    searchDepth: r.depth,
+  });
+
+  const loader = useAsyncLoader({ tier, loading, complete });
 
   // Ensure JSONB fields are arrays (may arrive as {} from DB)
   const researchProgress = Array.isArray(r.research_progress) ? r.research_progress : [];
@@ -2339,9 +2341,12 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
   return (
     <div className="space-y-4">
       <MultiStepLoader
-        loadingStates={STRATEGY_REPORT_LOADING_STATES}
-        loading={isRunning}
-        duration={2000}
+        states={loader.states}
+        currentStep={loader.currentStep}
+        loading={loading}
+        isComplete={loader.isComplete}
+        isHolding={loader.isHolding}
+        elapsed={loader.elapsed}
       />
 
       {/* Quality summary */}

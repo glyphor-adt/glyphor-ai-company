@@ -528,6 +528,7 @@ export async function postCardToChannel(
   const card = webhookPayload.attachments[0].content;
   const channels = buildChannelMap();
   const target = channels[channelName as keyof ChannelMap];
+  const skipDelegatedFallback = Boolean(agentRole) && process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS !== 'true';
 
   // 0. Agent identity (posts as the agent, not a human or bot)
   if (agentRole && target) {
@@ -559,7 +560,7 @@ export async function postCardToChannel(
   }
 
   // 2. Delegated Graph API (ChannelMessage.Send via refresh token — posts as token owner)
-  if (target) {
+  if (target && !skipDelegatedFallback) {
     const graphBody = {
       body: { contentType: 'html', content: '<attachment id="adaptiveCard"></attachment>' },
       attachments: [{ id: 'adaptiveCard', contentType: 'application/vnd.microsoft.card.adaptive', content: JSON.stringify(card) }],
@@ -593,6 +594,7 @@ export async function postTextToChannel(
 ): Promise<PostResult> {
   const channels = buildChannelMap();
   const target = channels[channelName as keyof ChannelMap];
+  const skipDelegatedFallback = Boolean(agentRole) && process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS !== 'true';
 
   // 0. Agent identity (posts as the agent, not a human or bot)
   if (agentRole && target) {
@@ -635,7 +637,7 @@ export async function postTextToChannel(
   }
 
   // 2. Delegated Graph API (ChannelMessage.Send via refresh token — posts as token owner)
-  if (target) {
+  if (target && !skipDelegatedFallback) {
     const graphBody = buildGraphChannelMessageBody(text, rich);
     const ok = await postWithDelegatedToken(target, graphBody);
     if (ok) {

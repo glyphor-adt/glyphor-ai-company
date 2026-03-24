@@ -896,6 +896,24 @@ html:not(.dark) .glass-surface {
     0 4px 12px rgba(0, 0, 0, 0.02) !important;
 }
 
+/* Requested page treatment: outer shell cards transparent in light mode. */
+html:not(.dark) .outer-cards-transparent .glass-surface.glass-card-layout {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: none !important;
+}
+
+html:not(.dark) .outer-cards-transparent .theme-glass-panel,
+html:not(.dark) .outer-cards-transparent .theme-glass-panel-strong {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: none !important;
+}
+
 /* Nested glass panels (NOT the sidebar itself — that has its own rule below) */
 .dark .glass-card.glass-panel,
 .dark .glass-raised.glass-panel,
@@ -938,6 +956,13 @@ html:not(.dark) .glass-surface {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
+}
+
+html:not(.dark) .dashboard-home .dashboard-home-nested.sidebar-glass {
+  background-color: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .dashboard-home-surface-content {

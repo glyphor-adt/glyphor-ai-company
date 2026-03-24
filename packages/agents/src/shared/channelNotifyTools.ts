@@ -16,6 +16,8 @@ import { AGENT_EMAIL_MAP } from '@glyphor/agent-runtime';
 import { A365TeamsChatClient, buildDeliverablesFounderMentions } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
 
+type FounderTarget = 'kristina' | 'andrew';
+
 const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'chief-of-staff': 'Sarah Chen', cto: 'Marcus Reeves', cpo: 'Elena Vasquez',
   cfo: 'Nadia Okafor', cmo: 'Maya Brooks',
@@ -28,6 +30,25 @@ const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'head-of-hr': 'Ava Martinez', clo: 'Legal', 'vp-research': 'Research Lead',
   'platform-intel': 'Nexus',
 };
+
+const FOUNDER_DISPLAY_NAMES: Record<FounderTarget, string> = {
+  kristina: process.env.TEAMS_FOUNDER_KRISTINA_DISPLAY_NAME?.trim() || 'Kristina Denney',
+  andrew: process.env.TEAMS_FOUNDER_ANDREW_DISPLAY_NAME?.trim() || 'Andrew Zwelling',
+};
+
+function inferFounderTargetsFromMessage(message: string): FounderTarget[] {
+  const targets: FounderTarget[] = [];
+  const normalized = message.toLowerCase();
+  if (/\b@?kristina\b|\bkristina denney\b/.test(normalized)) targets.push('kristina');
+  if (/\b@?andrew\b|\bandrew zwelling\b/.test(normalized)) targets.push('andrew');
+  return targets;
+}
+
+function plainFounderFooter(targets: FounderTarget[]): string {
+  const requested: FounderTarget[] = targets.length > 0 ? targets : ['kristina', 'andrew'];
+  const names = requested.map((target) => FOUNDER_DISPLAY_NAMES[target]).join(' & ');
+  return `${names} — review requested.`;
+}
 
 export function createChannelNotifyTools(): ToolDefinition[] {
   const teamId = process.env.TEAMS_TEAM_ID?.trim();
@@ -238,10 +259,16 @@ export function createChannelNotifyTools(): ToolDefinition[] {
           : '📋 UPDATE';
         const baseMarkdown =
           `**${typeLabel} — ${title}**\n\n_From: ${agentName} (${role})_\n\n${message}`;
-        const founderRich = buildDeliverablesFounderMentions();
-        const markdownWithPlainFooter = founderRich
+        const explicitFounderTargets = inferFounderTargetsFromMessage(message);
+        const hasExplicitFounderMentions = explicitFounderTargets.length > 0;
+
+        // Only auto-append review mentions when the message did not already mention founders.
+        const founderRich = hasExplicitFounderMentions
+          ? null
+          : buildDeliverablesFounderMentions();
+        const markdownWithPlainFooter = hasExplicitFounderMentions || founderRich
           ? baseMarkdown
-          : `${baseMarkdown}\n\n@Kristina @Andrew — review requested.`;
+          : `${baseMarkdown}\n\n${plainFounderFooter([])}`;
 
         const a365Client = A365TeamsChatClient.fromEnv(role);
         if (a365Client) {

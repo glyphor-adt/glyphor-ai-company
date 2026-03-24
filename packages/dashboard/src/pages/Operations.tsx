@@ -764,7 +764,7 @@ export default function Operations() {
   }, [requestedTab]);
 
   return (
-    <div className="space-y-6">
+    <div className="outer-cards-transparent space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-txt-primary">Operations</h1>
         <p className="mt-1 text-sm text-txt-muted">Agent performance, runs, and costs</p>

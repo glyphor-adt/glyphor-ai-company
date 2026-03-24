@@ -737,7 +737,7 @@ export default function Financials() {
   const todayAiCost = aiProviderMetrics.reduce((sum, row) => sum + row.today, 0);
 
   return (
-    <div className="space-y-5">
+    <div className="outer-cards-transparent space-y-5">
       <div className="glass-surface rounded-2xl border border-border p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

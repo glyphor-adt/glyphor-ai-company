@@ -66,7 +66,9 @@ export class DecisionQueue {
       proposedBy: decision.proposedBy,
       reasoning: decision.reasoning ?? '',
       assignedTo: decision.assignedTo,
-      actionMode: this.graphClient && decisionsChannel ? 'execute' : 'openUrl',
+      // Channel posts are sent via webhook/Graph identity (not Bot Framework invoke),
+      // so Action.Execute buttons are not supported in many Teams channel contexts.
+      actionMode: 'openUrl',
     });
 
     // Send via webhook (preferred) or Graph API fallback
@@ -203,7 +205,7 @@ export class DecisionQueue {
           proposedBy: decision.proposedBy,
           reasoning: `This decision has been pending since ${pd.notifiedAt}`,
           assignedTo: decision.assignedTo,
-          actionMode: this.graphClient && decisionsChannel ? 'execute' : 'openUrl',
+          actionMode: 'openUrl',
         });
 
         // Send via webhook (preferred) or Graph API fallback
