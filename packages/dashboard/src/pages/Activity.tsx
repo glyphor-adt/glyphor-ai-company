@@ -368,7 +368,7 @@ export default function Activity() {
                     {/* Status */}
                     <div className="flex items-center gap-1.5">
                       <span className={`inline-block h-2 w-2 rounded-full ${sc.dot}`} />
-                      <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${sc.badge}`}>
+                      <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium text-white ${sc.badge}`}>
                         {sc.label}
                       </span>
                     </div>

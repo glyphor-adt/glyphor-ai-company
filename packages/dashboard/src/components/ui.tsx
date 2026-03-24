@@ -297,10 +297,10 @@ export function PageTabs<T extends string>({
         <button
           key={t.key}
           onClick={() => onChange(t.key)}
-          className={`rounded-md px-4 py-1.5 text-[13px] font-medium transition-all ${
+          className={`rounded-md px-4 py-1.5 text-[13px] font-medium transition-colors ${
             active === t.key
-              ? 'bg-cyan/15 text-cyan backdrop-blur-sm'
-              : 'text-txt-muted hover:text-txt-secondary hover:bg-white/5'
+              ? 'bg-cyan/15 font-semibold text-cyan backdrop-blur-sm'
+              : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary dark:text-white/70 dark:hover:bg-cyan/10 dark:hover:text-white'
           }`}
         >
           {t.label}

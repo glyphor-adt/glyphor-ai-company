@@ -649,7 +649,7 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
             ? 'badge-violet'
             : s.layer === 2
               ? 'badge-cyan'
-              : 'badge-gray';
+              : 'badge-amber';
           return (
             <div key={s.id} className={`rounded-lg theme-glass-panel ${s.is_stale ? 'ring-1 ring-prism-critical/40' : ''}`}>
               {/* Section Header */}
@@ -658,7 +658,7 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
                 className="flex w-full items-center justify-between px-4 py-3 text-left"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className={`rounded-lg px-1.5 py-0.5 text-[9px] font-bold uppercase flex-shrink-0 ${layerColor}`}>
+                  <span className={`rounded-lg px-1.5 py-0.5 text-[9px] font-bold uppercase text-white flex-shrink-0 ${layerColor}`}>
                     {layerLabel}
                   </span>
                   <span className="text-[13px] font-semibold text-txt-primary truncate">{s.title}</span>
@@ -667,7 +667,10 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
                       STALE
                     </span>
                   )}
-                  <span className="rounded-full theme-glass-panel-soft px-2 py-0.5 text-[10px] text-txt-faint capitalize flex-shrink-0">
+                  <span
+                    className="rounded-full border border-border-hover bg-surface px-2 py-0.5 text-[10px] font-medium text-txt-secondary capitalize flex-shrink-0 max-w-[min(100%,14rem)] truncate"
+                    title={s.audience}
+                  >
                     {s.audience}
                   </span>
                 </div>

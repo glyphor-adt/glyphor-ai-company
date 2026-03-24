@@ -6,7 +6,6 @@ import { Card, GradientButton, SectionHeader, Skeleton, timeAgo } from '../compo
 import {
   ChatComposerFrame,
   ComposerSendButton,
-  composerCheckboxRowClassName,
   composerFieldLabelClassName,
   composerFooterEndClassName,
   composerFooterStrategyClassName,
@@ -2094,7 +2093,6 @@ function StrategyLabV2Panel() {
   const [query, setQuery] = useState('');
   const [analysisType, setAnalysisType] = useState<SLv2AnalysisType>('competitive_landscape');
   const [depth, setDepth] = useState<SLv2Depth>('standard');
-  const [includeDeepDiveResearch, setIncludeDeepDiveResearch] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -2119,25 +2117,10 @@ function StrategyLabV2Panel() {
     setLaunching(true);
     try {
       const trimmedQuery = query.trim();
-      const launches: Promise<unknown>[] = [api('/strategy-lab/run', {
+      await api('/strategy-lab/run', {
         method: 'POST',
         body: JSON.stringify({ query: trimmedQuery, analysisType, depth, requestedBy: 'dashboard' }),
-      })];
-
-      if (includeDeepDiveResearch) {
-        launches.push(
-          api('/deep-dive/run', {
-            method: 'POST',
-            body: JSON.stringify({
-              target: trimmedQuery,
-              context: `Attached strategy analysis: ${SLV2_TYPE_LABELS[analysisType]} at ${SLV2_DEPTH_LABELS[depth]}`,
-              requestedBy: 'dashboard',
-            }),
-          }),
-        );
-      }
-
-      await Promise.all(launches);
+      });
       setQuery('');
       await refresh();
     } finally { setLaunching(false); }
@@ -2190,15 +2173,6 @@ function StrategyLabV2Panel() {
                     ))}
                   </select>
                 </div>
-                <label className={composerCheckboxRowClassName}>
-                  <input
-                    type="checkbox"
-                    checked={includeDeepDiveResearch}
-                    onChange={(e) => setIncludeDeepDiveResearch(e.target.checked)}
-                    className="h-3.5 w-3.5 shrink-0 rounded border-border text-cyan focus:ring-cyan/40"
-                  />
-                  Also run Deep Dive research
-                </label>
               </div>
               <div className="flex shrink-0 items-center justify-end sm:justify-start">
                 <ComposerSendButton
