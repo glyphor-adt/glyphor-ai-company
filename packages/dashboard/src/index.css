@@ -1095,15 +1095,19 @@ html:not(.dark) .dashboard-home .dashboard-home-nested.sidebar-glass {
   color: var(--color-txt-primary);
 }
 
-/* Override for textareas inside the animated-border chat input */
-.dark .chat-input-inner textarea,
-.dark .chat-input-inner textarea:focus {
+/* Override for textareas inside animated/glowing wrappers.
+   Global textarea:focus styles above can otherwise paint over the glow shell. */
+.chat-input-inner textarea,
+.chat-input-inner textarea:focus,
+.field-glow-inner textarea,
+.field-glow-inner textarea:focus {
   background: transparent !important;
   border-color: transparent !important;
   box-shadow: none !important;
 }
 
-.dark .chat-input-inner textarea:focus-visible {
+.chat-input-inner textarea:focus-visible,
+.field-glow-inner textarea:focus-visible {
   box-shadow: none !important;
 }
 
@@ -1157,17 +1161,6 @@ html:not(.dark) .dashboard-home .dashboard-home-nested.sidebar-glass {
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
     inset 0 -1px 0 rgba(0, 0, 0, 0.22),
     0 4px 24px rgba(0, 0, 0, 0.28);
-}
-
-.dark .field-glow-inner textarea,
-.dark .field-glow-inner textarea:focus {
-  background: transparent !important;
-  border-color: transparent !important;
-  box-shadow: none !important;
-}
-
-.dark .field-glow-inner textarea:focus-visible {
-  box-shadow: none !important;
 }
 
 /* Agent Chat composer — dark glass (replaces flat prism-card fill from MovingBorder inner) */
