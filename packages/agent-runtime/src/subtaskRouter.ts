@@ -2,6 +2,7 @@ import type { ActionReceipt, CompanyAgentRole, ConversationTurn } from './types.
 import { inferCapabilities } from './routing/inferCapabilities.js';
 import { resolveModelConfig, type RoutingDecision } from './routing/resolveModel.js';
 import { inferDomainRouting } from './routing/domainRouter.js';
+import { DEFAULT_AGENT_MODEL } from '@glyphor/shared/models';
 import { getSpecialized, getTierModel } from '@glyphor/shared';
 
 export type SubtaskComplexity = 'trivial' | 'standard' | 'complex' | 'frontier';
@@ -182,7 +183,25 @@ export async function selectSubtaskModel(
   const workhorseForFrontierEscalation =
     decision.model === FAST_MODEL
     || decision.model === DEFAULT_MODEL
+    || decision.model === DEFAULT_AGENT_MODEL
     || decision.model === WORKHORSE_FALLBACK_MODEL;
+  const codeEditEscalationNeeded =
+    (classification.capabilities.includes('code_generation') || classification.capabilities.includes('needs_apply_patch'))
+    && (
+      decision.model === DEFAULT_MODEL
+      || decision.model === DEFAULT_AGENT_MODEL
+      || decision.model === FAST_MODEL
+    );
+
+  if (codeEditEscalationNeeded) {
+    decision = {
+      ...decision,
+      model: HIGH_MODEL,
+      routingRule: 'code_edit_subtask',
+      reasoningEffort: 'high',
+      enableCompaction: true,
+    };
+  } else
 
   if (classification.complexity === 'frontier' && workhorseForFrontierEscalation) {
     decision = {
