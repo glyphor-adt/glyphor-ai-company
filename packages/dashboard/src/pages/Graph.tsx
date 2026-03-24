@@ -808,7 +808,7 @@ export default function Graph() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search nodes…"
-                className="w-full rounded-lg border border-primary/20 bg-base pl-9 pr-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-primary/20 bg-base pl-9 pr-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-border-hover focus:outline-none"
               />
             </div>
 

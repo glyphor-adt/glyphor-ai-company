@@ -16,6 +16,7 @@ import {
 } from 'react-icons/md';
 import type { IconType } from 'react-icons';
 import Graph from './Graph';
+import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
 
 /* ── Types ─────────────────────────────────────── */
 
@@ -310,7 +311,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
                 type="number"
                 value={form.mrr}
                 onChange={e => setForm(f => ({ ...f, mrr: Number(e.target.value) }))}
-                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
               />
             </div>
             <div>
@@ -319,7 +320,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
                 type="number"
                 value={form.active_users}
                 onChange={e => setForm(f => ({ ...f, active_users: Number(e.target.value) }))}
-                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
               />
             </div>
             <div>
@@ -327,7 +328,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
               <select
                 value={form.platform_status}
                 onChange={e => setForm(f => ({ ...f, platform_status: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
               >
                 {Object.keys(STATUS_STYLE).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -337,7 +338,7 @@ function PulseWidget({ pulse, onRefresh }: { pulse: Pulse | null; onRefresh: () 
               <select
                 value={form.company_mood}
                 onChange={e => setForm(f => ({ ...f, company_mood: e.target.value }))}
-                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
               >
                 {Object.keys(MOOD_ICON).map(m => <option key={m} value={m}>{m}</option>)}
               </select>
@@ -534,13 +535,15 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
         <div className="space-y-4 px-6 py-5">
           <div>
             <label className="text-[11px] font-medium text-txt-muted mb-1 block">Message</label>
-            <textarea
-              value={content}
-              onChange={e => setContent(e.target.value)}
-              rows={3}
-              placeholder="Broadcast message to agents..."
-              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none resize-none"
-            />
+            <GlowingTextareaFrame>
+              <textarea
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                rows={3}
+                placeholder="Broadcast message to agents..."
+                className={`${glowingTextareaInnerClassName} min-h-[5.5rem] resize-none`}
+              />
+            </GlowingTextareaFrame>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -549,7 +552,7 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
               <select
                 value={priority}
                 onChange={e => setPriority(e.target.value)}
-                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
               >
                 {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -559,7 +562,7 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
               <select
                 value={audience}
                 onChange={e => setAudience(e.target.value)}
-                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
               >
                 {AUDIENCES.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
@@ -571,7 +574,7 @@ function NewBulletinModal({ onClose, onCreated }: { onClose: () => void; onCreat
                 value={expiresIn}
                 onChange={e => setExpiresIn(e.target.value)}
                 placeholder="None"
-                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-border-hover focus:outline-none"
               />
             </div>
           </div>
@@ -694,19 +697,21 @@ function KBEditor({ sections, onRefresh }: { sections: KBSection[]; onRefresh: (
               {/* Expanded Editor */}
               {isEditing && (
                 <div className="border-t border-primary/20 px-4 py-3 space-y-3">
-                  <textarea
-                    value={editContent}
-                    onChange={e => setEditContent(e.target.value)}
-                    rows={Math.min(20, Math.max(6, editContent.split('\n').length + 2))}
-                    className="w-full rounded-lg border border-border bg-base px-3 py-2 text-[13px] text-txt-primary font-mono leading-relaxed focus:border-cyan focus:outline-none resize-y"
-                  />
+                  <GlowingTextareaFrame borderRadius="0.5rem">
+                    <textarea
+                      value={editContent}
+                      onChange={e => setEditContent(e.target.value)}
+                      rows={Math.min(20, Math.max(6, editContent.split('\n').length + 2))}
+                      className={`${glowingTextareaInnerClassName} min-h-[10rem] resize-y font-mono text-[13px] leading-relaxed`}
+                    />
+                  </GlowingTextareaFrame>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <label className="text-[11px] font-medium text-txt-muted">Audience:</label>
                       <select
                         value={editAudience}
                         onChange={e => setEditAudience(e.target.value)}
-                        className="rounded-md border border-border bg-base px-2 py-1 text-[12px] text-txt-primary focus:border-cyan focus:outline-none"
+                        className="rounded-md border border-border bg-base px-2 py-1 text-[12px] text-txt-primary focus:border-border-hover focus:outline-none"
                       >
                         {AUDIENCES.map(a => <option key={a} value={a}>{a}</option>)}
                       </select>

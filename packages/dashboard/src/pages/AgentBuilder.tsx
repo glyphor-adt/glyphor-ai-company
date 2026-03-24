@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SCHEDULER_URL } from '../lib/firebase';
 import { Card, GradientButton, SectionHeader } from '../components/ui';
+import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
 import { MODELS, DEFAULT_MODEL } from '../lib/models';
 
 const DEPARTMENTS = [
@@ -101,7 +102,7 @@ export default function AgentBuilder() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Data Pipeline Monitor"
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary placeholder-txt-faint outline-none focus:border-cyan/40"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary placeholder-txt-faint outline-none focus:border-border-hover"
             />
           </label>
           <label className="space-y-1">
@@ -111,7 +112,7 @@ export default function AgentBuilder() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Data Engineer"
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary placeholder-txt-faint outline-none focus:border-cyan/40"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary placeholder-txt-faint outline-none focus:border-border-hover"
             />
           </label>
           <label className="space-y-1">
@@ -119,7 +120,7 @@ export default function AgentBuilder() {
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             >
               <option value="">Select department...</option>
               {DEPARTMENTS.map((d) => (
@@ -134,7 +135,7 @@ export default function AgentBuilder() {
               value={reportsTo}
               onChange={(e) => setReportsTo(e.target.value)}
               placeholder="e.g. cto"
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary placeholder-txt-faint outline-none focus:border-cyan/40"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary placeholder-txt-faint outline-none focus:border-border-hover"
             />
           </label>
         </div>
@@ -149,7 +150,7 @@ export default function AgentBuilder() {
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             >
               {MODELS.map((m) => (
                 <option key={m.value} value={m.value}>{m.label}</option>
@@ -165,7 +166,7 @@ export default function AgentBuilder() {
               max="2"
               value={temperature}
               onChange={(e) => setTemperature(parseFloat(e.target.value))}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             />
           </label>
           <label className="space-y-1">
@@ -176,7 +177,7 @@ export default function AgentBuilder() {
               max="50"
               value={maxTurns}
               onChange={(e) => setMaxTurns(parseInt(e.target.value, 10))}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             />
           </label>
         </div>
@@ -194,7 +195,7 @@ export default function AgentBuilder() {
               min="0"
               value={budgetPerRun}
               onChange={(e) => setBudgetPerRun(parseFloat(e.target.value))}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             />
           </label>
           <label className="space-y-1">
@@ -205,7 +206,7 @@ export default function AgentBuilder() {
               min="0"
               value={budgetDaily}
               onChange={(e) => setBudgetDaily(parseFloat(e.target.value))}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             />
           </label>
           <label className="space-y-1">
@@ -216,7 +217,7 @@ export default function AgentBuilder() {
               min="0"
               value={budgetMonthly}
               onChange={(e) => setBudgetMonthly(parseFloat(e.target.value))}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             />
           </label>
         </div>
@@ -225,13 +226,15 @@ export default function AgentBuilder() {
       {/* System Prompt */}
       <Card>
         <SectionHeader title="System Prompt" />
-        <textarea
-          value={systemPrompt}
-          onChange={(e) => setSystemPrompt(e.target.value)}
-          rows={8}
-          placeholder="Define this agent's personality, responsibilities, and instructions..."
-          className="w-full rounded-lg border border-border bg-raised px-4 py-3 text-sm text-txt-secondary placeholder-txt-faint outline-none focus:border-cyan/40 font-mono"
-        />
+        <GlowingTextareaFrame>
+          <textarea
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            rows={8}
+            placeholder="Define this agent's personality, responsibilities, and instructions..."
+            className={`${glowingTextareaInnerClassName} min-h-[12rem] px-4 py-3 font-mono text-txt-secondary placeholder:text-txt-faint`}
+          />
+        </GlowingTextareaFrame>
       </Card>
 
       {/* Schedule */}
@@ -244,7 +247,7 @@ export default function AgentBuilder() {
             value={cronExpression}
             onChange={(e) => setCronExpression(e.target.value)}
             placeholder="e.g. 0 12 * * *  (daily at noon UTC)"
-            className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary placeholder-txt-faint outline-none focus:border-cyan/40 font-mono"
+            className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary placeholder-txt-faint outline-none focus:border-border-hover font-mono"
           />
         </label>
         <p className="mt-2 text-[11px] text-txt-faint">
@@ -274,7 +277,7 @@ export default function AgentBuilder() {
                 max="90"
                 value={ttlDays}
                 onChange={(e) => setTtlDays(parseInt(e.target.value, 10))}
-                className="w-20 rounded-lg border border-border bg-raised px-2 py-1 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+                className="w-20 rounded-lg border border-border bg-raised px-2 py-1 text-sm text-txt-secondary outline-none focus:border-border-hover"
               />
             </label>
           )}

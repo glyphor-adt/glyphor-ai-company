@@ -13,6 +13,7 @@ import {
   ROLE_MANAGER_OVERRIDES,
 } from '../lib/types';
 import { Card, AgentAvatar, GradientButton, Skeleton, timeAgo } from '../components/ui';
+import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
 
 interface AgentRow {
   id: string;
@@ -432,7 +433,7 @@ export default function AgentSettings() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <label className="space-y-1">
               <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Model</span>
-              <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40">
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover">
                 {(['gemini', 'openai', 'anthropic'] as const).map(provider => (
                   <optgroup key={provider} label={PROVIDER_LABELS[provider]}>
                     {getModelsByProvider()[provider].map(m => (
@@ -444,26 +445,26 @@ export default function AgentSettings() {
             </label>
             <label className="space-y-1">
               <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Temperature</span>
-              <input type="number" step="0.1" min="0" max="2" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />
+              <input type="number" step="0.1" min="0" max="2" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover" />
             </label>
             <label className="space-y-1">
               <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Max Turns</span>
-              <input type="number" min="1" max="50" value={maxTurns} onChange={(e) => setMaxTurns(parseInt(e.target.value, 10))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />
+              <input type="number" min="1" max="50" value={maxTurns} onChange={(e) => setMaxTurns(parseInt(e.target.value, 10))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover" />
             </label>
           </div>
 
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <label className="space-y-1">
               <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Per Run ($)</span>
-              <input type="number" step="0.01" min="0" value={budgetPerRun} onChange={(e) => setBudgetPerRun(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />
+              <input type="number" step="0.01" min="0" value={budgetPerRun} onChange={(e) => setBudgetPerRun(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover" />
             </label>
             <label className="space-y-1">
               <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Daily ($)</span>
-              <input type="number" step="0.01" min="0" value={budgetDaily} onChange={(e) => setBudgetDaily(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />
+              <input type="number" step="0.01" min="0" value={budgetDaily} onChange={(e) => setBudgetDaily(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover" />
             </label>
             <label className="space-y-1">
               <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Monthly ($)</span>
-              <input type="number" step="0.01" min="0" value={budgetMonthly} onChange={(e) => setBudgetMonthly(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />
+              <input type="number" step="0.01" min="0" value={budgetMonthly} onChange={(e) => setBudgetMonthly(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover" />
             </label>
           </div>
 
@@ -473,7 +474,7 @@ export default function AgentSettings() {
               <select
                 value={managerRole}
                 onChange={(e) => setManagerRole(e.target.value)}
-                className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+                className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
               >
                 <option value="">Founders / No manager</option>
                 {managerCandidates.map((candidate) => {
@@ -576,13 +577,15 @@ export default function AgentSettings() {
 
         {promptExpanded && (
           <div className="mt-4 space-y-3">
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="Enter a system prompt for this agent..."
-              rows={12}
-              className="w-full rounded-lg border border-border bg-raised px-4 py-3 font-mono text-[13px] leading-relaxed text-txt-secondary outline-none placeholder:text-txt-faint/50 focus:border-cyan/40"
-            />
+            <GlowingTextareaFrame>
+              <textarea
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                placeholder="Enter a system prompt for this agent..."
+                rows={12}
+                className={`${glowingTextareaInnerClassName} min-h-[16rem] px-4 py-3 font-mono text-[13px] leading-relaxed text-txt-secondary placeholder:text-txt-faint/50`}
+              />
+            </GlowingTextareaFrame>
             <div className="flex items-center justify-between">
               <p className="text-[11px] text-txt-faint">
                 {systemPrompt.length.toLocaleString()} characters

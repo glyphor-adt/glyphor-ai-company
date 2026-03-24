@@ -6,6 +6,7 @@ import {
 } from 'react-icons/md';
 import { SCHEDULER_URL } from '../lib/firebase';
 import { GradientButton } from '../components/ui';
+import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
 import { getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 
 /* ═══════════════════════════════════════════════════
@@ -468,7 +469,15 @@ export default function WorkforceBuilder() {
                   </Fld>
                 </div>
                 <Fld label="System Prompt">
-                  <textarea value={selected.systemPrompt} onChange={e => updateNode({ systemPrompt: e.target.value })} rows={5} placeholder="Agent instructions…" className={`${INPUT_CLS} font-mono text-[12px] leading-relaxed`} />
+                  <GlowingTextareaFrame borderRadius="0.5rem">
+                    <textarea
+                      value={selected.systemPrompt}
+                      onChange={e => updateNode({ systemPrompt: e.target.value })}
+                      rows={5}
+                      placeholder="Agent instructions…"
+                      className={`${glowingTextareaInnerClassName} min-h-[8rem] font-mono text-[12px] leading-relaxed`}
+                    />
+                  </GlowingTextareaFrame>
                 </Fld>
 
                 {/* Relationships */}

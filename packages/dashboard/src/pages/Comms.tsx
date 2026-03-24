@@ -4,6 +4,7 @@ import ChatMarkdown from '../components/ChatMarkdown';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Card, GradientButton, PageTabs, Skeleton, timeAgo } from '../components/ui';
+import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
 
 /* ─── Types ────────────────────────────────── */
 interface AgentMessage {
@@ -166,12 +167,12 @@ function InterAgentFeed() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search messages…"
-          className="flex-1 min-w-[200px] rounded-lg border border-border bg-raised px-3 py-1.5 text-sm text-txt-secondary outline-none focus:border-cyan/60 placeholder:text-txt-faint"
+          className="flex-1 min-w-[200px] rounded-lg border border-border bg-raised px-3 py-1.5 text-sm text-txt-secondary outline-none focus:border-border-hover placeholder:text-txt-faint"
         />
         <select
           value={agentFilter}
           onChange={(e) => setAgentFilter(e.target.value)}
-          className="rounded-lg border border-border bg-raised px-3 py-1.5 text-sm text-txt-secondary outline-none focus:border-cyan/60"
+          className="rounded-lg border border-border bg-raised px-3 py-1.5 text-sm text-txt-secondary outline-none focus:border-border-hover"
         >
           <option value="">All Agents</option>
           {agents.map((role) => (
@@ -181,7 +182,7 @@ function InterAgentFeed() {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="rounded-lg border border-border bg-raised px-3 py-1.5 text-sm text-txt-secondary outline-none focus:border-cyan/60"
+          className="rounded-lg border border-border bg-raised px-3 py-1.5 text-sm text-txt-secondary outline-none focus:border-border-hover"
         >
           {MESSAGE_TYPES.map((t) => (
             <option key={t} value={t}>{t === 'all' ? 'All Types' : t.replace(/_/g, ' ')}</option>
@@ -306,7 +307,7 @@ function EmailActivityFeed() {
         <select
           value={agentFilter}
           onChange={(e) => setAgentFilter(e.target.value)}
-          className="rounded-lg border border-border bg-raised px-3 py-1.5 text-sm text-txt-secondary outline-none focus:border-cyan/60"
+          className="rounded-lg border border-border bg-raised px-3 py-1.5 text-sm text-txt-secondary outline-none focus:border-border-hover"
         >
           <option value="">All Agents</option>
           {agents.map((role) => (
@@ -456,7 +457,7 @@ function QuickAssign() {
             <select
               value={selectedAgent}
               onChange={(e) => setSelectedAgent(e.target.value)}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/60"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             >
               <option value="">Select an agent…</option>
               {agents.map((a) => (
@@ -467,14 +468,16 @@ function QuickAssign() {
 
           <div>
             <label className="block text-xs font-medium text-txt-muted mb-1">Task Description *</label>
-            <textarea
-              ref={taskRef}
-              value={task}
-              onChange={(e) => setTask(e.target.value)}
-              placeholder="What should this agent do? Be specific about the desired outcome."
-              rows={4}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/60 resize-none"
-            />
+            <GlowingTextareaFrame>
+              <textarea
+                ref={taskRef}
+                value={task}
+                onChange={(e) => setTask(e.target.value)}
+                placeholder="What should this agent do? Be specific about the desired outcome."
+                rows={4}
+                className={`${glowingTextareaInnerClassName} min-h-[7rem] resize-none text-txt-secondary`}
+              />
+            </GlowingTextareaFrame>
           </div>
 
           <div>
@@ -484,7 +487,7 @@ function QuickAssign() {
               value={expected}
               onChange={(e) => setExpected(e.target.value)}
               placeholder="e.g., A summary report, a code fix, a Slack message"
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/60"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             />
           </div>
 
@@ -493,7 +496,7 @@ function QuickAssign() {
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as typeof priority)}
-              className="rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/60"
+              className="rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             >
               <option value="low">Low</option>
               <option value="normal">Normal</option>

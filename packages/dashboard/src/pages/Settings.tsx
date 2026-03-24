@@ -114,7 +114,7 @@ export default function Settings() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="user@example.com"
-              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none"
+              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-border-hover focus:outline-none"
               onKeyDown={e => e.key === 'Enter' && addUser()}
             />
           </div>
@@ -125,7 +125,7 @@ export default function Settings() {
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="Display name"
-              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none"
+              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-border-hover focus:outline-none"
               onKeyDown={e => e.key === 'Enter' && addUser()}
             />
           </div>
@@ -134,7 +134,7 @@ export default function Settings() {
             <select
               value={role}
               onChange={e => setRole(e.target.value as 'admin' | 'viewer')}
-              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
             >
               <option value="viewer">Viewer</option>
               <option value="admin">Admin</option>

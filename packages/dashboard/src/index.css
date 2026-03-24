@@ -70,6 +70,8 @@
 
 /* ─── Theme Variables (derived from Prism) ────── */
 :root {
+  /* Used by GlowingEffect white variant (conic mask) */
+  --black: #0f1419;
   --color-base: rgb(var(--prism-bg));
   --color-surface: rgb(var(--prism-card));
   --color-raised: rgb(var(--prism-card-alt));
@@ -98,6 +100,7 @@
 
 .dark {
   color-scheme: dark;
+  --black: #050608;
   --color-base: #0B0C10;
   --color-surface: rgba(0, 0, 0, 0.38);
   --color-surface-raised: rgba(0, 0, 0, 0.42);
@@ -1073,6 +1076,42 @@ html:not(.dark) .glass-surface {
   background: transparent !important;
   border-color: transparent !important;
   box-shadow: none !important;
+}
+
+.dark .chat-input-inner textarea:focus-visible {
+  box-shadow: 0 0 0 1px var(--color-border-hover) !important;
+}
+
+/* Glowing frame inner — form textareas (MovingBorder innerSurface=field) */
+.field-glow-inner {
+  border: none !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 2px 12px rgba(15, 23, 42, 0.06);
+}
+
+.dark .field-glow-inner {
+  background: rgba(7, 9, 15, 0.48) !important;
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 4px 24px rgba(0, 0, 0, 0.28);
+}
+
+.dark .field-glow-inner textarea,
+.dark .field-glow-inner textarea:focus {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.dark .field-glow-inner textarea:focus-visible {
+  box-shadow: 0 0 0 1px var(--color-border-hover) !important;
 }
 
 /* Agent Chat composer — dark glass (replaces flat prism-card fill from MovingBorder inner) */

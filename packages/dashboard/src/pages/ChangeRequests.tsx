@@ -7,6 +7,7 @@ import { DISPLAY_NAME_MAP } from '../lib/types';
 import type { DashboardChangeRequest } from '../lib/types';
 import { normalizeText } from '../lib/normalizeText';
 import { MdAdd, MdClose, MdOpenInNew, MdCode, MdBugReport, MdAutoFixHigh, MdBuild, MdCheck, MdBlock } from 'react-icons/md';
+import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
 
 /* ── Constants ─────────────────────────────────── */
 
@@ -418,7 +419,7 @@ function NewRequestModal({
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="e.g. Add dark mode toggle to settings page"
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none focus:ring-1 focus:ring-cyan/30"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-border-hover focus:outline-none focus:ring-1 focus:ring-border-hover/30"
               required
             />
           </div>
@@ -426,14 +427,16 @@ function NewRequestModal({
           {/* Description */}
           <div>
             <label className="block text-xs font-medium text-txt-secondary mb-1">Description</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Describe what you want changed, where it should be, and any specific details..."
-              rows={4}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none focus:ring-1 focus:ring-cyan/30 resize-none"
-              required
-            />
+            <GlowingTextareaFrame>
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Describe what you want changed, where it should be, and any specific details..."
+                rows={4}
+                className={`${glowingTextareaInnerClassName} min-h-[7rem] resize-none text-txt-primary`}
+                required
+              />
+            </GlowingTextareaFrame>
           </div>
 
           {/* Type + Priority row */}
@@ -443,7 +446,7 @@ function NewRequestModal({
               <select
                 value={requestType}
                 onChange={e => setRequestType(e.target.value as RequestType)}
-                className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none focus:ring-1 focus:ring-cyan/30"
+                className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none focus:ring-1 focus:ring-border-hover/30"
               >
                 <option value="feature">Feature</option>
                 <option value="fix">Bug Fix</option>
@@ -456,7 +459,7 @@ function NewRequestModal({
               <select
                 value={priority}
                 onChange={e => setPriority(e.target.value as Priority)}
-                className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none focus:ring-1 focus:ring-cyan/30"
+                className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none focus:ring-1 focus:ring-border-hover/30"
               >
                 <option value="critical">Critical</option>
                 <option value="high">High</option>
@@ -472,7 +475,7 @@ function NewRequestModal({
             <select
               value={affectedArea}
               onChange={e => setAffectedArea(e.target.value)}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none focus:ring-1 focus:ring-cyan/30"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none focus:ring-1 focus:ring-border-hover/30"
             >
               <option value="">Select area (optional)</option>
               {AREA_OPTIONS.map(a => (

@@ -285,7 +285,7 @@ export default function Activity() {
         <select
           value={agentFilter}
           onChange={(e) => setAgentFilter(e.target.value)}
-          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] text-txt-secondary focus:outline-none focus:ring-1 focus:ring-cyan/30"
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] text-txt-secondary focus:outline-none focus:ring-1 focus:ring-border-hover/35"
         >
           <option value="all">All agents</option>
           {agentIds.map((id) => (

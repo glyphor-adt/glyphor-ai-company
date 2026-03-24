@@ -26,7 +26,7 @@ export function ChatComposerFrame({
 
 /** Main multiline field — shared typography, padding, and height limits */
 export const composerTextareaClassName =
-  'w-full resize-none border-0 bg-transparent px-3.5 pt-3 pb-1 text-[14px] leading-relaxed text-txt-secondary placeholder:text-txt-faint outline-none ring-0 transition-colors focus:ring-0 disabled:opacity-50 min-h-[72px] max-h-[180px] sm:px-4';
+  'w-full resize-none border-0 bg-transparent px-3.5 pt-3 pb-1 text-[14px] leading-relaxed text-txt-secondary placeholder:text-txt-faint outline-none ring-0 transition-colors focus:ring-0 focus-visible:ring-1 focus-visible:ring-border-hover/35 disabled:opacity-50 min-h-[72px] max-h-[180px] sm:px-4';
 
 /** Top row inside the same frame (e.g. Deep Dive target) */
 export const composerInputLineClassName =
@@ -50,7 +50,7 @@ export const composerFooterToolbarClassName =
 
 /** Inline selects / checkbox row inside strategy footer */
 export const composerSelectClassName =
-  'w-full rounded-lg border border-border/70 bg-base px-3 py-2 text-[13px] text-txt-primary outline-none focus:border-cyan/40';
+  'w-full rounded-lg border border-border/70 bg-base px-3 py-2 text-[13px] text-txt-primary outline-none focus:border-border-hover';
 
 export const composerFieldLabelClassName =
   'mb-1 block text-[10px] font-medium text-txt-muted';

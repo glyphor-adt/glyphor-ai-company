@@ -28,6 +28,7 @@ import { Card, InnerCard, AgentAvatar, GradientButton, Skeleton, timeAgo } from 
 import { QualityChart } from '../components/QualityChart';
 import { GrowthAreas } from '../components/GrowthAreas';
 import { PeerFeedback } from '../components/PeerFeedback';
+import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
 
 /* ── Types ── */
 interface AgentRow {
@@ -429,13 +430,15 @@ export default function AgentProfile() {
           </p>
           <div className="space-y-2">
             <label className="block text-xs font-medium text-txt-muted">Task Description *</label>
-            <textarea
-              value={qaTask}
-              onChange={(e) => setQaTask(e.target.value)}
-              placeholder="What should this agent do? Be specific about the desired outcome."
-              rows={3}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/60 resize-none"
-            />
+            <GlowingTextareaFrame>
+              <textarea
+                value={qaTask}
+                onChange={(e) => setQaTask(e.target.value)}
+                placeholder="What should this agent do? Be specific about the desired outcome."
+                rows={3}
+                className={`${glowingTextareaInnerClassName} min-h-[5.5rem] resize-none text-txt-secondary`}
+              />
+            </GlowingTextareaFrame>
           </div>
           <div className="space-y-2">
             <label className="block text-xs font-medium text-txt-muted">Expected Output</label>
@@ -444,7 +447,7 @@ export default function AgentProfile() {
               value={qaExpected}
               onChange={(e) => setQaExpected(e.target.value)}
               placeholder="e.g., A summary report, a code fix, a Slack message"
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/60"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             />
           </div>
           <div className="space-y-2">
@@ -452,7 +455,7 @@ export default function AgentProfile() {
             <select
               value={qaPriority}
               onChange={(e) => setQaPriority(e.target.value as typeof qaPriority)}
-              className="rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/60"
+              className="rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             >
               <option value="low">Low</option>
               <option value="normal">Normal</option>
@@ -2211,13 +2214,15 @@ function SettingsTab({
         </button>
         {promptExpanded && (
           <div className="mt-4 space-y-3">
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              rows={12}
-              placeholder="Enter a system prompt for this agent..."
-              className="w-full rounded-lg border border-border bg-raised px-4 py-3 font-mono text-[12px] leading-relaxed text-txt-secondary outline-none focus:border-cyan/40"
-            />
+            <GlowingTextareaFrame>
+              <textarea
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                rows={12}
+                placeholder="Enter a system prompt for this agent..."
+                className={`${glowingTextareaInnerClassName} min-h-[16rem] px-4 py-3 font-mono text-[12px] leading-relaxed text-txt-secondary`}
+              />
+            </GlowingTextareaFrame>
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-txt-faint">{systemPrompt.length.toLocaleString()} characters</span>
               <div className="flex items-center gap-2">
@@ -2259,7 +2264,7 @@ function SettingsTab({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Model</span>
-            <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40">
+            <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover">
               {(['gemini', 'openai', 'anthropic'] as const).map(provider => (
                 <optgroup key={provider} label={PROVIDER_LABELS[provider]}>
                   {getModelsByProvider()[provider].map(m => (
@@ -2274,7 +2279,7 @@ function SettingsTab({
             <select
               value={managerRole}
               onChange={(e) => setManagerRole(e.target.value)}
-              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+              className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
             >
               <option value="">Founders / No manager</option>
               {managerCandidates.map((candidate) => {
@@ -2306,26 +2311,26 @@ function SettingsTab({
           </label>
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Temperature</span>
-            <input type="number" step="0.1" min="0" max="2" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />
+            <input type="number" step="0.1" min="0" max="2" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover" />
           </label>
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Max Turns</span>
-            <input type="number" min="1" max="50" value={maxTurns} onChange={(e) => setMaxTurns(parseInt(e.target.value, 10))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />
+            <input type="number" min="1" max="50" value={maxTurns} onChange={(e) => setMaxTurns(parseInt(e.target.value, 10))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover" />
           </label>
         </div>
 
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Per Run ($)</span>
-            <input type="number" step="0.01" min="0" value={budgetPerRun} onChange={(e) => setBudgetPerRun(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />
+            <input type="number" step="0.01" min="0" value={budgetPerRun} onChange={(e) => setBudgetPerRun(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover" />
           </label>
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Daily ($)</span>
-            <input type="number" step="0.01" min="0" value={budgetDaily} onChange={(e) => setBudgetDaily(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />
+            <input type="number" step="0.01" min="0" value={budgetDaily} onChange={(e) => setBudgetDaily(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover" />
           </label>
           <label className="space-y-1">
             <span className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Monthly ($)</span>
-            <input type="number" step="0.01" min="0" value={budgetMonthly} onChange={(e) => setBudgetMonthly(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40" />
+            <input type="number" step="0.01" min="0" value={budgetMonthly} onChange={(e) => setBudgetMonthly(parseFloat(e.target.value))} className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover" />
           </label>
         </div>
 
@@ -2437,7 +2442,7 @@ function SettingsTab({
                   min="0"
                   value={reasoningMaxBudget}
                   onChange={(e) => setReasoningMaxBudget(parseFloat(e.target.value))}
-                  className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-cyan/40"
+                  className="w-full rounded-lg border border-border bg-raised px-3 py-2 text-sm text-txt-secondary outline-none focus:border-border-hover"
                 />
               </label>
 

@@ -16,6 +16,7 @@ import {
   SectionHeader,
   Skeleton,
 } from '../components/ui';
+import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
 
 /* ── Types ── */
 interface SkillRow {
@@ -375,7 +376,8 @@ export default function Skills() {
 /* ════════════════════════════════════════════════════════════
    CREATE SKILL MODAL
    ════════════════════════════════════════════════════════════ */
-const INPUT_CLS = 'w-full rounded-lg theme-glass-input-strong px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint outline-none focus:border-cyan/40 focus:shadow-[var(--glow-cyan-lg)] transition-all dark:text-txt-secondary dark:focus:border-primary/60';
+const INPUT_CLS =
+  'w-full rounded-lg theme-glass-input-strong px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint outline-none transition-all focus:border-border-hover dark:text-txt-secondary';
 
 function CreateSkillModal({
   categories,
@@ -464,12 +466,28 @@ function CreateSkillModal({
 
           <label className="block space-y-1">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Description</span>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Brief description of what this skill enables" className={INPUT_CLS} />
+            <GlowingTextareaFrame>
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                rows={2}
+                placeholder="Brief description of what this skill enables"
+                className={`${glowingTextareaInnerClassName} min-h-[3.5rem]`}
+              />
+            </GlowingTextareaFrame>
           </label>
 
           <label className="block space-y-1">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Methodology</span>
-            <textarea value={methodology} onChange={e => setMethodology(e.target.value)} rows={6} placeholder={"1. First step…\n2. Second step…\n3. Third step…"} className={`${INPUT_CLS} font-mono text-[12px] leading-relaxed`} />
+            <GlowingTextareaFrame>
+              <textarea
+                value={methodology}
+                onChange={e => setMethodology(e.target.value)}
+                rows={6}
+                placeholder={"1. First step…\n2. Second step…\n3. Third step…"}
+                className={`${glowingTextareaInnerClassName} min-h-[9rem] font-mono text-[12px] leading-relaxed`}
+              />
+            </GlowingTextareaFrame>
           </label>
 
           <label className="block space-y-1">
@@ -613,13 +631,15 @@ function UploadSkillModal({
           {replaceTaskMappings && (
             <label className="block space-y-1">
               <span className="text-[10px] font-semibold uppercase tracking-widest text-txt-faint">Task Mappings</span>
-              <textarea
-                value={taskMappingsRaw}
-                onChange={(e) => setTaskMappingsRaw(e.target.value)}
-                rows={4}
-                placeholder={'(?i)(blog|content|article) | 10\n(?i)(campaign|promo|launch) | 16'}
-                className={`${INPUT_CLS} font-mono text-[12px] leading-relaxed`}
-              />
+              <GlowingTextareaFrame>
+                <textarea
+                  value={taskMappingsRaw}
+                  onChange={(e) => setTaskMappingsRaw(e.target.value)}
+                  rows={4}
+                  placeholder={'(?i)(blog|content|article) | 10\n(?i)(campaign|promo|launch) | 16'}
+                  className={`${glowingTextareaInnerClassName} min-h-[7rem] font-mono text-[12px] leading-relaxed`}
+                />
+              </GlowingTextareaFrame>
               <p className="text-[11px] text-txt-faint">One mapping per line: regex | priority. If blank, existing mappings for this skill are cleared.</p>
             </label>
           )}

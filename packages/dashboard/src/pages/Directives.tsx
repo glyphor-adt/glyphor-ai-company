@@ -4,6 +4,7 @@ import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { useAuth } from '../lib/auth';
 import { Card, GradientButton, ModalCloseButton, SectionHeader, Skeleton, timeAgo } from '../components/ui';
+import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
 import { MdCheckCircle, MdEdit, MdCancel, MdChevronRight, MdDelete, MdBlock, MdVerifiedUser, MdWarning, MdRefresh, MdExpandMore } from 'react-icons/md';
 
 /* ── Plan Verification Types ───────────────── */
@@ -1277,17 +1278,19 @@ function EditApproveModal({
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
-              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
             />
           </div>
           <div>
             <label className="text-[11px] font-medium text-txt-muted mb-1 block">Description</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              rows={4}
-              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none resize-none"
-            />
+            <GlowingTextareaFrame>
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                rows={4}
+                className={`${glowingTextareaInnerClassName} min-h-[7rem] resize-none`}
+              />
+            </GlowingTextareaFrame>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -1316,7 +1319,7 @@ function EditApproveModal({
               <select
                 value={category}
                 onChange={e => setCategory(e.target.value as Category)}
-                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
               >
                 {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
@@ -1348,7 +1351,7 @@ function EditApproveModal({
               type="date"
               value={dueDate}
               onChange={e => setDueDate(e.target.value)}
-              className="rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+              className="rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
             />
           </div>
 
@@ -1445,20 +1448,22 @@ function NewDirectiveModal({
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="e.g. Launch Fuse marketing push"
-              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none"
+              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-border-hover focus:outline-none"
             />
           </div>
 
           {/* Description */}
           <div>
             <label className="text-[11px] font-medium text-txt-muted mb-1 block">Description</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              rows={4}
-              placeholder="Full context. What do you want accomplished and why."
-              className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint focus:border-cyan focus:outline-none resize-none"
-            />
+            <GlowingTextareaFrame>
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                rows={4}
+                placeholder="Full context. What do you want accomplished and why."
+                className={`${glowingTextareaInnerClassName} min-h-[7rem] resize-none`}
+              />
+            </GlowingTextareaFrame>
           </div>
 
           {/* Priority + Category row */}
@@ -1489,7 +1494,7 @@ function NewDirectiveModal({
               <select
                 value={category}
                 onChange={e => setCategory(e.target.value as Category)}
-                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+                className="w-full rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
               >
                 {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
@@ -1529,7 +1534,7 @@ function NewDirectiveModal({
               type="date"
               value={dueDate}
               onChange={e => setDueDate(e.target.value)}
-              className="rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-cyan focus:outline-none"
+              className="rounded-lg border border-border bg-base px-3 py-2 text-sm text-txt-primary focus:border-border-hover focus:outline-none"
             />
           </div>
         </div>

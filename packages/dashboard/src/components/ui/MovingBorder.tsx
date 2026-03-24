@@ -1,4 +1,4 @@
-import type { ElementType, ReactNode } from 'react';
+import type { CSSProperties, ElementType, ReactNode } from 'react';
 import { cn } from '../../lib/utils';
 import { GlowingEffect } from './glowing-effect';
 
@@ -18,6 +18,8 @@ export function MovingBorderContainer({
   as: Component = 'div',
   containerClassName,
   innerClassName,
+  glowActive = true,
+  innerSurface = 'composer',
   ...otherProps
 }: {
   children: ReactNode;
@@ -25,9 +27,23 @@ export function MovingBorderContainer({
   as?: ElementType;
   containerClassName?: string;
   innerClassName?: string;
+  /** Pointer-proximity border sweep (Aceternity-style). */
+  glowActive?: boolean;
+  /** `composer` = chat/Ora shell; `field` = standard form textareas. */
+  innerSurface?: 'composer' | 'field';
   [key: string]: unknown;
 }) {
   const innerRadius = `calc(${borderRadius} - 2px)`;
+
+  const innerStyle: CSSProperties =
+    innerSurface === 'field'
+      ? { borderRadius: innerRadius }
+      : {
+          borderRadius: innerRadius,
+          background: 'rgb(var(--prism-card))',
+          boxShadow:
+            'inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(255,255,255,0.02)',
+        };
 
   return (
     <Component
@@ -46,29 +62,31 @@ export function MovingBorderContainer({
           clipPath: `inset(0 round ${borderRadius})`,
         }}
       >
-        <GlowingEffect
-          blur={0}
-          borderWidth={3}
-          spread={80}
-          glow
-          disabled={false}
-          proximity={64}
-          inactiveZone={0.06}
-          movementDuration={1.75}
-          variant="cyan"
-        />
+        {glowActive ? (
+          <GlowingEffect
+            blur={0}
+            borderWidth={3}
+            spread={80}
+            glow
+            disabled={false}
+            proximity={64}
+            inactiveZone={0.01}
+            movementDuration={2}
+            variant="default"
+          />
+        ) : (
+          <GlowingEffect disabled glow={false} />
+        )}
       </div>
 
       <div
         className={cn(
-          'relative z-[1] flex h-full w-full items-center antialiased chat-input-inner',
+          'relative z-[1] flex h-full w-full antialiased chat-input-inner',
+          innerSurface === 'composer' && 'items-center',
+          innerSurface === 'field' && 'field-glow-inner items-stretch',
           innerClassName,
         )}
-        style={{
-          borderRadius: innerRadius,
-          background: 'rgb(var(--prism-card))',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(255,255,255,0.02)',
-        }}
+        style={innerStyle}
       >
         {children}
       </div>
