@@ -5,6 +5,7 @@ import { SCHEDULER_URL } from '../lib/firebase';
 import { Card, GradientButton, SectionHeader, Skeleton, timeAgo } from '../components/ui';
 import {
   ChatComposerFrame,
+  ComposerSendButton,
   composerCheckboxRowClassName,
   composerFieldLabelClassName,
   composerFooterEndClassName,
@@ -413,7 +414,7 @@ function DeepDivesPanel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card>
+      <Card className="overflow-visible">
         <SectionHeader title="Launch Strategic Deep Dive" subtitle="8 areas × 5 queries × multi-model analysis → cross-model challenge → verification → cited synthesis" />
         <div className="mt-4">
           <ChatComposerFrame>
@@ -433,16 +434,12 @@ function DeepDivesPanel() {
               disabled={launching}
             />
             <div className={composerFooterEndClassName}>
-              <GradientButton
-                variant="primary"
-                size="md"
+              <ComposerSendButton
                 onClick={launch}
                 disabled={launching || !target.trim()}
-                className="inline-flex items-center gap-2"
-              >
-                <MdSearch className="text-base" />
-                {launching ? 'Launching…' : 'Launch Deep Dive'}
-              </GradientButton>
+                aria-label={launching ? 'Launching deep dive' : 'Launch deep dive'}
+                title={launching ? 'Launching…' : 'Launch deep dive'}
+              />
             </div>
           </ChatComposerFrame>
         </div>
@@ -1264,7 +1261,7 @@ function SimulationsPanel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card>
+      <Card className="overflow-visible">
         <SectionHeader title="Launch Cascade Analysis" />
         <p className="mt-1 mb-3 text-[12px] text-txt-muted">
           Describe a proposed action and the AI executive team will forecast its cascading impact across Revenue, Engineering, Product, Marketing, and Finance.
@@ -1299,9 +1296,12 @@ function SimulationsPanel() {
                   ))}
                 </select>
               </div>
-              <GradientButton variant="primary" size="md" onClick={launch} disabled={launching || !action.trim()}>
-                {launching ? 'Launching…' : 'Run Cascade'}
-              </GradientButton>
+              <ComposerSendButton
+                onClick={launch}
+                disabled={launching || !action.trim()}
+                aria-label={launching ? 'Running cascade' : 'Run cascade analysis'}
+                title={launching ? 'Launching…' : 'Run cascade'}
+              />
             </div>
           </ChatComposerFrame>
         </div>
@@ -1658,7 +1658,7 @@ function ChainOfThoughtPanel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card>
+      <Card className="overflow-visible">
         <SectionHeader title="Chain of Thought Planning" />
         <p className="mt-1 mb-3 text-[12px] text-txt-muted">
           Decompose complex strategic problems into structured reasoning chains. The AI executive team will identify core problems, map root causes, evaluate strategic options, and validate logical consistency.
@@ -1681,9 +1681,12 @@ function ChainOfThoughtPanel() {
               disabled={launching}
             />
             <div className={composerFooterEndClassName}>
-              <GradientButton variant="primary" size="md" onClick={launch} disabled={launching || !query.trim()}>
-                {launching ? 'Launching…' : 'Analyze'}
-              </GradientButton>
+              <ComposerSendButton
+                onClick={launch}
+                disabled={launching || !query.trim()}
+                aria-label={launching ? 'Analyzing' : 'Run chain-of-thought analysis'}
+                title={launching ? 'Launching…' : 'Analyze'}
+              />
             </div>
           </ChatComposerFrame>
         </div>
@@ -2143,7 +2146,7 @@ function StrategyLabV2Panel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card>
+      <Card className="overflow-visible">
         <SectionHeader title="Launch Multi-Agent Strategy Analysis" subtitle="Research team → Executive analysis → Sarah synthesis" />
         <div className="mt-4">
           <ChatComposerFrame>
@@ -2197,10 +2200,13 @@ function StrategyLabV2Panel() {
                   Also run Deep Dive research
                 </label>
               </div>
-              <div className="flex shrink-0 justify-end sm:justify-start">
-                <GradientButton variant="primary" size="md" onClick={launch} disabled={launching || !query.trim()}>
-                  {launching ? 'Launching…' : 'Launch Analysis'}
-                </GradientButton>
+              <div className="flex shrink-0 items-center justify-end sm:justify-start">
+                <ComposerSendButton
+                  onClick={launch}
+                  disabled={launching || !query.trim()}
+                  aria-label={launching ? 'Launching analysis' : 'Launch strategy analysis'}
+                  title={launching ? 'Launching…' : 'Launch analysis'}
+                />
               </div>
             </div>
           </ChatComposerFrame>

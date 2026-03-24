@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ArrowUp } from 'lucide-react';
 import { MovingBorderContainer } from './ui/MovingBorder';
 import { cn } from '../lib/utils';
 
@@ -77,3 +78,29 @@ export const composerIconButtonVoiceConnectingClassName =
 /** Send / submit circle — same shape as other composer icons */
 export const composerSendButtonClassName =
   'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-raised/50 text-txt-muted transition-colors hover:border-cyan/30 hover:bg-cyan/10 hover:text-cyan disabled:cursor-not-allowed disabled:opacity-25 dark:border-white/[0.12] dark:bg-white/[0.04]';
+
+/** Same circular ↑ control as Agent Chat / Ora (Strategy + anywhere else) */
+export function ComposerSendButton({
+  onClick,
+  disabled,
+  'aria-label': ariaLabel,
+  title,
+}: {
+  onClick: () => void | Promise<void>;
+  disabled?: boolean;
+  'aria-label': string;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => void onClick()}
+      disabled={disabled}
+      title={title}
+      aria-label={ariaLabel}
+      className={composerSendButtonClassName}
+    >
+      <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
+    </button>
+  );
+}

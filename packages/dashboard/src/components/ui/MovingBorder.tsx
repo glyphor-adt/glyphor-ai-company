@@ -32,7 +32,7 @@ export function MovingBorderContainer({
   return (
     <Component
       className={cn(
-        'relative isolate overflow-hidden bg-transparent p-[2px]',
+        'relative isolate overflow-visible bg-transparent p-[2px]',
         containerClassName,
       )}
       style={{ borderRadius }}
@@ -40,7 +40,7 @@ export function MovingBorderContainer({
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+        className="pointer-events-none absolute inset-0 z-0 overflow-visible"
         style={{
           borderRadius,
           clipPath: `inset(0 round ${borderRadius})`,
@@ -48,12 +48,12 @@ export function MovingBorderContainer({
       >
         <GlowingEffect
           blur={0}
-          borderWidth={2}
-          spread={72}
+          borderWidth={3}
+          spread={80}
           glow
           disabled={false}
-          proximity={56}
-          inactiveZone={0.42}
+          proximity={64}
+          inactiveZone={0.06}
           movementDuration={1.75}
           variant="cyan"
         />
