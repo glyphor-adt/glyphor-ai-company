@@ -49,6 +49,7 @@ export function MovingBorderContainer({
     <Component
       className={cn(
         'relative isolate overflow-visible bg-transparent p-[2px]',
+        innerSurface === 'field' && 'field-glow-shell',
         containerClassName,
       )}
       style={{ borderRadius }}

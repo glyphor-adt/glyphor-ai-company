@@ -7,7 +7,7 @@ import { MovingBorderContainer } from './MovingBorder';
  * Omit outer `border` / `rounded-lg` / `bg-base` — the frame provides the glow shell.
  */
 export const glowingTextareaInnerClassName =
-  'w-full min-h-[5rem] resize-y border-0 bg-transparent px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint outline-none ring-0 transition-colors focus:ring-0 focus-visible:ring-1 focus-visible:ring-border-hover/35 disabled:opacity-50';
+  'w-full min-h-[5rem] resize-y border-0 bg-transparent px-3 py-2 text-sm text-txt-primary placeholder:text-txt-faint outline-none ring-0 transition-colors focus:ring-0 disabled:opacity-50';
 
 export function GlowingTextareaFrame({
   children,

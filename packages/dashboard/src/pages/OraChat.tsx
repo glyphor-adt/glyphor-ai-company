@@ -1106,15 +1106,16 @@ export default function OraChat() {
       )}
       {/* Session Sidebar — responsive: fixed overlay on mobile, inline on desktop */}
       {sidebarOpen && (
-        <div className="fixed inset-y-0 left-0 z-50 flex w-full max-w-full flex-shrink-0 flex-col border-r border-white/[0.06] bg-black/20 backdrop-blur-2xl backdrop-saturate-150 md:relative md:inset-auto md:z-auto md:w-72 md:max-w-none md:rounded-2xl md:border md:border-white/[0.06]" onClick={(e) => e.stopPropagation()}>
+        <div className="chat-sidebar-glass sidebar-glass fixed inset-y-0 left-0 z-50 flex w-full max-w-full flex-shrink-0 flex-col border-r border-border md:relative md:inset-auto md:z-auto md:w-72 md:max-w-none md:rounded-2xl md:border" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2 px-3 py-3">
             <button
               type="button"
               onClick={startNewSession}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white/[0.06] px-3 py-2 text-[13px] text-prism-primary transition-colors hover:text-cyan-300"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-prism-primary transition-colors hover:bg-prism-bg2 hover:text-cyan"
+              aria-label="New chat"
+              title="New chat"
             >
               <MessageSquarePlus className="h-4 w-4" />
-              New chat
             </button>
             <button
               type="button"
@@ -1128,7 +1129,7 @@ export default function OraChat() {
 
           {/* Search */}
           <div className="px-3 py-2">
-            <div className="flex items-center gap-2 rounded-lg bg-white/[0.06] px-2.5 py-1.5">
+            <div className="sidebar-glass flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5">
               <Search className="h-3.5 w-3.5 text-prism-tertiary" />
               <input
                 type="text"
@@ -1141,7 +1142,7 @@ export default function OraChat() {
           </div>
 
           {/* Session list */}
-          <div className="flex-1 overflow-y-auto py-1">
+          <div className="scrollbar-hide flex-1 overflow-y-auto py-1">
             {filteredSessions.length === 0 && (
               <p className="px-3 py-4 text-center text-[12px] text-prism-tertiary">
                 {sessions.length === 0 ? 'No conversations yet' : 'No matches'}
@@ -1209,7 +1210,7 @@ export default function OraChat() {
         </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto py-4 space-y-4 min-h-0">
+      <div className="scrollbar-hide flex-1 overflow-y-auto py-4 space-y-4 min-h-0">
         {messages.length === 0 && (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">

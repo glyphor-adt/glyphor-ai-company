@@ -543,10 +543,11 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
     { role: 'andrew', name: 'Andrew', email: 'andrew@glyphor.ai' },
   ];
 
-  // Map logged-in user email to their founder avatar path
-  const userAvatar = FOUNDERS.find((f) => f.email === userEmail)
+  // Prefer the authenticated profile picture; fallback to founder headshots for known internal users.
+  const founderAvatar = FOUNDERS.find((f) => f.email === userEmail)
     ? `/${FOUNDERS.find((f) => f.email === userEmail)!.role}_headshot.jpg`
     : undefined;
+  const userAvatar = user?.picture || founderAvatar;
 
   const mentionables: { role: string; name: string; isFounder?: boolean }[] = [
     ...FOUNDERS.map((f) => ({ role: f.role, name: f.name, isFounder: true })),
@@ -1102,7 +1103,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               {msg.role === 'agent' ? (
                 <AgentAvatar role={msgAgent} size={28} />
               ) : userAvatar ? (
-                <img src={userAvatar} alt="" className="h-7 w-7 rounded-full object-cover" />
+                <img src={userAvatar} alt="" className="h-7 w-7 rounded-full object-cover" referrerPolicy="no-referrer" />
               ) : (
                 <div className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-raised text-[11px] font-bold text-txt-primary">
                   {userInitials}

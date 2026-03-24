@@ -2425,6 +2425,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
   const [showSection, setShowSection] = useState<'summary' | 'swot' | 'frameworks' | 'recs' | 'risks' | 'watchlist'>('summary');
   const [generatingVisual, setGeneratingVisual] = useState(false);
   const [visualImage, setVisualImage] = useState<{ data: string; mimeType: string } | null>(null);
+  const [visualError, setVisualError] = useState<string | null>(null);
 
   // Load saved visual on mount
   useEffect(() => {
@@ -2435,11 +2436,14 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
 
   async function generateVisual() {
     setGeneratingVisual(true);
+    setVisualError(null);
     try {
       const resp = await api<{ image: string; mimeType: string }>(`/strategy-lab/${id}/visual`, { method: 'POST' });
       setVisualImage({ data: resp.image, mimeType: resp.mimeType });
     } catch (err) {
       console.error('Visual generation failed:', err);
+      const message = err instanceof Error ? err.message : 'Failed to generate visual.';
+      setVisualError(message);
     }
     setGeneratingVisual(false);
   }
@@ -2680,6 +2684,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
         >
           {generatingVisual ? 'Generating…' : <><MdPalette className="inline h-4 w-4 mr-1 -mt-0.5" />AI Visual</>}
         </button>
+        {visualError && <span className="text-[11px] text-prism-critical">{visualError}</span>}
       </div>
 
       {/* AI Visual (if generated) */}

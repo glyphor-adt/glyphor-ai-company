@@ -1104,10 +1104,41 @@ html:not(.dark) .dashboard-home .dashboard-home-nested.sidebar-glass {
 }
 
 .dark .chat-input-inner textarea:focus-visible {
-  box-shadow: 0 0 0 1px var(--color-border-hover) !important;
+  box-shadow: none !important;
 }
 
 /* Glowing frame inner — form textareas (MovingBorder innerSurface=field) */
+.field-glow-shell {
+  border: 1px solid rgba(14, 165, 233, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(14, 165, 233, 0.12),
+    0 0 18px rgba(14, 165, 233, 0.14);
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.field-glow-shell:focus-within {
+  border-color: rgba(34, 211, 238, 0.62);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.38),
+    0 0 0 3px rgba(14, 165, 233, 0.16),
+    0 0 26px rgba(14, 165, 233, 0.3);
+}
+
+.dark .field-glow-shell {
+  border-color: rgba(34, 211, 238, 0.34);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.18),
+    0 0 20px rgba(14, 165, 233, 0.2);
+}
+
+.dark .field-glow-shell:focus-within {
+  border-color: rgba(34, 211, 238, 0.72);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.45),
+    0 0 0 3px rgba(14, 165, 233, 0.22),
+    0 0 28px rgba(14, 165, 233, 0.42);
+}
+
 .field-glow-inner {
   border: none !important;
   background: rgba(255, 255, 255, 0.72) !important;
@@ -1136,7 +1167,7 @@ html:not(.dark) .dashboard-home .dashboard-home-nested.sidebar-glass {
 }
 
 .dark .field-glow-inner textarea:focus-visible {
-  box-shadow: 0 0 0 1px var(--color-border-hover) !important;
+  box-shadow: none !important;
 }
 
 /* Agent Chat composer — dark glass (replaces flat prism-card fill from MovingBorder inner) */

@@ -2820,6 +2820,16 @@ export function createOrchestrationTools(
           `INSERT INTO founder_directives (${columns.join(', ')}) VALUES (${placeholders}) RETURNING id`, insertValues) as any[];
 
         const directiveId = data.id;
+        const [persistedDirective] = await systemQuery<{ id: string }>(
+          'SELECT id FROM founder_directives WHERE id = $1 LIMIT 1',
+          [directiveId],
+        );
+        if (!persistedDirective) {
+          return {
+            success: false,
+            error: `Directive write verification failed for ${directiveId}. The directive was not persisted; retry once and escalate if this repeats.`,
+          };
+        }
 
         // 2. Generate approval tokens (URL fallback) and send Adaptive Card with inline buttons
         const baseUrl = process.env.PUBLIC_URL ?? process.env.SERVICE_URL ?? '';

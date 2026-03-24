@@ -109,22 +109,20 @@ async function applyWatermark(imageB64: string): Promise<string> {
   const imgBuf = Buffer.from(imageB64, 'base64');
   const meta = await sharp(imgBuf).metadata();
   const imgW = meta.width ?? 1536;
-  const imgH = meta.height ?? 1024;
-  // Scale logo to ~4% of image width, place bottom-right corner with padding
-  const logoW = Math.round(imgW * 0.04);
+  // Place Glyphor logo in the reserved top-right slot.
+  // Baseline geometry is 160px logo width with 32px inset on a 1536px canvas.
+  const logoW = Math.max(96, Math.round((imgW * 160) / 1536));
   const resizedLogo = await sharp(logoBuf)
     .resize({ width: logoW, fit: 'inside' })
-    .ensureAlpha(0.45)
     .toBuffer();
   const logoMeta = await sharp(resizedLogo).metadata();
   const logoH = logoMeta.height ?? logoW;
-  const padX = Math.round(imgW * 0.015);
-  const padY = Math.round(imgH * 0.015);
+  const pad = Math.max(16, Math.round((imgW * 32) / 1536));
   const result = await sharp(imgBuf)
     .composite([{
       input: resizedLogo,
-      left: imgW - logoW - padX,
-      top: imgH - logoH - padY,
+      left: imgW - logoW - pad,
+      top: pad,
     }])
     .png()
     .toBuffer();
@@ -3534,7 +3532,7 @@ const server = createServer(async (req, res) => {
       if (!record?.synthesis) { json(res, 404, { error: 'Strategy analysis not found or not completed' }); return; }
 
       const prompt = buildStrategyLabVisualPrompt(record);
-      const imageResponse = await strategyModelClient.generateImageOpenAI(prompt);
+      const imageResponse = await strategyModelClient.generateImage(prompt);
 
       const watermarked = await applyWatermark(imageResponse.imageData);
       await systemQuery('UPDATE strategy_analyses SET visual_image=$1 WHERE id=$2', [watermarked, id]);

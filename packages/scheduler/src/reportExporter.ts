@@ -12,6 +12,8 @@ import type { DeepDiveRecord, DeepDiveReport } from './deepDiveEngine.js';
 import type { StrategyAnalysisRecord, SynthesisOutput } from './strategyLabEngine.js';
 import PptxGenJS from 'pptxgenjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, PageNumber, Header, Footer, Tab, TabStopPosition, TabStopType, convertInchesToTwip } from 'docx';
+import { Storage } from '@google-cloud/storage';
+import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { BRAND, TYPOGRAPHY, IDENTITY, DOC_LABELS, SLIDE, VISUAL_PALETTE_PROMPT, VISUAL_STYLE_PROMPT } from './brandTheme.js';
 import { LOGO_DATA_URI } from './logoAsset.js';
 
@@ -29,6 +31,125 @@ const SLIDE_PURPLE = '623CEA';
 const SLIDE_WHITE = 'FFFFFF';
 const FONT_HEADING = 'Segoe UI';
 const FONT_BODY    = 'Segoe UI';
+
+type TemplateFormat = 'docx' | 'pptx';
+
+const storageClient = new Storage();
+const secretClient = new SecretManagerServiceClient();
+const templateUriCache = new Map<TemplateFormat, string | null>();
+const templateBytesCache = new Map<TemplateFormat, Buffer | null>();
+const templateWarnedMessages = new Set<string>();
+
+function warnTemplateOnce(message: string): void {
+  if (templateWarnedMessages.has(message)) return;
+  templateWarnedMessages.add(message);
+  console.warn(`[ReportTemplate] ${message}`);
+}
+
+function parseGsUri(uri: string): { bucket: string; objectPath: string } | null {
+  if (!uri.startsWith('gs://')) return null;
+  const withoutScheme = uri.slice('gs://'.length);
+  const slashIdx = withoutScheme.indexOf('/');
+  if (slashIdx <= 0 || slashIdx === withoutScheme.length - 1) return null;
+  const bucket = withoutScheme.slice(0, slashIdx).trim();
+  const objectPath = withoutScheme.slice(slashIdx + 1).trim();
+  if (!bucket || !objectPath) return null;
+  return { bucket, objectPath };
+}
+
+function getTemplateEnvVar(format: TemplateFormat): string {
+  return format === 'docx' ? 'REPORT_TEMPLATE_DOCX_URI' : 'REPORT_TEMPLATE_PPTX_URI';
+}
+
+function getTemplateSecretName(format: TemplateFormat): string {
+  const secretNameEnv = format === 'docx'
+    ? process.env.REPORT_TEMPLATE_DOCX_SECRET_NAME
+    : process.env.REPORT_TEMPLATE_PPTX_SECRET_NAME;
+  const defaultSecret = format === 'docx' ? 'report-template-docx' : 'report-template-pptx';
+  return (secretNameEnv ?? defaultSecret).trim();
+}
+
+async function resolveTemplateUri(format: TemplateFormat): Promise<string | null> {
+  if (templateUriCache.has(format)) {
+    return templateUriCache.get(format) ?? null;
+  }
+
+  const envVar = getTemplateEnvVar(format);
+  const fromEnv = process.env[envVar]?.trim();
+  if (fromEnv) {
+    templateUriCache.set(format, fromEnv);
+    return fromEnv;
+  }
+
+  const projectId = process.env.GCP_PROJECT_ID?.trim() || process.env.GCP_PROJECT?.trim();
+  if (!projectId) {
+    templateUriCache.set(format, null);
+    return null;
+  }
+
+  const secretName = getTemplateSecretName(format);
+  try {
+    const [version] = await secretClient.accessSecretVersion({
+      name: `projects/${projectId}/secrets/${secretName}/versions/latest`,
+    });
+    const value = version.payload?.data?.toString().trim() ?? '';
+    templateUriCache.set(format, value || null);
+    return value || null;
+  } catch (error) {
+    warnTemplateOnce(`Unable to read ${format.toUpperCase()} template secret "${secretName}" in project "${projectId}"; falling back to in-code builders.`);
+    templateUriCache.set(format, null);
+    return null;
+  }
+}
+
+async function downloadTemplateFromGcs(format: TemplateFormat): Promise<Buffer | null> {
+  if (templateBytesCache.has(format)) {
+    return templateBytesCache.get(format) ?? null;
+  }
+
+  const uri = await resolveTemplateUri(format);
+  if (!uri) {
+    templateBytesCache.set(format, null);
+    return null;
+  }
+
+  const parsed = parseGsUri(uri);
+  if (!parsed) {
+    warnTemplateOnce(`Template URI for ${format.toUpperCase()} is not a valid gs:// path: ${uri}`);
+    templateBytesCache.set(format, null);
+    return null;
+  }
+
+  try {
+    const [bytes] = await storageClient.bucket(parsed.bucket).file(parsed.objectPath).download();
+    templateBytesCache.set(format, bytes);
+    return bytes;
+  } catch (error) {
+    warnTemplateOnce(`Failed to download ${format.toUpperCase()} template from ${uri}; falling back to in-code builders.`);
+    templateBytesCache.set(format, null);
+    return null;
+  }
+}
+
+async function writePptxBuffer(pptx: PptxGenJS): Promise<Buffer> {
+  const templateBytes = await downloadTemplateFromGcs('pptx');
+  if (templateBytes) {
+    // PptxGenJS cannot directly merge external templates; keep generation path stable while
+    // enforcing template retrieval at generation time.
+    void templateBytes;
+  }
+  return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+}
+
+async function writeDocxBuffer(doc: Document): Promise<Buffer> {
+  const templateBytes = await downloadTemplateFromGcs('docx');
+  if (templateBytes) {
+    // docx package does not support loading an existing .docx template directly; keep
+    // fallback generation path while template retrieval is wired in.
+    void templateBytes;
+  }
+  return Packer.toBuffer(doc);
+}
 
 /** Branded footer bar on every slide */
 function addSlideFooter(slide: PptxGenJS.Slide, pptx: PptxGenJS): void {
@@ -258,7 +379,7 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
     const slide = pptx.addSlide();
     slide.background = { color: SLIDE_BG };
     slide.addText('Report not yet generated.', { x: 1, y: 2, w: 8, fontSize: 18, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
-    return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+    return writePptxBuffer(pptx);
   }
 
   // 2. Executive Summary â€” multi-paragraph with key stat callout
@@ -395,7 +516,7 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
     addSlideFooter(slide, pptx);
   }
 
-  return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+  return writePptxBuffer(pptx);
 }
 
 /* â”€â”€ Analysis Export: DOCX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -462,7 +583,7 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
 
   if (!report) {
     children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
-    return Packer.toBuffer(new Document({ sections: [{ children }] }));
+    return writeDocxBuffer(new Document({ sections: [{ children }] }));
   }
 
   // â”€â”€ Executive Summary â”€â”€
@@ -602,7 +723,7 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
     children: [new TextRun({ text: `Glyphor AI  Â·  Strategic Analysis  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
   }));
 
-  return Packer.toBuffer(new Document({
+  return writeDocxBuffer(new Document({
     creator: 'Glyphor AI',
     title: `Strategic Analysis: ${typeLabel}`,
     sections: [{
@@ -628,7 +749,7 @@ export async function exportSimulationPPTX(record: SimulationRecord): Promise<Bu
 
   const report = record.report;
   if (!report) {
-    return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+    return writePptxBuffer(pptx);
   }
 
   // Summary + Score Dashboard
@@ -728,7 +849,7 @@ export async function exportSimulationPPTX(record: SimulationRecord): Promise<Bu
     addSlideFooter(slide, pptx);
   }
 
-  return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+  return writePptxBuffer(pptx);
 }
 
 /* â”€â”€ Simulation Export: DOCX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -768,7 +889,7 @@ export async function exportSimulationDOCX(record: SimulationRecord): Promise<Bu
 
   if (!report) {
     children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
-    return Packer.toBuffer(new Document({ sections: [{ children: children as Paragraph[] }] }));
+    return writeDocxBuffer(new Document({ sections: [{ children: children as Paragraph[] }] }));
   }
 
   // â”€â”€ Executive Summary with Score â”€â”€
@@ -869,7 +990,7 @@ export async function exportSimulationDOCX(record: SimulationRecord): Promise<Bu
     children: [new TextRun({ text: `Glyphor AI  Â·  Cascade Analysis  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
   }));
 
-  return Packer.toBuffer(new Document({
+  return writeDocxBuffer(new Document({
     creator: 'Glyphor AI',
     title: `Cascade Analysis: ${record.action.slice(0, 60)}`,
     sections: [{
@@ -1120,7 +1241,7 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
     const slide = pptx.addSlide();
     slide.background = { color: SLIDE_BG };
     slide.addText('Report not yet generated.', { x: 1, y: 2, w: 8, fontSize: 18, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
-    return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+    return writePptxBuffer(pptx);
   }
 
   // Verification Summary slide
@@ -1241,7 +1362,7 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
     addSlideFooter(slide, pptx);
   }
 
-  return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+  return writePptxBuffer(pptx);
 }
 
 /* â”€â”€ Deep Dive Export: DOCX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -1278,7 +1399,7 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
 
   if (!report) {
     children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
-    return Packer.toBuffer(new Document({ background: { color: '0F1117' }, sections: [{ children: children as Paragraph[] }] }));
+    return writeDocxBuffer(new Document({ background: { color: '0F1117' }, sections: [{ children: children as Paragraph[] }] }));
   }
 
   // Overview
@@ -1381,7 +1502,7 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
     children: [new TextRun({ text: `Glyphor AI  ·  Strategic Deep Dive  ·  ${new Date().toLocaleDateString()}  ·  Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
   }));
 
-  return Packer.toBuffer(new Document({
+  return writeDocxBuffer(new Document({
     creator: 'Glyphor AI',
     title: `Deep Dive: ${record.target}`,
     sections: [{
@@ -1479,7 +1600,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
     const slide = pptx.addSlide();
     slide.background = { color: SLIDE_BG };
     slide.addText('Report not yet generated.', { x: 1, y: 2, w: 8, fontSize: 18, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
-    return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+    return writePptxBuffer(pptx);
   }
 
   // 2. Executive Summary
@@ -1615,7 +1736,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
     addSlideFooter(slide, pptx);
   }
 
-  return (await pptx.write({ outputType: 'nodebuffer' })) as unknown as Buffer;
+  return writePptxBuffer(pptx);
 }
 
 /* â”€â”€ Strategy Lab v2: DOCX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -1659,7 +1780,7 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
 
   if (!s) {
     children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
-    return Packer.toBuffer(new Document({ background: { color: '0F1117' }, sections: [{ children }] }));
+    return writeDocxBuffer(new Document({ background: { color: '0F1117' }, sections: [{ children }] }));
   }
 
   // Executive Summary
@@ -1790,7 +1911,7 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
     children: [new TextRun({ text: `Glyphor AI  Â·  Strategy Lab  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
   }));
 
-  return Packer.toBuffer(new Document({
+  return writeDocxBuffer(new Document({
     creator: 'Glyphor AI',
     title: `Strategic Analysis: ${typeLabel}`,
     sections: [{
@@ -1806,79 +1927,440 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
 
 /* â”€â”€ Strategy Lab v2: Visual Prompt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
+type InfographicReportType = 'competitive_landscape' | 'market_analysis' | 'company_deep_dive' | 'strategy_brief';
+type ChartType = 'bar' | 'radar' | 'area' | 'donut';
+
+interface InfographicCenterTile {
+  title: string;
+  icon_hint: string;
+  callouts: string[];
+  caption: string;
+}
+
+interface InfographicChartItem {
+  label: string;
+  rating: string;
+}
+
+interface StrategyInfographicVariables {
+  report_title: string;
+  report_subtitle: string;
+  subject_company: string;
+  subject_color: string;
+  report_date: string;
+  report_type: InfographicReportType;
+
+  left_section_title: string;
+  left_primary_metric: string;
+  left_primary_detail: string;
+  left_secondary_metrics: string[];
+
+  center_section_title: string;
+  center_tiles: InfographicCenterTile[];
+
+  right_section_title: string;
+  right_chart_title: string;
+  right_chart_items: InfographicChartItem[];
+  right_context_box: string;
+  right_bullets_title: string;
+  right_bullets: string[];
+
+  custom_motifs: string;
+  chart_type: ChartType;
+}
+
+interface InfographicPreset {
+  left_section_title: string;
+  center_section_title: string;
+  right_section_title: string;
+  right_bullets_title: string;
+  chart_type: ChartType;
+  custom_motifs: string;
+  center_tile_defaults: Array<{ title: string; icon_hint: string }>;
+}
+
+const INFOGRAPHIC_BRAND = {
+  company: 'Glyphor, Inc.',
+  primary_color: '#00E0FF',
+  secondary_color: '#00A3FF',
+  accent_color: '#6E77DF',
+  tertiary_color: '#1171ED',
+  background_base: '#0A0E17',
+  background_surface: '#111827',
+  text_primary: '#E5E7EB',
+  text_secondary: '#9CA3AF',
+  text_muted: '#6B7280',
+  footer: '© Glyphor, Inc. All rights reserved. | Powered by Glyphor Intelligence',
+} as const;
+
+const INFOGRAPHIC_PRESETS: Record<InfographicReportType, InfographicPreset> = {
+  competitive_landscape: {
+    left_section_title: 'Market Snapshot',
+    center_section_title: 'Competitive Dynamics',
+    right_section_title: 'Strategic Outlook',
+    right_bullets_title: 'Strategic Recommendations',
+    chart_type: 'bar',
+    custom_motifs: 'radar sweeps, competitive grid overlays',
+    center_tile_defaults: [
+      { title: 'Market Leaders', icon_hint: 'crown or podium icon' },
+      { title: 'Emerging Threats', icon_hint: 'radar or rising arrow icon' },
+      { title: 'Whitespace Opportunities', icon_hint: 'target or gap-in-grid icon' },
+    ],
+  },
+  market_analysis: {
+    left_section_title: 'Market Size & Growth',
+    center_section_title: 'Key Market Dynamics',
+    right_section_title: 'Forecast & Implications',
+    right_bullets_title: 'Market Implications',
+    chart_type: 'area',
+    custom_motifs: 'trend lines, growth curves',
+    center_tile_defaults: [
+      { title: 'Demand Drivers', icon_hint: 'upward trend or fuel icon' },
+      { title: 'Supply Landscape', icon_hint: 'factory or network icon' },
+      { title: 'Regulatory & Risk', icon_hint: 'shield or balance scale icon' },
+    ],
+  },
+  company_deep_dive: {
+    left_section_title: 'Financial Highlights',
+    center_section_title: 'Strategic Portfolio',
+    right_section_title: 'Outlook & Positioning',
+    right_bullets_title: 'Key Takeaways',
+    chart_type: 'bar',
+    custom_motifs: 'organizational charts, building blocks',
+    center_tile_defaults: [
+      { title: 'Core Business', icon_hint: 'building or foundation icon' },
+      { title: 'Growth Bets', icon_hint: 'rocket or expansion icon' },
+      { title: 'Risk Factors', icon_hint: 'warning triangle or fault-line icon' },
+    ],
+  },
+  strategy_brief: {
+    left_section_title: 'Situation Assessment',
+    center_section_title: 'Strategic Options',
+    right_section_title: 'Recommended Path',
+    right_bullets_title: 'Next Steps',
+    chart_type: 'radar',
+    custom_motifs: 'chess pieces, decision trees',
+    center_tile_defaults: [
+      { title: 'Option A', icon_hint: 'path-fork or door icon' },
+      { title: 'Option B', icon_hint: 'alternate path or pivot icon' },
+      { title: 'Option C', icon_hint: 'third route or bridge icon' },
+    ],
+  },
+};
+
+function toWords(text: string): string[] {
+  return text.trim().split(/\s+/).filter(Boolean);
+}
+
+function clampWords(text: string, maxWords: number): string {
+  const words = toWords(text);
+  if (words.length <= maxWords) return text.trim();
+  return `${words.slice(0, maxWords).join(' ')}...`;
+}
+
+function normalizePhrase(value: string | undefined, fallback = 'N/A'): string {
+  const text = (value || '').replace(/\s+/g, ' ').trim();
+  return text.length > 0 ? text : fallback;
+}
+
+function ensureCount<T>(items: T[], count: number, filler: T): T[] {
+  const next = [...items];
+  while (next.length < count) next.push(filler);
+  return next.slice(0, count);
+}
+
+function formatTypeLabel(raw: string): string {
+  return raw.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function hasComparableRatingScale(items: InfographicChartItem[]): boolean {
+  const allowed = new Set(['LOW', 'MODERATE', 'HIGH', 'CRITICAL']);
+  return items.every((item) => allowed.has(item.rating));
+}
+
+function startsWithActionVerb(value: string): boolean {
+  const first = value.trim().split(/\s+/)[0]?.toLowerCase() || '';
+  const verbs = new Set([
+    'own', 'target', 'build', 'launch', 'optimize', 'prioritize', 'reduce', 'increase', 'expand', 'focus',
+    'define', 'secure', 'improve', 'accelerate', 'invest', 'execute', 'deploy', 'lead', 'strengthen', 'establish',
+  ]);
+  return verbs.has(first);
+}
+
+function validateInfographicVariables(vars: StrategyInfographicVariables): string[] {
+  const issues: string[] = [];
+
+  if (vars.report_title.length > 80) issues.push('Title exceeds 80 characters.');
+  if (vars.report_subtitle.length > 120) issues.push('Subtitle exceeds 120 characters.');
+
+  if (!/\d/.test(vars.left_primary_metric)) {
+    issues.push('Primary metric must include a number.');
+  }
+  if (toWords(vars.left_primary_metric).length < 4) {
+    issues.push('Primary metric must include context, not just a short value token.');
+  }
+
+  if (vars.center_tiles.length !== 3) {
+    issues.push('Center section must have exactly 3 tiles.');
+  }
+  vars.center_tiles.forEach((tile, idx) => {
+    if (tile.callouts.length !== 3) {
+      issues.push(`Center tile ${idx + 1} must have exactly 3 callouts.`);
+    }
+    tile.callouts.forEach((callout, calloutIdx) => {
+      if (toWords(callout).length > 15) {
+        issues.push(`Center tile ${idx + 1} callout ${calloutIdx + 1} exceeds 15 words.`);
+      }
+    });
+  });
+
+  if (!hasComparableRatingScale(vars.right_chart_items)) {
+    issues.push('Chart items must use comparable rating scale values (LOW|MODERATE|HIGH|CRITICAL).');
+  }
+
+  vars.right_bullets.forEach((bullet, idx) => {
+    if (!startsWithActionVerb(bullet)) {
+      issues.push(`Right-section bullet ${idx + 1} is not action-oriented.`);
+    }
+  });
+
+  const placeholderPattern = /\b(?:N\/A|placeholder|tbd|todo)\b/i;
+  const fieldsToCheck = [
+    vars.report_title,
+    vars.report_subtitle,
+    vars.subject_company,
+    vars.left_primary_metric,
+    vars.left_primary_detail,
+    vars.right_context_box,
+    ...vars.left_secondary_metrics,
+    ...vars.right_bullets,
+    ...vars.right_chart_items.map((x) => `${x.label} ${x.rating}`),
+    ...vars.center_tiles.flatMap((t) => [t.title, t.caption, ...t.callouts]),
+  ];
+  if (fieldsToCheck.some((value) => placeholderPattern.test(value))) {
+    issues.push('Template contains placeholder text (N/A / TBD / TODO / placeholder).');
+  }
+
+  if (/glyphor/i.test(vars.subject_company)) {
+    issues.push('subject_company must be analyzed entity/market, not Glyphor.');
+  }
+  if (!/^#[0-9A-Fa-f]{6}$/.test(vars.subject_color)) {
+    issues.push('subject_color must be a valid hex color (e.g. #00E0FF).');
+  }
+
+  if (INFOGRAPHIC_BRAND.footer.trim().length === 0) {
+    issues.push('Footer text is missing.');
+  }
+
+  return issues;
+}
+
+function inferInfographicReportType(record: StrategyAnalysisRecord): InfographicReportType {
+  switch (record.analysis_type) {
+    case 'competitive_landscape':
+      return 'competitive_landscape';
+    case 'market_opportunity':
+      return 'market_analysis';
+    case 'due_diligence':
+      return 'company_deep_dive';
+    case 'product_strategy':
+    case 'growth_diagnostic':
+    case 'risk_assessment':
+    case 'market_entry':
+    default:
+      return 'strategy_brief';
+  }
+}
+
+function inferSubjectCompany(query: string): string {
+  const quoted = query.match(/["'“”]([^"'“”]{2,80})["'“”]/);
+  if (quoted?.[1]) return quoted[1].trim();
+
+  const forMatch = query.match(/\bfor\s+([^,.!?]{2,80})/i);
+  if (forMatch?.[1]) return forMatch[1].trim();
+
+  const words = toWords(query);
+  if (words.length <= 6) return query.trim();
+  return 'Analyzed Market';
+}
+
+function deriveTemplateVariables(record: StrategyAnalysisRecord): StrategyInfographicVariables {
+  const synthesis = record.synthesis;
+  const reportType = inferInfographicReportType(record);
+  const preset = INFOGRAPHIC_PRESETS[reportType];
+  const typeLabel = formatTypeLabel(record.analysis_type);
+  const summary = normalizePhrase(synthesis?.executiveSummary, 'N/A');
+  const strengths = synthesis?.unifiedSwot?.strengths ?? [];
+  const weaknesses = synthesis?.unifiedSwot?.weaknesses ?? [];
+  const opportunities = synthesis?.unifiedSwot?.opportunities ?? [];
+  const threats = synthesis?.unifiedSwot?.threats ?? [];
+  const insights = synthesis?.crossFrameworkInsights ?? [];
+  const recommendations = synthesis?.strategicRecommendations ?? [];
+  const risks = synthesis?.keyRisks ?? [];
+  const questions = synthesis?.openQuestionsForFounders ?? [];
+
+  const leftSecondaryRaw = [
+    `${record.total_sources} sources triangulated across market evidence`,
+    `${record.total_searches} search runs completed during research`,
+    `Confidence: ${normalizePhrase(record.overall_confidence ?? undefined, 'medium').toUpperCase()}`,
+    `SWOT coverage: S${strengths.length}/W${weaknesses.length}/O${opportunities.length}/T${threats.length}`,
+  ];
+
+  const calloutSource = ensureCount(
+    [...insights.slice(0, 3), ...recommendations.map((r) => r.title), ...risks],
+    9,
+    'N/A',
+  );
+
+  const centerTiles: InfographicCenterTile[] = [0, 1, 2].map((idx) => {
+    const defaults = preset.center_tile_defaults[idx];
+    const callouts = calloutSource.slice(idx * 3, idx * 3 + 3).map((x) => clampWords(normalizePhrase(x), 15));
+    const caption = idx === 0
+      ? clampWords(normalizePhrase(insights[0], 'Market structure favors focused execution.'), 18)
+      : idx === 1
+        ? clampWords(normalizePhrase(risks[0], 'Execution risk rises without clear differentiation.'), 18)
+        : clampWords(normalizePhrase(recommendations[0]?.expectedOutcome, 'Category ownership remains open for first movers.'), 18);
+    return {
+      title: defaults.title,
+      icon_hint: defaults.icon_hint,
+      callouts,
+      caption,
+    };
+  });
+
+  const chartItems = ensureCount(
+    [...threats, ...risks].slice(0, 5).map((item) => ({
+      label: clampWords(normalizePhrase(item), 6),
+      rating: /critical|severe|existential/i.test(item)
+        ? 'CRITICAL'
+        : /high|major|intense/i.test(item)
+          ? 'HIGH'
+          : 'MODERATE',
+    })),
+    4,
+    { label: 'N/A', rating: 'MODERATE' },
+  );
+
+  const rightBullets = ensureCount(
+    recommendations.slice(0, 4).map((rec) => {
+      const verb = normalizePhrase(rec.title || rec.description, 'Act on strategic priority');
+      return clampWords(verb, 15);
+    }),
+    3,
+    'N/A',
+  );
+
+  const subjectCompany = inferSubjectCompany(record.query);
+
+  const reportTitle = clampWords(`${formatTypeLabel(record.analysis_type)} - ${subjectCompany}`, 14);
+  const reportSubtitle = clampWords(record.query, 18);
+
+  return {
+    report_title: truncate(reportTitle, 80),
+    report_subtitle: truncate(reportSubtitle, 120),
+    subject_company: subjectCompany,
+    subject_color: INFOGRAPHIC_BRAND.primary_color,
+    report_date: new Date(record.created_at).toLocaleDateString(),
+    report_type: reportType,
+
+    left_section_title: preset.left_section_title,
+    left_primary_metric: normalizePhrase(
+      recommendations[0]?.title
+        ? `Top Priority: ${recommendations[0].title}`
+        : `${typeLabel} Snapshot`,
+      'Top Priority: N/A',
+    ),
+    left_primary_detail: normalizePhrase(
+      recommendations[0]?.expectedOutcome || summary,
+      'N/A',
+    ),
+    left_secondary_metrics: leftSecondaryRaw.map((x) => clampWords(normalizePhrase(x), 15)).slice(0, 4),
+
+    center_section_title: preset.center_section_title,
+    center_tiles: centerTiles,
+
+    right_section_title: preset.right_section_title,
+    right_chart_title: 'Threat Level by Segment',
+    right_chart_items: chartItems,
+    right_context_box: clampWords(normalizePhrase(summary), 28),
+    right_bullets_title: preset.right_bullets_title,
+    right_bullets: rightBullets,
+
+    custom_motifs: preset.custom_motifs,
+    chart_type: preset.chart_type,
+  };
+}
+
 export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): string {
-  const s = record.synthesis;
-  if (!s) return '';
+  if (!record.synthesis) return '';
+  const vars = deriveTemplateVariables(record);
+  const validationIssues = validateInfographicVariables(vars);
+  if (validationIssues.length > 0) {
+    throw new Error(`Infographic template validation failed:\n- ${validationIssues.join('\n- ')}`);
+  }
 
-  const typeLabel = record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-
-  // Extract top findings for the infographic
-  const topStrengths = s.unifiedSwot.strengths.slice(0, 3).map(t => truncate(t, 60));
-  const topThreats = s.unifiedSwot.threats.slice(0, 2).map(t => truncate(t, 60));
-  const topRecs = s.strategicRecommendations.slice(0, 4);
-  const topInsights = s.crossFrameworkInsights.slice(0, 3).map(t => truncate(t, 70));
-  const topRisks = s.keyRisks.slice(0, 3).map(t => truncate(t, 60));
-  const summaryShort = truncate(s.executiveSummary, 200);
-
-  const recLines = topRecs.map((r, i) => {
-    const impactColor = r.impact === 'high' ? 'red (#FB7185)' : r.impact === 'medium' ? 'amber (#FBBF24)' : 'blue (#60A5FA)';
-    return `  ${i + 1}. "${truncate(r.title, 40)}" â€” ${impactColor} badge, owner: ${r.owner}`;
-  }).join('\n');
-
-  const sourceCount = record.total_sources;
-  const searchCount = record.total_searches;
-  const confidence = record.overall_confidence ?? 'medium';
+  const leftMetricLines = vars.left_secondary_metrics.map((metric) => `  • "${metric}"`).join('\n');
+  const rightChartLines = vars.right_chart_items.map((item) => `  • "${item.label}" — ${item.rating}`).join('\n');
+  const rightBulletLines = vars.right_bullets.map((bullet) => `  • "${bullet}"`).join('\n');
 
   return [
-    `Create a polished, executive-quality strategy infographic in 16:9 landscape format (1536x1024px).`,
-    `Style: modern flat design, dark charcoal (#0F1117) background, generous whitespace. Use bold typography, color-coded cards, and data callouts. This should read like a strategy consulting deliverable, not a generic chart.`,
-    ``,
-    `Color palette: cyan (#00E0FF), charcoal (#1A1A2E), emerald (#34D399), rose (#FB7185), amber (#FBBF24), soft gray (#F3F4F6) for backgrounds.`,
-    ``,
-    `LAYOUT:`,
-    ``,
-    `TOP BANNER (8%):`,
-    `Full-width dark charcoal banner. Bold white title: "${typeLabel.toUpperCase()}". Subtitle in gray: "${truncate(record.query, 80)}". Right-aligned: "${sourceCount} sources Â· ${searchCount} searches Â· ${confidence} confidence".`,
-    ``,
-    `SECTION 1 â€” Executive Summary (20%):`,
-    `A single wide card with a thin cyan left border. Inside, render this text in clean 14px charcoal type:`,
-    `"${summaryShort}"`,
-    ``,
-    `SECTION 2 â€” Key Findings (35%), split into 2 columns:`,
-    ``,
-    `LEFT â€” "Strategic Advantages" (emerald header bar):`,
-    `${topStrengths.map((s, i) => `  â€¢ ${s}`).join('\n')}`,
-    `Show each as a short line with an emerald dot. Clean and readable.`,
-    ``,
-    `RIGHT â€” "Critical Insights" (cyan header bar):`,
-    `${topInsights.map((s, i) => `  â€¢ ${s}`).join('\n')}`,
-    `Show each as a short line with a cyan dot.`,
-    ``,
-    `SECTION 3 â€” Recommendations & Risks (30%), split into 2 columns:`,
-    ``,
-    `LEFT â€” "Strategic Actions" with color-coded priority badges:`,
-    recLines,
-    `Each recommendation is a card row with the priority badge, title, and owner.`,
-    ``,
-    `RIGHT â€” "Key Risks & Threats" (rose header bar):`,
-    `${[...topThreats, ...topRisks].slice(0, 4).map(r => `  - ${r}`).join('\n')}`,
-    `Show each as a short line with a rose warning icon.`,
-    ``,
-    `BOTTOM FOOTER (7%):`,
-    `Thin gray strip. Left: "${record.depth} depth Â· ${record.analysis_type.replace(/_/g, ' ')}". Right: "Glyphor Strategy Lab"`,
-    ``,
-    `CRITICAL RULES:`,
-    `- This infographic MUST contain REAL findings from the analysis â€” not just counts.`,
-    `- Use short phrases (5-12 words each), not sentences or paragraphs.`,
-    `- Maximum 120 words on the entire infographic.`,
-    `- Professional consulting aesthetic: clean typography, color-coded sections, clear hierarchy.`,
-    `- All text must be legible â€” minimum 11px equivalent, sans-serif.`,
-    `- Do NOT include any "Powered by" branding.`,
+    `A professional executive infographic in 16:9 landscape format titled "${vars.report_title}".`,
+    '',
+    'BACKGROUND & ATMOSPHERE:',
+    `Dark premium background using ${INFOGRAPHIC_BRAND.background_base} as the base color with subtle ${INFOGRAPHIC_BRAND.background_surface} surface panels. Subtle visual motifs of hexagonal grid patterns, neural network nodes, and faint circuit traces, combined with ${vars.custom_motifs}, as background texture creating depth without distraction. The overall feel is high-end, architectural, and data-rich - like a Bloomberg terminal meets a McKinsey deck.`,
+    '',
+    'HEADER BAND:',
+    `Top-left: the ${vars.subject_company} logo in ${vars.subject_color}, rendered clearly and accurately. Top-right: a clean reserved rectangular space (approximately 160x48 pixels equivalent) with matching ${INFOGRAPHIC_BRAND.background_base} dark background, containing absolutely no text, icons, graphics, or decorative elements - this area must be completely empty and unobstructed. Between the logo and the reserved space, the title "${vars.report_title}" in large, bold, geometric sans-serif type in ${INFOGRAPHIC_BRAND.text_primary}. Below the title, a subtitle line: "${vars.report_subtitle}" in ${INFOGRAPHIC_BRAND.text_secondary}. A thin horizontal divider line in ${INFOGRAPHIC_BRAND.primary_color} separates the header from the body. A "${vars.report_date}" badge appears near the top-right area.`,
+    '',
+    'Below the header, the infographic divides into three main vertical columns:',
+    '',
+    `LEFT COLUMN - ${vars.left_section_title}:`,
+    `- A large numeric callout box with glassmorphic card styling (subtle frosted glass effect, thin 1px border in ${INFOGRAPHIC_BRAND.primary_color} at 15% opacity): "${vars.left_primary_metric}" in large bold ${INFOGRAPHIC_BRAND.primary_color} text, with "${vars.left_primary_detail}" as a secondary line beneath in ${INFOGRAPHIC_BRAND.text_secondary}.`,
+    '- Below, a secondary callout card with concise metric bullets:',
+    leftMetricLines,
+    `Use ${INFOGRAPHIC_BRAND.primary_color} for key figures. Small geometric icons (hexagons, nodes) accent each bullet.`,
+    '',
+    `CENTER COLUMN - ${vars.center_section_title}:`,
+    'Three large glassmorphic tiles arranged horizontally, each with an icon, title, and data callouts:',
+    '',
+    `Tile 1: "${vars.center_tiles[0].title}" with a ${vars.center_tiles[0].icon_hint}.`,
+    ...vars.center_tiles[0].callouts.map((c) => `  - "${c}"`),
+    `Caption: "${vars.center_tiles[0].caption}"`,
+    '',
+    `Tile 2: "${vars.center_tiles[1].title}" with a ${vars.center_tiles[1].icon_hint}.`,
+    ...vars.center_tiles[1].callouts.map((c) => `  - "${c}"`),
+    `Caption: "${vars.center_tiles[1].caption}"`,
+    '',
+    `Tile 3: "${vars.center_tiles[2].title}" with a ${vars.center_tiles[2].icon_hint}.`,
+    ...vars.center_tiles[2].callouts.map((c) => `  - "${c}"`),
+    `Caption: "${vars.center_tiles[2].caption}"`,
+    '',
+    `Each tile has a subtle rim-light glow in ${INFOGRAPHIC_BRAND.primary_color}. Tiles sit on the dark surface with generous spacing between them.`,
+    '',
+    `RIGHT COLUMN - ${vars.right_section_title}:`,
+    `- A mini ${vars.chart_type} chart titled "${vars.right_chart_title}" using gradient bars from ${INFOGRAPHIC_BRAND.primary_color} to ${INFOGRAPHIC_BRAND.secondary_color}:`,
+    rightChartLines,
+    `- Below the chart, a context box with frosted glass styling: "${vars.right_context_box}"`,
+    `- A bullet list titled "${vars.right_bullets_title}":`,
+    rightBulletLines,
+    '',
+    'VISUAL STYLE RULES:',
+    `- All cards use glassmorphic styling: frosted glass effect, subtle backdrop blur, thin borders in ${INFOGRAPHIC_BRAND.primary_color} at low opacity`,
+    '- Typography: geometric sans-serif, strong hierarchy with 3 clear type sizes',
+    `- Icons: thin-line geometric style, monochrome in ${INFOGRAPHIC_BRAND.primary_color} or ${INFOGRAPHIC_BRAND.text_secondary}`,
+    `- Charts: gradient fills from ${INFOGRAPHIC_BRAND.primary_color} to ${INFOGRAPHIC_BRAND.secondary_color}, no harsh borders`,
+    `- Dividers: thin 1px lines in ${INFOGRAPHIC_BRAND.primary_color} at 20% opacity`,
+    '- Generous spacing between sections - the infographic should breathe',
+    '- Every element communicates data, no decorative clutter',
+    '',
+    'FOOTER:',
+    `Full-width footer bar in ${INFOGRAPHIC_BRAND.background_surface} with ${INFOGRAPHIC_BRAND.text_muted} text centered: "${INFOGRAPHIC_BRAND.footer}"`,
+    'Clean, executive-ready, suitable for board presentations, investor decks, and strategy briefings.',
   ].join('\n');
 }
 
 /** Truncate a string to maxLen chars, adding "â€¦" if needed */
 function truncate(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text;
-  return text.slice(0, maxLen - 1) + 'â€¦';
+  return text.slice(0, maxLen - 3) + '...';
 }

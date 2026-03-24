@@ -65,6 +65,7 @@ interface ActionCenterItem {
   recommendation: string;
   timestamp?: string;
   reviewTo: string;
+  reviewLabel?: string;
   approveDecisionId?: string;
   resolveIncidentId?: string;
 }
@@ -297,6 +298,7 @@ export default function Dashboard() {
         recommendation: detail.recommendation,
         timestamp: incident.created_at,
         reviewTo: `/operations?tab=overview&focus=incident&id=${encodeURIComponent(incident.id)}`,
+        reviewLabel: 'Investigate',
         resolveIncidentId: incident.id,
       };
     });
@@ -310,6 +312,7 @@ export default function Dashboard() {
       recommendation: previewText(decision.reasoning, 'Review the attached recommendation, then approve, reject, or redirect it.'),
       timestamp: decision.created_at,
       reviewTo: `/approvals?decision=${encodeURIComponent(decision.id)}`,
+      reviewLabel: 'Review decision',
       approveDecisionId: decision.id,
     }));
 
@@ -322,6 +325,7 @@ export default function Dashboard() {
           context: 'Your agents do not have founder-defined work to execute right now.',
           recommendation: 'Create one or two directives for this week so Sarah can decompose them into assignments and deliverables.',
           reviewTo: '/directives',
+          reviewLabel: 'Create directive',
         }]
       : [];
 
@@ -334,6 +338,7 @@ export default function Dashboard() {
           context: `The latest company vitals were updated ${pulse?.updated_at ? timeAgo(pulse.updated_at) : 'a while ago'}, which means your briefing surface is drifting out of date.`,
           recommendation: "Confirm Sarah\u2019s scheduled briefing run is landing, then check channel delivery and company vitals writes.",
           reviewTo: '/operations?tab=overview&focus=briefing',
+          reviewLabel: 'Fix briefing',
         }]
       : [];
 
@@ -431,7 +436,7 @@ export default function Dashboard() {
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <GradientButton as={Link} to={item.reviewTo} variant="primary">
-                      Review
+                      {item.reviewLabel ?? 'Review'}
                     </GradientButton>
                     {item.approveDecisionId ? (
                       <>

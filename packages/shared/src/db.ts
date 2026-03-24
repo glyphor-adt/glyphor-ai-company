@@ -176,6 +176,13 @@ function buildAuthFailureGuidance(): string {
   return hints.join(' ');
 }
 
+const DEFAULT_SYSTEM_TENANT_ID =
+  firstDefined(
+    process.env.SYSTEM_TENANT_ID,
+    process.env.DEFAULT_TENANT_ID,
+    process.env.GLYPHOR_TENANT_ID,
+  ) ?? '00000000-0000-0000-0000-000000000000';
+
 const pool = new Pool(buildPoolConfig());
 
 async function connectClient(): Promise<PoolClient> {
@@ -214,6 +221,9 @@ export async function systemQuery<T = any>(
 ): Promise<T[]> {
   const client = await connectClient();
   try {
+    // Keep system queries in a deterministic tenant context so pooled clients
+    // do not inherit stale app.current_tenant values from prior tenant-scoped calls.
+    await client.query('SET app.current_tenant = $1', [DEFAULT_SYSTEM_TENANT_ID]).catch(() => {});
     await client.query('SET ROLE glyphor_system').catch(() => {});
     const result = await client.query(sql, params);
     return result.rows as T[];
@@ -248,6 +258,8 @@ export async function systemTransaction<T>(
   const client = await connectClient();
   let roleWasEscalated = false;
   try {
+    await client.query('SET app.current_tenant = $1', [DEFAULT_SYSTEM_TENANT_ID]).catch(() => {});
+
     // Avoid poisoning the transaction state when runtime DB users cannot SET ROLE.
     try {
       await client.query('SET ROLE glyphor_system');

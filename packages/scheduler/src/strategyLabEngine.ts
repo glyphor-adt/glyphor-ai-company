@@ -1574,41 +1574,131 @@ Return ONLY valid JSON with this exact shape:
   }
 
   private parseDeepResearchSynthesis(rawText: string): SynthesisOutput {
-    const match = rawText.match(/\{[\s\S]*\}/);
-    if (!match) {
-      return {
-        executiveSummary: rawText,
-        unifiedSwot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
-        crossFrameworkInsights: [],
-        strategicRecommendations: [],
-        keyRisks: [],
-        openQuestionsForFounders: [],
-        sourceIndex: [],
-      };
+    const empty: SynthesisOutput = {
+      executiveSummary: rawText,
+      unifiedSwot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
+      crossFrameworkInsights: [],
+      strategicRecommendations: [],
+      keyRisks: [],
+      openQuestionsForFounders: [],
+      sourceIndex: [],
+    };
+
+    const candidates: string[] = [];
+    const trimmed = rawText.trim();
+    if (trimmed) candidates.push(trimmed);
+
+    // Prefer explicit JSON code fences when present.
+    const fenced = rawText.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const fencedPayload = fenced?.[1]?.trim();
+    if (fencedPayload) candidates.push(fencedPayload);
+
+    // Fallback to best-effort balanced JSON object extraction.
+    const balanced = this.extractBalancedJsonObject(rawText);
+    if (balanced) candidates.push(balanced);
+
+    for (const candidate of candidates) {
+      try {
+        const parsed = JSON.parse(candidate) as Partial<SynthesisOutput>;
+        return this.coerceDeepResearchSynthesis(parsed, rawText);
+      } catch {
+        // Keep trying additional extraction candidates.
+      }
     }
 
-    try {
-      const parsed = JSON.parse(match[0]) as Partial<SynthesisOutput>;
-      return {
-        executiveSummary: parsed.executiveSummary || rawText,
-        unifiedSwot: parsed.unifiedSwot || { strengths: [], weaknesses: [], opportunities: [], threats: [] },
-        crossFrameworkInsights: parsed.crossFrameworkInsights || [],
-        strategicRecommendations: parsed.strategicRecommendations || [],
-        keyRisks: parsed.keyRisks || [],
-        openQuestionsForFounders: parsed.openQuestionsForFounders || [],
-        sourceIndex: [],
-      };
-    } catch {
-      return {
-        executiveSummary: rawText,
-        unifiedSwot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
-        crossFrameworkInsights: [],
-        strategicRecommendations: [],
-        keyRisks: [],
-        openQuestionsForFounders: [],
-        sourceIndex: [],
-      };
+    return empty;
+  }
+
+  private extractBalancedJsonObject(text: string): string | null {
+    const start = text.indexOf('{');
+    if (start < 0) return null;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (ch === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (ch === '"') {
+        inString = true;
+        continue;
+      }
+      if (ch === '{') {
+        depth++;
+        continue;
+      }
+      if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          return text.slice(start, i + 1);
+        }
+      }
     }
+
+    return null;
+  }
+
+  private coerceDeepResearchSynthesis(parsed: Partial<SynthesisOutput>, rawText: string): SynthesisOutput {
+    const toStringArray = (value: unknown): string[] =>
+      Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string').map((v) => v.trim()).filter(Boolean) : [];
+
+    const toPriority = (value: unknown): 'high' | 'medium' | 'low' =>
+      value === 'high' || value === 'medium' || value === 'low' ? value : 'medium';
+
+    const swotRaw = parsed.unifiedSwot as Record<string, unknown> | undefined;
+    const swot = {
+      strengths: toStringArray(swotRaw?.strengths),
+      weaknesses: toStringArray(swotRaw?.weaknesses),
+      opportunities: toStringArray(swotRaw?.opportunities),
+      threats: toStringArray(swotRaw?.threats),
+    };
+
+    const recommendationInput = Array.isArray(parsed.strategicRecommendations)
+      ? (parsed.strategicRecommendations as unknown[])
+      : [];
+
+    const recommendations = recommendationInput.length > 0
+      ? recommendationInput
+          .filter((rec): rec is Record<string, unknown> => typeof rec === 'object' && rec !== null)
+          .map((rec) => ({
+            title: typeof rec.title === 'string' ? rec.title : '',
+            description: typeof rec.description === 'string' ? rec.description : '',
+            impact: toPriority(rec.impact),
+            feasibility: toPriority(rec.feasibility),
+            owner: typeof rec.owner === 'string' ? rec.owner : '',
+            expectedOutcome: typeof rec.expectedOutcome === 'string' ? rec.expectedOutcome : '',
+            riskIfNot: typeof rec.riskIfNot === 'string' ? rec.riskIfNot : '',
+          }))
+          .filter((rec) => rec.title || rec.description)
+      : [];
+
+    return {
+      executiveSummary: typeof parsed.executiveSummary === 'string' && parsed.executiveSummary.trim().length > 0
+        ? parsed.executiveSummary
+        : rawText,
+      unifiedSwot: swot,
+      crossFrameworkInsights: toStringArray(parsed.crossFrameworkInsights),
+      strategicRecommendations: recommendations,
+      keyRisks: toStringArray(parsed.keyRisks),
+      openQuestionsForFounders: toStringArray(parsed.openQuestionsForFounders),
+      sourceIndex: [],
+    };
   }
 
   private extractSourcesFromDeepResearchOutput(raw: unknown): StrategySource[] {
