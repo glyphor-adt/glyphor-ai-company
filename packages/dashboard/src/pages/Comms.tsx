@@ -551,7 +551,7 @@ export default function Comms() {
           />
         </div>
       </div>
-      <div className="flex-1 min-h-0 mt-3 overflow-y-auto">
+      <div className="scrollbar-hide flex-1 min-h-0 mt-3 overflow-y-auto">
         {tab === 'feed' ? <InterAgentFeed />
           : tab === 'email' ? <EmailActivityFeed />
           : tab === 'assign' ? <QuickAssign />

@@ -73,7 +73,7 @@ export function MovingBorderContainer({
             proximity={64}
             inactiveZone={0.01}
             movementDuration={2}
-            variant="default"
+            variant="cyan"
           />
         ) : (
           <GlowingEffect disabled glow={false} />

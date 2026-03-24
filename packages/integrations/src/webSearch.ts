@@ -134,7 +134,7 @@ function shouldRetryWithoutFlex(status: number, body: string): boolean {
 }
 
 /**
- * Build the Responses API endpoint — Azure when configured, else direct OpenAI.
+ * Build the Responses API endpoint — Azure OpenAI only.
  */
 function getResponsesEndpoint(): {
   url: string;
@@ -166,19 +166,6 @@ function getResponsesEndpoint(): {
     };
   }
 
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (apiKey) {
-    return {
-      url: OPENAI_RESPONSES_URL,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      isAzure: false,
-      model: SEARCH_MODEL,
-    };
-  }
-
   return null;
 }
 
@@ -195,7 +182,7 @@ async function openaiWebSearch(
 }> {
   const endpoint = getResponsesEndpoint();
   if (!endpoint) {
-    console.warn('[WebSearch] No OpenAI or Azure OpenAI configured — set AZURE_OPENAI_ENDPOINT+AZURE_OPENAI_API_KEY or OPENAI_API_KEY');
+    console.warn('[WebSearch] Azure OpenAI not configured — set AZURE_OPENAI_ENDPOINT+AZURE_OPENAI_API_KEY or AZURE_FOUNDRY_ENDPOINT+AZURE_FOUNDRY_API');
     return { text: '', annotations: [], rawResponse: null };
   }
 

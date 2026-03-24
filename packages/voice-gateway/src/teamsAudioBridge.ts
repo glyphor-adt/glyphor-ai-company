@@ -75,27 +75,21 @@ export class TeamsAudioBridge {
     if (this.closed) throw new Error('Bridge is closed');
 
     return new Promise<void>((resolve, reject) => {
-      // Use Azure OpenAI Realtime when configured, otherwise direct OpenAI
+      // OpenAI provider policy: Azure OpenAI Realtime only
       const azureEndpoint = process.env.AZURE_FOUNDRY_ENDPOINT?.trim() || undefined;
       const azureApiKey = process.env.AZURE_FOUNDRY_API?.trim() || undefined;
-      let url: string;
-      let headers: Record<string, string>;
-
-      if (azureEndpoint && azureApiKey) {
-        // Azure OpenAI Realtime — wss://{resource}.openai.azure.com/openai/realtime?api-version=...&deployment=...
-        const azureHost = azureEndpoint.replace(/^https?:\/\//, '');
-        url = `wss://${azureHost}/openai/realtime?api-version=2025-04-01-preview&deployment=${encodeURIComponent(REALTIME_MODEL)}`;
-        headers = {
-          'api-key': azureApiKey,
-          'OpenAI-Beta': 'realtime=v1',
-        };
-      } else {
-        url = `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(REALTIME_MODEL)}`;
-        headers = {
-          Authorization: `Bearer ${this.openaiApiKey}`,
-          'OpenAI-Beta': 'realtime=v1',
-        };
+      if (!(azureEndpoint && azureApiKey)) {
+        reject(new Error('Teams audio bridge requires Azure OpenAI Realtime: set AZURE_FOUNDRY_ENDPOINT and AZURE_FOUNDRY_API'));
+        return;
       }
+
+      // Azure OpenAI Realtime — wss://{resource}.openai.azure.com/openai/realtime?api-version=...&deployment=...
+      const azureHost = azureEndpoint.replace(/^https?:\/\//, '');
+      const url = `wss://${azureHost}/openai/realtime?api-version=2025-04-01-preview&deployment=${encodeURIComponent(REALTIME_MODEL)}`;
+      const headers: Record<string, string> = {
+        'api-key': azureApiKey,
+        'OpenAI-Beta': 'realtime=v1',
+      };
 
       const ws = new WebSocket(url, { headers });
 

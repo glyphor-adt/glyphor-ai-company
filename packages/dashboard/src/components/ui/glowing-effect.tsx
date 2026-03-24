@@ -1,5 +1,4 @@
 import { memo, useCallback, useEffect, useRef, type CSSProperties } from 'react';
-import { animate } from 'motion/react';
 import { cn } from '../../lib/utils';
 
 /** Prism / dashboard cyan accent — repeating conic for the border sweep */
@@ -81,23 +80,12 @@ const GlowingEffect = memo(
 
           if (!isActive) return;
 
-          const currentAngle = parseFloat(element.style.getPropertyValue('--start')) || 0;
-          const targetAngle =
-            (180 * Math.atan2(mouseY - center[1], mouseX - center[0])) / Math.PI + 90;
-
-          const angleDiff = ((targetAngle - currentAngle + 180) % 360) - 180;
-          const newAngle = currentAngle + angleDiff;
-
-          animate(currentAngle, newAngle, {
-            duration: movementDuration,
-            ease: [0.16, 1, 0.3, 1],
-            onUpdate: (value) => {
-              element.style.setProperty('--start', String(value));
-            },
-          });
+          // Cursor-follow coordinates relative to the element box.
+          element.style.setProperty('--x', `${mouseX - left}px`);
+          element.style.setProperty('--y', `${mouseY - top}px`);
         });
       },
-      [inactiveZone, proximity, movementDuration],
+      [inactiveZone, proximity],
     );
 
     useEffect(() => {
@@ -120,36 +108,47 @@ const GlowingEffect = memo(
       };
     }, [handleMove, disabled]);
 
-    const gradientCss =
+    const ringGradientCss =
       variant === 'white'
-        ? `repeating-conic-gradient(
-                  from 236.84deg at 50% 50%,
-                  var(--black),
-                  var(--black) calc(25% / var(--repeating-conic-gradient-times))
-                )`
+        ? `radial-gradient(
+            ${Math.max(120, spread * 6)}px circle at var(--x) var(--y),
+            rgba(255, 255, 255, 0.95) 0%,
+            rgba(255, 255, 255, 0.6) 28%,
+            rgba(255, 255, 255, 0.08) 50%,
+            rgba(255, 255, 255, 0) 72%
+          )`
         : variant === 'cyan'
-          ? CYAN_REPEATING_CONIC
-          : `radial-gradient(circle, #dd7bbb 10%, #dd7bbb00 20%),
-                radial-gradient(circle at 40% 40%, #d79f1e 5%, #d79f1e00 15%),
-                radial-gradient(circle at 60% 60%, #5a922c 10%, #5a922c00 20%), 
-                radial-gradient(circle at 40% 60%, #4c7894 10%, #4c789400 20%),
-                repeating-conic-gradient(
-                  from 236.84deg at 50% 50%,
-                  #dd7bbb 0%,
-                  #d79f1e calc(25% / var(--repeating-conic-gradient-times)),
-                  #5a922c calc(50% / var(--repeating-conic-gradient-times)), 
-                  #4c7894 calc(75% / var(--repeating-conic-gradient-times)),
-                  #dd7bbb calc(100% / var(--repeating-conic-gradient-times))
-                )`;
+          ? `radial-gradient(
+              ${Math.max(140, spread * 7)}px circle at var(--x) var(--y),
+              rgba(0, 224, 255, 0.95) 0%,
+              rgba(0, 176, 255, 0.72) 25%,
+              rgba(17, 113, 237, 0.32) 48%,
+              rgba(0, 224, 255, 0) 72%
+            )`
+          : `radial-gradient(
+              ${Math.max(120, spread * 6)}px circle at var(--x) var(--y),
+              rgba(221, 123, 187, 0.9) 0%,
+              rgba(215, 159, 30, 0.62) 25%,
+              rgba(90, 146, 44, 0.3) 48%,
+              rgba(76, 120, 148, 0) 72%
+            )`;
+
+    const blurGradientCss =
+      variant === 'white'
+        ? `radial-gradient(${Math.max(160, spread * 8)}px circle at var(--x) var(--y), rgba(255,255,255,0.22), rgba(255,255,255,0))`
+        : variant === 'cyan'
+          ? `radial-gradient(${Math.max(180, spread * 9)}px circle at var(--x) var(--y), rgba(0,224,255,0.32), rgba(0,224,255,0))`
+          : `radial-gradient(${Math.max(170, spread * 8)}px circle at var(--x) var(--y), rgba(221,123,187,0.26), rgba(221,123,187,0))`;
 
     const layerStyle = {
       '--blur': `${blur}px`,
       '--spread': spread,
-      '--start': '0',
+      '--x': '50%',
+      '--y': '50%',
       '--active': '0',
       '--glowingeffect-border-width': `${borderWidth}px`,
       '--repeating-conic-gradient-times': '5',
-      '--gradient': gradientCss,
+      '--gradient': ringGradientCss,
     } as CSSProperties;
 
     return (
@@ -169,16 +168,30 @@ const GlowingEffect = memo(
           className={cn(
             'pointer-events-none absolute inset-0 rounded-[inherit] opacity-100 transition-opacity',
             glow && 'opacity-100',
-            blur > 0 && 'blur-[var(--blur)]',
             className,
             disabled && '!hidden',
           )}
         >
           <div
             className={cn(
-              'glow rounded-[inherit]',
-              'after:absolute after:inset-[calc(-1*var(--glowingeffect-border-width))] after:rounded-[inherit] after:[border:var(--glowingeffect-border-width)_solid_transparent] after:[background:var(--gradient)] after:[background-attachment:fixed] after:opacity-[var(--active)] after:transition-opacity after:duration-300 after:[mask-clip:padding-box,border-box] after:[mask-composite:intersect] after:[mask-image:linear-gradient(#0000,#0000),conic-gradient(from_calc((var(--start)-var(--spread))*1deg),#00000000_0deg,#fff,#00000000_calc(var(--spread)*2deg))] after:content-["\"]',
+              'absolute inset-0 rounded-[inherit] p-[var(--glowingeffect-border-width)] opacity-[var(--active)] transition-opacity duration-200',
             )}
+            style={{
+              background: 'var(--gradient)',
+              WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+              WebkitMaskComposite: 'xor',
+              mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+              maskComposite: 'exclude',
+            }}
+          />
+          <div
+            className={cn(
+              'absolute inset-0 rounded-[inherit] opacity-[calc(var(--active)*0.85)] transition-opacity duration-200',
+              blur > 0 && 'blur-[var(--blur)]',
+            )}
+            style={{
+              background: blurGradientCss,
+            }}
           />
         </div>
       </>

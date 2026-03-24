@@ -18,6 +18,7 @@ import { OpenAIAdapter } from './openai.js';
 
 export interface ProviderFactoryConfig {
   geminiApiKey?: string;
+  /** Deprecated: direct OpenAI API key is intentionally ignored by policy. */
   openaiApiKey?: string;
   /** Azure Foundry endpoint, e.g. https://my-resource.openai.azure.com */
   azureFoundryEndpoint?: string;
@@ -55,8 +56,7 @@ export class ProviderFactory {
         return new GeminiAdapter({ apiKey: directGeminiKey });
       }
       case 'openai': {
-        const openaiApiKey = (this.config.openaiApiKey ?? process.env.OPENAI_API_KEY)?.trim();
-        // Azure OpenAI / Foundry — from config or same env vars as webSearch / voice-gateway
+        // Azure OpenAI / Foundry only — direct OpenAI is disabled by policy.
         const azureEndpoint =
           this.config.azureFoundryEndpoint?.trim() ||
           process.env.AZURE_FOUNDRY_ENDPOINT?.trim() ||
@@ -72,14 +72,12 @@ export class ProviderFactory {
           process.env.AZURE_FOUNDRY_API_VERSION?.trim() ||
           process.env.AZURE_OPENAI_API_VERSION?.trim() ||
           undefined;
-        const hasAzure = !!(azureEndpoint && azureApiKey);
-        if (!hasAzure && !openaiApiKey) {
+        if (!(azureEndpoint && azureApiKey)) {
           throw new Error(
-            'OpenAI not configured — set OPENAI_API_KEY for direct, or AZURE_FOUNDRY_ENDPOINT+AZURE_FOUNDRY_API (or AZURE_OPENAI_*) for Azure',
+            'OpenAI provider is Azure-only — set AZURE_FOUNDRY_ENDPOINT+AZURE_FOUNDRY_API (or AZURE_OPENAI_*)',
           );
         }
         return new OpenAIAdapter({
-          apiKey: openaiApiKey,
           azureEndpoint,
           azureApiKey,
           azureApiVersion,

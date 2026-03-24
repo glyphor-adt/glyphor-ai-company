@@ -33,12 +33,13 @@ import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 const PORT = parseInt(process.env.PORT || '8090', 10);
 
 // ─── OpenAI ─────────────────────────────────────────────────────
-// Use Azure OpenAI when configured, otherwise direct OpenAI
+// OpenAI provider policy: Azure OpenAI only
 const azureEndpoint = process.env.AZURE_FOUNDRY_ENDPOINT?.trim() || undefined;
 const azureApiKey = process.env.AZURE_FOUNDRY_API?.trim() || undefined;
-const openai: OpenAI = (azureEndpoint && azureApiKey)
-  ? new AzureOpenAI({ endpoint: azureEndpoint, apiKey: azureApiKey, apiVersion: '2025-04-01-preview' })
-  : new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+if (!(azureEndpoint && azureApiKey)) {
+  throw new Error('Voice Gateway requires Azure OpenAI: set AZURE_FOUNDRY_ENDPOINT and AZURE_FOUNDRY_API');
+}
+const openai: OpenAI = new AzureOpenAI({ endpoint: azureEndpoint, apiKey: azureApiKey, apiVersion: '2025-04-01-preview' });
 
 // ─── Session Manager ────────────────────────────────────────────
 const sessions = new SessionManager();
