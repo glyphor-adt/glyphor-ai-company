@@ -3,6 +3,12 @@ import { useAgents } from '../lib/hooks';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP, AGENT_META, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../lib/types';
 import { Card, AgentAvatar, GradientButton } from '../components/ui';
+import {
+  ChatComposerFrame,
+  composerFooterRowClassName,
+  composerIconButtonClassName,
+  composerTextareaClassName,
+} from '../components/ChatComposer';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdSearch, MdExpandMore, MdChevronRight } from 'react-icons/md';
@@ -966,28 +972,20 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
             </div>
           )}
 
-          <div className="flex gap-2 items-end">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex-shrink-0 rounded-lg border border-border bg-raised px-2.5 py-2.5 text-txt-muted hover:text-cyan transition-colors"
-              title="Attach file"
-            >
-              <MdAttachFile className="text-[16px]" />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              accept={`${ALLOWED_TYPES.join(',')},${ACCEPT_EXTENSIONS}`}
-              onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.target.value = ''; }}
-            />
-            {saveFailed && (
-              <div className="absolute -top-8 left-0 right-0 text-center text-[11px] text-prism-critical animate-pulse">
-                Message failed to save — your history may be incomplete
-              </div>
-            )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            accept={`${ALLOWED_TYPES.join(',')},${ACCEPT_EXTENSIONS}`}
+            onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.target.value = ''; }}
+          />
+          {saveFailed && (
+            <div className="absolute -top-8 left-0 right-0 text-center text-[11px] text-prism-critical animate-pulse">
+              Message failed to save — your history may be incomplete
+            </div>
+          )}
+          <ChatComposerFrame>
             <textarea
               ref={inputRef}
               value={input}
@@ -1000,27 +998,41 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                   : `Message ${totalMembers} member${totalMembers !== 1 ? 's' : ''}... (@ to mention, Shift+Enter for new line)`
               }
               disabled={sending || selectedRoles.size === 0}
-              rows={1}
-              className="flex-1 rounded-lg border border-border bg-raised px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none transition-colors focus:border-cyan/40 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
-              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px`; }}
+              rows={2}
+              className={composerTextareaClassName}
+              onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; }}
             />
-            <GradientButton
-              onClick={sendMessage}
-              disabled={sending || (!input.trim() && pendingFiles.length === 0) || selectedRoles.size === 0}
-            >
-              Send
-            </GradientButton>
-            {messages.length > 0 && (
-              <GradientButton
-                variant="neutral"
-                onClick={continueDiscussion}
-                disabled={sending || selectedRoles.size === 0}
-                title="Let agents continue discussing with each other"
+            <div className={composerFooterRowClassName}>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={composerIconButtonClassName}
+                title="Attach file"
               >
-                Continue&nbsp;↻
-              </GradientButton>
-            )}
-          </div>
+                <MdAttachFile className="text-[15px]" />
+              </button>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <GradientButton
+                  size="sm"
+                  onClick={sendMessage}
+                  disabled={sending || (!input.trim() && pendingFiles.length === 0) || selectedRoles.size === 0}
+                >
+                  Send
+                </GradientButton>
+                {messages.length > 0 && (
+                  <GradientButton
+                    variant="neutral"
+                    size="sm"
+                    onClick={continueDiscussion}
+                    disabled={sending || selectedRoles.size === 0}
+                    title="Let agents continue discussing with each other"
+                  >
+                    Continue&nbsp;↻
+                  </GradientButton>
+                )}
+              </div>
+            </div>
+          </ChatComposerFrame>
         </div>
       </Card>
     </div>

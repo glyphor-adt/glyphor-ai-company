@@ -38,7 +38,7 @@ export const PROVIDER_LABELS: Record<ModelProvider, string> = {
 export const MODELS: ModelOption[] = [
   // ── Google Gemini ──
   { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',         provider: 'gemini', inputPer1M: 2.00, outputPer1M: 12.0 },
-  { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', inputPer1M: 0.25, outputPer1M: 1.50, default: true },
+  { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', inputPer1M: 0.25, outputPer1M: 1.50 },
   { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash',         provider: 'gemini', inputPer1M: 0.50, outputPer1M: 3.00 },
   { value: 'gemini-2.5-flash',   label: 'Gemini 2.5 Flash',    provider: 'gemini', inputPer1M: 0.30, outputPer1M: 2.50 },
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', provider: 'gemini', inputPer1M: 0.10, outputPer1M: 0.40 },
@@ -46,7 +46,7 @@ export const MODELS: ModelOption[] = [
   // ── OpenAI ──
   { value: 'gpt-5.4',     label: 'GPT-5.4',       provider: 'openai', inputPer1M: 2.50, outputPer1M: 15.0 },
   { value: 'gpt-5.4-pro', label: 'GPT-5.4 Pro',   provider: 'openai', inputPer1M: 30.0, outputPer1M: 180.0 },
-  { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini',  provider: 'openai', inputPer1M: 0.75, outputPer1M: 4.50 },
+  { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini',  provider: 'openai', inputPer1M: 0.75, outputPer1M: 4.50, default: true },
   { value: 'gpt-5.4-nano', label: 'GPT-5.4 Nano',  provider: 'openai', inputPer1M: 0.20, outputPer1M: 1.25 },
   { value: 'gpt-5.2',     label: 'GPT-5.2',       provider: 'openai', inputPer1M: 1.75, outputPer1M: 14.0 },
   { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro',   provider: 'openai', inputPer1M: 21.0, outputPer1M: 168.0 },
@@ -69,7 +69,7 @@ export const MODELS: ModelOption[] = [
 
 ];
 
-export const DEFAULT_MODEL = MODELS.find(m => m.default)?.value ?? 'gemini-3.1-flash-lite-preview';
+export const DEFAULT_MODEL = MODELS.find(m => m.default)?.value ?? 'gpt-5.4-mini';
 
 /** Group models by provider for optgroup rendering */
 export function getModelsByProvider(): Record<ModelProvider, ModelOption[]> {
@@ -113,7 +113,7 @@ export function normalizeReasoningLevel(modelValue: string, requested?: Reasonin
 }
 
 /** Verification models available for reasoning engine config */
-export const VERIFICATION_MODELS = ['gemini-3.1-flash-lite-preview', 'gpt-5-mini', 'claude-sonnet-4-6'] as const;
+export const VERIFICATION_MODELS = ['gpt-5.4-mini', 'gpt-5-mini', 'claude-sonnet-4-6'] as const;
 
 /** Check if a model value is recognized. Unrecognized = likely deprecated. */
 export function isKnownModel(value: string): boolean {

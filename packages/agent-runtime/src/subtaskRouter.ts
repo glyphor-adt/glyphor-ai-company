@@ -34,7 +34,7 @@ export interface SubtaskRoutingDecision {
   reason: string;
 }
 
-const DEFAULT_MODEL = 'gemini-3.1-flash-lite-preview';
+const DEFAULT_MODEL = 'gpt-5.4-mini';
 const COMPLEXITY_RANK: Record<SubtaskComplexity, number> = {
   trivial: 0,
   standard: 1,
@@ -181,7 +181,7 @@ export async function selectSubtaskModel(
   ) {
     decision = {
       ...decision,
-      model: 'gemini-3.1-flash-lite-preview',
+      model: 'gpt-5.4',
       routingRule: 'frontier_subtask',
       reasoningEffort: 'high',
       enableCompaction: true,

@@ -4,7 +4,7 @@
  * Provides real web search capability for agent research threads.
  * Uses OpenAI's Responses API with web search to perform grounded searches.
  *
- * Supports both Azure OpenAI and direct OpenAI:
+ * Prefers Azure OpenAI when endpoint + key are set; otherwise direct OpenAI:
  *   Azure (preferred when configured):
  *     AZURE_OPENAI_ENDPOINT or AZURE_FOUNDRY_ENDPOINT — e.g. https://my-resource.openai.azure.com
  *     AZURE_OPENAI_API_KEY or AZURE_FOUNDRY_API — API key
@@ -134,8 +134,7 @@ function shouldRetryWithoutFlex(status: number, body: string): boolean {
 }
 
 /**
- * Build the Responses API endpoint — prefers Azure OpenAI when configured,
- * falls back to direct OpenAI.
+ * Build the Responses API endpoint — Azure when configured, else direct OpenAI.
  */
 function getResponsesEndpoint(): {
   url: string;

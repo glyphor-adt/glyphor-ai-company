@@ -4,10 +4,10 @@
  * Supports GPT-4o, o-series (o1/o3/o4), and GPT-5 family with
  * reasoning_effort control.
  *
- * Supports both direct OpenAI and Azure OpenAI:
+ * Supports direct OpenAI and Azure OpenAI:
  *   - Direct: pass { apiKey }
- *   - Azure:  pass { azureEndpoint, azureApiKey } — uses AzureOpenAI SDK
- *     which routes through your Azure subscription (pay-as-you-go billing).
+ *   - Azure:  pass { azureEndpoint, azureApiKey } — uses AzureOpenAI SDK only.
+ *     When Azure is configured, the direct API key is ignored (no fallback to api.openai.com).
  */
 
 import OpenAI, { AzureOpenAI } from 'openai';
@@ -19,7 +19,7 @@ import { shouldUseOpenAIToolSearch } from '../toolSearchConfig.js';
 
 /** Configuration for OpenAI adapter — either direct or Azure-backed. */
 export interface OpenAIAdapterConfig {
-  /** Direct OpenAI API key (api.openai.com). Used as fallback for features not on Azure. */
+  /** Direct OpenAI API key (api.openai.com). Ignored when `azureEndpoint` + `azureApiKey` are set. */
   apiKey?: string;
   /** Azure OpenAI endpoint, e.g. https://my-resource.openai.azure.com */
   azureEndpoint?: string;
@@ -71,10 +71,6 @@ function shouldRetryWithoutFlex(message: string): boolean {
     || (/service[_\s-]?tier/i.test(message) && /invalid|unsupported|unknown|not available/i.test(message));
 }
 
-function shouldUseDirectOpenAI(model: string): boolean {
-  return model.startsWith('gpt-5.4') || model.endsWith('-deep-research');
-}
-
 function supportsMinimalReasoning(model: string): boolean {
   // gpt-5.1 and gpt-5.2 snapshots currently require `none` (not `minimal`) for no-reasoning mode.
   if (/^gpt-5\.(1|2)(-|$)/.test(model)) return false;
@@ -100,9 +96,9 @@ export class OpenAIAdapter implements ProviderAdapter {
   private azureEndpoint?: string;
   /** Azure API version (only set when isAzure=true). */
   private azureApiVersion?: string;
-  /** Direct OpenAI API key — kept for fallback on features not available on Azure. */
+  /** Direct OpenAI API key — only when not using Azure (`isAzure` false). */
   private directApiKey?: string;
-  /** Direct OpenAI client — created lazily for fallback when Azure deployment doesn't exist. */
+  /** Direct OpenAI client — only when not using Azure. */
   private directClient?: OpenAI;
 
   constructor(config: OpenAIAdapterConfig | string) {
@@ -121,11 +117,11 @@ export class OpenAIAdapter implements ProviderAdapter {
     };
 
     if (config.azureEndpoint && config.azureApiKey) {
-      // ── Azure OpenAI ──
+      // ── Azure OpenAI only — do not retain direct API key; no fallback to api.openai.com
       this.isAzure = true;
       this.azureEndpoint = config.azureEndpoint;
       this.azureApiVersion = config.azureApiVersion ?? AZURE_API_VERSION;
-      this.directApiKey = config.apiKey; // keep for fallback
+      this.directApiKey = undefined;
       this.client = new AzureOpenAI({
         endpoint: config.azureEndpoint,
         apiKey: config.azureApiKey,
@@ -265,39 +261,15 @@ export class OpenAIAdapter implements ProviderAdapter {
     return this.mapResponse(response);
   }
 
-  /**
-   * Call chat.completions.create with fallback from Azure to direct OpenAI
-   * when the Azure deployment doesn't exist (models not yet deployed on Azure).
-   */
+  /** Chat completions — Azure client or direct OpenAI client (never cross-over). */
   private async callWithAzureFallback(
     params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
   ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
-    if (shouldUseDirectOpenAI(params.model) && this.directApiKey) {
-      if (!this.directClient) {
-        this.directClient = this.createDirectClient(this.directApiKey);
-      }
-      return this.callDirectWithTierFallback(this.directClient, params);
-    }
-
     if (!this.isAzure) {
       return this.callDirectWithTierFallback(this.client, params);
     }
 
-    try {
-      return await this.client.chat.completions.create(params) as OpenAI.Chat.Completions.ChatCompletion;
-    } catch (err) {
-      const msg = (err as Error).message ?? '';
-      const isDeploymentMissing = this.isAzure && this.directApiKey &&
-        (msg.includes('DeploymentNotFound') || msg.includes('deployment for this resource does not exist'));
-      if (!isDeploymentMissing) throw err;
-      console.warn(`[OpenAI] Azure deployment not found for ${params.model} — falling back to direct OpenAI`);
-      const directApiKey = this.directApiKey;
-      if (!directApiKey) throw err;
-      if (!this.directClient) {
-        this.directClient = this.createDirectClient(directApiKey);
-      }
-      return this.callDirectWithTierFallback(this.directClient, params);
-    }
+    return (await this.client.chat.completions.create(params)) as OpenAI.Chat.Completions.ChatCompletion;
   }
 
   private async callDirectWithTierFallback(
@@ -472,37 +444,14 @@ export class OpenAIAdapter implements ProviderAdapter {
     return this.mapResponsesApiResponse(response);
   }
 
-  /**
-   * Call responses.create with Azure → direct OpenAI fallback.
-   */
+  /** Responses API — Azure or direct only (no cross-provider fallback). */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async callResponsesWithFallback(params: any): Promise<any> {
-    if (shouldUseDirectOpenAI(params.model) && this.directApiKey) {
-      if (!this.directClient) {
-        this.directClient = this.createDirectClient(this.directApiKey);
-      }
-      return this.callResponsesWithTierFallback(this.directClient, params);
-    }
-
     if (!this.isAzure) {
       return this.callResponsesWithTierFallback(this.client, params);
     }
 
-    // Azure path — try Azure, fall back to direct OpenAI if not available
-    try {
-      return await (this.client as any).responses.create(params);
-    } catch (err) {
-      const msg = (err as Error).message ?? '';
-      const shouldFallback = this.directApiKey &&
-        (msg.includes('DeploymentNotFound') || msg.includes('deployment for this resource does not exist') ||
-         msg.includes('not supported') || msg.includes('not found'));
-      if (!shouldFallback) throw err;
-      console.warn(`[OpenAI] Azure Responses API not available for ${params.model} — falling back to direct OpenAI`);
-      if (!this.directClient) {
-        this.directClient = this.createDirectClient(this.directApiKey!);
-      }
-      return this.callResponsesWithTierFallback(this.directClient, params);
-    }
+    return await (this.client as any).responses.create(params);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -723,7 +672,7 @@ export class OpenAIAdapter implements ProviderAdapter {
   /**
    * Generate an image using OpenAI gpt-image-1 (text-rich infographics).
    * Uses direct fetch instead of the SDK to avoid connection issues in Cloud Run.
-   * Routes through Azure OpenAI when configured; falls back to direct OpenAI.
+   * Routes through Azure OpenAI when configured; otherwise direct OpenAI.
    */
   async generateImage(prompt: string, model = 'gpt-image-1'): Promise<ImageResponse> {
     const body = JSON.stringify({
@@ -763,40 +712,6 @@ export class OpenAIAdapter implements ProviderAdapter {
 
     if (!resp.ok) {
       const errText = await resp.text().catch(() => 'unknown');
-      const azureDeploymentMissing = this.isAzure
-        && this.directApiKey
-        && resp.status === 404
-        && /DeploymentNotFound|deployment for this resource does not exist/i.test(errText);
-      if (azureDeploymentMissing) {
-        console.warn(`[OpenAI] Azure image deployment not found for ${model} — falling back to direct OpenAI image API`);
-        const fallbackResp = await fetch('https://api.openai.com/v1/images/generations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.directApiKey}`,
-          },
-          body,
-        });
-        if (!fallbackResp.ok) {
-          const fallbackErrText = await fallbackResp.text().catch(() => 'unknown');
-          throw new Error(`OpenAI image generation failed (${fallbackResp.status}): ${fallbackErrText}`);
-        }
-        const fallbackJson = await fallbackResp.json() as { data?: Array<{ b64_json?: string; url?: string }> };
-        const fallbackB64 = fallbackJson.data?.[0]?.b64_json;
-        if (!fallbackB64) {
-          const fallbackUrl = fallbackJson.data?.[0]?.url;
-          if (fallbackUrl) {
-            const imgResp = await fetch(fallbackUrl);
-            const buf = Buffer.from(await imgResp.arrayBuffer());
-            return { imageData: buf.toString('base64'), mimeType: 'image/png' };
-          }
-          throw new Error('No image data returned from OpenAI image generation');
-        }
-        return {
-          imageData: fallbackB64,
-          mimeType: 'image/png',
-        };
-      }
       throw new Error(`OpenAI image generation failed (${resp.status}): ${errText}`);
     }
 

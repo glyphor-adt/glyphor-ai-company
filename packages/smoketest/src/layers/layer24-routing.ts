@@ -99,12 +99,12 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
-  // T24.5 - Code-generation capabilities route to gpt-5.4
+  // T24.5 - Code-generation capabilities route to gpt-5.4-mini (workhorse)
   tests.push(
-    await runTest('T24.5', 'Code Gen Uses GPT-5.4', async () => {
+    await runTest('T24.5', 'Code Gen Uses GPT-5.4 Mini', async () => {
       const rows = await query<{ correct: string | number; total: string | number }>(`
         SELECT
-          COUNT(*) FILTER (WHERE routing_model = 'gemini-3.1-flash-lite-preview') AS correct,
+          COUNT(*) FILTER (WHERE routing_model = 'gpt-5.4-mini') AS correct,
           COUNT(*) AS total
         FROM agent_runs
         WHERE 'code_generation' = ANY(routing_capabilities)
@@ -120,9 +120,9 @@ export async function run(_config: SmokeTestConfig): Promise<LayerResult> {
       }
 
       if (correctPct <= 80) {
-        return `⚠ ${correctPct.toFixed(1)}% of code_generation runs use gemini-3.1-flash-lite-preview (${correct}/${total}); expected > 80%`;
+        return `⚠ ${correctPct.toFixed(1)}% of code_generation runs use gpt-5.4-mini (${correct}/${total}); expected > 80%`;
       }
-      return `${correctPct.toFixed(1)}% of code_generation runs use gemini-3.1-flash-lite-preview (${correct}/${total})`;
+      return `${correctPct.toFixed(1)}% of code_generation runs use gpt-5.4-mini (${correct}/${total})`;
     }),
   );
 

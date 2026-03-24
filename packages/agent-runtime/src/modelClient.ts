@@ -59,7 +59,7 @@ function sanitizeToolsForProvider(
 
 export class ModelClient {
   private factory: ProviderFactory;
-  private static readonly DETERMINISTIC_FALLBACK_MODEL = 'gpt-5-mini-2025-08-07';
+  private static readonly DETERMINISTIC_FALLBACK_MODEL = 'gpt-5.4-mini';
 
   constructor(config: ModelClientConfig | string) {
     // Backwards-compatible: if a plain string is passed, treat as Gemini API key

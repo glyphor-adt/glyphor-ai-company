@@ -4,7 +4,16 @@ import { useAgents } from '../lib/hooks';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
 import { Card, AgentAvatar, GradientButton } from '../components/ui';
-import { MovingBorderContainer } from '../components/ui/MovingBorder';
+import {
+  ChatComposerFrame,
+  composerFooterRowClassName,
+  composerIconButtonClassName,
+  composerIconButtonDangerActiveClassName,
+  composerIconButtonVoiceConnectingClassName,
+  composerIconButtonVoiceLiveClassName,
+  composerSendButtonClassName,
+  composerTextareaClassName,
+} from '../components/ChatComposer';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch, MdDeleteOutline } from 'react-icons/md';
@@ -1234,12 +1243,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                 Message failed to save — your history may be incomplete
               </div>
             )}
-          <MovingBorderContainer
-            borderRadius="1rem"
-            containerClassName="w-full"
-            innerClassName="flex-col items-stretch chat-composer-glass"
-          >
-            {/* Textarea */}
+          <ChatComposerFrame>
             <textarea
               ref={inputRef}
               value={input}
@@ -1249,17 +1253,16 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               placeholder={`Message ${codename}... (@ to mention, Shift+Enter for new line)`}
               disabled={respondingAgents.has(selectedRole)}
               rows={2}
-              className="w-full bg-transparent resize-none px-4 pt-3.5 pb-1 text-[14px] text-txt-secondary placeholder-txt-faint outline-none transition-colors disabled:opacity-50 min-h-[72px] max-h-[180px]"
+              className={composerTextareaClassName}
               onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; }}
             />
 
-            {/* Bottom toolbar — compact circular controls (Gemini-style density) */}
-            <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-0.5">
+            <div className={composerFooterRowClassName}>
               <div className="flex items-center gap-0.5">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-transparent text-txt-muted transition-colors hover:border-border hover:bg-white/[0.04] hover:text-cyan dark:border-white/[0.1]"
+                  className={composerIconButtonClassName}
                   title="Attach file"
                 >
                   <MdAttachFile className="text-[15px]" />
@@ -1267,11 +1270,11 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                 <button
                   type="button"
                   onClick={toggleDictation}
-                  className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors md:flex ${
+                  className={
                     isListening
-                      ? 'animate-pulse border-red-400/35 bg-red-500/10 text-red-200'
-                      : 'border-border/70 bg-transparent text-txt-muted hover:border-border hover:bg-white/[0.04] hover:text-cyan dark:border-white/[0.1]'
-                  }`}
+                      ? `hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors md:flex ${composerIconButtonDangerActiveClassName}`
+                      : `hidden md:flex ${composerIconButtonClassName}`
+                  }
                   title={isListening ? 'Stop dictation' : 'Dictate (speech to text)'}
                 >
                   <HiMicrophone size={15} />
@@ -1283,13 +1286,13 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                     else voice.startVoice(selectedRole, userEmail);
                   }}
                   disabled={voice.isConnecting}
-                  className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors md:flex disabled:opacity-40 ${
+                  className={
                     voice.isActive
-                      ? 'border-cyan/35 bg-cyan/10 text-cyan hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-100'
+                      ? `hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors md:flex disabled:opacity-40 ${composerIconButtonVoiceLiveClassName}`
                       : voice.isConnecting
-                        ? 'border-prism-elevated/30 bg-prism-elevated/10 text-prism-elevated animate-pulse'
-                        : 'border-border/70 bg-transparent text-txt-muted hover:border-border hover:bg-white/[0.04] hover:text-cyan dark:border-white/[0.1]'
-                  }`}
+                        ? `hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors md:flex disabled:opacity-40 ${composerIconButtonVoiceConnectingClassName}`
+                        : `hidden md:flex ${composerIconButtonClassName} disabled:opacity-40`
+                  }
                   title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
                 >
                   {voice.isActive ? <HiStop size={15} /> : <HiMiniSignal size={15} />}
@@ -1300,13 +1303,13 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                 type="button"
                 onClick={sendMessage}
                 disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-raised/50 text-txt-muted transition-colors hover:border-cyan/30 hover:bg-cyan/10 hover:text-cyan disabled:cursor-not-allowed disabled:opacity-25 dark:border-white/[0.12] dark:bg-white/[0.04]"
+                className={composerSendButtonClassName}
                 aria-label="Send message"
               >
                 <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
               </button>
             </div>
-          </MovingBorderContainer>
+          </ChatComposerFrame>
         </div>
         </>
       </Card>

@@ -3,7 +3,17 @@ import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, Md
 import Markdown from 'react-markdown';
 import { SCHEDULER_URL } from '../lib/firebase';
 import { Card, GradientButton, SectionHeader, Skeleton, timeAgo } from '../components/ui';
-import { MovingBorderContainer } from '../components/ui/MovingBorder';
+import {
+  ChatComposerFrame,
+  composerCheckboxRowClassName,
+  composerFieldLabelClassName,
+  composerFooterEndClassName,
+  composerFooterStrategyClassName,
+  composerFooterToolbarClassName,
+  composerInputLineClassName,
+  composerSelectClassName,
+  composerTextareaClassName,
+} from '../components/ChatComposer';
 import { normalizeText } from '../lib/normalizeText';
 
 /* ── Types ─────────────────────────────────────── */
@@ -406,27 +416,23 @@ function DeepDivesPanel() {
       <Card>
         <SectionHeader title="Launch Strategic Deep Dive" subtitle="8 areas × 5 queries × multi-model analysis → cross-model challenge → verification → cited synthesis" />
         <div className="mt-4">
-          <MovingBorderContainer
-            borderRadius="1rem"
-            containerClassName="w-full"
-            innerClassName="flex-col items-stretch chat-composer-glass"
-          >
+          <ChatComposerFrame>
             <input
               value={target}
               onChange={(e) => setTarget(e.target.value)}
               placeholder="Enter company name, market, or topic — e.g. 'Eaton Corporation plc'"
               disabled={launching}
-              className="w-full border-b border-white/[0.06] bg-transparent px-4 py-3 text-sm text-txt-secondary placeholder:text-txt-faint outline-none transition-colors disabled:opacity-50"
+              className={composerInputLineClassName}
             />
             <textarea
               value={context}
               onChange={(e) => setContext(e.target.value)}
               placeholder="Optional context — e.g. 'Focus on their electrification strategy and industrial automation segment'"
-              className="w-full resize-none bg-transparent px-4 py-3 text-sm text-txt-secondary placeholder:text-txt-faint outline-none transition-colors min-h-[72px] max-h-[180px] disabled:opacity-50"
+              className={composerTextareaClassName}
               rows={2}
               disabled={launching}
             />
-            <div className="flex items-center justify-end px-2.5 pb-2.5 pt-1">
+            <div className={composerFooterEndClassName}>
               <GradientButton
                 variant="primary"
                 size="md"
@@ -438,7 +444,7 @@ function DeepDivesPanel() {
                 {launching ? 'Launching…' : 'Launch Deep Dive'}
               </GradientButton>
             </div>
-          </MovingBorderContainer>
+          </ChatComposerFrame>
         </div>
       </Card>
 
@@ -1265,18 +1271,14 @@ function SimulationsPanel() {
         </p>
         <div>
           <label className="text-[11px] font-medium text-txt-muted mb-1 block">Proposed Action</label>
-          <MovingBorderContainer
-            borderRadius="1rem"
-            containerClassName="w-full"
-            innerClassName="flex-col items-stretch chat-composer-glass"
-          >
+          <ChatComposerFrame>
             <textarea
               value={action}
               onChange={(e) => setAction(e.target.value)}
               placeholder="e.g. 'Raise prices 20% across all tiers'"
               rows={3}
               disabled={launching}
-              className="w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-sm text-txt-secondary placeholder:text-txt-faint outline-none transition-colors min-h-[72px] max-h-[180px] disabled:opacity-50"
+              className={composerTextareaClassName}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -1284,13 +1286,13 @@ function SimulationsPanel() {
                 }
               }}
             />
-            <div className="flex flex-wrap items-end justify-between gap-3 px-2.5 pb-2.5 pt-1">
+            <div className={composerFooterToolbarClassName}>
               <div>
-                <label className="text-[10px] font-medium text-txt-muted mb-1 block">Perspective</label>
+                <label className={composerFieldLabelClassName}>Perspective</label>
                 <select
                   value={perspective}
                   onChange={(e) => setPerspective(e.target.value as 'optimistic' | 'neutral' | 'pessimistic')}
-                  className="rounded-lg border border-border/70 bg-base px-3 py-2 text-sm text-txt-primary outline-none focus:border-cyan/40"
+                  className={`${composerSelectClassName} w-auto min-w-[140px]`}
                 >
                   {Object.entries(PERSPECTIVE_LABELS).map(([k, v]) => (
                     <option key={k} value={k}>{v}</option>
@@ -1301,7 +1303,7 @@ function SimulationsPanel() {
                 {launching ? 'Launching…' : 'Run Cascade'}
               </GradientButton>
             </div>
-          </MovingBorderContainer>
+          </ChatComposerFrame>
         </div>
       </Card>
 
@@ -1663,17 +1665,13 @@ function ChainOfThoughtPanel() {
         </p>
         <div>
           <label className="text-[11px] font-medium text-txt-muted mb-1 block">Strategic Question</label>
-          <MovingBorderContainer
-            borderRadius="1rem"
-            containerClassName="w-full"
-            innerClassName="flex-col items-stretch chat-composer-glass"
-          >
+          <ChatComposerFrame>
             <textarea
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="e.g. 'Should we narrow ICP to founder-led SMB teams already on Slack?'"
               rows={3}
-              className="w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-sm text-txt-secondary placeholder:text-txt-faint outline-none transition-colors min-h-[72px] max-h-[180px] disabled:opacity-50"
+              className={composerTextareaClassName}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -1682,12 +1680,12 @@ function ChainOfThoughtPanel() {
               }}
               disabled={launching}
             />
-            <div className="flex items-center justify-end px-2.5 pb-2.5 pt-1">
+            <div className={composerFooterEndClassName}>
               <GradientButton variant="primary" size="md" onClick={launch} disabled={launching || !query.trim()}>
                 {launching ? 'Launching…' : 'Analyze'}
               </GradientButton>
             </div>
-          </MovingBorderContainer>
+          </ChatComposerFrame>
         </div>
       </Card>
 
@@ -2148,16 +2146,12 @@ function StrategyLabV2Panel() {
       <Card>
         <SectionHeader title="Launch Multi-Agent Strategy Analysis" subtitle="Research team → Executive analysis → Sarah synthesis" />
         <div className="mt-4">
-          <MovingBorderContainer
-            borderRadius="1rem"
-            containerClassName="w-full"
-            innerClassName="flex-col items-stretch chat-composer-glass"
-          >
+          <ChatComposerFrame>
             <textarea
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="e.g. 'Analyze competitor landscape for AI-powered website builders targeting SMBs'"
-              className="w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-sm text-txt-secondary placeholder:text-txt-faint outline-none transition-colors min-h-[88px] max-h-[220px] disabled:opacity-50"
+              className={composerTextareaClassName}
               rows={3}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -2167,14 +2161,14 @@ function StrategyLabV2Panel() {
               }}
               disabled={launching}
             />
-            <div className="flex flex-col gap-3 px-2.5 pb-2.5 pt-1 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+            <div className={composerFooterStrategyClassName}>
               <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <div className="min-w-[180px] flex-1">
-                  <label className="mb-1 block text-[10px] font-medium text-txt-muted">Analysis Type</label>
+                  <label className={composerFieldLabelClassName}>Analysis Type</label>
                   <select
                     value={analysisType}
                     onChange={(e) => setAnalysisType(e.target.value as SLv2AnalysisType)}
-                    className="w-full rounded-lg border border-border/70 bg-base px-3 py-2 text-sm text-txt-primary outline-none focus:border-cyan/40"
+                    className={composerSelectClassName}
                   >
                     {Object.entries(SLV2_TYPE_LABELS).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
@@ -2182,18 +2176,18 @@ function StrategyLabV2Panel() {
                   </select>
                 </div>
                 <div className="min-w-[180px] flex-1">
-                  <label className="mb-1 block text-[10px] font-medium text-txt-muted">Depth</label>
+                  <label className={composerFieldLabelClassName}>Depth</label>
                   <select
                     value={depth}
                     onChange={(e) => setDepth(e.target.value as SLv2Depth)}
-                    className="w-full rounded-lg border border-border/70 bg-base px-3 py-2 text-sm text-txt-primary outline-none focus:border-cyan/40"
+                    className={composerSelectClassName}
                   >
                     {Object.entries(SLV2_DEPTH_LABELS).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
                     ))}
                   </select>
                 </div>
-                <label className="flex min-h-[42px] min-w-[200px] cursor-pointer items-center gap-2 rounded-lg border border-border/70 bg-base/80 px-3 py-2 text-[12px] text-txt-secondary sm:mb-0">
+                <label className={composerCheckboxRowClassName}>
                   <input
                     type="checkbox"
                     checked={includeDeepDiveResearch}
@@ -2209,7 +2203,7 @@ function StrategyLabV2Panel() {
                 </GradientButton>
               </div>
             </div>
-          </MovingBorderContainer>
+          </ChatComposerFrame>
         </div>
       </Card>
 

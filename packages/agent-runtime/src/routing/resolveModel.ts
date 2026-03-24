@@ -4,7 +4,7 @@ import { inferDomainRouting } from './domainRouter.js';
 import { resolveModel as canonicalizeModelSlug } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 
-const DEFAULT_MODEL = 'gemini-3.1-flash-lite-preview';
+const DEFAULT_MODEL = 'gpt-5.4-mini';
 
 const CODE_INTENSIVE_ROLES = new Set([
   'platform-engineer',
@@ -54,19 +54,19 @@ interface RouteConfig {
 
 // Hardcoded defaults used when DB is unavailable (cold start / test)
 const STATIC_ROUTES: RouteConfig[] = [
-  { route_name: 'economy',              model_slug: 'gemini-2.5-flash-lite',          priority: 100 },
-  { route_name: 'workhorse',            model_slug: 'gemini-3.1-flash-lite-preview',  priority: 50 },
-  { route_name: 'orchestration',        model_slug: 'gemini-3.1-flash-lite-preview',  priority: 90 },
-  { route_name: 'executive_assignment', model_slug: 'gemini-3.1-flash-lite-preview',  priority: 80 },
-  { route_name: 'complex_research',     model_slug: 'gpt-5.4',                        priority: 85 },
-  { route_name: 'financial_complex',    model_slug: 'gpt-5.4',                        priority: 85 },
-  { route_name: 'visual_analysis',      model_slug: 'gemini-3.1-flash-lite-preview',  priority: 85 },
-  { route_name: 'code_gen',             model_slug: 'gemini-3.1-flash-lite-preview',  priority: 70 },
-  { route_name: 'founder_chat',         model_slug: 'gemini-3.1-flash-lite-preview',  priority: 75 },
-  { route_name: 'triangulation',        model_slug: 'gpt-5.4',                        priority: 95 },
-  { route_name: 'deep_research',        model_slug: 'claude-opus-4-6',                priority: 95 },
-  { route_name: 'legal_review',         model_slug: 'claude-sonnet-4-6',              priority: 95 },
-  { route_name: 'default',              model_slug: 'gemini-3.1-flash-lite-preview',  priority: 0 },
+  { route_name: 'economy',              model_slug: 'gpt-5.4-nano',     priority: 100 },
+  { route_name: 'workhorse',            model_slug: 'gpt-5.4-mini',     priority: 50 },
+  { route_name: 'orchestration',        model_slug: 'gpt-5.4-mini',     priority: 90 },
+  { route_name: 'executive_assignment', model_slug: 'gpt-5.4-mini',     priority: 80 },
+  { route_name: 'complex_research',     model_slug: 'gpt-5.4',          priority: 85 },
+  { route_name: 'financial_complex',    model_slug: 'gpt-5.4',          priority: 85 },
+  { route_name: 'visual_analysis',      model_slug: 'gpt-5.4-mini',     priority: 85 },
+  { route_name: 'code_gen',             model_slug: 'gpt-5.4-mini',     priority: 70 },
+  { route_name: 'founder_chat',         model_slug: 'gpt-5.4-mini',     priority: 75 },
+  { route_name: 'triangulation',        model_slug: 'gpt-5.4',          priority: 95 },
+  { route_name: 'deep_research',        model_slug: 'o3-deep-research', priority: 95 },
+  { route_name: 'legal_review',         model_slug: 'claude-sonnet-4-6', priority: 95 },
+  { route_name: 'default',              model_slug: 'gpt-5.4-mini',     priority: 0 },
 ];
 
 let routeCache: RouteConfig[] | null = null;

@@ -110,16 +110,16 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
 // (Includes removed-from-catalog slugs like gemini-2.5-pro — never call the API with them.)
 
 export const DEPRECATED_MODELS: Record<string, string> = {
-  // Gemini 2.x and older (shutdown June 1, 2026)
-  'gemini-2.0-flash-001':       'gemini-3.1-flash-lite-preview',
-  'gemini-2.0-flash':           'gemini-3.1-flash-lite-preview',
-  'gemini-2.0-flash-exp':       'gemini-3.1-flash-lite-preview',
-  'gemini-2.0-pro':             'gemini-3.1-pro-preview',
-  'gemini-1.5-flash':           'gemini-3.1-flash-lite-preview',
-  'gemini-1.5-pro':             'gemini-3.1-pro-preview',
-  'gemini-3.0-flash-preview':   'gemini-3.1-flash-lite-preview',
-  'gemini-3-pro-preview':       'gemini-3.1-pro-preview',
-  'gemini-2.5-pro':             'gemini-3.1-pro-preview',
+  // Gemini 2.x and older (shutdown June 1, 2026) — default migration target is GPT workhorse
+  'gemini-2.0-flash-001':       'gpt-5.4-mini',
+  'gemini-2.0-flash':           'gpt-5.4-mini',
+  'gemini-2.0-flash-exp':       'gpt-5.4-mini',
+  'gemini-2.0-pro':             'gpt-5.4',
+  'gemini-1.5-flash':           'gpt-5.4-mini',
+  'gemini-1.5-pro':             'gpt-5.4',
+  'gemini-3.0-flash-preview':   'gpt-5.4-mini',
+  'gemini-3-pro-preview':       'gpt-5.4',
+  'gemini-2.5-pro':             'gpt-5.4',
 
   // OpenAI legacy
   'gpt-4o':                     'gpt-5-mini',
@@ -148,10 +148,10 @@ export const DEPRECATED_MODELS: Record<string, string> = {
 // ─── Default models by purpose ───────────────────────────────
 
 /** The default model assigned to new agents */
-export const DEFAULT_AGENT_MODEL = 'gemini-3.1-flash-lite-preview';
+export const DEFAULT_AGENT_MODEL = 'gpt-5.4-mini';
 
 /** The model used for web search (needs OpenAI Responses API) */
-export const WEB_SEARCH_MODEL = 'gpt-5-mini-2025-08-07';
+export const WEB_SEARCH_MODEL = 'gpt-5.4-mini';
 
 /** The model used for realtime voice */
 export const REALTIME_MODEL = 'gpt-realtime-2025-08-28';
@@ -166,7 +166,7 @@ export const EMBEDDING_MODEL = 'gemini-embedding-001';
 export const IMAGE_MODEL = 'gpt-image-1';
 
 /** The model used for GraphRAG extraction */
-export const GRAPHRAG_MODEL = 'gpt-5-mini-2025-08-07';
+export const GRAPHRAG_MODEL = 'gpt-5.4-mini';
 
 // ─── Fallback chains ────────────────────────────────────────
 // When a model fails with a non-retryable error (e.g., rate limit, outage),
@@ -183,7 +183,7 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   // OpenAI primary → try Gemini first (GCP-resident, cheapest), then economy cross-provider
   'gpt-5.4':                ['gemini-3.1-pro-preview', 'gemini-3-flash-preview'],
   'gpt-5.4-pro':            ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
-  'gpt-5.4-mini':           ['gemini-3-flash-preview', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5.4-mini':           ['gpt-5-mini-2025-08-07', 'gpt-5.4-nano'],
   'gpt-5.4-nano':           ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.2':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
   'gpt-5.2-pro':            ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
@@ -194,8 +194,8 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'gpt-5-nano':             ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite-preview'],
   'o3':                     ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
   'o4-mini':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
-  'o3-deep-research':       ['o3', 'gpt-5-mini-2025-08-07'],
-  'o4-mini-deep-research':  ['o4-mini', 'gpt-5-mini-2025-08-07'],
+  'o3-deep-research':       ['gpt-5.4', 'o3'],
+  'o4-mini-deep-research':  ['o4-mini', 'gpt-5.4-mini'],
 
   // Anthropic primary → try Gemini first (GCP-resident), then cheapest OpenAI
   'claude-opus-4-6':        ['gemini-3.1-pro-preview', 'gpt-5.4'],
@@ -290,8 +290,8 @@ export const VERIFIER_MAP: Record<string, string> = {
 
   'o3':                     'gemini-3.1-flash-lite-preview',
   'o4-mini':                'gemini-3.1-flash-lite-preview',
-  'o3-deep-research':       'gemini-3.1-flash-lite-preview',
-  'o4-mini-deep-research':  'gemini-3.1-flash-lite-preview',
+  'o3-deep-research':       'claude-sonnet-4-6',
+  'o4-mini-deep-research':  'claude-sonnet-4-6',
 
   // Claude primary → Gemini verifier (GCP-native, cheap)
   'claude-opus-4-6':        'gemini-3.1-flash-lite-preview',
@@ -301,32 +301,32 @@ export const VERIFIER_MAP: Record<string, string> = {
 };
 
 // ─── Deep dive research models ──────────────────────────────
-// GCP-first strategy: majority of research areas use Gemini (lower cost on our
-// infra), with select areas using OpenAI/Anthropic for perspective diversity.
+// Azure AI Foundry / OpenAI: o3-deep-research with web search (see Microsoft Learn:
+// https://learn.microsoft.com/en-us/azure/foundry-classic/agents/how-to/tools-classic/deep-research )
 
 export const DEEP_DIVE_MODELS: Record<string, string> = {
-  overview:             'gemini-3.1-flash-lite-preview',
-  financials:           'gemini-3.1-flash-lite-preview',
-  technology:           'gemini-3.1-flash-lite-preview',
-  market:               'gemini-3.1-flash-lite-preview',
-  competitive:          'gemini-3.1-flash-lite-preview',
-  leadership:           'gemini-3.1-flash-lite-preview',
-  customers:            'gemini-3.1-flash-lite-preview',
-  risks:                'gemini-3.1-flash-lite-preview',
-  company_profile:      'gemini-3.1-flash-lite-preview',
-  strategic_direction:  'gemini-3.1-flash-lite-preview',
-  segment_analysis:     'gemini-3.1-flash-lite-preview',
-  ma_activity:          'gemini-3.1-flash-lite-preview',
-  ai_impact:            'gemini-3.1-flash-lite-preview',
-  talent_assessment:    'gemini-3.1-flash-lite-preview',
-  regulatory_landscape: 'gemini-3.1-flash-lite-preview',
+  overview:             'o3-deep-research',
+  financials:           'o3-deep-research',
+  technology:           'o3-deep-research',
+  market:               'o3-deep-research',
+  competitive:          'o3-deep-research',
+  leadership:           'o3-deep-research',
+  customers:            'o3-deep-research',
+  risks:                'o3-deep-research',
+  company_profile:      'o3-deep-research',
+  strategic_direction:  'o3-deep-research',
+  segment_analysis:     'o3-deep-research',
+  ma_activity:          'o3-deep-research',
+  ai_impact:            'o3-deep-research',
+  talent_assessment:    'o3-deep-research',
+  regulatory_landscape: 'o3-deep-research',
 };
 
-/** The two models used for cross-model deep dive verification (Gemini-first, cost-optimised) */
-export const DEEP_DIVE_VERIFICATION_MODELS = ['gemini-3.1-flash-lite-preview', 'gemini-3.1-flash-lite-preview'] as const;
+/** Cross-model verification after deep-dive synthesis */
+export const DEEP_DIVE_VERIFICATION_MODELS = ['gpt-5.4-mini', 'gpt-5-mini'] as const;
 
-/** The two models used for reasoning engine verification (Gemini-first, cost-optimised) */
-export const REASONING_VERIFICATION_MODELS = ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'] as const;
+/** Reasoning engine verification (cross-provider) */
+export const REASONING_VERIFICATION_MODELS = ['gpt-5.4-mini', 'claude-sonnet-4-6'] as const;
 
 // ─── Helper functions ────────────────────────────────────────
 
@@ -417,9 +417,9 @@ export function getVerifierFor(primaryModel: string): string {
   // Prefix-based fallback — always cross-provider, cheapest viable
   if (primaryModel.startsWith('gemini-')) return 'gpt-5-mini';
   if (primaryModel.startsWith('gpt-') || /^o[134](-|$)/.test(primaryModel)) return 'gemini-3.1-flash-lite-preview';
-  if (primaryModel.startsWith('claude-')) return 'gemini-3.1-flash-lite-preview';
+  if (primaryModel.startsWith('claude-')) return 'gpt-5.4-mini';
 
-  return 'gemini-3.1-flash-lite-preview';
+  return 'gpt-5.4-mini';
 }
 
 /**
@@ -507,26 +507,23 @@ export function normalizeReasoningLevel(modelId: string, requested?: ReasoningLe
 // ─── Cost Optimizer ─────────────────────────────────────────
 //
 // Maps agent roles to model tiers based on task complexity.
-// Goal: stop using expensive models for routine tasks.
 //
-// Tiers:
-//   economy  → gemini-2.5-flash-lite ($0.10/$0.40) — triage, classification, boolean checks
-//   standard → gemini-3.1-flash-lite-preview ($0.25/$1.50)  — default workhorse for all agents
-//   pro      → gemini-3.1-flash-lite-preview ($0.25/$1.50)  — orchestration, strategic, founder-chat
-//
-// Gemini-dominant — using our GCP API key.
+// Tiers (OpenAI-first defaults):
+//   economy  → gpt-5.4-nano — triage, high-volume
+//   standard → gpt-5.4-mini — default workhorse
+//   pro      → gpt-5.4-mini — orchestration, strategic, founder-chat
 
 export type CostTier = 'economy' | 'standard' | 'pro';
 
 /** Preferred model for each cost tier. */
 export const TIER_MODELS: Record<CostTier, string> = {
-  economy:  'gemini-2.5-flash-lite',          // $0.10 / $0.40
-  standard: 'gemini-3.1-flash-lite-preview',  // $0.25 / $1.50
-  pro:      'gemini-3.1-flash-lite-preview',  // $0.25 / $1.50
+  economy:  'gpt-5.4-nano',
+  standard: 'gpt-5.4-mini',
+  pro:      'gpt-5.4-mini',
 };
 
 /** Model used for on_demand chat with founder-facing executives. */
-export const EXEC_CHAT_MODEL = 'gemini-3.1-flash-lite-preview';
+export const EXEC_CHAT_MODEL = 'gpt-5.4-mini';
 
 /** Role → tier mapping. Unlisted roles default to 'standard'. */
 export const ROLE_COST_TIER: Record<string, CostTier> = {
