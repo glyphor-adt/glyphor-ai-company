@@ -2123,6 +2123,30 @@ const SLV2_STATUS_LABELS: Record<SLv2Status, string> = {
   failed: 'Failed',
 };
 
+function normalizeReportText(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return normalizeText(value).trim();
+}
+
+function cleanExecutiveSummary(value: unknown): string {
+  let text = normalizeReportText(value);
+  if (!text) return '';
+
+  // Some Gemini payloads include serialized synthesis keys after the summary.
+  const structuredTailIndex = text.search(/"\s*,\s*"unifiedSwot"\s*:/i);
+  if (structuredTailIndex >= 0) {
+    text = text.slice(0, structuredTailIndex);
+  }
+
+  text = text
+    .replace(/^"?executiveSummary"?\s*:\s*/i, '')
+    .replace(/^"+/, '')
+    .replace(/"+$/, '')
+    .trim();
+
+  return text;
+}
+
 function slv2StatusColor(status: SLv2Status) {
   if (status === 'completed') return 'bg-tier-green';
   if (status === 'failed') return 'bg-prism-critical';
@@ -2386,6 +2410,16 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
 
 function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergence, watchlist }: { synthesis: SLv2Synthesis; id: string; frameworkOutputs?: Record<string, unknown>; frameworkConvergence?: string | null; watchlist?: WatchlistItem[] }) {
   const s = synthesis;
+  const executiveSummary = cleanExecutiveSummary(s.executiveSummary);
+  const crossFrameworkInsights = s.crossFrameworkInsights
+    .map((i) => normalizeReportText(i))
+    .filter(Boolean);
+  const keyRisks = s.keyRisks
+    .map((risk) => normalizeReportText(risk))
+    .filter(Boolean);
+  const openQuestions = s.openQuestionsForFounders
+    .map((q) => normalizeReportText(q))
+    .filter(Boolean);
   const hasFrameworks = frameworkOutputs && Object.keys(frameworkOutputs).length > 0;
   const hasWatchlist = watchlist && watchlist.length > 0;
   const [showSection, setShowSection] = useState<'summary' | 'swot' | 'frameworks' | 'recs' | 'risks' | 'watchlist'>('summary');
@@ -2438,13 +2472,13 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
         <div className="space-y-3">
           <div className="rounded-lg border border-cyan/35 bg-transparent px-4 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Executive Summary</p>
-            <div className="text-sm text-txt-primary leading-relaxed prose-chat"><Markdown>{s.executiveSummary}</Markdown></div>
+            <div className="text-sm text-txt-primary leading-relaxed prose-chat"><Markdown>{executiveSummary}</Markdown></div>
           </div>
-          {s.crossFrameworkInsights.length > 0 && (
+          {crossFrameworkInsights.length > 0 && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-1.5">Cross-Framework Insights</p>
               <ul className="space-y-1">
-                {s.crossFrameworkInsights.map((i, idx) => (
+                {crossFrameworkInsights.map((i, idx) => (
                   <li key={idx} className="text-[12px] text-txt-secondary leading-relaxed">• {i}</li>
                 ))}
               </ul>
@@ -2539,7 +2573,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
           {frameworkConvergence && (
             <div className="rounded-lg border border-cyan/35 bg-transparent px-4 py-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Framework Convergence</p>
-              <div className="text-[12px] text-txt-primary leading-relaxed prose-chat"><Markdown>{frameworkConvergence}</Markdown></div>
+              <div className="text-[12px] text-txt-primary leading-relaxed prose-chat"><Markdown>{normalizeReportText(frameworkConvergence)}</Markdown></div>
             </div>
           )}
           <div className="grid grid-cols-1 gap-3">
@@ -2552,8 +2586,8 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
                   key={fId}
                   label={meta.label}
                   color={meta.color}
-                  summary={typeof d.summary === 'string' ? d.summary : null}
-                  keyInsight={typeof d.key_insight === 'string' ? d.key_insight : null}
+                  summary={typeof d.summary === 'string' ? normalizeReportText(d.summary) : null}
+                  keyInsight={typeof d.key_insight === 'string' ? normalizeReportText(d.key_insight) : null}
                   data={d}
                 />
               );
@@ -2591,10 +2625,10 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
               </div>
               <p className="text-[12px] text-txt-muted leading-relaxed mb-2">{rec.description}</p>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div><span className="text-txt-faint">Owner:</span> <span className="text-txt-secondary">{rec.owner}</span></div>
-                <div><span className="text-txt-faint">Expected:</span> <span className="text-txt-secondary">{rec.expectedOutcome}</span></div>
+                <div><span className="text-txt-faint">Owner:</span> <span className="text-txt-secondary">{normalizeReportText(rec.owner)}</span></div>
+                <div><span className="text-txt-faint">Expected:</span> <span className="text-txt-secondary">{normalizeReportText(rec.expectedOutcome)}</span></div>
               </div>
-              <p className="mt-1.5 text-[11px] text-prism-critical/80">⚠ {rec.riskIfNot}</p>
+              <p className="mt-1.5 text-[11px] text-prism-critical/80">⚠ {normalizeReportText(rec.riskIfNot)}</p>
             </div>
           ))}
           {s.strategicRecommendations.length === 0 && <p className="text-sm text-txt-faint">No recommendations generated</p>}
@@ -2606,7 +2640,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Key Risks</p>
             <ul className="space-y-1">
-              {s.keyRisks.map((risk, i) => (
+              {keyRisks.map((risk, i) => (
                 <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
                   <MdFlag className="h-3.5 w-3.5 text-prism-elevated shrink-0 mt-0.5" />
                   {risk}
@@ -2617,7 +2651,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Open Questions for Founders</p>
             <ul className="space-y-1">
-              {s.openQuestionsForFounders.map((q, i) => (
+              {openQuestions.map((q, i) => (
                 <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
                   <MdChevronRight className="h-3.5 w-3.5 text-cyan shrink-0 mt-0.5" />
                   {q}

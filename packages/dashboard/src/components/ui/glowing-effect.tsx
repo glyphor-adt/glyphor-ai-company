@@ -23,6 +23,7 @@ export interface GlowingEffectProps {
   disabled?: boolean;
   movementDuration?: number;
   borderWidth?: number;
+  alwaysOn?: boolean;
 }
 
 const GlowingEffect = memo(
@@ -37,6 +38,7 @@ const GlowingEffect = memo(
     movementDuration = 2,
     borderWidth = 1,
     disabled = true,
+    alwaysOn = false,
   }: GlowingEffectProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const lastPosition = useRef({ x: 0, y: 0 });
@@ -63,23 +65,28 @@ const GlowingEffect = memo(
           }
 
           const center = [left + width * 0.5, top + height * 0.5];
-          const distanceFromCenter = Math.hypot(mouseX - center[0], mouseY - center[1]);
-          const inactiveRadius = 0.5 * Math.min(width, height) * inactiveZone;
 
-          if (distanceFromCenter < inactiveRadius) {
-            element.style.setProperty('--active', '0');
-            return;
+          if (!alwaysOn) {
+            const distanceFromCenter = Math.hypot(mouseX - center[0], mouseY - center[1]);
+            const inactiveRadius = 0.5 * Math.min(width, height) * inactiveZone;
+
+            if (distanceFromCenter < inactiveRadius) {
+              element.style.setProperty('--active', '0');
+              return;
+            }
+
+            const isActive =
+              mouseX > left - proximity &&
+              mouseX < left + width + proximity &&
+              mouseY > top - proximity &&
+              mouseY < top + height + proximity;
+
+            element.style.setProperty('--active', isActive ? '1' : '0');
+
+            if (!isActive) return;
+          } else {
+            element.style.setProperty('--active', '1');
           }
-
-          const isActive =
-            mouseX > left - proximity &&
-            mouseX < left + width + proximity &&
-            mouseY > top - proximity &&
-            mouseY < top + height + proximity;
-
-          element.style.setProperty('--active', isActive ? '1' : '0');
-
-          if (!isActive) return;
 
           const currentAngle = parseFloat(element.style.getPropertyValue('--start')) || 0;
           const targetAngle =
@@ -146,7 +153,7 @@ const GlowingEffect = memo(
       '--blur': `${blur}px`,
       '--spread': spread,
       '--start': '0',
-      '--active': '0',
+      '--active': alwaysOn ? '1' : '0',
       '--glowingeffect-border-width': `${borderWidth}px`,
       '--repeating-conic-gradient-times': '5',
       '--gradient': gradientCss,

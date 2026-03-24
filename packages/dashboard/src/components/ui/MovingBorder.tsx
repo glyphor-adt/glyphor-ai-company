@@ -72,6 +72,7 @@ export function MovingBorderContainer({
             proximity={64}
             inactiveZone={0.01}
             movementDuration={2}
+            alwaysOn
             variant="default"
           />
         ) : (
