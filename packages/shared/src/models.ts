@@ -256,10 +256,29 @@ const OPS_AGENT_FALLBACK_WHEN_ALL_GEMINI: Record<string, readonly string[]> = {
 /** Last resort when no Gemini-free chain can be derived (should be rare). */
 const OPS_AGENT_FALLBACK_DEFAULT: readonly string[] = ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'claude-sonnet-4-6'];
 
+/** Ops strips Gemini; OpenAI-only chains still hit one Azure quota pool — append Claude when missing. */
+const OPS_CLAUDE_LAST_RESORT = 'claude-sonnet-4-6' as const;
+
+function isOpenAiProviderModelId(id: string): boolean {
+  return (
+    id.startsWith('gpt-') ||
+    id === 'model-router' ||
+    id.startsWith('model-router') ||
+    /^o[134](-|$)/.test(id)
+  );
+}
+
 function getOpsFallbackChainExcludingGemini(model: string): readonly string[] {
   const base = FALLBACK_CHAINS[model] ?? [];
   const filtered = base.filter((m) => !m.startsWith('gemini-'));
-  if (filtered.length > 0) return filtered;
+  if (filtered.length > 0) {
+    const hasClaude = filtered.some((m) => m.startsWith('claude-'));
+    const openAiOnly = filtered.every(isOpenAiProviderModelId);
+    if (openAiOnly && !hasClaude && !filtered.includes(OPS_CLAUDE_LAST_RESORT)) {
+      return [...filtered, OPS_CLAUDE_LAST_RESORT];
+    }
+    return filtered;
+  }
 
   return OPS_AGENT_FALLBACK_WHEN_ALL_GEMINI[model] ?? OPS_AGENT_FALLBACK_DEFAULT;
 }
