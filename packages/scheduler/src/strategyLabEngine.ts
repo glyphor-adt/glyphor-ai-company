@@ -15,7 +15,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
-import { getTierModel } from '@glyphor/shared';
+import { getTierModel, getSpecialized } from '@glyphor/shared';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import type { AgentExecutionResult, CompanyAgentRole } from '@glyphor/agent-runtime';
 import { WorkflowOrchestrator } from '@glyphor/agent-runtime';
@@ -747,6 +747,10 @@ Respond ONLY with valid JSON — no markdown fences, no commentary.`;
 /* ── Engine ─────────────────────────────────── */
 
 export class StrategyLabEngine {
+  private readonly deepResearchAgent = getSpecialized('deep_research');
+  private readonly deepResearchPollMs = 10_000;
+  private readonly deepResearchTimeoutMs = 60 * 60 * 1000;
+
   constructor(
     private modelClient: ModelClient,
     private agentExecutor: (role: CompanyAgentRole, task: string, payload: Record<string, unknown>) => Promise<AgentExecutionResult | void>,
@@ -860,34 +864,8 @@ export class StrategyLabEngine {
    * Returns a workflow_id instead of running the pipeline inline.
    */
   async launchWorkflow(req: StrategyAnalysisRequest): Promise<{ workflow_id: string; status: string }> {
-    const depth = req.depth || 'standard';
-    const analysisType = req.analysisType || 'competitive_landscape';
-
-    try {
-      const workflowOrchestrator = new WorkflowOrchestrator();
-
-      const depthCfg = getDepthConfig(depth);
-      const analystRoles = Object.keys(RESEARCH_ANALYST_ROLES).slice(0, depthCfg.maxAnalysts);
-
-      const workflowId = await workflowOrchestrator.startWorkflow({
-        type: 'strategy_lab',
-        initiator_role: 'chief-of-staff',
-        initial_context: { query: req.query, depth, analysisType, requestedBy: req.requestedBy },
-        steps: [
-          { step_type: 'agent_run', step_config: { agent_role: 'chief-of-staff', task: 'frame', message: `Frame strategy analysis: ${req.query}`, timeout_ms: 120000 } },
-          { step_type: 'agent_run', step_config: { agent_role: 'vp-research', task: 'decompose', message: `Decompose research for: ${req.query}`, timeout_ms: 180000 } },
-          { step_type: 'parallel_agents', step_config: { agents: analystRoles.map(role => ({ role, task: 'research', message: `Research for strategy analysis: ${req.query}` })), max_concurrent: depthCfg.maxAnalysts } },
-          { step_type: 'agent_run', step_config: { agent_role: 'vp-research', task: 'quality_check', message: 'Quality check research results', timeout_ms: 180000 } },
-          { step_type: 'agent_run', step_config: { agent_role: 'chief-of-staff', task: 'synthesize', message: 'Synthesize strategy analysis', timeout_ms: 300000 } },
-          { step_type: 'evaluate', step_config: { criteria: 'strategic_coherence, evidence_quality, actionability' } },
-        ],
-      });
-
-      return { workflow_id: workflowId, status: 'workflow_started' };
-    } catch (err) {
-      console.error(`[StrategyLab] Workflow launch failed:`, (err as Error).message);
-      throw err;
-    }
+    const id = await this.launch(req);
+    return { workflow_id: id, status: 'started' };
   }
 
   /* ── Pipeline Runner ────────────────────── */
@@ -898,6 +876,9 @@ export class StrategyLabEngine {
     depth: StrategyAnalysisDepth,
     analysisType: StrategyAnalysisType,
   ): Promise<void> {
+    await this.runSingleAgentDeepResearch(id, req, depth, analysisType);
+    return;
+
     const depthCfg = getDepthConfig(depth);
     const analysisCfg = ANALYSIS_CONFIGS[analysisType];
 
@@ -1374,6 +1355,253 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
       'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
       ['system', 'strategy_analysis.completed', `Strategy Lab v2 analysis completed for "${req.query}" (${depth}): ${Object.keys(qcPackets).length} research packets, ${Object.keys(executiveOutputs).length} executive analyses, ${allSources.length} sources. Confidence: ${overallConfidence}. Gaps filled by Sophia: ${gapsFilled.length}`],
     );
+  }
+
+  private async runSingleAgentDeepResearch(
+    id: string,
+    req: StrategyAnalysisRequest,
+    depth: StrategyAnalysisDepth,
+    analysisType: StrategyAnalysisType,
+  ): Promise<void> {
+    await this.updateStatus(id, 'researching', { research_started_at: new Date().toISOString() });
+
+    const prompt = this.buildDeepResearchPrompt(req.query, analysisType, depth);
+    const interactionId = await this.startDeepResearchInteraction(prompt);
+
+    await systemQuery(
+      'UPDATE strategy_analyses SET research_progress=$1 WHERE id=$2',
+      [
+        JSON.stringify([
+          {
+            analystRole: 'deep-research-agent',
+            analystName: 'Gemini Deep Research Agent',
+            status: 'running',
+            startedAt: new Date().toISOString(),
+          },
+        ]),
+        id,
+      ],
+    );
+
+    await this.updateStatus(id, 'synthesizing', { synthesis_started_at: new Date().toISOString() });
+
+    const finalOutput = await this.pollDeepResearchResult(interactionId);
+    const synthesis = this.parseDeepResearchSynthesis(finalOutput.text);
+    const sourceIndex = this.extractSourcesFromDeepResearchOutput(finalOutput.raw);
+    synthesis.sourceIndex = sourceIndex;
+
+    await systemQuery(
+      'UPDATE strategy_analyses SET status=$1, synthesis=$2, sources=$3, total_sources=$4, total_searches=$5, research_progress=$6, completed_at=$7 WHERE id=$8',
+      [
+        'completed',
+        JSON.stringify(synthesis),
+        JSON.stringify(sourceIndex),
+        sourceIndex.length,
+        0,
+        JSON.stringify([
+          {
+            analystRole: 'deep-research-agent',
+            analystName: 'Gemini Deep Research Agent',
+            status: 'completed',
+            startedAt: new Date().toISOString(),
+            completedAt: new Date().toISOString(),
+            sourceCount: sourceIndex.length,
+          },
+        ]),
+        new Date().toISOString(),
+        id,
+      ],
+    );
+
+    await systemQuery(
+      'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
+      ['system', 'strategy_analysis.completed', `Strategy Lab analysis completed via Gemini Deep Research Agent for "${req.query}" (${depth}).`],
+    );
+  }
+
+  private buildDeepResearchPrompt(
+    query: string,
+    analysisType: StrategyAnalysisType,
+    depth: StrategyAnalysisDepth,
+  ): string {
+    const depthGuidance: Record<StrategyAnalysisDepth, string> = {
+      quick: 'Perform a concise but evidence-backed research pass and keep recommendations focused.',
+      standard: 'Perform moderate-depth web research with strong source triangulation.',
+      deep: 'Perform deep web research and cross-validate key claims with multiple high-quality sources.',
+      comprehensive: 'Perform comprehensive web research with extensive source triangulation and explicit uncertainty tracking.',
+    };
+
+    return `You are the Gemini Deep Research Agent producing a founder-grade strategy report for Glyphor.
+
+TASK
+- Query: ${query}
+- Analysis Type: ${analysisType}
+- Requested Depth: ${depth}
+
+INSTRUCTIONS
+- Use iterative planning, searching, and reading before concluding.
+- Prioritize current and credible sources.
+- If a key metric is unavailable, explicitly say unavailable; do not fabricate.
+- ${depthGuidance[depth]}
+
+REQUIRED OUTPUT FORMAT
+Return ONLY valid JSON with this exact shape:
+{
+  "executiveSummary": "string",
+  "unifiedSwot": {
+    "strengths": ["string"],
+    "weaknesses": ["string"],
+    "opportunities": ["string"],
+    "threats": ["string"]
+  },
+  "crossFrameworkInsights": ["string"],
+  "strategicRecommendations": [
+    {
+      "title": "string",
+      "description": "string",
+      "impact": "high|medium|low",
+      "feasibility": "high|medium|low",
+      "owner": "string",
+      "expectedOutcome": "string",
+      "riskIfNot": "string"
+    }
+  ],
+  "keyRisks": ["string"],
+  "openQuestionsForFounders": ["string"]
+}`;
+  }
+
+  private getGeminiApiKey(): string {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || '';
+    if (!apiKey) {
+      throw new Error('Missing GEMINI_API_KEY or GOOGLE_AI_API_KEY for Deep Research interactions.');
+    }
+    return apiKey;
+  }
+
+  private async startDeepResearchInteraction(prompt: string): Promise<string> {
+    const apiKey = this.getGeminiApiKey();
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        input: prompt,
+        agent: this.deepResearchAgent,
+        background: true,
+        store: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Deep Research interaction create failed (${response.status}): ${text}`);
+    }
+
+    const payload = (await response.json()) as { id?: string };
+    if (!payload.id) {
+      throw new Error('Deep Research interaction create returned no interaction id.');
+    }
+    return payload.id;
+  }
+
+  private async pollDeepResearchResult(interactionId: string): Promise<{ text: string; raw: unknown }> {
+    const apiKey = this.getGeminiApiKey();
+    const start = Date.now();
+
+    while (Date.now() - start < this.deepResearchTimeoutMs) {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/interactions/${interactionId}`, {
+        method: 'GET',
+        headers: { 'x-goog-api-key': apiKey },
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Deep Research interaction poll failed (${response.status}): ${text}`);
+      }
+
+      const payload = (await response.json()) as {
+        status?: string;
+        error?: unknown;
+        outputs?: Array<{ text?: string; content?: { text?: string } }>;
+      };
+
+      if (payload.status === 'completed') {
+        const last = payload.outputs?.[payload.outputs.length - 1];
+        const text = last?.text || last?.content?.text || '';
+        if (!text) {
+          throw new Error('Deep Research interaction completed without textual output.');
+        }
+        return { text, raw: payload };
+      }
+
+      if (payload.status === 'failed') {
+        throw new Error(`Deep Research interaction failed: ${JSON.stringify(payload.error)}`);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, this.deepResearchPollMs));
+    }
+
+    throw new Error('Deep Research interaction timed out before completion.');
+  }
+
+  private parseDeepResearchSynthesis(rawText: string): SynthesisOutput {
+    const match = rawText.match(/\{[\s\S]*\}/);
+    if (!match) {
+      return {
+        executiveSummary: rawText,
+        unifiedSwot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
+        crossFrameworkInsights: [],
+        strategicRecommendations: [],
+        keyRisks: [],
+        openQuestionsForFounders: [],
+        sourceIndex: [],
+      };
+    }
+
+    try {
+      const parsed = JSON.parse(match[0]) as Partial<SynthesisOutput>;
+      return {
+        executiveSummary: parsed.executiveSummary || rawText,
+        unifiedSwot: parsed.unifiedSwot || { strengths: [], weaknesses: [], opportunities: [], threats: [] },
+        crossFrameworkInsights: parsed.crossFrameworkInsights || [],
+        strategicRecommendations: parsed.strategicRecommendations || [],
+        keyRisks: parsed.keyRisks || [],
+        openQuestionsForFounders: parsed.openQuestionsForFounders || [],
+        sourceIndex: [],
+      };
+    } catch {
+      return {
+        executiveSummary: rawText,
+        unifiedSwot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
+        crossFrameworkInsights: [],
+        strategicRecommendations: [],
+        keyRisks: [],
+        openQuestionsForFounders: [],
+        sourceIndex: [],
+      };
+    }
+  }
+
+  private extractSourcesFromDeepResearchOutput(raw: unknown): StrategySource[] {
+    const payload = raw as {
+      outputs?: Array<{ citations?: Array<{ uri?: string; title?: string; url?: string }> }>;
+    };
+    const citations = payload.outputs?.flatMap((o) => o.citations || []) || [];
+
+    const dedup = new Map<string, StrategySource>();
+    for (const citation of citations) {
+      const url = citation.uri || citation.url;
+      if (!url || dedup.has(url)) continue;
+      dedup.set(url, {
+        url,
+        title: citation.title || url,
+        relevance: 'supporting',
+      });
+    }
+    return Array.from(dedup.values());
   }
 
   /* ── Quick Analysis ─────────────────────── */
