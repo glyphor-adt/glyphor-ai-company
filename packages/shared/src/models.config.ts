@@ -22,7 +22,7 @@ export const MODEL_CONFIG = {
     default: 'gemini-3.1-flash-lite-preview', // ~$0.10/$0.40 per MTok - via Gemini API
 
     // High stakes: founder-facing, CoS orchestration, code, complex reasoning
-    high: 'claude-sonnet-4-6',                // $3.00/$15.00 per MTok - via Vertex AI
+    high: 'gpt-5.4-mini',                     // lower-cost high-stakes default via Azure Foundry
   },
 
   // -- Specialized paths -------------------------------------------------------
@@ -32,7 +32,7 @@ export const MODEL_CONFIG = {
     voice:         'gpt-realtime-2025-08-28',            // Azure Foundry - Teams audio bridge
     transcription: 'gpt-4o-transcribe',                  // Azure Foundry - Teams audio bridge
     images:        'imagen-4.0-generate-001',            // Gemini API / Vertex AI
-    reflection:    'claude-sonnet-4-6',                  // Vertex AI - agent self-eval
+    reflection:    'gpt-5-mini',                         // lower-cost agent self-eval
     shadow_eval:   'gemini-2.5-flash',                   // Gemini API - shadow runner
     deep_research: 'deep-research-pro-preview-12-2025',  // Gemini API - strategy reports
   },
@@ -41,7 +41,6 @@ export const MODEL_CONFIG = {
   fallbacks: {
     'gemini-3.1-flash-lite-preview': 'gemini-2.5-flash',     // preview -> stable
     'gpt-5-nano':                    'gemini-2.5-flash-lite', // Azure down -> Google
-    'claude-sonnet-4-6':             'claude-haiku-4-5',      // Sonnet -> Haiku (both Vertex)
     'gemini-2.5-flash':              'gemini-2.5-flash-lite', // flash -> lite
   },
 
@@ -51,6 +50,7 @@ export const MODEL_CONFIG = {
     'gemini-2.0-flash-lite':     true, // shuts down June 1 2026
     'gemini-3-flash-preview':    true, // unstable preview
     'claude-sonnet-4-20250514':  true, // stale string - was reflection model
+    'claude-sonnet-4-6':          true, // disabled for cost-control policy
     'gpt-5-mini-2025-08-07':     true, // 4 hardcoded agents - migrate to default tier
   },
 

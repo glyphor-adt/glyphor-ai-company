@@ -148,16 +148,16 @@ export const DEPRECATED_MODELS: Record<string, string> = {
   'gpt-image-1.5-2025-12-16':   'gpt-image-1.5',
 
   // Anthropic legacy
-  'claude-sonnet-4-20250514':   'claude-sonnet-4-6',
-  'claude-3-5-sonnet-20241022': 'claude-sonnet-4-6',
-  'claude-3-5-sonnet-latest':   'claude-sonnet-4-6',
+  'claude-sonnet-4-20250514':   'gpt-5.4-mini',
+  'claude-3-5-sonnet-20241022': 'gpt-5.4-mini',
+  'claude-3-5-sonnet-latest':   'gpt-5.4-mini',
   'claude-3-5-haiku-20241022':  'claude-sonnet-4-5',
   'claude-3-5-haiku-latest':    'claude-sonnet-4-5',
   'claude-3-opus-20240229':     'claude-opus-4-6',
   'claude-3-haiku-20240307':    'claude-sonnet-4-5',
   'claude-opus-4-20250514':     'claude-opus-4-6',
   'claude-opus-4-6-20260205':   'claude-opus-4-6',
-  'claude-sonnet-4-6-20260217': 'claude-sonnet-4-6',
+  'claude-sonnet-4-6-20260217': 'gpt-5.4-mini',
 };
 
 // ─── Default models by purpose ───────────────────────────────
@@ -196,29 +196,29 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'gemini-2.5-flash-lite':          ['gemini-3.1-flash-lite-preview', 'gpt-5.4-nano'],
 
   // OpenAI primary → same-provider first (required for Azure-only: deployments are on one endpoint),
-  // then Gemini / Claude as last resort when configured.
+  // then Gemini as cross-provider fallback.
   'gpt-5.4':                ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'gemini-3.1-pro-preview'],
-  'gpt-5.4-pro':            ['gpt-5.4', 'gpt-5.4-mini', 'claude-sonnet-4-6'],
+  'gpt-5.4-pro':            ['gpt-5.4', 'gpt-5.4-mini', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.4-mini':           ['gpt-5-mini-2025-08-07', 'gpt-5.4-nano'],
   'gpt-5.4-nano':           ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite-preview'],
   'model-router':           ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
-  'gpt-5.2':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
-  'gpt-5.2-pro':            ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'gpt-5.2':                ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
+  'gpt-5.2-pro':            ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
   'gpt-5.3-codex':          ['gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.2-codex':          ['gpt-5.1-codex', 'gpt-5.1', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.1-codex':          ['gpt-5.1', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.1-codex-mini':     ['gpt-5.1-codex', 'gpt-5-nano', 'gemini-3.1-flash-lite-preview'],
-  'gpt-5.1-codex-max':      ['gpt-5.4', 'gpt-5.1-codex', 'gpt-5-mini-2025-08-07', 'claude-sonnet-4-6'],
+  'gpt-5.1-codex-max':      ['gpt-5.4', 'gpt-5.1-codex', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
   'gpt-5-codex':            ['gpt-5.1-codex', 'gpt-5', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
-  'gpt-5-pro':              ['gpt-5.4', 'gpt-5.4-mini', 'claude-sonnet-4-6'],
-  'gpt-5.1':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
-  'gpt-5':                  ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'gpt-5-pro':              ['gpt-5.4', 'gpt-5.4-mini', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5.1':                ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
+  'gpt-5':                  ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
   'gpt-5-mini':             ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash'],
   'gpt-5-mini-2025-08-07':  ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash'],
   'gpt-5-nano':             ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite-preview'],
-  'o3':                     ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
-  'o3-pro':                 ['o3', 'gpt-5.4', 'gpt-5.4-mini', 'claude-sonnet-4-6'],
-  'o4-mini':                ['gemini-3.1-flash-lite-preview', 'claude-sonnet-4-5'],
+  'o3':                     ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
+  'o3-pro':                 ['o3', 'gpt-5.4', 'gpt-5.4-mini'],
+  'o4-mini':                ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
   'o3-deep-research':       ['gpt-5.4', 'o3'],
   'o4-mini-deep-research':  ['o4-mini', 'gpt-5.4-mini'],
 
@@ -234,49 +234,32 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
  * Temporary mitigation for Gemini tool-schema errors (defer_loading, thought_signature, etc.).
  */
 const OPS_AGENT_FALLBACK_WHEN_ALL_GEMINI: Record<string, readonly string[]> = {
-  'gpt-5.4': ['claude-sonnet-4-6', 'gpt-5.4-mini'],
-  'gpt-5.4-pro': ['claude-sonnet-4-6', 'gpt-5.4'],
-  'gpt-5.2': ['claude-sonnet-4-6', 'gpt-5.4-mini'],
-  'gpt-5.2-pro': ['claude-sonnet-4-6', 'gpt-5.4'],
+  'gpt-5.4': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.4-pro': ['gpt-5.4', 'gpt-5.4-mini'],
+  'gpt-5.2': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.2-pro': ['gpt-5.4', 'gpt-5.4-mini'],
   'gpt-5.3-codex': ['gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5.4-mini'],
   'gpt-5.2-codex': ['gpt-5.1-codex', 'gpt-5.4-mini'],
   'gpt-5.1-codex': ['gpt-5.1', 'gpt-5.4-mini'],
   'gpt-5.1-codex-mini': ['gpt-5.1-codex', 'gpt-5.4-mini'],
   'gpt-5.1-codex-max': ['gpt-5.4', 'gpt-5.1-codex', 'gpt-5.4-mini'],
   'gpt-5-codex': ['gpt-5.1-codex', 'gpt-5.4-mini'],
-  'gpt-5-pro': ['claude-sonnet-4-6', 'gpt-5.4'],
-  'gpt-5.1': ['claude-sonnet-4-6', 'gpt-5.4-mini'],
-  'gpt-5': ['claude-sonnet-4-6', 'gpt-5.4-mini'],
+  'gpt-5-pro': ['gpt-5.4', 'gpt-5.4-mini'],
+  'gpt-5.1': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
+  'gpt-5': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
   'o3-pro': ['o3', 'gpt-5.4', 'gpt-5.4-mini'],
-  'gpt-5.4-nano': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'claude-haiku-4-5'],
-  'gpt-5-nano': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'claude-haiku-4-5'],
-  'model-router': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'claude-sonnet-4-6'],
+  'gpt-5.4-nano': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
+  'gpt-5-nano': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
+  'model-router': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
 };
 
 /** Last resort when no Gemini-free chain can be derived (should be rare). */
-const OPS_AGENT_FALLBACK_DEFAULT: readonly string[] = ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'claude-sonnet-4-6'];
-
-/** Ops strips Gemini; OpenAI-only chains still hit one Azure quota pool — append Claude when missing. */
-const OPS_CLAUDE_LAST_RESORT = 'claude-sonnet-4-6' as const;
-
-function isOpenAiProviderModelId(id: string): boolean {
-  return (
-    id.startsWith('gpt-') ||
-    id === 'model-router' ||
-    id.startsWith('model-router') ||
-    /^o[134](-|$)/.test(id)
-  );
-}
+const OPS_AGENT_FALLBACK_DEFAULT: readonly string[] = ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'];
 
 function getOpsFallbackChainExcludingGemini(model: string): readonly string[] {
   const base = FALLBACK_CHAINS[model] ?? [];
   const filtered = base.filter((m) => !m.startsWith('gemini-'));
   if (filtered.length > 0) {
-    const hasClaude = filtered.some((m) => m.startsWith('claude-'));
-    const openAiOnly = filtered.every(isOpenAiProviderModelId);
-    if (openAiOnly && !hasClaude && !filtered.includes(OPS_CLAUDE_LAST_RESORT)) {
-      return [...filtered, OPS_CLAUDE_LAST_RESORT];
-    }
     return filtered;
   }
 
@@ -361,8 +344,8 @@ export const VERIFIER_MAP: Record<string, string> = {
   'o3':                     'gemini-3.1-flash-lite-preview',
   'o3-pro':                 'gemini-3.1-flash-lite-preview',
   'o4-mini':                'gemini-3.1-flash-lite-preview',
-  'o3-deep-research':       'claude-sonnet-4-6',
-  'o4-mini-deep-research':  'claude-sonnet-4-6',
+  'o3-deep-research':       'gemini-3.1-flash-lite-preview',
+  'o4-mini-deep-research':  'gemini-3.1-flash-lite-preview',
 
   // Claude primary → Gemini verifier (GCP-native, cheap)
   'claude-opus-4-6':        'gemini-3.1-flash-lite-preview',
@@ -397,7 +380,7 @@ export const DEEP_DIVE_MODELS: Record<string, string> = {
 export const DEEP_DIVE_VERIFICATION_MODELS = ['gpt-5.4-mini', 'gpt-5-mini'] as const;
 
 /** Reasoning engine verification (cross-provider) */
-export const REASONING_VERIFICATION_MODELS = ['gpt-5.4-mini', 'claude-sonnet-4-6'] as const;
+export const REASONING_VERIFICATION_MODELS = ['gpt-5.4-mini', 'gpt-5-mini'] as const;
 
 // ─── Helper functions ────────────────────────────────────────
 

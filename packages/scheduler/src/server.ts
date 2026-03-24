@@ -158,6 +158,8 @@ function wrapSvgLine(value: string, maxChars = 46): string[] {
 async function buildStrategyFallbackVisualPng(
   record: import('./strategyLabEngine.js').StrategyAnalysisRecord,
 ): Promise<string> {
+  // Cloud Run font availability can differ from local dev; prefer broadly available sans fonts.
+  const svgFont = 'DejaVu Sans, Liberation Sans, Arial, Helvetica, sans-serif';
   const synthesis = record.synthesis;
   const title = record.query || 'Strategy Analysis';
   const summary = synthesis?.executiveSummary?.trim() || 'Strategic analysis completed.';
@@ -179,30 +181,30 @@ async function buildStrategyFallbackVisualPng(
   </defs>
   <rect width="1536" height="1024" fill="url(#bg)"/>
   <rect x="0" y="0" width="1536" height="10" fill="#00E0FF"/>
-  <text x="96" y="110" fill="#E5E7EB" font-size="58" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Strategy Snapshot</text>
-  ${titleLines.map((line, idx) => `<text x="96" y="${180 + idx * 44}" fill="#00E0FF" font-size="36" font-family="Segoe UI, Arial, sans-serif" font-weight="600">${escapeSvgText(line)}</text>`).join('')}
+  <text x="96" y="110" fill="#E5E7EB" font-size="58" font-family="${svgFont}" font-weight="700">Strategy Snapshot</text>
+  ${titleLines.map((line, idx) => `<text x="96" y="${180 + idx * 44}" fill="#00E0FF" font-size="36" font-family="${svgFont}" font-weight="600">${escapeSvgText(line)}</text>`).join('')}
 
   <rect x="96" y="300" rx="20" ry="20" width="1344" height="250" fill="#0E1F4A" stroke="#1E3A8A" stroke-width="2"/>
-  <text x="128" y="350" fill="#93C5FD" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Executive Summary</text>
-  ${summaryLines.map((line, idx) => `<text x="128" y="${396 + idx * 42}" fill="#E5E7EB" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="500">${escapeSvgText(line)}</text>`).join('')}
+  <text x="128" y="350" fill="#93C5FD" font-size="24" font-family="${svgFont}" font-weight="700">Executive Summary</text>
+  ${summaryLines.map((line, idx) => `<text x="128" y="${396 + idx * 42}" fill="#E5E7EB" font-size="30" font-family="${svgFont}" font-weight="500">${escapeSvgText(line)}</text>`).join('')}
 
   <rect x="96" y="610" rx="16" ry="16" width="300" height="220" fill="#0B3A2E" stroke="#10B981" stroke-width="2"/>
-  <text x="126" y="670" fill="#6EE7B7" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Strengths</text>
-  <text x="126" y="760" fill="#ECFDF5" font-size="68" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${strengths}</text>
+  <text x="126" y="670" fill="#6EE7B7" font-size="24" font-family="${svgFont}" font-weight="700">Strengths</text>
+  <text x="126" y="760" fill="#ECFDF5" font-size="68" font-family="${svgFont}" font-weight="700">${strengths}</text>
 
   <rect x="432" y="610" rx="16" ry="16" width="300" height="220" fill="#062F49" stroke="#00E0FF" stroke-width="2"/>
-  <text x="462" y="670" fill="#67E8F9" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Opportunities</text>
-  <text x="462" y="760" fill="#ECFEFF" font-size="68" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${opportunities}</text>
+  <text x="462" y="670" fill="#67E8F9" font-size="24" font-family="${svgFont}" font-weight="700">Opportunities</text>
+  <text x="462" y="760" fill="#ECFEFF" font-size="68" font-family="${svgFont}" font-weight="700">${opportunities}</text>
 
   <rect x="768" y="610" rx="16" ry="16" width="300" height="220" fill="#3A190A" stroke="#F59E0B" stroke-width="2"/>
-  <text x="798" y="670" fill="#FCD34D" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Key Risks</text>
-  <text x="798" y="760" fill="#FFFBEB" font-size="68" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${risks}</text>
+  <text x="798" y="670" fill="#FCD34D" font-size="24" font-family="${svgFont}" font-weight="700">Key Risks</text>
+  <text x="798" y="760" fill="#FFFBEB" font-size="68" font-family="${svgFont}" font-weight="700">${risks}</text>
 
   <rect x="1104" y="610" rx="16" ry="16" width="336" height="220" fill="#3A0D1E" stroke="#FB7185" stroke-width="2"/>
-  <text x="1134" y="670" fill="#FDA4AF" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Open Questions</text>
-  <text x="1134" y="760" fill="#FFF1F2" font-size="68" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${questions}</text>
+  <text x="1134" y="670" fill="#FDA4AF" font-size="24" font-family="${svgFont}" font-weight="700">Open Questions</text>
+  <text x="1134" y="760" fill="#FFF1F2" font-size="68" font-family="${svgFont}" font-weight="700">${questions}</text>
 
-  <text x="96" y="930" fill="#9CA3AF" font-size="24" font-family="Segoe UI, Arial, sans-serif">Generated ${escapeSvgText(new Date().toLocaleDateString())} • Glyphor Strategy Lab</text>
+  <text x="96" y="930" fill="#9CA3AF" font-size="24" font-family="${svgFont}">Generated ${escapeSvgText(new Date().toLocaleDateString())} - Glyphor Strategy Lab</text>
   <rect x="0" y="1008" width="1536" height="16" fill="#00E0FF"/>
 </svg>`;
 

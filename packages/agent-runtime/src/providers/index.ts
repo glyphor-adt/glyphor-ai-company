@@ -15,7 +15,6 @@ export { AnthropicAdapter } from './anthropic.js';
 import type { ModelProvider, ProviderAdapter } from './types.js';
 import { GeminiAdapter, type GeminiAdapterConfig } from './gemini.js';
 import { OpenAIAdapter } from './openai.js';
-import { AnthropicAdapter } from './anthropic.js';
 
 export interface ProviderFactoryConfig {
   geminiApiKey?: string;
@@ -87,9 +86,7 @@ export class ProviderFactory {
         });
       }
       case 'anthropic': {
-        const anthropicApiKey = (this.config.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY)?.trim();
-        if (!anthropicApiKey) throw new Error('Anthropic not configured — set ANTHROPIC_API_KEY environment variable');
-        return new AnthropicAdapter(anthropicApiKey);
+        throw new Error('Direct Anthropic provider calls are disabled by policy. Use non-Claude models for agent execution.');
       }
     }
   }

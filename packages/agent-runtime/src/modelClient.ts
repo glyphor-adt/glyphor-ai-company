@@ -62,6 +62,7 @@ function sanitizeToolsForProvider(
 export class ModelClient {
   private factory: ProviderFactory;
   private static readonly DETERMINISTIC_FALLBACK_MODEL = getTierModel('default');
+  private static readonly BLOCKED_PROVIDER_PREFIXES = ['claude-'] as const;
 
   constructor(config: ModelClientConfig | string) {
     // Backwards-compatible: if a plain string is passed, treat as Gemini API key
@@ -89,6 +90,18 @@ export class ModelClient {
       request = { ...request, model: normalizedRequestedModel };
     }
 
+    const requestedModel = normalizedRequestedModel;
+    const isBlockedRequestedModel = ModelClient.BLOCKED_PROVIDER_PREFIXES.some((prefix) => requestedModel.startsWith(prefix));
+    const effectiveRequestedModel = isBlockedRequestedModel
+      ? ModelClient.DETERMINISTIC_FALLBACK_MODEL
+      : requestedModel;
+    if (isBlockedRequestedModel) {
+      console.warn(
+        `[ModelClient] Direct Anthropic execution is disabled; remapping ${requestedModel} -> ${effectiveRequestedModel}`,
+      );
+      request = { ...request, model: effectiveRequestedModel };
+    }
+
     const agentRole = request.metadata?.agentRole;
     // Atlas (ops): agent runners pass same-provider to stay on one vendor, but Gemini fallbacks
     // hit tool-schema / thought_signature errors. Use cross-provider + Gemini-free chain instead.
@@ -99,9 +112,14 @@ export class ModelClient {
       effectiveScope === 'none'
         ? []
         : effectiveScope === 'same-provider'
-          ? getProviderLocalFallbackChain(normalizedRequestedModel, agentRole)
-          : getFallbackChain(normalizedRequestedModel, agentRole);
-    const modelsToTry = [normalizedRequestedModel, ...fallbackChain];
+          ? getProviderLocalFallbackChain(effectiveRequestedModel, agentRole)
+          : getFallbackChain(effectiveRequestedModel, agentRole);
+    const modelsToTry = [effectiveRequestedModel, ...fallbackChain].filter(
+      (modelId, idx, arr) => !modelId.startsWith('claude-') && arr.indexOf(modelId) === idx,
+    );
+    if (modelsToTry.length === 0) {
+      throw new Error('No eligible models remain after applying provider policy constraints.');
+    }
     let lastFailureDetail = '';
 
     for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
