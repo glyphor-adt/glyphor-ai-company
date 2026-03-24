@@ -174,6 +174,10 @@ export interface FrameworkProgress {
   error?: string;
 }
 
+function hasStringOutput(result: void | AgentExecutionResult): result is AgentExecutionResult & { output: string } {
+  return Boolean(result) && typeof (result as AgentExecutionResult).output === 'string';
+}
+
 /* ── Constants ──────────────────────────────── */
 
 const RESEARCH_ANALYST_ROLES: Record<string, { name: string; packetType: string }> = {
@@ -931,8 +935,9 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     const sarahFrameText = sarahFrameResponse.text ?? '';
     if (sarahFrameText) {
       const jsonMatch = sarahFrameText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try { sarahFrame = JSON.parse(jsonMatch[0]); } catch { sarahFrame = { strategicContext: sarahFrameText }; }
+      const jsonBlob = jsonMatch?.[0];
+      if (typeof jsonBlob === 'string') {
+        try { sarahFrame = JSON.parse(jsonBlob as string); } catch { sarahFrame = { strategicContext: sarahFrameText }; }
       } else {
         sarahFrame = { strategicContext: sarahFrameText };
       }
@@ -961,11 +966,14 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     let sophiaRouting: ExecutiveRouting = {};
     let sophiaDecomp: Record<string, unknown> = {};
 
-    if (sophiaDecompResult?.output) {
-      const jsonMatch = sophiaDecompResult.output.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
+    const sophiaDecompOutput = (sophiaDecompResult as AgentExecutionResult | undefined)?.output;
+    if (sophiaDecompOutput) {
+      const decompText = String(sophiaDecompOutput);
+      const jsonMatch = decompText.match(/\{[\s\S]*\}/);
+      const jsonBlob = jsonMatch?.[0];
+      if (jsonBlob) {
         try {
-          const parsed = JSON.parse(jsonMatch[0]);
+          const parsed = JSON.parse(String(jsonBlob));
           sophiaDecomp = parsed;
 
           // Extract briefs from Sophia's structured output
@@ -1098,14 +1106,19 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
       let fallbackCount = 0;
       for (let i = 0; i < researchResults.length; i++) {
         const r = researchResults[i];
-        if (r.status !== 'fulfilled' || !r.value?.output) continue;
+        if (r.status !== 'fulfilled') continue;
+        const settledValue = (r as PromiseFulfilledResult<void | AgentExecutionResult>).value;
+        const settledOutput = (settledValue as AgentExecutionResult | undefined)?.output;
+        if (typeof settledOutput !== 'string') {
+          continue;
+        }
 
         const role = sophiaBriefs[i]?.analystRole as string;
         const packetType = ROLE_TO_PACKET_TYPE[role];
         if (!packetType) continue;
 
         const fallbackPacket = {
-          data: { rawFindings: r.value.output },
+          data: { rawFindings: settledOutput },
           sources: [],
           confidenceLevel: 'low',
           dataGaps: ['Packet auto-extracted from text output — structured data may be missing'],
@@ -1156,11 +1169,14 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     let remainingGaps: string[] = [];
     let overallConfidence = 'medium';
 
-    if (sophiaQCResult?.output) {
-      const jsonMatch = sophiaQCResult.output.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
+    const sophiaQCOutput = (sophiaQCResult as AgentExecutionResult | undefined)?.output;
+    if (sophiaQCOutput) {
+      const qcText = String(sophiaQCOutput);
+      const jsonMatch = qcText.match(/\{[\s\S]*\}/);
+      const jsonBlob = jsonMatch?.[0];
+      if (jsonBlob) {
         try {
-          const parsed = JSON.parse(jsonMatch[0]);
+          const parsed = JSON.parse(String(jsonBlob));
           sophiaQC = parsed;
           coverMemos = parsed.coverMemos || {};
           gapsFilled = parsed.gapsFilled || [];
@@ -1182,9 +1198,8 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     let totalSearches = 0;
     for (const [packetType, packet] of Object.entries(qcPackets)) {
       const p = packet as { sources?: StrategySource[]; data?: unknown };
-      if (p.sources) {
-        allSources.push(...p.sources.map((s: StrategySource) => ({ ...s, analystRole: packetType })));
-      }
+      const packetSources: StrategySource[] = (Array.isArray(p.sources) ? p.sources : []) as StrategySource[];
+      allSources.push(...packetSources.map((s: StrategySource) => ({ ...s, analystRole: packetType })));
     }
     researchProgress.forEach((rp) => {
       totalSearches += rp.searchCount || 0;
@@ -1308,9 +1323,10 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     let synthesis: SynthesisOutput | null = null;
     const synthText = synthesisResponse.text ?? '';
     const synthMatch = synthText.match(/\{[\s\S]*\}/);
-    if (synthMatch) {
+    const synthBlob = synthMatch?.[0];
+    if (typeof synthBlob === 'string') {
       try {
-        const parsed = JSON.parse(synthMatch[0]);
+        const parsed = JSON.parse(synthBlob as string);
         synthesis = {
           executiveSummary: parsed.executiveSummary || '',
           unifiedSwot: parsed.unifiedSwot || { strengths: [], weaknesses: [], opportunities: [], threats: [] },
@@ -1336,18 +1352,28 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     // ═══════════════════════════════════════════
     // WAVE 4: Follow-up (comprehensive only)
     // ═══════════════════════════════════════════
-    if (depth === 'comprehensive' && synthesis) {
-      await this.runFollowUp(id, req, synthesis, sophiaBriefs, qcPackets, executiveOutputs, allSources);
+    const finalizedSynthesis: SynthesisOutput = synthesis ?? {
+      executiveSummary: synthText || 'Strategy analysis completed.',
+      unifiedSwot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
+      crossFrameworkInsights: [],
+      strategicRecommendations: [],
+      keyRisks: [],
+      openQuestionsForFounders: [],
+      sourceIndex: allSources,
+    };
+
+    if (depth === 'comprehensive') {
+      await this.runFollowUp(id, req, finalizedSynthesis, sophiaBriefs, qcPackets, executiveOutputs, allSources);
     }
 
     // ═══════════════════════════════════════════
     // POST-SYNTHESIS: Extract monitoring watchlist
     // ═══════════════════════════════════════════
-    await this.extractAndStoreWatchlist(id, 'strategy_analysis', synthesis, frameworkOutputs, executiveOutputs);
+    await this.extractAndStoreWatchlist(id, 'strategy_analysis', finalizedSynthesis, frameworkOutputs, executiveOutputs);
 
     await systemQuery(
       'UPDATE strategy_analyses SET status=$1, synthesis=$2, completed_at=$3 WHERE id=$4',
-      ['completed', JSON.stringify(synthesis), new Date().toISOString(), id],
+      ['completed', JSON.stringify(finalizedSynthesis), new Date().toISOString(), id],
     );
 
     // Log activity

@@ -169,6 +169,10 @@ async function writeFleetFinding(
 async function notifyFounders(subject: string, body: string): Promise<void> {
   try {
     const client = A365TeamsChatClient.fromEnv('ops');
+    if (!client) {
+      console.warn('[ModelChecker] Teams notification skipped: A365TeamsChatClient not configured.');
+      return;
+    }
     const founderEmails = [
       process.env.TEAMS_USER_KRISTINA_EMAIL ?? 'kristina@glyphor.ai',
       process.env.TEAMS_USER_ANDREW_EMAIL ?? 'andrew@glyphor.ai',
