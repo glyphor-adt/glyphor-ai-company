@@ -10,7 +10,7 @@ import {
   MdSpeed,
   MdWarning,
 } from 'react-icons/md';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useActiveDirectives, useCompanyPulse, useDecisions, useOpenIncidents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP } from '../lib/types';
@@ -207,6 +207,7 @@ function buildOraActionPrompt(item: ActionCenterItem): string {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const location = useLocation();
   const { data: pulse, loading: pulseLoading } = useCompanyPulse();
   const { data: decisions, loading: decisionsLoading, updateDecision } = useDecisions();
   const { data: incidents, loading: incidentsLoading, resolveIncident } = useOpenIncidents();
@@ -513,16 +514,32 @@ export default function Dashboard() {
           <div className="space-y-1.5">
             {QUICK_ACTIONS.map((action) => {
               const Icon = action.icon;
+              const isSelected = location.pathname === action.to || location.pathname.startsWith(`${action.to}/`);
               return (
-                <Link key={action.label} to={action.to} className="group glass-surface inner-card-lift flex items-center gap-2.5 rounded-lg border border-border/60 px-3 py-2">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-surface/60 text-txt-muted shadow-sm transition-colors group-hover:border-cyan/35 group-hover:bg-cyan/10 group-hover:text-cyan">
+                <Link
+                  key={action.label}
+                  to={action.to}
+                  aria-current={isSelected ? 'page' : undefined}
+                  className={`group flex items-center gap-2.5 rounded-lg border bg-transparent px-3 py-2 transition-colors ${
+                    isSelected
+                      ? 'border-[#00E0FF]/70'
+                      : 'border-border/60 hover:border-[#00E0FF]/70 focus-visible:border-[#00E0FF]/70'
+                  }`}
+                >
+                  <div
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-txt-muted shadow-sm transition-colors ${
+                      isSelected
+                        ? 'border-[#00E0FF]/60 text-cyan'
+                        : 'border-border/80 group-hover:border-[#00E0FF]/60 group-hover:text-cyan'
+                    }`}
+                  >
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[12px] font-semibold text-txt-primary">{action.label}</p>
                     <p className="text-[11px] text-txt-muted">{action.description}</p>
                   </div>
-                  <MdArrowForward className="h-3.5 w-3.5 text-txt-faint" />
+                  <MdArrowForward className={`h-3.5 w-3.5 ${isSelected ? 'text-cyan' : 'text-txt-faint group-hover:text-cyan'}`} />
                 </Link>
               );
             })}
@@ -561,7 +578,7 @@ export default function Dashboard() {
                 const producer = deliverable.producing_agent ? (DISPLAY_NAME_MAP[deliverable.producing_agent] ?? deliverable.producing_agent) : 'Unknown';
                 const summary = previewText(deliverable.content, 'Open the linked artifact for the full output.');
                 return (
-                  <HomeInnerCard key={deliverable.id} className="px-3 py-2.5">
+                  <HomeInnerCard key={deliverable.id} className="px-3 py-2.5" interactive={false}>
                     <div className="flex items-start gap-3">
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-semibold text-txt-primary line-clamp-1">{deliverable.title}</p>

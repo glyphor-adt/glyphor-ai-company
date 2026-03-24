@@ -19,7 +19,7 @@ import {
 import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TITLE, AGENT_BUILT_IN_TOOLS } from '../../lib/types';
 import { getToolPlatform, getToolPlatformMeta, PLATFORM_META, type ToolPlatform } from '../../lib/toolPlatform';
 
-type HealthFilter = null | 'high-risk' | 'stale' | 'telemetry-gap';
+type HealthFilter = null | 'failing' | 'high-risk' | 'stale' | 'telemetry-gap';
 
 interface ToolViewProps {
   loading: boolean;
@@ -32,6 +32,10 @@ interface EnrichedTool extends ToolReputation {
   activeGrantCount: number;
   timeoutRate: number | null;
   severity: Severity;
+}
+
+function isFailingTool(tool: ToolReputation): boolean {
+  return tool.failed_calls > 0 || tool.timeout_calls > 0;
 }
 
 function getToolSeverity(tool: ToolReputation): Severity {
@@ -69,6 +73,7 @@ function ToolHealthOverview({
       .filter((value): value is number => value != null),
   );
   const highRiskCount = activeTools.filter((tool) => tool.severity === 'critical' || tool.severity === 'high').length;
+  const failingCount = activeTools.filter((tool) => isFailingTool(tool)).length;
   const staleCount = activeTools.filter((tool) => (daysSince(tool.last_used_at) ?? 0) > 7).length;
 
   const TONE_COLOR: Record<string, string> = {
@@ -81,6 +86,7 @@ function ToolHealthOverview({
   const cards: { label: string; value: string; tone: string; filter?: HealthFilter }[] = [
     { label: 'Active Tools', value: activeTools.length.toString(), tone: 'text-prism-sky' },
     { label: 'Avg Reliability', value: formatPercent(avgReliability, 0), tone: 'text-prism-teal' },
+    { label: 'Failing Tools', value: failingCount.toString(), tone: 'text-prism-critical', filter: 'failing' },
     { label: 'High-Risk Tools', value: highRiskCount.toString(), tone: 'text-prism-critical', filter: 'high-risk' },
     { label: 'Stale Active Tools', value: staleCount.toString(), tone: 'text-prism-elevated', filter: 'stale' },
     { label: 'Awaiting Telemetry', value: telemetryGaps.length.toString(), tone: 'text-prism-sky', filter: 'telemetry-gap' },
@@ -102,7 +108,7 @@ function ToolHealthOverview({
           </GradientButton>
         ) : undefined}
       />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         {cards.map((card) => {
           const isClickable = card.filter != null;
           const isActive = activeFilter === card.filter;
@@ -143,12 +149,19 @@ function ToolReputationBoard({
 }) {
   const filtered = useMemo(() => {
     if (!activeFilter) return items;
+    if (activeFilter === 'failing') return items.filter((t) => isFailingTool(t));
     if (activeFilter === 'high-risk') return items.filter((t) => t.severity === 'critical' || t.severity === 'high');
     if (activeFilter === 'stale') return items.filter((t) => (daysSince(t.last_used_at) ?? 0) > 7);
     return items;
   }, [items, activeFilter]);
 
-  const filterLabel = activeFilter === 'high-risk' ? 'High-Risk' : activeFilter === 'stale' ? 'Stale' : null;
+  const filterLabel = activeFilter === 'failing'
+    ? 'Failing'
+    : activeFilter === 'high-risk'
+      ? 'High-Risk'
+      : activeFilter === 'stale'
+        ? 'Stale'
+        : null;
 
   if (!items.length) {
     return (

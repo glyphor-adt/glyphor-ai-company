@@ -40,6 +40,22 @@ const templateUriCache = new Map<TemplateFormat, string | null>();
 const templateBytesCache = new Map<TemplateFormat, Buffer | null>();
 const templateWarnedMessages = new Set<string>();
 
+function cleanMojibakeText(value: string): string {
+  return value
+    .replace(/Â·/g, '·')
+    .replace(/Â /g, ' ')
+    .replace(/â€”/g, '—')
+    .replace(/â€“/g, '–')
+    .replace(/â†’/g, '→')
+    .replace(/â—/g, '•')
+    .replace(/â€¢/g, '•')
+    .replace(/âœ“/g, '✓')
+    .replace(/âœ—/g, '✗')
+    .replace(/âš /g, '⚠')
+    .replace(/2Ã—2/g, '2×2')
+    .replace(/Ã—/g, '×');
+}
+
 function warnTemplateOnce(message: string): void {
   if (templateWarnedMessages.has(message)) return;
   templateWarnedMessages.add(message);
@@ -154,7 +170,7 @@ async function writeDocxBuffer(doc: Document): Promise<Buffer> {
 /** Branded footer bar on every slide */
 function addSlideFooter(slide: PptxGenJS.Slide, pptx: PptxGenJS): void {
   slide.addShape(pptx.ShapeType.rect, { x: 0, y: 5.1, w: 10, h: 0.15, fill: { color: SLIDE_CYAN } });
-  slide.addText('GLYPHOR AI  Â·  Confidential', { x: 0.3, y: 4.85, w: 5, fontSize: 9, color: SLIDE_MUTED, fontFace: FONT_BODY });
+  slide.addText('GLYPHOR AI · Confidential', { x: 0.3, y: 4.85, w: 5, fontSize: 9, color: SLIDE_MUTED, fontFace: FONT_BODY });
 }
 
 function pptxTitleSlide(pptx: PptxGenJS, title: string, subtitle: string, meta: string): void {
@@ -201,7 +217,7 @@ function pptxSectionSlides(pptx: PptxGenJS, heading: string, items: string[], co
 
     chunk.forEach((item, idx) => {
       const globalIdx = pageIdx * ITEMS_PER_SLIDE + idx;
-      const prefix = opts?.numbered ? `${globalIdx + 1}.` : 'â—';
+      const prefix = opts?.numbered ? `${globalIdx + 1}.` : '•';
       const yPos = 1.0 + idx * 0.65;
       // Item card with subtle bg
       slide.addShape(pptx.ShapeType.roundRect, {
@@ -333,7 +349,7 @@ export function exportSimulationMarkdown(record: SimulationRecord): string {
   if (report.cascadeChain.length > 0) {
     lines.push('## Cascade Effects', '');
     for (const link of report.cascadeChain) {
-      lines.push(`- **${link.from}** â†’ **${link.to}**: ${link.effect} *(${link.delay})*`);
+      lines.push(`- **${link.from}** → **${link.to}**: ${link.effect} *(${link.delay})*`);
     }
     lines.push('');
   }
@@ -342,7 +358,7 @@ export function exportSimulationMarkdown(record: SimulationRecord): string {
   lines.push('## Agent Votes', '');
   for (const vote of report.votes) {
     const emoji = vote.vote === 'approve' ? 'APPROVE' : vote.vote === 'reject' ? 'REJECT' : 'CAUTION';
-    lines.push(`- ${emoji} **${vote.agent}**: ${vote.vote} â€” ${vote.reasoning.slice(0, 100)}`);
+    lines.push(`- ${emoji} **${vote.agent}**: ${vote.vote} — ${vote.reasoning.slice(0, 100)}`);
   }
 
   return lines.join('\n');
@@ -1586,13 +1602,14 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_16x9';
   pptx.author = 'Glyphor AI';
-  const typeLabel = record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const typeLabel = cleanMojibakeText(record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
+  const queryText = cleanMojibakeText(record.query);
   pptx.title = `Strategic Analysis: ${typeLabel}`;
 
   // 1. Title slide
   pptxTitleSlide(
-    pptx, typeLabel, record.query,
-    `Depth: ${record.depth}  Â·  ${record.total_sources} sources  Â·  ${record.total_searches} searches  Â·  ${new Date(record.created_at).toLocaleDateString()}`,
+    pptx, typeLabel, queryText,
+    cleanMojibakeText(`Depth: ${record.depth} · ${record.total_sources} sources · ${record.total_searches} searches · ${new Date(record.created_at).toLocaleDateString()}`),
   );
 
   const s = record.synthesis;
@@ -1616,7 +1633,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
       x: 0.5, y: 0.95, w: 9, h: 3.8,
       fill: { color: SLIDE_BG2 }, line: { color: '2D3348', width: 0.5 }, rectRadius: 0.08,
     });
-    const summaryText = s.executiveSummary;
+    const summaryText = cleanMojibakeText(s.executiveSummary);
     slide.addText(summaryText, {
       x: 0.8, y: 1.1, w: 8.4, h: 3.5,
       fontSize: 13.5, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.4,
@@ -1643,7 +1660,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
 
   // 3. Cross-Framework Insights
   if (s.crossFrameworkInsights.length > 0) {
-    pptxSectionSlides(pptx, 'Cross-Framework Insights', s.crossFrameworkInsights, SLIDE_CYAN);
+    pptxSectionSlides(pptx, 'Cross-Framework Insights', s.crossFrameworkInsights.map(cleanMojibakeText), SLIDE_CYAN);
   }
 
   // 4. SWOT Analysis
@@ -1667,7 +1684,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
       });
       slide.addShape(pptx.ShapeType.rect, { x: q.x, y: q.y, w: 4.65, h: 0.3, fill: { color: q.color } });
       slide.addText(q.label, { x: q.x + 0.15, y: q.y + 0.02, w: 4.3, fontSize: 11, color: SLIDE_WHITE, fontFace: FONT_HEADING, bold: true, charSpacing: 2 });
-      const bullets = q.items.slice(0, 7).map((item, i) => `${i + 1}. ${item}`).join('\n');
+      const bullets = q.items.slice(0, 7).map((item, i) => `${i + 1}. ${cleanMojibakeText(item)}`).join('\n');
       slide.addText(bullets || 'None identified', {
         x: q.x + 0.15, y: q.y + 0.38, w: 4.35, h: 1.45,
         fontSize: 11, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.35,
@@ -1686,21 +1703,21 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
       slide.background = { color: SLIDE_BG };
       slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_RED } });
       slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.06, h: 5.63, fill: { color: SLIDE_RED } });
-      slide.addText(`HIGH IMPACT  Â·  Recommendation ${idx + 1}`, {
+      slide.addText(`HIGH IMPACT · Recommendation ${idx + 1}`, {
         x: 0.6, y: 0.3, w: 9, fontSize: 12, color: SLIDE_RED, fontFace: FONT_HEADING, bold: true, charSpacing: 2,
       });
-      slide.addText(rec.title, { x: 0.6, y: 0.8, w: 8.5, fontSize: 28, color: SLIDE_TEXT, fontFace: FONT_HEADING, bold: true });
+      slide.addText(cleanMojibakeText(rec.title), { x: 0.6, y: 0.8, w: 8.5, fontSize: 28, color: SLIDE_TEXT, fontFace: FONT_HEADING, bold: true });
       slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.5, w: 1.0, h: 0.035, fill: { color: SLIDE_RED } });
       slide.addShape(pptx.ShapeType.roundRect, {
         x: 0.5, y: 1.75, w: 9, h: 2.8,
         fill: { color: SLIDE_BG2 }, line: { color: '2D3348', width: 0.5 }, rectRadius: 0.08,
       });
-      slide.addText(rec.description, {
+      slide.addText(cleanMojibakeText(rec.description), {
         x: 0.8, y: 1.9, w: 8.4, h: 2.5,
         fontSize: 14, color: SLIDE_TEXT, fontFace: FONT_BODY, valign: 'top', lineSpacingMultiple: 1.4,
       });
       // Owner & expected outcome
-      slide.addText(`Owner: ${rec.owner}  Â·  Expected: ${rec.expectedOutcome}`, {
+      slide.addText(cleanMojibakeText(`Owner: ${rec.owner} · Expected: ${rec.expectedOutcome}`), {
         x: 0.8, y: 4.6, w: 8.4, fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY,
       });
       addSlideFooter(slide, pptx);
@@ -1710,7 +1727,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
       pptxSectionSlides(
         pptx,
         'Additional Recommendations',
-        otherRecs.map((r) => `[${r.impact.toUpperCase()}] ${r.title}: ${r.description}`),
+        otherRecs.map((r) => cleanMojibakeText(`[${r.impact.toUpperCase()}] ${r.title}: ${r.description}`)),
         SLIDE_CYAN,
         { numbered: true },
       );
@@ -1719,10 +1736,10 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
 
   // 6. Risks & Open Questions
   if (s.keyRisks.length > 0) {
-    pptxSectionSlides(pptx, 'Key Risks', s.keyRisks, SLIDE_RED);
+    pptxSectionSlides(pptx, 'Key Risks', s.keyRisks.map(cleanMojibakeText), SLIDE_RED);
   }
   if (s.openQuestionsForFounders.length > 0) {
-    pptxSectionSlides(pptx, 'Open Questions for Founders', s.openQuestionsForFounders, SLIDE_AMBER);
+    pptxSectionSlides(pptx, 'Open Questions for Founders', s.openQuestionsForFounders.map(cleanMojibakeText), SLIDE_AMBER);
   }
 
   // 7. Closing slide
@@ -1732,7 +1749,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 2.6, w: 10, h: 0.04, fill: { color: SLIDE_CYAN } });
     slide.addText('GLYPHOR', { x: 0.6, y: 1.8, w: 8.8, fontSize: 28, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true, align: 'center', charSpacing: 6 });
     slide.addText('Strategic Intelligence Platform', { x: 0.6, y: 2.9, w: 8.8, fontSize: 14, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
-    slide.addText(`Generated ${new Date().toLocaleDateString()}  Â·  Confidential`, { x: 0.6, y: 3.5, w: 8.8, fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
+    slide.addText(`Generated ${new Date().toLocaleDateString()} · Confidential`, { x: 0.6, y: 3.5, w: 8.8, fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center' });
     addSlideFooter(slide, pptx);
   }
 
@@ -1743,7 +1760,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
 
 export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Promise<Buffer> {
   const s = record.synthesis;
-  const typeLabel = record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const typeLabel = cleanMojibakeText(record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
 
   const children: (Paragraph | Table)[] = [];
 
@@ -1765,16 +1782,16 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
   }));
   children.push(new Paragraph({
     spacing: { after: 80 },
-    children: [new TextRun({ text: record.query, italics: true, size: 24, color: 'B0B8C4', font: 'Segoe UI' })],
+    children: [new TextRun({ text: cleanMojibakeText(record.query), italics: true, size: 24, color: 'B0B8C4', font: 'Segoe UI' })],
   }));
   children.push(new Paragraph({
     spacing: { after: 400 },
     border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: '2D3348', space: 12 } },
     children: [
       new TextRun({ text: `Depth: ${record.depth}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
-      new TextRun({ text: `  Â·  Sources: ${record.total_sources}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
-      new TextRun({ text: `  Â·  Searches: ${record.total_searches}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
-      new TextRun({ text: `  Â·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
+      new TextRun({ text: `  ·  Sources: ${record.total_sources}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
+      new TextRun({ text: `  ·  Searches: ${record.total_searches}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
+      new TextRun({ text: `  ·  Date: ${new Date(record.created_at).toLocaleDateString()}`, size: 18, color: '8B95A5', font: 'Segoe UI' }),
     ],
   }));
 
@@ -1785,7 +1802,7 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
 
   // Executive Summary
   children.push(...docxSectionHeading('Executive Summary', '00E0FF'));
-  for (const para of s.executiveSummary.split('\n').filter(Boolean)) {
+  for (const para of cleanMojibakeText(s.executiveSummary).split('\n').filter(Boolean)) {
     children.push(new Paragraph({
       spacing: { after: 160 },
       children: [new TextRun({ text: para, size: 22, font: 'Segoe UI', color: 'E5E7EB' })],
@@ -1796,7 +1813,7 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
   if (s.crossFrameworkInsights.length > 0) {
     children.push(...docxSectionHeading('Cross-Framework Insights', 'D97706'));
     for (const insight of s.crossFrameworkInsights) {
-      children.push(docxBulletItem(insight, '3D3D3D'));
+      children.push(docxBulletItem(cleanMojibakeText(insight), '3D3D3D'));
     }
   }
 
@@ -1875,7 +1892,7 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
         children: [
           new TextRun({ text: 'Owner: ', bold: true, size: 18, color: '9CA3AF', font: 'Segoe UI' }),
           new TextRun({ text: rec.owner, size: 18, color: 'D1D5DB', font: 'Segoe UI' }),
-          new TextRun({ text: '  Â·  Expected: ', bold: true, size: 18, color: '9CA3AF', font: 'Segoe UI' }),
+          new TextRun({ text: '  ·  Expected: ', bold: true, size: 18, color: '9CA3AF', font: 'Segoe UI' }),
           new TextRun({ text: rec.expectedOutcome, size: 18, color: 'D1D5DB', font: 'Segoe UI' }),
         ],
       }));
@@ -1891,7 +1908,7 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
   if (s.keyRisks.length > 0) {
     children.push(...docxSectionHeading('Key Risks', 'DC2626'));
     for (const risk of s.keyRisks) {
-      children.push(docxBulletItem(risk, '555555'));
+      children.push(docxBulletItem(cleanMojibakeText(risk), '555555'));
     }
   }
 
@@ -1899,7 +1916,7 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
   if (s.openQuestionsForFounders.length > 0) {
     children.push(...docxSectionHeading('Open Questions for Founders', 'D97706'));
     for (const q of s.openQuestionsForFounders) {
-      children.push(docxBulletItem(q, '555555'));
+      children.push(docxBulletItem(cleanMojibakeText(q), '555555'));
     }
   }
 
@@ -1908,7 +1925,7 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
     spacing: { before: 600 },
     border: { top: { style: BorderStyle.SINGLE, size: 2, color: '00E0FF', space: 12 } },
     alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: `Glyphor AI  Â·  Strategy Lab  Â·  ${new Date().toLocaleDateString()}  Â·  Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
+    children: [new TextRun({ text: `Glyphor AI · Strategy Lab · ${new Date().toLocaleDateString()} · Confidential`, size: 16, color: '6B7280', font: 'Segoe UI' })],
   }));
 
   return writeDocxBuffer(new Document({

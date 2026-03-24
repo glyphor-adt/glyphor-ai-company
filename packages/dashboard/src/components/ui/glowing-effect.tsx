@@ -23,7 +23,6 @@ export interface GlowingEffectProps {
   disabled?: boolean;
   movementDuration?: number;
   borderWidth?: number;
-  alwaysOn?: boolean;
 }
 
 const GlowingEffect = memo(
@@ -38,14 +37,13 @@ const GlowingEffect = memo(
     movementDuration = 2,
     borderWidth = 1,
     disabled = true,
-    alwaysOn = false,
   }: GlowingEffectProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const lastPosition = useRef({ x: 0, y: 0 });
     const animationFrameRef = useRef<number>(0);
 
     const handleMove = useCallback(
-      (e?: MouseEvent | PointerEvent | { x: number; y: number }) => {
+      (e?: PointerEvent | { x: number; y: number }) => {
         if (!containerRef.current) return;
 
         if (animationFrameRef.current) {
@@ -57,36 +55,31 @@ const GlowingEffect = memo(
           if (!element) return;
 
           const { left, top, width, height } = element.getBoundingClientRect();
-          const mouseX = e && 'clientX' in e ? e.clientX : lastPosition.current.x;
-          const mouseY = e && 'clientY' in e ? e.clientY : lastPosition.current.y;
+          const mouseX = e?.x ?? lastPosition.current.x;
+          const mouseY = e?.y ?? lastPosition.current.y;
 
-          if (e && 'clientX' in e) {
+          if (e) {
             lastPosition.current = { x: mouseX, y: mouseY };
           }
 
           const center = [left + width * 0.5, top + height * 0.5];
+          const distanceFromCenter = Math.hypot(mouseX - center[0], mouseY - center[1]);
+          const inactiveRadius = 0.5 * Math.min(width, height) * inactiveZone;
 
-          if (!alwaysOn) {
-            const distanceFromCenter = Math.hypot(mouseX - center[0], mouseY - center[1]);
-            const inactiveRadius = 0.5 * Math.min(width, height) * inactiveZone;
-
-            if (distanceFromCenter < inactiveRadius) {
-              element.style.setProperty('--active', '0');
-              return;
-            }
-
-            const isActive =
-              mouseX > left - proximity &&
-              mouseX < left + width + proximity &&
-              mouseY > top - proximity &&
-              mouseY < top + height + proximity;
-
-            element.style.setProperty('--active', isActive ? '1' : '0');
-
-            if (!isActive) return;
-          } else {
-            element.style.setProperty('--active', '1');
+          if (distanceFromCenter < inactiveRadius) {
+            element.style.setProperty('--active', '0');
+            return;
           }
+
+          const isActive =
+            mouseX > left - proximity &&
+            mouseX < left + width + proximity &&
+            mouseY > top - proximity &&
+            mouseY < top + height + proximity;
+
+          element.style.setProperty('--active', isActive ? '1' : '0');
+
+          if (!isActive) return;
 
           const currentAngle = parseFloat(element.style.getPropertyValue('--start')) || 0;
           const targetAngle =
@@ -153,7 +146,7 @@ const GlowingEffect = memo(
       '--blur': `${blur}px`,
       '--spread': spread,
       '--start': '0',
-      '--active': alwaysOn ? '1' : '0',
+      '--active': '0',
       '--glowingeffect-border-width': `${borderWidth}px`,
       '--repeating-conic-gradient-times': '5',
       '--gradient': gradientCss,
@@ -164,11 +157,10 @@ const GlowingEffect = memo(
         {/* Inert border when pointer effect is off */}
         <div
           className={cn(
-            'pointer-events-none absolute -inset-px rounded-[inherit] border border-border/40 opacity-0 transition-opacity',
-            disabled && 'block opacity-100',
-            !disabled && 'hidden',
-            glow && disabled && 'opacity-100',
+            'pointer-events-none absolute -inset-px hidden rounded-[inherit] border opacity-0 transition-opacity',
+            glow && 'opacity-100',
             variant === 'white' && 'border-white',
+            disabled && '!block',
           )}
         />
         <div
@@ -176,16 +168,16 @@ const GlowingEffect = memo(
           style={layerStyle}
           className={cn(
             'pointer-events-none absolute inset-0 rounded-[inherit] opacity-100 transition-opacity',
-            disabled && 'hidden',
             glow && 'opacity-100',
             blur > 0 && 'blur-[var(--blur)]',
             className,
+            disabled && '!hidden',
           )}
         >
           <div
             className={cn(
               'glow rounded-[inherit]',
-              'after:absolute after:inset-[calc(-1*var(--glowingeffect-border-width))] after:rounded-[inherit] after:[border:var(--glowingeffect-border-width)_solid_transparent] after:[background:var(--gradient)] after:[background-attachment:fixed] after:opacity-[calc(0.22+var(--active)*0.78)] after:transition-opacity after:duration-300 after:[mask-clip:padding-box,border-box] after:[mask-composite:intersect] after:[mask-image:linear-gradient(#0000,#0000),conic-gradient(from_calc((var(--start)-var(--spread))*1deg),#00000000_0deg,#fff,#00000000_calc(var(--spread)*2deg))] after:content-[""]',
+              'after:absolute after:inset-[calc(-1*var(--glowingeffect-border-width))] after:rounded-[inherit] after:[border:var(--glowingeffect-border-width)_solid_transparent] after:[background:var(--gradient)] after:[background-attachment:fixed] after:opacity-[var(--active)] after:transition-opacity after:duration-300 after:[mask-clip:padding-box,border-box] after:[mask-composite:intersect] after:[mask-image:linear-gradient(#0000,#0000),conic-gradient(from_calc((var(--start)-var(--spread))*1deg),#00000000_0deg,#fff,#00000000_calc(var(--spread)*2deg))] after:content-["\"]',
             )}
           />
         </div>

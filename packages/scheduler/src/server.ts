@@ -129,6 +129,87 @@ async function applyWatermark(imageB64: string): Promise<string> {
   return result.toString('base64');
 }
 
+function escapeSvgText(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function wrapSvgLine(value: string, maxChars = 46): string[] {
+  const words = value.trim().split(/\s+/);
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.slice(0, 3);
+}
+
+async function buildStrategyFallbackVisualPng(
+  record: import('./strategyLabEngine.js').StrategyAnalysisRecord,
+): Promise<string> {
+  const synthesis = record.synthesis;
+  const title = record.query || 'Strategy Analysis';
+  const summary = synthesis?.executiveSummary?.trim() || 'Strategic analysis completed.';
+  const titleLines = wrapSvgLine(title, 48);
+  const summaryLines = wrapSvgLine(summary, 64);
+  const strengths = synthesis?.unifiedSwot.strengths.length ?? 0;
+  const opportunities = synthesis?.unifiedSwot.opportunities.length ?? 0;
+  const risks = synthesis?.keyRisks.length ?? 0;
+  const questions = synthesis?.openQuestionsForFounders.length ?? 0;
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="1024" viewBox="0 0 1536 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B1533"/>
+      <stop offset="55%" stop-color="#0A1A43"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+  </defs>
+  <rect width="1536" height="1024" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1536" height="10" fill="#00E0FF"/>
+  <text x="96" y="110" fill="#E5E7EB" font-size="58" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Strategy Snapshot</text>
+  ${titleLines.map((line, idx) => `<text x="96" y="${180 + idx * 44}" fill="#00E0FF" font-size="36" font-family="Segoe UI, Arial, sans-serif" font-weight="600">${escapeSvgText(line)}</text>`).join('')}
+
+  <rect x="96" y="300" rx="20" ry="20" width="1344" height="250" fill="#0E1F4A" stroke="#1E3A8A" stroke-width="2"/>
+  <text x="128" y="350" fill="#93C5FD" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Executive Summary</text>
+  ${summaryLines.map((line, idx) => `<text x="128" y="${396 + idx * 42}" fill="#E5E7EB" font-size="30" font-family="Segoe UI, Arial, sans-serif" font-weight="500">${escapeSvgText(line)}</text>`).join('')}
+
+  <rect x="96" y="610" rx="16" ry="16" width="300" height="220" fill="#0B3A2E" stroke="#10B981" stroke-width="2"/>
+  <text x="126" y="670" fill="#6EE7B7" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Strengths</text>
+  <text x="126" y="760" fill="#ECFDF5" font-size="68" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${strengths}</text>
+
+  <rect x="432" y="610" rx="16" ry="16" width="300" height="220" fill="#062F49" stroke="#00E0FF" stroke-width="2"/>
+  <text x="462" y="670" fill="#67E8F9" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Opportunities</text>
+  <text x="462" y="760" fill="#ECFEFF" font-size="68" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${opportunities}</text>
+
+  <rect x="768" y="610" rx="16" ry="16" width="300" height="220" fill="#3A190A" stroke="#F59E0B" stroke-width="2"/>
+  <text x="798" y="670" fill="#FCD34D" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Key Risks</text>
+  <text x="798" y="760" fill="#FFFBEB" font-size="68" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${risks}</text>
+
+  <rect x="1104" y="610" rx="16" ry="16" width="336" height="220" fill="#3A0D1E" stroke="#FB7185" stroke-width="2"/>
+  <text x="1134" y="670" fill="#FDA4AF" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Open Questions</text>
+  <text x="1134" y="760" fill="#FFF1F2" font-size="68" font-family="Segoe UI, Arial, sans-serif" font-weight="700">${questions}</text>
+
+  <text x="96" y="930" fill="#9CA3AF" font-size="24" font-family="Segoe UI, Arial, sans-serif">Generated ${escapeSvgText(new Date().toLocaleDateString())} • Glyphor Strategy Lab</text>
+  <rect x="0" y="1008" width="1536" height="16" fill="#00E0FF"/>
+</svg>`;
+
+  const png = await sharp(Buffer.from(svg)).png().toBuffer();
+  return png.toString('base64');
+}
+
 async function requireSdkClient(req: IncomingMessage, res: ServerResponse) {
   const client = await authenticateSdkClient(req.headers.authorization);
   if (!client) {
@@ -3517,7 +3598,13 @@ const server = createServer(async (req, res) => {
       const id = decodeURIComponent(strategyLabVisualGetMatch[1]);
       const [saRow] = await systemQuery<{ visual_image: string | null }>('SELECT visual_image FROM strategy_analyses WHERE id=$1', [id]);
       if (saRow?.visual_image) {
-        json(res, 200, { image: saRow.visual_image, mimeType: 'image/png' });
+        const stored = saRow.visual_image.trim();
+        const dataUriMatch = stored.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+        if (dataUriMatch) {
+          json(res, 200, { image: dataUriMatch[2], mimeType: dataUriMatch[1] });
+        } else {
+          json(res, 200, { image: stored, mimeType: 'image/png' });
+        }
       } else {
         json(res, 404, { error: 'No visual saved' });
       }
@@ -3531,13 +3618,20 @@ const server = createServer(async (req, res) => {
       const record = await strategyLabEngine.get(id);
       if (!record?.synthesis) { json(res, 404, { error: 'Strategy analysis not found or not completed' }); return; }
 
-      const prompt = buildStrategyLabVisualPrompt(record);
-      const imageResponse = await strategyModelClient.generateImage(prompt);
+      let imageB64: string;
+      let mimeType: 'image/png' = 'image/png';
+      try {
+        const prompt = buildStrategyLabVisualPrompt(record);
+        const imageResponse = await strategyModelClient.generateImage(prompt);
+        imageB64 = await applyWatermark(imageResponse.imageData);
+      } catch (error) {
+        console.warn('[StrategyLabVisual] AI image generation failed, using deterministic fallback visual:', (error as Error).message);
+        imageB64 = await buildStrategyFallbackVisualPng(record);
+      }
 
-      const watermarked = await applyWatermark(imageResponse.imageData);
-      await systemQuery('UPDATE strategy_analyses SET visual_image=$1 WHERE id=$2', [watermarked, id]);
+      await systemQuery('UPDATE strategy_analyses SET visual_image=$1 WHERE id=$2', [imageB64, id]);
 
-      json(res, 200, { image: watermarked, mimeType: 'image/png' });
+      json(res, 200, { image: imageB64, mimeType });
       return;
     }
 

@@ -168,7 +168,21 @@ async function api<T>(path: string, opts?: RequestInit): Promise<T> {
     ...opts,
     headers: { 'Content-Type': 'application/json', ...opts?.headers },
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const payload = await res.json();
+      if (payload && typeof payload === 'object' && 'error' in payload) {
+        const maybeError = (payload as { error?: unknown }).error;
+        if (typeof maybeError === 'string') {
+          detail = maybeError;
+        }
+      }
+    } catch {
+      // Ignore JSON parse errors and fall back to status-only message.
+    }
+    throw new Error(detail ? `API error ${res.status}: ${detail}` : `API error: ${res.status}`);
+  }
   return res.json();
 }
 

@@ -528,7 +528,10 @@ export async function postCardToChannel(
   const card = webhookPayload.attachments[0].content;
   const channels = buildChannelMap();
   const target = channels[channelName as keyof ChannelMap];
-  const skipDelegatedFallback = Boolean(agentRole) && process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS !== 'true';
+  const webhookUrl = getChannelWebhookUrl(channelName);
+  const delegatedAgentPostsExplicitlyEnabled = process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS === 'true';
+  // Avoid no-send dead-end: if agent identity fails and no webhook exists, allow delegated fallback.
+  const skipDelegatedFallback = Boolean(agentRole) && !delegatedAgentPostsExplicitlyEnabled && Boolean(webhookUrl);
 
   // 0. Agent identity (posts as the agent, not a human or bot)
   if (agentRole && target) {
@@ -541,7 +544,6 @@ export async function postCardToChannel(
   }
 
   // 1. Webhook (posts as bot, not as a user)
-  const webhookUrl = getChannelWebhookUrl(channelName);
   if (webhookUrl) {
     try {
       // Power Platform direct API URLs require a bearer token
@@ -594,7 +596,10 @@ export async function postTextToChannel(
 ): Promise<PostResult> {
   const channels = buildChannelMap();
   const target = channels[channelName as keyof ChannelMap];
-  const skipDelegatedFallback = Boolean(agentRole) && process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS !== 'true';
+  const webhookUrl = getChannelWebhookUrl(channelName);
+  const delegatedAgentPostsExplicitlyEnabled = process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS === 'true';
+  // Avoid no-send dead-end: if agent identity fails and no webhook exists, allow delegated fallback.
+  const skipDelegatedFallback = Boolean(agentRole) && !delegatedAgentPostsExplicitlyEnabled && Boolean(webhookUrl);
 
   // 0. Agent identity (posts as the agent, not a human or bot)
   if (agentRole && target) {
@@ -604,7 +609,6 @@ export async function postTextToChannel(
   }
 
   // 1. Webhook (posts as bot, not as a user)
-  const webhookUrl = getChannelWebhookUrl(channelName);
   if (webhookUrl) {
     const cardText = text + plainFounderFooterFromRich(rich);
     const payload: TeamsWebhookPayload = {
