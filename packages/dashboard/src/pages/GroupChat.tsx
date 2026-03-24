@@ -641,7 +641,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
               onClick={() => toggleFounder(founder.id)}
               className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
                 active
-                  ? 'bg-cyan/10 border border-cyan/25'
+                  ? 'border border-border bg-surface ring-1 ring-inset ring-border dark:bg-raised/80'
                   : 'border border-transparent hover:bg-[var(--color-hover-bg)]'
               }`}
             >
@@ -653,7 +653,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                   style={{ border: `2px solid ${founder.color}40` }}
                 />
                 {active && (
-                  <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-cyan border border-raised" />
+                  <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-raised bg-tier-green" />
                 )}
               </div>
               <div className="min-w-0">
@@ -704,7 +704,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                       onClick={() => toggleAgent(agent.role)}
                       className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${isLead ? '' : 'ml-3'} ${
                         active
-                          ? 'bg-cyan/10 border border-cyan/25'
+                          ? 'border border-border bg-surface ring-1 ring-inset ring-border dark:bg-raised/80'
                           : 'border border-transparent hover:bg-[var(--color-hover-bg)]'
                       }`}
                     >
@@ -716,11 +716,11 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                           style={{ border: `1.5px solid ${meta?.color ?? '#64748b'}40` }}
                         />
                         {active && (
-                          <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-cyan border border-raised" />
+                          <div className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-raised bg-tier-green" />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className={`text-[11px] font-medium truncate ${active ? 'text-cyan' : 'text-txt-secondary'}`}>
+                        <p className={`text-[11px] font-medium truncate ${active ? 'text-txt-primary' : 'text-txt-secondary'}`}>
                           {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
                         </p>
                         <p className="text-[9px] text-txt-faint truncate">{ROLE_TITLE[agent.role] ?? agent.role}</p>
@@ -843,7 +843,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                     style={{ border: `2px solid ${founder.color}40` }}
                   />
                 ) : (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-raised text-[11px] font-bold text-txt-primary">
                     {userInitials}
                   </div>
                 );
@@ -851,8 +851,8 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
               <div
                 className={`max-w-[70%] rounded-xl px-4 py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-cyan/10 text-txt-secondary border border-cyan/20'
-                    : 'bg-raised text-txt-secondary border border-border'
+                    ? 'chat-bubble-user glass-panel panel-nested border border-border text-txt-primary'
+                    : 'chat-bubble-agent glass-panel panel-nested border border-border text-txt-secondary'
                 }`}
               >
                 {msg.role === 'agent' && msg.agentRole && (
@@ -905,9 +905,9 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                     {DISPLAY_NAME_MAP[role] ?? role}
                   </p>
                   <div className="flex items-center gap-1.5">
-                    <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '0ms' }} />
-                    <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '200ms' }} />
-                    <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '400ms' }} />
+                    <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-txt-muted" style={{ animationDelay: '0ms' }} />
+                    <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-txt-muted" style={{ animationDelay: '200ms' }} />
+                    <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-txt-muted" style={{ animationDelay: '400ms' }} />
                   </div>
                 </div>
               </div>
@@ -951,7 +951,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                     key={m.role}
                     onClick={() => insertMention(m)}
                     className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors ${
-                      i === mentionIdx ? 'bg-cyan/10 text-cyan' : 'text-txt-secondary hover:bg-[var(--color-hover-bg)]'
+                      i === mentionIdx ? 'bg-surface text-txt-primary ring-1 ring-inset ring-border' : 'text-txt-secondary hover:bg-[var(--color-hover-bg)]'
                     }`}
                   >
                     {isFounder ? (

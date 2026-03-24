@@ -291,7 +291,7 @@ function SidebarContent({
           onClick={() => setShowOrgChart(true)}
           aria-label="New chat"
           title="New chat"
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-surface/60 text-cyan shadow-sm transition-colors hover:border-cyan/35 hover:bg-cyan/10 hover:text-cyan"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-surface/60 text-txt-secondary shadow-sm transition-colors hover:border-border-hover hover:bg-raised hover:text-txt-primary"
         >
           <MdAdd size={22} />
         </button>
@@ -323,7 +323,7 @@ function SidebarContent({
             <div
               key={chat.agentRole}
               className={`group flex w-full items-center gap-2 rounded-lg px-1 text-left transition-colors ${
-                active ? 'bg-cyan/10' : 'hover:bg-[var(--color-hover-bg)]'
+                active ? 'bg-surface ring-1 ring-inset ring-border dark:bg-raised/80' : 'hover:bg-[var(--color-hover-bg)]'
               }`}
             >
               <button
@@ -339,13 +339,13 @@ function SidebarContent({
                   />
                   {isResponding && (
                     <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface">
-                      <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+                      <span className="h-2 w-2 rounded-full bg-tier-green animate-pulse" />
                     </span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p className={`text-[13px] font-medium truncate ${active ? 'text-cyan' : 'text-txt-secondary'}`}>
+                    <p className={`text-[13px] font-medium truncate ${active ? 'text-txt-primary' : 'text-txt-secondary'}`}>
                       {name}
                     </p>
                     {chat.lastMessage && (
@@ -355,7 +355,7 @@ function SidebarContent({
                     )}
                   </div>
                   {isResponding ? (
-                    <p className="text-[11px] text-cyan italic mt-0.5">Typing...</p>
+                    <p className="text-[11px] text-txt-muted italic mt-0.5">Typing...</p>
                   ) : chat.lastMessage ? (
                     <p className="text-[11px] text-txt-faint truncate mt-0.5">
                       {chat.lastMessageRole === 'user' ? 'You: ' : ''}{chat.lastMessage}
@@ -384,7 +384,7 @@ function SidebarContent({
         {recentChats.length === 0 && !sidebarSearch && (
           <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
             <p className="text-[12px] text-txt-muted mb-1">No conversations yet</p>
-            <p className="text-[11px] text-txt-faint">Use <span className="text-cyan font-medium">+</span> to start a chat</p>
+            <p className="text-[11px] text-txt-faint">Use <span className="font-medium text-txt-secondary">+</span> to start a chat</p>
           </div>
         )}
       </div>
@@ -990,7 +990,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
       {/* ── Chat Area (Right) ────────────── */}
       <Card
-        className={`flex flex-1 flex-col min-h-0 min-w-0 transition-all ${dragging ? 'ring-2 ring-cyan/40' : ''}`}
+        className={`flex flex-1 flex-col min-h-0 min-w-0 transition-all ${dragging ? 'ring-2 ring-border' : ''}`}
         onDragOver={(e: React.DragEvent) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e: React.DragEvent) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
@@ -1037,7 +1037,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             ) : (
               <button
                 onClick={() => setShowTeamsModal(true)}
-                className="sidebar-glass flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:text-cyan"
+                className="sidebar-glass flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:text-txt-primary"
                 title="Add agent to a Teams call"
               >
                 <MdVideoCall size={16} />
@@ -1081,10 +1081,10 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
                 <p className="text-sm text-txt-muted">
-                  Start a conversation with <span className="text-cyan">{codename}</span>
+                  Start a conversation with <span className="font-medium text-txt-primary">{codename}</span>
                 </p>
                 <p className="mt-1 text-[11px] text-txt-faint">
-                  Drag &amp; drop, paste, or use <MdAttachFile className="inline-block text-[14px]" /> to attach files • Type <span className="text-cyan">@</span> to mention agents
+                  Drag &amp; drop, paste, or use <MdAttachFile className="inline-block text-[14px]" /> to attach files • Type <span className="font-medium text-txt-secondary">@</span> to mention agents
                 </p>
               </div>
             </div>
@@ -1105,14 +1105,14 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               ) : userAvatar ? (
                 <img src={userAvatar} alt="" className="h-7 w-7 rounded-full object-cover" />
               ) : (
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan/20 text-[11px] font-bold text-cyan">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-raised text-[11px] font-bold text-txt-primary">
                   {userInitials}
                 </div>
               )}
               <div
                 className={`max-w-[85%] md:max-w-[70%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
-                    ? 'text-txt-primary border border-cyan/20 bg-cyan/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md'
+                    ? 'chat-bubble-user glass-panel panel-nested border border-border text-txt-primary'
                     : 'chat-bubble-agent glass-panel panel-nested border border-border text-txt-secondary'
                 }`}
               >
@@ -1170,17 +1170,17 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                       {DISPLAY_NAME_MAP[respondingRole] ?? respondingRole}
                     </span>
                   )}
-                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '0ms' }} />
-                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '200ms' }} />
-                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-cyan" style={{ animationDelay: '400ms' }} />
+                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-txt-muted" style={{ animationDelay: '0ms' }} />
+                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-txt-muted" style={{ animationDelay: '200ms' }} />
+                  <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-txt-muted" style={{ animationDelay: '400ms' }} />
                 </div>
               </div>
             </div>
           ))}
 
           {dragging && (
-            <div className="flex h-24 items-center justify-center rounded-xl border-2 border-dashed border-cyan/40 bg-cyan/5">
-              <p className="text-sm text-cyan">Drop files here</p>
+            <div className="flex h-24 items-center justify-center rounded-xl border-2 border-dashed border-border bg-surface/50">
+              <p className="text-sm text-txt-muted">Drop files here</p>
             </div>
           )}
 
@@ -1215,7 +1215,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   key={m.role}
                   onClick={() => insertMention(m)}
                   className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors ${
-                    i === mentionIdx ? 'bg-cyan/10 text-cyan' : 'text-txt-secondary hover:bg-[var(--color-hover-bg)]'
+                    i === mentionIdx ? 'bg-surface text-txt-primary ring-1 ring-inset ring-border' : 'text-txt-secondary hover:bg-[var(--color-hover-bg)]'
                   }`}
                 >
                   {m.isFounder ? (
@@ -1320,7 +1320,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           <div className="modal-panel max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-txt-primary flex items-center gap-2">
-                <MdVideoCall size={20} className="text-cyan" />
+                <MdVideoCall size={20} className="text-txt-secondary" />
                 Add {codename} to Teams Call
               </h3>
               <button onClick={() => setShowTeamsModal(false)} className="text-txt-faint hover:text-txt-primary transition-colors">
@@ -1349,7 +1349,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               value={teamsMeetingUrl}
               onChange={(e) => setTeamsMeetingUrl(e.target.value)}
               placeholder="https://teams.microsoft.com/l/meetup-join/..."
-              className="sidebar-glass mb-3 w-full rounded-lg border border-border px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none focus:border-cyan/40"
+              className="sidebar-glass mb-3 w-full rounded-lg border border-border px-4 py-2.5 text-[13px] text-txt-secondary placeholder-txt-faint outline-none focus:border-border-hover"
               onKeyDown={(e) => { if (e.key === 'Enter') joinTeamsCall(); }}
               autoFocus
             />

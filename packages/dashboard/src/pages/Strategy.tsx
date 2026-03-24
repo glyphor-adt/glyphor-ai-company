@@ -94,9 +94,9 @@ function statusColor(status: string) {
 }
 
 function recommendationBadge(rec: string) {
-  if (rec === 'proceed') return { text: 'Proceed', cls: 'badge-green' };
-  if (rec === 'proceed_with_caution') return { text: 'Proceed with Caution', cls: 'badge-amber' };
-  return { text: 'Reconsider', cls: 'badge-red' };
+  if (rec === 'proceed') return { text: 'Proceed', cls: 'border border-emerald-500/45 bg-transparent text-tier-green' };
+  if (rec === 'proceed_with_caution') return { text: 'Proceed with Caution', cls: 'border border-amber-400/45 bg-transparent text-amber-200/90' };
+  return { text: 'Reconsider', cls: 'border border-red-400/45 bg-transparent text-red-300/90' };
 }
 
 function voteIcon(vote: string): ReactNode {
@@ -193,15 +193,15 @@ export default function Strategy() {
       </div>
 
       {/* Tab Toggle */}
-      <div className="flex gap-1 rounded-lg bg-raised p-1 w-fit border border-border">
+      <div className="flex w-fit gap-1 rounded-lg border border-border/60 bg-transparent p-1">
         {(['strategy-lab-v2', 'deep-dives', 'simulations', 'cot'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`rounded-md px-4 py-1.5 text-[13px] font-medium transition-colors ${
               tab === t
-                ? 'bg-cyan/15 text-cyan'
-                : 'text-txt-muted hover:text-txt-secondary'
+                ? 'border border-cyan/40 bg-transparent text-cyan'
+                : 'border border-transparent text-txt-muted hover:text-txt-secondary'
             }`}
           >
             {TAB_LABELS[t]}
@@ -355,7 +355,7 @@ function WorkflowStepProgress({ workflowId }: { workflowId: string }) {
   if (!wf) return null;
 
   return (
-    <div className="glass-surface rounded-lg p-4 space-y-2">
+    <div className="glass-outline rounded-lg p-4 space-y-2">
       <div className="flex items-center gap-2 text-sm text-txt-muted mb-2">
         <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
         Step {wf.current_step}/{wf.total_steps}
@@ -422,7 +422,7 @@ function DeepDivesPanel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card className="overflow-visible">
+      <Card outline className="overflow-visible">
         <SectionHeader title="Launch Strategic Deep Dive" subtitle="8 areas × 5 queries × multi-model analysis → cross-model challenge → verification → cited synthesis" />
         <div className="mt-4">
           <ChatComposerFrame>
@@ -457,7 +457,7 @@ function DeepDivesPanel() {
       {loading ? (
         <div className="space-y-3">{[1, 2].map((i) => <Skeleton key={i} className="h-24" />)}</div>
       ) : records.length === 0 ? (
-        <Card><p className="text-center text-sm text-txt-muted py-6">No deep dives yet. Launch one above.</p></Card>
+        <Card outline><p className="text-center text-sm text-txt-muted py-6">No deep dives yet. Launch one above.</p></Card>
       ) : (
         <div className="space-y-3">
           {records.map((rec) => (
@@ -476,7 +476,7 @@ function DeepDivesPanel() {
 
 function DeepDiveCard({ record, expanded, onToggle }: { record: DeepDiveRecord; expanded: boolean; onToggle: () => void }) {
   return (
-    <Card className="overflow-hidden">
+    <Card outline className="overflow-hidden">
       <button onClick={onToggle} className="w-full text-left px-5 py-4 flex items-center justify-between group">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5">
@@ -515,7 +515,7 @@ function DeepDiveCard({ record, expanded, onToggle }: { record: DeepDiveRecord; 
           {record.workflow_id ? (
             <WorkflowStepProgress workflowId={record.workflow_id} />
           ) : (
-            <div className="glass-surface rounded-lg p-4">
+            <div className="glass-outline rounded-lg p-4">
               <div className="flex items-center gap-2 text-sm text-txt-muted">
                 <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
                 {DD_STATUS_LABELS[record.status]}
@@ -560,7 +560,7 @@ function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: De
           ].map((d) => (
             <div
               key={d.label}
-              className="glass-surface min-w-[5.5rem] rounded-xl border border-border border-t-2 border-t-cyan/50 px-3 py-2 text-center"
+              className="glass-outline min-w-[5.5rem] rounded-xl border border-border border-t-2 border-t-cyan/50 px-3 py-2 text-center"
             >
               <span className="text-lg font-bold tabular-nums text-txt-primary">{d.val}</span>
               <span className="mt-0.5 block text-[9px] font-semibold uppercase tracking-[0.16em] text-txt-muted">{d.label}</span>
@@ -577,13 +577,13 @@ function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: De
 
       {/* Inner tab navigation — match Strategy Lab tab chrome */}
       <div className="border-b border-border px-4 py-2 sm:px-5">
-        <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-border bg-raised p-1">
+        <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-border/60 bg-transparent p-1">
           {TAB_ITEMS.map((t) => (
             <button
               key={t.key}
               onClick={() => setDdTab(t.key)}
               className={`shrink-0 rounded-md px-3 py-1.5 text-[12px] font-medium whitespace-nowrap transition-colors ${
-                ddTab === t.key ? 'bg-cyan/15 text-cyan' : 'text-txt-muted hover:text-txt-secondary'
+                ddTab === t.key ? 'border border-cyan/40 bg-transparent text-cyan' : 'border border-transparent text-txt-muted hover:text-txt-secondary'
               }`}
             >
               {t.label}
@@ -642,7 +642,7 @@ function DDCurrentState({ report }: { report: DeepDiveReport }) {
 
   return (
     <div className="space-y-4">
-      <div className={`glass-surface rounded-xl border border-border px-4 py-3 border-t-2 ${momTop}`}>
+      <div className={`glass-outline rounded-xl border border-border px-4 py-3 border-t-2 ${momTop}`}>
         <div className="flex items-center gap-2.5">
           <span className={`h-2 w-2 shrink-0 rounded-full ${momDot}`} />
           <MdTrendingUp className="text-base text-txt-muted" />
@@ -661,7 +661,7 @@ function DDCurrentState({ report }: { report: DeepDiveReport }) {
             return (
               <div
                 key={f.label}
-                className="glass-surface rounded-xl border border-border px-3 py-3 border-t-2 border-t-cyan/30"
+                className="glass-outline rounded-xl border border-border px-3 py-3 border-t-2 border-t-cyan/30"
               >
                 <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-txt-muted">{f.label}</span>
                 <p className="mt-2 text-sm font-semibold leading-snug text-txt-primary">
@@ -683,7 +683,7 @@ function DDCurrentState({ report }: { report: DeepDiveReport }) {
             {report.currentState.keyStrengths.map((s, i) => (
               <div
                 key={i}
-                className="glass-surface rounded-lg border border-border border-l-2 border-l-cyan/45 p-3"
+                className="glass-outline rounded-lg border border-border border-l-2 border-l-cyan/45 p-3"
               >
                 <p className="text-sm font-medium text-txt-primary">{s.point}</p>
                 <p className="mt-1 text-[12px] leading-relaxed text-txt-muted">{s.evidence}</p>
@@ -700,7 +700,7 @@ function DDCurrentState({ report }: { report: DeepDiveReport }) {
             {report.currentState.keyChallenges.map((c, i) => (
               <div
                 key={i}
-                className="glass-surface rounded-lg border border-border border-l-2 border-l-rose-400/40 p-3"
+                className="glass-outline rounded-lg border border-border border-l-2 border-l-rose-400/40 p-3"
               >
                 <p className="text-sm font-medium text-txt-primary">{c.point}</p>
                 <p className="mt-1 text-[12px] leading-relaxed text-txt-muted">{c.evidence}</p>
@@ -724,7 +724,7 @@ function DDOverview({ report }: { report: DeepDiveReport }) {
           { label: 'Headquarters', val: report.overview.headquarters },
           { label: 'Business Model', val: report.overview.businessModel },
         ].filter((f) => f.val).map((f) => (
-          <div key={f.label} className="glass-surface rounded-lg p-3 border border-border">
+          <div key={f.label} className="glass-outline rounded-lg p-3 border border-border">
             <span className="text-[10px] text-txt-muted uppercase tracking-wider">{f.label}</span>
             <p className="text-sm text-txt-primary mt-0.5">{f.val}</p>
           </div>
@@ -751,7 +751,7 @@ function DDOverview({ report }: { report: DeepDiveReport }) {
           <h4 className="text-xs font-semibold text-cyan uppercase tracking-wider mb-2">Products & Services</h4>
           <div className="space-y-2">
             {report.overview.products.map((p, i) => (
-              <div key={i} className="glass-surface rounded-lg p-3 border border-border">
+              <div key={i} className="glass-outline rounded-lg p-3 border border-border">
                 <p className="text-sm font-medium text-txt-primary">{p.name}</p>
                 <p className="text-[12px] text-txt-muted mt-0.5">{p.description}</p>
               </div>
@@ -772,7 +772,7 @@ function DDMarket({ report }: { report: DeepDiveReport }) {
           { label: 'SAM', ...report.marketAnalysis.sam },
           { label: 'SOM', ...report.marketAnalysis.som },
         ].map((s) => (
-          <div key={s.label} className="glass-surface rounded-lg p-4 border border-cyan/20 text-center">
+          <div key={s.label} className="glass-outline rounded-lg p-4 border border-cyan/20 text-center">
             <span className="text-[11px] text-txt-muted font-semibold tracking-widest">{s.label}</span>
             <p className="text-lg font-bold text-cyan mt-1">{s.value}</p>
             <p className="text-[11px] text-txt-muted mt-1">{s.methodology}</p>
@@ -843,7 +843,7 @@ function DDCompetitive({ report }: { report: DeepDiveReport }) {
           const pct = (f.score / 5) * 100;
           const barColor = f.score >= 4 ? 'bg-prism-critical' : f.score >= 3 ? 'bg-prism-elevated' : 'bg-tier-green';
           return (
-            <div key={key} className="glass-surface rounded-lg p-3 border border-border">
+            <div key={key} className="glass-outline rounded-lg p-3 border border-border">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-sm font-medium text-txt-primary">{label}</span>
                 <span className="text-sm font-bold text-txt-secondary">{f.score}/5</span>
@@ -867,7 +867,7 @@ function DDCompetitive({ report }: { report: DeepDiveReport }) {
           <h4 className="text-xs font-semibold text-cyan uppercase tracking-wider pt-2">Key Competitors</h4>
           <div className="space-y-2">
             {report.competitiveLandscape.competitors.map((c, i) => (
-              <div key={i} className="glass-surface rounded-lg p-3 border border-border">
+              <div key={i} className="glass-outline rounded-lg p-3 border border-border">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-txt-primary">{c.name}</span>
                   {c.estimatedRevenue && <span className="text-[11px] text-txt-muted">{c.estimatedRevenue}</span>}
@@ -949,7 +949,7 @@ function FrameworkCard({ label, color, summary, keyInsight, data }: {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="glass-surface rounded-xl p-4" style={{ borderTopColor: 'currentColor', borderTopWidth: '2px' }}>
+    <div className="glass-outline rounded-xl p-4" style={{ borderTopColor: 'currentColor', borderTopWidth: '2px' }}>
       <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between text-left">
         <span className={`text-xs font-semibold uppercase tracking-wider ${color}`}>{label}</span>
         <MdExpandMore className={`h-4 w-4 text-txt-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
@@ -962,7 +962,7 @@ function FrameworkCard({ label, color, summary, keyInsight, data }: {
         </div>
       )}
       {expanded && (
-        <pre className="mt-3 rounded-md bg-surface p-3 text-[10px] text-txt-muted overflow-x-auto max-h-[300px] overflow-y-auto">
+        <pre className="mt-3 max-h-[300px] overflow-x-auto overflow-y-auto rounded-md border border-border/50 bg-transparent p-3 text-[10px] text-txt-muted">
           {JSON.stringify(data, null, 2)}
         </pre>
       )}
@@ -981,7 +981,7 @@ function DDRecommendations({ report }: { report: DeepDiveReport }) {
   return (
     <div className="space-y-3">
       {report.strategicRecommendations.map((rec, i) => (
-        <div key={i} className="glass-surface rounded-lg border border-border p-4">
+        <div key={i} className="glass-outline rounded-lg border border-border p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-sm font-bold text-cyan">{i + 1}.</span>
             <span className="text-sm font-semibold text-txt-primary flex-1">{rec.title}</span>
@@ -1014,7 +1014,7 @@ function DDRoadmap({ report }: { report: DeepDiveReport }) {
   return (
     <div className="space-y-3">
       {report.implementationRoadmap.map((phase, i) => (
-        <div key={i} className="glass-surface rounded-lg border border-border p-4">
+        <div key={i} className="glass-outline rounded-lg border border-border p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-txt-primary">{phase.phase}</span>
             <span className="text-[11px] text-cyan font-medium">{phase.timeline}</span>
@@ -1040,7 +1040,7 @@ function DDRoi({ report }: { report: DeepDiveReport }) {
   return (
     <div className="space-y-4">
       {report.roiAnalysis.map((scenario, i) => (
-        <div key={i} className="glass-surface rounded-lg border border-border p-4">
+        <div key={i} className="glass-outline rounded-lg border border-border p-4">
           <h4 className="text-sm font-semibold text-txt-primary capitalize mb-2">{scenario.scenario} Case</h4>
           <div className="flex gap-4 text-[12px] text-txt-muted mb-3">
             {scenario.paybackPeriod && <span>Payback: <span className="text-cyan font-medium">{scenario.paybackPeriod}</span></span>}
@@ -1154,13 +1154,19 @@ function DDWatchlist({ items }: { items?: WatchlistItem[] }) {
               <span className="text-sm font-medium text-txt-primary flex-1">{w.item}</span>
               <div className="flex gap-2 shrink-0 ml-2">
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${colors.text}`}>{w.category}</span>
-                <span className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${w.priority === 'high' ? 'badge-red' : w.priority === 'medium' ? 'badge-amber' : 'badge-green'}`}>{w.priority}</span>
+                <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                  w.priority === 'high'
+                    ? 'border-red-400/45 bg-transparent text-red-300/90'
+                    : w.priority === 'medium'
+                      ? 'border-amber-400/45 bg-transparent text-amber-200/90'
+                      : 'border-emerald-500/45 bg-transparent text-tier-green'
+                }`}>{w.priority}</span>
               </div>
             </div>
             <p className="text-[12px] text-txt-muted">{w.current_status}</p>
             {w.trigger_signals.length > 0 && (
               <div className="mt-1.5 flex flex-wrap gap-1">
-                {w.trigger_signals.map((sig, si) => <span key={si} className="rounded bg-raised px-1.5 py-0.5 text-[10px] text-txt-faint">{sig}</span>)}
+                {w.trigger_signals.map((sig, si) => <span key={si} className="rounded border border-border/40 bg-transparent px-1.5 py-0.5 text-[10px] text-txt-faint">{sig}</span>)}
               </div>
             )}
           </div>
@@ -1303,7 +1309,7 @@ function SimulationsPanel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card className="overflow-visible">
+      <Card outline className="overflow-visible">
         <SectionHeader title="Launch Cascade Analysis" />
         <p className="mt-1 mb-3 text-[12px] text-txt-muted">
           Describe a proposed action and the AI executive team will forecast its cascading impact across Revenue, Engineering, Product, Marketing, and Finance.
@@ -1359,7 +1365,7 @@ function SimulationsPanel() {
         ) : (
           <div className="mt-3 space-y-3">
             {simulations.map((s) => (
-              <Card key={s.id}>
+              <Card outline key={s.id}>
                 <button
                   onClick={() => setExpanded(expanded === s.id ? null : s.id)}
                   className="flex w-full items-center justify-between text-left"
@@ -1428,7 +1434,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
       <div>
         <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Cascade Map</p>
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch">
-          <div className="glass-surface rounded-lg border border-border px-3 py-3">
+          <div className="glass-outline rounded-lg border border-border px-3 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-faint">Current State</p>
             <p className="mt-2 text-[12px] text-txt-secondary leading-relaxed">
               {report.dimensions.length} impacted domains under a {PERSPECTIVE_LABELS[record.perspective] ?? record.perspective.toLowerCase()} scenario.
@@ -1443,7 +1449,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
             <p className="mt-2 text-[12px] text-txt-primary leading-relaxed">{record.action}</p>
           </div>
           <div className="flex items-center justify-center text-cyan"><MdArrowForward /></div>
-          <div className="glass-surface rounded-lg border border-border px-3 py-3">
+          <div className="glass-outline rounded-lg border border-border px-3 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-faint">Predicted State T+1</p>
             <p className="mt-2 text-[12px] text-txt-secondary leading-relaxed">{report.summary}</p>
             <p className="mt-2 text-[11px] text-txt-faint">
@@ -1459,7 +1465,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Impact by Department</p>
           <div className="grid grid-cols-2 gap-2">
             {report.dimensions.map((dim, i) => (
-              <div key={i} className="glass-surface rounded-lg border border-border px-3 py-2.5">
+              <div key={i} className="glass-outline rounded-lg border border-border px-3 py-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] font-medium text-txt-secondary">{dim.area}</span>
                   <span className={`font-mono text-sm font-semibold ${
@@ -1497,7 +1503,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Cascade Paths</p>
           <div className="grid gap-2 md:grid-cols-2">
             {report.cascadeChain.map((link, i) => (
-              <div key={i} className="glass-surface rounded-lg border border-border px-3 py-2 text-[11px]">
+              <div key={i} className="glass-outline rounded-lg border border-border px-3 py-2 text-[11px]">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-cyan">{link.from}</span>
                   <MdArrowForward className="text-txt-faint" />
@@ -1522,7 +1528,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
           </div>
           <div className="space-y-2">
             {predictions.map((prediction) => (
-              <div key={prediction.id} className="glass-surface rounded-lg border border-border px-3 py-2.5">
+              <div key={prediction.id} className="glass-outline rounded-lg border border-border px-3 py-2.5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan">
@@ -1556,7 +1562,7 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Executive Votes</p>
           <div className="space-y-2">
             {report.votes.map((v, i) => (
-              <div key={i} className="glass-surface flex items-start gap-2.5 rounded-lg border border-border px-3 py-2.5">
+              <div key={i} className="glass-outline flex items-start gap-2.5 rounded-lg border border-border px-3 py-2.5">
                 <span className={`text-base mt-0.5 ${voteColor(v.vote)}`}>{voteIcon(v.vote)}</span>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -1700,7 +1706,7 @@ function ChainOfThoughtPanel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card className="overflow-visible">
+      <Card outline className="overflow-visible">
         <SectionHeader title="Chain of Thought Planning" />
         <p className="mt-1 mb-3 text-[12px] text-txt-muted">
           Decompose complex strategic problems into structured reasoning chains. The AI executive team will identify core problems, map root causes, evaluate strategic options, and validate logical consistency.
@@ -1744,7 +1750,7 @@ function ChainOfThoughtPanel() {
         ) : (
           <div className="mt-3 space-y-3">
             {records.map((r) => (
-              <Card key={r.id}>
+              <Card outline key={r.id}>
                 <button
                   onClick={() => setExpanded(expanded === r.id ? null : r.id)}
                   className="flex w-full items-center justify-between text-left"
@@ -1794,15 +1800,15 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
 
       {/* Phase Tabs — Strategy Lab–style segmented control */}
       <div className="w-full overflow-x-auto">
-        <div className="inline-flex min-w-0 gap-1 rounded-lg border border-border bg-raised p-1">
+        <div className="inline-flex min-w-0 gap-1 rounded-lg border border-border/60 bg-transparent p-1">
           {(['decomposition', 'solution_space', 'options', 'validation'] as CotPhase[]).map((p) => (
             <button
               key={p}
               onClick={() => setPhase(p)}
               className={`shrink-0 rounded-md px-3 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
                 phase === p
-                  ? 'bg-cyan/15 text-cyan'
-                  : 'text-txt-muted hover:text-txt-secondary'
+                  ? 'border border-cyan/40 bg-transparent text-cyan'
+                  : 'border border-transparent text-txt-muted hover:text-txt-secondary'
               }`}
             >
               {COT_PHASE_LABELS[p]}
@@ -1819,14 +1825,14 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
             <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Core Problems</p>
             <div className="space-y-2">
               {report.problems.map((p, i) => (
-                <div key={i} className="glass-surface rounded-lg border border-border px-3 py-2.5">
+                <div key={i} className="glass-outline rounded-lg border border-border px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-lg px-1.5 py-0.5 text-[10px] font-medium ${
+                    <span className={`rounded-lg border px-1.5 py-0.5 text-[10px] font-medium ${
                       p.severity === 'high'
-                        ? 'badge-red'
+                        ? 'border-red-400/45 bg-transparent text-red-300/90'
                         : p.severity === 'medium'
-                        ? 'badge-amber'
-                        : 'badge-sky'
+                          ? 'border-amber-400/45 bg-transparent text-amber-200/90'
+                          : 'border-sky-400/45 bg-transparent text-sky-300/90'
                     }`}>
                       {p.severity}
                     </span>
@@ -1846,7 +1852,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
             <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Root Causes</p>
             <div className="space-y-2">
               {report.rootCauses.map((rc, i) => (
-                <div key={i} className="glass-surface rounded-lg border border-border px-3 py-2.5">
+                <div key={i} className="glass-outline rounded-lg border border-border px-3 py-2.5">
                   <p className="text-sm font-medium text-txt-primary">{rc.cause}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="text-[10px] text-txt-faint">Links to:</span>
@@ -1868,7 +1874,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Mapped Solutions</p>
           <div className="space-y-2">
             {report.solutions.map((s, i) => (
-              <div key={i} className="glass-surface rounded-lg border border-border px-3 py-2.5">
+              <div key={i} className="glass-outline rounded-lg border border-border px-3 py-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-txt-primary">{s.title}</span>
                   <span className="font-mono text-sm font-semibold text-cyan">
@@ -1907,10 +1913,10 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Strategic Options</p>
           <div className="space-y-3">
             {report.options.map((opt, i) => (
-              <div key={i} className="glass-surface rounded-xl border border-border px-4 py-3">
+              <div key={i} className="glass-outline rounded-xl border border-border px-4 py-3">
                 <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <span className="text-sm font-medium text-txt-primary">{opt.title}</span>
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-surface/40 px-2.5 py-1">
+                  <div className="flex items-center gap-2 rounded-lg border border-border/55 bg-transparent px-2.5 py-1">
                     <span className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Feasibility</span>
                     <span
                       className={`font-mono text-sm font-semibold tabular-nums ${
@@ -1927,7 +1933,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border border-border border-l-2 border-l-cyan/45 bg-surface/20 p-2.5">
+                  <div className="rounded-lg border border-border border-l-2 border-l-cyan/45 bg-transparent p-2.5">
                     <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-cyan">Pros</p>
                     {opt.pros.length > 0 ? (
                       <ul className="space-y-1">
@@ -1939,7 +1945,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
                       <p className="text-[11px] text-txt-faint">—</p>
                     )}
                   </div>
-                  <div className="rounded-lg border border-border border-l-2 border-l-rose-400/40 bg-surface/20 p-2.5">
+                  <div className="rounded-lg border border-border border-l-2 border-l-rose-400/40 bg-transparent p-2.5">
                     <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-rose-300/90">Cons</p>
                     {opt.cons.length > 0 ? (
                       <ul className="space-y-1">
@@ -1953,7 +1959,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
                   </div>
                 </div>
 
-                <div className="mt-3 rounded-lg border border-border/80 bg-surface/15 px-3 py-2">
+                <div className="mt-3 rounded-lg border border-border/60 bg-transparent px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted">Reasoning</p>
                   <p className="mt-1 text-[11px] leading-relaxed text-txt-secondary">{opt.reasoning}</p>
                 </div>
@@ -1971,19 +1977,19 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
           <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted mb-2">Logical Validation</p>
           <div className="space-y-2">
             {report.validations.map((v, i) => (
-              <div key={i} className="glass-surface flex items-start gap-3 rounded-lg border border-border px-3 py-2.5">
+              <div key={i} className="glass-outline flex items-start gap-3 rounded-lg border border-border px-3 py-2.5">
                 <span className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${
                   v.status === 'valid' ? 'bg-tier-green' : v.status === 'questionable' ? 'bg-prism-elevated' : 'bg-prism-critical'
                 }`} />
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-txt-primary">{v.assumption}</span>
-                    <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${
+                    <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-medium ${
                       v.status === 'valid'
-                        ? 'badge-green'
+                        ? 'border-emerald-500/45 bg-transparent text-tier-green'
                         : v.status === 'questionable'
-                        ? 'badge-amber'
-                        : 'badge-red'
+                          ? 'border-amber-400/45 bg-transparent text-amber-200/90'
+                          : 'border-red-400/45 bg-transparent text-red-300/90'
                     }`}>
                       {v.status}
                     </span>
@@ -2172,7 +2178,7 @@ function StrategyLabV2Panel() {
   return (
     <div className="space-y-6">
       {/* Launch Form */}
-      <Card className="overflow-visible">
+      <Card outline className="overflow-visible">
         <SectionHeader title="Launch Multi-Agent Strategy Analysis" subtitle="Research team → Executive analysis → Sarah synthesis" />
         <div className="mt-4">
           <ChatComposerFrame>
@@ -2237,7 +2243,7 @@ function StrategyLabV2Panel() {
           <Skeleton className="h-20 w-full" />
         </div>
       ) : records.length === 0 ? (
-        <Card><p className="text-sm text-txt-faint py-4 text-center">No strategy lab v2 analyses yet</p></Card>
+        <Card outline><p className="text-sm text-txt-faint py-4 text-center">No strategy lab v2 analyses yet</p></Card>
       ) : (
         <div className="space-y-3">
           {records.map((rec) => (
@@ -2269,7 +2275,7 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
   const execTotal = execProgress.length;
 
   return (
-    <Card>
+    <Card outline>
       <button onClick={onToggle} className="w-full text-left">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -2288,7 +2294,7 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {isRunning && (
-              <span className="rounded-full border border-cyan/30 bg-cyan/10 px-2.5 py-0.5 text-[10px] font-medium text-cyan">
+              <span className="rounded-full border border-cyan/40 bg-transparent px-2.5 py-0.5 text-[10px] font-medium text-cyan">
                 {SLV2_STATUS_LABELS[r.status]}
               </span>
             )}
@@ -2346,10 +2352,10 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
           <div key={w.label} className="flex items-center gap-2">
             <div className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-[11px] font-medium ${
               w.active
-                ? 'border border-cyan/40 bg-cyan/15 text-cyan'
+                ? 'border border-cyan/45 bg-transparent text-cyan'
                 : w.done || r.status === 'completed'
-                  ? 'badge-green'
-                  : 'border border-border bg-surface text-txt-faint'
+                  ? 'border border-emerald-500/40 bg-transparent text-tier-green'
+                  : 'border border-border/50 bg-transparent text-txt-faint'
             }`}>
               {w.icon}
               {w.label}
@@ -2364,10 +2370,12 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
         <div className="rounded-lg border border-prism-elevated/35 bg-transparent px-3 py-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-prism-elevated">Sophia QC</span>
-            <span className={`rounded-lg px-2 py-0.5 text-[10px] font-medium ${
-              r.overall_confidence === 'high' ? 'badge-green' :
-              r.overall_confidence === 'medium' ? 'badge-amber' :
-              'badge-red'
+            <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-medium ${
+              r.overall_confidence === 'high'
+                ? 'border-emerald-500/45 bg-transparent text-tier-green'
+                : r.overall_confidence === 'medium'
+                  ? 'border-amber-400/45 bg-transparent text-amber-200/90'
+                  : 'border-red-400/45 bg-transparent text-red-300/90'
             }`}>{r.overall_confidence} confidence</span>
           </div>
           {r.gaps_filled?.length > 0 && (
@@ -2385,7 +2393,7 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Research Team</p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
             {researchProgress.map((rp) => (
-              <div key={rp.analystRole} className="glass-surface rounded-lg border border-border px-3 py-2">
+              <div key={rp.analystRole} className="glass-outline rounded-lg border border-border px-3 py-2">
                 <div className="flex items-center gap-1.5">
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                     rp.status === 'completed' ? 'bg-tier-green' : rp.status === 'running' ? 'bg-cyan animate-pulse' : rp.status === 'failed' ? 'bg-prism-critical' : 'bg-txt-faint/30'
@@ -2407,7 +2415,7 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
           <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Executive Analysis</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {execProgress.map((ep) => (
-              <div key={ep.execRole} className="glass-surface rounded-lg border border-border px-3 py-2">
+              <div key={ep.execRole} className="glass-outline rounded-lg border border-border px-3 py-2">
                 <div className="flex items-center gap-1.5">
                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                     ep.status === 'completed' ? 'bg-tier-green' : ep.status === 'running' ? 'bg-cyan animate-pulse' : ep.status === 'failed' ? 'bg-prism-critical' : 'bg-txt-faint/30'
@@ -2453,7 +2461,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
   return (
     <div className="space-y-3">
       {/* Section tabs */}
-      <div className="flex gap-1 rounded-lg bg-surface p-1 w-fit border border-border">
+      <div className="flex w-fit gap-1 rounded-lg border border-border/60 bg-transparent p-1">
         {([
           ['summary', 'Summary'],
           ['swot', 'SWOT'],
@@ -2466,7 +2474,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
             key={k}
             onClick={() => setShowSection(k)}
             className={`rounded-md px-3 py-1 text-[11px] font-medium transition-colors ${
-              showSection === k ? 'bg-cyan/15 text-cyan' : 'text-txt-muted hover:text-txt-secondary'
+              showSection === k ? 'border border-cyan/40 bg-transparent text-cyan' : 'border border-transparent text-txt-muted hover:text-txt-secondary'
             }`}
           >
             {label}
@@ -2546,10 +2554,10 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
                         </div>
                         <div className="space-y-2">
                           {sorted.map((pair, i) => (
-                            <div key={i} className="rounded-md bg-surface/60 border border-border/50 p-2">
+                            <div key={i} className="rounded-md border border-border/55 bg-transparent p-2">
                               <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-[9px] font-bold text-txt-muted bg-surface px-1.5 py-0.5 rounded">{pair.priority_score as number ?? '—'}</span>
+                                  <span className="rounded border border-border/50 bg-transparent px-1.5 py-0.5 text-[9px] font-bold text-txt-muted">{pair.priority_score as number ?? '—'}</span>
                                   {pair.confidence ? <span className={`text-[9px] ${confidenceColor(pair.confidence as string)}`}>● {pair.confidence as string}</span> : null}
                                 </div>
                               </div>
@@ -2605,17 +2613,25 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
       {showSection === 'recs' && (
         <div className="space-y-3">
           {s.strategicRecommendations.map((rec, i) => (
-            <div key={i} className="rounded-lg border border-border bg-raised px-4 py-3">
+            <div key={i} className="rounded-lg border border-border/60 bg-transparent px-4 py-3">
               <div className="flex items-start justify-between mb-1.5">
                 <span className="text-sm font-medium text-txt-primary">{rec.title}</span>
                 <div className="flex gap-1.5">
-                  <span className={`rounded-lg px-2 py-0.5 text-[9px] font-medium ${
-                    rec.impact === 'high' ? 'badge-green' : rec.impact === 'medium' ? 'badge-amber' : 'badge-gray'
+                  <span className={`rounded-lg border px-2 py-0.5 text-[9px] font-medium ${
+                    rec.impact === 'high'
+                      ? 'border-emerald-500/45 bg-transparent text-tier-green'
+                      : rec.impact === 'medium'
+                        ? 'border-amber-400/45 bg-transparent text-amber-200/90'
+                        : 'border-border/50 bg-transparent text-txt-muted'
                   }`}>
                     Impact: {rec.impact}
                   </span>
-                  <span className={`rounded-lg px-2 py-0.5 text-[9px] font-medium ${
-                    rec.feasibility === 'high' ? 'badge-green' : rec.feasibility === 'medium' ? 'badge-amber' : 'badge-gray'
+                  <span className={`rounded-lg border px-2 py-0.5 text-[9px] font-medium ${
+                    rec.feasibility === 'high'
+                      ? 'border-emerald-500/45 bg-transparent text-tier-green'
+                      : rec.feasibility === 'medium'
+                        ? 'border-amber-400/45 bg-transparent text-amber-200/90'
+                        : 'border-border/50 bg-transparent text-txt-muted'
                   }`}>
                     Feasibility: {rec.feasibility}
                   </span>
@@ -2674,7 +2690,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
         <button
           onClick={generateVisual}
           disabled={generatingVisual}
-          className="rounded-lg bg-cyan/15 border border-cyan/30 px-3 py-1.5 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/25 disabled:opacity-40"
+          className="rounded-lg border border-cyan/40 bg-transparent px-3 py-1.5 text-[12px] font-medium text-cyan transition-colors hover:border-cyan/55 hover:bg-cyan/5 disabled:opacity-40"
         >
           {generatingVisual ? 'Generating…' : <><MdPalette className="inline h-4 w-4 mr-1 -mt-0.5" />AI Visual</>}
         </button>
@@ -2682,7 +2698,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
 
       {/* AI Visual (if generated) */}
       {visualImage && (
-        <div className="rounded-xl border border-cyan/20 bg-raised p-5">
+        <div className="rounded-xl border border-cyan/35 bg-transparent p-5">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-cyan">AI-Generated Infographic</p>
             <button

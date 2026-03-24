@@ -286,6 +286,7 @@ export function Card({
   accent,
   glow = false,
   interactive = false,
+  outline = false,
   style,
   ...rest
 }: {
@@ -294,11 +295,14 @@ export function Card({
   accent?: string;
   glow?: boolean;
   interactive?: boolean;
+  /** Transparent fill, border-only shell (Strategy Lab / dense report layouts) */
+  outline?: boolean;
   style?: React.CSSProperties;
 } & React.HTMLAttributes<HTMLDivElement>) {
+  const surface = outline ? 'glass-outline' : 'glass-surface';
   return (
     <div
-      className={`glass-surface glass-card-layout rounded-2xl border p-5 ${interactive ? 'transition-all hover:-translate-y-0.5 active:translate-y-0' : ''} ${glow ? 'glass-card--glow' : ''} ${className}`}
+      className={`${surface} glass-card-layout rounded-2xl border p-5 ${interactive ? 'transition-all hover:-translate-y-0.5 active:translate-y-0' : ''} ${glow ? 'glass-card--glow' : ''} ${className}`}
       style={buildCardStyle(accent, style)}
       {...rest}
     >
@@ -392,7 +396,7 @@ export function PageTabs<T extends string>({
           onClick={() => onChange(t.key)}
           className={`rounded-md px-4 py-1.5 text-[13px] font-medium transition-colors ${
             active === t.key
-              ? 'bg-cyan/15 font-semibold text-cyan backdrop-blur-sm'
+              ? 'bg-surface font-semibold text-txt-primary shadow-sm ring-1 ring-inset ring-border dark:bg-raised/90'
               : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary dark:text-white/70 dark:hover:bg-cyan/10 dark:hover:text-white'
           }`}
         >
