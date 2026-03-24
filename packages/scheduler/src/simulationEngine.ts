@@ -9,6 +9,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { getTierModel } from '@glyphor/shared';
 import type { ModelClient } from '@glyphor/agent-runtime';
 
 /* ── Types ──────────────────────────────────── */
@@ -116,7 +117,7 @@ const SIMULATION_AGENTS: Array<{ role: string; area: string }> = [
 export class SimulationEngine {
   constructor(
     private modelClient: ModelClient,
-    private model = 'gpt-5-mini-2025-08-07',
+    private model = getTierModel('default'),
   ) {}
 
   async launch(req: SimulationRequest): Promise<string> {

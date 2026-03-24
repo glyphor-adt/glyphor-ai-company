@@ -10,6 +10,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { getSpecialized } from '@glyphor/shared';
 import { isValidUUID } from './uuidUtils.js';
 import { ModelClient } from './modelClient.js';
 import { getActivePrompt } from './activePromptResolver.js';
@@ -137,7 +138,7 @@ export async function reflect(
 
   try {
     const response = await modelClient.generate({
-      model: 'claude-sonnet-4-20250514',
+        model: getSpecialized('reflection'),
       systemInstruction: REFLECTION_SYSTEM_PROMPT,
       contents: [{ role: 'user', content: context, timestamp: Date.now() }],
       source: 'scheduled',

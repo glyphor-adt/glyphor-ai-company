@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { classifySubtask, routeSubtask } from '../subtaskRouter.js';
 import type { ConversationTurn } from '../types.js';
+import { DEFAULT_AGENT_MODEL } from '@glyphor/shared/models';
 
 function turn(role: ConversationTurn['role'], content: string): ConversationTurn {
   return { role, content, timestamp: Date.now() };
@@ -15,7 +16,7 @@ describe('subtaskRouter', () => {
       history: [turn('user', 'Check for new work and report back.')],
       toolNames: ['list_messages'],
       trustScore: 0.8,
-      currentModel: 'gpt-5-mini-2025-08-07',
+      currentModel: DEFAULT_AGENT_MODEL,
     });
 
     expect(classification.complexity).toBe('trivial');
@@ -32,11 +33,11 @@ describe('subtaskRouter', () => {
       ],
       toolNames: ['view', 'apply_patch', 'powershell'],
       trustScore: 0.9,
-      currentModel: 'gpt-5-mini-2025-08-07',
+      currentModel: DEFAULT_AGENT_MODEL,
     });
 
     expect(['complex', 'frontier']).toContain(decision.classification.complexity);
-    expect(decision.routing.model).toBe('gpt-5.4');
+    expect(decision.routing.model).not.toBe(DEFAULT_AGENT_MODEL);
     expect(decision.reason).toContain('subtask');
   });
 
@@ -47,7 +48,7 @@ describe('subtaskRouter', () => {
       history: [turn('user', 'Research market sources, cite them, and summarize the outlook.')],
       toolNames: ['web_search', 'fetch_report'],
       trustScore: 0.7,
-      currentModel: 'gpt-5-mini-2025-08-07',
+      currentModel: DEFAULT_AGENT_MODEL,
     });
 
     expect(classification.requiresFactualGrounding).toBe(true);

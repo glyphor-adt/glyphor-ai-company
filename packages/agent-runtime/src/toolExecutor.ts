@@ -38,6 +38,7 @@ import type { ConstitutionalGovernor } from './constitutionalGovernor.js';
 import type { ModelClient } from './modelClient.js';
 import { VerifierRunner } from './verifierRunner.js';
 import type { RedisCache } from './redisCache.js';
+import { getTierModel } from '@glyphor/shared';
 import { recordToolCall, detectToolSource } from './toolReputationTracker.js';
 import { applyPatchToGitHub } from './patchHarness.js';
 import {
@@ -909,7 +910,7 @@ export class ToolExecutor {
         .join('\n');
 
       const verificationResult = await this.verifierRunner.verifyToolCall({
-        primaryModel: 'gpt-5-mini-2025-08-07',
+        primaryModel: getTierModel('default'),
         agentRole: context.agentRole,
         toolName,
         toolParams: params,

@@ -53,6 +53,7 @@ import type { RoutingDecision } from './routing/index.js';
 import { determineVerificationTier } from './verificationPolicy.js';
 import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from './subtaskRouter.js';
 import { learnFromAgentRun } from './skillLearning.js';
+import { getTierModel } from '@glyphor/shared';
 
 const CONTEXT_COMPOSITION_MAX_TOKENS = 12_000;
 
@@ -336,7 +337,7 @@ export abstract class BaseAgentRunner {
       if (preCheck.context) {
         history.push({ role: 'user', content: preCheck.context, timestamp: Date.now() });
       }
-      routedModel.model = 'gpt-5-mini-2025-08-07';
+      routedModel.model = getTierModel('default');
       routedModel.reasoningEffort = 'low';
     }
 

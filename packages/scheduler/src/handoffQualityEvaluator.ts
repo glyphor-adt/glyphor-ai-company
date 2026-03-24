@@ -4,10 +4,11 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { getTierModel } from '@glyphor/shared';
 import { ModelClient } from '@glyphor/agent-runtime';
 
 const LOG_PREFIX = '[HandoffQualityEvaluator]';
-const EVAL_MODEL = 'gpt-5-nano';
+const EVAL_MODEL = getTierModel('fast');
 
 const HANDOFF_EVAL_PROMPT = `You are evaluating whether an AI agent effectively used the output provided by a preceding agent in a multi-agent workflow.
 

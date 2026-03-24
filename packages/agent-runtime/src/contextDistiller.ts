@@ -1,7 +1,7 @@
 /**
  * Context Distiller — Compresses raw JIT context into a task-focused briefing.
  *
- * A single fast model call (gpt-5-mini-2025-08-07, temperature 0.3) that takes
+ * A single fast model call (configured default tier model, temperature 0.3) that takes
  * raw JIT results + the task description and produces a structured briefing with
  * key facts and warnings. This replaces raw concatenation for standard/full tier
  * scheduled runs, producing higher-quality context at ~$0.001 per call.
@@ -12,6 +12,7 @@ import type { JitContext, JitContextItem } from './jitContextRetriever.js';
 import type { RedisCache } from './redisCache.js';
 import { CACHE_KEYS } from './redisCache.js';
 import { createHash } from 'node:crypto';
+import { getTierModel } from '@glyphor/shared';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -28,10 +29,10 @@ export interface DistilledContext {
 
 // ─── Constants ──────────────────────────────────────────────────
 
-const DISTILLATION_MODEL = 'gpt-5-mini-2025-08-07';
+const DISTILLATION_MODEL = getTierModel('default');
 const DISTILLATION_CACHE_TTL = 300; // 5 min
 
-/** Cost per million tokens for gpt-5-mini-2025-08-07 */
+/** Cost per million tokens for flash-lite class pricing */
 const FLASH_INPUT_COST = 0.10 / 1_000_000;
 const FLASH_OUTPUT_COST = 0.40 / 1_000_000;
 

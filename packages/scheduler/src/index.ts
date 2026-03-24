@@ -59,3 +59,11 @@ export {
   evaluateAgentKnowledgeGaps,
   type AgentKnowledgeEvalReport,
 } from './agentKnowledgeEvaluator.js';
+export {
+  runModelChecker,
+  type ModelCheckerResult,
+} from './modelChecker.js';
+export {
+  validateModelConfig,
+  type ValidationResult as ModelValidationResult,
+} from './modelValidator.js';

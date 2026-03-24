@@ -2,9 +2,12 @@ import type { ModelRoutingMetadata } from '../providers/types.js';
 import { inferCapabilities, type RoutingContext } from './inferCapabilities.js';
 import { inferDomainRouting } from './domainRouter.js';
 import { resolveModel as canonicalizeModelSlug } from '@glyphor/shared';
+import { DEEP_DIVE_VERIFICATION_MODELS, DEFAULT_AGENT_MODEL, REASONING_VERIFICATION_MODELS } from '@glyphor/shared/models';
 import { systemQuery } from '@glyphor/shared/db';
 
-const DEFAULT_MODEL = 'model-router';
+const DEFAULT_MODEL = DEFAULT_AGENT_MODEL;
+const ECONOMY_MODEL = DEEP_DIVE_VERIFICATION_MODELS[0] ?? DEFAULT_MODEL;
+const HIGH_MODEL = REASONING_VERIFICATION_MODELS[1] ?? DEFAULT_MODEL;
 
 const CODE_INTENSIVE_ROLES = new Set([
   'platform-engineer',
@@ -54,19 +57,19 @@ interface RouteConfig {
 
 // Hardcoded defaults used when DB is unavailable (cold start / test)
 const STATIC_ROUTES: RouteConfig[] = [
-  { route_name: 'economy',              model_slug: 'gpt-5.4-nano',     priority: 100 },
-  { route_name: 'workhorse',            model_slug: 'model-router',     priority: 50 },
-  { route_name: 'orchestration',        model_slug: 'model-router',     priority: 90 },
-  { route_name: 'executive_assignment', model_slug: 'model-router',     priority: 80 },
-  { route_name: 'complex_research',     model_slug: 'gpt-5.4',          priority: 85 },
-  { route_name: 'financial_complex',    model_slug: 'gpt-5.4',          priority: 85 },
-  { route_name: 'visual_analysis',      model_slug: 'model-router',     priority: 85 },
-  { route_name: 'code_gen',             model_slug: 'model-router',     priority: 70 },
-  { route_name: 'founder_chat',         model_slug: 'model-router',     priority: 75 },
-  { route_name: 'triangulation',        model_slug: 'gpt-5.4',          priority: 95 },
-  { route_name: 'deep_research',        model_slug: 'o3-deep-research', priority: 95 },
-  { route_name: 'legal_review',         model_slug: 'claude-sonnet-4-6', priority: 95 },
-  { route_name: 'default',              model_slug: 'model-router',     priority: 0 },
+  { route_name: 'economy',              model_slug: ECONOMY_MODEL,              priority: 100 },
+  { route_name: 'workhorse',            model_slug: DEFAULT_MODEL,              priority: 50 },
+  { route_name: 'orchestration',        model_slug: DEFAULT_MODEL,              priority: 90 },
+  { route_name: 'executive_assignment', model_slug: DEFAULT_MODEL,              priority: 80 },
+  { route_name: 'complex_research',     model_slug: HIGH_MODEL,                 priority: 85 },
+  { route_name: 'financial_complex',    model_slug: HIGH_MODEL,                 priority: 85 },
+  { route_name: 'visual_analysis',      model_slug: DEFAULT_MODEL,              priority: 85 },
+  { route_name: 'code_gen',             model_slug: DEFAULT_MODEL,              priority: 70 },
+  { route_name: 'founder_chat',         model_slug: DEFAULT_MODEL,              priority: 75 },
+  { route_name: 'triangulation',        model_slug: HIGH_MODEL,                 priority: 95 },
+  { route_name: 'deep_research',        model_slug: 'o3-deep-research',         priority: 95 },
+  { route_name: 'legal_review',         model_slug: HIGH_MODEL,                 priority: 95 },
+  { route_name: 'default',              model_slug: DEFAULT_MODEL,              priority: 0 },
 ];
 
 let routeCache: RouteConfig[] | null = null;
@@ -328,7 +331,7 @@ export async function resolveModelConfig(
   const workhorse = getRoute(routes, 'workhorse');
 
   if ((context.trustScore ?? 0.5) < 0.45) {
-    if (decision.model === economyModel || decision.model === 'gpt-5-nano') {
+    if (decision.model === economyModel) {
       decision.model = workhorse;
       decision.routingRule = 'low_trust_escalation';
     }
@@ -336,7 +339,7 @@ export async function resolveModelConfig(
   }
 
   if (!deterministicTask && domainRouting.crossDomain) {
-    if (decision.model === economyModel || decision.model === 'gpt-5-nano') {
+    if (decision.model === economyModel) {
       decision.model = workhorse;
       decision.routingRule = 'cross_domain_escalation';
     }
@@ -344,7 +347,7 @@ export async function resolveModelConfig(
     decision.enableCompaction = true;
   }
 
-  if (!deterministicTask && (decision.model === economyModel || decision.model === 'gpt-5-nano') && domainRouting.primaryDomain === 'legal') {
+  if (!deterministicTask && decision.model === economyModel && domainRouting.primaryDomain === 'legal') {
     decision.model = workhorse;
     decision.routingRule = 'legal_domain_escalation';
     decision.reasoningEffort = 'medium';
@@ -352,7 +355,7 @@ export async function resolveModelConfig(
     decision.enableCompaction = true;
   }
 
-  if (!deterministicTask && (decision.model === economyModel || decision.model === 'gpt-5-nano') && domainRouting.primaryDomain === 'finance') {
+  if (!deterministicTask && decision.model === economyModel && domainRouting.primaryDomain === 'finance') {
     decision.model = workhorse;
     decision.routingRule = 'financial_domain_escalation';
     decision.reasoningEffort = 'medium';

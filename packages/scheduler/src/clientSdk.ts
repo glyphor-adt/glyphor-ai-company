@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { EXECUTIVE_ROLES } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
+import { getTierModel } from '@glyphor/shared';
 import { systemQuery, systemTransaction } from '@glyphor/shared/db';
 
 const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000000';
@@ -195,7 +196,7 @@ export async function createClientSdkAgent(
   const expiresAt = ttlDays == null
     ? null
     : new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000).toISOString();
-  const model = request.model ?? 'gpt-5-mini-2025-08-07';
+  const model = request.model ?? getTierModel('default');
   const title = request.title?.trim() || request.name.trim();
   const avatarUrl = buildGeneratedAvatarUrl(request.name);
   const systemPrompt = buildSdkSystemPrompt(request, role);

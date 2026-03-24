@@ -15,11 +15,12 @@ import type { RedisCache } from './redisCache.js';
 import type { Constitution } from './constitutionalGovernor.js';
 import { AGENT_EMAIL_MAP, FOUNDER_EMAILS } from './config/agentEmails.js';
 import { systemQuery } from '@glyphor/shared/db';
+import { getTierModel } from '@glyphor/shared';
 
 // ─── Constants ──────────────────────────────────────────────────
 
 /** Economy-tier model for LLM-based principle checks. */
-const PRE_CHECK_MODEL = 'gpt-5-mini-2025-08-07';
+const PRE_CHECK_MODEL = getTierModel('default');
 
 /** Cache TTL for LLM-based pre-check results (5 minutes). */
 const PRE_CHECK_CACHE_TTL = 300;

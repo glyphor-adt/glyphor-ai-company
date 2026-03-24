@@ -71,6 +71,16 @@ export {
 export type { ModelDef, ModelProvider, ModelTier, CostTier, ReasoningLevel, ReasoningSupport } from './models.js';
 
 export {
+  MODEL_CONFIG,
+  getTierModel,
+  getSpecialized,
+  getFallback,
+  isDisabled,
+  ALL_ACTIVE_MODELS,
+} from './models.config.js';
+export type { ModelTier as ConfigModelTier, SpecializedPath } from './models.config.js';
+
+export {
   DEFAULT_TRIANGULATION_MODEL_SELECTION,
   TRIANGULATION_MODELS,
   TRIANGULATION_TIMEOUTS,

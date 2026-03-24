@@ -23,6 +23,7 @@
 
 import type { ConversationTurn } from './types.js';
 import type { ModelClient } from './modelClient.js';
+import { getTierModel } from '@glyphor/shared';
 
 // ═══════════════════════════════════════════════════════════════════
 // CONFIGURATION
@@ -288,7 +289,7 @@ function evictGroups(
 // LAYER 3 — EVICTED CONTEXT SUMMARIZATION
 // ═══════════════════════════════════════════════════════════════════
 
-const EVICTION_SUMMARY_MODEL = 'gpt-5-mini-2025-08-07';
+const EVICTION_SUMMARY_MODEL = getTierModel('default');
 const EVICTION_SUMMARY_SYSTEM = `You are summarizing earlier parts of a conversation between a user and an AI agent that were evicted from the context window. Produce a concise summary (100-250 words) that preserves:
 - The original user request/question if present
 - Key facts, data, or decisions from tool results

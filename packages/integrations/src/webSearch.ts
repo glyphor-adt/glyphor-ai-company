@@ -154,7 +154,7 @@ function getResponsesEndpoint(): {
   if (azureEndpoint && azureApiKey) {
     const base = azureEndpoint.replace(/\/$/, '');
     const url = `${base}/openai/v1/responses`;
-    const deployment = process.env.WEB_SEARCH_AZURE_DEPLOYMENT?.trim() || 'gpt-5.4-mini';
+    const deployment = process.env.WEB_SEARCH_AZURE_DEPLOYMENT?.trim() || SEARCH_MODEL;
     return {
       url,
       headers: {

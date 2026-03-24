@@ -2,6 +2,7 @@ import type { ActionReceipt, CompanyAgentRole, ConversationTurn } from './types.
 import { inferCapabilities } from './routing/inferCapabilities.js';
 import { resolveModelConfig, type RoutingDecision } from './routing/resolveModel.js';
 import { inferDomainRouting } from './routing/domainRouter.js';
+import { getSpecialized, getTierModel } from '@glyphor/shared';
 
 export type SubtaskComplexity = 'trivial' | 'standard' | 'complex' | 'frontier';
 
@@ -34,7 +35,10 @@ export interface SubtaskRoutingDecision {
   reason: string;
 }
 
-const DEFAULT_MODEL = 'model-router';
+const DEFAULT_MODEL = getTierModel('default');
+const FAST_MODEL = getTierModel('fast');
+const HIGH_MODEL = getTierModel('high');
+const WORKHORSE_FALLBACK_MODEL = getSpecialized('web_search');
 const COMPLEXITY_RANK: Record<SubtaskComplexity, number> = {
   trivial: 0,
   standard: 1,
@@ -176,19 +180,19 @@ export async function selectSubtaskModel(
   });
 
   const workhorseForFrontierEscalation =
-    decision.model === 'gpt-5-nano'
+    decision.model === FAST_MODEL
     || decision.model === DEFAULT_MODEL
-    || decision.model === 'gpt-5.4-mini';
+    || decision.model === WORKHORSE_FALLBACK_MODEL;
 
   if (classification.complexity === 'frontier' && workhorseForFrontierEscalation) {
     decision = {
       ...decision,
-      model: 'gpt-5.4',
+      model: HIGH_MODEL,
       routingRule: 'frontier_subtask',
       reasoningEffort: 'high',
       enableCompaction: true,
     };
-  } else if (classification.complexity === 'complex' && decision.model === 'gpt-5-nano') {
+  } else if (classification.complexity === 'complex' && decision.model === FAST_MODEL) {
     decision = {
       ...decision,
       model: DEFAULT_MODEL,

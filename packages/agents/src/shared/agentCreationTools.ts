@@ -17,6 +17,7 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { EXECUTIVE_ROLES } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
+import { getTierModel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 
 /** Hard limits — cannot be overridden by agents */
@@ -27,6 +28,7 @@ const MAX_BUDGET_PER_RUN = 0.10;
 const MAX_BUDGET_DAILY = 1.00;
 const MAX_BUDGET_MONTHLY = 20;
 const MAX_TURNS_CAP = 10;
+const DEFAULT_AGENT_MODEL = getTierModel('default');
 
 function buildGeneratedAvatarUrl(name: string): string {
   const seed = encodeURIComponent(name.trim() || 'Agent');
@@ -82,7 +84,7 @@ export function createAgentCreationTools(): ToolDefinition[] {
         },
         model: {
           type: 'string',
-          description: 'AI model to use (default: gpt-5-mini-2025-08-07)',
+          description: 'AI model to use (defaults to configured default tier model)',
           required: false,
         },
         cron_expression: {
@@ -118,7 +120,7 @@ export function createAgentCreationTools(): ToolDefinition[] {
         const systemPrompt = params.system_prompt as string;
         const justification = params.justification as string;
         const ttlDays = Math.min((params.ttl_days as number) || DEFAULT_TTL_DAYS, MAX_TTL_DAYS);
-        const model = (params.model as string) || 'gpt-5-mini-2025-08-07';
+        const model = (params.model as string) || DEFAULT_AGENT_MODEL;
         const cronExpression = params.cron_expression as string | undefined;
         const skills = (params.skills as string[] | undefined) ?? [];
         const tools = (params.tools as string[] | undefined) ?? [];

@@ -13,6 +13,7 @@
 import { ProviderFactory, type ProviderFactoryConfig, type GeminiAdapter, type OpenAIAdapter } from './providers/index.js';
 import type { ModelProvider, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './providers/types.js';
 import { getFallbackChain, getProviderLocalFallbackChain } from '@glyphor/shared/models';
+import { getTierModel } from '@glyphor/shared';
 
 // ─── Re-export types for backward compatibility ──────────────
 
@@ -60,7 +61,7 @@ function sanitizeToolsForProvider(
 
 export class ModelClient {
   private factory: ProviderFactory;
-  private static readonly DETERMINISTIC_FALLBACK_MODEL = 'gpt-5.4-mini';
+  private static readonly DETERMINISTIC_FALLBACK_MODEL = getTierModel('default');
 
   constructor(config: ModelClientConfig | string) {
     // Backwards-compatible: if a plain string is passed, treat as Gemini API key

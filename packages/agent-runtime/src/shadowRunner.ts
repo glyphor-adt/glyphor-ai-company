@@ -8,6 +8,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { ModelClient } from './modelClient.js';
 import { getActivePrompt, getPromptVersion, getCurrentVersionNumber } from './activePromptResolver.js';
+import { getSpecialized } from '@glyphor/shared';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ async function generateWithPrompt(
 ): Promise<string> {
   try {
     const response = await modelClient.generate({
-      model: 'gemini-2.5-flash',
+      model: getSpecialized('shadow_eval'),
       systemInstruction: systemPrompt,
       contents: [{ role: 'user', content: taskInput, timestamp: Date.now() }],
       source: 'scheduled',
@@ -119,7 +120,7 @@ async function judgeOutputs(
 ): Promise<{ baselineScore: number; challengerScore: number } | null> {
   try {
     const response = await modelClient.generate({
-      model: 'gemini-2.5-flash',
+      model: getSpecialized('shadow_eval'),
       systemInstruction: SHADOW_JUDGE_SYSTEM,
       contents: [{
         role: 'user',

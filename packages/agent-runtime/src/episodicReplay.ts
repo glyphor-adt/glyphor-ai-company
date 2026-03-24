@@ -16,6 +16,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { getTierModel } from '@glyphor/shared';
 import type { ModelClient } from './modelClient.js';
 
 /** Minimal embedding client interface for episodic replay. */
@@ -64,7 +65,7 @@ const REPLAY_WINDOW_HOURS = 2;
 const SIGNIFICANT_LOOKBACK_DAYS = 7;
 const SIGNIFICANCE_THRESHOLD = 0.7;
 const MIN_EPISODES_FOR_ANALYSIS = 3;
-const ANALYSIS_MODEL = 'gpt-5-mini-2025-08-07';
+const ANALYSIS_MODEL = getTierModel('default');
 
 // ─── Class ──────────────────────────────────────────────────────
 

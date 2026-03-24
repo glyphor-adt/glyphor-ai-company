@@ -7,6 +7,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
+import { getTierModel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import {
   queryCloudRunMetrics, pingServices,
@@ -16,6 +17,7 @@ import {
 } from '@glyphor/integrations';
 
 export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDefinition[] {
+  const defaultModel = getTierModel('default');
   return [
     {
       name: 'query_cloud_run_metrics',
@@ -70,7 +72,7 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
       parameters: {
         model: {
           type: 'string',
-          description: 'Model to check (default: gpt-5-mini-2025-08-07)',
+          description: 'Model to check (defaults to configured default tier model)',
           required: false,
         },
         hours: {
@@ -80,7 +82,7 @@ export function createPlatformEngineerTools(memory: CompanyMemoryStore): ToolDef
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const model = (params.model as string) || 'gpt-5-mini-2025-08-07';
+        const model = (params.model as string) || defaultModel;
         // Read from memory where agent runs are logged
         const activity = await memory.getRecentActivity((params.hours as number) || 1);
         const aiCalls = activity.filter((a) => a.action === 'analysis' || a.action === 'deploy');

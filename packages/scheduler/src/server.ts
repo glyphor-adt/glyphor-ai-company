@@ -15,7 +15,7 @@ import { GlyphorEventBus, ModelClient, promptCache, getRedisCache, WorkflowOrche
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
-import { assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
+import { assertWorkAssignmentDispatchAllowed, getTierModel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
@@ -30,6 +30,8 @@ import { MeetingEngine } from './meetingEngine.js';
 import { CotEngine } from './cotEngine.js';
 import { DeepDiveEngine } from './deepDiveEngine.js';
 import { StrategyLabEngine, type StrategyAnalysisType } from './strategyLabEngine.js';
+import { runModelChecker } from './modelChecker.js';
+import { validateModelConfig } from './modelValidator.js';
 
 const DB_RUN_ID_TURN_PREFIX = '__db_run_id__:';
 const ASSIGNMENT_ID_TURN_PREFIX = '__assignment_id__:';
@@ -89,8 +91,10 @@ import {
   runDynamicAgent,
   runPlatformIntel,
 } from '@glyphor/agents';
+import { OAuth2Client } from 'google-auth-library';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
+const oidcClient = new OAuth2Client();
 
 // ─── Logo watermark ─────────────────────────────────────────────
 const LOGO_PATH = path.resolve(import.meta.dirname, '../../dashboard/public/glyphor-logo.png');
@@ -134,6 +138,84 @@ async function requireSdkClient(req: IncomingMessage, res: ServerResponse) {
     return null;
   }
   return client;
+}
+
+function getHeaderString(value: string | string[] | undefined): string | undefined {
+  if (!value) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getRequestOrigin(req: IncomingMessage): string | null {
+  const forwardedProto = getHeaderString(req.headers['x-forwarded-proto']);
+  const forwardedHost = getHeaderString(req.headers['x-forwarded-host']);
+  const host = forwardedHost ?? getHeaderString(req.headers.host);
+  if (!host) return null;
+  const proto = forwardedProto ?? 'https';
+  return `${proto}://${host}`;
+}
+
+async function requireInternalAuth(
+  req: IncomingMessage,
+  res: ServerResponse,
+  endpointPath: string,
+): Promise<boolean> {
+  const authorization = getHeaderString(req.headers.authorization);
+  if (!authorization?.startsWith('Bearer ')) {
+    json(res, 401, { ok: false, error: 'Missing bearer token' });
+    return false;
+  }
+
+  const idToken = authorization.slice('Bearer '.length).trim();
+  if (!idToken) {
+    json(res, 401, { ok: false, error: 'Missing bearer token' });
+    return false;
+  }
+
+  const envAudience = process.env.SCHEDULER_OIDC_AUDIENCE?.trim();
+  const requestOrigin = getRequestOrigin(req);
+  const derivedAudience = requestOrigin ? `${requestOrigin}${endpointPath}` : null;
+  const audienceCandidates = [...new Set([envAudience, derivedAudience].filter(Boolean) as string[])];
+
+  if (audienceCandidates.length === 0) {
+    console.error('[InternalAuth] No OIDC audience configured for internal endpoint validation.');
+    json(res, 500, { ok: false, error: 'Internal auth misconfigured: missing OIDC audience' });
+    return false;
+  }
+
+  let verifiedEmail: string | undefined;
+  let lastError: unknown = null;
+
+  for (const audience of audienceCandidates) {
+    try {
+      const ticket = await oidcClient.verifyIdToken({
+        idToken,
+        audience,
+      });
+      const payload = ticket.getPayload();
+      verifiedEmail = typeof payload?.email === 'string' ? payload.email : undefined;
+      lastError = null;
+      break;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  if (lastError) {
+    console.warn('[InternalAuth] Failed OIDC token verification for internal endpoint.');
+    json(res, 401, { ok: false, error: 'Unauthorized' });
+    return false;
+  }
+
+  const expectedServiceAccount = process.env.SCHEDULER_OIDC_SERVICE_ACCOUNT_EMAIL?.trim();
+  if (expectedServiceAccount && verifiedEmail && verifiedEmail !== expectedServiceAccount) {
+    console.warn(
+      `[InternalAuth] OIDC principal mismatch. expected=${expectedServiceAccount} actual=${verifiedEmail}`,
+    );
+    json(res, 403, { ok: false, error: 'Forbidden' });
+    return false;
+  }
+
+  return true;
 }
 
 function buildChiefOfStaffReactiveMessage(
@@ -1807,6 +1889,20 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Monthly model drift check (Cloud Scheduler; internal-only endpoint)
+    if (method === 'POST' && (url === '/internal/model-check' || url === '/model-check/run')) {
+      const authed = await requireInternalAuth(req, res, '/internal/model-check');
+      if (!authed) return;
+      try {
+        const summary = await runModelChecker();
+        json(res, 200, { success: true, summary });
+      } catch (err) {
+        console.error('[ModelChecker] Unhandled error:', err);
+        json(res, 500, { success: false, error: String(err) });
+      }
+      return;
+    }
+
     if (method === 'GET' && url === '/tool-health/latest') {
       try {
         const { pool } = await import('@glyphor/shared/db');
@@ -2620,7 +2716,7 @@ const server = createServer(async (req, res) => {
         [agent] = await systemQuery(
           `INSERT INTO company_agents (role, codename, name, display_name, title, department, reports_to, status, model, temperature, max_turns, budget_per_run, budget_daily, budget_monthly, is_temporary, expires_at, is_core, created_at, updated_at)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
-          [agentId, name, name, name, title ?? '', department ?? '', reports_to ?? null, 'active', model || 'gpt-5-mini-2025-08-07', temperature ?? 0.3, max_turns ?? 10, budget_per_run ?? 0.05, budget_daily ?? 0.50, budget_monthly ?? 15, is_temporary || false, is_temporary && ttl_days ? new Date(Date.now() + ttl_days * 86400000).toISOString() : null, false, new Date().toISOString(), new Date().toISOString()],
+          [agentId, name, name, name, title ?? '', department ?? '', reports_to ?? null, 'active', model || getTierModel('default'), temperature ?? 0.3, max_turns ?? 10, budget_per_run ?? 0.05, budget_daily ?? 0.50, budget_monthly ?? 15, is_temporary || false, is_temporary && ttl_days ? new Date(Date.now() + ttl_days * 86400000).toISOString() : null, false, new Date().toISOString(), new Date().toISOString()],
         );
       } catch (createErr) {
         json(res, 400, { success: false, error: (createErr as Error).message });
@@ -4104,29 +4200,45 @@ function exportStrategyLabMarkdown(record: import('./strategyLabEngine.js').Stra
   return lines.join('\n');
 }
 
-server.listen(PORT, () => {
-  console.log(`[Scheduler] Listening on port ${PORT}`);
+async function startServer(): Promise<void> {
+  const modelValidation = await validateModelConfig();
+  if (!modelValidation.passed) {
+    console.error('[Startup] Model config validation failed. Fix errors before deploying.');
+    throw new Error(
+      `Model validation failed with ${modelValidation.errors.length} error(s). ` +
+      'Refusing to start scheduler until disabled model usage is resolved.',
+    );
+  }
 
-  ensureAgentRunsRoutingSchema().catch((err) =>
-    console.warn('[Scheduler] Startup schema compatibility check failed:', (err as Error).message),
-  );
+  server.listen(PORT, () => {
+    console.log(`[Scheduler] Listening on port ${PORT}`);
 
-  ensureDecisionApprovalsSchema().catch((err) =>
-    console.warn('[Scheduler] Decision approval schema compatibility check failed:', (err as Error).message),
-  );
+    ensureAgentRunsRoutingSchema().catch((err) =>
+      console.warn('[Scheduler] Startup schema compatibility check failed:', (err as Error).message),
+    );
 
-  // Recover any analyses orphaned by a previous container restart
-  analysisEngine.recoverStale().catch((err) =>
-    console.error('[Scheduler] Failed to recover stale analyses:', err),
-  );
+    ensureDecisionApprovalsSchema().catch((err) =>
+      console.warn('[Scheduler] Decision approval schema compatibility check failed:', (err as Error).message),
+    );
 
-  // Start dynamic scheduler for DB-defined cron jobs
-  const dynamicScheduler = new DynamicScheduler(trackedAgentExecutor);
-  dynamicScheduler.start();
+    // Recover any analyses orphaned by a previous container restart
+    analysisEngine.recoverStale().catch((err) =>
+      console.error('[Scheduler] Failed to recover stale analyses:', err),
+    );
 
-  // Start data sync scheduler (fires DATA_SYNC_JOBS on their cron schedule)
-  const dataSyncScheduler = new DataSyncScheduler(PORT);
-  dataSyncScheduler.start();
+    // Start dynamic scheduler for DB-defined cron jobs
+    const dynamicScheduler = new DynamicScheduler(trackedAgentExecutor);
+    dynamicScheduler.start();
+
+    // Start data sync scheduler (fires DATA_SYNC_JOBS on their cron schedule)
+    const dataSyncScheduler = new DataSyncScheduler(PORT);
+    dataSyncScheduler.start();
+  });
+}
+
+startServer().catch((err) => {
+  console.error('[Scheduler] Fatal startup validation error:', (err as Error).message);
+  process.exit(1);
 });
 
 // ─── Graceful shutdown ──────────────────────────────────────────

@@ -8,6 +8,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { getTierModel } from '@glyphor/shared';
 import type { ModelClient } from './modelClient.js';
 import type { RedisCache } from './redisCache.js';
 import { CACHE_KEYS, CACHE_TTL } from './redisCache.js';
@@ -434,7 +435,7 @@ Provide the revised output directly (no JSON wrapping, no explanation).`;
   /** Select verification model by round-robin through configured models. */
   private getVerificationModel(passIndex: number): string {
     const models = this.config.verificationModels;
-    if (models.length === 0) return 'gpt-5-mini-2025-08-07';
+    if (models.length === 0) return getTierModel('default');
     return models[passIndex % models.length];
   }
 

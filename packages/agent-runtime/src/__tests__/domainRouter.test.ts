@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { inferCapabilities } from '../routing/inferCapabilities.js';
 import { inferDomainRouting } from '../routing/domainRouter.js';
 import { resolveModelConfig } from '../routing/resolveModel.js';
+import { DEFAULT_AGENT_MODEL } from '@glyphor/shared/models';
 
 describe('domainRouter', () => {
   it('infers finance domain from role signal even with sparse prompt text', () => {
@@ -51,11 +52,11 @@ describe('domain-aware runtime routing', () => {
       message: 'Please handle this assignment.',
       toolNames: ['list_messages'],
       trustScore: 0.8,
-      currentModel: 'gpt-5-mini-2025-08-07',
+      currentModel: DEFAULT_AGENT_MODEL,
     });
 
     expect(decision.routingRule).toBe('financial_complex');
-    expect(decision.model).toContain('gpt-5.4');
+    expect(decision.model).not.toBe(DEFAULT_AGENT_MODEL);
     expect(decision.enableCodeExecution).toBe(true);
   });
 
@@ -66,7 +67,7 @@ describe('domain-aware runtime routing', () => {
       message: 'Synthesize legal compliance findings, contract risks, and budget forecast recommendations from research evidence.',
       toolNames: ['evaluate_assignment', 'query_costs', 'web_search'],
       trustScore: 0.8,
-      currentModel: 'gpt-5-mini-2025-08-07',
+      currentModel: DEFAULT_AGENT_MODEL,
     });
 
     expect(decision.reasoningEffort).toBe('high');

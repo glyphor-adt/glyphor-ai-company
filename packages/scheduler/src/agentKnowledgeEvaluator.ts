@@ -1,5 +1,6 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { getModel } from '@glyphor/shared/models';
+import { getTierModel } from '@glyphor/shared';
 import { runCFO, runCMO, runCTO, runChiefOfStaff, runContentCreator, runSeoAnalyst, runSocialMediaManager, runPlatformIntel } from '@glyphor/agents';
 import { getRedisCache, ModelClient, type AgentExecutionResult } from '@glyphor/agent-runtime';
 
@@ -45,7 +46,7 @@ interface EvalOptions {
 
 const LOCK_KEY = 'agent-knowledge-eval-lock';
 const LOCK_TTL_SECONDS = 60 * 60;
-const JUDGE_MODEL = 'gpt-5-nano';
+const JUDGE_MODEL = getTierModel('fast');
 const LOG_PREFIX = '[AgentKnowledgeEvaluator]';
 const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000000';
 

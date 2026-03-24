@@ -501,6 +501,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/tool-health/run',
     enabled: true,
   },
+  // Model checker — monthly provider/model drift audit
+  {
+    id: 'glyphor-model-checker',
+    schedule: '0 9 1 * *',     // 9:00 AM UTC on the 1st of each month
+    timezone: 'UTC',
+    endpoint: '/internal/model-check',
+    enabled: true,
+  },
   // Shadow eval dequeue — pending challenger A/B tests (queueShadowEvaluation → run-pending)
   // Every 6h so work is picked up regularly after batch-eval cycles (02:00 / 14:00 UTC).
   {
@@ -541,7 +549,10 @@ export function generateCloudSchedulerCommands(
   topicName: string,
   schedulerUrl: string,
   region: string = 'us-central1',
+  oidcServiceAccountEmail?: string,
 ): string[] {
+  const schedulerOidcServiceAccount = oidcServiceAccountEmail ?? `${projectId}@appspot.gserviceaccount.com`;
+
   // Agent task jobs (via Pub/Sub)
   const agentJobs = getEnabledJobs().map(job => {
     const messageBody = JSON.stringify({
@@ -573,7 +584,7 @@ export function generateCloudSchedulerCommands(
       `--time-zone="${job.timezone}"`,
       `--location="${region}"`,
       `--project="${projectId}"`,
-      `--oidc-service-account-email="${projectId}@appspot.gserviceaccount.com"`,
+      `--oidc-service-account-email="${schedulerOidcServiceAccount}"`,
     ].join(' \\\n  ');
   });
 

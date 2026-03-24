@@ -8,6 +8,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { getTierModel } from '@glyphor/shared';
 import { ModelClient } from '@glyphor/agent-runtime';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ Output JSON only:
 
 // ─── Judge Model ────────────────────────────────────────────────
 
-const JUDGE_MODEL = 'gpt-5-nano';
+const JUDGE_MODEL = getTierModel('fast');
 const LOG_PREFIX = '[ToolAccuracyEvaluator]';
 
 // ─── Main Entry ─────────────────────────────────────────────────

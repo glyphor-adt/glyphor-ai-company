@@ -9,6 +9,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { getTierModel } from '@glyphor/shared';
 import type { ModelClient } from './modelClient.js';
 import type { RedisCache } from './redisCache.js';
 
@@ -51,7 +52,7 @@ export interface Constitution {
 
 // ─── Constants ──────────────────────────────────────────────────
 
-const EVALUATION_MODEL = 'gpt-5-mini-2025-08-07';
+const EVALUATION_MODEL = getTierModel('default');
 const ADHERENCE_THRESHOLD = 0.7;
 const CONSTITUTION_CACHE_TTL = 600; // 10 min
 

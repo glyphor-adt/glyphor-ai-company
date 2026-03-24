@@ -15,6 +15,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { getTierModel } from '@glyphor/shared';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import type { AgentExecutionResult, CompanyAgentRole } from '@glyphor/agent-runtime';
 import { WorkflowOrchestrator } from '@glyphor/agent-runtime';
@@ -749,7 +750,7 @@ export class StrategyLabEngine {
   constructor(
     private modelClient: ModelClient,
     private agentExecutor: (role: CompanyAgentRole, task: string, payload: Record<string, unknown>) => Promise<AgentExecutionResult | void>,
-    private model = 'gpt-5-mini-2025-08-07',
+    private model = getTierModel('default'),
   ) {}
 
   /** Launch a strategy analysis. Returns the record ID. */

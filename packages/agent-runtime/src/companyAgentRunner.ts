@@ -30,6 +30,7 @@ import type {
   ToolRetrievalMetadataMap,
 } from './types.js';
 import { estimateModelCost } from '@glyphor/shared/models';
+import { getTierModel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { extractTaskFromConfigId } from './taskIdentity.js';
 import { composeModelContext } from './context/contextComposer.js';
@@ -1419,7 +1420,7 @@ export class CompanyAgentRunner {
       if (preCheck.context) {
         history.push({ role: 'user', content: preCheck.context, timestamp: Date.now() });
       }
-      routedModel.model = 'gpt-5-mini-2025-08-07';
+      routedModel.model = getTierModel('default');
       routedModel.reasoningEffort = 'low';
     }
 
@@ -2376,8 +2377,10 @@ For peerFeedback: If during this task you interacted with or observed the work o
       { role: 'user', content: reflectPrompt, timestamp: Date.now() },
     ];
 
+    const reflectionModel = getTierModel('fast');
+
     const response = await this.modelClient.generate({
-      model: 'gpt-5-nano',
+      model: reflectionModel,
       systemInstruction: systemPrompt,
       contents: reflectHistory,
       fallbackScope: 'same-provider',
@@ -2386,7 +2389,7 @@ For peerFeedback: If during this task you interacted with or observed the work o
       thinkingEnabled: false,
       metadata: {
         modelConfig: {
-          model: 'gpt-5-nano',
+          model: reflectionModel,
           routingRule: 'reflection_subcall',
           capabilities: ['batch_eligible', 'structured_extraction'],
           reasoningEffort: 'low',

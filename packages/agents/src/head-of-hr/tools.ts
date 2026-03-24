@@ -5,7 +5,10 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
+import { getTierModel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
+
+const DEFAULT_AGENT_MODEL = getTierModel('default');
 
 /** Safely coerce an AI-generated value to a number for DECIMAL columns. */
 function toNumeric(value: unknown, fallback: number): number {
@@ -199,9 +202,9 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
           : { pass: false, detail: 'MISSING — not in org chart' };
 
         // 6. Model
-        checklist['model'] = agent.model === 'gpt-5-mini-2025-08-07'
+        checklist['model'] = agent.model === DEFAULT_AGENT_MODEL
           ? { pass: true, detail: agent.model }
-          : { pass: false, detail: `${agent.model ?? 'NOT SET'} (should be gpt-5-mini-2025-08-07)` };
+          : { pass: false, detail: `${agent.model ?? 'NOT SET'} (should be ${DEFAULT_AGENT_MODEL})` };
 
         const passed = Object.values(checklist).filter((c) => c.pass).length;
         const total = Object.values(checklist).length;
@@ -702,7 +705,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         },
         model: {
           type: 'string',
-          description: 'AI model to use (default: gpt-5-mini-2025-08-07).',
+          description: 'AI model to use (defaults to configured default tier model).',
           required: false,
         },
       },
@@ -722,7 +725,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const workingStyle = (params.working_style as string) || 'outcome-driven';
         const toneFormality = toNumeric(params.tone_formality, 0.6);
         const verbosity = toNumeric(params.verbosity, 0.5);
-        const model = (params.model as string) || 'gpt-5-mini-2025-08-07';
+        const model = (params.model as string) || DEFAULT_AGENT_MODEL;
 
         // ── Validate required fields ──
         if (!role || !name || !title || !department || !reportsTo) {
@@ -845,7 +848,7 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
 
         try {
           const response = await ai.models.generateContent({
-            model: 'gpt-5-mini-2025-08-07',
+            model: DEFAULT_AGENT_MODEL,
             contents: genPrompt,
           });
 
