@@ -15,21 +15,21 @@ type Priority = DashboardChangeRequest['priority'];
 type RequestType = DashboardChangeRequest['request_type'];
 type Status = DashboardChangeRequest['status'];
 
-const PRIORITY_CONFIG: Record<Priority, { label: string; dot: string; text: string; bg: string }> = {
-  critical: { label: 'CRITICAL', dot: 'bg-prism-critical', text: 'text-prism-critical', bg: 'bg-prism-critical/10' },
-  high:     { label: 'HIGH',     dot: 'bg-prism-high', text: 'text-prism-high', bg: 'bg-prism-high/10' },
-  medium:   { label: 'MEDIUM',   dot: 'bg-prism-fill-3', text: 'text-prism-sky', bg: 'bg-prism-fill-3/10' },
-  low:      { label: 'LOW',      dot: 'bg-prism-moderate', text: 'text-prism-moderate', bg: 'bg-prism-moderate/10' },
+const PRIORITY_CONFIG: Record<Priority, { label: string; badge: string }> = {
+  critical: { label: 'CRITICAL', badge: 'badge-red' },
+  high:     { label: 'HIGH', badge: 'badge-orange' },
+  medium:   { label: 'MEDIUM', badge: 'badge-sky' },
+  low:      { label: 'LOW', badge: 'badge-gray' },
 };
 
-const STATUS_CONFIG: Record<Status, { label: string; color: string; bg: string }> = {
-  pending_approval: { label: 'Pending Approval', color: 'text-prism-high',      bg: 'bg-prism-high/10' },
-  submitted:   { label: 'Submitted',   color: 'text-prism-moderate',  bg: 'bg-prism-moderate/10' },
-  triaged:     { label: 'Triaged',     color: 'text-prism-violet',    bg: 'bg-prism-violet/10' },
-  in_progress: { label: 'In Progress', color: 'text-prism-elevated',  bg: 'bg-prism-elevated/10' },
-  review:      { label: 'In Review',   color: 'text-cyan',            bg: 'bg-cyan/10' },
-  deployed:    { label: 'Deployed',    color: 'text-prism-teal',      bg: 'bg-prism-fill-2/10' },
-  rejected:    { label: 'Rejected',    color: 'text-prism-critical',  bg: 'bg-prism-critical/10' },
+const STATUS_CONFIG: Record<Status, { label: string; badge: string }> = {
+  pending_approval: { label: 'Pending Approval', badge: 'badge-amber' },
+  submitted:   { label: 'Submitted', badge: 'badge-blue' },
+  triaged:     { label: 'Triaged', badge: 'badge-violet' },
+  in_progress: { label: 'In Progress', badge: 'badge-indigo' },
+  review:      { label: 'In Review', badge: 'badge-cyan' },
+  deployed:    { label: 'Deployed', badge: 'badge-green' },
+  rejected:    { label: 'Rejected', badge: 'badge-red' },
 };
 
 const TYPE_CONFIG: Record<RequestType, { label: string; icon: typeof MdCode }> = {
@@ -214,11 +214,10 @@ function RequestCard({ request: r }: { request: DashboardChangeRequest }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-sm font-semibold text-txt-primary">{r.title}</h3>
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.bg} ${status.color}`}>
+            <span className={`badge badge-xs ${status.badge}`}>
               {status.label}
             </span>
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${priority.bg} ${priority.text}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${priority.dot}`} />
+            <span className={`badge badge-xs ${priority.badge}`}>
               {priority.label}
             </span>
             <span className="rounded-full bg-raised px-2 py-0.5 text-[10px] font-medium text-txt-muted">

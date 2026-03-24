@@ -1111,6 +1111,54 @@ html:not(.dark) .dashboard-home .dashboard-home-nested.sidebar-glass {
   box-shadow: none !important;
 }
 
+/* Fallback glow for moving-border wrappers.
+   Keeps a visible edge glow even if animated conic masking is muted by browser/compositing. */
+.moving-border-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(14, 165, 233, 0.08),
+    0 0 16px rgba(14, 165, 233, 0.12);
+  opacity: 0.7;
+  transition: opacity 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  z-index: 0;
+}
+
+.moving-border-shell:focus-within::before {
+  border-color: rgba(34, 211, 238, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.35),
+    0 0 0 3px rgba(14, 165, 233, 0.14),
+    0 0 24px rgba(14, 165, 233, 0.28);
+  opacity: 1;
+}
+
+.moving-border-shell--composer::before {
+  border-color: rgba(34, 211, 238, 0.3);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.12),
+    0 0 20px rgba(14, 165, 233, 0.18);
+}
+
+.dark .moving-border-shell::before {
+  border-color: rgba(34, 211, 238, 0.3);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.16),
+    0 0 18px rgba(14, 165, 233, 0.2);
+}
+
+.dark .moving-border-shell:focus-within::before {
+  border-color: rgba(34, 211, 238, 0.72);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.45),
+    0 0 0 3px rgba(14, 165, 233, 0.24),
+    0 0 30px rgba(14, 165, 233, 0.42);
+}
+
 /* Glowing frame inner — form textareas (MovingBorder innerSurface=field) */
 .field-glow-shell {
   border: 1px solid rgba(14, 165, 233, 0.28);

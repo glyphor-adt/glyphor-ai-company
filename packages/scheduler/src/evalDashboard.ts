@@ -121,6 +121,7 @@ export async function handleEvalApi(
         LEFT JOIN finding_counts fc  ON fc.agent_id = a.role
         LEFT JOIN prompt_info pi     ON pi.agent_id = a.role
         LEFT JOIN mutation_counts mc ON mc.agent_id = a.role
+        WHERE a.status = 'active'
         ORDER BY a.performance_score ASC NULLS LAST
       `);
       json(res, 200, rows);

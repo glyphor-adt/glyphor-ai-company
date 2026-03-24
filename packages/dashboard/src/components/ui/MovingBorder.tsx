@@ -48,7 +48,9 @@ export function MovingBorderContainer({
   return (
     <Component
       className={cn(
-        'relative isolate overflow-visible bg-transparent p-[2px]',
+        'relative isolate overflow-visible bg-transparent p-[2px] moving-border-shell',
+        innerSurface === 'composer' && 'moving-border-shell--composer',
+        innerSurface === 'field' && 'moving-border-shell--field',
         innerSurface === 'field' && 'field-glow-shell',
         containerClassName,
       )}
