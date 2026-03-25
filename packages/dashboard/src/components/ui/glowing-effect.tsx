@@ -133,13 +133,6 @@ const GlowingEffect = memo(
               rgba(76, 120, 148, 0) 72%
             )`;
 
-    const blurGradientCss =
-      variant === 'white'
-        ? `radial-gradient(${Math.max(160, spread * 8)}px circle at var(--x) var(--y), rgba(255,255,255,0.22), rgba(255,255,255,0))`
-        : variant === 'cyan'
-          ? `radial-gradient(${Math.max(180, spread * 9)}px circle at var(--x) var(--y), rgba(0,224,255,0.32), rgba(0,224,255,0))`
-          : `radial-gradient(${Math.max(170, spread * 8)}px circle at var(--x) var(--y), rgba(221,123,187,0.26), rgba(221,123,187,0))`;
-
     const layerStyle = {
       '--blur': `${blur}px`,
       '--spread': spread,
@@ -175,6 +168,7 @@ const GlowingEffect = memo(
           <div
             className={cn(
               'absolute inset-0 rounded-[inherit] p-[var(--glowingeffect-border-width)] opacity-[var(--active)] transition-opacity duration-200',
+              blur > 0 && 'blur-[var(--blur)]',
             )}
             style={{
               background: 'var(--gradient)',
@@ -182,15 +176,6 @@ const GlowingEffect = memo(
               WebkitMaskComposite: 'xor',
               mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
               maskComposite: 'exclude',
-            }}
-          />
-          <div
-            className={cn(
-              'absolute inset-0 rounded-[inherit] opacity-[calc(var(--active)*0.85)] transition-opacity duration-200',
-              blur > 0 && 'blur-[var(--blur)]',
-            )}
-            style={{
-              background: blurGradientCss,
             }}
           />
         </div>
