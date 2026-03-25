@@ -16,7 +16,7 @@
 
 const LI_API_BASE = 'https://api.linkedin.com/rest';
 const LI_TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken';
-const LI_API_VERSION = '202401';
+const LI_API_VERSION = process.env.LINKEDIN_API_VERSION ?? '202306';
 
 // ── Token cache ──────────────────────────────────────────────
 
