@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import Markdown from 'react-markdown';
 import {
   MdEmojiEvents, MdLocalFireDepartment, MdMenuBook, MdCelebration,
-  MdPushPin, MdCalendarToday, MdHourglassEmpty, MdCheckCircle,
-  MdCancel, MdCheck, MdWarning, MdArrowForward, MdPsychology,
+  MdPushPin, MdCheck, MdWarning, MdPsychology,
   MdSecurity,
 } from 'react-icons/md';
 import {
@@ -146,7 +144,7 @@ interface ActivityRow {
   created_at: string;
 }
 
-type Tab = 'overview' | 'performance' | 'memory' | 'messages' | 'skills' | 'world-model' | 'settings';
+type Tab = 'overview' | 'performance' | 'memory' | 'skills' | 'world-model' | 'settings';
 
 export default function AgentProfile() {
   const { agentId } = useParams();
@@ -277,7 +275,6 @@ export default function AgentProfile() {
     { key: 'overview', label: 'Overview' },
     { key: 'performance', label: 'Performance' },
     { key: 'memory', label: 'Memory' },
-    { key: 'messages', label: 'Messages' },
     { key: 'skills', label: 'Skills' },
     { key: 'world-model', label: 'World Model' },
     { key: 'settings', label: 'Settings' },
@@ -536,7 +533,6 @@ export default function AgentProfile() {
       {tab === 'overview' && <OverviewTab agent={agent} profile={profile} brief={brief} directReports={directReports} />}
       {tab === 'performance' && <PerformanceTab agent={agent} />}
       {tab === 'memory' && <MemoryTab agent={agent} />}
-      {tab === 'messages' && <MessagesTab agent={agent} />}
       {tab === 'skills' && <SkillsTab agent={agent} brief={brief} />}
       {tab === 'world-model' && <WorldModelTab agent={agent} />}
       {tab === 'settings' && <SettingsTab agent={agent} profile={profile} onUpdate={setAgent} />}
@@ -1243,170 +1239,6 @@ function MemoryTab({ agent }: { agent: AgentRow }) {
           </ul>
         ) : (
           <p className="text-sm text-txt-faint">No memories stored yet. Memories are created during agent runs.</p>
-        )}
-      </Card>
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════════
-   MESSAGES TAB
-   ════════════════════════════════════════════════════════════════ */
-interface AgentMessage {
-  id: string;
-  from_agent: string;
-  to_agent: string;
-  thread_id: string;
-  message: string;
-  message_type: string;
-  priority: string;
-  status: string;
-  created_at: string;
-}
-
-interface AgentMeeting {
-  id: string;
-  called_by: string;
-  title: string;
-  meeting_type: string;
-  attendees: string[];
-  status: string;
-  summary: string | null;
-  created_at: string;
-}
-
-function MessagesTab({ agent }: { agent: AgentRow }) {
-  const [messages, setMessages] = useState<AgentMessage[]>([]);
-  const [meetings, setMeetings] = useState<AgentMeeting[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      apiCall('/api/agent_messages?or=(from_agent.eq.' + encodeURIComponent(agent.role) + ',to_agent.eq.' + encodeURIComponent(agent.role) + ')&order=created_at.desc&limit=30'),
-      apiCall('/api/agent_meetings?attendees=cs.' + encodeURIComponent(JSON.stringify([agent.role])) + '&order=created_at.desc&limit=15'),
-    ]).then(([msgRes, mtgRes]) => {
-      setMessages((msgRes as unknown as AgentMessage[]) ?? []);
-      setMeetings((mtgRes as unknown as AgentMeeting[]) ?? []);
-      setLoading(false);
-    });
-  }, [agent.role]);
-
-  if (loading) return <Skeleton className="h-48" />;
-
-  const received = messages.filter((m) => m.to_agent === agent.role);
-  const sent = messages.filter((m) => m.from_agent === agent.role);
-  const displayName = DISPLAY_NAME_MAP[agent.role] ?? agent.display_name;
-
-  const typeColor: Record<string, string> = {
-    request: 'badge-sky',
-    response: 'badge-green',
-    info: 'badge-gray',
-    followup: 'badge-violet',
-  };
-
-  const statusIcon: Record<string, ReactNode> = {
-    scheduled: <MdCalendarToday className="inline h-4 w-4 text-prism-sky" />,
-    in_progress: <MdHourglassEmpty className="inline h-4 w-4 text-prism-elevated" />,
-    completed: <MdCheckCircle className="inline h-4 w-4 text-tier-green" />,
-    cancelled: <MdCancel className="inline h-4 w-4 text-prism-critical" />,
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: 'Received', value: received.length, color: '#00E0FF' },
-          { label: 'Sent', value: sent.length, color: '#C084FC' },
-          { label: 'Meetings', value: meetings.length, color: '#7DD3FC' },
-          { label: 'Pending', value: received.filter((m) => m.status === 'pending').length, color: '#A855F7' },
-        ].map((s) => (
-          <div key={s.label} className="glass-surface rounded-xl text-center px-3 py-3" style={{ borderTopColor: s.color, borderTopWidth: '2px' }}>
-            <p className="text-xl font-bold dark:text-white text-txt-primary">{s.value}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: s.color }}>{s.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Direct Messages */}
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">
-          Direct Messages
-        </h3>
-        {messages.length === 0 ? (
-          <p className="text-sm text-txt-faint">No messages yet</p>
-        ) : (
-          <ul className="space-y-2">
-            {messages.map((m) => {
-              const isSent = m.from_agent === agent.role;
-              const otherAgent = isSent ? m.to_agent : m.from_agent;
-              return (
-                <li key={m.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5">
-                  <div className="flex flex-col items-center gap-1">
-                    <span className={`rounded-lg px-2 py-0.5 text-[9px] font-semibold uppercase ${typeColor[m.message_type] ?? typeColor.info}`}>
-                      {m.message_type}
-                    </span>
-                    {m.priority === 'urgent' && (
-                      <span className="rounded-lg badge badge-red px-1.5 py-0.5 text-[9px] font-bold">!</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] text-txt-faint">
-                      {isSent ? (
-                        <span className="flex items-center gap-1"><span className="text-txt-secondary">{displayName}</span> <MdArrowForward className="text-[10px]" /> <span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[otherAgent] ?? otherAgent}</span></span>
-                      ) : (
-                        <span className="flex items-center gap-1"><span className="font-medium text-txt-secondary">{DISPLAY_NAME_MAP[otherAgent] ?? otherAgent}</span> <MdArrowForward className="text-[10px]" /> <span className="text-txt-secondary">{displayName}</span></span>
-                      )}
-                      <span className="ml-2">{timeAgo(m.created_at)}</span>
-                    </p>
-                    <div className="mt-0.5 text-sm text-txt-secondary prose-chat"><Markdown>{m.message}</Markdown></div>
-                  </div>
-                  <span className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${
-                    m.status === 'pending' ? 'bg-cyan' : m.status === 'read' ? 'bg-prism-moderate' : 'bg-tier-green'
-                  }`} />
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Card>
-
-      {/* Meeting Participation */}
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-txt-primary">
-          Meeting Participation
-        </h3>
-        {meetings.length === 0 ? (
-          <p className="text-sm text-txt-faint">No meetings yet</p>
-        ) : (
-          <ul className="space-y-2">
-            {meetings.map((m) => (
-              <li key={m.id} className="flex items-start gap-3 rounded-lg px-3 py-2.5">
-                <span className="mt-0.5">{statusIcon[m.status] ?? <MdCalendarToday className="inline h-4 w-4 text-prism-sky" />}</span>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-txt-primary">{m.title}</p>
-                  <p className="text-[11px] text-txt-faint">
-                    Called by {DISPLAY_NAME_MAP[m.called_by] ?? m.called_by}
-                    <span className="mx-1">·</span>
-                    {m.attendees.length} attendees
-                    <span className="mx-1">·</span>
-                    {timeAgo(m.created_at)}
-                  </p>
-                  {m.summary && (
-                    <div className="mt-1 text-sm text-txt-secondary line-clamp-2 prose-chat"><Markdown>{m.summary}</Markdown></div>
-                  )}
-                </div>
-                <span className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                  m.status === 'completed' ? 'badge-green'
-                  : m.status === 'in_progress' ? 'badge-amber'
-                  : 'badge-gray'
-                }`}>
-                  {m.status}
-                </span>
-              </li>
-            ))}
-          </ul>
         )}
       </Card>
     </div>

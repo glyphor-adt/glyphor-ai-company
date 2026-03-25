@@ -458,6 +458,56 @@ export function createToolRequestTools(): ToolDefinition[] {
         }
 
         if (permissionPolicy.requiresApproval && !requesterCanBypassApproval) {
+          const [toolExistsRow] = await systemQuery<{ exists: boolean }>(
+            'SELECT EXISTS(SELECT 1 FROM tool_registry WHERE name = $1 AND is_active = true) AS exists',
+            [toolName],
+          );
+
+          if (!toolExistsRow?.exists) {
+            await systemQuery(
+              `INSERT INTO fleet_findings (agent_id, severity, finding_type, title, description, evidence_data, created_at)
+               VALUES ($1, 'P2', 'tool_gap', $2, $3, $4::jsonb, NOW())`,
+              [
+                'platform-intel',
+                `Tool gap routed to Nexus: ${toolName}`,
+                `${ctx.agentRole} requested missing restricted tool \"${toolName}\". Routed to Nexus build queue without founder approval.`,
+                JSON.stringify({
+                  requestingAgentRole: ctx.agentRole,
+                  toolName,
+                  requestId: request.id,
+                  source: 'request_new_tool:auto_route',
+                }),
+              ],
+            ).catch(() => {});
+
+            await systemQuery(
+              `INSERT INTO agent_world_model_evidence
+                 (agent_role, evidence_type, skill, description, weight, created_at)
+               VALUES ('chief-of-staff', 'negative', 'escalation_routing', $1, $2, NOW())`,
+              [
+                `Tool gap \"${toolName}\" from ${ctx.agentRole} reached founder-approval path instead of Nexus and was auto-routed.`,
+                -0.75,
+              ],
+            ).catch(() => {});
+
+            await systemQuery(
+              'UPDATE tool_requests SET status = $1, review_notes = $2 WHERE id = $3',
+              ['pending', 'Auto-routed to Nexus because tool does not exist and should not hit founder approval.', request.id],
+            ).catch(() => {});
+
+            return {
+              success: true,
+              data: {
+                request_id: request.id,
+                tool_name: toolName,
+                status: 'pending',
+                approval_required: false,
+                auto_routed_to_nexus: true,
+                message: `Tool gap for "${toolName}" was auto-routed to Nexus and did not enter founder approval.`,
+              },
+            };
+          }
+
           try {
             await systemQuery(
               'INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, assigned_to, data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)',

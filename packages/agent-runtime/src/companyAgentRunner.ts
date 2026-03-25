@@ -115,6 +115,78 @@ const ON_DEMAND_MAX_TURNS = 12;
 const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 600_000;
 const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = 600_000;
 
+const CHIEF_OF_STAFF_REFLECTION_PROMPT = `
+You are reflecting on your recent orchestration performance as Chief of Staff.
+You must be CRITICAL and HONEST. Self-congratulation is a failure mode.
+
+## What to evaluate
+
+For each orchestration cycle in the review window, assess:
+
+### 1. Dispatch quality
+- Did the agents you dispatched have everything they needed?
+- Were briefs complete, unambiguous, and correctly scoped?
+- Did any agent produce work that missed the mark because of your brief?
+
+### 2. Escalation routing
+- Did any tool gap requests reach the founders that should have gone to Nexus?
+- Did any approval requests reach founders that you should have resolved?
+- Did any agent request creation of a new agent that you failed to intercept?
+
+### 3. Context accuracy
+- Did you include any incorrect or stale context in dispatches?
+- Did any downstream agent act on wrong information you provided?
+
+### 4. Founder rejection signals (CRITICAL)
+- Count every approval that was REJECTED in the review window
+- For each rejection: was the root cause your dispatch, brief, or routing?
+- A founder rejection of a downstream request you initiated is YOUR failure
+
+### 5. Prediction accuracy
+- Review any predictions you made about task outcomes
+- Were they accurate? Record misses explicitly
+
+## How to score weaknesses
+
+A weakness must be recorded when ANY of the following occurred:
+- A founder rejected an approval that originated from your orchestration
+- A downstream agent created work that was off-brief due to context you provided
+- A tool gap reached founders instead of Nexus
+- An agent requested creation of a new agent on your watch
+- You dispatched with missing or incorrect assets
+
+Do NOT record a strength unless you have external evidence it went well —
+not just that the run completed.
+
+## Required output format
+
+{
+  "strengths": [
+    {
+      "skill": "skill_name",
+      "evidence": "specific external evidence — not self-assessment",
+      "confidence": 0.0-1.0
+    }
+  ],
+  "weaknesses": [
+    {
+      "skill": "skill_name",
+      "evidence": "what specifically went wrong and why",
+      "improvement_goal": "what you will do differently"
+    }
+  ],
+  "prediction_accuracy": {
+    "predictions_made": 0,
+    "predictions_correct": 0,
+    "misses": ["description of each miss"]
+  },
+  "founder_rejections": {
+    "count": 0,
+    "root_causes": ["description of each"]
+  }
+}
+`;
+
 /** Task tier (work_loop) — narrow executor with tight limits.
  *  Research/account agents need multi-step tool calls (each = 2 turns),
  *  so 10 is too tight — raised to 20 for headroom. */
@@ -2331,7 +2403,46 @@ export class CompanyAgentRunner {
   ): Promise<void> {
     const systemPrompt = buildSystemPrompt(config.role, config.systemPrompt, undefined, undefined, undefined, undefined, undefined);
 
-    const reflectPrompt = `You just completed a task. Here is your final output:
+    const reviewWindowDays = 14;
+    let cosSignalContext = '';
+    if (config.role === 'chief-of-staff') {
+      try {
+        const [rejectionCountRow, recentEvidenceRows] = await Promise.all([
+          systemQuery<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+             FROM agent_world_model_evidence
+             WHERE agent_role = 'chief-of-staff'
+               AND evidence_type = 'negative'
+               AND description ILIKE 'Founder rejection:%'
+               AND created_at > NOW() - ($1::int * INTERVAL '1 day')`,
+            [reviewWindowDays],
+          ),
+          systemQuery<{ description: string }>(
+            `SELECT description
+             FROM agent_world_model_evidence
+             WHERE agent_role = 'chief-of-staff'
+               AND evidence_type = 'negative'
+               AND created_at > NOW() - ($1::int * INTERVAL '1 day')
+             ORDER BY created_at DESC
+             LIMIT 20`,
+            [reviewWindowDays],
+          ),
+        ]);
+
+        const rejectionCount = Number(rejectionCountRow[0]?.count ?? '0');
+        const negativeSignals = recentEvidenceRows.map((row) => `- ${row.description}`).join('\n');
+        cosSignalContext = [
+          `Review window: last ${reviewWindowDays} days`,
+          `Founder rejections (count): ${rejectionCount}`,
+          'Recent negative external signals:',
+          negativeSignals || '- none captured',
+        ].join('\n');
+      } catch (err) {
+        console.warn('[CompanyAgentRunner] Failed to load CoS reflection signals:', (err as Error).message);
+      }
+    }
+
+    const genericReflectPrompt = `You just completed a task. Here is your final output:
 
 ---
 ${(output ?? '').slice(0, 3000)}
@@ -2368,6 +2479,10 @@ For graph_operations: Extract key events, metrics, patterns, or risks from this 
 
 For peerFeedback: If during this task you interacted with or observed the work of other agents, include brief feedback for them. Only include genuine observations — leave the array empty if you had no cross-agent interaction.`;
 
+    const reflectPrompt = config.role === 'chief-of-staff'
+      ? `${CHIEF_OF_STAFF_REFLECTION_PROMPT}\n\n## External Signals\n${cosSignalContext || 'No external signals available for this window.'}`
+      : genericReflectPrompt;
+
     // Filter to only user/assistant text turns for reflection — including
     // tool_call/tool_result turns violates Gemini's strict ordering requirement
     // ("function response turn must come immediately after a function call turn")
@@ -2402,6 +2517,27 @@ For peerFeedback: If during this task you interacted with or observed the work o
 
     try {
       const parsed = JSON.parse(response.text.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
+
+      if (config.role === 'chief-of-staff' && Array.isArray(parsed.strengths) && Array.isArray(parsed.weaknesses)) {
+        const strengths = parsed.strengths as Array<{ skill?: string; evidence?: string }>;
+        const weaknesses = parsed.weaknesses as Array<{ skill?: string; evidence?: string; improvement_goal?: string }>;
+        const rejections = Number(parsed?.founder_rejections?.count ?? 0);
+        const predictionsMade = Number(parsed?.prediction_accuracy?.predictions_made ?? 0);
+        const predictionsCorrect = Number(parsed?.prediction_accuracy?.predictions_correct ?? 0);
+        const predictionRate = predictionsMade > 0 ? (predictionsCorrect / predictionsMade) : 1;
+        const computedQuality = Math.max(0, Math.min(100, Math.round(100 - (rejections * 20) - (weaknesses.length * 8) + (predictionRate * 10))));
+
+        parsed.summary = `CoS reflection: ${rejections} founder rejections, ${weaknesses.length} weaknesses, prediction accuracy ${(predictionRate * 100).toFixed(0)}%.`;
+        parsed.qualityScore = computedQuality;
+        parsed.whatWentWell = strengths
+          .map((item) => `${item.skill ?? 'unknown_skill'}: ${item.evidence ?? 'external evidence provided'}`)
+          .slice(0, 8);
+        parsed.whatCouldImprove = weaknesses
+          .map((item) => `${item.skill ?? 'unknown_skill'}: ${item.evidence ?? 'issue noted'} | Next: ${item.improvement_goal ?? 'define corrective action'}`)
+          .slice(0, 10);
+        parsed.promptSuggestions = [];
+        parsed.knowledgeGaps = parsed?.prediction_accuracy?.misses ?? [];
+      }
 
       // Save reflection
       await store.saveReflection({

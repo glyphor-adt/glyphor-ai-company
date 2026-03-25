@@ -29,6 +29,7 @@ const MAX_BUDGET_DAILY = 1.00;
 const MAX_BUDGET_MONTHLY = 20;
 const MAX_TURNS_CAP = 10;
 const DEFAULT_AGENT_MODEL = getTierModel('default');
+const ALLOW_SPECIALIST_AGENT_CREATION = process.env.ALLOW_SPECIALIST_AGENT_CREATION === 'true';
 
 function buildGeneratedAvatarUrl(name: string): string {
   const seed = encodeURIComponent(name.trim() || 'Agent');
@@ -129,6 +130,54 @@ export function createAgentCreationTools(): ToolDefinition[] {
           return { success: false, error: 'name, system_prompt, and justification are required.' };
         }
 
+        if (!ALLOW_SPECIALIST_AGENT_CREATION) {
+          const requestedAgentName = name.trim();
+          await systemQuery(
+            `INSERT INTO agent_world_model_evidence
+               (agent_role, evidence_type, skill, description, weight, created_at)
+             VALUES ($1, 'negative', 'scope_boundaries', $2, $3, NOW())`,
+            [
+              ctx.agentRole,
+              `Attempted to create new agent "${requestedAgentName}" — policy forbids agent creation requests. Justification: ${justification}`,
+              -1.0,
+            ],
+          ).catch(() => {});
+
+          await systemQuery(
+            `INSERT INTO agent_world_model_evidence
+               (agent_role, evidence_type, skill, description, weight, created_at)
+             VALUES ('chief-of-staff', 'negative', 'escalation_routing', $1, $2, NOW())`,
+            [
+              `Failed to intercept agent creation request from ${ctx.agentRole}. Requested agent: "${requestedAgentName}".`,
+              -0.75,
+            ],
+          ).catch(() => {});
+
+          await systemQuery(
+            `INSERT INTO decisions
+               (proposed_by, tier, title, summary, reasoning, status, assigned_to, data, resolved_by, resolution_note, resolved_at, created_at)
+             VALUES ($1, 'yellow', $2, $3, $4, 'rejected', ARRAY['kristina','andrew'], $5::jsonb, 'system:auto-policy', $6, NOW(), NOW())`,
+            [
+              ctx.agentRole,
+              `New specialist agent: ${requestedAgentName}`,
+              `${ctx.agentRole} requested specialist agent creation, but this policy is disabled and auto-rejected.`,
+              justification,
+              JSON.stringify({
+                type: 'new_specialist_agent',
+                proposed_agent_name: requestedAgentName,
+                requested_by: ctx.agentRole,
+                justification,
+              }),
+              'Auto-rejected policy violation: specialist agent creation is disabled.',
+            ],
+          ).catch(() => {});
+
+          return {
+            success: false,
+            error: 'Agent creation is disabled by policy. This request was auto-rejected and logged.',
+          };
+        }
+
         // ── Guard: check active agent count for this creator ──
         const [{ count: activeCount }] = await systemQuery<{ count: number }>(
           'SELECT COUNT(*)::int as count FROM company_agents WHERE created_by = $1 AND is_temporary = true AND status = $2',
@@ -193,8 +242,23 @@ export function createAgentCreationTools(): ToolDefinition[] {
 
         // ── Log creation as a Yellow-tier decision for founder visibility ──
         await systemQuery(
-          'INSERT INTO decisions (proposed_by, tier, title, summary, reasoning, status, assigned_to, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-          [ctx.agentRole, 'yellow', `New specialist agent: ${name}`, `${ctx.agentRole} created a temporary specialist agent.\n\nJustification: ${justification}\n\nAgent: ${name} (${agentId})\nDepartment: ${department}\nModel: ${model}\nTTL: ${ttlDays} days (expires ${expiresAt})\nBudget: $${MAX_BUDGET_PER_RUN}/run, $${MAX_BUDGET_DAILY}/day, $${MAX_BUDGET_MONTHLY}/month${cronExpression ? `\nSchedule: ${cronExpression}` : '\nSchedule: on-demand only'}`, justification, 'pending', ['kristina', 'andrew'], new Date().toISOString()]
+          'INSERT INTO decisions (proposed_by, tier, title, summary, reasoning, status, assigned_to, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)',
+          [
+            ctx.agentRole,
+            'yellow',
+            `New specialist agent: ${name}`,
+            `${ctx.agentRole} created a temporary specialist agent.\n\nJustification: ${justification}\n\nAgent: ${name} (${agentId})\nDepartment: ${department}\nModel: ${model}\nTTL: ${ttlDays} days (expires ${expiresAt})\nBudget: $${MAX_BUDGET_PER_RUN}/run, $${MAX_BUDGET_DAILY}/day, $${MAX_BUDGET_MONTHLY}/month${cronExpression ? `\nSchedule: ${cronExpression}` : '\nSchedule: on-demand only'}`,
+            justification,
+            'pending',
+            ['kristina', 'andrew'],
+            JSON.stringify({
+              type: 'new_specialist_agent',
+              proposed_agent_name: name,
+              requested_by: ctx.agentRole,
+              justification,
+            }),
+            new Date().toISOString(),
+          ]
         );
 
         // ── Activity log ──

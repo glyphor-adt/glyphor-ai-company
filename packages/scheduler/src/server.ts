@@ -69,6 +69,11 @@ import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
 import { runGtmReadinessEval, persistGtmReport } from './gtmReadiness/index.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
 import {
+  handleFounderRejection,
+  handleIllegalAgentCreationRequest,
+  handleMisroutedToolGap,
+} from './worldModelUpdater.js';
+import {
   authenticateSdkClient,
   createClientSdkAgent,
   getClientSdkAgent,
@@ -889,8 +894,11 @@ async function handleAgent365DecisionAction(
     status: string;
     title: string;
     assigned_to: string[] | null;
+    proposed_by: string;
+    summary: string;
+    data: Record<string, unknown> | null;
   }>(
-    'SELECT id, tier, status, title, assigned_to FROM decisions WHERE id = $1 LIMIT 1',
+    'SELECT id, tier, status, title, assigned_to, proposed_by, summary, data FROM decisions WHERE id = $1 LIMIT 1',
     [decisionId],
   );
 
@@ -900,6 +908,52 @@ async function handleAgent365DecisionAction(
 
   if (decision.status !== 'pending') {
     return `Decision "${decision.title}" is already ${decision.status}.`;
+  }
+
+  const decisionData = decision.data && typeof decision.data === 'object'
+    ? decision.data as Record<string, unknown>
+    : {};
+  const decisionType = typeof decisionData.type === 'string' ? decisionData.type : null;
+  const decisionRequester = typeof decisionData.requested_by === 'string'
+    ? decisionData.requested_by
+    : decision.proposed_by;
+
+  if (decisionType === 'new_specialist_agent') {
+    const requestedAgentName = typeof decisionData.proposed_agent_name === 'string'
+      ? decisionData.proposed_agent_name
+      : decision.title.replace(/^New specialist agent:\s*/i, '').trim() || 'unknown-agent';
+    const context = typeof decisionData.justification === 'string'
+      ? decisionData.justification
+      : decision.summary;
+
+    await handleIllegalAgentCreationRequest(decisionRequester, requestedAgentName, context);
+    await finalizeDecisionFromTeams(
+      decisionId,
+      'rejected',
+      'system:auto-policy',
+      'Auto-rejected policy violation: new specialist agent requests are not allowed.',
+    );
+    return `Decision "${decision.title}" was auto-rejected and logged as a policy violation.`;
+  }
+
+  if (decisionType === 'restricted_tool_request') {
+    const toolName = typeof decisionData.tool_name === 'string' ? decisionData.tool_name.trim() : '';
+    if (toolName) {
+      const [toolExistsRow] = await systemQuery<{ exists: boolean }>(
+        'SELECT EXISTS(SELECT 1 FROM tool_registry WHERE name = $1 AND is_active = true) AS exists',
+        [toolName],
+      );
+      if (!toolExistsRow?.exists) {
+        await handleMisroutedToolGap(decisionRequester, toolName);
+        await finalizeDecisionFromTeams(
+          decisionId,
+          'rejected',
+          'system:auto-route',
+          `Auto-routed tool gap "${toolName}" to Nexus; founder approval rejected by policy.`,
+        );
+        return `Decision "${decision.title}" was auto-routed to Nexus and rejected from founder queue.`;
+      }
+    }
   }
 
   const requiredFounders = resolveDecisionFounders(decision.tier, decision.assigned_to);
@@ -940,6 +994,24 @@ async function handleAgent365DecisionAction(
     const finalApproved = requiredFounders.every((item) => approvals.get(item) === true);
     const finalStatus = finalApproved ? 'approved' : 'rejected';
     const resolvedBy = requiredFounders.join(',');
+
+    if (!finalApproved) {
+      await handleFounderRejection({
+        approvalId: decision.id,
+        rejectedBy: founder,
+        originatingAgent: decision.proposed_by,
+        rootCauseAgent:
+          typeof decisionData.root_cause_agent === 'string'
+            ? decisionData.root_cause_agent
+            : decision.proposed_by,
+        reason:
+          typeof action.data?.comment === 'string' && action.data.comment.trim().length > 0
+            ? action.data.comment.trim()
+            : decision.title,
+        taskType: decisionType ?? decision.title,
+      });
+    }
+
     await finalizeDecisionFromTeams(
       decisionId,
       finalStatus,
@@ -952,6 +1024,24 @@ async function handleAgent365DecisionAction(
   }
 
   const finalStatus = approved ? 'approved' : 'rejected';
+
+  if (!approved) {
+    await handleFounderRejection({
+      approvalId: decision.id,
+      rejectedBy: founder,
+      originatingAgent: decision.proposed_by,
+      rootCauseAgent:
+        typeof decisionData.root_cause_agent === 'string'
+          ? decisionData.root_cause_agent
+          : decision.proposed_by,
+      reason:
+        typeof action.data?.comment === 'string' && action.data.comment.trim().length > 0
+          ? action.data.comment.trim()
+          : decision.title,
+      taskType: decisionType ?? decision.title,
+    });
+  }
+
   await finalizeDecisionFromTeams(
     decisionId,
     finalStatus,

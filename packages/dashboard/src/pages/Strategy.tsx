@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward, MdChevronRight, MdSearch, MdPerson, MdExpandMore } from 'react-icons/md';
 import Markdown from 'react-markdown';
-import { SCHEDULER_URL } from '../lib/firebase';
+import { SCHEDULER_URL, getAuthToken } from '../lib/firebase';
 import {
   Card,
   filterChipActiveAllClassName,
@@ -184,6 +184,42 @@ async function api<T>(path: string, opts?: RequestInit): Promise<T> {
     throw new Error(detail ? `API error ${res.status}: ${detail}` : `API error: ${res.status}`);
   }
   return res.json();
+}
+
+function normalizeImagePayload(
+  image: string,
+  mimeType: string | undefined,
+): { data: string; mimeType: string } {
+  const trimmed = image.trim();
+  const dataUriMatch = trimmed.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (dataUriMatch) {
+    return {
+      mimeType: dataUriMatch[1],
+      data: dataUriMatch[2].replace(/\s+/g, ''),
+    };
+  }
+
+  return {
+    mimeType: (mimeType && mimeType.trim()) || 'image/png',
+    data: trimmed.replace(/\s+/g, ''),
+  };
+}
+
+function inferFilename(label: string, fallback: string, contentDisposition: string | null): string {
+  const dispositionMatch = contentDisposition?.match(/filename="?([^";]+)"?/i);
+  if (dispositionMatch?.[1]) {
+    return dispositionMatch[1];
+  }
+
+  const extension =
+    label.toLowerCase().includes('word')
+      ? 'docx'
+      : label.toLowerCase().includes('powerpoint')
+        ? 'pptx'
+        : label.toLowerCase().includes('json')
+          ? 'json'
+          : 'md';
+  return `${fallback}.${extension}`;
 }
 
 /* ── Page Component ────────────────────────────── */
@@ -2082,18 +2118,54 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
 /* ─── Shared Components ─────────────────────────── */
 
 function ExportButton({ label, href }: { label: string; href: string }) {
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleDownload() {
+    setDownloading(true);
+    setError(null);
+    try {
+      const token = await getAuthToken();
+      const response = await fetch(href, {
+        method: 'GET',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new Error(detail || `HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const filename = inferFilename(label, 'report-export', response.headers.get('content-disposition'));
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error(`Failed to download ${label}:`, err);
+      setError(err instanceof Error ? err.message : 'Download failed');
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
-    <GradientButton
-      as="a"
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      variant="primary"
-      size="sm"
-      className="no-underline"
-    >
-      {label}
-    </GradientButton>
+    <div className="flex items-center gap-1">
+      <GradientButton
+        onClick={() => { void handleDownload(); }}
+        disabled={downloading}
+        variant="primary"
+        size="sm"
+      >
+        {downloading ? `Downloading ${label}...` : label}
+      </GradientButton>
+      {error ? <span className="text-[11px] text-prism-critical">{error}</span> : null}
+    </div>
   );
 }
 
@@ -2494,7 +2566,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
   // Load saved visual on mount
   useEffect(() => {
     api<{ image: string; mimeType: string }>(`/strategy-lab/${id}/visual`)
-      .then((resp) => setVisualImage({ data: resp.image, mimeType: resp.mimeType }))
+      .then((resp) => setVisualImage(normalizeImagePayload(resp.image, resp.mimeType)))
       .catch(() => { /* no saved visual */ });
   }, [id]);
 
@@ -2504,7 +2576,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
     setVisualNotice(null);
     try {
       const resp = await api<{ image: string; mimeType: string; fallbackUsed?: boolean; fallbackReason?: string | null }>(`/strategy-lab/${id}/visual`, { method: 'POST' });
-      setVisualImage({ data: resp.image, mimeType: resp.mimeType });
+      setVisualImage(normalizeImagePayload(resp.image, resp.mimeType));
       if (resp.fallbackUsed) {
         setVisualNotice(resp.fallbackReason
           ? `AI visual generation fell back to deterministic mode: ${resp.fallbackReason}`

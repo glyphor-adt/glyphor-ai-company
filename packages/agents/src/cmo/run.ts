@@ -25,7 +25,6 @@ import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createInitiativeTools } from '../shared/initiativeTools.js';
-import { createAgentCreationTools } from '../shared/agentCreationTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createContentTools } from '../shared/contentTools.js';
@@ -94,7 +93,6 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),
     ...createInitiativeTools(glyphorEventBus),
-    ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
     ...createContentTools(),
     ...createSeoTools(),
