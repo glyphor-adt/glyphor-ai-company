@@ -2839,6 +2839,60 @@ function buildDynamicStrategyVisualSections(
   return selected.slice(0, 4);
 }
 
+function chooseStrategyVisualSection(
+  sections: StrategyVisualSectionPlan[],
+  preferredKinds: StrategyVisualSectionKind[],
+  usedTitles: Set<string>,
+): StrategyVisualSectionPlan | null {
+  for (const kind of preferredKinds) {
+    const match = sections.find((section) => section.kind === kind && !usedTitles.has(section.title));
+    if (match) {
+      usedTitles.add(match.title);
+      return match;
+    }
+  }
+
+  const fallback = sections.find((section) => !usedTitles.has(section.title));
+  if (fallback) {
+    usedTitles.add(fallback.title);
+    return fallback;
+  }
+
+  return null;
+}
+
+function ensureStrategyVisualSection(
+  section: StrategyVisualSectionPlan | null,
+  fallbackTitle: string,
+  fallbackItems: string[],
+  fallbackKind: StrategyVisualSectionKind,
+): StrategyVisualSectionPlan {
+  if (section) return section;
+  return {
+    kind: fallbackKind,
+    title: fallbackTitle,
+    items: fallbackItems,
+    layoutHint: describeDynamicSectionLayout(fallbackKind, fallbackItems),
+    score: 0,
+  };
+}
+
+function inferBrandAccent(record: StrategyAnalysisRecord): string {
+  const query = record.query.toLowerCase();
+  if (/microsoft/.test(query)) return '#0078D4';
+  if (/google|alphabet/.test(query)) return '#1A73E8';
+  if (/amazon|aws/.test(query)) return '#FF9900';
+  if (/meta|facebook/.test(query)) return '#1877F2';
+  if (/apple/.test(query)) return '#6E6E73';
+  if (/nvidia/.test(query)) return '#76B900';
+  if (/tesla/.test(query)) return '#CC0000';
+  return INFOGRAPHIC_BRAND.primary_color;
+}
+
+function formatPromptItems(items: string[], prefix: 'dash' | 'numbered' = 'dash'): string[] {
+  return items.map((item, index) => prefix === 'numbered' ? `${index + 1}) "${item}"` : `- "${item}"`);
+}
+
 function deriveTemplateVariables(record: StrategyAnalysisRecord): StrategyInfographicVariables {
   const synthesis = record.synthesis;
   const reportType = inferInfographicReportType(record);
@@ -3040,6 +3094,7 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
   const displayTitle = reportTimeframe && vars.subject_company !== 'Analyzed Market'
     ? `${vars.subject_company} ${reportTimeframe} Strategic Highlights`
     : vars.report_title;
+  const accentColor = inferBrandAccent(record);
   const narrativeAnchor = clampWords(
     sanitizePromptSentence(normalizePhrase(record.synthesis.executiveSummary, 'Strategic analysis completed.')),
     28,
@@ -3055,49 +3110,67 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     actionItems,
     insightItems,
   });
+  const usedSectionTitles = new Set<string>();
+  const leftMiddleSection = ensureStrategyVisualSection(
+    chooseStrategyVisualSection(sections, ['portfolio', 'actions', 'insights', 'themes'], usedSectionTitles),
+    panelTitles.portfolioTitle,
+    portfolioMoves.length > 0 ? portfolioMoves : recommendationFallbacks.slice(0, 3),
+    'portfolio',
+  );
+  const rightMiddleSection = ensureStrategyVisualSection(
+    chooseStrategyVisualSection(sections, ['momentum', 'insights', 'portfolio', 'themes'], usedSectionTitles),
+    panelTitles.momentumTitle,
+    momentumSignals.length > 0 ? momentumSignals : metricCallouts,
+    'momentum',
+  );
+  const bottomLeftSection = ensureStrategyVisualSection(
+    chooseStrategyVisualSection(sections, ['themes', 'actions', 'insights', 'portfolio'], usedSectionTitles),
+    panelTitles.pillarTitle,
+    strategicPillars.length > 0 ? strategicPillars : insightFallbacks.slice(0, 3),
+    'themes',
+  );
+  const bottomRightSection = ensureStrategyVisualSection(
+    chooseStrategyVisualSection(sections, ['finance', 'watchlist', 'actions', 'insights'], usedSectionTitles),
+    panelTitles.detailTitle,
+    financeNotes.length > 0 ? financeNotes : (watchItems.length > 0 ? watchItems : recommendationFallbacks.slice(0, 2)),
+    financeNotes.length > 0 ? 'finance' : 'watchlist',
+  );
 
   return [
     `A professional corporate infographic in 16:9 landscape format titled "${displayTitle}".`,
     `Subtitle: "${sanitizePromptSentence(vars.report_subtitle)}".`,
     `Narrative anchor: "${narrativeAnchor}".`,
     '',
-    'STYLE:',
-    '- White background, modern flat corporate design, executive-ready slide aesthetic',
-    `- Primary accent color: ${INFOGRAPHIC_BRAND.primary_color}; supporting accents: #0F4FA8, #E8EEF5, and #D7E9F7`,
-    '- Clean sans-serif typography, rounded cards, subtle shadows, thin dividers, consistent iconography, generous whitespace',
-    '- High information density, but no filler text, no lorem ipsum, and no generic placeholder copy',
+    `White background, modern flat design, corporate sans-serif typography, and executive-ready slide composition. Use ${accentColor} as the primary accent color, with light gray and soft teal secondary accents. Keep the visual clean, data-rich, and highly legible, with rounded rectangles, thin dividers, subtle drop shadows, and generous whitespace.`,
     '',
-    'HEADER STRIP:',
-    `- Top-left: simple text wordmark "${vars.subject_company}"`,
-    `- Top-center: "${displayTitle}"`,
-    `- Top-right: date badge "${vars.report_date}" and small context label "${formatTypeLabel(record.analysis_type)}"`,
+    `Header strip: top-left simple ${vars.subject_company} wordmark with a ${accentColor} accent bar; top-right a clean context badge reading "${formatTypeLabel(record.analysis_type)} · ${vars.report_date}". Center the main title in the header area and keep the header aligned to a corporate presentation grid.`,
     '',
-    'UPPER METRIC BAND (3 ROUNDED CALLOUTS):',
+    'Upper center: a bold metric band with three large numeric callouts in separate rounded rectangles:',
     ...metricCallouts.map((item, index) => `${index + 1}) "${item}"`),
-    'Each callout has a small relevant business icon, subtle drop shadow, and bold numeric emphasis.',
+    'Each callout should use a small relevant icon, bold numeric emphasis, and a subtle drop shadow.',
     '',
-    'BODY LAYOUT:',
-    '- Below the metric band, create a dynamic grid based on the available facts instead of forcing a fixed template.',
-    '- Give the section with the richest data the largest footprint.',
-    '- If a chart-oriented section is present, allocate enough width for readable labels and numeric annotations.',
-    '- If a section has only 1-2 strong facts, enlarge those cards rather than fabricating filler content.',
+    `Left middle section: a labeled box titled "${leftMiddleSection.title}" using ${leftMiddleSection.layoutHint}`,
+    ...formatPromptItems(leftMiddleSection.items, 'dash'),
     '',
-    ...sections.flatMap((section, index) => [
-      `SECTION ${index + 1} — ${section.title}:`,
-      `- Layout guidance: ${section.layoutHint}`,
-      ...section.items.map((item, itemIndex) => `${itemIndex + 1}) "${item}"`),
-      '',
-    ]),
+    `Right middle section: a mini chart or structured comparison panel titled "${rightMiddleSection.title}" using ${rightMiddleSection.layoutHint}`,
+    ...formatPromptItems(rightMiddleSection.items, 'dash'),
+    'Use visible gridlines and numeric labels above bars or data marks when the facts include direct comparisons.',
     '',
-    'FOOTER:',
-    '- Thin light-gray footer bar with centered small text: "Confidential strategic briefing"',
+    `Bottom-left: a strategy panel titled "${bottomLeftSection.title}" using ${bottomLeftSection.layoutHint}`,
+    ...formatPromptItems(bottomLeftSection.items, 'numbered'),
+    '',
+    `Bottom-right: a compact callout titled "${bottomRightSection.title}" using ${bottomRightSection.layoutHint}`,
+    ...formatPromptItems(bottomRightSection.items, 'dash'),
+    '',
+    'Footer: a full-width thin light-gray bar with centered small text: "Confidential strategic briefing".',
     '',
     'STRICT OUTPUT RULES:',
     '- Use only the provided facts; do not invent brands, logos, product names, metrics, dates, or numeric deltas',
     '- Preserve currencies, percentages, YoY changes, quarter labels, and dates exactly as written in the supplied facts',
     '- No lorem ipsum, pseudo-text, or misspelled labels; all text must be correct English and fully legible',
-    '- Favor concise labels and short clauses over paragraphs, but keep the important numbers and named entities intact',
-    '- If a section has insufficient facts, enlarge the remaining cards instead of fabricating content',
+    '- Follow the layout literally: header, metric band, left middle section, right middle section, bottom-left panel, bottom-right panel, footer',
+    '- Favor concise labels and short clauses, but keep the important numbers and named entities intact',
+    '- If a section has fewer facts, enlarge the remaining cards instead of fabricating filler text',
     '- Keep icon style consistent across all panels and do not add Powered by branding',
   ].join('\n');
 }
