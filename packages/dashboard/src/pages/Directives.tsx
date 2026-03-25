@@ -278,7 +278,7 @@ export default function Directives() {
 
       {/* Bulk Delete Bar */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-prism-critical/30 bg-prism-critical/10 px-4 py-2.5">
+        <div className="flex items-center gap-3 rounded-lg border border-prism-critical/30 px-4 py-2.5">
           <span className="text-sm font-medium text-prism-critical">
             {selected.size} directive{selected.size > 1 ? 's' : ''} selected
           </span>
@@ -542,7 +542,7 @@ export default function Directives() {
                         </p>
                       )}
                       {init.evaluation_notes && (
-                        <div className="mt-2 rounded border border-border bg-raised px-2 py-1.5">
+                        <div className="mt-2 rounded border border-border px-2 py-1.5">
                           <p className="text-[10px] font-medium text-txt-faint">
                             Evaluation by {DISPLAY_NAME_MAP[init.evaluated_by ?? ''] ?? init.evaluated_by}:
                           </p>
@@ -890,7 +890,7 @@ function DirectiveCard({
               <button
                 onClick={handleReVerify}
                 disabled={verifying}
-                className="ml-auto rounded-md border border-border bg-raised px-2 py-1 text-[10px] font-medium text-txt-secondary hover:bg-surface disabled:opacity-50 flex items-center gap-1"
+                className="ml-auto rounded-md border border-border px-2 py-1 text-[10px] font-medium text-txt-secondary hover:bg-surface disabled:opacity-50 flex items-center gap-1"
               >
                 <MdRefresh className={`text-[12px] ${verifying ? 'animate-spin' : ''}`} />
                 {verifying ? 'Verifying…' : 'Re-verify'}
@@ -934,7 +934,7 @@ function DirectiveCard({
                     ))}
 
                     {verification.suggestions.length > 0 && (
-                      <div className="rounded-lg border border-prism-elevated/20 bg-prism-elevated/5 px-3 py-2">
+                      <div className="rounded-lg border border-prism-elevated/20 px-3 py-2">
                         <p className="text-[10px] font-medium text-prism-elevated mb-1">Suggestions</p>
                         <ul className="list-disc ml-4 space-y-0.5">
                           {verification.suggestions.map((s, i) => (
@@ -969,7 +969,7 @@ function DirectiveCard({
 
           {/* Completion Summary */}
           {d.completion_summary && (
-            <div className="rounded-lg border border-prism-fill-2/20 bg-prism-tint-2 px-3 py-2">
+            <div className="rounded-lg border border-prism-fill-2/20 px-3 py-2">
               <p className="text-[11px] font-medium text-prism-teal mb-1">Completion Summary</p>
               <div className="text-[12px] text-txt-secondary leading-relaxed">
                 <ChatMarkdown>{cleanText(d.completion_summary)}</ChatMarkdown>
@@ -1088,7 +1088,7 @@ function ProposedDirectiveCard({
 
   return (
     <>
-      <div className="rounded-xl border-l-4 border-prism-violet/60 border border-prism-violet/20 bg-prism-tint-5 p-4">
+      <div className="rounded-xl border-l-4 border-prism-violet/60 border border-prism-violet/20 p-4">
         <div className="flex items-start justify-between gap-4">
           {onToggleSelect && (
             <input
@@ -1116,7 +1116,7 @@ function ProposedDirectiveCard({
 
         {/* Proposal reason — the key context */}
         {d.proposal_reason && (
-          <div className="mt-3 rounded-lg border border-prism-violet/15 bg-prism-tint-5 px-3 py-2">
+          <div className="mt-3 rounded-lg border border-prism-violet/15 px-3 py-2">
             <p className="text-[10px] font-medium text-prism-violet mb-0.5">Why this is needed</p>
             <p className="text-[12px] text-txt-secondary leading-relaxed">{cleanText(d.proposal_reason)}</p>
           </div>
@@ -1357,7 +1357,7 @@ function EditApproveModal({
 
           {/* Show proposal reason as read-only context */}
           {directive.proposal_reason && (
-            <div className="rounded-lg border border-prism-violet/15 bg-prism-tint-5 px-3 py-2">
+            <div className="rounded-lg border border-prism-violet/15 px-3 py-2">
               <p className="text-[10px] font-medium text-prism-violet mb-0.5">Sarah&apos;s reasoning</p>
               <p className="text-[11px] text-txt-muted leading-relaxed">{cleanText(directive.proposal_reason)}</p>
             </div>

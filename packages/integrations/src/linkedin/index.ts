@@ -37,9 +37,13 @@ function getCredentials(): { clientId: string; clientSecret: string } {
 }
 
 function getOrganizationId(): string {
-  const id = process.env.LINKEDIN_ORGANIZATION_ID;
-  if (!id) throw new Error('LINKEDIN_ORGANIZATION_ID not configured');
-  return id;
+  const rawId = process.env.LINKEDIN_ORGANIZATION_ID?.trim();
+  if (!rawId) throw new Error('LINKEDIN_ORGANIZATION_ID not configured');
+
+  const normalized = rawId.replace(/\D/g, '');
+  if (!normalized) throw new Error('LINKEDIN_ORGANIZATION_ID must be numeric');
+
+  return normalized;
 }
 
 async function refreshAccessToken(): Promise<string> {
@@ -85,6 +89,11 @@ async function refreshAccessToken(): Promise<string> {
 }
 
 async function getAccessToken(): Promise<string> {
+  const staticToken = process.env.LINKEDIN_ACCESS_TOKEN?.trim();
+  if (staticToken) {
+    return staticToken;
+  }
+
   if (tokenCache && Date.now() < tokenCache.expiresAt - 60_000) {
     return tokenCache.accessToken;
   }

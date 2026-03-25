@@ -17,13 +17,13 @@ spec:
       annotations:
         autoscaling.knative.dev/maxScale: '10'
         run.googleapis.com/client-name: gcloud
-        run.googleapis.com/client-version: 549.0.0
+        run.googleapis.com/client-version: 557.0.0
         run.googleapis.com/cloudsql-instances: ai-glyphor-company:us-central1:glyphor-db
         run.googleapis.com/cpu-throttling: 'true'
         run.googleapis.com/sessionAffinity: 'false'
         run.googleapis.com/startup-cpu-boost: 'true'
       labels:
-        client.knative.dev/nonce: cpqmltfqec
+        client.knative.dev/nonce: ntrheerpmq
         run.googleapis.com/startupProbeType: Default
         secret-refresh: '20260324203659'
     spec:
@@ -40,11 +40,6 @@ spec:
             secretKeyRef:
               key: latest
               name: google-ai-api-key
-        - name: ANTHROPIC_API_KEY
-          valueFrom:
-            secretKeyRef:
-              key: latest
-              name: anthropic-api-key
         - name: STRIPE_SECRET_KEY
           valueFrom:
             secretKeyRef:
@@ -365,7 +360,7 @@ spec:
           value: https://glyphor-scheduler-610179349713.us-central1.run.app
         - name: DASHBOARD_URL
           value: https://glyphor-dashboard-610179349713.us-central1.run.app
-        image: us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:5374c7b106bb4b532500104818d582a568c9c905
+        image: us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:df8e6ce8e262e9b99c1565c98ec82e14f8bc1a5d
         ports:
         - containerPort: 8080
           name: http1

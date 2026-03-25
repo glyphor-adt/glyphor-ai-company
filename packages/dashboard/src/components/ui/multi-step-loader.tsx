@@ -13,6 +13,7 @@ interface MultiStepLoaderProps {
   isComplete?: boolean;
   isHolding?: boolean;
   elapsed?: number;
+  mode?: 'overlay' | 'inline';
 }
 
 export function MultiStepLoader({
@@ -22,6 +23,7 @@ export function MultiStepLoader({
   isComplete = false,
   isHolding = false,
   elapsed = 0,
+  mode = 'overlay',
 }: MultiStepLoaderProps) {
   if (!loading) return null;
 
@@ -31,8 +33,12 @@ export function MultiStepLoader({
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
 
+  const containerClassName = mode === 'overlay'
+    ? 'fixed inset-0 left-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md md:left-[220px]'
+    : 'relative w-full rounded-lg border border-cyan/25 bg-transparent p-4';
+
   return (
-    <div className="fixed inset-0 left-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md md:left-[220px]">
+    <div className={containerClassName}>
       <div className="relative mx-4 w-full max-w-md">
         <div className="mb-8 h-0.5 w-full overflow-hidden rounded-full bg-white/5">
           <motion.div

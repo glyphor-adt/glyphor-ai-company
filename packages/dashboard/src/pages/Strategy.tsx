@@ -492,6 +492,8 @@ function DeepDivesPanel() {
 }
 
 function DeepDiveCard({ record, expanded, onToggle }: { record: DeepDiveRecord; expanded: boolean; onToggle: () => void }) {
+  const isRunning = !['completed', 'failed', 'cancelled'].includes(record.status);
+
   return (
     <Card className="overflow-hidden">
       <button onClick={onToggle} className="w-full text-left px-5 py-4 flex items-center justify-between group">
@@ -527,22 +529,68 @@ function DeepDiveCard({ record, expanded, onToggle }: { record: DeepDiveRecord; 
       </button>
 
       {expanded && record.report && <DeepDiveDetail record={record} report={record.report} />}
-      {expanded && !record.report && record.status !== 'completed' && (
+      {expanded && !record.report && (
         <div className="px-5 pb-4">
-          {record.workflow_id ? (
+          {record.workflow_id && isRunning ? (
             <WorkflowStepProgress workflowId={record.workflow_id} />
+          ) : null}
+
+          {isRunning ? (
+            <DeepDiveWaveProgress record={record} />
           ) : (
             <div className="glass-outline rounded-lg p-4">
               <div className="flex items-center gap-2 text-sm text-txt-muted">
-                <span className="h-2 w-2 rounded-full bg-cyan animate-pulse" />
+                <span className={`h-2 w-2 rounded-full ${ddStatusColor(record.status)}`} />
                 {DD_STATUS_LABELS[record.status]}
               </div>
-              {record.error && <p className="mt-2 text-sm text-prism-critical">{record.error}</p>}
             </div>
           )}
+          {record.error && <p className="mt-2 text-sm text-prism-critical">{record.error}</p>}
         </div>
       )}
     </Card>
+  );
+}
+
+function DeepDiveWaveProgress({ record }: { record: DeepDiveRecord }) {
+  const isRunning = !['completed', 'failed', 'cancelled'].includes(record.status);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const previousStatusRef = useRef<DeepDiveStatus>(record.status);
+
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    previousStatusRef.current = record.status;
+
+    if (previousStatus !== 'completed' && record.status === 'completed') {
+      setShowCompletion(true);
+      const timeout = setTimeout(() => setShowCompletion(false), 2000);
+      return () => clearTimeout(timeout);
+    }
+    return;
+  }, [record.status]);
+
+  const loading = isRunning || showCompletion;
+  const complete = showCompletion && record.status === 'completed';
+  const loader = useAsyncLoader({
+    tier: inferTier({ type: 'strategy_report', searchDepth: 'deep' }),
+    loading,
+    complete,
+  });
+
+  if (!loading) return null;
+
+  return (
+    <div className="mt-3">
+      <MultiStepLoader
+        states={loader.states}
+        currentStep={loader.currentStep}
+        loading={loading}
+        isComplete={loader.isComplete}
+        isHolding={loader.isHolding}
+        elapsed={loader.elapsed}
+        mode="inline"
+      />
+    </div>
   );
 }
 
@@ -2385,6 +2433,7 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
         isComplete={loader.isComplete}
         isHolding={loader.isHolding}
         elapsed={loader.elapsed}
+        mode="inline"
       />
 
       {/* Quality summary */}
