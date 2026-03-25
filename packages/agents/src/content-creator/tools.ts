@@ -5,9 +5,14 @@
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { ToolDefinition } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+import { PulseClient } from '@glyphor/integrations';
 import { createAllPulseTools } from '../shared/pulseTools.js';
 import { createFacebookTools } from '../shared/facebookTools.js';
 import { createLinkedInTools } from '../shared/linkedinTools.js';
+
+function getPulseClientOrThrow(): PulseClient {
+  return PulseClient.fromEnv();
+}
 
 export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
@@ -93,6 +98,127 @@ export function createContentCreatorTools(memory: CompanyMemoryStore): ToolDefin
       async execute(params) {
         await systemQuery('INSERT INTO agent_activities (agent_role, activity_type, summary, details, created_at) VALUES ($1, $2, $3, $4, $5)', ['content-creator', 'content_creation', params.summary, params.details || null, new Date().toISOString()]);
         return { success: true };
+      },
+    },
+
+    // ── Workflow alias tools (Veo + ElevenLabs wrappers) ──
+
+    {
+      name: 'generate_video',
+      description: 'Generate a video clip (Veo wrapper) using prompt and optional source image.',
+      parameters: {
+        prompt: { type: 'string', description: 'Video prompt describing the desired content', required: true },
+        model: { type: 'string', description: 'Video model', enum: ['veo-3.1', 'veo-3.0'] },
+        aspect_ratio: { type: 'string', description: 'Aspect ratio', enum: ['16:9', '9:16', '1:1'] },
+        source_image_url: { type: 'string', description: 'Optional image URL for image-to-video generation' },
+      },
+      async execute(params) {
+        try {
+          const pulse = getPulseClientOrThrow();
+          const video = await pulse.generateVideo({
+            prompt: params.prompt as string,
+            model: (params.model as 'veo-3.1' | 'veo-3.0' | undefined) ?? 'veo-3.1',
+            aspect_ratio: params.aspect_ratio as '16:9' | '9:16' | '1:1',
+            source_image_url: params.source_image_url as string | undefined,
+          });
+          return { success: true, data: { videoId: video.id, status: video.status, url: video.url } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+    {
+      name: 'poll_video_status',
+      description: 'Poll generation status for a video until complete or failed.',
+      parameters: {
+        video_id: { type: 'string', description: 'Video ID to check status for', required: true },
+      },
+      async execute(params) {
+        try {
+          const pulse = getPulseClientOrThrow();
+          const status = await pulse.pollVideoStatus({ video_id: params.video_id as string });
+          return { success: true, data: status };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+    {
+      name: 'generate_voiceover',
+      description: 'Generate voiceover narration audio (ElevenLabs wrapper) from text.',
+      parameters: {
+        text: { type: 'string', description: 'Narration text to convert to speech', required: true },
+        voice: { type: 'string', description: 'Optional voice preset' },
+      },
+      async execute(params) {
+        try {
+          const pulse = getPulseClientOrThrow();
+          const result = await pulse.callAndParse('text_to_speech', {
+            text: params.text,
+            voice: params.voice,
+          });
+          return { success: true, data: result };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+    {
+      name: 'generate_music',
+      description: 'Generate background music from a text prompt.',
+      parameters: {
+        prompt: { type: 'string', description: 'Music brief (genre, mood, tempo)', required: true },
+        duration: { type: 'number', description: 'Optional target duration in seconds' },
+      },
+      async execute(params) {
+        try {
+          const pulse = getPulseClientOrThrow();
+          const result = await pulse.callAndParse('generate_music', {
+            prompt: params.prompt,
+            duration: params.duration,
+          });
+          return { success: true, data: result };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+    {
+      name: 'generate_sfx',
+      description: 'Generate a sound effect from a short text prompt.',
+      parameters: {
+        prompt: { type: 'string', description: 'Sound effect prompt', required: true },
+        duration: { type: 'number', description: 'Optional duration in seconds (max 22)' },
+      },
+      async execute(params) {
+        try {
+          const pulse = getPulseClientOrThrow();
+          const result = await pulse.callAndParse('generate_sound_effect', {
+            prompt: params.prompt,
+            duration: params.duration,
+          });
+          return { success: true, data: result };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
+      },
+    },
+    {
+      name: 'enhance_video_prompt',
+      description: 'Enhance a rough video prompt into a cinematic Veo-ready prompt.',
+      parameters: {
+        prompt: { type: 'string', description: 'Raw video prompt to enhance', required: true },
+      },
+      async execute(params) {
+        try {
+          const pulse = getPulseClientOrThrow();
+          const enhanced = await pulse.callAndGetText('enhance_video_prompt', {
+            prompt: params.prompt,
+          });
+          return { success: true, data: { enhancedPrompt: enhanced } };
+        } catch (err) {
+          return { success: false, error: (err as Error).message };
+        }
       },
     },
 

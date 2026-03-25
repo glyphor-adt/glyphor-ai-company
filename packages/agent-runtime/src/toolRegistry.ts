@@ -660,6 +660,12 @@ const KNOWN_TOOLS = new Set([
   'get_service_dependencies',
 
   // ── Pulse Creative Studio (MCP) ──
+  'generate_video',
+  'poll_video_status',
+  'generate_voiceover',
+  'generate_music',
+  'generate_sfx',
+  'enhance_video_prompt',
   'pulse_list_storyboards',
   'pulse_get_storyboard',
   'pulse_create_storyboard',

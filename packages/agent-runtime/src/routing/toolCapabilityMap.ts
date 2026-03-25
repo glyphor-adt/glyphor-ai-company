@@ -548,6 +548,12 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   query_build_grades_by_template: ['structured_extraction'],
 
   // Pulse creative studio
+  generate_video: ['simple_tool_calling'],
+  poll_video_status: ['simple_tool_calling'],
+  generate_voiceover: ['creative_writing'],
+  generate_music: ['creative_writing'],
+  generate_sfx: ['creative_writing'],
+  enhance_video_prompt: ['creative_writing'],
   pulse_create_storyboard: ['creative_writing'],
   pulse_generate_scene_images: ['creative_writing'],
   pulse_suggest_scenes: ['creative_writing'],
