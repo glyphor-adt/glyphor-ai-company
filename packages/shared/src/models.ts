@@ -145,6 +145,7 @@ export const DEPRECATED_MODELS: Record<string, string> = {
   'gpt-4.1-nano':               'gpt-5-nano',
   'gpt-4.1':                    'gpt-5-mini-2025-08-07',
   'gpt-4.1-mini':               'gpt-5-nano',
+  'gpt-5.4-nano':               'model-router',
   'gpt-image-1.5-2025-12-16':   'gpt-image-1.5',
 
   // Anthropic legacy
@@ -193,13 +194,13 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'gemini-3.1-flash-lite-preview':  ['gemini-2.5-flash', 'gpt-5-mini'],
   'gemini-3-flash-preview':         ['gemini-2.5-flash', 'gpt-5.4-mini'],
   'gemini-2.5-flash':               ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
-  'gemini-2.5-flash-lite':          ['gemini-3.1-flash-lite-preview', 'gpt-5.4-nano'],
+  'gemini-2.5-flash-lite':          ['gemini-3.1-flash-lite-preview', 'model-router'],
 
   // OpenAI primary → same-provider first (required for Azure-only: deployments are on one endpoint),
   // then Gemini as cross-provider fallback.
   'gpt-5.4':                ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'gemini-3.1-pro-preview'],
   'gpt-5.4-pro':            ['gpt-5.4', 'gpt-5.4-mini', 'gemini-3.1-flash-lite-preview'],
-  'gpt-5.4-mini':           ['gpt-5-mini-2025-08-07', 'gpt-5.4-nano'],
+  'gpt-5.4-mini':           ['gpt-5-mini-2025-08-07', 'model-router'],
   'gpt-5.4-nano':           ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite-preview'],
   'model-router':           ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.2':                ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
@@ -281,7 +282,7 @@ export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> =
   // OpenAI
   'gpt-5.4-pro':            ['gpt-5.4', 'gpt-5.2', 'gpt-5-mini-2025-08-07'],
   'gpt-5.4':                ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
-  'gpt-5.4-mini':           ['gpt-5-mini-2025-08-07', 'gpt-5.4-nano'],
+  'gpt-5.4-mini':           ['gpt-5-mini-2025-08-07', 'model-router'],
   'gpt-5.4-nano':           ['gpt-5-nano', 'gpt-5-mini-2025-08-07'],
   'model-router':           ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
   'gpt-5.2-pro':            ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
@@ -355,29 +356,28 @@ export const VERIFIER_MAP: Record<string, string> = {
 };
 
 // ─── Deep dive research models ──────────────────────────────
-// Azure AI Foundry / OpenAI: o3-deep-research with web search (see Microsoft Learn:
-// https://learn.microsoft.com/en-us/azure/foundry-classic/agents/how-to/tools-classic/deep-research )
+// Gemini Deep Research API: https://ai.google.dev/gemini-api/docs/deep-research
 
 export const DEEP_DIVE_MODELS: Record<string, string> = {
-  overview:             'o3-deep-research',
-  financials:           'o3-deep-research',
-  technology:           'o3-deep-research',
-  market:               'o3-deep-research',
-  competitive:          'o3-deep-research',
-  leadership:           'o3-deep-research',
-  customers:            'o3-deep-research',
-  risks:                'o3-deep-research',
-  company_profile:      'o3-deep-research',
-  strategic_direction:  'o3-deep-research',
-  segment_analysis:     'o3-deep-research',
-  ma_activity:          'o3-deep-research',
-  ai_impact:            'o3-deep-research',
-  talent_assessment:    'o3-deep-research',
-  regulatory_landscape: 'o3-deep-research',
+  overview:             'deep-research-pro-preview-12-2025',
+  financials:           'deep-research-pro-preview-12-2025',
+  technology:           'deep-research-pro-preview-12-2025',
+  market:               'deep-research-pro-preview-12-2025',
+  competitive:          'deep-research-pro-preview-12-2025',
+  leadership:           'deep-research-pro-preview-12-2025',
+  customers:            'deep-research-pro-preview-12-2025',
+  risks:                'deep-research-pro-preview-12-2025',
+  company_profile:      'deep-research-pro-preview-12-2025',
+  strategic_direction:  'deep-research-pro-preview-12-2025',
+  segment_analysis:     'deep-research-pro-preview-12-2025',
+  ma_activity:          'deep-research-pro-preview-12-2025',
+  ai_impact:            'deep-research-pro-preview-12-2025',
+  talent_assessment:    'deep-research-pro-preview-12-2025',
+  regulatory_landscape: 'deep-research-pro-preview-12-2025',
 };
 
 /** Cross-model verification after deep-dive synthesis */
-export const DEEP_DIVE_VERIFICATION_MODELS = ['gpt-5.4-mini', 'gpt-5-mini'] as const;
+export const DEEP_DIVE_VERIFICATION_MODELS = ['deep-research-pro-preview-12-2025'] as const;
 
 /** Reasoning engine verification (cross-provider) */
 export const REASONING_VERIFICATION_MODELS = ['gpt-5.4-mini', 'gpt-5-mini'] as const;
@@ -569,7 +569,7 @@ export function normalizeReasoningLevel(modelId: string, requested?: ReasoningLe
 // Maps agent roles to model tiers based on task complexity.
 //
 // Tiers (OpenAI-first defaults):
-//   economy  → gpt-5.4-nano — triage, high-volume
+//   economy  → model-router — triage, high-volume
 //   standard → model-router — default workhorse (Foundry routes to best model)
 //   pro      → model-router — orchestration, strategic, founder-chat
 
@@ -577,7 +577,7 @@ export type CostTier = 'economy' | 'standard' | 'pro';
 
 /** Preferred model for each cost tier. */
 export const TIER_MODELS: Record<CostTier, string> = {
-  economy:  'gpt-5.4-nano',
+  economy:  'model-router',
   standard: 'model-router',
   pro:      'model-router',
 };

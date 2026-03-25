@@ -8,7 +8,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
-import { getTierModel } from '@glyphor/shared';
+import { getSpecialized } from '@glyphor/shared';
 import type { ModelClient } from '@glyphor/agent-runtime';
 
 /* ── Types ──────────────────────────────────── */
@@ -87,7 +87,7 @@ const DEPTH_DETAIL: Record<AnalysisDepth, string> = {
 export class AnalysisEngine {
   constructor(
     private modelClient: ModelClient,
-    private model = getTierModel('default'),
+    private model = getSpecialized('deep_research'),
   ) {}
 
   /**

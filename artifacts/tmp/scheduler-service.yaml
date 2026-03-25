@@ -1,0 +1,475 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/maxScale: '20'
+    run.googleapis.com/minScale: '1'
+    run.googleapis.com/urls: '["https://glyphor-scheduler-610179349713.us-central1.run.app","https://glyphor-scheduler-v55622rp6q-uc.a.run.app"]'
+  labels:
+    cloud.googleapis.com/location: us-central1
+    secret-refresh: '20260324203725'
+  name: glyphor-scheduler
+  namespace: '610179349713'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '1'
+        autoscaling.knative.dev/minScale: '1'
+        run.googleapis.com/client-name: gcloud
+        run.googleapis.com/client-version: 549.0.0
+        run.googleapis.com/cloudsql-instances: ai-glyphor-company:us-central1:glyphor-db
+        run.googleapis.com/cpu-throttling: 'false'
+        run.googleapis.com/startup-cpu-boost: 'true'
+        run.googleapis.com/vpc-access-connector: glyphor-connector
+        run.googleapis.com/vpc-access-egress: private-ranges-only
+      labels:
+        client.knative.dev/nonce: rypsakordx
+        run.googleapis.com/startupProbeType: Default
+        secret-refresh: '20260324203725'
+    spec:
+      containerConcurrency: 80
+      containers:
+      - env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: db-password
+        - name: GOOGLE_AI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: google-ai-api-key
+        - name: GCS_BUCKET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: gcs-bucket
+        - name: AZURE_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: azure-tenant-id
+        - name: AZURE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: azure-client-id
+        - name: AZURE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: azure-client-secret
+        - name: AGENT365_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: agent365-client-secret
+        - name: AGENT365_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: agent365-client-id
+        - name: AGENT365_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: azure-tenant-id
+        - name: TEAMS_TEAM_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-team-id
+        - name: TEAMS_CHANNEL_BRIEFING_KRISTINA_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-briefing-kristina-id
+        - name: TEAMS_CHANNEL_BRIEFING_ANDREW_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-briefing-andrew-id
+        - name: TEAMS_CHANNEL_DECISIONS_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-decisions-id
+        - name: TEAMS_CHANNEL_GENERAL_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-general-id
+        - name: TEAMS_CHANNEL_ENGINEERING_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-engineering-id
+        - name: TEAMS_CHANNEL_GROWTH_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-growth-id
+        - name: TEAMS_CHANNEL_FINANCIALS_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-financials-id
+        - name: TEAMS_CHANNEL_PRODUCT_FUSE_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-product-fuse-id
+        - name: TEAMS_CHANNEL_PRODUCT_PULSE_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-product-pulse-id
+        - name: BOT_APP_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: bot-app-id
+        - name: BOT_APP_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: bot-app-secret
+        - name: BOT_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: bot-tenant-id
+        - name: AGENT_BOTS
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: agent-bots
+        - name: STRIPE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: stripe-secret-key
+        - name: MERCURY_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: mercury-api-token
+        - name: SHAREPOINT_SITE_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: sharepoint-site-id
+        - name: SHAREPOINT_DRIVE_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: sharepoint-drive-id
+        - name: SHAREPOINT_REGION
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: sharepoint-region
+        - name: OPENAI_ADMIN_KEY_FUSE
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: openai-admin-key-fuse
+        - name: OPENAI_ADMIN_KEY_PULSE
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: openai-admin-key-pulse
+        - name: OPENAI_ADMIN_KEY_COMPANY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: openai-admin-key-company
+        - name: KLING_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: kling-access-key
+        - name: KLING_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: kling-secret-key
+        - name: CANVA_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: canva-client-id
+        - name: CANVA_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: canva-client-secret
+        - name: CANVA_REFRESH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: canva-refresh-token
+        - name: SUPABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: supabase-url
+        - name: SUPABASE_SERVICE_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: supabase-service-key
+        - name: ANTHROPIC_ADMIN_KEY_FUSE
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: anthropic-admin-key-fuse
+        - name: ANTHROPIC_ADMIN_KEY_PULSE
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: anthropic-admin-key-pulse
+        - name: ANTHROPIC_ADMIN_KEY_COMPANY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: anthropic-admin-key-company
+        - name: GLYPHOR_MAIL_SENDER_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: glyphor-mail-sender-id
+        - name: FIGMA_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: figma-client-id
+        - name: FIGMA_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: figma-client-secret
+        - name: FIGMA_REFRESH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: figma-refresh-token
+        - name: AGENT365_CFO_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: agent365-cfo-client-secret
+        - name: AGENT365_SOCIAL_MEDIA_MANAGER_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: agent365-social-media-manager-client-secret
+        - name: PULSE_SERVICE_ROLE_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: pulse-service-role-key
+        - name: PULSE_MCP_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: pulse-mcp-endpoint
+        - name: AZURE_FOUNDRY_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: azure-foundry-endpoint
+        - name: AZURE_FOUNDRY_API
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: azure-foundry-api
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: github-token
+        - name: GCP_PROJECT_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: gcp-project-id
+        - name: GITHUB_APP_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: github-app-id
+        - name: GITHUB_APP_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: github-app-private-key
+        - name: GITHUB_INSTALLATION_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: github-installation-id
+        - name: FACEBOOK_APP_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: facebook-app-id
+        - name: FACEBOOK_APP_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: facebook-app-secret
+        - name: FACEBOOK_LONG_LIVED_PAGE_ACCESS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: facebook-page-access-token
+        - name: FACEBOOK_PAGE_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: facebook-page-id
+        - name: FACEBOOK_BUSINESS_ACCOUNT_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: facebook-business-account-id
+        - name: LINKEDIN_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: linkedin-client-id
+        - name: LINKEDIN_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: linkedin-client-secret
+        - name: LINKEDIN_REFRESH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: linkedin-refresh-token
+        - name: LINKEDIN_ORGANIZATION_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: linkedin-organization-id
+        - name: DOCUSIGN_ACCOUNT_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: DOCUSIGN_ACCOUNT_ID
+        - name: DOCUSIGN_INTEGRATION_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: DOCUSIGN_INTEGRATION_KEY
+        - name: DOCUSIGN_USER_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: DOCUSIGN_USER_ID
+        - name: DOCUSIGN_RSA_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: DOCUSIGN_RSA_PRIVATE_KEY
+        - name: DOCUSIGN_BASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: DOCUSIGN_BASE_URL
+        - name: DOCUSIGN_OAUTH_HOST
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: DOCUSIGN_OAUTH_HOST
+        - name: TEAMS_CHANNEL_BRIEFINGS_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-briefings-id
+        - name: TEAMS_CHANNEL_ALERTS_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-alerts-id
+        - name: TEAMS_CHANNEL_DELIVERABLES_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-channel-deliverables-id
+        - name: TEAMS_WEBHOOK_DECISIONS
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-webhook-decisions
+        - name: DOCUSIGN_CONNECT_HMAC_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: DOCUSIGN_CONNECT_HMAC_SECRET
+        - name: GRAPH_DELEGATED_REFRESH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: graph-delegated-refresh-token
+        - name: TEAMS_WEBHOOK_BRIEFINGS
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: teams-webhook-briefings
+        - name: PLAYWRIGHT_SERVICE_URL
+          value: https://glyphor-playwright-610179349713.us-central1.run.app
+        - name: NODE_ENV
+          value: production
+        - name: DB_HOST
+          value: /cloudsql/ai-glyphor-company:us-central1:glyphor-db
+        - name: DB_NAME
+          value: glyphor
+        - name: DB_USER
+          value: glyphor_app
+        - name: AGENT365_ENABLED
+          value: 'true'
+        - name: GLYPHOR_MCP_ENABLED
+          value: 'true'
+        - name: GLYPHOR_MCP_DATA_URL
+          value: https://glyphor-mcp-data-610179349713.us-central1.run.app/mcp
+        - name: GLYPHOR_MCP_MARKETING_URL
+          value: https://glyphor-mcp-marketing-610179349713.us-central1.run.app/mcp
+        - name: GLYPHOR_MCP_ENGINEERING_URL
+          value: https://glyphor-mcp-engineering-610179349713.us-central1.run.app/mcp
+        - name: GLYPHOR_MCP_DESIGN_URL
+          value: https://glyphor-mcp-design-610179349713.us-central1.run.app/mcp
+        - name: GLYPHOR_MCP_FINANCE_URL
+          value: https://glyphor-mcp-finance-610179349713.us-central1.run.app/mcp
+        - name: GLYPHOR_MCP_SHAREPOINT_SITES_URL
+          value: https://glyphor-mcp-sharepoint-sites-610179349713.us-central1.run.app/mcp
+        - name: DASHBOARD_URL
+          value: https://glyphor-dashboard-610179349713.us-central1.run.app
+        - name: PUBLIC_URL
+          value: https://glyphor-scheduler-610179349713.us-central1.run.app
+        image: us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:5374c7b106bb4b532500104818d582a568c9c905
+        name: scheduler-1
+        ports:
+        - containerPort: 8080
+          name: http1
+        resources:
+          limits:
+            cpu: '2'
+            memory: 4Gi
+        startupProbe:
+          failureThreshold: 1
+          periodSeconds: 240
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 240
+      serviceAccountName: glyphor-agent-runner@ai-glyphor-company.iam.gserviceaccount.com
+      timeoutSeconds: 900
+  traffic:
+  - latestRevision: true
+    percent: 100

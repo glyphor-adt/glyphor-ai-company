@@ -2440,6 +2440,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
   const [generatingVisual, setGeneratingVisual] = useState(false);
   const [visualImage, setVisualImage] = useState<{ data: string; mimeType: string } | null>(null);
   const [visualError, setVisualError] = useState<string | null>(null);
+  const [visualNotice, setVisualNotice] = useState<string | null>(null);
 
   // Load saved visual on mount
   useEffect(() => {
@@ -2451,9 +2452,15 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
   async function generateVisual() {
     setGeneratingVisual(true);
     setVisualError(null);
+    setVisualNotice(null);
     try {
-      const resp = await api<{ image: string; mimeType: string }>(`/strategy-lab/${id}/visual`, { method: 'POST' });
+      const resp = await api<{ image: string; mimeType: string; fallbackUsed?: boolean; fallbackReason?: string | null }>(`/strategy-lab/${id}/visual`, { method: 'POST' });
       setVisualImage({ data: resp.image, mimeType: resp.mimeType });
+      if (resp.fallbackUsed) {
+        setVisualNotice(resp.fallbackReason
+          ? `AI visual generation fell back to deterministic mode: ${resp.fallbackReason}`
+          : 'AI visual generation fell back to deterministic mode.');
+      }
     } catch (err) {
       console.error('Visual generation failed:', err);
       const message = err instanceof Error ? err.message : 'Failed to generate visual.';
@@ -2488,6 +2495,11 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
 
       {showSection === 'summary' && (
         <div className="space-y-3">
+          {visualNotice && (
+            <div className="rounded-md border border-prism-elevated/35 bg-transparent px-3 py-2 text-[11px] text-prism-elevated">
+              {visualNotice}
+            </div>
+          )}
           <div className="rounded-lg border border-cyan/35 bg-transparent px-4 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Executive Summary</p>
             <div className="text-sm text-txt-primary leading-relaxed prose-chat"><Markdown>{executiveSummary}</Markdown></div>

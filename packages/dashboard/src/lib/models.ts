@@ -48,7 +48,6 @@ export const MODELS: ModelOption[] = [
   { value: 'gpt-5.4-pro', label: 'GPT-5.4 Pro',   provider: 'openai', inputPer1M: 30.0, outputPer1M: 180.0 },
   { value: 'model-router', label: 'Model Router (Foundry)', provider: 'openai', inputPer1M: 0.75, outputPer1M: 4.50, default: true },
   { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini',  provider: 'openai', inputPer1M: 0.75, outputPer1M: 4.50 },
-  { value: 'gpt-5.4-nano', label: 'GPT-5.4 Nano',  provider: 'openai', inputPer1M: 0.20, outputPer1M: 1.25 },
   { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', provider: 'openai', inputPer1M: 1.75, outputPer1M: 14.0 },
   { value: 'gpt-5.2',     label: 'GPT-5.2',       provider: 'openai', inputPer1M: 1.75, outputPer1M: 14.0 },
   { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro',   provider: 'openai', inputPer1M: 21.0, outputPer1M: 168.0 },

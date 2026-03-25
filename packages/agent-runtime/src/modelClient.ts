@@ -26,10 +26,11 @@ export type ModelResponse = UnifiedModelResponse;
 
 export function detectProvider(model: string): ModelProvider {
   if (model.startsWith('gemini-')) return 'gemini';
+  if (model.startsWith('deep-research-')) return 'gemini';
   if (model === 'model-router' || model.startsWith('model-router')) return 'openai';
   if (model.startsWith('gpt-') || /^o[134](-|$)/.test(model)) return 'openai';
   if (model.startsWith('claude-')) return 'anthropic';
-  throw new Error(`Unknown model provider for "${model}". Expected prefix: gemini-, gpt-, o1/o3/o4, model-router, or claude-`);
+  throw new Error(`Unknown model provider for "${model}". Expected prefix: gemini-, deep-research-, gpt-, o1/o3/o4, model-router, or claude-`);
 }
 
 /** Detect quota/rate-limit errors across all providers. */
@@ -63,6 +64,7 @@ export class ModelClient {
   private factory: ProviderFactory;
   private static readonly DETERMINISTIC_FALLBACK_MODEL = getTierModel('default');
   private static readonly BLOCKED_PROVIDER_PREFIXES = ['claude-'] as const;
+  private static readonly DEFAULT_DEEP_RESEARCH_TIMEOUT_MS = 30 * 60 * 1000;
 
   constructor(config: ModelClientConfig | string) {
     // Backwards-compatible: if a plain string is passed, treat as Gemini API key
@@ -91,6 +93,10 @@ export class ModelClient {
     }
 
     const requestedModel = normalizedRequestedModel;
+    if (requestedModel.startsWith('deep-research-')) {
+      return this.generateWithDeepResearch(requestedModel, request);
+    }
+
     const isBlockedRequestedModel = ModelClient.BLOCKED_PROVIDER_PREFIXES.some((prefix) => requestedModel.startsWith(prefix));
     const effectiveRequestedModel = isBlockedRequestedModel
       ? ModelClient.DETERMINISTIC_FALLBACK_MODEL
@@ -263,5 +269,103 @@ export class ModelClient {
     });
 
     return Promise.race([promise, abortPromise]);
+  }
+
+  private getGeminiApiKey(): string {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || '';
+    if (!apiKey) {
+      throw new Error('Missing GEMINI_API_KEY or GOOGLE_AI_API_KEY for Gemini Deep Research calls.');
+    }
+    return apiKey;
+  }
+
+  private async generateWithDeepResearch(model: string, request: ModelRequest): Promise<ModelResponse> {
+    const prompt = [request.systemInstruction, request.contents.map((c) => c.content).join('\n\n')]
+      .filter(Boolean)
+      .join('\n\n');
+
+    const interactionId = await this.startDeepResearchInteraction(model, prompt);
+    const text = await this.pollDeepResearchResult(interactionId, request.callTimeoutMs, request.signal);
+
+    return {
+      text,
+      toolCalls: [],
+      usageMetadata: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      finishReason: 'stop',
+      actualModel: model,
+      actualProvider: 'gemini',
+    };
+  }
+
+  private async startDeepResearchInteraction(model: string, prompt: string): Promise<string> {
+    const apiKey = this.getGeminiApiKey();
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        input: prompt,
+        agent: model,
+        background: true,
+        store: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Deep Research interaction create failed (${response.status}): ${text}`);
+    }
+
+    const payload = (await response.json()) as { id?: string };
+    if (!payload.id) {
+      throw new Error('Deep Research interaction create returned no interaction id.');
+    }
+    return payload.id;
+  }
+
+  private async pollDeepResearchResult(interactionId: string, callTimeoutMs?: number, signal?: AbortSignal): Promise<string> {
+    const apiKey = this.getGeminiApiKey();
+    const timeoutMs = callTimeoutMs ?? ModelClient.DEFAULT_DEEP_RESEARCH_TIMEOUT_MS;
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+      if (signal?.aborted) {
+        const reason = (signal.reason as Error)?.message || 'signal aborted';
+        throw new Error(`Aborted: ${reason}`);
+      }
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/interactions/${interactionId}`, {
+        method: 'GET',
+        headers: { 'x-goog-api-key': apiKey },
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Deep Research interaction poll failed (${response.status}): ${text}`);
+      }
+
+      const payload = (await response.json()) as {
+        status?: string;
+        error?: unknown;
+        outputs?: Array<{ text?: string; content?: { text?: string } }>;
+      };
+
+      if (payload.status === 'completed') {
+        const last = payload.outputs?.[payload.outputs.length - 1];
+        const text = last?.text || last?.content?.text || '';
+        if (!text) throw new Error('Deep Research interaction completed without textual output.');
+        return text;
+      }
+
+      if (payload.status === 'failed') {
+        throw new Error(`Deep Research interaction failed: ${JSON.stringify(payload.error)}`);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+    }
+
+    throw new Error('Deep Research interaction timed out before completion.');
   }
 }

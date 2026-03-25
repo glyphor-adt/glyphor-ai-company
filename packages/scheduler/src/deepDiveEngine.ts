@@ -17,7 +17,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
-import { getTierModel } from '@glyphor/shared';
+import { getSpecialized } from '@glyphor/shared';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import { WorkflowOrchestrator } from '@glyphor/agent-runtime';
 import { searchWeb, searchNews, batchSearch, searchResultsToContext } from '@glyphor/integrations';
@@ -45,7 +45,7 @@ function getChallengerModels(primary: string): string[] {
 
 /** Legacy single-challenger for gap-fill re-analysis */
 function getChallengerModel(primary: string): string {
-  return getChallengerModels(primary)[0];
+  return getChallengerModels(primary)[0] ?? primary;
 }
 
 /* ── Types ──────────────────────────────────── */
@@ -454,7 +454,7 @@ function buildResearchAreas(target: string): ResearchArea[] {
 export class DeepDiveEngine {
   constructor(
     private modelClient: ModelClient,
-    private model = getTierModel('default'),
+    private model = getSpecialized('deep_research'),
   ) {}
 
   /** Launch a deep dive. Returns the record ID. */

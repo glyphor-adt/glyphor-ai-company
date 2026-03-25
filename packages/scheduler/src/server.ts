@@ -155,14 +155,29 @@ function wrapSvgLine(value: string, maxChars = 46): string[] {
   return lines.slice(0, 3);
 }
 
+function sanitizeVisualText(input: string, fallback: string): string {
+  const normalized = input
+    .normalize('NFKC')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!normalized) return fallback;
+
+  // The SVG fallback uses system sans fonts that may not support all scripts in Cloud Run.
+  // Keep text in a broadly supported ASCII subset to avoid tofu squares in generated PNGs.
+  const asciiSafe = normalized.replace(/[^\x20-\x7E]/g, ' ').replace(/\s+/g, ' ').trim();
+  return asciiSafe || fallback;
+}
+
 async function buildStrategyFallbackVisualPng(
   record: import('./strategyLabEngine.js').StrategyAnalysisRecord,
 ): Promise<string> {
   // Cloud Run font availability can differ from local dev; prefer broadly available sans fonts.
   const svgFont = 'DejaVu Sans, Liberation Sans, Arial, Helvetica, sans-serif';
   const synthesis = record.synthesis;
-  const title = record.query || 'Strategy Analysis';
-  const summary = synthesis?.executiveSummary?.trim() || 'Strategic analysis completed.';
+  const title = sanitizeVisualText(record.query || 'Strategy Analysis', 'Strategy Analysis');
+  const summary = sanitizeVisualText(synthesis?.executiveSummary?.trim() || '', 'Strategic analysis completed.');
   const titleLines = wrapSvgLine(title, 48);
   const summaryLines = wrapSvgLine(summary, 64);
   const strengths = synthesis?.unifiedSwot.strengths.length ?? 0;
@@ -3622,18 +3637,22 @@ const server = createServer(async (req, res) => {
 
       let imageB64: string;
       let mimeType: 'image/png' = 'image/png';
+      let fallbackUsed = false;
+      let fallbackReason: string | null = null;
       try {
         const prompt = buildStrategyLabVisualPrompt(record);
-        const imageResponse = await strategyModelClient.generateImage(prompt);
+        const imageResponse = await strategyModelClient.generateImage(prompt, 'imagen-4.0-ultra-generate-001');
         imageB64 = await applyWatermark(imageResponse.imageData);
       } catch (error) {
-        console.warn('[StrategyLabVisual] AI image generation failed, using deterministic fallback visual:', (error as Error).message);
+        fallbackUsed = true;
+        fallbackReason = (error as Error).message;
+        console.warn('[StrategyLabVisual] AI image generation failed, using deterministic fallback visual:', fallbackReason);
         imageB64 = await buildStrategyFallbackVisualPng(record);
       }
 
       await systemQuery('UPDATE strategy_analyses SET visual_image=$1 WHERE id=$2', [imageB64, id]);
 
-      json(res, 200, { image: imageB64, mimeType });
+      json(res, 200, { image: imageB64, mimeType, fallbackUsed, fallbackReason });
       return;
     }
 

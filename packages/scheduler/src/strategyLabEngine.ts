@@ -178,6 +178,82 @@ function hasStringOutput(result: void | AgentExecutionResult): result is AgentEx
   return Boolean(result) && typeof (result as AgentExecutionResult).output === 'string';
 }
 
+function extractFirstJsonObject(raw: string): string | null {
+  const text = raw.trim();
+  if (!text) return null;
+
+  const fencedMatch = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/i);
+  const candidate = fencedMatch?.[1]?.trim() || text;
+
+  try {
+    const parsed = JSON.parse(candidate) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return candidate;
+    }
+  } catch {
+    // Continue to balanced-brace extraction.
+  }
+
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < candidate.length; i += 1) {
+    const ch = candidate[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === '{') {
+      if (depth === 0) start = i;
+      depth += 1;
+      continue;
+    }
+    if (ch === '}') {
+      if (depth === 0) continue;
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        const objectText = candidate.slice(start, i + 1);
+        try {
+          const parsed = JSON.parse(objectText) as unknown;
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return objectText;
+          }
+        } catch {
+          // Keep scanning for a later valid object.
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function parseObjectFromModelOutput(raw: string): Record<string, unknown> | null {
+  const jsonBlob = extractFirstJsonObject(raw);
+  if (!jsonBlob) return null;
+  try {
+    const parsed = JSON.parse(jsonBlob) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 /* ── Constants ──────────────────────────────── */
 
 const RESEARCH_ANALYST_ROLES: Record<string, { name: string; packetType: string }> = {
@@ -934,10 +1010,9 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     let sarahFrame: Record<string, unknown> = {};
     const sarahFrameText = sarahFrameResponse.text ?? '';
     if (sarahFrameText) {
-      const jsonMatch = sarahFrameText.match(/\{[\s\S]*\}/);
-      const jsonBlob = jsonMatch?.[0];
-      if (typeof jsonBlob === 'string') {
-        try { sarahFrame = JSON.parse(jsonBlob as string); } catch { sarahFrame = { strategicContext: sarahFrameText }; }
+      const parsed = parseObjectFromModelOutput(sarahFrameText);
+      if (parsed !== null) {
+        sarahFrame = parsed!;
       } else {
         sarahFrame = { strategicContext: sarahFrameText };
       }
@@ -969,38 +1044,46 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     const sophiaDecompOutput = (sophiaDecompResult as AgentExecutionResult | undefined)?.output;
     if (sophiaDecompOutput) {
       const decompText = String(sophiaDecompOutput);
-      const jsonMatch = decompText.match(/\{[\s\S]*\}/);
-      const jsonBlob = jsonMatch?.[0];
-      if (jsonBlob) {
-        try {
-          const parsed = JSON.parse(String(jsonBlob));
-          sophiaDecomp = parsed;
+      const parsed = parseObjectFromModelOutput(decompText);
+      if (parsed !== null) {
+        const parsedObj = parsed as Record<string, unknown>;
+        sophiaDecomp = parsedObj;
 
-          // Extract briefs from Sophia's structured output
-          if (Array.isArray(parsed.briefs)) {
-            sophiaBriefs = parsed.briefs
-              .map((b: Record<string, unknown>) => {
-                const role = normalizeAnalystRole(
-                  (b.analystRole ?? b.analyst_role ?? b.role ?? b.analyst ?? '') as string,
-                );
-                if (!role) return null;
-                return {
-                  analystRole: role,
-                  analystName: RESEARCH_ANALYST_ROLES[role]?.name || b.analystName as string || '',
-                  researchBrief: b.researchBrief as string || b.brief as string || '',
-                  suggestedSearches: (b.suggestedSearches as string[] || b.searchQueries as string[] || []),
-                  expectedOutput: RESEARCH_ANALYST_ROLES[role]?.packetType || b.expectedOutput as string || '',
-                  targetExecutives: b.targetExecutives as string[] || [],
-                };
-              })
-              .filter(Boolean) as ResearchBrief[];
-          }
+        // Extract briefs from Sophia's structured output
+        const briefsRaw = parsedObj['briefs'];
+        const briefs = Array.isArray(briefsRaw) ? briefsRaw as unknown[] : [];
+        if (briefs.length > 0) {
+          sophiaBriefs = briefs
+            .map((b: unknown) => {
+              if (!b || typeof b !== 'object' || Array.isArray(b)) return null;
+              const brief = b as Record<string, unknown>;
+              const role = normalizeAnalystRole(
+                String(brief.analystRole ?? brief.analyst_role ?? brief.role ?? brief.analyst ?? ''),
+              );
+              if (!role) return null;
+              const suggestedSearchesRaw = brief.suggestedSearches ?? brief.searchQueries;
+              const targetExecutivesRaw = brief.targetExecutives;
+              return {
+                analystRole: role,
+                analystName: RESEARCH_ANALYST_ROLES[role]?.name || String(brief.analystName ?? ''),
+                researchBrief: String(brief.researchBrief ?? brief.brief ?? ''),
+                suggestedSearches: Array.isArray(suggestedSearchesRaw)
+                  ? suggestedSearchesRaw.map((item: unknown) => String(item))
+                  : [],
+                expectedOutput: RESEARCH_ANALYST_ROLES[role]?.packetType || String(brief.expectedOutput ?? ''),
+                targetExecutives: Array.isArray(targetExecutivesRaw)
+                  ? targetExecutivesRaw.map((item: unknown) => String(item))
+                  : [],
+              };
+            })
+            .filter(Boolean) as ResearchBrief[];
+        }
 
-          // Extract routing
-          if (parsed.executiveRouting && typeof parsed.executiveRouting === 'object') {
-            sophiaRouting = parsed.executiveRouting as ExecutiveRouting;
-          }
-        } catch { /* fall through to default briefs */ }
+        // Extract routing
+        const routingRaw = parsedObj['executiveRouting'];
+        if (routingRaw && typeof routingRaw === 'object' && !Array.isArray(routingRaw)) {
+          sophiaRouting = routingRaw as ExecutiveRouting;
+        }
       }
     }
 
@@ -1172,17 +1255,24 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     const sophiaQCOutput = (sophiaQCResult as AgentExecutionResult | undefined)?.output;
     if (sophiaQCOutput) {
       const qcText = String(sophiaQCOutput);
-      const jsonMatch = qcText.match(/\{[\s\S]*\}/);
-      const jsonBlob = jsonMatch?.[0];
-      if (jsonBlob) {
-        try {
-          const parsed = JSON.parse(String(jsonBlob));
-          sophiaQC = parsed;
-          coverMemos = parsed.coverMemos || {};
-          gapsFilled = parsed.gapsFilled || [];
-          remainingGaps = parsed.remainingGaps || [];
-          overallConfidence = parsed.overallConfidence || 'medium';
-        } catch { /* use raw output */ }
+      const parsed = parseObjectFromModelOutput(qcText);
+      if (parsed !== null) {
+        const parsedObj = parsed as Record<string, unknown>;
+        sophiaQC = parsedObj;
+        const coverMemosRaw = parsedObj['coverMemos'];
+        const gapsFilledRaw = parsedObj['gapsFilled'];
+        const remainingGapsRaw = parsedObj['remainingGaps'];
+        const confidenceRaw = parsedObj['overallConfidence'];
+        coverMemos = coverMemosRaw && typeof coverMemosRaw === 'object' && !Array.isArray(coverMemosRaw)
+          ? coverMemosRaw as Record<string, unknown>
+          : {};
+        const gapsFilledList = Array.isArray(gapsFilledRaw) ? gapsFilledRaw as unknown[] : [];
+        const remainingGapsList = Array.isArray(remainingGapsRaw) ? remainingGapsRaw as unknown[] : [];
+        gapsFilled = gapsFilledList.map((item: unknown) => String(item));
+        remainingGaps = remainingGapsList.map((item: unknown) => String(item));
+        const confidenceText = typeof confidenceRaw === 'string' ? confidenceRaw : '';
+        const normalizedConfidence = String(confidenceText).trim();
+        overallConfidence = normalizedConfidence || 'medium';
       }
     }
 
@@ -1265,12 +1355,7 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
 
         const output = response.text ?? '';
         let analysis: Record<string, unknown> = {};
-        const jsonMatch = output.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          try { analysis = JSON.parse(jsonMatch[0]); } catch { analysis = { rawOutput: output }; }
-        } else {
-          analysis = { rawOutput: output };
-        }
+        analysis = parseObjectFromModelOutput(output) ?? { rawOutput: output };
 
         const execOutput: ExecutiveAnalysisOutput = {
           execRole,
@@ -1322,31 +1407,48 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
 
     let synthesis: SynthesisOutput | null = null;
     const synthText = synthesisResponse.text ?? '';
-    const synthMatch = synthText.match(/\{[\s\S]*\}/);
-    const synthBlob = synthMatch?.[0];
-    if (typeof synthBlob === 'string') {
-      try {
-        const parsed = JSON.parse(synthBlob as string);
-        synthesis = {
-          executiveSummary: parsed.executiveSummary || '',
-          unifiedSwot: parsed.unifiedSwot || { strengths: [], weaknesses: [], opportunities: [], threats: [] },
-          crossFrameworkInsights: parsed.crossFrameworkInsights || [],
-          strategicRecommendations: parsed.strategicRecommendations || [],
-          keyRisks: parsed.keyRisks || [],
-          openQuestionsForFounders: parsed.openQuestionsForFounders || [],
-          sourceIndex: allSources,
-        };
-      } catch {
-        synthesis = {
-          executiveSummary: synthText,
-          unifiedSwot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
-          crossFrameworkInsights: [],
-          strategicRecommendations: [],
-          keyRisks: [],
-          openQuestionsForFounders: [],
-          sourceIndex: allSources,
-        };
-      }
+    const parsedSynthesis = parseObjectFromModelOutput(synthText);
+    if (parsedSynthesis !== null) {
+      const parsedSynthesisObj = parsedSynthesis as Record<string, unknown>;
+      const unifiedSwotRaw = parsedSynthesisObj['unifiedSwot'];
+      const crossFrameworkInsightsRaw = parsedSynthesisObj['crossFrameworkInsights'];
+      const strategicRecommendationsRaw = parsedSynthesisObj['strategicRecommendations'];
+      const keyRisksRaw = parsedSynthesisObj['keyRisks'];
+      const openQuestionsRaw = parsedSynthesisObj['openQuestionsForFounders'];
+      const crossFrameworkInsights = Array.isArray(crossFrameworkInsightsRaw)
+        ? (crossFrameworkInsightsRaw as unknown[]).map((item: unknown) => String(item))
+        : [];
+      const keyRisks = Array.isArray(keyRisksRaw)
+        ? (keyRisksRaw as unknown[]).map((item: unknown) => String(item))
+        : [];
+      const openQuestions = Array.isArray(openQuestionsRaw)
+        ? (openQuestionsRaw as unknown[]).map((item: unknown) => String(item))
+        : [];
+      const executiveSummaryRaw = parsedSynthesisObj['executiveSummary'];
+      const executiveSummary = typeof executiveSummaryRaw === 'string' ? executiveSummaryRaw : '';
+      synthesis = {
+        executiveSummary: String(executiveSummary),
+        unifiedSwot: unifiedSwotRaw && typeof unifiedSwotRaw === 'object' && !Array.isArray(unifiedSwotRaw)
+          ? unifiedSwotRaw as SynthesisOutput['unifiedSwot']
+          : { strengths: [], weaknesses: [], opportunities: [], threats: [] },
+        crossFrameworkInsights,
+        strategicRecommendations: Array.isArray(strategicRecommendationsRaw)
+          ? strategicRecommendationsRaw as SynthesisOutput['strategicRecommendations']
+          : [],
+        keyRisks,
+        openQuestionsForFounders: openQuestions,
+        sourceIndex: allSources,
+      };
+    } else if (synthText) {
+      synthesis = {
+        executiveSummary: synthText,
+        unifiedSwot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
+        crossFrameworkInsights: [],
+        strategicRecommendations: [],
+        keyRisks: [],
+        openQuestionsForFounders: [],
+        sourceIndex: allSources,
+      };
     }
 
     // ═══════════════════════════════════════════
