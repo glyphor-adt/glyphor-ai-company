@@ -1,0 +1,39 @@
+Create a clean executive infographic in 16:9 landscape titled "Competitive Landscape - Autonomous Agents".
+
+PRIMARY OBJECTIVE:
+Visualize the executive summary faithfully. The infographic must be based on the summary content below, not on invented labels.
+
+SOURCE SUMMARY (GROUND TRUTH):
+1. This founder-grade strategy report analyzes the competitive landscape for Glyphor, focusing on its dual-engine ecosystem: Glyphor Fuse (Autonomous...
+2. As of early 2026, the autonomous AI agent market is experiencing explosive growth—projected to reach $199 billion by...
+3. However, the market is navigating a severe 'trust crisis.' Gartner predicts that 40% of enterprise agentic AI projects...
+4. To succeed, Glyphor Fuse must differentiate its ADT from both continuous co-editors (like Cursor) and asynchronous delegators (like...
+
+LAYOUT (SIMPLE, 3 BANDS):
+1) Top band: title + subtitle + date badge.
+2) Middle band: 4-5 summary insights as short cards.
+3) Bottom band: SWOT count strip and 3 strategic action chips.
+
+SUMMARY INSIGHTS TO DISPLAY (verbatim or lightly shortened):
+1. This founder-grade strategy report analyzes the competitive landscape for Glyphor, focusing on its dual-engine ecosystem: Glyphor Fuse (Autonomous...
+2. As of early 2026, the autonomous AI agent market is experiencing explosive growth—projected to reach $199 billion by...
+3. However, the market is navigating a severe 'trust crisis.' Gartner predicts that 40% of enterprise agentic AI projects...
+4. To succeed, Glyphor Fuse must differentiate its ADT from both continuous co-editors (like Cursor) and asynchronous delegators (like...
+
+ACTION CHIPS:
+1. Publish Open and Verified Benchmark Performance Data
+2. Develop 'Anti-Agent Washing' Enterprise Guarantees
+3. Implement an Interactive 'Human-in-the-Loop' Fallback UX
+
+SWOT COUNTS: S4 / W4 / O4 / T4
+
+STYLE:
+- Professional dark theme using #0A0E17 background and #00E0FF accents
+- High contrast, readable sans-serif typography
+- Minimal iconography, clean spacing, no clutter
+
+CRITICAL OUTPUT RULES:
+- Use only real English words; no gibberish, no pseudo-text, no random character strings
+- Do not invent company logos or fake brand marks
+- Keep text concise and legible at presentation scale
+- Keep wording aligned to the source summary and action chips

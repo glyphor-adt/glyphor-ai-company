@@ -1,0 +1,66 @@
+A professional executive infographic in 16:9 landscape format titled "Competitive Landscape - Autonomous Agents".
+
+BACKGROUND & ATMOSPHERE:
+Dark premium background using #0A0E17 as the base color with subtle #111827 surface panels. Subtle visual motifs of hexagonal grid patterns, neural network nodes, and faint circuit traces, combined with radar sweeps, competitive grid overlays, as background texture creating depth without distraction. The overall feel is high-end, architectural, and data-rich - like a Bloomberg terminal meets a McKinsey deck.
+
+HEADER BAND:
+Top-left: the Autonomous Agents logo in #00E0FF, rendered clearly and accurately. Top-right: a clean reserved rectangular space (approximately 160x48 pixels equivalent) with matching #0A0E17 dark background, containing absolutely no text, icons, graphics, or decorative elements - this area must be completely empty and unobstructed. Between the logo and the reserved space, the title "Competitive Landscape - Autonomous Agents" in large, bold, geometric sans-serif type in #E5E7EB. Below the title, a subtitle line: "Autonomous Agents" in #9CA3AF. A thin horizontal divider line in #00E0FF separates the header from the body. A "3/25/2026" badge appears near the top-right area.
+
+Below the header, the infographic divides into three main vertical columns:
+
+LEFT COLUMN - Market Snapshot:
+- A large numeric callout box with glassmorphic card styling (subtle frosted glass effect, thin 1px border in #00E0FF at 15% opacity): "Top Priority: Publish Open and Verified Benchmark Performance Data" in large bold #00E0FF text, with "Validation of ADT capabilities, generating technical trust and unblocking evaluations by senior engineering buyers." as a secondary line beneath in #9CA3AF.
+- Below, a secondary callout card with concise metric bullets:
+  • "0 sources triangulated across market evidence"
+  • "0 search runs completed during research"
+  • "Confidence: MEDIUM"
+  • "SWOT coverage: S4/W4/O4/T4"
+Use #00E0FF for key figures. Small geometric icons (hexagons, nodes) accent each bullet.
+
+CENTER COLUMN - Competitive Dynamics:
+Three large glassmorphic tiles arranged horizontally, each with an icon, title, and data callouts:
+
+Tile 1: "Market Leaders" with a crown or podium icon.
+  - "The 'Cursor vs. Devin Paradigm': The software engineering market is fundamentally bifurcated into continuous co-editing..."
+  - "The 'Agent Washing' Penalty: The AI agent market in 2026 is defined by a deep..."
+  - "Creative vs. Engineering Synergy: Managing both Pulse (creative/video) and Fuse (engineering) under one brand risks..."
+Caption: "The 'Cursor vs. Devin Paradigm': The software engineering market is fundamentally bifurcated into continuous co-editing (Cursor) and task..."
+
+Tile 2: "Emerging Threats" with a radar or rising arrow icon.
+  - "Publish Open and Verified Benchmark Performance Data"
+  - "Develop 'Anti-Agent Washing' Enterprise Guarantees"
+  - "Implement an Interactive 'Human-in-the-Loop' Fallback UX"
+Caption: "Severe market consolidation: The top 3 AI coding agents currently capture over 70% of market share, creating an..."
+
+Tile 3: "Whitespace Opportunities" with a target or gap-in-grid icon.
+  - "Niche Domination in Legacy Data Ecosystems"
+  - "Severe market consolidation: The top 3 AI coding agents currently capture over 70% of market..."
+  - "Macro enterprise hesitation driven by the Gartner 2027 forecast, high hallucination rates, and the intense..."
+Caption: "Validation of ADT capabilities, generating technical trust and unblocking evaluations by senior engineering buyers."
+
+Each tile has a subtle rim-light glow in #00E0FF. Tiles sit on the dark surface with generous spacing between them.
+
+RIGHT COLUMN - Strategic Outlook:
+- A mini bar chart titled "Threat Level by Segment" using gradient bars from #00E0FF to #00A3FF:
+  • "The impending 'Trough of Disillusionment' and..." — MODERATE
+  • "Rapid feature commoditization by hyperscalers (e.g.,..." — MODERATE
+  • "Inherent technological limitations of current LLMs,..." — MODERATE
+  • "Market concentration dynamics where the top..." — MODERATE
+- Below the chart, a context box with frosted glass styling: "This founder-grade strategy report analyzes the competitive landscape for Glyphor, focusing on its dual-engine ecosystem: Glyphor Fuse (Autonomous Development Teams/ADT) and Glyphor Pulse (AI Video/Creative). As of early..."
+- A bullet list titled "Strategic Recommendations":
+  • "Publish Open and Verified Benchmark Performance Data"
+  • "Develop 'Anti-Agent Washing' Enterprise Guarantees"
+  • "Implement an Interactive 'Human-in-the-Loop' Fallback UX"
+
+VISUAL STYLE RULES:
+- All cards use glassmorphic styling: frosted glass effect, subtle backdrop blur, thin borders in #00E0FF at low opacity
+- Typography: geometric sans-serif, strong hierarchy with 3 clear type sizes
+- Icons: thin-line geometric style, monochrome in #00E0FF or #9CA3AF
+- Charts: gradient fills from #00E0FF to #00A3FF, no harsh borders
+- Dividers: thin 1px lines in #00E0FF at 20% opacity
+- Generous spacing between sections - the infographic should breathe
+- Every element communicates data, no decorative clutter
+
+FOOTER:
+Full-width footer bar in #111827 with #6B7280 text centered: "© Glyphor, Inc. All rights reserved. | Powered by Glyphor Intelligence"
+Clean, executive-ready, suitable for board presentations, investor decks, and strategy briefings.

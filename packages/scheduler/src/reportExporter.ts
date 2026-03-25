@@ -209,6 +209,58 @@ function applyPlaceholderReplacements(xml: string, vars: Record<string, string>)
   return { xml: next, replacements };
 }
 
+function applyLiteralReplacements(xml: string, vars: Record<string, string>): { xml: string; replacements: number } {
+  let next = xml;
+  let replacements = 0;
+
+  for (const [fromText, toText] of Object.entries(vars)) {
+    if (!fromText || !next.includes(fromText)) continue;
+    const escapedTo = escapeXmlText(toText ?? '');
+    const parts = next.split(fromText);
+    const count = parts.length - 1;
+    if (count > 0) {
+      replacements += count;
+      next = parts.join(escapedTo);
+    }
+  }
+
+  return { xml: next, replacements };
+}
+
+function buildStrategyTemplateLiteralVars(record: StrategyAnalysisRecord): Record<string, string> {
+  const synthesis = record.synthesis;
+  const title = `Strategic Analysis: ${cleanMojibakeText(record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()))}`;
+  const subtitle = cleanMojibakeText(record.query);
+  const summary = cleanMojibakeText(normalizePhrase(synthesis?.executiveSummary, 'Executive summary unavailable.'));
+  const insights = (synthesis?.crossFrameworkInsights ?? []).slice(0, 3).map(cleanMojibakeText);
+  const recommendations = (synthesis?.strategicRecommendations ?? []).slice(0, 3).map((r) => cleanMojibakeText(r.title || r.description));
+  const keyFinding = cleanMojibakeText((synthesis?.keyRisks?.[0] || synthesis?.openQuestionsForFounders?.[0] || 'No key finding available.'));
+
+  return {
+    'Report Title': title,
+    'Subtitle': subtitle,
+    'Section Heading': 'Executive Summary',
+    'Section Title': cleanMojibakeText(record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())),
+    'Slide Title': title,
+    'Brief description of this section.': clampWords(summary, 20),
+    'Body text. Clear, direct, architectural. Present tense, active voice. Numbers beat adjectives. Lead with the outcome, not the method.': clampWords(summary, 40),
+    'Second paragraph. Continue the narrative with additional context, evidence, or analysis.': clampWords(insights[0] ?? summary, 28),
+    'Subsection': 'Cross-Framework Insight',
+    'Subsection body text. Specific, evidenced, grounded.': clampWords(insights[1] ?? summary, 24),
+    'Cross-Framework Insight body text. Specific, evidenced, grounded.': clampWords(insights[1] ?? summary, 24),
+    'KEY FINDING  Critical information or decision point. One clear, direct statement.': `KEY FINDING  ${clampWords(keyFinding, 18)}`,
+    'Critical information or decision point. One clear, direct statement.': clampWords(keyFinding, 16),
+    'First key point.': clampWords(insights[0] ?? summary, 12),
+    'Second key point.': clampWords(insights[1] ?? summary, 12),
+    'Third key point.': clampWords(insights[2] ?? summary, 12),
+    'Lead with the outcome, not the process. Numbers beat adjectives every time.': clampWords(insights[0] ?? summary, 16),
+    'Confident, clear, architectural tone. Present tense, active voice throughout.': clampWords(insights[1] ?? summary, 16),
+    'Scope discipline — define what we produce and what we explicitly do not.': clampWords(insights[2] ?? recommendations[0] ?? summary, 16),
+    'The default architecture uses semantic tags, strict spacing, and accessible contrast.': clampWords(recommendations[0] ?? summary, 16),
+    'Decision-ready and deployment-safe.': clampWords(recommendations[1] ?? insights[0] ?? summary, 12),
+  };
+}
+
 async function renderTemplateDocument(format: TemplateFormat, vars: Record<string, string>): Promise<Buffer | null> {
   const templateBytes = await downloadTemplateFromGcs(format);
   if (!templateBytes) return null;
@@ -221,16 +273,28 @@ async function renderTemplateDocument(format: TemplateFormat, vars: Record<strin
 
     const files = Object.keys(zip.files).filter((name) => filePattern.test(name));
     let totalReplacements = 0;
+    const literalVars = vars.__literal_replacements_json__
+      ? JSON.parse(vars.__literal_replacements_json__)
+      : null;
 
     for (const fileName of files) {
       const file = zip.file(fileName);
       if (!file) continue;
 
       const xml = await file.async('string');
-      const { xml: updatedXml, replacements } = applyPlaceholderReplacements(xml, vars);
-      if (replacements > 0) {
+      const { xml: withPlaceholders, replacements: placeholderReplacements } = applyPlaceholderReplacements(xml, vars);
+      let updatedXml = withPlaceholders;
+      let fileReplacements = placeholderReplacements;
+
+      if (literalVars && typeof literalVars === 'object') {
+        const { xml: withLiterals, replacements: literalReplacements } = applyLiteralReplacements(updatedXml, literalVars as Record<string, string>);
+        updatedXml = withLiterals;
+        fileReplacements += literalReplacements;
+      }
+
+      if (fileReplacements > 0) {
         zip.file(fileName, updatedXml);
-        totalReplacements += replacements;
+        totalReplacements += fileReplacements;
       }
     }
 
@@ -251,7 +315,7 @@ function buildStrategyTemplateVars(record: StrategyAnalysisRecord): Record<strin
   const topRec = recs[0];
   const swot = synthesis?.unifiedSwot;
 
-  return {
+  const vars: Record<string, string> = {
     report_title: `Strategic Analysis: ${cleanMojibakeText(record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()))}`,
     report_subtitle: cleanMojibakeText(record.query),
     analysis_type: cleanMojibakeText(record.analysis_type),
@@ -278,6 +342,9 @@ function buildStrategyTemplateVars(record: StrategyAnalysisRecord): Record<strin
     open_questions: cleanMojibakeText((synthesis?.openQuestionsForFounders ?? []).join(' | ')),
     generated_on: new Date().toLocaleDateString(),
   };
+
+  vars.__literal_replacements_json__ = JSON.stringify(buildStrategyTemplateLiteralVars(record));
+  return vars;
 }
 
 /** Branded footer bar on every slide */
@@ -2437,63 +2504,64 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     );
   }
 
-  const leftMetricLines = vars.left_secondary_metrics.map((metric) => `  • "${metric}"`).join('\n');
-  const rightChartLines = vars.right_chart_items.map((item) => `  • "${item.label}" — ${item.rating}`).join('\n');
-  const rightBulletLines = vars.right_bullets.map((bullet) => `  • "${bullet}"`).join('\n');
+  const summaryText = normalizePhrase(record.synthesis.executiveSummary, 'No summary provided.');
+  const summaryPoints = summaryText
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 5)
+    .map((s) => clampWords(s, 18));
+
+  const topActions = (record.synthesis.strategicRecommendations ?? [])
+    .slice(0, 3)
+    .map((rec) => clampWords(normalizePhrase(rec.title || rec.description, 'Action item'), 10));
+
+  const swot = record.synthesis.unifiedSwot;
+  const swotCounts = `S${swot.strengths.length} / W${swot.weaknesses.length} / O${swot.opportunities.length} / T${swot.threats.length}`;
+
+  const compactSummary = (summaryPoints.length > 0 ? summaryPoints : ['No summary points available'])
+    .slice(0, 4);
+
+  const pointsBlock = compactSummary
+    .map((pt, i) => `${i + 1}. ${pt}`)
+    .join('\n');
+
+  const actionsBlock = (topActions.length > 0 ? topActions : ['No action provided'])
+    .map((a, i) => `${i + 1}. ${a}`)
+    .join('\n');
 
   return [
-    `A professional executive infographic in 16:9 landscape format titled "${vars.report_title}".`,
+    `Create a clean executive infographic in 16:9 landscape titled "${vars.report_title}".`,
     '',
-    'BACKGROUND & ATMOSPHERE:',
-    `Dark premium background using ${INFOGRAPHIC_BRAND.background_base} as the base color with subtle ${INFOGRAPHIC_BRAND.background_surface} surface panels. Subtle visual motifs of hexagonal grid patterns, neural network nodes, and faint circuit traces, combined with ${vars.custom_motifs}, as background texture creating depth without distraction. The overall feel is high-end, architectural, and data-rich - like a Bloomberg terminal meets a McKinsey deck.`,
+    'PRIMARY OBJECTIVE:',
+    'Visualize the executive summary faithfully. The infographic must be based on the summary content below, not on invented labels.',
     '',
-    'HEADER BAND:',
-    `Top-left: the ${vars.subject_company} logo in ${vars.subject_color}, rendered clearly and accurately. Top-right: a clean reserved rectangular space (approximately 160x48 pixels equivalent) with matching ${INFOGRAPHIC_BRAND.background_base} dark background, containing absolutely no text, icons, graphics, or decorative elements - this area must be completely empty and unobstructed. Between the logo and the reserved space, the title "${vars.report_title}" in large, bold, geometric sans-serif type in ${INFOGRAPHIC_BRAND.text_primary}. Below the title, a subtitle line: "${vars.report_subtitle}" in ${INFOGRAPHIC_BRAND.text_secondary}. A thin horizontal divider line in ${INFOGRAPHIC_BRAND.primary_color} separates the header from the body. A "${vars.report_date}" badge appears near the top-right area.`,
+    'SOURCE SUMMARY (GROUND TRUTH):',
+    pointsBlock,
     '',
-    'Below the header, the infographic divides into three main vertical columns:',
+    'LAYOUT (SIMPLE, 3 BANDS):',
+    '1) Top band: title + subtitle + date badge.',
+    '2) Middle band: 4-5 summary insights as short cards.',
+    '3) Bottom band: SWOT count strip and 3 strategic action chips.',
     '',
-    `LEFT COLUMN - ${vars.left_section_title}:`,
-    `- A large numeric callout box with glassmorphic card styling (subtle frosted glass effect, thin 1px border in ${INFOGRAPHIC_BRAND.primary_color} at 15% opacity): "${vars.left_primary_metric}" in large bold ${INFOGRAPHIC_BRAND.primary_color} text, with "${vars.left_primary_detail}" as a secondary line beneath in ${INFOGRAPHIC_BRAND.text_secondary}.`,
-    '- Below, a secondary callout card with concise metric bullets:',
-    leftMetricLines,
-    `Use ${INFOGRAPHIC_BRAND.primary_color} for key figures. Small geometric icons (hexagons, nodes) accent each bullet.`,
+    'SUMMARY INSIGHTS TO DISPLAY (verbatim or lightly shortened):',
+    pointsBlock,
     '',
-    `CENTER COLUMN - ${vars.center_section_title}:`,
-    'Three large glassmorphic tiles arranged horizontally, each with an icon, title, and data callouts:',
+    'ACTION CHIPS:',
+    actionsBlock,
     '',
-    `Tile 1: "${vars.center_tiles[0].title}" with a ${vars.center_tiles[0].icon_hint}.`,
-    ...vars.center_tiles[0].callouts.map((c) => `  - "${c}"`),
-    `Caption: "${vars.center_tiles[0].caption}"`,
+    `SWOT COUNTS: ${swotCounts}`,
     '',
-    `Tile 2: "${vars.center_tiles[1].title}" with a ${vars.center_tiles[1].icon_hint}.`,
-    ...vars.center_tiles[1].callouts.map((c) => `  - "${c}"`),
-    `Caption: "${vars.center_tiles[1].caption}"`,
+    'STYLE:',
+    `- Professional dark theme using ${INFOGRAPHIC_BRAND.background_base} background and ${INFOGRAPHIC_BRAND.primary_color} accents`,
+    '- High contrast, readable sans-serif typography',
+    '- Minimal iconography, clean spacing, no clutter',
     '',
-    `Tile 3: "${vars.center_tiles[2].title}" with a ${vars.center_tiles[2].icon_hint}.`,
-    ...vars.center_tiles[2].callouts.map((c) => `  - "${c}"`),
-    `Caption: "${vars.center_tiles[2].caption}"`,
-    '',
-    `Each tile has a subtle rim-light glow in ${INFOGRAPHIC_BRAND.primary_color}. Tiles sit on the dark surface with generous spacing between them.`,
-    '',
-    `RIGHT COLUMN - ${vars.right_section_title}:`,
-    `- A mini ${vars.chart_type} chart titled "${vars.right_chart_title}" using gradient bars from ${INFOGRAPHIC_BRAND.primary_color} to ${INFOGRAPHIC_BRAND.secondary_color}:`,
-    rightChartLines,
-    `- Below the chart, a context box with frosted glass styling: "${vars.right_context_box}"`,
-    `- A bullet list titled "${vars.right_bullets_title}":`,
-    rightBulletLines,
-    '',
-    'VISUAL STYLE RULES:',
-    `- All cards use glassmorphic styling: frosted glass effect, subtle backdrop blur, thin borders in ${INFOGRAPHIC_BRAND.primary_color} at low opacity`,
-    '- Typography: geometric sans-serif, strong hierarchy with 3 clear type sizes',
-    `- Icons: thin-line geometric style, monochrome in ${INFOGRAPHIC_BRAND.primary_color} or ${INFOGRAPHIC_BRAND.text_secondary}`,
-    `- Charts: gradient fills from ${INFOGRAPHIC_BRAND.primary_color} to ${INFOGRAPHIC_BRAND.secondary_color}, no harsh borders`,
-    `- Dividers: thin 1px lines in ${INFOGRAPHIC_BRAND.primary_color} at 20% opacity`,
-    '- Generous spacing between sections - the infographic should breathe',
-    '- Every element communicates data, no decorative clutter',
-    '',
-    'FOOTER:',
-    `Full-width footer bar in ${INFOGRAPHIC_BRAND.background_surface} with ${INFOGRAPHIC_BRAND.text_muted} text centered: "${INFOGRAPHIC_BRAND.footer}"`,
-    'Clean, executive-ready, suitable for board presentations, investor decks, and strategy briefings.',
+    'CRITICAL OUTPUT RULES:',
+    '- Use only real English words; no gibberish, no pseudo-text, no random character strings',
+    '- Do not invent company logos or fake brand marks',
+    '- Keep text concise and legible at presentation scale',
+    '- Keep wording aligned to the source summary and action chips',
   ].join('\n');
 }
 
