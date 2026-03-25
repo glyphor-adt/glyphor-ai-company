@@ -458,6 +458,17 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         const dayStart = `${date}T00:00:00.000Z`;
         const dayEnd = `${date}T23:59:59.999Z`;
 
+        const decisionAgentColumnRows = await systemQuery<{ exists: boolean }>(
+          `SELECT EXISTS (
+             SELECT 1
+             FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'decisions'
+               AND column_name = 'agent_role'
+           ) AS exists`,
+        );
+        const decisionAgentColumn = decisionAgentColumnRows[0]?.exists ? 'agent_role' : 'proposed_by';
+
         // Get all active agents
         const agents = await systemQuery(
           "SELECT role FROM company_agents WHERE status = 'active'",
@@ -491,7 +502,7 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
           // Get decisions and incidents
           const [{ count: decisionCount }] = await systemQuery<{ count: number }>(
-            'SELECT COUNT(*)::int as count FROM decisions WHERE agent_role = $1 AND created_at >= $2 AND created_at <= $3',
+            `SELECT COUNT(*)::int as count FROM decisions WHERE ${decisionAgentColumn} = $1 AND created_at >= $2 AND created_at <= $3`,
             [agent.role, dayStart, dayEnd],
           );
 

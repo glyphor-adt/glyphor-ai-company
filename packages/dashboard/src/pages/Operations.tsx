@@ -399,7 +399,7 @@ function useIncidents() {
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
     try {
-      const rows = await apiCall<IncidentRow[]>('/api/incidents?limit=20');
+      const rows = await apiCall<IncidentRow[]>('/api/incidents?order=created_at.desc&limit=20');
       setData(rows ?? []);
     } catch {
       setData([]);

@@ -127,6 +127,11 @@ interface FeedbackRow {
   created_at: string;
 }
 
+interface LearningEntry {
+  issue: string;
+  next: string | null;
+}
+
 interface MemoryRow {
   id: string;
   agent_role: string;
@@ -917,8 +922,23 @@ function PerformanceTab({ agent }: { agent: AgentRow }) {
   const [growth, setGrowth] = useState<GrowthArea[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [feedback, setFeedback] = useState<FeedbackRow[]>([]);
-  const [learnings, setLearnings] = useState<string[]>([]);
+  const [learnings, setLearnings] = useState<LearningEntry[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const parseLearning = (raw: string): LearningEntry | null => {
+    const cleaned = raw
+      .trim()
+      .replace(/^"+|"+$/g, '')
+      .replace(/\s+/g, ' ');
+    if (!cleaned) return null;
+
+    const parts = cleaned.split(/\s*\|\s*Next:\s*/i);
+    const issue = parts[0]?.replace(/^[•\-\s]+/, '').trim() ?? '';
+    const next = parts[1]?.trim() ?? null;
+    if (!issue) return null;
+
+    return { issue, next };
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -937,12 +957,24 @@ function PerformanceTab({ agent }: { agent: AgentRow }) {
       setFeedback((fbRes ?? []) as FeedbackRow[]);
 
       // Extract unique learnings from reflections
-      const allLearnings: string[] = [];
+      const allLearnings: LearningEntry[] = [];
       for (const r of (reflRes ?? []) as { what_went_well: string[]; what_could_improve: string[] }[]) {
-        if (r.what_could_improve) allLearnings.push(...r.what_could_improve);
+        if (!r.what_could_improve) continue;
+        for (const item of r.what_could_improve) {
+          const parsed = parseLearning(String(item));
+          if (parsed) allLearnings.push(parsed);
+        }
       }
-      // Deduplicate
-      setLearnings([...new Set(allLearnings)].slice(0, 8));
+
+      // Deduplicate while preserving order
+      const seen = new Set<string>();
+      const unique = allLearnings.filter((entry) => {
+        const key = `${entry.issue}|||${entry.next ?? ''}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setLearnings(unique.slice(0, 8));
       setLoading(false);
     });
   }, [agent.role]);
@@ -982,7 +1014,10 @@ function PerformanceTab({ agent }: { agent: AgentRow }) {
               {learnings.map((l, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-txt-secondary">
                   <span className="mt-1 text-txt-faint">•</span>
-                  "{l}"
+                  <div>
+                    <p>{l.issue}</p>
+                    {l.next && <p className="mt-1 text-[11px] text-txt-faint">Next: {l.next}</p>}
+                  </div>
                 </li>
               ))}
             </ul>

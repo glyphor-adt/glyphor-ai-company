@@ -179,7 +179,7 @@ export const TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
 export const EMBEDDING_MODEL = 'gemini-embedding-001';
 
 /** The model used for image generation */
-export const IMAGE_MODEL = 'gpt-image-1';
+export const IMAGE_MODEL = 'gpt-image-1.5';
 
 /** The model used for GraphRAG extraction */
 export const GRAPHRAG_MODEL = 'model-router';

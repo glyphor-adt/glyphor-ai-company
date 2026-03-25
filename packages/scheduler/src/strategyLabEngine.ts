@@ -255,6 +255,57 @@ function parseObjectFromModelOutput(raw: string): Record<string, unknown> | null
   }
 }
 
+const SYNTHESIS_STRUCTURED_TAIL_RE = /"\s*,\s*"unifiedSwot"\s*:/i;
+const SYNTHESIS_SOURCES_RE = /\n+\*\*Sources:\*\*[\s\S]*$/i;
+
+function normalizeSynthesisText(value: unknown): string {
+  return typeof value === 'string'
+    ? value.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\r/g, '').trim()
+    : '';
+}
+
+function stripSynthesisSources(text: string): string {
+  return text.replace(SYNTHESIS_SOURCES_RE, '').trim();
+}
+
+function cleanSynthesisSummaryText(value: unknown): string {
+  let text = stripSynthesisSources(normalizeSynthesisText(value));
+  if (!text) return '';
+
+  const structuredTailIndex = text.search(SYNTHESIS_STRUCTURED_TAIL_RE);
+  if (structuredTailIndex >= 0) {
+    text = text.slice(0, structuredTailIndex);
+  }
+
+  return text
+    .replace(/^"?executiveSummary"?\s*:\s*/i, '')
+    .replace(/^"+/, '')
+    .replace(/"+$/, '')
+    .trim();
+}
+
+function recoverMalformedSynthesisObject(value: unknown): Record<string, unknown> | null {
+  const text = stripSynthesisSources(normalizeSynthesisText(value));
+  const structuredTailIndex = text.search(SYNTHESIS_STRUCTURED_TAIL_RE);
+  if (structuredTailIndex < 0) {
+    return null;
+  }
+
+  const executiveSummary = cleanSynthesisSummaryText(text);
+  const reconstructedTail = text.slice(structuredTailIndex).replace(/^"\s*,\s*/, ', ');
+  const candidate = `{"executiveSummary": ${JSON.stringify(executiveSummary)}${reconstructedTail}`;
+
+  try {
+    const parsed = JSON.parse(candidate) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 /* ── Constants ──────────────────────────────── */
 
 const RESEARCH_ANALYST_ROLES: Record<string, { name: string; packetType: string }> = {
@@ -1409,13 +1460,17 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     let synthesis: SynthesisOutput | null = null;
     const synthText = synthesisResponse.text ?? '';
     const parsedSynthesis = parseObjectFromModelOutput(synthText);
-    if (parsedSynthesis !== null) {
-      const parsedSynthesisObj = parsedSynthesis as Record<string, unknown>;
-      const unifiedSwotRaw = parsedSynthesisObj['unifiedSwot'];
-      const crossFrameworkInsightsRaw = parsedSynthesisObj['crossFrameworkInsights'];
-      const strategicRecommendationsRaw = parsedSynthesisObj['strategicRecommendations'];
-      const keyRisksRaw = parsedSynthesisObj['keyRisks'];
-      const openQuestionsRaw = parsedSynthesisObj['openQuestionsForFounders'];
+    const recoveredSynthesis = recoverMalformedSynthesisObject(synthText);
+    const parsedSynthesisObj = parsedSynthesis ?? recoveredSynthesis;
+    if (parsedSynthesisObj !== null) {
+      const baseSynthesisObj = parsedSynthesisObj as Record<string, unknown>;
+      const repairedSynthesisObj = recoverMalformedSynthesisObject(baseSynthesisObj['executiveSummary']);
+      const normalizedSynthesisObj = repairedSynthesisObj ?? baseSynthesisObj;
+      const unifiedSwotRaw = normalizedSynthesisObj['unifiedSwot'];
+      const crossFrameworkInsightsRaw = normalizedSynthesisObj['crossFrameworkInsights'];
+      const strategicRecommendationsRaw = normalizedSynthesisObj['strategicRecommendations'];
+      const keyRisksRaw = normalizedSynthesisObj['keyRisks'];
+      const openQuestionsRaw = normalizedSynthesisObj['openQuestionsForFounders'];
       const crossFrameworkInsights = Array.isArray(crossFrameworkInsightsRaw)
         ? (crossFrameworkInsightsRaw as unknown[]).map((item: unknown) => String(item))
         : [];
@@ -1425,10 +1480,10 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
       const openQuestions = Array.isArray(openQuestionsRaw)
         ? (openQuestionsRaw as unknown[]).map((item: unknown) => String(item))
         : [];
-      const executiveSummaryRaw = parsedSynthesisObj['executiveSummary'];
-      const executiveSummary = typeof executiveSummaryRaw === 'string' ? executiveSummaryRaw : '';
+      const executiveSummaryRaw = normalizedSynthesisObj['executiveSummary'];
+      const executiveSummary = cleanSynthesisSummaryText(executiveSummaryRaw);
       synthesis = {
-        executiveSummary: String(executiveSummary),
+        executiveSummary,
         unifiedSwot: unifiedSwotRaw && typeof unifiedSwotRaw === 'object' && !Array.isArray(unifiedSwotRaw)
           ? unifiedSwotRaw as SynthesisOutput['unifiedSwot']
           : { strengths: [], weaknesses: [], opportunities: [], threats: [] },
@@ -1442,7 +1497,7 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
       };
     } else if (synthText) {
       synthesis = {
-        executiveSummary: synthText,
+        executiveSummary: cleanSynthesisSummaryText(synthText),
         unifiedSwot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
         crossFrameworkInsights: [],
         strategicRecommendations: [],
@@ -1793,8 +1848,8 @@ Return ONLY valid JSON with this exact shape:
 
     return {
       executiveSummary: typeof parsed.executiveSummary === 'string' && parsed.executiveSummary.trim().length > 0
-        ? parsed.executiveSummary
-        : rawText,
+        ? cleanSynthesisSummaryText(parsed.executiveSummary)
+        : cleanSynthesisSummaryText(rawText),
       unifiedSwot: swot,
       crossFrameworkInsights: toStringArray(parsed.crossFrameworkInsights),
       strategicRecommendations: recommendations,

@@ -235,9 +235,9 @@ export class ModelClient {
   }
 
   /**
-   * Generate an image using OpenAI gpt-image-1 (text-rich infographics).
+   * Generate an image using OpenAI gpt-image-1.5 (text-rich infographics).
    */
-  async generateImageOpenAI(prompt: string, model = 'gpt-image-1'): Promise<ImageResponse> {
+  async generateImageOpenAI(prompt: string, model = 'gpt-image-1.5'): Promise<ImageResponse> {
     const adapter = this.factory.get('openai') as OpenAIAdapter;
     return adapter.generateImage(prompt, model);
   }

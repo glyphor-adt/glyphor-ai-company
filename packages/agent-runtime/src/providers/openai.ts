@@ -694,11 +694,11 @@ export class OpenAIAdapter implements ProviderAdapter {
   }
 
   /**
-   * Generate an image using OpenAI gpt-image-1 (text-rich infographics).
+   * Generate an image using OpenAI gpt-image-1.5 (text-rich infographics).
    * Uses direct fetch instead of the SDK to avoid connection issues in Cloud Run.
    * Routes through Azure OpenAI when configured; otherwise direct OpenAI.
    */
-  async generateImage(prompt: string, model = 'gpt-image-1'): Promise<ImageResponse> {
+  async generateImage(prompt: string, model = 'gpt-image-1.5'): Promise<ImageResponse> {
     const body = JSON.stringify({
       model,
       prompt,

@@ -29,7 +29,7 @@ export function SystemHealth() {
     (async () => {
       const [syncData, incidentData] = await Promise.all([
         apiCall<SyncStatus[]>('/api/data-sync-status'),
-        apiCall<Incident[]>('/api/incidents?limit=5'),
+        apiCall<Incident[]>('/api/incidents?order=created_at.desc&limit=5'),
       ]);
       setSyncs(syncData ?? []);
       setIncidents(incidentData ?? []);

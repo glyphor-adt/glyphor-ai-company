@@ -31,7 +31,7 @@ export const MODEL_CONFIG = {
     embeddings:    'gemini-embedding-001',               // Gemini API - 768 dims, GA stable
     voice:         'gpt-realtime-2025-08-28',            // Azure Foundry - Teams audio bridge
     transcription: 'gpt-4o-transcribe',                  // Azure Foundry - Teams audio bridge
-    images:        'imagen-4.0-generate-001',            // Gemini API / Vertex AI
+    images:        'gpt-image-1.5',                      // OpenAI image generation
     reflection:    'gpt-5-mini',                         // lower-cost agent self-eval
     shadow_eval:   'gemini-2.5-flash',                   // Gemini API - shadow runner
     deep_research: 'deep-research-pro-preview-12-2025',  // Gemini API - strategy reports

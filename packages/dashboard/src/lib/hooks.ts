@@ -145,7 +145,7 @@ export function useOpenIncidents() {
 
   const refresh = useCallback(async () => {
     try {
-      const rows = await apiCall<Incident[]>('/api/incidents?status=open&limit=5');
+      const rows = await apiCall<Incident[]>('/api/incidents?status=open&order=created_at.desc&limit=5');
       setData(rows ?? []);
     } catch {
       setData([]);

@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { MdCheck, MdWarning, MdClose, MdAutoAwesome, MdPalette, MdTrendingUp, MdFlag, MdArrowForward, MdChevronRight, MdSearch, MdPerson, MdExpandMore } from 'react-icons/md';
-import Markdown from 'react-markdown';
 import { SCHEDULER_URL, getAuthToken } from '../lib/firebase';
 import {
   Card,
@@ -26,6 +25,7 @@ import {
   composerSelectClassName,
   composerTextareaClassName,
 } from '../components/ChatComposer';
+import ChatMarkdown from '../components/ChatMarkdown';
 import { normalizeText } from '../lib/normalizeText';
 
 /* ── Types ─────────────────────────────────────── */
@@ -2262,6 +2262,35 @@ function normalizeReportText(value: unknown): string {
   return normalizeText(value).trim();
 }
 
+const REPORT_MARKDOWN_HINT_RE = /(^|\n)\s*(#{1,6}\s|[-*+]\s|\d+\.\s|>\s)|\*\*[^*]+\*\*|`[^`]+`|\|.+\|/m;
+const REPORT_SOURCES_SECTION_RE = /\n+\*\*Sources:\*\*[\s\S]*$/i;
+const SENTENCE_SPLIT_RE = /(?<=[.!?])\s+(?=(?:[A-Z0-9"'(\[]))/;
+
+function stripReportSources(text: string): string {
+  return text.replace(REPORT_SOURCES_SECTION_RE, '').trim();
+}
+
+function formatNarrativeMarkdown(value: unknown): string {
+  const text = stripReportSources(normalizeReportText(value));
+  if (!text) return '';
+  if (REPORT_MARKDOWN_HINT_RE.test(text) || /\n{2,}/.test(text)) {
+    return text;
+  }
+
+  const flattened = text.replace(/\s*\n\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  const sentences = flattened.split(SENTENCE_SPLIT_RE).map((sentence) => sentence.trim()).filter(Boolean);
+  if (sentences.length < 4 || flattened.length < 320) {
+    return flattened;
+  }
+
+  const paragraphs: string[] = [];
+  for (let index = 0; index < sentences.length; index += 2) {
+    paragraphs.push(sentences.slice(index, index + 2).join(' '));
+  }
+
+  return paragraphs.join('\n\n');
+}
+
 function cleanExecutiveSummary(value: unknown): string {
   let text = normalizeReportText(value);
   if (!text) return '';
@@ -2278,7 +2307,7 @@ function cleanExecutiveSummary(value: unknown): string {
     .replace(/"+$/, '')
     .trim();
 
-  return text;
+  return formatNarrativeMarkdown(text);
 }
 
 function slv2StatusColor(status: SLv2Status) {
@@ -2623,7 +2652,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
           )}
           <div className="rounded-lg border border-cyan/35 bg-transparent px-4 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Executive Summary</p>
-            <div className="text-sm text-txt-primary leading-relaxed prose-chat"><Markdown>{executiveSummary}</Markdown></div>
+            <div className="text-sm text-txt-primary leading-relaxed"><ChatMarkdown>{executiveSummary}</ChatMarkdown></div>
           </div>
           {crossFrameworkInsights.length > 0 && (
             <div>
@@ -2724,7 +2753,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
           {frameworkConvergence && (
             <div className="rounded-lg border border-cyan/35 bg-transparent px-4 py-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Framework Convergence</p>
-              <div className="text-[12px] text-txt-primary leading-relaxed prose-chat"><Markdown>{normalizeReportText(frameworkConvergence)}</Markdown></div>
+              <div className="text-[12px] text-txt-primary leading-relaxed"><ChatMarkdown>{formatNarrativeMarkdown(frameworkConvergence)}</ChatMarkdown></div>
             </div>
           )}
           <div className="grid grid-cols-1 gap-3">

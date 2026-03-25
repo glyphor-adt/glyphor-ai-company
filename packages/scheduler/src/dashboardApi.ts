@@ -1068,6 +1068,7 @@ export async function handleDashboardApi(
           agent_runs: ' ORDER BY started_at DESC',
           activity_log: ' ORDER BY created_at DESC',
           agent_messages: ' ORDER BY created_at DESC',
+          incidents: ' ORDER BY created_at DESC',
           decisions: ' ORDER BY created_at DESC',
           founder_directives: ' ORDER BY created_at DESC',
           plan_verifications: ' ORDER BY created_at DESC',

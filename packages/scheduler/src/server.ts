@@ -3369,7 +3369,7 @@ const server = createServer(async (req, res) => {
       if (!record?.report) { json(res, 404, { error: 'Analysis not found or not completed' }); return; }
 
       const prompt = buildVisualPrompt(record);
-      const imageResponse = await strategyModelClient.generateImageOpenAI(prompt);
+      const imageResponse = await strategyModelClient.generateImageOpenAI(prompt, 'gpt-image-1.5');
 
       // Apply logo watermark and save to DB
       const watermarked = await applyWatermark(imageResponse.imageData);
@@ -3663,7 +3663,7 @@ const server = createServer(async (req, res) => {
       if (!record?.report) { json(res, 404, { error: 'Deep dive not found or not completed' }); return; }
 
       const prompt = buildDeepDiveVisualPrompt(record);
-      const imageResponse = await strategyModelClient.generateImageOpenAI(prompt);
+      const imageResponse = await strategyModelClient.generateImageOpenAI(prompt, 'gpt-image-1.5');
 
       // Apply logo watermark and save to DB
       const watermarked = await applyWatermark(imageResponse.imageData);
@@ -3788,7 +3788,7 @@ const server = createServer(async (req, res) => {
       if (useAiVisual) {
         try {
           const prompt = buildStrategyLabVisualPrompt(record);
-          const imageResponse = await strategyModelClient.generateImage(prompt, 'imagen-4.0-ultra-generate-001');
+          const imageResponse = await strategyModelClient.generateImageOpenAI(prompt, 'gpt-image-1.5');
           imageB64 = await applyWatermark(imageResponse.imageData);
         } catch (error) {
           fallbackUsed = true;
