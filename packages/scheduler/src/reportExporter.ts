@@ -2383,9 +2383,460 @@ function inferSubjectCompany(query: string): string {
   const forMatch = query.match(/\bfor\s+([^,.!?]{2,80})/i);
   if (forMatch?.[1]) return forMatch[1].trim();
 
+  const capitalizedPhrases = query.match(/\b[A-Z][A-Za-z0-9&.-]*(?:\s+[A-Z][A-Za-z0-9&.-]*){0,2}\b/g) ?? [];
+  const stopwords = new Set([
+    'a', 'an', 'analysis', 'assess', 'assessment', 'brief', 'competitive', 'deep', 'diagnostic', 'due', 'for',
+    'growth', 'landscape', 'market', 'opportunity', 'product', 'report', 'risk', 'strategic', 'strategy', 'the',
+  ]);
+  for (const candidate of capitalizedPhrases) {
+    const normalized = candidate.trim();
+    const firstWord = normalized.split(/\s+/)[0]?.toLowerCase() ?? '';
+    if (!firstWord || stopwords.has(firstWord)) continue;
+    if (/^(?:Q[1-4]|FY\d{2,4}|20\d{2})$/i.test(normalized)) continue;
+    return normalized;
+  }
+
   const words = toWords(query);
   if (words.length <= 6) return query.trim();
   return 'Analyzed Market';
+}
+
+function inferReportTimeframe(query: string): string | null {
+  const normalized = query.replace(/[–—]/g, '-');
+  const patterns = [
+    /\b\d{4}\s*-\s*(?:Q[1-4]\s*)?\d{4}\b/i,
+    /\b(?:Q[1-4]\s*)?\d{4}\s*-\s*\d{4}\b/i,
+    /\bQ[1-4]\s*\d{4}\b/i,
+    /\bFY\s*\d{4}\b/i,
+    /\b\d{4}\b/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (match?.[0]) return match[0].replace(/\s*-\s*/g, '–').trim();
+  }
+
+  return null;
+}
+
+function humanizePromptKey(key: string): string {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .trim();
+}
+
+function splitPromptFacts(text: string): string[] {
+  return text
+    .replace(/[•·▪◦]/g, '\n')
+    .split(/\n+|(?<=[.!?])\s+(?=[A-Z0-9"“])/g)
+    .flatMap((chunk) => chunk.split(/\s*[;|]\s+/))
+    .map((chunk) => sanitizePromptSentence(chunk))
+    .map((chunk) => chunk.replace(/^[-*\d.)\s]+/, '').trim())
+    .filter((chunk) => chunk.length > 0);
+}
+
+function collectPromptFactsFromUnknown(value: unknown, keyPath = '', depth = 0): string[] {
+  if (value == null || depth > 5) return [];
+
+  if (typeof value === 'string') {
+    const facts = splitPromptFacts(value);
+    if (!keyPath) return facts;
+
+    const label = humanizePromptKey(keyPath.split('.').pop() || keyPath);
+    return facts.map((fact) => {
+      if (fact.includes(':')) return fact;
+      if (/^[\d$€£¥]/.test(fact) || toWords(fact).length <= 4) return `${label}: ${fact}`;
+      return fact;
+    });
+  }
+
+  if (typeof value === 'number') {
+    if (!keyPath) return [String(value)];
+    return [`${humanizePromptKey(keyPath.split('.').pop() || keyPath)}: ${value}`];
+  }
+
+  if (Array.isArray(value)) {
+    return value.slice(0, 16).flatMap((entry, index) => collectPromptFactsFromUnknown(entry, `${keyPath}[${index}]`, depth + 1));
+  }
+
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .slice(0, 20)
+      .flatMap(([key, nested]) => collectPromptFactsFromUnknown(nested, keyPath ? `${keyPath}.${key}` : key, depth + 1));
+  }
+
+  return [];
+}
+
+function normalizeFactKey(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9%$€£]+/g, ' ').trim();
+}
+
+function dedupePromptFacts(items: string[]): string[] {
+  const seen = new Set<string>();
+  const results: string[] = [];
+
+  for (const item of items) {
+    const normalized = normalizeFactKey(item);
+    if (!normalized) continue;
+    if (/\b(?:n\/a|unknown|not available|no data|none)\b/i.test(item)) continue;
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    results.push(item);
+  }
+
+  return results;
+}
+
+function countPatternMatches(text: string, pattern: RegExp): number {
+  return text.match(pattern)?.length ?? 0;
+}
+
+function scoreMetricFact(text: string): number {
+  let score = 0;
+  if (/\d/.test(text)) score += 4;
+  score += countPatternMatches(text, /(?:[$€£¥]|%|\bbps\b|\bbp\b|\bQ[1-4]\b|\bFY\s*\d{4}\b|\b20\d{2}\b)/gi) * 2;
+  if (/(?:revenue|eps|margin|backlog|growth|market|book-to-bill|valuation|capex|demand|pipeline|arr|sources|searches|confidence|swot)/i.test(text)) score += 5;
+  if (toWords(text).length <= 20) score += 2;
+  return score;
+}
+
+function scorePortfolioFact(text: string): number {
+  let score = 0;
+  if (/(?:acquisition|acquire|acquired|spin-?off|divest|merger|partnership|partner|announce|announced|launch|launched|portfolio|expansion|initiative|roadmap|investment|invest|platform)/i.test(text)) score += 6;
+  if (/\d/.test(text)) score += 2;
+  if (/(?:expected|closing|revenue|margin|Q[1-4]|20\d{2})/i.test(text)) score += 2;
+  if (toWords(text).length <= 28) score += 1;
+  return score;
+}
+
+function scoreMomentumFact(text: string): number {
+  let score = 0;
+  if (/(?:growth|backlog|book-to-bill|demand|adoption|pipeline|momentum|market size|tam|sam|som|arr|revenue|margin|share|volume|orders?)/i.test(text)) score += 6;
+  if (/\d/.test(text)) score += 3;
+  if (/(?:yoy|year over year|cagr|quarter|q[1-4]|fy\s*\d{4}|20\d{2}|%|bps)/i.test(text)) score += 2;
+  return score;
+}
+
+function scoreThemeFact(text: string): number {
+  let score = 0;
+  if (/(?:ai|data center|grid|cloud|aerospace|defense|electrification|automation|infrastructure|energy|security|customer|segment|pricing|regulatory|supply|channel|portfolio|platform)/i.test(text)) score += 5;
+  if (/\d/.test(text)) score += 1;
+  if (toWords(text).length <= 24) score += 2;
+  return score;
+}
+
+function scoreFinanceFact(text: string): number {
+  let score = 0;
+  if (/(?:revenue|eps|margin|cash|liquidity|balance sheet|debt|credit|facility|borrowings|notes|valuation|capex|arr|unit economics|pricing)/i.test(text)) score += 6;
+  if (/\d/.test(text)) score += 3;
+  if (/(?:[$€£¥]|%|bps|due\s+\d{4}|q[1-4]|fy\s*\d{4}|20\d{2})/i.test(text)) score += 2;
+  return score;
+}
+
+function scoreWatchlistFact(text: string): number {
+  let score = 0;
+  if (/(?:risk|question|assumption|constraint|dependency|regulatory|competition|execution|timing|integration|commoditization|switching cost)/i.test(text)) score += 6;
+  if (/\d/.test(text)) score += 1;
+  return score;
+}
+
+function pickTopPromptFacts(
+  candidates: string[],
+  scoreFact: (text: string) => number,
+  count: number,
+  exclude: Set<string>,
+  fallbacks: string[] = [],
+  minScore = 1,
+): string[] {
+  const scored = dedupePromptFacts(candidates)
+    .map((text) => ({ text, score: scoreFact(text) }))
+    .filter((entry) => entry.score >= minScore)
+    .sort((left, right) => right.score - left.score || left.text.length - right.text.length);
+
+  const results: string[] = [];
+  for (const entry of scored) {
+    const normalized = normalizeFactKey(entry.text);
+    if (!normalized || exclude.has(normalized)) continue;
+    results.push(entry.text);
+    exclude.add(normalized);
+    if (results.length === count) return results;
+  }
+
+  for (const fallback of dedupePromptFacts(fallbacks)) {
+    const normalized = normalizeFactKey(fallback);
+    if (!normalized || exclude.has(normalized)) continue;
+    results.push(fallback);
+    exclude.add(normalized);
+    if (results.length === count) return results;
+  }
+
+  return results;
+}
+
+function extractStrategyVisualFacts(record: StrategyAnalysisRecord): string[] {
+  const synthesis = record.synthesis;
+  const facts: string[] = [];
+
+  if (synthesis) {
+    facts.push(...splitPromptFacts(synthesis.executiveSummary));
+    facts.push(...synthesis.crossFrameworkInsights.flatMap((item) => splitPromptFacts(item)));
+    facts.push(...synthesis.unifiedSwot.strengths.flatMap((item) => splitPromptFacts(item)));
+    facts.push(...synthesis.unifiedSwot.weaknesses.flatMap((item) => splitPromptFacts(item)));
+    facts.push(...synthesis.unifiedSwot.opportunities.flatMap((item) => splitPromptFacts(item)));
+    facts.push(...synthesis.unifiedSwot.threats.flatMap((item) => splitPromptFacts(item)));
+    facts.push(...synthesis.keyRisks.flatMap((item) => splitPromptFacts(item)));
+    facts.push(...synthesis.openQuestionsForFounders.flatMap((item) => splitPromptFacts(item)));
+    facts.push(
+      ...synthesis.strategicRecommendations.flatMap((rec) => {
+        const items = [rec.title, rec.description, rec.expectedOutcome, rec.riskIfNot].filter(Boolean) as string[];
+        return items.flatMap((item) => splitPromptFacts(item));
+      }),
+    );
+  }
+
+  facts.push(...collectPromptFactsFromUnknown(record.executive_outputs));
+  facts.push(...collectPromptFactsFromUnknown(record.framework_outputs));
+  facts.push(...(record.sources ?? []).map((source) => sanitizePromptSentence(source.title)).filter(Boolean));
+
+  const genericCoverageFacts = [
+    `Confidence: ${normalizePhrase(record.overall_confidence ?? undefined, 'medium').toUpperCase()}`,
+    `Research Coverage: ${record.total_sources} sources / ${record.total_searches} searches`,
+    synthesis
+      ? `SWOT Balance: S${synthesis.unifiedSwot.strengths.length} / W${synthesis.unifiedSwot.weaknesses.length} / O${synthesis.unifiedSwot.opportunities.length} / T${synthesis.unifiedSwot.threats.length}`
+      : '',
+  ].filter(Boolean);
+  facts.push(...genericCoverageFacts);
+
+  return dedupePromptFacts(facts);
+}
+
+function buildRecommendationFallbacks(record: StrategyAnalysisRecord): string[] {
+  return (record.synthesis?.strategicRecommendations ?? [])
+    .map((rec) => sanitizePromptSentence(`${normalizePhrase(rec.title || rec.description, 'Strategic priority')}: ${normalizePhrase(rec.expectedOutcome || rec.description, 'Execution impact')}`))
+    .map((item) => clampWords(item, 24, false));
+}
+
+function buildInsightFallbacks(record: StrategyAnalysisRecord): string[] {
+  const summaryFacts = splitPromptFacts(record.synthesis?.executiveSummary ?? '').map((item) => clampWords(item, 22, false));
+  const insightFacts = (record.synthesis?.crossFrameworkInsights ?? []).map((item) => clampWords(sanitizePromptSentence(item), 22, false));
+  return dedupePromptFacts([...summaryFacts, ...insightFacts]);
+}
+
+function selectStrategyVisualPanelTitles(record: StrategyAnalysisRecord, hasFinancePanel: boolean): {
+  portfolioTitle: string;
+  momentumTitle: string;
+  pillarTitle: string;
+  detailTitle: string;
+} {
+  const type = inferInfographicReportType(record);
+
+  if (type === 'company_deep_dive') {
+    return {
+      portfolioTitle: 'Portfolio Transformation',
+      momentumTitle: 'Backlog & Demand Momentum',
+      pillarTitle: 'Positioned for Key Megatrends',
+      detailTitle: hasFinancePanel ? 'Balance Sheet & Liquidity' : 'Execution Watchlist',
+    };
+  }
+
+  if (type === 'competitive_landscape') {
+    return {
+      portfolioTitle: 'Competitive Shifts',
+      momentumTitle: 'Market Momentum',
+      pillarTitle: 'Strategic Themes',
+      detailTitle: hasFinancePanel ? 'Financial Capacity' : 'Execution Watchlist',
+    };
+  }
+
+  if (type === 'market_analysis') {
+    return {
+      portfolioTitle: 'Market Structure',
+      momentumTitle: 'Demand Momentum',
+      pillarTitle: 'Key Growth Drivers',
+      detailTitle: hasFinancePanel ? 'Capital & Economics' : 'Execution Watchlist',
+    };
+  }
+
+  return {
+    portfolioTitle: 'Strategic Moves',
+    momentumTitle: 'Momentum Signals',
+    pillarTitle: 'Strategic Pillars',
+    detailTitle: hasFinancePanel ? 'Financial Capacity' : 'Execution Watchlist',
+  };
+}
+
+type StrategyVisualSectionKind = 'portfolio' | 'momentum' | 'themes' | 'finance' | 'watchlist' | 'actions' | 'insights';
+
+interface StrategyVisualSectionPlan {
+  kind: StrategyVisualSectionKind;
+  title: string;
+  items: string[];
+  layoutHint: string;
+  score: number;
+}
+
+function sumFactScores(items: string[], scorer: (text: string) => number): number {
+  return items.reduce((total, item) => total + scorer(item), 0);
+}
+
+function scoreActionFact(text: string): number {
+  let score = 0;
+  if (startsWithActionVerb(text)) score += 5;
+  if (/(?:build|launch|expand|target|reduce|increase|prioritize|invest|deploy|secure|improve|accelerate|focus|execute|strengthen|establish)/i.test(text)) score += 4;
+  if (/\d/.test(text)) score += 1;
+  return score;
+}
+
+function hasTimelineSignals(items: string[]): boolean {
+  return items.some((item) => /(?:announced|expected|closing|launch|launched|roadmap|Q[1-4]|FY\s*\d{4}|20\d{2}|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i.test(item));
+}
+
+function hasDenseNumericComparison(items: string[]): boolean {
+  return items.filter((item) => /\d/.test(item)).length >= 2
+    && items.some((item) => /(?:%|bps|YoY|CAGR|market|revenue|margin|backlog|demand|book-to-bill|ARR|TAM|SAM|SOM)/i.test(item));
+}
+
+function describeDynamicSectionLayout(kind: StrategyVisualSectionKind, items: string[]): string {
+  switch (kind) {
+    case 'momentum':
+      return hasDenseNumericComparison(items)
+        ? 'Use a compact bar, lollipop, or area chart with visible gridlines and numeric labels above each mark.'
+        : 'Use 2-3 stacked metric cards with directional arrows and small supporting labels.';
+    case 'portfolio':
+      return hasTimelineSignals(items)
+        ? 'Use a horizontal timeline or milestone cards with icons and short labels.'
+        : 'Use icon-led visual tiles or compact card rows with one fact per card.';
+    case 'themes':
+      return items.length >= 3
+        ? 'Render as three illustrated pillars or three balanced strategy cards with simple icons.'
+        : 'Use larger strategic theme cards with concise labels and a supporting icon.';
+    case 'finance':
+      return 'Use a restrained financial callout panel with thin dividers, understated icons, and bold numeric emphasis.';
+    case 'watchlist':
+      return 'Use compact watchlist cards or a risk callout panel with warning icons and thin separators.';
+    case 'actions':
+      return 'Use numbered action tiles or a sequenced roadmap strip with clear priority hierarchy.';
+    case 'insights':
+    default:
+      return 'Use concise insight cards with strong headings and minimal supporting text.';
+  }
+}
+
+function buildDynamicStrategyVisualSections(
+  record: StrategyAnalysisRecord,
+  options: {
+    panelTitles: ReturnType<typeof selectStrategyVisualPanelTitles>;
+    portfolioMoves: string[];
+    momentumSignals: string[];
+    strategicPillars: string[];
+    financeNotes: string[];
+    watchItems: string[];
+    actionItems: string[];
+    insightItems: string[];
+  },
+): StrategyVisualSectionPlan[] {
+  const candidates: StrategyVisualSectionPlan[] = [];
+
+  if (options.portfolioMoves.length > 0) {
+    candidates.push({
+      kind: 'portfolio',
+      title: options.panelTitles.portfolioTitle,
+      items: options.portfolioMoves,
+      layoutHint: describeDynamicSectionLayout('portfolio', options.portfolioMoves),
+      score: sumFactScores(options.portfolioMoves, scorePortfolioFact),
+    });
+  }
+
+  if (options.momentumSignals.length > 0) {
+    candidates.push({
+      kind: 'momentum',
+      title: options.panelTitles.momentumTitle,
+      items: options.momentumSignals,
+      layoutHint: describeDynamicSectionLayout('momentum', options.momentumSignals),
+      score: sumFactScores(options.momentumSignals, scoreMomentumFact) + 3,
+    });
+  }
+
+  if (options.strategicPillars.length > 0) {
+    candidates.push({
+      kind: 'themes',
+      title: options.panelTitles.pillarTitle,
+      items: options.strategicPillars,
+      layoutHint: describeDynamicSectionLayout('themes', options.strategicPillars),
+      score: sumFactScores(options.strategicPillars, scoreThemeFact),
+    });
+  }
+
+  if (options.financeNotes.length > 0) {
+    candidates.push({
+      kind: 'finance',
+      title: options.panelTitles.detailTitle,
+      items: options.financeNotes,
+      layoutHint: describeDynamicSectionLayout('finance', options.financeNotes),
+      score: sumFactScores(options.financeNotes, scoreFinanceFact),
+    });
+  }
+
+  if (options.watchItems.length > 0) {
+    candidates.push({
+      kind: 'watchlist',
+      title: options.financeNotes.length > 0 ? 'Execution Watchlist' : options.panelTitles.detailTitle,
+      items: options.watchItems,
+      layoutHint: describeDynamicSectionLayout('watchlist', options.watchItems),
+      score: sumFactScores(options.watchItems, scoreWatchlistFact),
+    });
+  }
+
+  if (options.actionItems.length > 0) {
+    candidates.push({
+      kind: 'actions',
+      title: record.analysis_type === 'due_diligence' ? 'Priority Actions' : 'Recommended Actions',
+      items: options.actionItems,
+      layoutHint: describeDynamicSectionLayout('actions', options.actionItems),
+      score: sumFactScores(options.actionItems, scoreActionFact),
+    });
+  }
+
+  if (options.insightItems.length > 0) {
+    candidates.push({
+      kind: 'insights',
+      title: 'Key Insights',
+      items: options.insightItems,
+      layoutHint: describeDynamicSectionLayout('insights', options.insightItems),
+      score: sumFactScores(options.insightItems, scoreThemeFact),
+    });
+  }
+
+  const sorted = candidates
+    .filter((candidate) => candidate.items.length > 0)
+    .sort((left, right) => right.score - left.score || right.items.length - left.items.length);
+
+  const selected: StrategyVisualSectionPlan[] = [];
+  const usedKinds = new Set<StrategyVisualSectionKind>();
+
+  const momentumSection = sorted.find((candidate) => candidate.kind === 'momentum' && candidate.score >= 8);
+  if (momentumSection) {
+    selected.push(momentumSection);
+    usedKinds.add(momentumSection.kind);
+  }
+
+  const financeSection = sorted.find((candidate) => candidate.kind === 'finance' && candidate.score >= 8);
+  if (financeSection) {
+    selected.push(financeSection);
+    usedKinds.add(financeSection.kind);
+  }
+
+  for (const candidate of sorted) {
+    if (usedKinds.has(candidate.kind)) continue;
+    selected.push(candidate);
+    usedKinds.add(candidate.kind);
+    if (selected.length >= 4) break;
+  }
+
+  return selected.slice(0, 4);
 }
 
 function deriveTemplateVariables(record: StrategyAnalysisRecord): StrategyInfographicVariables {
@@ -2498,94 +2949,156 @@ function deriveTemplateVariables(record: StrategyAnalysisRecord): StrategyInfogr
 export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): string {
   if (!record.synthesis) return '';
   const vars = deriveTemplateVariables(record);
-  const validationIssues = validateInfographicVariables(vars);
-  if (validationIssues.length > 0) {
-    console.warn(
-      `[ReportTemplate] Infographic template validation issues detected; continuing with sanitized prompt variables:\n- ${validationIssues.join('\n- ')}`,
-    );
-  }
+  const factPool = extractStrategyVisualFacts(record);
+  const recommendationFallbacks = buildRecommendationFallbacks(record);
+  const insightFallbacks = buildInsightFallbacks(record);
+  const watchFallbacks = dedupePromptFacts([
+    ...(record.synthesis.keyRisks ?? []).map((item) => clampWords(sanitizePromptSentence(item), 22, false)),
+    ...(record.synthesis.openQuestionsForFounders ?? []).map((item) => clampWords(sanitizePromptSentence(item), 22, false)),
+  ]);
 
-  const summaryText = normalizePhrase(record.synthesis.executiveSummary, 'No summary provided.');
-  const summaryPoints = summaryText
-    .split(/(?<=[.!?])\s+|\n+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 5)
-    .map((s) => clampWords(sanitizePromptSentence(s), 24, false));
+  const usedFacts = new Set<string>();
 
-  const topActions = (record.synthesis.strategicRecommendations ?? [])
-    .slice(0, 3)
-    .map((rec) => clampWords(sanitizePromptSentence(normalizePhrase(rec.title || rec.description, 'Action item')), 16, false));
+  const metricCallouts = pickTopPromptFacts(
+    factPool.map((item) => clampWords(item, 18, false)),
+    scoreMetricFact,
+    3,
+    usedFacts,
+    [
+      `Confidence: ${normalizePhrase(record.overall_confidence ?? undefined, 'medium').toUpperCase()}`,
+      `Research Coverage: ${record.total_sources} sources / ${record.total_searches} searches`,
+      `SWOT Balance: S${record.synthesis.unifiedSwot.strengths.length} / W${record.synthesis.unifiedSwot.weaknesses.length} / O${record.synthesis.unifiedSwot.opportunities.length} / T${record.synthesis.unifiedSwot.threats.length}`,
+    ],
+    3,
+  );
 
-  const keyRisks = (record.synthesis.keyRisks ?? [])
-    .slice(0, 2)
-    .map((r) => clampWords(sanitizePromptSentence(normalizePhrase(r)), 18, false));
-  const openQuestions = (record.synthesis.openQuestionsForFounders ?? [])
-    .slice(0, 2)
-    .map((q) => clampWords(sanitizePromptSentence(normalizePhrase(q)), 18, false));
+  const portfolioMoves = pickTopPromptFacts(
+    factPool.map((item) => clampWords(item, 24, false)),
+    scorePortfolioFact,
+    3,
+    usedFacts,
+    recommendationFallbacks,
+    4,
+  );
 
-  const swot = record.synthesis.unifiedSwot;
-  const swotCounts = `S${swot.strengths.length} / W${swot.weaknesses.length} / O${swot.opportunities.length} / T${swot.threats.length}`;
+  const momentumSignals = pickTopPromptFacts(
+    factPool.map((item) => clampWords(item, 18, false)),
+    scoreMomentumFact,
+    3,
+    usedFacts,
+    metricCallouts,
+    4,
+  );
 
-  const compactSummary = (summaryPoints.length > 0 ? summaryPoints : ['No summary points available'])
-    .slice(0, 4);
+  const strategicPillars = pickTopPromptFacts(
+    factPool.map((item) => clampWords(item, 22, false)),
+    scoreThemeFact,
+    3,
+    usedFacts,
+    insightFallbacks,
+    3,
+  );
 
-  const pointsBlock = compactSummary
-    .map((pt, i) => `${i + 1}. ${pt}`)
-    .join('\n');
+  const financeNotes = pickTopPromptFacts(
+    factPool.map((item) => clampWords(item, 20, false)),
+    scoreFinanceFact,
+    2,
+    usedFacts,
+    [],
+    5,
+  );
 
-  const actionsBlock = (topActions.length > 0 ? topActions : ['No action provided'])
-    .map((a, i) => `${i + 1}. ${a}`)
-    .join('\n');
+  const watchItems = pickTopPromptFacts(
+    factPool.map((item) => clampWords(item, 20, false)),
+    scoreWatchlistFact,
+    2,
+    usedFacts,
+    watchFallbacks,
+    4,
+  );
+
+  const actionItems = pickTopPromptFacts(
+    recommendationFallbacks,
+    scoreActionFact,
+    3,
+    usedFacts,
+    [],
+    2,
+  );
+
+  const insightItems = pickTopPromptFacts(
+    insightFallbacks,
+    scoreThemeFact,
+    3,
+    usedFacts,
+    watchFallbacks,
+    2,
+  );
+
+  const panelTitles = selectStrategyVisualPanelTitles(record, financeNotes.length > 0);
+  const reportTimeframe = inferReportTimeframe(record.query);
+  const displayTitle = reportTimeframe && vars.subject_company !== 'Analyzed Market'
+    ? `${vars.subject_company} ${reportTimeframe} Strategic Highlights`
+    : vars.report_title;
+  const narrativeAnchor = clampWords(
+    sanitizePromptSentence(normalizePhrase(record.synthesis.executiveSummary, 'Strategic analysis completed.')),
+    28,
+    false,
+  );
+  const sections = buildDynamicStrategyVisualSections(record, {
+    panelTitles,
+    portfolioMoves,
+    momentumSignals,
+    strategicPillars,
+    financeNotes,
+    watchItems,
+    actionItems,
+    insightItems,
+  });
 
   return [
-    `A professional corporate infographic in 16:9 landscape format titled "${vars.report_title}".`,
-    `Subtitle: "${vars.report_subtitle}".`,
+    `A professional corporate infographic in 16:9 landscape format titled "${displayTitle}".`,
+    `Subtitle: "${sanitizePromptSentence(vars.report_subtitle)}".`,
+    `Narrative anchor: "${narrativeAnchor}".`,
     '',
-    'VISUAL DIRECTION (TARGET QUALITY):',
-    '- White background, modern flat corporate design, clean sans-serif typography',
-    `- Primary accent color: ${INFOGRAPHIC_BRAND.primary_color}; secondary accents: #E8EEF5 and #D7E9F7`,
-    '- Clear section headings, subtle shadows, rounded cards, strong grid alignment, generous whitespace',
-    '- Executive-ready PowerPoint-slide aesthetic, highly legible text',
+    'STYLE:',
+    '- White background, modern flat corporate design, executive-ready slide aesthetic',
+    `- Primary accent color: ${INFOGRAPHIC_BRAND.primary_color}; supporting accents: #0F4FA8, #E8EEF5, and #D7E9F7`,
+    '- Clean sans-serif typography, rounded cards, subtle shadows, thin dividers, consistent iconography, generous whitespace',
+    '- High information density, but no filler text, no lorem ipsum, and no generic placeholder copy',
     '',
     'HEADER STRIP:',
-    `- Left: simple wordmark text "${vars.subject_company}" (do NOT draw a custom logo mark)` ,
-    '- Center: report title',
-    `- Right: date badge "${vars.report_date}"`,
+    `- Top-left: simple text wordmark "${vars.subject_company}"`,
+    `- Top-center: "${displayTitle}"`,
+    `- Top-right: date badge "${vars.report_date}" and small context label "${formatTypeLabel(record.analysis_type)}"`,
     '',
-    'TOP METRIC BAND (3 CARDS):',
-    `1) "Confidence: ${normalizePhrase(record.overall_confidence ?? undefined, 'medium').toUpperCase()}"`,
-    `2) "Research Coverage: ${record.total_sources} sources / ${record.total_searches} searches"`,
-    `3) "SWOT Balance: ${swotCounts}"`,
-    'Each card has a small business icon, soft drop shadow, and bold key number.',
+    'UPPER METRIC BAND (3 ROUNDED CALLOUTS):',
+    ...metricCallouts.map((item, index) => `${index + 1}) "${item}"`),
+    'Each callout has a small relevant business icon, subtle drop shadow, and bold numeric emphasis.',
     '',
-    'LEFT MIDDLE PANEL — EXECUTIVE SUMMARY SNAPSHOT:',
-    '- Use 3 concise insight tiles based ONLY on the summary points below:',
-    pointsBlock,
+    'BODY LAYOUT:',
+    '- Below the metric band, create a dynamic grid based on the available facts instead of forcing a fixed template.',
+    '- Give the section with the richest data the largest footprint.',
+    '- If a chart-oriented section is present, allocate enough width for readable labels and numeric annotations.',
+    '- If a section has only 1-2 strong facts, enlarge those cards rather than fabricating filler content.',
     '',
-    'RIGHT MIDDLE PANEL — PRIORITY ACTIONS:',
-    '- Show as a compact list with icon bullets:',
-    actionsBlock,
-    '',
-    'BOTTOM LEFT PANEL — RISKS:',
-    ...(keyRisks.length > 0
-      ? keyRisks.map((r, i) => `${i + 1}) ${r}`)
-      : ['1) No high-severity risks captured']),
-    '',
-    'BOTTOM RIGHT PANEL — OPEN QUESTIONS:',
-    ...(openQuestions.length > 0
-      ? openQuestions.map((q, i) => `${i + 1}) ${q}`)
-      : ['1) No open questions captured']),
+    ...sections.flatMap((section, index) => [
+      `SECTION ${index + 1} — ${section.title}:`,
+      `- Layout guidance: ${section.layoutHint}`,
+      ...section.items.map((item, itemIndex) => `${itemIndex + 1}) "${item}"`),
+      '',
+    ]),
     '',
     'FOOTER:',
     '- Thin light-gray footer bar with centered small text: "Confidential strategic briefing"',
     '',
     'STRICT OUTPUT RULES:',
-    '- Use only the provided text content; do not invent company names, labels, or random words',
-    '- Use correct English spelling only; absolutely no gibberish or pseudo-text',
-    '- Keep every text block readable with normal line-wrapping (do not shrink text excessively)',
-    '- Prefer sentence compression over truncation; do NOT append new ellipses unless source text already contains them verbatim',
-    '- Keep icon style consistent across all panels',
+    '- Use only the provided facts; do not invent brands, logos, product names, metrics, dates, or numeric deltas',
+    '- Preserve currencies, percentages, YoY changes, quarter labels, and dates exactly as written in the supplied facts',
+    '- No lorem ipsum, pseudo-text, or misspelled labels; all text must be correct English and fully legible',
+    '- Favor concise labels and short clauses over paragraphs, but keep the important numbers and named entities intact',
+    '- If a section has insufficient facts, enlarge the remaining cards instead of fabricating content',
+    '- Keep icon style consistent across all panels and do not add Powered by branding',
   ].join('\n');
 }
 
