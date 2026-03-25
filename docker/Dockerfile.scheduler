@@ -27,6 +27,11 @@ FROM node:22-slim AS runtime
 
 WORKDIR /app
 
+# Install fonts required for sharp SVG text rendering in deterministic infographic mode.
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends fonts-dejavu-core fonts-liberation \
+	&& rm -rf /var/lib/apt/lists/*
+
 # Copy only production dependencies
 COPY package.json package-lock.json ./
 COPY ToolingManifest.json ./

@@ -284,7 +284,8 @@ export class ModelClient {
       .filter(Boolean)
       .join('\n\n');
 
-    const interactionId = await this.startDeepResearchInteraction(model, prompt);
+    const previousInteractionId = request.metadata?.previousResponseId;
+    const interactionId = await this.startDeepResearchInteraction(model, prompt, previousInteractionId);
     const text = await this.pollDeepResearchResult(interactionId, request.callTimeoutMs, request.signal);
 
     return {
@@ -294,10 +295,11 @@ export class ModelClient {
       finishReason: 'stop',
       actualModel: model,
       actualProvider: 'gemini',
+      responseId: interactionId,
     };
   }
 
-  private async startDeepResearchInteraction(model: string, prompt: string): Promise<string> {
+  private async startDeepResearchInteraction(model: string, prompt: string, previousInteractionId?: string): Promise<string> {
     const apiKey = this.getGeminiApiKey();
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
       method: 'POST',
@@ -310,6 +312,7 @@ export class ModelClient {
         agent: model,
         background: true,
         store: true,
+        ...(previousInteractionId ? { previous_interaction_id: previousInteractionId } : {}),
       }),
     });
 

@@ -2255,10 +2255,11 @@ function toWords(text: string): string[] {
   return text.trim().split(/\s+/).filter(Boolean);
 }
 
-function clampWords(text: string, maxWords: number): string {
+function clampWords(text: string, maxWords: number, addEllipsis = true): string {
   const words = toWords(text);
   if (words.length <= maxWords) return text.trim();
-  return `${words.slice(0, maxWords).join(' ')}...`;
+  const trimmed = words.slice(0, maxWords).join(' ');
+  return addEllipsis ? `${trimmed}...` : trimmed;
 }
 
 function normalizePhrase(value: string | undefined, fallback = 'N/A'): string {
@@ -2510,11 +2511,18 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     .map((s) => s.trim())
     .filter(Boolean)
     .slice(0, 5)
-    .map((s) => clampWords(s, 18));
+    .map((s) => clampWords(sanitizePromptSentence(s), 24, false));
 
   const topActions = (record.synthesis.strategicRecommendations ?? [])
     .slice(0, 3)
-    .map((rec) => clampWords(normalizePhrase(rec.title || rec.description, 'Action item'), 10));
+    .map((rec) => clampWords(sanitizePromptSentence(normalizePhrase(rec.title || rec.description, 'Action item')), 16, false));
+
+  const keyRisks = (record.synthesis.keyRisks ?? [])
+    .slice(0, 2)
+    .map((r) => clampWords(sanitizePromptSentence(normalizePhrase(r)), 18, false));
+  const openQuestions = (record.synthesis.openQuestionsForFounders ?? [])
+    .slice(0, 2)
+    .map((q) => clampWords(sanitizePromptSentence(normalizePhrase(q)), 18, false));
 
   const swot = record.synthesis.unifiedSwot;
   const swotCounts = `S${swot.strengths.length} / W${swot.weaknesses.length} / O${swot.opportunities.length} / T${swot.threats.length}`;
@@ -2531,38 +2539,62 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     .join('\n');
 
   return [
-    `Create a clean executive infographic in 16:9 landscape titled "${vars.report_title}".`,
+    `A professional corporate infographic in 16:9 landscape format titled "${vars.report_title}".`,
+    `Subtitle: "${vars.report_subtitle}".`,
     '',
-    'PRIMARY OBJECTIVE:',
-    'Visualize the executive summary faithfully. The infographic must be based on the summary content below, not on invented labels.',
+    'VISUAL DIRECTION (TARGET QUALITY):',
+    '- White background, modern flat corporate design, clean sans-serif typography',
+    `- Primary accent color: ${INFOGRAPHIC_BRAND.primary_color}; secondary accents: #E8EEF5 and #D7E9F7`,
+    '- Clear section headings, subtle shadows, rounded cards, strong grid alignment, generous whitespace',
+    '- Executive-ready PowerPoint-slide aesthetic, highly legible text',
     '',
-    'SOURCE SUMMARY (GROUND TRUTH):',
+    'HEADER STRIP:',
+    `- Left: simple wordmark text "${vars.subject_company}" (do NOT draw a custom logo mark)` ,
+    '- Center: report title',
+    `- Right: date badge "${vars.report_date}"`,
+    '',
+    'TOP METRIC BAND (3 CARDS):',
+    `1) "Confidence: ${normalizePhrase(record.overall_confidence ?? undefined, 'medium').toUpperCase()}"`,
+    `2) "Research Coverage: ${record.total_sources} sources / ${record.total_searches} searches"`,
+    `3) "SWOT Balance: ${swotCounts}"`,
+    'Each card has a small business icon, soft drop shadow, and bold key number.',
+    '',
+    'LEFT MIDDLE PANEL — EXECUTIVE SUMMARY SNAPSHOT:',
+    '- Use 3 concise insight tiles based ONLY on the summary points below:',
     pointsBlock,
     '',
-    'LAYOUT (SIMPLE, 3 BANDS):',
-    '1) Top band: title + subtitle + date badge.',
-    '2) Middle band: 4-5 summary insights as short cards.',
-    '3) Bottom band: SWOT count strip and 3 strategic action chips.',
-    '',
-    'SUMMARY INSIGHTS TO DISPLAY (verbatim or lightly shortened):',
-    pointsBlock,
-    '',
-    'ACTION CHIPS:',
+    'RIGHT MIDDLE PANEL — PRIORITY ACTIONS:',
+    '- Show as a compact list with icon bullets:',
     actionsBlock,
     '',
-    `SWOT COUNTS: ${swotCounts}`,
+    'BOTTOM LEFT PANEL — RISKS:',
+    ...(keyRisks.length > 0
+      ? keyRisks.map((r, i) => `${i + 1}) ${r}`)
+      : ['1) No high-severity risks captured']),
     '',
-    'STYLE:',
-    `- Professional dark theme using ${INFOGRAPHIC_BRAND.background_base} background and ${INFOGRAPHIC_BRAND.primary_color} accents`,
-    '- High contrast, readable sans-serif typography',
-    '- Minimal iconography, clean spacing, no clutter',
+    'BOTTOM RIGHT PANEL — OPEN QUESTIONS:',
+    ...(openQuestions.length > 0
+      ? openQuestions.map((q, i) => `${i + 1}) ${q}`)
+      : ['1) No open questions captured']),
     '',
-    'CRITICAL OUTPUT RULES:',
-    '- Use only real English words; no gibberish, no pseudo-text, no random character strings',
-    '- Do not invent company logos or fake brand marks',
-    '- Keep text concise and legible at presentation scale',
-    '- Keep wording aligned to the source summary and action chips',
+    'FOOTER:',
+    '- Thin light-gray footer bar with centered small text: "Confidential strategic briefing"',
+    '',
+    'STRICT OUTPUT RULES:',
+    '- Use only the provided text content; do not invent company names, labels, or random words',
+    '- Use correct English spelling only; absolutely no gibberish or pseudo-text',
+    '- Keep every text block readable with normal line-wrapping (do not shrink text excessively)',
+    '- Prefer sentence compression over truncation; do NOT append new ellipses unless source text already contains them verbatim',
+    '- Keep icon style consistent across all panels',
   ].join('\n');
+}
+
+function sanitizePromptSentence(text: string): string {
+  const cleaned = text
+    .replace(/[\u2026]/g, '...')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.replace(/\.\.\.$/, '').trim();
 }
 
 /** Truncate a string to maxLen chars, adding "â€¦" if needed */

@@ -38,6 +38,14 @@ const VERIFICATION_CONFIDENCE_THRESHOLD = 0.7;
  */
 const RESEARCH_MODELS = DEEP_DIVE_MODELS;
 
+function hasDistinctVerifier(primary: string): boolean {
+  return VERIFICATION_MODELS.some((m) => m !== primary);
+}
+
+function isDeepResearchModel(model: string): boolean {
+  return model.startsWith('deep-research-');
+}
+
 /** The challenger models that critique work done by the primary (returns both) */
 function getChallengerModels(primary: string): string[] {
   return VERIFICATION_MODELS.filter(m => m !== primary);
@@ -590,60 +598,68 @@ export class DeepDiveEngine {
     await this.updateStatus(id, 'analyzing');
 
     const areaAnalyses = new Map<string, { analysis: string; model: string }>();
+    let deepResearchThreadId: string | undefined;
 
-    const analysisResults = await Promise.allSettled(
-      searchResults.map(async (sr, i) => {
-        if (sr.status === 'rejected') {
-          areas[i].status = 'failed';
-          areas[i].analysis = `Research failed: ${sr.reason?.message ?? String(sr.reason)}`;
-          return;
-        }
+    for (let i = 0; i < searchResults.length; i += 1) {
+      const sr = searchResults[i];
+      if (sr.status === 'rejected') {
+        areas[i].status = 'failed';
+        areas[i].analysis = `Research failed: ${sr.reason?.message ?? String(sr.reason)}`;
+        continue;
+      }
 
-        const { area, context, news } = sr.value;
-        area.status = 'analyzing';
-        await this.updateAreas(id, areas);
+      const { area, context, news } = sr.value;
+      area.status = 'analyzing';
+      await this.updateAreas(id, areas);
 
-        // Use area-specific model for diverse perspectives
-        const primaryModel = RESEARCH_MODELS[area.id] ?? this.model;
+      // Use area-specific model for diverse perspectives
+      const primaryModel = RESEARCH_MODELS[area.id] ?? this.model;
 
-        const analysisPrompt = [
-          `You are a senior strategic consultant at Glyphor analyzing "${req.target}" from the perspective of ${area.label}.`,
-          req.context ? `Additional context: ${req.context}` : '',
-          ``,
-          `Below are real search results gathered from the web. Use ONLY this data to form your analysis.`,
-          `Mark any claims that aren't directly supported by the sources as [ESTIMATED].`,
-          `When citing specific facts, reference the source like [Source: "article title"].`,
-          ``,
-          `## Web Search Results`,
-          context || 'No web results found.',
-          ``,
-          `## Recent News`,
-          news || 'No recent news found.',
-          ``,
-          `Provide a thorough, data-backed analysis covering:`,
-          `1. Key findings with specific data points and evidence — CITE YOUR SOURCES for every fact`,
-          `2. Notable trends or patterns — with supporting data`,
-          `3. Gaps in available data — be explicit about what you couldn't find`,
-          `4. Implications for strategic positioning — with evidence`,
-          `5. Contradictions or uncertainties across sources`,
-          `6. Quantitative data points (revenue, growth %, market size, headcount, etc.)`,
-          ``,
-          `Be specific. Quote numbers, dates, and sources. Don't hedge — if data is limited, say so explicitly.`,
-          `This analysis should be at least 800 words with detailed evidence.`,
-        ].join('\n');
+      const analysisPrompt = [
+        `You are a senior strategic consultant at Glyphor analyzing "${req.target}" from the perspective of ${area.label}.`,
+        req.context ? `Additional context: ${req.context}` : '',
+        ``,
+        `Below are real search results gathered from the web. Use ONLY this data to form your analysis.`,
+        `Mark any claims that aren't directly supported by the sources as [ESTIMATED].`,
+        `When citing specific facts, reference the source like [Source: "article title"].`,
+        ``,
+        `## Web Search Results`,
+        context || 'No web results found.',
+        ``,
+        `## Recent News`,
+        news || 'No recent news found.',
+        ``,
+        `Provide a thorough, data-backed analysis covering:`,
+        `1. Key findings with specific data points and evidence — CITE YOUR SOURCES for every fact`,
+        `2. Notable trends or patterns — with supporting data`,
+        `3. Gaps in available data — be explicit about what you couldn't find`,
+        `4. Implications for strategic positioning — with evidence`,
+        `5. Contradictions or uncertainties across sources`,
+        `6. Quantitative data points (revenue, growth %, market size, headcount, etc.)`,
+        ``,
+        `Be specific. Quote numbers, dates, and sources. Don't hedge — if data is limited, say so explicitly.`,
+        `This analysis should be at least 800 words with detailed evidence.`,
+      ].join('\n');
 
-        const response = await this.modelClient.generate({
-          model: primaryModel,
-          systemInstruction: `You are a senior strategic consultant producing research-grade analysis. Be precise, data-driven, and cite your sources. No filler or corporate boilerplate. Produce detailed, evidence-rich prose.`,
-          contents: [{ role: 'user', content: analysisPrompt, timestamp: Date.now() }],
-          temperature: 0.3,
-        });
+      const response = await this.modelClient.generate({
+        model: primaryModel,
+        systemInstruction: `You are a senior strategic consultant producing research-grade analysis. Be precise, data-driven, and cite your sources. No filler or corporate boilerplate. Produce detailed, evidence-rich prose.`,
+        contents: [{ role: 'user', content: analysisPrompt, timestamp: Date.now() }],
+        temperature: 0.3,
+        metadata: {
+          engineSource: 'deep_dive',
+          ...(isDeepResearchModel(primaryModel) && deepResearchThreadId ? { previousResponseId: deepResearchThreadId } : {}),
+        },
+      });
 
-        area.analysis = response.text ?? 'No analysis produced.';
-        area.status = 'completed';
-        areaAnalyses.set(area.id, { analysis: area.analysis, model: primaryModel });
-      }),
-    );
+      if (isDeepResearchModel(primaryModel) && response.responseId) {
+        deepResearchThreadId = response.responseId;
+      }
+
+      area.analysis = response.text ?? 'No analysis produced.';
+      area.status = 'completed';
+      areaAnalyses.set(area.id, { analysis: area.analysis, model: primaryModel });
+    }
 
     await this.updateAreas(id, areas);
 
@@ -658,6 +674,9 @@ export class DeepDiveEngine {
         if (!primary) return;
 
         const challengers = getChallengerModels(primary.model);
+        if (challengers.length === 0) {
+          return;
+        }
         const challenges: string[] = [];
 
         await Promise.allSettled(
@@ -760,7 +779,12 @@ export class DeepDiveEngine {
           allSources.push(...extraSources);
 
           // Re-analyze with additional context
-          const challengerModel = getChallengerModel(RESEARCH_MODELS[area.id] ?? this.model);
+          const primaryModel = RESEARCH_MODELS[area.id] ?? this.model;
+          if (!hasDistinctVerifier(primaryModel)) {
+            return;
+          }
+
+          const challengerModel = getChallengerModel(primaryModel);
           const reAnalyzePrompt = [
             `You previously analyzed "${req.target}" (${area.label}) but the verification flagged these issues:`,
             ...verification.issues.map((i) => `- ${i}`),
@@ -836,34 +860,36 @@ export class DeepDiveEngine {
     const frameworkIds = Object.keys(FRAMEWORK_CONFIGS) as FrameworkId[];
     const frameworkOutputs: Record<string, unknown> = {};
 
-    // Run all 6 frameworks in parallel
-    const results = await Promise.allSettled(
-      frameworkIds.map(async (frameworkId) => {
+    let frameworkThreadId: string | undefined;
+    for (const frameworkId of frameworkIds) {
+      try {
         const prompt = buildFrameworkPrompt(frameworkId, req.target, researchPackets);
         const response = await this.modelClient.generate({
           model: this.model,
           systemInstruction: `You are a senior strategic analyst applying the ${FRAMEWORK_CONFIGS[frameworkId].name} framework. Output ONLY valid JSON — no markdown fences.`,
           contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
           temperature: 0.2,
+          metadata: {
+            engineSource: 'deep_dive',
+            ...(isDeepResearchModel(this.model) && frameworkThreadId ? { previousResponseId: frameworkThreadId } : {}),
+          },
         });
+
+        if (isDeepResearchModel(this.model) && response.responseId) {
+          frameworkThreadId = response.responseId;
+        }
 
         const output = response.text ?? '';
         const jsonMatch = output.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-
-          // Store in relational table
-          await systemQuery('INSERT INTO deep_dive_frameworks (deep_dive_id, framework, analysis, confidence_score) VALUES ($1,$2,$3,$4)', [id, frameworkId, JSON.stringify(parsed), parsed.confidence ?? null]);
-
-          return { frameworkId, analysis: parsed };
+        if (!jsonMatch) {
+          continue;
         }
-        return { frameworkId, analysis: null };
-      }),
-    );
 
-    for (const r of results) {
-      if (r.status === 'fulfilled' && r.value.analysis) {
-        frameworkOutputs[r.value.frameworkId] = r.value.analysis;
+        const parsed = JSON.parse(jsonMatch[0]);
+        await systemQuery('INSERT INTO deep_dive_frameworks (deep_dive_id, framework, analysis, confidence_score) VALUES ($1,$2,$3,$4)', [id, frameworkId, JSON.stringify(parsed), parsed.confidence ?? null]);
+        frameworkOutputs[frameworkId] = parsed;
+      } catch {
+        // Keep best-effort behavior when a framework step fails.
       }
     }
 
@@ -911,11 +937,17 @@ export class DeepDiveEngine {
       completedAreas.map(async (area) => {
         const primaryModel = RESEARCH_MODELS[area.id] ?? this.model;
         const verifyModels = VERIFICATION_MODELS.filter(m => m !== primaryModel);
-        // If all models are different from primary, use all; otherwise fall back to all
-        const modelsToUse = verifyModels.length > 0 ? verifyModels : [...VERIFICATION_MODELS];
+        if (verifyModels.length === 0) {
+          return {
+            areaId: area.id,
+            confidence: 0.75,
+            issues: [],
+            corrections: [],
+          };
+        }
 
         const modelResults = await Promise.allSettled(
-          modelsToUse.map(async (verifyModel) => {
+          verifyModels.map(async (verifyModel) => {
             const verifyPrompt = [
               `You are an independent verification analyst. A colleague produced the following research analysis on "${req.target}" (${area.label}).`,
               `Your job is to identify factual errors, unsupported claims, logical gaps, and biases.`,

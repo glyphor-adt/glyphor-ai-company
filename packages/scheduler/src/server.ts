@@ -178,54 +178,114 @@ function sanitizeVisualText(input: string, fallback: string): string {
 async function buildStrategyFallbackVisualPng(
   record: import('./strategyLabEngine.js').StrategyAnalysisRecord,
 ): Promise<string> {
-  // Cloud Run font availability can differ from local dev; prefer broadly available sans fonts.
-  const svgFont = 'DejaVu Sans, Liberation Sans, Arial, Helvetica, sans-serif';
+  const svgFont = 'sans-serif';
   const synthesis = record.synthesis;
   const title = sanitizeVisualText(record.query || 'Strategy Analysis', 'Strategy Analysis');
+  const subtitle = sanitizeVisualText(record.analysis_type.replace(/_/g, ' '), 'Strategic Analysis');
   const summary = sanitizeVisualText(synthesis?.executiveSummary?.trim() || '', 'Strategic analysis completed.');
-  const titleLines = wrapSvgLine(title, 48);
-  const summaryLines = wrapSvgLine(summary, 64);
+
+  const summaryPoints = summary
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => sanitizeVisualText(s, ''))
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((s) => wrapSvgLine(s, 46)[0] || s);
+
+  const actionItems = (synthesis?.strategicRecommendations ?? [])
+    .slice(0, 3)
+    .map((rec) => sanitizeVisualText(rec.title || rec.description || 'Action', 'Action'))
+    .map((s) => wrapSvgLine(s, 34)[0] || s);
+
+  const riskItems = (synthesis?.keyRisks ?? [])
+    .slice(0, 2)
+    .map((r) => sanitizeVisualText(r, 'Risk'))
+    .map((s) => wrapSvgLine(s, 34)[0] || s);
+
+  const questionItems = (synthesis?.openQuestionsForFounders ?? [])
+    .slice(0, 2)
+    .map((q) => sanitizeVisualText(q, 'Question'))
+    .map((s) => wrapSvgLine(s, 34)[0] || s);
+
   const strengths = synthesis?.unifiedSwot.strengths.length ?? 0;
+  const weaknesses = synthesis?.unifiedSwot.weaknesses.length ?? 0;
   const opportunities = synthesis?.unifiedSwot.opportunities.length ?? 0;
-  const risks = synthesis?.keyRisks.length ?? 0;
-  const questions = synthesis?.openQuestionsForFounders.length ?? 0;
+  const threats = synthesis?.unifiedSwot.threats.length ?? 0;
+
+  const sources = Math.max(0, record.total_sources ?? 0);
+  const searches = Math.max(0, record.total_searches ?? 0);
+  const confidence = sanitizeVisualText((record.overall_confidence ?? 'medium').toUpperCase(), 'MEDIUM');
+
+  const maxCount = Math.max(1, strengths, opportunities, threats);
+  const barHeight = (count: number): number => Math.max(36, Math.round((count / maxCount) * 120));
+  const hStrengths = barHeight(strengths);
+  const hOpportunities = barHeight(opportunities);
+  const hThreats = barHeight(threats);
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="1024" viewBox="0 0 1536 1024">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0B1533"/>
-      <stop offset="55%" stop-color="#0A1A43"/>
-      <stop offset="100%" stop-color="#111827"/>
-    </linearGradient>
-  </defs>
-  <rect width="1536" height="1024" fill="url(#bg)"/>
-  <rect x="0" y="0" width="1536" height="10" fill="#00E0FF"/>
-  <text x="96" y="110" fill="#E5E7EB" font-size="58" font-family="${svgFont}" font-weight="700">Strategy Snapshot</text>
-  ${titleLines.map((line, idx) => `<text x="96" y="${180 + idx * 44}" fill="#00E0FF" font-size="36" font-family="${svgFont}" font-weight="600">${escapeSvgText(line)}</text>`).join('')}
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="864" viewBox="0 0 1536 864">
+  <rect width="1536" height="864" fill="#F6F8FB"/>
+  <rect x="0" y="0" width="1536" height="78" fill="#0F4FA8"/>
 
-  <rect x="96" y="300" rx="20" ry="20" width="1344" height="250" fill="#0E1F4A" stroke="#1E3A8A" stroke-width="2"/>
-  <text x="128" y="350" fill="#93C5FD" font-size="24" font-family="${svgFont}" font-weight="700">Executive Summary</text>
-  ${summaryLines.map((line, idx) => `<text x="128" y="${396 + idx * 42}" fill="#E5E7EB" font-size="30" font-family="${svgFont}" font-weight="500">${escapeSvgText(line)}</text>`).join('')}
+  <text x="56" y="49" fill="#FFFFFF" font-size="24" font-family="${svgFont}" font-weight="700">${escapeSvgText(title)}</text>
+  <text x="56" y="71" fill="#DCEAFE" font-size="16" font-family="${svgFont}" font-weight="500">${escapeSvgText(subtitle)}</text>
+  <text x="1410" y="50" text-anchor="end" fill="#E0F2FE" font-size="16" font-family="${svgFont}" font-weight="600">${escapeSvgText(new Date(record.created_at).toLocaleDateString())}</text>
 
-  <rect x="96" y="610" rx="16" ry="16" width="300" height="220" fill="#0B3A2E" stroke="#10B981" stroke-width="2"/>
-  <text x="126" y="670" fill="#6EE7B7" font-size="24" font-family="${svgFont}" font-weight="700">Strengths</text>
-  <text x="126" y="760" fill="#ECFDF5" font-size="68" font-family="${svgFont}" font-weight="700">${strengths}</text>
+  <rect x="40" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <rect x="533" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <rect x="1026" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <text x="66" y="130" fill="#3B82F6" font-size="14" font-family="${svgFont}" font-weight="700">CONFIDENCE</text>
+  <text x="66" y="168" fill="#0F172A" font-size="34" font-family="${svgFont}" font-weight="700">${escapeSvgText(confidence)}</text>
 
-  <rect x="432" y="610" rx="16" ry="16" width="300" height="220" fill="#062F49" stroke="#00E0FF" stroke-width="2"/>
-  <text x="462" y="670" fill="#67E8F9" font-size="24" font-family="${svgFont}" font-weight="700">Opportunities</text>
-  <text x="462" y="760" fill="#ECFEFF" font-size="68" font-family="${svgFont}" font-weight="700">${opportunities}</text>
+  <text x="559" y="130" fill="#3B82F6" font-size="14" font-family="${svgFont}" font-weight="700">RESEARCH COVERAGE</text>
+  <text x="559" y="168" fill="#0F172A" font-size="28" font-family="${svgFont}" font-weight="700">${sources} sources / ${searches} searches</text>
 
-  <rect x="768" y="610" rx="16" ry="16" width="300" height="220" fill="#3A190A" stroke="#F59E0B" stroke-width="2"/>
-  <text x="798" y="670" fill="#FCD34D" font-size="24" font-family="${svgFont}" font-weight="700">Key Risks</text>
-  <text x="798" y="760" fill="#FFFBEB" font-size="68" font-family="${svgFont}" font-weight="700">${risks}</text>
+  <text x="1052" y="130" fill="#3B82F6" font-size="14" font-family="${svgFont}" font-weight="700">SWOT BALANCE</text>
+  <text x="1052" y="168" fill="#0F172A" font-size="28" font-family="${svgFont}" font-weight="700">S${strengths} / W${weaknesses} / O${opportunities} / T${threats}</text>
 
-  <rect x="1104" y="610" rx="16" ry="16" width="336" height="220" fill="#3A0D1E" stroke="#FB7185" stroke-width="2"/>
-  <text x="1134" y="670" fill="#FDA4AF" font-size="24" font-family="${svgFont}" font-weight="700">Open Questions</text>
-  <text x="1134" y="760" fill="#FFF1F2" font-size="68" font-family="${svgFont}" font-weight="700">${questions}</text>
+  <rect x="40" y="214" rx="14" ry="14" width="950" height="310" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <text x="66" y="248" fill="#0F4FA8" font-size="20" font-family="${svgFont}" font-weight="700">Executive Summary Snapshot</text>
 
-  <text x="96" y="930" fill="#9CA3AF" font-size="24" font-family="${svgFont}">Generated ${escapeSvgText(new Date().toLocaleDateString())} - Glyphor Strategy Lab</text>
-  <rect x="0" y="1008" width="1536" height="16" fill="#00E0FF"/>
+  <rect x="66" y="270" rx="10" ry="10" width="286" height="226" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <rect x="372" y="270" rx="10" ry="10" width="286" height="226" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <rect x="678" y="270" rx="10" ry="10" width="286" height="226" fill="#F8FAFC" stroke="#E2E8F0"/>
+
+  <text x="84" y="302" fill="#111827" font-size="16" font-family="${svgFont}" font-weight="700">Insight 1</text>
+  <text x="84" y="336" fill="#334155" font-size="15" font-family="${svgFont}">${escapeSvgText(summaryPoints[0] ?? 'No summary point available.')}</text>
+
+  <text x="390" y="302" fill="#111827" font-size="16" font-family="${svgFont}" font-weight="700">Insight 2</text>
+  <text x="390" y="336" fill="#334155" font-size="15" font-family="${svgFont}">${escapeSvgText(summaryPoints[1] ?? 'No summary point available.')}</text>
+
+  <text x="696" y="302" fill="#111827" font-size="16" font-family="${svgFont}" font-weight="700">Insight 3</text>
+  <text x="696" y="336" fill="#334155" font-size="15" font-family="${svgFont}">${escapeSvgText(summaryPoints[2] ?? 'No summary point available.')}</text>
+
+  <rect x="1010" y="214" rx="14" ry="14" width="486" height="150" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <text x="1036" y="248" fill="#0F4FA8" font-size="20" font-family="${svgFont}" font-weight="700">Priority Actions</text>
+  <text x="1036" y="280" fill="#0F172A" font-size="15" font-family="${svgFont}">1) ${escapeSvgText(actionItems[0] ?? 'No action available')}</text>
+  <text x="1036" y="310" fill="#0F172A" font-size="15" font-family="${svgFont}">2) ${escapeSvgText(actionItems[1] ?? 'No action available')}</text>
+  <text x="1036" y="340" fill="#0F172A" font-size="15" font-family="${svgFont}">3) ${escapeSvgText(actionItems[2] ?? 'No action available')}</text>
+
+  <rect x="1010" y="374" rx="14" ry="14" width="486" height="150" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <text x="1036" y="408" fill="#0F4FA8" font-size="20" font-family="${svgFont}" font-weight="700">SWOT Trend</text>
+  <line x1="1048" y1="500" x2="1460" y2="500" stroke="#CBD5E1"/>
+  <rect x="1080" y="${500 - hStrengths}" width="72" height="${hStrengths}" fill="#3B82F6"/>
+  <rect x="1190" y="${500 - hOpportunities}" width="72" height="${hOpportunities}" fill="#06B6D4"/>
+  <rect x="1300" y="${500 - hThreats}" width="72" height="${hThreats}" fill="#FB7185"/>
+  <text x="1080" y="522" fill="#334155" font-size="14" font-family="${svgFont}">Strengths ${strengths}</text>
+  <text x="1184" y="522" fill="#334155" font-size="14" font-family="${svgFont}">Opportunities ${opportunities}</text>
+  <text x="1326" y="522" fill="#334155" font-size="14" font-family="${svgFont}" text-anchor="middle">Threats ${threats}</text>
+
+  <rect x="40" y="540" rx="14" ry="14" width="728" height="230" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <rect x="768" y="540" rx="14" ry="14" width="728" height="230" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <text x="66" y="574" fill="#0F4FA8" font-size="20" font-family="${svgFont}" font-weight="700">Key Risks</text>
+  <text x="66" y="608" fill="#0F172A" font-size="15" font-family="${svgFont}">1) ${escapeSvgText(riskItems[0] ?? 'No key risk recorded')}</text>
+  <text x="66" y="638" fill="#0F172A" font-size="15" font-family="${svgFont}">2) ${escapeSvgText(riskItems[1] ?? 'No additional key risk recorded')}</text>
+
+  <text x="794" y="574" fill="#0F4FA8" font-size="20" font-family="${svgFont}" font-weight="700">Open Questions</text>
+  <text x="794" y="608" fill="#0F172A" font-size="15" font-family="${svgFont}">1) ${escapeSvgText(questionItems[0] ?? 'No open question recorded')}</text>
+  <text x="794" y="638" fill="#0F172A" font-size="15" font-family="${svgFont}">2) ${escapeSvgText(questionItems[1] ?? 'No additional open question recorded')}</text>
+
+  <rect x="0" y="834" width="1536" height="30" fill="#E5E7EB"/>
+  <text x="768" y="854" text-anchor="middle" fill="#64748B" font-size="13" font-family="${svgFont}">Generated by Glyphor Strategy Lab · Data-faithful deterministic infographic</text>
 </svg>`;
 
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
@@ -3724,14 +3784,21 @@ const server = createServer(async (req, res) => {
       let mimeType: 'image/png' = 'image/png';
       let fallbackUsed = false;
       let fallbackReason: string | null = null;
-      try {
-        const prompt = buildStrategyLabVisualPrompt(record);
-        const imageResponse = await strategyModelClient.generateImage(prompt, 'imagen-4.0-ultra-generate-001');
-        imageB64 = await applyWatermark(imageResponse.imageData);
-      } catch (error) {
+      const useAiVisual = process.env.STRATEGY_VISUAL_USE_AI === 'true';
+      if (useAiVisual) {
+        try {
+          const prompt = buildStrategyLabVisualPrompt(record);
+          const imageResponse = await strategyModelClient.generateImage(prompt, 'imagen-4.0-ultra-generate-001');
+          imageB64 = await applyWatermark(imageResponse.imageData);
+        } catch (error) {
+          fallbackUsed = true;
+          fallbackReason = (error as Error).message;
+          console.warn('[StrategyLabVisual] AI image generation failed, using deterministic fallback visual:', fallbackReason);
+          imageB64 = await buildStrategyFallbackVisualPng(record);
+        }
+      } else {
         fallbackUsed = true;
-        fallbackReason = (error as Error).message;
-        console.warn('[StrategyLabVisual] AI image generation failed, using deterministic fallback visual:', fallbackReason);
+        fallbackReason = 'AI visual generation disabled; deterministic infographic mode active';
         imageB64 = await buildStrategyFallbackVisualPng(record);
       }
 
