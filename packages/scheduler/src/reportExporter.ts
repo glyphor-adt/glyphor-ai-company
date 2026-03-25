@@ -11,6 +11,7 @@ import type { CotReport, CotRecord } from './cotEngine.js';
 import type { DeepDiveRecord, DeepDiveReport } from './deepDiveEngine.js';
 import type { StrategyAnalysisRecord, SynthesisOutput } from './strategyLabEngine.js';
 import PptxGenJS from 'pptxgenjs';
+import JSZip from 'jszip';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, PageNumber, Header, Footer, Tab, TabStopPosition, TabStopType, convertInchesToTwip } from 'docx';
 import { Storage } from '@google-cloud/storage';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
@@ -165,6 +166,118 @@ async function writeDocxBuffer(doc: Document): Promise<Buffer> {
     void templateBytes;
   }
   return Packer.toBuffer(doc);
+}
+
+function escapeXmlText(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+    .replace(/\n/g, '&#10;');
+}
+
+function applyPlaceholderReplacements(xml: string, vars: Record<string, string>): { xml: string; replacements: number } {
+  let next = xml;
+  let replacements = 0;
+
+  for (const [rawKey, rawValue] of Object.entries(vars)) {
+    const key = rawKey.trim();
+    if (!key) continue;
+
+    const escapedValue = escapeXmlText(rawValue ?? '');
+    const patterns = [
+      `{{${key}}}`,
+      `[[${key}]]`,
+      `<<${key}>>`,
+      `\${${key}}`,
+      `{{${key.toUpperCase()}}}`,
+      `[[${key.toUpperCase()}]]`,
+      `<<${key.toUpperCase()}>>`,
+      `\${${key.toUpperCase()}}`,
+    ];
+
+    for (const pattern of patterns) {
+      if (!next.includes(pattern)) continue;
+      const parts = next.split(pattern);
+      replacements += parts.length - 1;
+      next = parts.join(escapedValue);
+    }
+  }
+
+  return { xml: next, replacements };
+}
+
+async function renderTemplateDocument(format: TemplateFormat, vars: Record<string, string>): Promise<Buffer | null> {
+  const templateBytes = await downloadTemplateFromGcs(format);
+  if (!templateBytes) return null;
+
+  try {
+    const zip = await JSZip.loadAsync(templateBytes);
+    const filePattern = format === 'docx'
+      ? /^word\/.+\.xml$/
+      : /^ppt\/(slides\/slide\d+|slideLayouts\/slideLayout\d+|slideMasters\/slideMaster\d+|notesSlides\/notesSlide\d+)\.xml$/;
+
+    const files = Object.keys(zip.files).filter((name) => filePattern.test(name));
+    let totalReplacements = 0;
+
+    for (const fileName of files) {
+      const file = zip.file(fileName);
+      if (!file) continue;
+
+      const xml = await file.async('string');
+      const { xml: updatedXml, replacements } = applyPlaceholderReplacements(xml, vars);
+      if (replacements > 0) {
+        zip.file(fileName, updatedXml);
+        totalReplacements += replacements;
+      }
+    }
+
+    if (totalReplacements === 0) {
+      warnTemplateOnce(`Loaded ${format.toUpperCase()} template but no placeholders matched. Expected tokens like {{report_title}} or [[report_title]].`);
+    }
+
+    return (await zip.generateAsync({ type: 'nodebuffer' })) as Buffer;
+  } catch (error) {
+    warnTemplateOnce(`Failed to apply ${format.toUpperCase()} template placeholders; falling back to in-code builders.`);
+    return null;
+  }
+}
+
+function buildStrategyTemplateVars(record: StrategyAnalysisRecord): Record<string, string> {
+  const synthesis = record.synthesis;
+  const recs = synthesis?.strategicRecommendations ?? [];
+  const topRec = recs[0];
+  const swot = synthesis?.unifiedSwot;
+
+  return {
+    report_title: `Strategic Analysis: ${cleanMojibakeText(record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()))}`,
+    report_subtitle: cleanMojibakeText(record.query),
+    analysis_type: cleanMojibakeText(record.analysis_type),
+    depth: cleanMojibakeText(record.depth),
+    report_date: new Date(record.created_at).toLocaleDateString(),
+    total_sources: String(record.total_sources ?? 0),
+    total_searches: String(record.total_searches ?? 0),
+    overall_confidence: cleanMojibakeText(record.overall_confidence ?? 'unknown'),
+    executive_summary: cleanMojibakeText(synthesis?.executiveSummary ?? ''),
+    cross_framework_insights: cleanMojibakeText((synthesis?.crossFrameworkInsights ?? []).join(' | ')),
+    strengths_count: String(swot?.strengths?.length ?? 0),
+    weaknesses_count: String(swot?.weaknesses?.length ?? 0),
+    opportunities_count: String(swot?.opportunities?.length ?? 0),
+    threats_count: String(swot?.threats?.length ?? 0),
+    strengths_list: cleanMojibakeText((swot?.strengths ?? []).join(' | ')),
+    weaknesses_list: cleanMojibakeText((swot?.weaknesses ?? []).join(' | ')),
+    opportunities_list: cleanMojibakeText((swot?.opportunities ?? []).join(' | ')),
+    threats_list: cleanMojibakeText((swot?.threats ?? []).join(' | ')),
+    recommendations_count: String(recs.length),
+    top_recommendation_title: cleanMojibakeText(topRec?.title ?? ''),
+    top_recommendation_owner: cleanMojibakeText(topRec?.owner ?? ''),
+    top_recommendation_expected_outcome: cleanMojibakeText(topRec?.expectedOutcome ?? ''),
+    key_risks: cleanMojibakeText((synthesis?.keyRisks ?? []).join(' | ')),
+    open_questions: cleanMojibakeText((synthesis?.openQuestionsForFounders ?? []).join(' | ')),
+    generated_on: new Date().toLocaleDateString(),
+  };
 }
 
 /** Branded footer bar on every slide */
@@ -1599,6 +1712,9 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
 /* â”€â”€ Strategy Lab v2: PPTX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Promise<Buffer> {
+  const templated = await renderTemplateDocument('pptx', buildStrategyTemplateVars(record));
+  if (templated) return templated;
+
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_16x9';
   pptx.author = 'Glyphor AI';
@@ -1759,6 +1875,9 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
 /* â”€â”€ Strategy Lab v2: DOCX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Promise<Buffer> {
+  const templated = await renderTemplateDocument('docx', buildStrategyTemplateVars(record));
+  if (templated) return templated;
+
   const s = record.synthesis;
   const typeLabel = cleanMojibakeText(record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
 
@@ -2313,7 +2432,9 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
   const vars = deriveTemplateVariables(record);
   const validationIssues = validateInfographicVariables(vars);
   if (validationIssues.length > 0) {
-    throw new Error(`Infographic template validation failed:\n- ${validationIssues.join('\n- ')}`);
+    console.warn(
+      `[ReportTemplate] Infographic template validation issues detected; continuing with sanitized prompt variables:\n- ${validationIssues.join('\n- ')}`,
+    );
   }
 
   const leftMetricLines = vars.left_secondary_metrics.map((metric) => `  • "${metric}"`).join('\n');

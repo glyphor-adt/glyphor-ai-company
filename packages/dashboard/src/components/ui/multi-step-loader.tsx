@@ -37,6 +37,14 @@ export function MultiStepLoader({
     ? 'fixed inset-0 left-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md md:left-[220px]'
     : 'relative w-full rounded-lg border border-cyan/25 bg-transparent p-4';
 
+  const activeTextClassName = mode === 'overlay'
+    ? 'text-[15px] font-medium text-neutral-200 transition-colors duration-300'
+    : 'text-[15px] font-medium text-txt-primary transition-colors duration-300';
+
+  const metaTextClassName = mode === 'overlay'
+    ? 'text-xs font-mono tracking-wider text-neutral-400'
+    : 'text-xs font-mono tracking-wider text-txt-muted';
+
   return (
     <div className={containerClassName}>
       <div className="relative mx-4 w-full max-w-md">
@@ -69,19 +77,15 @@ export function MultiStepLoader({
               ) : (
                 <MdRadioButtonUnchecked className="shrink-0 text-[#00E0FF]" size={20} />
               )}
-              <span className={cn('text-[15px] font-medium text-neutral-200 transition-colors duration-300')}>
+              <span className={cn(activeTextClassName)}>
                 {activeState?.text ?? 'Working...'}
               </span>
             </motion.div>
           </AnimatePresence>
         </div>
 
-        <div className="mt-6 flex items-center justify-between px-1">
-          <span className="text-xs font-mono tracking-wider text-neutral-600">
-            {safeStep + 1} / {states.length}
-            {isHolding && <span className="ml-2 text-[#00E0FF]/40">- still working</span>}
-          </span>
-          <span className="text-xs font-mono tracking-wider text-neutral-600">
+        <div className="mt-6 flex items-center justify-end px-1">
+          <span className={cn(metaTextClassName)}>
             {minutes}:{seconds.toString().padStart(2, '0')}
           </span>
         </div>

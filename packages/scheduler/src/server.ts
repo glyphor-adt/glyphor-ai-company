@@ -3505,17 +3505,12 @@ const server = createServer(async (req, res) => {
         context: ddContext,
         requestedBy: requestedBy ?? 'dashboard',
       });
-      // Send the ID back to the dashboard immediately so it can start polling.
-      // Write the response body but DON'T call res.end() yet — keeping the HTTP
-      // connection open prevents Cloud Run from scaling down the instance while
-      // the deep dive research is running in the background.
-      res.writeHead(200, {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+      // Detach completion so launch can return immediately and the UI can poll.
+      // Holding this request open risks Cloud Run request timeouts on long dives.
+      void completion.catch((err) => {
+        console.error('[DeepDive] Background run failed after launch:', err);
       });
-      res.write(JSON.stringify({ success: true, id: ddId }));
-      await completion;
-      res.end();
+      json(res, 200, { success: true, id: ddId });
       return;
     }
 
