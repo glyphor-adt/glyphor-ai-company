@@ -57,6 +57,22 @@ async function logPlatformAction(
   return row?.id;
 }
 
+function extractToolNameFromFinding(description: string): string | null {
+  const patterns = [
+    /tool\s*["'`]([a-z][a-z0-9_-]{2,63})["'`]/i,
+    /tool[_\s-]?name\s*[:=]\s*([a-z][a-z0-9_-]{2,63})/i,
+    /missing\s+tool\s+([a-z][a-z0-9_-]{2,63})/i,
+    /\b([a-z][a-z0-9_]{2,63})\b\s+does not exist/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = description.match(pattern);
+    if (match?.[1]) return match[1];
+  }
+
+  return null;
+}
+
 // ── Tool factory ────────────────────────────────────────────────
 
 export function createPlatformIntelTools(): ToolDefinition[] {
@@ -277,6 +293,133 @@ export function createPlatformIntelTools(): ToolDefinition[] {
           queryParams,
         );
         return { success: true, data: rows };
+      },
+    },
+
+    {
+      name: 'watch_tool_gaps',
+      description: 'Watch unresolved fleet_findings where finding_type=tool_gap. Auto-register missing tools in tool_registry and grant them to affected agents without waiting for human dispatch.',
+      parameters: {
+        limit: { type: 'number', description: 'Max findings to process per run (default 20, max 100)', required: false },
+        mark_resolved: { type: 'boolean', description: 'Mark processed tool_gap findings resolved (default true)', required: false },
+      },
+      execute: async (params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> => {
+        const limitRaw = typeof params.limit === 'number' ? params.limit : 20;
+        const limit = Math.max(1, Math.min(limitRaw, 100));
+        const markResolved = params.mark_resolved !== false;
+
+        const findings = await systemQuery<{
+          id: string;
+          agent_id: string;
+          severity: string;
+          description: string;
+        }>(
+          `SELECT id, agent_id, severity, description
+             FROM fleet_findings
+            WHERE finding_type = 'tool_gap'
+              AND resolved_at IS NULL
+            ORDER BY created_at ASC
+            LIMIT $1`,
+          [limit],
+        );
+
+        const results: Array<Record<string, unknown>> = [];
+
+        for (const finding of findings) {
+          const toolName = extractToolNameFromFinding(finding.description);
+          if (!toolName) {
+            results.push({
+              finding_id: finding.id,
+              agent_id: finding.agent_id,
+              status: 'skipped',
+              reason: 'Could not infer tool name from finding description',
+            });
+            continue;
+          }
+
+          let createdTool = false;
+
+          if (!(await isKnownToolAsync(toolName))) {
+            await systemQuery(
+              `INSERT INTO tool_registry (name, description, category, parameters, api_config, created_by, approved_by, is_active, tags)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8)
+               ON CONFLICT (name) DO NOTHING`,
+              [
+                toolName,
+                `Auto-created by Nexus from tool_gap finding ${finding.id}`,
+                'integration',
+                {},
+                null,
+                'platform-intel',
+                'platform-intel',
+                ['nexus-auto-tool-gap'],
+              ],
+            );
+            await refreshDynamicToolCache();
+            createdTool = true;
+
+            await logPlatformAction(
+              'register_tool',
+              'autonomous',
+              null,
+              `Auto-registered ${toolName} from tool_gap finding ${finding.id}`,
+              { tool_name: toolName, finding_id: finding.id },
+              ctx.runId,
+            );
+          }
+
+          await systemQuery(
+            `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (agent_role, tool_name) DO UPDATE
+               SET is_active = true, is_blocked = false, granted_by = EXCLUDED.granted_by, reason = EXCLUDED.reason, updated_at = NOW()`,
+            [
+              finding.agent_id,
+              toolName,
+              'platform-intel',
+              `Auto-granted from tool_gap finding ${finding.id}`,
+            ],
+          );
+          invalidateGrantCache(finding.agent_id);
+
+          if (markResolved) {
+            await systemQuery(
+              `UPDATE fleet_findings
+                  SET resolved_at = NOW()
+                WHERE id = $1`,
+              [finding.id],
+            );
+          }
+
+          await logPlatformAction(
+            'grant_tool',
+            'autonomous',
+            finding.agent_id,
+            `Auto-granted ${toolName} to ${finding.agent_id} from tool_gap finding ${finding.id}`,
+            { tool_name: toolName, finding_id: finding.id, created_tool: createdTool },
+            ctx.runId,
+          );
+
+          results.push({
+            finding_id: finding.id,
+            agent_id: finding.agent_id,
+            tool_name: toolName,
+            tool_created: createdTool,
+            granted: true,
+            resolved: markResolved,
+            status: 'processed',
+          });
+        }
+
+        return {
+          success: true,
+          data: {
+            scanned: findings.length,
+            processed: results.filter((r) => r.status === 'processed').length,
+            skipped: results.filter((r) => r.status === 'skipped').length,
+            results,
+          },
+        };
       },
     },
 

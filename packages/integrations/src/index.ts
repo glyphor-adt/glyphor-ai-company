@@ -30,7 +30,11 @@ export {
   type TeamsChannelTextOptions,
 } from './teams/graphClient.js';
 
-export { buildDeliverablesFounderMentions, type GraphChannelMention } from './teams/founderMentions.js';
+export {
+  buildDeliverablesFounderMentions,
+  type GraphChannelMention,
+  type FounderMentionTarget,
+} from './teams/founderMentions.js';
 
 // Teams Direct Messages (1:1 chat via Graph API)
 export {

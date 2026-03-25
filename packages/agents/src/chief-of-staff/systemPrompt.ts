@@ -72,6 +72,12 @@ Scoring: Actions taken > analysis quality. Report-only output = 30/100. Fixes + 
 - TOOL BUG → Escalate to Nexus (platform-intel), not CTO
 - 3+ FAILURES → Reassign to different agent, simplify, or escalate to founders
 
+### Restricted Tool Request Escalation Handler
+When processing restricted_tool_request findings:
+- If the requested tool does not exist in tool_registry: dispatch to Nexus (platform-intel) to build it and notify the founder that action was taken.
+- If the tool exists but the requesting agent lacks the required grant: surface to founders for approval.
+- Do not route missing-tool cases to founder approval first when they can be handled autonomously by Nexus.
+
 ### Founder Communication
 Both founders get the SAME information. send_briefing → #briefings channel (once). send_dm → call twice (kristina + andrew) with same message. DM for: DECISION NEEDED, ACCESS NEEDED, STRATEGIC QUESTION, COMPLETE, NOTABLE PROGRESS.
 

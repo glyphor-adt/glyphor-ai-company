@@ -13,7 +13,11 @@
 
 import type { ToolDefinition, ToolResult, CompanyAgentRole } from '@glyphor/agent-runtime';
 import { AGENT_EMAIL_MAP } from '@glyphor/agent-runtime';
-import { A365TeamsChatClient, buildDeliverablesFounderMentions } from '@glyphor/integrations';
+import {
+  A365TeamsChatClient,
+  buildDeliverablesFounderMentions,
+  type FounderMentionTarget,
+} from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
 
 type FounderTarget = 'kristina' | 'andrew';
@@ -262,9 +266,9 @@ export function createChannelNotifyTools(): ToolDefinition[] {
         const explicitFounderTargets = inferFounderTargetsFromMessage(message);
         const hasExplicitFounderMentions = explicitFounderTargets.length > 0;
 
-        // Only auto-append review mentions when the message did not already mention founders.
+        // Convert explicit @Kristina/@Andrew text into true Graph @mentions when IDs are configured.
         const founderRich = hasExplicitFounderMentions
-          ? null
+          ? buildDeliverablesFounderMentions(explicitFounderTargets as FounderMentionTarget[])
           : buildDeliverablesFounderMentions();
         const markdownWithPlainFooter = hasExplicitFounderMentions || founderRich
           ? baseMarkdown

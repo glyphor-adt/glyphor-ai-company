@@ -530,8 +530,8 @@ export async function postCardToChannel(
   const target = channels[channelName as keyof ChannelMap];
   const webhookUrl = getChannelWebhookUrl(channelName);
   const delegatedAgentPostsExplicitlyEnabled = process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS === 'true';
-  // Avoid no-send dead-end: if agent identity fails and no webhook exists, allow delegated fallback.
-  const skipDelegatedFallback = Boolean(agentRole) && !delegatedAgentPostsExplicitlyEnabled && Boolean(webhookUrl);
+  // Keep attribution clean: for agent-role posts, delegated fallback must be explicit opt-in.
+  const skipDelegatedFallback = Boolean(agentRole) && !delegatedAgentPostsExplicitlyEnabled;
 
   // 0. Agent identity (posts as the agent, not a human or bot)
   if (agentRole && target) {
@@ -598,8 +598,8 @@ export async function postTextToChannel(
   const target = channels[channelName as keyof ChannelMap];
   const webhookUrl = getChannelWebhookUrl(channelName);
   const delegatedAgentPostsExplicitlyEnabled = process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS === 'true';
-  // Avoid no-send dead-end: if agent identity fails and no webhook exists, allow delegated fallback.
-  const skipDelegatedFallback = Boolean(agentRole) && !delegatedAgentPostsExplicitlyEnabled && Boolean(webhookUrl);
+  // Keep attribution clean: for agent-role posts, delegated fallback must be explicit opt-in.
+  const skipDelegatedFallback = Boolean(agentRole) && !delegatedAgentPostsExplicitlyEnabled;
 
   // 0. Agent identity (posts as the agent, not a human or bot)
   if (agentRole && target) {
