@@ -61,6 +61,7 @@ export interface AnalysisRecord {
   requested_by: string;
   threads: ResearchThread[];
   report: AnalysisReport | null;
+  visual_image?: string | null;
   created_at: string;
   completed_at: string | null;
   error: string | null;

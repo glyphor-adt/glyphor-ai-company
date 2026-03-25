@@ -140,6 +140,7 @@ export interface StrategyAnalysisRecord {
   executive_outputs: Record<string, ExecutiveAnalysisOutput>;
   executive_progress: ExecutiveProgress[];
   synthesis: SynthesisOutput | null;
+  visual_image?: string | null;
   total_searches: number;
   total_sources: number;
   sources: StrategySource[];

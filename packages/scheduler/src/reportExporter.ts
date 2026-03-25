@@ -12,7 +12,7 @@ import type { DeepDiveRecord, DeepDiveReport } from './deepDiveEngine.js';
 import type { StrategyAnalysisRecord, SynthesisOutput } from './strategyLabEngine.js';
 import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, PageNumber, Header, Footer, Tab, TabStopPosition, TabStopType, convertInchesToTwip } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, PageNumber, Header, Footer, Tab, TabStopPosition, TabStopType, ImageRun, convertInchesToTwip } from 'docx';
 import { Storage } from '@google-cloud/storage';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { BRAND, TYPOGRAPHY, IDENTITY, DOC_LABELS, SLIDE, VISUAL_PALETTE_PROMPT, VISUAL_STYLE_PROMPT } from './brandTheme.js';
@@ -178,6 +178,101 @@ function escapeXmlText(text: string): string {
     .replace(/\n/g, '&#10;');
 }
 
+function splitParagraphs(text: string): string[] {
+  return cleanMojibakeText(text)
+    .split(/\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function firstSentence(text: string, fallback = ''): string {
+  const normalized = cleanMojibakeText(text).replace(/\s+/g, ' ').trim();
+  if (!normalized) return fallback;
+  const match = normalized.match(/^.+?[.!?](?:\s|$)/);
+  return (match?.[0] ?? normalized).trim();
+}
+
+function formatTemplateList(items: string[], options?: { numbered?: boolean; maxItems?: number; fallback?: string }): string {
+  const maxItems = options?.maxItems ?? items.length;
+  const values = items
+    .map((item) => cleanMojibakeText(item).trim())
+    .filter(Boolean)
+    .slice(0, maxItems);
+
+  if (values.length === 0) return options?.fallback ?? '';
+
+  return values
+    .map((item, index) => options?.numbered ? `${index + 1}. ${item}` : `• ${item}`)
+    .join('\n');
+}
+
+function formatTemplatePairs(items: Array<[string, string]>, fallback = ''): string {
+  const values = items
+    .map(([label, value]) => [cleanMojibakeText(label).trim(), cleanMojibakeText(value).trim()] as const)
+    .filter(([, value]) => value.length > 0);
+
+  if (values.length === 0) return fallback;
+
+  return values.map(([label, value]) => `${label}: ${value}`).join('\n');
+}
+
+function normalizeStoredImageDataUri(image: string | null | undefined, mimeType = 'image/png'): string | null {
+  const trimmed = image?.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('data:')) return trimmed;
+  return `data:${mimeType};base64,${trimmed}`;
+}
+
+function imageDataUriToBuffer(image: string | null | undefined): Buffer | null {
+  const dataUri = normalizeStoredImageDataUri(image);
+  if (!dataUri) return null;
+  const match = dataUri.match(/^data:[^;]+;base64,(.+)$/);
+  if (!match?.[1]) return null;
+  return Buffer.from(match[1], 'base64');
+}
+
+function addPptInfographicSlide(pptx: PptxGenJS, title: string, image: string | null | undefined, caption?: string): void {
+  const dataUri = normalizeStoredImageDataUri(image);
+  if (!dataUri) return;
+
+  const slide = pptx.addSlide();
+  slide.background = { color: SLIDE_BG };
+  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.06, fill: { color: SLIDE_CYAN } });
+  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.06, h: 5.63, fill: { color: SLIDE_CYAN } });
+  slide.addText(title, { x: 0.6, y: 0.25, w: 9, fontSize: 22, color: SLIDE_CYAN, fontFace: FONT_HEADING, bold: true });
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 0.55, y: 0.85, w: 8.9, h: 3.95,
+    fill: { color: 'FFFFFF' }, line: { color: '2D3348', width: 0.5 }, rectRadius: 0.06,
+  });
+  slide.addImage({ data: dataUri, x: 0.75, y: 1.0, w: 8.5, h: 3.55 });
+  if (caption) {
+    slide.addText(cleanMojibakeText(caption), {
+      x: 0.75, y: 4.7, w: 8.5, h: 0.25,
+      fontSize: 10, color: SLIDE_MUTED, fontFace: FONT_BODY, align: 'center',
+    });
+  }
+  addSlideFooter(slide, pptx);
+}
+
+function addDocxInfographicBlock(children: (Paragraph | Table)[], heading: string, image: string | null | undefined, caption?: string): void {
+  const buffer = imageDataUriToBuffer(image);
+  if (!buffer) return;
+
+  children.push(...docxSectionHeading(heading, '00E0FF'));
+  children.push(new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 120 },
+    children: [new ImageRun({ type: 'png', data: buffer, transformation: { width: 700, height: 394 } })],
+  }));
+  if (caption) {
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 120 },
+      children: [new TextRun({ text: cleanMojibakeText(caption), italics: true, size: 18, color: '8B95A5', font: 'Segoe UI' })],
+    }));
+  }
+}
+
 function applyPlaceholderReplacements(xml: string, vars: Record<string, string>): { xml: string; replacements: number } {
   let next = xml;
   let replacements = 0;
@@ -261,6 +356,160 @@ function buildStrategyTemplateLiteralVars(record: StrategyAnalysisRecord): Recor
   };
 }
 
+function buildAnalysisTemplateVars(record: AnalysisRecord): Record<string, string> {
+  const report = record.report;
+  const typeLabel = cleanMojibakeText(record.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
+  const summary = cleanMojibakeText(report?.summary ?? '');
+  const strengths = report?.swot.strengths ?? [];
+  const weaknesses = report?.swot.weaknesses ?? [];
+  const opportunities = report?.swot.opportunities ?? [];
+  const threats = report?.swot.threats ?? [];
+  const recommendations = report?.recommendations ?? [];
+  const risks = [...weaknesses, ...threats];
+  const keyFindings = [...strengths, ...opportunities];
+  const threads = report?.threads ?? record.threads ?? [];
+
+  const vars: Record<string, string> = {
+    report_title: `Strategic Analysis: ${typeLabel}`,
+    report_subtitle: cleanMojibakeText(record.query),
+    analysis_type: typeLabel,
+    depth: cleanMojibakeText(record.depth),
+    report_date: new Date(record.created_at).toLocaleDateString(),
+    report_status: cleanMojibakeText(record.status),
+    executive_summary: summary,
+    executive_summary_short: clampWords(firstSentence(summary, summary), 24, false),
+    key_findings: formatTemplateList(keyFindings, { numbered: true, maxItems: 6, fallback: 'No key findings available.' }),
+    strengths_list: formatTemplateList(strengths, { maxItems: 8, fallback: 'No strengths identified.' }),
+    weaknesses_list: formatTemplateList(weaknesses, { maxItems: 8, fallback: 'No weaknesses identified.' }),
+    opportunities_list: formatTemplateList(opportunities, { maxItems: 8, fallback: 'No opportunities identified.' }),
+    threats_list: formatTemplateList(threats, { maxItems: 8, fallback: 'No threats identified.' }),
+    recommendations_list: formatTemplateList(
+      recommendations.map((rec) => `${cleanMojibakeText(rec.title)} [${rec.priority.toUpperCase()}] — ${cleanMojibakeText(rec.detail)}`),
+      { numbered: true, maxItems: 8, fallback: 'No recommendations available.' },
+    ),
+    risk_considerations: formatTemplateList(risks, { numbered: true, maxItems: 6, fallback: 'No risk considerations recorded.' }),
+    research_threads: formatTemplateList(
+      threads.map((thread) => `${cleanMojibakeText(thread.label)} (${cleanMojibakeText(thread.perspective)}) — ${cleanMojibakeText(thread.status)}${thread.result ? ` — ${clampWords(cleanMojibakeText(thread.result), 28)}` : ''}`),
+      { numbered: true, maxItems: 10, fallback: 'No research threads available.' },
+    ),
+    strengths_count: String(strengths.length),
+    weaknesses_count: String(weaknesses.length),
+    opportunities_count: String(opportunities.length),
+    threats_count: String(threats.length),
+    recommendations_count: String(recommendations.length),
+    top_recommendation_title: cleanMojibakeText(recommendations[0]?.title ?? ''),
+    top_recommendation_detail: cleanMojibakeText(recommendations[0]?.detail ?? ''),
+    visual_caption: `${typeLabel} overview infographic`,
+  };
+
+  vars.__literal_replacements_json__ = JSON.stringify({
+    'Report Title': vars.report_title,
+    'Subtitle': vars.report_subtitle,
+    'Section Heading': 'Executive Summary',
+    'Section Title': typeLabel,
+    'Slide Title': vars.report_title,
+    'Brief description of this section.': clampWords(vars.executive_summary_short, 20),
+    'Body text. Clear, direct, architectural. Present tense, active voice. Numbers beat adjectives. Lead with the outcome, not the method.': clampWords(summary, 40),
+    'Second paragraph. Continue the narrative with additional context, evidence, or analysis.': clampWords(keyFindings[0] ?? summary, 28),
+    'Subsection': 'Key Findings',
+    'Subsection body text. Specific, evidenced, grounded.': clampWords(keyFindings[1] ?? summary, 24),
+    'Cross-Framework Insight body text. Specific, evidenced, grounded.': clampWords(recommendations[0]?.detail ?? summary, 24),
+    'KEY FINDING  Critical information or decision point. One clear, direct statement.': `KEY FINDING  ${clampWords(keyFindings[0] ?? risks[0] ?? summary, 18)}`,
+    'Critical information or decision point. One clear, direct statement.': clampWords(keyFindings[0] ?? risks[0] ?? summary, 16),
+    'First key point.': clampWords(keyFindings[0] ?? summary, 12),
+    'Second key point.': clampWords(keyFindings[1] ?? summary, 12),
+    'Third key point.': clampWords(keyFindings[2] ?? recommendations[0]?.title ?? summary, 12),
+  });
+
+  return vars;
+}
+
+function buildDeepDiveTemplateVars(record: DeepDiveRecord): Record<string, string> {
+  const report = record.report;
+  const summary = cleanMojibakeText(report?.overview.description ?? '');
+  const strengths = report?.currentState.keyStrengths.map((item) => `${item.point} — ${item.evidence}`) ?? [];
+  const challenges = report?.currentState.keyChallenges.map((item) => `${item.point} — ${item.evidence}`) ?? [];
+  const recommendations = report?.strategicRecommendations ?? [];
+  const roadmap = report?.implementationRoadmap ?? [];
+  const roi = report?.roiAnalysis ?? [];
+  const risks = report?.riskAssessment ?? [];
+  const sources = report?.sourceCitations ?? [];
+  const verification = report?.verificationSummary;
+
+  const vars: Record<string, string> = {
+    report_title: `Strategic Deep Dive: ${cleanMojibakeText(record.target)}`,
+    report_subtitle: cleanMojibakeText(record.context ?? record.target),
+    analysis_type: cleanMojibakeText(report?.targetType ?? 'Deep Dive'),
+    report_date: new Date(record.created_at).toLocaleDateString(),
+    report_status: cleanMojibakeText(record.status),
+    executive_summary: summary,
+    executive_summary_short: clampWords(firstSentence(summary, summary), 24, false),
+    current_state_strengths: formatTemplateList(strengths, { maxItems: 6, fallback: 'No strengths identified.' }),
+    current_state_challenges: formatTemplateList(challenges, { maxItems: 6, fallback: 'No challenges identified.' }),
+    strategic_recommendations: formatTemplateList(
+      recommendations.map((rec) => `${cleanMojibakeText(rec.title)} [${rec.priority.toUpperCase()}] — ${cleanMojibakeText(rec.description)}`),
+      { numbered: true, maxItems: 8, fallback: 'No strategic recommendations available.' },
+    ),
+    implementation_roadmap: formatTemplateList(
+      roadmap.map((phase) => `${cleanMojibakeText(phase.phase)} — ${cleanMojibakeText(phase.timeline)} — ${cleanMojibakeText(phase.resources)}`),
+      { numbered: true, maxItems: 6, fallback: 'No implementation roadmap available.' },
+    ),
+    roi_analysis: formatTemplateList(
+      roi.map((scenario) => {
+        const firstProjection = scenario.projections[0];
+        const projectionSummary = firstProjection
+          ? `Year ${firstProjection.year}: revenue ${cleanMojibakeText(firstProjection.revenue)}, net benefit ${cleanMojibakeText(firstProjection.netBenefit)}`
+          : 'No projection details';
+        return `${cleanMojibakeText(scenario.scenario)} — payback ${cleanMojibakeText(scenario.paybackPeriod)} — ${projectionSummary}`;
+      }),
+      { numbered: true, maxItems: 6, fallback: 'No ROI scenarios available.' },
+    ),
+    risk_assessment: formatTemplateList(
+      risks.map((risk) => `[${risk.probability.toUpperCase()}/${risk.impact.toUpperCase()}] ${cleanMojibakeText(risk.risk)} — ${cleanMojibakeText(risk.mitigation)}`),
+      { numbered: true, maxItems: 8, fallback: 'No risks recorded.' },
+    ),
+    source_citations: formatTemplateList(
+      sources.map((src) => `[${src.id}] ${cleanMojibakeText(src.title)}${src.url ? ` — ${cleanMojibakeText(src.url)}` : ''}`),
+      { numbered: false, maxItems: 12, fallback: 'No source citations available.' },
+    ),
+    verification_summary: verification
+      ? formatTemplatePairs([
+          ['Overall Confidence', `${Math.round(verification.overallConfidence * 100)}%`],
+          ['Areas Verified', String(verification.areasVerified)],
+          ['Models Used', verification.modelsUsed.join(', ')],
+        ])
+      : 'No verification summary available.',
+    verification_flags: formatTemplateList(verification?.flaggedClaims ?? [], { maxItems: 6, fallback: 'No flagged claims.' }),
+    verification_corrections: formatTemplateList(verification?.correctionsMade ?? [], { maxItems: 6, fallback: 'No corrections recorded.' }),
+    strengths_count: String(strengths.length),
+    weaknesses_count: String(challenges.length),
+    recommendations_count: String(recommendations.length),
+    sources_count: String(record.sources.length),
+    visual_caption: `${cleanMojibakeText(record.target)} strategic infographic`,
+  };
+
+  vars.__literal_replacements_json__ = JSON.stringify({
+    'Report Title': vars.report_title,
+    'Subtitle': vars.report_subtitle,
+    'Section Heading': 'Company Overview',
+    'Section Title': cleanMojibakeText(report?.targetType ?? 'Deep Dive'),
+    'Slide Title': vars.report_title,
+    'Brief description of this section.': clampWords(vars.executive_summary_short, 20),
+    'Body text. Clear, direct, architectural. Present tense, active voice. Numbers beat adjectives. Lead with the outcome, not the method.': clampWords(summary, 40),
+    'Second paragraph. Continue the narrative with additional context, evidence, or analysis.': clampWords(strengths[0] ?? summary, 28),
+    'Subsection': 'Current State',
+    'Subsection body text. Specific, evidenced, grounded.': clampWords(challenges[0] ?? summary, 24),
+    'Cross-Framework Insight body text. Specific, evidenced, grounded.': clampWords(recommendations[0]?.description ?? summary, 24),
+    'KEY FINDING  Critical information or decision point. One clear, direct statement.': `KEY FINDING  ${clampWords(strengths[0] ?? challenges[0] ?? summary, 18)}`,
+    'Critical information or decision point. One clear, direct statement.': clampWords(strengths[0] ?? challenges[0] ?? summary, 16),
+    'First key point.': clampWords(strengths[0] ?? summary, 12),
+    'Second key point.': clampWords(challenges[0] ?? summary, 12),
+    'Third key point.': clampWords(recommendations[0]?.title ?? summary, 12),
+  });
+
+  return vars;
+}
+
 async function renderTemplateDocument(format: TemplateFormat, vars: Record<string, string>): Promise<Buffer | null> {
   const templateBytes = await downloadTemplateFromGcs(format);
   if (!templateBytes) return null;
@@ -300,6 +549,7 @@ async function renderTemplateDocument(format: TemplateFormat, vars: Record<strin
 
     if (totalReplacements === 0) {
       warnTemplateOnce(`Loaded ${format.toUpperCase()} template but no placeholders matched. Expected tokens like {{report_title}} or [[report_title]].`);
+      return null;
     }
 
     return (await zip.generateAsync({ type: 'nodebuffer' })) as Buffer;
@@ -314,6 +564,9 @@ function buildStrategyTemplateVars(record: StrategyAnalysisRecord): Record<strin
   const recs = synthesis?.strategicRecommendations ?? [];
   const topRec = recs[0];
   const swot = synthesis?.unifiedSwot;
+  const insights = synthesis?.crossFrameworkInsights ?? [];
+  const risks = synthesis?.keyRisks ?? [];
+  const questions = synthesis?.openQuestionsForFounders ?? [];
 
   const vars: Record<string, string> = {
     report_title: `Strategic Analysis: ${cleanMojibakeText(record.analysis_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()))}`,
@@ -325,7 +578,9 @@ function buildStrategyTemplateVars(record: StrategyAnalysisRecord): Record<strin
     total_searches: String(record.total_searches ?? 0),
     overall_confidence: cleanMojibakeText(record.overall_confidence ?? 'unknown'),
     executive_summary: cleanMojibakeText(synthesis?.executiveSummary ?? ''),
+    executive_summary_short: clampWords(firstSentence(cleanMojibakeText(synthesis?.executiveSummary ?? ''), cleanMojibakeText(synthesis?.executiveSummary ?? '')), 24, false),
     cross_framework_insights: cleanMojibakeText((synthesis?.crossFrameworkInsights ?? []).join(' | ')),
+    cross_framework_insights_block: formatTemplateList(insights, { numbered: true, maxItems: 8, fallback: 'No cross-framework insights available.' }),
     strengths_count: String(swot?.strengths?.length ?? 0),
     weaknesses_count: String(swot?.weaknesses?.length ?? 0),
     opportunities_count: String(swot?.opportunities?.length ?? 0),
@@ -334,12 +589,25 @@ function buildStrategyTemplateVars(record: StrategyAnalysisRecord): Record<strin
     weaknesses_list: cleanMojibakeText((swot?.weaknesses ?? []).join(' | ')),
     opportunities_list: cleanMojibakeText((swot?.opportunities ?? []).join(' | ')),
     threats_list: cleanMojibakeText((swot?.threats ?? []).join(' | ')),
+    strengths_block: formatTemplateList(swot?.strengths ?? [], { maxItems: 8, fallback: 'No strengths identified.' }),
+    weaknesses_block: formatTemplateList(swot?.weaknesses ?? [], { maxItems: 8, fallback: 'No weaknesses identified.' }),
+    opportunities_block: formatTemplateList(swot?.opportunities ?? [], { maxItems: 8, fallback: 'No opportunities identified.' }),
+    threats_block: formatTemplateList(swot?.threats ?? [], { maxItems: 8, fallback: 'No threats identified.' }),
     recommendations_count: String(recs.length),
     top_recommendation_title: cleanMojibakeText(topRec?.title ?? ''),
     top_recommendation_owner: cleanMojibakeText(topRec?.owner ?? ''),
     top_recommendation_expected_outcome: cleanMojibakeText(topRec?.expectedOutcome ?? ''),
+    strategic_recommendations: formatTemplateList(
+      recs.map((rec) => `${cleanMojibakeText(rec.title)} [${rec.impact.toUpperCase()} IMPACT] — ${cleanMojibakeText(rec.description)}`),
+      { numbered: true, maxItems: 10, fallback: 'No recommendations available.' },
+    ),
     key_risks: cleanMojibakeText((synthesis?.keyRisks ?? []).join(' | ')),
     open_questions: cleanMojibakeText((synthesis?.openQuestionsForFounders ?? []).join(' | ')),
+    key_risks_block: formatTemplateList(risks, { numbered: true, maxItems: 8, fallback: 'No key risks captured.' }),
+    open_questions_block: formatTemplateList(questions, { numbered: true, maxItems: 8, fallback: 'No open questions captured.' }),
+    sources_block: formatTemplateList((record.sources ?? []).map((src) => `${cleanMojibakeText(src.title)} — ${cleanMojibakeText(src.url)}`), { maxItems: 12, fallback: 'No sources available.' }),
+    framework_convergence: cleanMojibakeText(record.framework_convergence ?? ''),
+    visual_caption: `${cleanMojibakeText(record.query)} infographic summary`,
     generated_on: new Date().toLocaleDateString(),
   };
 
@@ -560,6 +828,9 @@ export function exportSimulationJSON(record: SimulationRecord): string {
 /* â”€â”€ Analysis Export: PPTX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer> {
+  const templated = await renderTemplateDocument('pptx', buildAnalysisTemplateVars(record));
+  if (templated) return templated;
+
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_16x9';
   pptx.author = 'Glyphor AI';
@@ -570,6 +841,7 @@ export async function exportAnalysisPPTX(record: AnalysisRecord): Promise<Buffer
 
   // 1. Title slide
   pptxTitleSlide(pptx, typeLabel, record.query, `Depth: ${record.depth}  Â·  ${new Date(record.created_at).toLocaleDateString()}  Â·  Glyphor AI Strategy Lab`);
+  addPptInfographicSlide(pptx, 'Executive Infographic', record.visual_image, `${typeLabel} visual summary`);
 
   if (!report) {
     const slide = pptx.addSlide();
@@ -742,6 +1014,9 @@ function docxBulletItem(text: string, color?: string): Paragraph {
 }
 
 export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer> {
+  const templated = await renderTemplateDocument('docx', buildAnalysisTemplateVars(record));
+  if (templated) return templated;
+
   const report = record.report;
   const typeLabel = record.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -781,6 +1056,8 @@ export async function exportAnalysisDOCX(record: AnalysisRecord): Promise<Buffer
     children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
     return writeDocxBuffer(new Document({ sections: [{ children }] }));
   }
+
+  addDocxInfographicBlock(children, 'Executive Infographic', record.visual_image, `${typeLabel} visual summary`);
 
   // â”€â”€ Executive Summary â”€â”€
   children.push(...docxSectionHeading('Executive Summary', '00E0FF'));
@@ -1425,6 +1702,9 @@ export function exportDeepDiveJSON(record: DeepDiveRecord): string {
 /* â”€â”€ Deep Dive Export: PPTX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer> {
+  const templated = await renderTemplateDocument('pptx', buildDeepDiveTemplateVars(record));
+  if (templated) return templated;
+
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_16x9';
   pptx.author = 'Glyphor AI';
@@ -1432,6 +1712,7 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
 
   const report = record.report;
   pptxTitleSlide(pptx, `Strategic Deep Dive`, record.target, `${record.sources.length} sources analyzed  ·  Cross-model verified  ·  ${new Date(record.created_at).toLocaleDateString()}  ·  Glyphor AI Strategy Lab`);
+  addPptInfographicSlide(pptx, 'Executive Infographic', record.visual_image, `${cleanMojibakeText(record.target)} visual summary`);
 
   if (!report) {
     const slide = pptx.addSlide();
@@ -1564,6 +1845,9 @@ export async function exportDeepDivePPTX(record: DeepDiveRecord): Promise<Buffer
 /* â”€â”€ Deep Dive Export: DOCX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer> {
+  const templated = await renderTemplateDocument('docx', buildDeepDiveTemplateVars(record));
+  if (templated) return templated;
+
   const report = record.report;
   const children: (Paragraph | Table)[] = [];
 
@@ -1597,6 +1881,8 @@ export async function exportDeepDiveDOCX(record: DeepDiveRecord): Promise<Buffer
     children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
     return writeDocxBuffer(new Document({ background: { color: '0F1117' }, sections: [{ children: children as Paragraph[] }] }));
   }
+
+  addDocxInfographicBlock(children, 'Executive Infographic', record.visual_image, `${cleanMojibakeText(record.target)} visual summary`);
 
   // Overview
   children.push(...docxSectionHeading('Company Overview', '00E0FF'));
@@ -1794,6 +2080,7 @@ export async function exportStrategyLabPPTX(record: StrategyAnalysisRecord): Pro
     pptx, typeLabel, queryText,
     cleanMojibakeText(`Depth: ${record.depth} · ${record.total_sources} sources · ${record.total_searches} searches · ${new Date(record.created_at).toLocaleDateString()}`),
   );
+  addPptInfographicSlide(pptx, 'Executive Infographic', record.visual_image, `${queryText} visual summary`);
 
   const s = record.synthesis;
   if (!s) {
@@ -1985,6 +2272,8 @@ export async function exportStrategyLabDOCX(record: StrategyAnalysisRecord): Pro
     children.push(new Paragraph({ children: [new TextRun({ text: 'Report not yet generated.', italics: true })] }));
     return writeDocxBuffer(new Document({ background: { color: '0F1117' }, sections: [{ children }] }));
   }
+
+  addDocxInfographicBlock(children, 'Executive Infographic', record.visual_image, `${cleanMojibakeText(record.query)} visual summary`);
 
   // Executive Summary
   children.push(...docxSectionHeading('Executive Summary', '00E0FF'));
