@@ -464,7 +464,7 @@ function buildResearchAreas(target: string): ResearchArea[] {
 
 export class DeepDiveEngine {
   private static readonly EXECUTION_LEASE_MINUTES = 15;
-  private static readonly STALE_RUN_TIMEOUT_MINUTES = 90;
+  private static readonly STALE_RUN_TIMEOUT_MINUTES = 45;
 
   constructor(
     private modelClient: ModelClient,
