@@ -103,12 +103,12 @@ const PORT = parseInt(process.env.PORT || '8080', 10);
 const oidcClient = new OAuth2Client();
 
 // ─── Logo watermark ─────────────────────────────────────────────
-const LOGO_PATH = path.resolve(import.meta.dirname, '../../dashboard/public/glyphor-logo.png');
-const LOGO_FALLBACK = path.resolve(import.meta.dirname, '../../../public/glyphor-logo.png');
-let logoBuf: Buffer | null = null;
+const HEADER_LOGO_PATH = path.resolve(import.meta.dirname, '../../dashboard/public/glyphor_full_white.png');
+const HEADER_LOGO_FALLBACK = path.resolve(import.meta.dirname, '../../../public/glyphor_full_white.png');
+let headerLogoBuf: Buffer | null = null;
 try {
-  logoBuf = fs.readFileSync(fs.existsSync(LOGO_PATH) ? LOGO_PATH : LOGO_FALLBACK);
-} catch { /* logo not available — skip watermark */ }
+  headerLogoBuf = fs.readFileSync(fs.existsSync(HEADER_LOGO_PATH) ? HEADER_LOGO_PATH : HEADER_LOGO_FALLBACK);
+} catch { /* header logo not available — skip */ }
 
 async function applyWatermark(imageB64: string): Promise<string> {
   const imgBuf = Buffer.from(imageB64, 'base64');
@@ -117,39 +117,22 @@ async function applyWatermark(imageB64: string): Promise<string> {
   const imgH = meta.height ?? 1024;
   const footerH = Math.max(44, Math.round((imgH * 60) / 1024));
   const footerY = imgH - footerH;
-  const pad = Math.max(10, Math.round((imgW * 14) / 1536));
   const footerText = '© Glyphor Corporation. All rights reserved.';
 
-  // ── Top-right logo (header overlay) ──
-  const headerLogoMaxW = Math.max(120, Math.round((imgW * 180) / 1536));
-  const headerLogoMaxH = Math.max(36, Math.round((imgH * 50) / 1024));
+  // ── Header logo (top-right on blue bar) ──
+  const headerLogoMaxW = Math.max(180, Math.round((imgW * 260) / 1536));
+  const headerLogoMaxH = Math.max(40, Math.round((imgH * 56) / 1024));
   let headerLogo: Buffer | null = null;
   let headerLogoW = 0;
   let headerLogoH = 0;
 
-  if (logoBuf) {
-    headerLogo = await sharp(logoBuf)
+  if (headerLogoBuf) {
+    headerLogo = await sharp(headerLogoBuf)
       .resize({ width: headerLogoMaxW, height: headerLogoMaxH, fit: 'inside', withoutEnlargement: true })
       .toBuffer();
     const hlMeta = await sharp(headerLogo).metadata();
     headerLogoW = hlMeta.width ?? headerLogoMaxW;
     headerLogoH = hlMeta.height ?? headerLogoMaxH;
-  }
-
-  // ── Footer logo (bottom-right corner) ──
-  const footerLogoMaxW = Math.max(52, Math.round((imgW * 78) / 1536));
-  const footerLogoMaxH = Math.max(30, footerH - pad * 2);
-  let footerLogo: Buffer | null = null;
-  let footerLogoW = 0;
-  let footerLogoH = 0;
-
-  if (logoBuf) {
-    footerLogo = await sharp(logoBuf)
-      .resize({ width: footerLogoMaxW, height: footerLogoMaxH, fit: 'inside', withoutEnlargement: true })
-      .toBuffer();
-    const flMeta = await sharp(footerLogo).metadata();
-    footerLogoW = flMeta.width ?? footerLogoMaxW;
-    footerLogoH = flMeta.height ?? footerLogoMaxH;
   }
 
   const footerSvg = Buffer.from(`
@@ -174,23 +157,14 @@ async function applyWatermark(imageB64: string): Promise<string> {
     },
   ];
 
-  // Header logo — top-right corner with padding
+  // Header logo — top-right corner on the blue bar
   if (headerLogo) {
-    const headerPad = Math.max(12, Math.round((imgW * 20) / 1536));
+    const headerPad = Math.max(16, Math.round((imgW * 24) / 1536));
     const headerBarH = Math.round(imgH * 0.08);
     composites.push({
       input: headerLogo,
       left: imgW - headerLogoW - headerPad,
       top: Math.max(headerPad, Math.round((headerBarH - headerLogoH) / 2)),
-    });
-  }
-
-  // Footer logo — bottom-right corner
-  if (footerLogo) {
-    composites.push({
-      input: footerLogo,
-      left: Math.max(pad, imgW - footerLogoW - pad),
-      top: footerY + Math.max(0, Math.round((footerH - footerLogoH) / 2)),
     });
   }
 
