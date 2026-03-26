@@ -93,6 +93,7 @@ jobs:
         with:
           filters: |
             scheduler:
+              - '.github/workflows/deploy.yml'
               - 'package.json'
               - 'package-lock.json'
               - 'turbo.json'
@@ -107,12 +108,14 @@ jobs:
               - 'packages/shared/**'
               - 'ToolingManifest.json'
             dashboard:
+              - '.github/workflows/deploy.yml'
               - 'package.json'
               - 'package-lock.json'
               - 'packages/dashboard/**'
               - 'docker/Dockerfile.dashboard'
               - 'docker/nginx.conf'
             worker:
+              - '.github/workflows/deploy.yml'
               - 'package.json'
               - 'package-lock.json'
               - 'turbo.json'
