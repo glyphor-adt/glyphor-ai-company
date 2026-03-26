@@ -465,7 +465,7 @@ export function createToolRequestTools(): ToolDefinition[] {
 
           if (!toolExistsRow?.exists) {
             await systemQuery(
-              `INSERT INTO fleet_findings (agent_id, severity, finding_type, title, description, evidence_data, created_at)
+              `INSERT INTO fleet_findings (agent_id, severity, finding_type, title, description, evidence_data, detected_at)
                VALUES ($1, 'P2', 'tool_gap', $2, $3, $4::jsonb, NOW())`,
               [
                 'platform-intel',
