@@ -2371,7 +2371,9 @@ export class CompanyAgentRunner {
       cost: estimateCost(routing?.model ?? config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens),
       abortReason: status === 'aborted' ? errorMsg : undefined,
       error: status === 'error' ? errorMsg : undefined,
-      resultSummary: status === 'skipped_precheck' && errorMsg ? `Precheck skip: ${errorMsg}` : undefined,
+      resultSummary: status === 'skipped_precheck' && errorMsg
+        ? `Precheck skip: ${errorMsg}`
+        : (status === 'completed' && output ? output.slice(0, 500) : undefined),
       reasoning: output ? extractReasoning(output) : undefined,
       conversationHistory: history,
       actions: actions && actions.length > 0 ? actions : undefined,

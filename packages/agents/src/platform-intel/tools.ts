@@ -411,12 +411,21 @@ export function createPlatformIntelTools(): ToolDefinition[] {
           });
         }
 
+        const processed = results.filter((r) => r.status === 'processed');
+        const skipped = results.filter((r) => r.status === 'skipped');
+        const created = processed.filter((r) => r.tool_created);
+
         return {
           success: true,
           data: {
+            summary: `Processed ${results.length} tool_gap findings. ` +
+              `Granted: ${processed.length}. ` +
+              `Created: ${created.length}. ` +
+              `Skipped: ${skipped.length}.`,
             scanned: findings.length,
-            processed: results.filter((r) => r.status === 'processed').length,
-            skipped: results.filter((r) => r.status === 'skipped').length,
+            processed: processed.length,
+            skipped: skipped.length,
+            created: created.length,
             results,
           },
         };

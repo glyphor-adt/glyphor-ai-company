@@ -1014,7 +1014,9 @@ ${memPrompt}`, timestamp: Date.now() });
       actualProvider,
       abortReason: status === 'aborted' ? errorMsg : undefined,
       error: status === 'error' ? errorMsg : undefined,
-      resultSummary: status === 'skipped_precheck' && errorMsg ? `Precheck skip: ${errorMsg}` : undefined,
+      resultSummary: status === 'skipped_precheck' && errorMsg
+        ? `Precheck skip: ${errorMsg}`
+        : (status === 'completed' && output ? output.slice(0, 500) : undefined),
       reasoning: output ? extractReasoning(output) : undefined,
       conversationHistory: history,
       routingRule: routing?.routingRule,
