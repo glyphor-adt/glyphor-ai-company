@@ -146,18 +146,6 @@ export default function GtmReadinessPanel() {
         </div>
       </div>
 
-      {/* Blocking issues — shown prominently when failing */}
-      {report.summary.blocking_issues.length > 0 && (
-        <div className="px-6 py-4 bg-red-500/5 border-b border-red-500/10">
-          <p className="text-[10px] font-semibold text-red-400 uppercase tracking-widest mb-2">
-            Blocking Issues
-          </p>
-          {report.summary.blocking_issues.map((issue, i) => (
-            <p key={i} className="text-xs text-red-300/80 font-mono mb-1">{issue}</p>
-          ))}
-        </div>
-      )}
-
       {/* Agent gate grid */}
       <div className="p-6 grid grid-cols-1 gap-3">
         {report.agents.map(agent => (
