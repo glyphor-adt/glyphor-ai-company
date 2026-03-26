@@ -237,6 +237,8 @@ export interface DeepDiveRecord {
   report: DeepDiveReport | null;
   visual_image?: string | null;
   created_at: string;
+  started_at?: string | null;
+  last_heartbeat_at?: string | null;
   completed_at: string | null;
   error: string | null;
 }
@@ -461,6 +463,7 @@ function buildResearchAreas(target: string): ResearchArea[] {
 /* ── Engine ─────────────────────────────────── */
 
 export class DeepDiveEngine {
+  private static readonly EXECUTION_LEASE_MINUTES = 15;
   private static readonly STALE_RUN_TIMEOUT_MINUTES = 90;
 
   constructor(
@@ -468,11 +471,8 @@ export class DeepDiveEngine {
     private model = getSpecialized('deep_research'),
   ) {}
 
-  /** Launch a deep dive. Returns the record ID. */
-  async launch(req: DeepDiveRequest): Promise<{ id: string; completion: Promise<void> }> {
-    const id = `deepdive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  async create(req: DeepDiveRequest, id = `deepdive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`): Promise<string> {
     const researchAreas = buildResearchAreas(req.target);
-
     const record: DeepDiveRecord = {
       id,
       target: req.target,
@@ -483,20 +483,56 @@ export class DeepDiveEngine {
       sources: [],
       report: null,
       created_at: new Date().toISOString(),
+      started_at: null,
+      last_heartbeat_at: null,
       completed_at: null,
       error: null,
     };
 
-    await systemQuery('INSERT INTO deep_dives (id, target, context, status, requested_by, research_areas, sources, report, created_at, completed_at, error) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [record.id, record.target, record.context, record.status, record.requested_by, JSON.stringify(record.research_areas), JSON.stringify(record.sources), null, record.created_at, null, null]);
+    await systemQuery(
+      `INSERT INTO deep_dives (id, target, context, status, requested_by, research_areas, sources, report, created_at, started_at, last_heartbeat_at, completed_at, error)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [
+        record.id,
+        record.target,
+        record.context,
+        record.status,
+        record.requested_by,
+        JSON.stringify(record.research_areas),
+        JSON.stringify(record.sources),
+        null,
+        record.created_at,
+        null,
+        null,
+        null,
+        null,
+      ],
+    );
 
-    // Run all phases — caller must await `completion` to keep the
-    // Cloud Run instance alive for the duration of the research.
-    const completion = this.runPhases(id, req, researchAreas).catch((err) => {
-      console.error(`[DeepDiveEngine] Fatal error in ${id}:`, err);
-      systemQuery('UPDATE deep_dives SET status=$1, error=$2 WHERE id=$3', ['failed', err instanceof Error ? err.message : String(err), id]);
-    });
+    return id;
+  }
+
+  /** Launch a deep dive. Returns the record ID. */
+  async launch(req: DeepDiveRequest): Promise<{ id: string; completion: Promise<void> }> {
+    const id = await this.create(req);
+    const completion = this.execute(id, req);
 
     return { id, completion };
+  }
+
+  async execute(id: string, req: DeepDiveRequest): Promise<void> {
+    const researchAreas = await this.claimExecution(id);
+    if (!researchAreas) {
+      return;
+    }
+
+    try {
+      await this.runPhases(id, req, researchAreas);
+    } catch (err) {
+      console.error(`[DeepDiveEngine] Fatal error in ${id}:`, err);
+      await this.markFailed(id, err instanceof Error ? err.message : String(err));
+      throw err;
+    }
   }
 
   async get(id: string): Promise<DeepDiveRecord | null> {
@@ -512,7 +548,10 @@ export class DeepDiveEngine {
   }
 
   async cancel(id: string): Promise<void> {
-    await systemQuery('UPDATE deep_dives SET status=$1, error=$2 WHERE id=$3', ['failed', 'Cancelled by user.', id]);
+    await systemQuery(
+      'UPDATE deep_dives SET status=$1, error=$2, completed_at=COALESCE(completed_at, NOW()), last_heartbeat_at=NOW() WHERE id=$3',
+      ['failed', 'Cancelled by user.', id],
+    );
   }
 
   /**
@@ -741,11 +780,11 @@ export class DeepDiveEngine {
       return true;
     });
 
-    await systemQuery('UPDATE deep_dives SET sources=$1 WHERE id=$2', [JSON.stringify(dedupedSources), id]);
+    await systemQuery('UPDATE deep_dives SET sources=$1, last_heartbeat_at=NOW() WHERE id=$2', [JSON.stringify(dedupedSources), id]);
 
     // Check that at least some areas completed
     if (completedAreas.length === 0) {
-      await systemQuery('UPDATE deep_dives SET status=$1, error=$2 WHERE id=$3', ['failed', 'All research areas failed. Check API keys and search availability.', id]);
+      await this.markFailed(id, 'All research areas failed. Check API keys and search availability.');
       return;
     }
 
@@ -823,7 +862,7 @@ export class DeepDiveEngine {
       });
       dedupedSources.length = 0;
       dedupedSources.push(...rededupedSources);
-      await systemQuery('UPDATE deep_dives SET sources=$1, research_areas=$2 WHERE id=$3', [JSON.stringify(dedupedSources), JSON.stringify(areas), id]);
+      await systemQuery('UPDATE deep_dives SET sources=$1, research_areas=$2, last_heartbeat_at=NOW() WHERE id=$3', [JSON.stringify(dedupedSources), JSON.stringify(areas), id]);
     }
 
     // ── Phase 3.5: FRAMEWORK ANALYSIS — apply 6 strategic frameworks ──
@@ -837,7 +876,7 @@ export class DeepDiveEngine {
     // ── Post-Synthesis: Extract monitoring watchlist ──
     await this.extractAndStoreWatchlist(id, report, frameworkOutputs, areas);
 
-    await systemQuery('UPDATE deep_dives SET status=$1, report=$2, sources=$3, research_areas=$4, completed_at=$5 WHERE id=$6', ['completed', JSON.stringify(report), JSON.stringify(dedupedSources), JSON.stringify(areas), new Date().toISOString(), id]);
+    await systemQuery('UPDATE deep_dives SET status=$1, report=$2, sources=$3, research_areas=$4, completed_at=$5, last_heartbeat_at=NOW() WHERE id=$6', ['completed', JSON.stringify(report), JSON.stringify(dedupedSources), JSON.stringify(areas), new Date().toISOString(), id]);
 
     await systemQuery('INSERT INTO activity_log (agent_role, action, summary) VALUES ($1,$2,$3)', ['system', 'deep_dive.completed', `Strategic deep dive completed for "${req.target}": ${completedAreas.length}/${areas.length} areas researched, ${dedupedSources.length} sources analyzed, cross-model verified with challenge rounds`]);
   }
@@ -899,7 +938,7 @@ export class DeepDiveEngine {
     }
 
     // Store aggregated outputs on the deep_dives record
-    await systemQuery('UPDATE deep_dives SET framework_outputs=$1 WHERE id=$2', [JSON.stringify(frameworkOutputs), id]);
+    await systemQuery('UPDATE deep_dives SET framework_outputs=$1, last_heartbeat_at=NOW() WHERE id=$2', [JSON.stringify(frameworkOutputs), id]);
 
     // Generate convergence narrative (with consistency check)
     let convergenceNarrative: string | null = null;
@@ -923,7 +962,7 @@ export class DeepDiveEngine {
         convergenceNarrative = parsed.narrative ?? JSON.stringify(parsed);
       }
 
-      await systemQuery('UPDATE deep_dives SET framework_convergence=$1 WHERE id=$2', [convergenceNarrative, id]);
+      await systemQuery('UPDATE deep_dives SET framework_convergence=$1, last_heartbeat_at=NOW() WHERE id=$2', [convergenceNarrative, id]);
     }
 
     return { frameworkOutputs, convergenceNarrative };
@@ -1263,7 +1302,7 @@ export class DeepDiveEngine {
   /* ── Helpers ────────────────────────────── */
 
   private async updateStatus(id: string, status: DeepDiveStatus): Promise<void> {
-    await systemQuery('UPDATE deep_dives SET status=$1 WHERE id=$2', [status, id]);
+    await systemQuery('UPDATE deep_dives SET status=$1, last_heartbeat_at=NOW() WHERE id=$2', [status, id]);
   }
 
   private async failStaleRuns(): Promise<void> {
@@ -1274,19 +1313,56 @@ export class DeepDiveEngine {
              NULLIF(error, ''),
              $1
            ),
-           completed_at = COALESCE(completed_at, NOW())
+           completed_at = COALESCE(completed_at, NOW()),
+           last_heartbeat_at = NOW()
        WHERE completed_at IS NULL
          AND status IN ('scoping', 'researching', 'analyzing', 'framework-analysis', 'synthesizing')
-         AND created_at < NOW() - ($2::text || ' minutes')::interval`,
+         AND COALESCE(last_heartbeat_at, created_at) < NOW() - ($2::text || ' minutes')::interval`,
       [
-        'Deep dive execution was interrupted before completion. The current /deep-dive/run path detaches in-process work after the HTTP request returns, which is not durable on Cloud Run. Rerun after moving this job to a durable worker or queue-backed execution path.',
+        'Deep dive execution stopped heartbeating before completion. The worker task likely timed out or was interrupted before the report could be finalized. Rerun the deep dive to continue from a fresh durable task.',
         String(DeepDiveEngine.STALE_RUN_TIMEOUT_MINUTES),
       ],
     );
   }
 
   private async updateAreas(id: string, areas: ResearchArea[]): Promise<void> {
-    await systemQuery('UPDATE deep_dives SET research_areas=$1 WHERE id=$2', [JSON.stringify(areas), id]);
+    await systemQuery('UPDATE deep_dives SET research_areas=$1, last_heartbeat_at=NOW() WHERE id=$2', [JSON.stringify(areas), id]);
+  }
+
+  private async claimExecution(id: string): Promise<ResearchArea[] | null> {
+    const [row] = await systemQuery<{ research_areas: ResearchArea[] | string | null }>(
+      `UPDATE deep_dives
+       SET started_at = COALESCE(started_at, NOW()),
+           last_heartbeat_at = NOW(),
+           error = NULL
+       WHERE id = $1
+         AND completed_at IS NULL
+         AND (
+           last_heartbeat_at IS NULL
+           OR last_heartbeat_at < NOW() - ($2::text || ' minutes')::interval
+         )
+       RETURNING research_areas`,
+      [id, String(DeepDiveEngine.EXECUTION_LEASE_MINUTES)],
+    );
+
+    if (!row) {
+      return null;
+    }
+
+    const researchAreas = Array.isArray(row.research_areas)
+      ? row.research_areas
+      : typeof row.research_areas === 'string'
+        ? JSON.parse(row.research_areas) as ResearchArea[]
+        : [];
+
+    return researchAreas;
+  }
+
+  private async markFailed(id: string, error: string): Promise<void> {
+    await systemQuery(
+      'UPDATE deep_dives SET status=$1, error=$2, completed_at=COALESCE(completed_at, NOW()), last_heartbeat_at=NOW() WHERE id=$3',
+      ['failed', error, id],
+    );
   }
 
   /* ── Framework Consistency Check ─────────── */

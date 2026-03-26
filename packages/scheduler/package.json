@@ -19,6 +19,7 @@
     "@glyphor/company-memory": "*",
     "@glyphor/integrations": "*",
     "@glyphor/shared": "*",
+    "@google-cloud/tasks": "^6.0.0",
     "@google-cloud/secret-manager": "^5.6.0",
     "@google-cloud/storage": "^7.19.0",
     "google-auth-library": "^9.15.1",

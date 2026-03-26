@@ -7,12 +7,31 @@ app.use(express.json());
 
 // Lazy-load WorkflowOrchestrator to avoid pulling the full agent-runtime barrel at startup
 let _orchestrator: any;
+let _deepDiveEngine: Promise<import('@glyphor/scheduler').DeepDiveEngine> | null = null;
+
 async function getWorkflowOrchestrator() {
   if (!_orchestrator) {
     const { WorkflowOrchestrator } = await import('@glyphor/agent-runtime');
     _orchestrator = new WorkflowOrchestrator();
   }
   return _orchestrator;
+}
+
+async function getDeepDiveEngine() {
+  if (!_deepDiveEngine) {
+    _deepDiveEngine = Promise.all([
+      import('@glyphor/agent-runtime'),
+      import('@glyphor/scheduler'),
+    ]).then(([agentRuntime, scheduler]) => {
+      const modelClient = new agentRuntime.ModelClient({
+        geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+        openaiApiKey: process.env.OPENAI_API_KEY,
+        anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+      });
+      return new scheduler.DeepDiveEngine(modelClient);
+    });
+  }
+  return _deepDiveEngine;
 }
 
 app.get('/health', async (_req, res) => {
@@ -44,6 +63,28 @@ app.post('/run', async (req, res) => {
         );
       }
       return res.status(200).json({ success: true, workflow_step: true });
+    }
+
+    if (taskType === 'deep_dive_execute') {
+      const payload = metadata as {
+        deepDiveId?: string;
+        target?: string;
+        context?: string;
+        requestedBy?: string;
+      } | undefined;
+
+      if (!payload?.deepDiveId || !payload.target) {
+        return res.status(400).json({ error: 'deepDiveId and target are required for deep_dive_execute tasks' });
+      }
+
+      const deepDiveEngine = await getDeepDiveEngine();
+      await deepDiveEngine.execute(payload.deepDiveId, {
+        target: payload.target,
+        context: payload.context,
+        requestedBy: payload.requestedBy ?? 'worker',
+      });
+
+      return res.status(200).json({ success: true, deep_dive_id: payload.deepDiveId, durationMs: Date.now() - startTime });
     }
 
     // Load tenant and agent configuration

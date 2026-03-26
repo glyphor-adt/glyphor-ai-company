@@ -536,6 +536,16 @@ resource "google_cloud_run_v2_service" "scheduler" {
         value = "false"
       }
 
+      env {
+        name  = "WORKER_URL"
+        value = google_cloud_run_v2_service.worker.uri
+      }
+
+      env {
+        name  = "WORKER_SERVICE_ACCOUNT"
+        value = google_service_account.worker.email
+      }
+
       dynamic "env" {
         for_each = local.cloud_run_secret_env_keys
         content {
@@ -830,7 +840,7 @@ resource "google_cloud_run_v2_service" "worker" {
 
   template {
     service_account = google_service_account.worker.email
-    timeout         = "300s"
+    timeout         = "900s"
 
     vpc_access {
       connector = google_vpc_access_connector.glyphor.id

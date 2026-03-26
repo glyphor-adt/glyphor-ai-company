@@ -68,6 +68,7 @@ import { evaluateCanary } from './canaryEvaluator.js';
 import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
 import { runGtmReadinessEval, persistGtmReport } from './gtmReadiness/index.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
+import { enqueueDeepDiveExecution, isWorkerQueueConfigured } from './workerQueue.js';
 import {
   handleFounderRejection,
   handleIllegalAgentCreationRequest,
@@ -110,26 +111,34 @@ try {
 } catch { /* logo not available — skip watermark */ }
 
 async function applyWatermark(imageB64: string): Promise<string> {
-  if (!logoBuf) return imageB64;
   const imgBuf = Buffer.from(imageB64, 'base64');
   const meta = await sharp(imgBuf).metadata();
   const imgW = meta.width ?? 1536;
   const imgH = meta.height ?? 1024;
-  const footerH = Math.max(34, Math.round((imgH * 46) / 1024));
+  const footerH = Math.max(38, Math.round((imgH * 52) / 1024));
   const footerY = imgH - footerH;
-  const pad = Math.max(12, Math.round((imgW * 18) / 1536));
-  const logoW = Math.max(44, Math.round((imgW * 68) / 1536));
-  const resizedLogo = await sharp(logoBuf)
-    .resize({ width: logoW, fit: 'inside' })
-    .toBuffer();
-  const logoMeta = await sharp(resizedLogo).metadata();
-  const logoH = logoMeta.height ?? logoW;
+  const pad = Math.max(10, Math.round((imgW * 16) / 1536));
+  const logoMaxW = Math.max(36, Math.round((imgW * 54) / 1536));
+  const logoMaxH = Math.max(20, footerH - pad * 2);
   const footerText = '© Glyphor Corporation. All rights reserved.';
+  let resizedLogo: Buffer | null = null;
+  let logoW = 0;
+  let logoH = 0;
+
+  if (logoBuf) {
+    resizedLogo = await sharp(logoBuf)
+      .resize({ width: logoMaxW, height: logoMaxH, fit: 'inside', withoutEnlargement: true })
+      .toBuffer();
+    const logoMeta = await sharp(resizedLogo).metadata();
+    logoW = logoMeta.width ?? logoMaxW;
+    logoH = logoMeta.height ?? logoMaxH;
+  }
+
   const footerSvg = Buffer.from(`
     <svg xmlns="http://www.w3.org/2000/svg" width="${imgW}" height="${footerH}" viewBox="0 0 ${imgW} ${footerH}">
       <rect width="${imgW}" height="${footerH}" fill="#E5E7EB"/>
       <text
-        x="${Math.round((imgW - (logoW + pad * 4)) / 2)}"
+        x="${Math.round(imgW / 2)}"
         y="${Math.round(footerH / 2)}"
         text-anchor="middle"
         dominant-baseline="middle"
@@ -139,19 +148,24 @@ async function applyWatermark(imageB64: string): Promise<string> {
       >${footerText}</text>
     </svg>
   `);
+  const composites: sharp.OverlayOptions[] = [
+    {
+      input: footerSvg,
+      left: 0,
+      top: footerY,
+    },
+  ];
+
+  if (resizedLogo) {
+    composites.push({
+      input: resizedLogo,
+      left: Math.max(pad, imgW - logoW - pad),
+      top: footerY + Math.max(0, Math.round((footerH - logoH) / 2)),
+    });
+  }
+
   const result = await sharp(imgBuf)
-    .composite([
-      {
-        input: footerSvg,
-        left: 0,
-        top: footerY,
-      },
-      {
-        input: resizedLogo,
-        left: imgW - logoW - pad,
-        top: footerY + Math.max(2, Math.round((footerH - logoH) / 2)),
-      },
-    ])
+    .composite(composites)
     .png()
     .toBuffer();
   return result.toString('base64');
@@ -345,7 +359,7 @@ async function requireInternalAuth(
 ): Promise<boolean> {
   const authorization = getHeaderString(req.headers.authorization);
   if (!authorization?.startsWith('Bearer ')) {
-    json(res, 401, { ok: false, error: 'Missing bearer token' });
+    json(res, 401, { ok: false, error: 'Bearer token required' });
     return false;
   }
 
@@ -355,19 +369,21 @@ async function requireInternalAuth(
     return false;
   }
 
-  const envAudience = process.env.SCHEDULER_OIDC_AUDIENCE?.trim();
   const requestOrigin = getRequestOrigin(req);
-  const derivedAudience = requestOrigin ? `${requestOrigin}${endpointPath}` : null;
-  const audienceCandidates = [...new Set([envAudience, derivedAudience].filter(Boolean) as string[])];
+  const audienceCandidates = Array.from(new Set([
+    process.env.SCHEDULER_OIDC_AUDIENCE?.trim() || null,
+    requestOrigin ? `${requestOrigin}${endpointPath}` : null,
+    requestOrigin,
+  ].filter((value): value is string => Boolean(value && value.trim()))));
 
   if (audienceCandidates.length === 0) {
-    console.error('[InternalAuth] No OIDC audience configured for internal endpoint validation.');
-    json(res, 500, { ok: false, error: 'Internal auth misconfigured: missing OIDC audience' });
+    console.warn('[InternalAuth] No OIDC audience candidates configured for internal endpoint.');
+    json(res, 401, { ok: false, error: 'Unauthorized' });
     return false;
   }
 
   let verifiedEmail: string | undefined;
-  let lastError: unknown = null;
+  let lastError: unknown = new Error('No audience candidates available');
 
   for (const audience of audienceCandidates) {
     try {
@@ -3583,16 +3599,45 @@ const server = createServer(async (req, res) => {
       const body = JSON.parse(await readBody(req));
       const { target, context: ddContext, requestedBy } = body;
       if (!target) { json(res, 400, { error: 'target is required' }); return; }
-      const { id: ddId, completion } = await deepDiveEngine.launch({
+      const deepDiveRequest = {
         target,
         context: ddContext,
         requestedBy: requestedBy ?? 'dashboard',
-      });
-      // Detach completion so launch can return immediately and the UI can poll.
-      // Holding this request open risks Cloud Run request timeouts on long dives.
-      void completion.catch((err) => {
-        console.error('[DeepDive] Background run failed after launch:', err);
-      });
+      };
+      const ddId = await deepDiveEngine.create(deepDiveRequest);
+
+      if (isWorkerQueueConfigured()) {
+        try {
+          await enqueueDeepDiveExecution({
+            deepDiveId: ddId,
+            target,
+            context: ddContext,
+            requestedBy: requestedBy ?? 'dashboard',
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          await systemQuery(
+            'UPDATE deep_dives SET status=$1, error=$2, completed_at=NOW(), last_heartbeat_at=NOW() WHERE id=$3',
+            ['failed', `Failed to enqueue deep dive worker task: ${message}`, ddId],
+          );
+          json(res, 500, { error: `Failed to enqueue deep dive worker task: ${message}` });
+          return;
+        }
+      } else {
+        if (process.env.NODE_ENV === 'production') {
+          await systemQuery(
+            'UPDATE deep_dives SET status=$1, error=$2, completed_at=NOW(), last_heartbeat_at=NOW() WHERE id=$3',
+            ['failed', 'Deep dive worker queue is not configured in production.', ddId],
+          );
+          json(res, 500, { error: 'Deep dive worker queue is not configured in production.' });
+          return;
+        }
+
+        void deepDiveEngine.execute(ddId, deepDiveRequest).catch((err) => {
+          console.error('[DeepDive] Inline development run failed after launch:', err);
+        });
+      }
+
       json(res, 200, { success: true, id: ddId });
       return;
     }
@@ -4418,7 +4463,7 @@ function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiv
     ``,
     `RIGHT (30%): "Risk" — a small 2x2 heatmap grid (Impact vs Probability) with ${riskCount} colored dots plotted on it. Red for high-high, amber for medium, green for low. NO text labels on individual risks.`,
     ``,
-    `Footer: a full-width thin bar in light gray with centered small text: "© Glyphor Corporation. All rights reserved."`,
+    `Reserve a clean footer-safe zone across the bottom of the image for a system-applied footer overlay. Do not render any copyright line, footer bar, or logo inside the image content.`,
     ``,
     `CRITICAL RULES:`,
     `- MINIMAL TEXT. Maximum 35 words total on the infographic (excluding title).`,

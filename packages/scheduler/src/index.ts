@@ -67,3 +67,9 @@ export {
   validateModelConfig,
   type ValidationResult as ModelValidationResult,
 } from './modelValidator.js';
+export {
+  DeepDiveEngine,
+  type DeepDiveRequest,
+  type DeepDiveRecord,
+  type DeepDiveReport,
+} from './deepDiveEngine.js';

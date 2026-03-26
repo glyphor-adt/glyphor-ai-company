@@ -2259,7 +2259,7 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
     ``,
     `RIGHT: A thin metadata strip in small gray text: "${record.depth} depth Â· ${record.type.replace(/_/g, ' ')} Â· ${threadCount} threads Â· ${record.requested_by}"`,
     ``,
-    `Footer: a full-width thin bar in light gray with centered small text: "© Glyphor Corporation. All rights reserved."`,
+    `Reserve a clean footer-safe zone across the bottom of the image for a system-applied footer overlay. Do not render any copyright line, footer bar, or logo inside the image content.`,
     ``,
     `CRITICAL RULES:`,
     `- MINIMAL TEXT. Use icons, shapes, numbers, charts, and color instead of words.`,
@@ -3664,7 +3664,7 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     `Bottom-right: a compact callout titled "${bottomRightSection.title}" using ${bottomRightSection.layoutHint}`,
     ...formatPromptItems(bottomRightSection.items, 'dash'),
     '',
-    'Footer: a full-width thin bar in light gray with centered small text: "© Glyphor Corporation. All rights reserved."',
+    'Reserve a clean footer-safe zone across the bottom of the image for a system-applied footer overlay. Do not render any copyright line, footer bar, or logo inside the image content.',
     '',
     'Overall style: clean, data-rich, executive-ready slide, with clear section headings, consistent iconography, and sufficient whitespace for readability.',
     '',
@@ -3676,6 +3676,7 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     '- Favor concise labels and short clauses, but keep the important numbers and named entities intact',
     '- If a section has fewer facts, enlarge the remaining cards instead of fabricating filler text',
     '- Keep icon style consistent across all panels and do not add Powered by branding',
+    '- Keep icon style consistent across all panels and do not add logos, footer text, or Powered by branding',
   ].join('\n');
 }
 
