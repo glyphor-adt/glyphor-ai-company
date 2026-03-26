@@ -18,6 +18,7 @@ import { createContentTools } from '../shared/contentTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { createVideoCreationTools } from '../shared/videoCreationTools.js';
 
 export interface ContentCreatorRunParams {
   task?: 'blog_draft' | 'social_batch' | 'performance_review' | 'work_loop' | 'proactive' | 'on_demand';
@@ -43,6 +44,7 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),
     ...createContentTools(),
+    ...createVideoCreationTools({ agentRole: 'content-creator' }),
     ...await createAgent365McpTools('content-creator'),
     ...await createGlyphorMcpTools('content-creator'),
   ];

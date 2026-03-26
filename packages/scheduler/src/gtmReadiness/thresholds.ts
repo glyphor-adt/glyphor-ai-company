@@ -1,13 +1,14 @@
 export const GTM_THRESHOLDS = {
   // Core performance
   performance_score_min: 0.65,          // composite must clear this
+  overall_accuracy_min: 0.65,           // avg per-run accuracy across all evaluated runs
   output_quality_min: 0.70,             // exec+team avg normalized
   success_rate_min: 0.85,               // completed assignments / total assignments (60d)
   constitutional_min: 0.75,             // constitutional compliance
   tool_accuracy_min: 0.70,              // tool selection accuracy
 
   // Volume requirements (statistical confidence)
-  min_eval_runs: 20,                    // minimum scored runs before gate applies
+  min_eval_runs: 50,                    // minimum evaluated runs before gate applies
   min_tool_traces: 15,                  // minimum tool call traces
   min_knowledge_eval_scenarios: 3,      // must have passed at least 3 judge scenarios
 

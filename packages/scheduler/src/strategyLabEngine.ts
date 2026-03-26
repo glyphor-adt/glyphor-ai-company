@@ -1547,6 +1547,7 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     depth: StrategyAnalysisDepth,
     analysisType: StrategyAnalysisType,
   ): Promise<void> {
+    // ── Phase 1: RESEARCH — Gemini Deep Research does web research ──
     await this.updateStatus(id, 'researching', { research_started_at: new Date().toISOString() });
 
     const prompt = this.buildDeepResearchPrompt(req.query, analysisType, depth);
@@ -1567,34 +1568,13 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
       ],
     );
 
-    await this.updateStatus(id, 'synthesizing', { synthesis_started_at: new Date().toISOString() });
-
     const finalOutput = await this.pollDeepResearchResult(interactionId);
-    let synthesis = this.parseDeepResearchSynthesis(finalOutput.text);
+    const rawNarrative = finalOutput.text;
     const sourceIndex = this.extractSourcesFromDeepResearchOutput(finalOutput.raw);
-    synthesis.sourceIndex = sourceIndex;
-
-    // If Deep Research returned narrative instead of structured JSON, re-synthesize
-    // using a standard model to extract structured sections.
-    if (this.synthesisNeedsRefinement(synthesis)) {
-      console.log(`[StrategyLab] Deep Research output for ${id} lacks structured sections — running re-synthesis.`);
-      try {
-        synthesis = await this.reSynthesizeFromNarrative(finalOutput.text, req.query, analysisType);
-        synthesis.sourceIndex = sourceIndex;
-      } catch (err) {
-        console.error(`[StrategyLab] Re-synthesis failed for ${id}:`, err);
-        // Keep the original (best-effort) synthesis
-      }
-    }
 
     await systemQuery(
-      'UPDATE strategy_analyses SET status=$1, synthesis=$2, sources=$3, total_sources=$4, total_searches=$5, research_progress=$6, completed_at=$7 WHERE id=$8',
+      'UPDATE strategy_analyses SET research_progress=$1, sources=$2, total_sources=$3 WHERE id=$4',
       [
-        'completed',
-        JSON.stringify(synthesis),
-        JSON.stringify(sourceIndex),
-        sourceIndex.length,
-        0,
         JSON.stringify([
           {
             analystRole: 'deep-research-agent',
@@ -1605,6 +1585,88 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
             sourceCount: sourceIndex.length,
           },
         ]),
+        JSON.stringify(sourceIndex),
+        sourceIndex.length,
+        id,
+      ],
+    );
+
+    // ── Phase 2: SYNTHESIZE — Extract structured sections from DR narrative ──
+    await this.updateStatus(id, 'synthesizing', { synthesis_started_at: new Date().toISOString() });
+
+    // Always run re-synthesis from narrative (DR produces prose, not JSON)
+    let synthesis: SynthesisOutput;
+    try {
+      synthesis = await this.reSynthesizeFromNarrative(rawNarrative, req.query, analysisType);
+      synthesis.sourceIndex = sourceIndex;
+    } catch (err) {
+      console.error(`[StrategyLab] Re-synthesis failed for ${id}:`, err);
+      // Fall back to best-effort parse + heuristic
+      synthesis = this.parseDeepResearchSynthesis(rawNarrative);
+      synthesis.sourceIndex = sourceIndex;
+    }
+
+    // If re-synthesis still produced empty structured sections, extract from narrative heuristically.
+    if (this.synthesisNeedsRefinement(synthesis)) {
+      console.log(`[StrategyLab] Re-synthesis for ${id} still thin — applying heuristic extraction from narrative.`);
+      const heuristic = this.extractStructuredFromNarrative(rawNarrative);
+      if (heuristic.unifiedSwot.strengths.length > 0 || heuristic.strategicRecommendations.length > 0) {
+        synthesis = {
+          ...synthesis,
+          unifiedSwot: heuristic.unifiedSwot.strengths.length > 0 ? heuristic.unifiedSwot : synthesis.unifiedSwot,
+          strategicRecommendations: heuristic.strategicRecommendations.length > 0 ? heuristic.strategicRecommendations : synthesis.strategicRecommendations,
+          keyRisks: heuristic.keyRisks.length > 0 ? heuristic.keyRisks : synthesis.keyRisks,
+          openQuestionsForFounders: heuristic.openQuestionsForFounders.length > 0 ? heuristic.openQuestionsForFounders : synthesis.openQuestionsForFounders,
+          crossFrameworkInsights: heuristic.crossFrameworkInsights.length > 0 ? heuristic.crossFrameworkInsights : synthesis.crossFrameworkInsights,
+        };
+      }
+    }
+
+    // Save intermediate synthesis before frameworks
+    await systemQuery(
+      'UPDATE strategy_analyses SET synthesis=$1 WHERE id=$2',
+      [JSON.stringify(synthesis), id],
+    );
+
+    // ── Phase 3: FRAMEWORK ANALYSIS — Run strategic frameworks on DR narrative ──
+    const frameworkIds = StrategyLabEngine.DEPTH_FRAMEWORKS[depth];
+    let frameworkOutputs: Record<string, unknown> = {};
+    let convergenceNarrative: string | null = null;
+
+    if (frameworkIds.length > 0) {
+      await this.updateStatus(id, 'framework-analysis');
+
+      // Pack DR narrative into research packets that the framework prompts consume
+      const researchPackets: Record<string, unknown> = {
+        'deep-research': {
+          label: 'Gemini Deep Research Output',
+          perspective: 'multi-source-web-research',
+          sourcesFound: sourceIndex.length,
+          analysis: rawNarrative.length > 80_000 ? rawNarrative.slice(0, 80_000) + '\n[...truncated]' : rawNarrative,
+        },
+      };
+
+      const result = await this.runFrameworkAnalysisSubset(id, req.query, researchPackets, frameworkIds);
+      frameworkOutputs = result.frameworkOutputs;
+      convergenceNarrative = result.convergenceNarrative;
+
+      // Enrich synthesis with framework cross-insights if we got new ones
+      if (convergenceNarrative && synthesis.crossFrameworkInsights.length === 0) {
+        synthesis.crossFrameworkInsights = [convergenceNarrative.slice(0, 500)];
+      }
+    }
+
+    // ── Phase 4: COMPLETE — Save final synthesis ──
+    await systemQuery(
+      'UPDATE strategy_analyses SET status=$1, synthesis=$2, sources=$3, total_sources=$4, total_searches=$5, framework_outputs=$6, framework_convergence=$7, completed_at=$8 WHERE id=$9',
+      [
+        'completed',
+        JSON.stringify(synthesis),
+        JSON.stringify(sourceIndex),
+        sourceIndex.length,
+        0,
+        JSON.stringify(frameworkOutputs),
+        convergenceNarrative,
         new Date().toISOString(),
         id,
       ],
@@ -1612,8 +1674,87 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
 
     await systemQuery(
       'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
-      ['system', 'strategy_analysis.completed', `Strategy Lab analysis completed via Gemini Deep Research Agent for "${req.query}" (${depth}).`],
+      ['system', 'strategy_analysis.completed', `Strategy Lab analysis completed via Gemini Deep Research + ${frameworkIds.length} frameworks for "${req.query}" (${depth}). ${sourceIndex.length} sources.`],
     );
+  }
+
+  /**
+   * Run a subset of framework analyses (controlled by depth tier).
+   * Reuses the full runFrameworkAnalysis infrastructure but scoped to specific framework IDs.
+   */
+  private async runFrameworkAnalysisSubset(
+    id: string,
+    query: string,
+    researchPackets: Record<string, unknown>,
+    frameworkIds: FrameworkId[],
+  ): Promise<{ frameworkOutputs: Record<string, unknown>; convergenceNarrative: string | null }> {
+    const frameworkProgress: FrameworkProgress[] = frameworkIds.map((fId) => ({
+      frameworkId: fId,
+      frameworkName: FRAMEWORK_CONFIGS[fId].name,
+      status: 'pending' as const,
+    }));
+
+    await systemQuery(
+      'UPDATE strategy_analyses SET framework_progress=$1 WHERE id=$2',
+      [JSON.stringify(frameworkProgress), id],
+    );
+
+    const target = query;
+    const frameworkOutputs: Record<string, unknown> = {};
+
+    // Run frameworks in parallel
+    await Promise.allSettled(
+      frameworkIds.map(async (frameworkId, i) => {
+        frameworkProgress[i].status = 'running';
+        frameworkProgress[i].startedAt = new Date().toISOString();
+        await systemQuery(
+          'UPDATE strategy_analyses SET framework_progress=$1 WHERE id=$2',
+          [JSON.stringify(frameworkProgress), id],
+        );
+
+        try {
+          const prompt = buildFrameworkPrompt(frameworkId, target, researchPackets);
+          const response = await this.modelClient.generate({
+            model: this.model,
+            systemInstruction: `You are a senior strategic analyst applying the ${FRAMEWORK_CONFIGS[frameworkId].name} framework. Output ONLY valid JSON — no markdown fences.`,
+            contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+            temperature: 0.2,
+            metadata: { engineSource: 'strategy_lab' },
+          });
+
+          const output = response.text ?? '';
+          const jsonMatch = output.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            frameworkOutputs[frameworkId] = parsed;
+          }
+
+          frameworkProgress[i].status = 'completed';
+          frameworkProgress[i].completedAt = new Date().toISOString();
+        } catch (err) {
+          frameworkProgress[i].status = 'failed';
+          frameworkProgress[i].error = err instanceof Error ? err.message : String(err);
+        }
+
+        await systemQuery(
+          'UPDATE strategy_analyses SET framework_progress=$1, framework_outputs=$2 WHERE id=$3',
+          [JSON.stringify(frameworkProgress), JSON.stringify(frameworkOutputs), id],
+        );
+      }),
+    );
+
+    // Generate convergence narrative if enough frameworks completed
+    let convergenceNarrative: string | null = null;
+    if (Object.keys(frameworkOutputs).length >= 2) {
+      try {
+        const consistencyReport = await this.validateFrameworkConsistency(frameworkOutputs);
+        convergenceNarrative = await this.generateConvergenceNarrative(id, target, frameworkOutputs, consistencyReport);
+      } catch (err) {
+        console.warn(`[StrategyLab] Convergence narrative generation failed for ${id}:`, err instanceof Error ? err.message : err);
+      }
+    }
+
+    return { frameworkOutputs, convergenceNarrative };
   }
 
   /**
@@ -1642,8 +1783,8 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     query: string,
     analysisType: StrategyAnalysisType,
   ): Promise<SynthesisOutput> {
-    // Truncate research to fit model context (keep most relevant parts)
-    const maxChars = 120_000;
+    // Truncate research to fit model context safely
+    const maxChars = 80_000;
     const research = rawResearch.length > maxChars
       ? rawResearch.slice(0, maxChars) + '\n[...truncated]'
       : rawResearch;
@@ -1693,31 +1834,205 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
       `}`,
     ].join('\n');
 
-    const response = await this.modelClient.generate({
-      model: getTierModel('high'),
-      systemInstruction: 'You are extracting structured strategic data from research output. Respond ONLY with valid JSON — no markdown fences, no commentary. Every section must be populated.',
-      contents: [{ role: 'user', content: reSynthPrompt, timestamp: Date.now() }],
-      temperature: 0.2,
-      metadata: { engineSource: 'strategy_lab' },
-    });
+    // Attempt 1: gpt-5.4-mini with full research context
+    let parsed: Record<string, unknown> | null = null;
+    try {
+      const response = await this.modelClient.generate({
+        model: getTierModel('high'),
+        systemInstruction: 'You are extracting structured strategic data from research output. Respond ONLY with valid JSON — no markdown fences, no commentary. Every section must be populated.',
+        contents: [{ role: 'user', content: reSynthPrompt, timestamp: Date.now() }],
+        temperature: 0.2,
+        metadata: { engineSource: 'strategy_lab' },
+      });
 
-    const output = response.text ?? '';
-    const parsed = parseObjectFromModelOutput(output);
-    if (parsed) {
-      return this.coerceDeepResearchSynthesis(parsed as Partial<SynthesisOutput>, rawResearch);
+      const output = response.text ?? '';
+      parsed = parseObjectFromModelOutput(output);
+      if (!parsed) {
+        console.warn(`[StrategyLab] Re-synthesis attempt 1: model returned text but JSON extraction failed (${output.length} chars).`);
+      }
+    } catch (err) {
+      console.warn(`[StrategyLab] Re-synthesis attempt 1 failed:`, err instanceof Error ? err.message : err);
     }
 
-    // If re-synthesis also failed, return best-effort from raw text
+    // Attempt 2: retry with a shorter focused prompt if first attempt failed
+    if (!parsed) {
+      try {
+        const shortResearch = rawResearch.length > 40_000
+          ? rawResearch.slice(0, 40_000) + '\n[...truncated]'
+          : rawResearch;
+
+        const retryPrompt = [
+          `Extract a structured strategic analysis from this research. Query: "${query}"`,
+          ``,
+          shortResearch,
+          ``,
+          `Output ONLY a JSON object with these keys (every array must have at least 3 items):`,
+          `executiveSummary (string), unifiedSwot ({strengths, weaknesses, opportunities, threats} — each string[]),`,
+          `crossFrameworkInsights (string[]), strategicRecommendations (array of {title, description, impact, feasibility, owner, expectedOutcome, riskIfNot}),`,
+          `keyRisks (string[]), openQuestionsForFounders (string[]).`,
+          `JSON only, no markdown fences:`,
+        ].join('\n');
+
+        const response = await this.modelClient.generate({
+          model: getTierModel('high'),
+          systemInstruction: 'Output ONLY valid JSON. No explanation, no markdown. All arrays must contain items extracted from the research text.',
+          contents: [{ role: 'user', content: retryPrompt, timestamp: Date.now() }],
+          temperature: 0.1,
+          metadata: { engineSource: 'strategy_lab' },
+        });
+
+        const output = response.text ?? '';
+        parsed = parseObjectFromModelOutput(output);
+        if (!parsed) {
+          console.warn(`[StrategyLab] Re-synthesis attempt 2: JSON extraction failed (${output.length} chars).`);
+        }
+      } catch (err) {
+        console.warn(`[StrategyLab] Re-synthesis attempt 2 failed:`, err instanceof Error ? err.message : err);
+      }
+    }
+
+    if (parsed) {
+      const result = this.coerceDeepResearchSynthesis(parsed as Partial<SynthesisOutput>, rawResearch);
+      // If the model returned JSON but SWOT is still empty, merge heuristic extraction
+      if (this.synthesisNeedsRefinement(result)) {
+        const heuristic = this.extractStructuredFromNarrative(rawResearch);
+        return {
+          ...result,
+          unifiedSwot: result.unifiedSwot.strengths.length > 0 ? result.unifiedSwot : heuristic.unifiedSwot,
+          strategicRecommendations: result.strategicRecommendations.length > 0 ? result.strategicRecommendations : heuristic.strategicRecommendations,
+          keyRisks: result.keyRisks.length > 0 ? result.keyRisks : heuristic.keyRisks,
+          openQuestionsForFounders: result.openQuestionsForFounders.length > 0 ? result.openQuestionsForFounders : heuristic.openQuestionsForFounders,
+        };
+      }
+      return result;
+    }
+
+    // Both model attempts failed — use heuristic extraction from narrative text
+    console.warn(`[StrategyLab] Both re-synthesis attempts failed — falling back to heuristic extraction.`);
+    const heuristic = this.extractStructuredFromNarrative(rawResearch);
     return {
       executiveSummary: cleanSynthesisSummaryText(rawResearch),
-      unifiedSwot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
-      crossFrameworkInsights: [],
-      strategicRecommendations: [],
-      keyRisks: [],
-      openQuestionsForFounders: [],
+      ...heuristic,
       sourceIndex: [],
     };
   }
+
+  /**
+   * Heuristic extraction of structured sections from narrative research text.
+   * Parses markdown headings and bullet points to populate SWOT, recommendations, risks, etc.
+   */
+  private extractStructuredFromNarrative(rawText: string): {
+    unifiedSwot: SynthesisOutput['unifiedSwot'];
+    crossFrameworkInsights: string[];
+    strategicRecommendations: SynthesisOutput['strategicRecommendations'];
+    keyRisks: string[];
+    openQuestionsForFounders: string[];
+  } {
+    const text = rawText.replace(/\r\n/g, '\n');
+
+    // Extract bullet items under headings that match various patterns
+    const extractBullets = (patterns: RegExp[]): string[] => {
+      const items: string[] = [];
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (!match) continue;
+        const sectionStart = (match.index ?? 0) + match[0].length;
+        // Read until next heading or end of text, capped at 3000 chars
+        const nextHeading = text.slice(sectionStart).search(/\n#{1,4}\s/);
+        const sectionEnd = nextHeading >= 0 ? sectionStart + nextHeading : Math.min(sectionStart + 3000, text.length);
+        const section = text.slice(sectionStart, sectionEnd);
+        // Extract bullets/numbered items
+        const bulletMatches = section.matchAll(/(?:^|\n)\s*(?:[-•*]|\d+[.)]) ?(.+)/g);
+        for (const bm of bulletMatches) {
+          const item = bm[1].replace(/\*\*/g, '').trim();
+          if (item.length > 10 && item.length < 500) items.push(item);
+        }
+        if (items.length > 0) break;
+      }
+      return items.slice(0, 8);
+    };
+
+    const strengths = extractBullets([
+      /#{1,4}\s*(?:key\s+)?strengths?/i,
+      /\*\*strengths?\*\*/i,
+      /#{1,4}\s*competitive\s+advantages?/i,
+    ]);
+
+    const weaknesses = extractBullets([
+      /#{1,4}\s*(?:key\s+)?weaknesses?/i,
+      /\*\*weaknesses?\*\*/i,
+      /#{1,4}\s*(?:key\s+)?challenges?/i,
+      /#{1,4}\s*limitations?/i,
+    ]);
+
+    const opportunities = extractBullets([
+      /#{1,4}\s*(?:key\s+)?opportunities?/i,
+      /\*\*opportunities?\*\*/i,
+      /#{1,4}\s*growth\s+opportunities?/i,
+    ]);
+
+    const threats = extractBullets([
+      /#{1,4}\s*(?:key\s+)?threats?/i,
+      /\*\*threats?\*\*/i,
+      /#{1,4}\s*competitive\s+threats?/i,
+      /#{1,4}\s*external\s+risks?/i,
+    ]);
+
+    const risks = extractBullets([
+      /#{1,4}\s*(?:key\s+)?risks?/i,
+      /\*\*risks?\*\*/i,
+      /#{1,4}\s*risk\s+(?:factors?|assessment)/i,
+    ]);
+
+    const questions = extractBullets([
+      /#{1,4}\s*(?:open\s+)?questions?/i,
+      /\*\*questions?\*\*/i,
+      /#{1,4}\s*areas?\s+(?:for|requiring)\s+(?:further|founder)/i,
+    ]);
+
+    const insights = extractBullets([
+      /#{1,4}\s*(?:key\s+)?(?:findings?|insights?|takeaways?)/i,
+      /\*\*(?:key\s+)?insights?\*\*/i,
+      /#{1,4}\s*strategic\s+(?:insights?|implications?)/i,
+    ]);
+
+    const recBullets = extractBullets([
+      /#{1,4}\s*(?:strategic\s+)?recommendations?/i,
+      /\*\*recommendations?\*\*/i,
+      /#{1,4}\s*action\s+items?/i,
+      /#{1,4}\s*next\s+steps?/i,
+    ]);
+
+    const recommendations: SynthesisOutput['strategicRecommendations'] = recBullets.map((item) => {
+      // Try to split "Title: description" or "Title — description"
+      const colonSplit = item.match(/^([^:—–]+)[:\u2014\u2013]\s*(.+)/);
+      return {
+        title: colonSplit ? colonSplit[1].trim() : item.slice(0, 80),
+        description: colonSplit ? colonSplit[2].trim() : item,
+        impact: 'medium' as const,
+        feasibility: 'medium' as const,
+        owner: '',
+        expectedOutcome: '',
+        riskIfNot: '',
+      };
+    });
+
+    return {
+      unifiedSwot: { strengths, weaknesses, opportunities, threats },
+      crossFrameworkInsights: insights,
+      strategicRecommendations: recommendations,
+      keyRisks: risks,
+      openQuestionsForFounders: questions,
+    };
+  }
+
+  /** Frameworks to run at each depth tier */
+  private static readonly DEPTH_FRAMEWORKS: Record<StrategyAnalysisDepth, FrameworkId[]> = {
+    quick: [],
+    standard: ['framework-swot', 'framework-porters', 'framework-pestle'],
+    deep: Object.keys(FRAMEWORK_CONFIGS) as FrameworkId[],
+    comprehensive: Object.keys(FRAMEWORK_CONFIGS) as FrameworkId[],
+  };
 
   private buildDeepResearchPrompt(
     query: string,
@@ -1725,13 +2040,13 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     depth: StrategyAnalysisDepth,
   ): string {
     const depthGuidance: Record<StrategyAnalysisDepth, string> = {
-      quick: 'Perform a concise but evidence-backed research pass and keep recommendations focused.',
-      standard: 'Perform moderate-depth web research with strong source triangulation.',
-      deep: 'Perform deep web research and cross-validate key claims with multiple high-quality sources.',
-      comprehensive: 'Perform comprehensive web research with extensive source triangulation and explicit uncertainty tracking.',
+      quick: 'Perform a concise but evidence-backed research pass. Focus on the top 5-10 most relevant sources.',
+      standard: 'Perform moderate-depth web research. Find 15-25 quality sources with strong triangulation.',
+      deep: 'Perform deep web research. Find 30+ sources and cross-validate key claims across multiple independent sources.',
+      comprehensive: 'Perform comprehensive web research with 50+ sources. Explicitly track confidence and uncertainty for every major claim.',
     };
 
-    return `You are the Gemini Deep Research Agent conducting a thorough strategic analysis for Glyphor.
+    return `You are a senior research analyst conducting a thorough strategic analysis.
 
 TASK
 - Query: ${query}
@@ -1745,43 +2060,42 @@ RESEARCH INSTRUCTIONS
 - Identify real risks, regulatory factors, and industry trends with evidence.
 - Cross-validate key claims across multiple sources.
 - ${depthGuidance[depth]}
-- If a key metric is unavailable after searching, explicitly say unavailable; do not fabricate.
-
-REQUIRED ANALYSIS SECTIONS
-After completing your research, you MUST produce ALL of the following:
-
-1. EXECUTIVE SUMMARY: 3-4 sentences synthesizing your key findings
-2. SWOT ANALYSIS: At least 3 Strengths, 3 Weaknesses, 3 Opportunities, 3 Threats — each grounded in your research
-3. CROSS-FRAMEWORK INSIGHTS: 3-5 strategic insights that emerge from the data
-4. STRATEGIC RECOMMENDATIONS: 3-6 specific, actionable recommendations with owner and expected outcome
-5. KEY RISKS: 3-5 risks that could invalidate assumptions or threaten the strategy
-6. OPEN QUESTIONS: 2-4 decisions requiring founder input
+- If a key metric is unavailable after searching, explicitly say "unavailable" — do not fabricate.
 
 OUTPUT FORMAT
-Return ONLY valid JSON with this exact shape (no markdown fences, no commentary before or after):
-{
-  "executiveSummary": "3-4 sentence synthesis",
-  "unifiedSwot": {
-    "strengths": ["at least 3 items"],
-    "weaknesses": ["at least 3 items"],
-    "opportunities": ["at least 3 items"],
-    "threats": ["at least 3 items"]
-  },
-  "crossFrameworkInsights": ["3-5 items"],
-  "strategicRecommendations": [
-    {
-      "title": "string",
-      "description": "string",
-      "impact": "high|medium|low",
-      "feasibility": "high|medium|low",
-      "owner": "string",
-      "expectedOutcome": "string",
-      "riskIfNot": "string"
-    }
-  ],
-  "keyRisks": ["3-5 items"],
-  "openQuestionsForFounders": ["2-4 items"]
-}`;
+Produce a structured research report using the following markdown sections.
+Every section must be populated with substantive, evidence-backed content.
+Cite your sources inline using [Source: "article title"] notation.
+
+## Executive Summary
+3-4 sentences synthesizing your key findings.
+
+## Key Findings
+Detailed findings organized by sub-topic. Include specific data points, numbers, dates.
+
+## Strengths
+- At least 3 bullet points identifying strengths, each with supporting evidence
+
+## Weaknesses
+- At least 3 bullet points identifying weaknesses or challenges
+
+## Opportunities
+- At least 3 bullet points identifying growth opportunities
+
+## Threats
+- At least 3 bullet points identifying competitive or market threats
+
+## Strategic Recommendations
+- 3-6 specific, actionable recommendations. For each, include the rationale and expected impact.
+
+## Key Risks
+- 3-5 risks that could invalidate assumptions or threaten the strategy
+
+## Open Questions
+- 2-4 decisions or unknowns that require further investigation or founder input
+
+## Sources
+List all sources referenced, with URLs where available.`;
   }
 
   private getGeminiApiKey(): string {
@@ -1989,21 +2303,53 @@ Return ONLY valid JSON with this exact shape (no markdown fences, no commentary 
   }
 
   private extractSourcesFromDeepResearchOutput(raw: unknown): StrategySource[] {
-    const payload = raw as {
-      outputs?: Array<{ citations?: Array<{ uri?: string; title?: string; url?: string }> }>;
-    };
-    const citations = payload.outputs?.flatMap((o) => o.citations || []) || [];
-
     const dedup = new Map<string, StrategySource>();
-    for (const citation of citations) {
-      const url = citation.uri || citation.url;
+
+    const payload = raw as Record<string, unknown>;
+
+    // Path 1: groundingMetadata.groundingChunks (primary DR response format)
+    const outputs = Array.isArray(payload.outputs) ? payload.outputs as Record<string, unknown>[] : [];
+    for (const output of outputs) {
+      const gm = output.groundingMetadata as Record<string, unknown> | undefined;
+      const chunks = Array.isArray(gm?.groundingChunks) ? gm.groundingChunks as Record<string, unknown>[] : [];
+      for (const chunk of chunks) {
+        const web = chunk.web as Record<string, unknown> | undefined;
+        const url = (web?.uri ?? web?.url ?? chunk.uri ?? chunk.url) as string | undefined;
+        if (!url || dedup.has(url)) continue;
+        dedup.set(url, {
+          url,
+          title: (web?.title ?? chunk.title ?? url) as string,
+          relevance: 'supporting',
+        });
+      }
+
+      // Path 2: citations array (fallback / alternate response shapes)
+      const citations = Array.isArray(output.citations) ? output.citations as Record<string, unknown>[] : [];
+      for (const citation of citations) {
+        const url = (citation.uri ?? citation.url) as string | undefined;
+        if (!url || dedup.has(url)) continue;
+        dedup.set(url, {
+          url,
+          title: (citation.title ?? url) as string,
+          relevance: 'supporting',
+        });
+      }
+    }
+
+    // Path 3: Top-level groundingMetadata (some API versions)
+    const topGm = payload.groundingMetadata as Record<string, unknown> | undefined;
+    const topChunks = Array.isArray(topGm?.groundingChunks) ? topGm.groundingChunks as Record<string, unknown>[] : [];
+    for (const chunk of topChunks) {
+      const web = chunk.web as Record<string, unknown> | undefined;
+      const url = (web?.uri ?? web?.url ?? chunk.uri ?? chunk.url) as string | undefined;
       if (!url || dedup.has(url)) continue;
       dedup.set(url, {
         url,
-        title: citation.title || url,
+        title: (web?.title ?? chunk.title ?? url) as string,
         relevance: 'supporting',
       });
     }
+
     return Array.from(dedup.values());
   }
 

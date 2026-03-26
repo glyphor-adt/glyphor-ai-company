@@ -559,7 +559,7 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'refresh_performance_scores',
-      description: 'Recompute the composite performance_score on company_agents from trailing 30-day data (success rate, reflection quality, assignment quality). Run after daily rollup.',
+      description: 'Recompute the composite performance_score on company_agents from trailing 30-day data using per-run accuracy, run success, and available review signals. Run after daily rollup.',
       parameters: {},
       execute: async (): Promise<ToolResult> => {
         const results = await systemQuery<{ agent_role: string; new_score: number | null }>(

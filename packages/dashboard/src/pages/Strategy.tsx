@@ -336,7 +336,7 @@ type DeepDiveTab = 'current-state'| 'overview' | 'market' | 'competitive' | 'fra
 
 const DD_STATUS_LABELS: Record<DeepDiveStatus, string> = {
   scoping: 'Scoping research plan…',
-  researching: 'Researching across 8 areas (5 queries each)…',
+  researching: 'Researching across 16 areas (5 queries each)…',
   analyzing: 'Multi-agent analysis + cross-model challenge…',
   'framework-analysis': 'Running 6 strategic frameworks…',
   synthesizing: 'Synthesizing with source citations…',
@@ -476,7 +476,7 @@ function DeepDivesPanel() {
     <div className="space-y-6">
       {/* Launch Form */}
       <Card className="overflow-visible">
-        <SectionHeader title="Launch Strategic Deep Dive" subtitle="8 areas × 5 queries × multi-model analysis → cross-model challenge → verification → cited synthesis" />
+        <SectionHeader title="Launch Strategic Deep Dive" subtitle="16 areas × 5 queries × multi-model analysis → cross-model challenge → 6 strategic frameworks → verification → cited synthesis" />
         <div className="mt-4">
           <ChatComposerFrame>
             <input
@@ -2247,11 +2247,11 @@ const SLV2_STATUS_LABELS: Record<SLv2Status, string> = {
   planning: 'Preparing analysis plan…',
   framing: 'Framing the strategic question…',
   decomposing: 'Structuring research threads…',
-  researching: 'Collecting evidence and sources…',
+  researching: 'Deep Research: gathering evidence from web sources…',
   'quality-check': 'Validating evidence quality…',
-  'framework-analysis': 'Running strategic frameworks…',
+  'framework-analysis': 'Running strategic frameworks (SWOT, Porter’s, PESTLE…)…',
   analyzing: 'Analyzing trade-offs and scenarios…',
-  synthesizing: 'Synthesizing recommendations…',
+  synthesizing: 'Extracting structured recommendations…',
   deepening: 'Expanding follow-up research…',
   completed: 'Completed',
   failed: 'Failed',
@@ -2369,7 +2369,7 @@ function StrategyLabV2Panel() {
     <div className="space-y-6">
       {/* Launch Form */}
       <Card className="overflow-visible">
-        <SectionHeader title="Launch Strategic Analysis Report" subtitle="Powered by Gemini Deep Research for evidence-backed recommendations" />
+        <SectionHeader title="Launch Strategic Analysis Report" subtitle="Gemini Deep Research → structured extraction → strategic frameworks → convergence synthesis" />
         <div className="mt-4">
           <ChatComposerFrame>
             <textarea

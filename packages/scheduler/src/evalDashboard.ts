@@ -137,12 +137,11 @@ export async function handleEvalApi(
         systemQuery(`
           SELECT
             DATE_TRUNC('day', tro.created_at) AS day,
-            AVG(ae.score_normalized) AS avg_quality,
+            AVG(COALESCE(tro.batch_quality_score, tro.per_run_quality_score) / 5.0) AS avg_quality,
             AVG(CASE WHEN ar.status = 'completed' THEN 1.0 ELSE 0.0 END) AS success_rate,
             COUNT(tro.id) AS run_count
           FROM task_run_outcomes tro
           JOIN agent_runs ar ON ar.id = tro.run_id
-          LEFT JOIN assignment_evaluations ae ON ae.run_id = tro.run_id
           WHERE ar.agent_id = $1
             AND tro.created_at > NOW() - MAKE_INTERVAL(days => $2)
           GROUP BY day

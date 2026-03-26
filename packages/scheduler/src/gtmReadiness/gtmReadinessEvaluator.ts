@@ -10,6 +10,7 @@ export interface AgentGateResult {
   overall: 'pass' | 'fail' | 'insufficient_data';
   gates: {
     performance_score:    { status: GateStatus; value: number | null; threshold: number };
+    overall_accuracy:     { status: GateStatus; value: number | null; threshold: number };
     output_quality:       { status: GateStatus; value: number | null; threshold: number };
     success_rate:         { status: GateStatus; value: number | null; threshold: number };
     constitutional:       { status: GateStatus; value: number | null; threshold: number };
@@ -116,7 +117,7 @@ function gate(value: number | null, min: number): { status: GateStatus; value: n
 function buildNullGates(): AgentGateResult['gates'] {
   const nullGate = { status: 'insufficient_data' as GateStatus, value: null as number | null, threshold: 0 };
   return {
-    performance_score: nullGate, output_quality: nullGate,
+    performance_score: nullGate, overall_accuracy: nullGate, output_quality: nullGate,
     success_rate: nullGate, constitutional: nullGate,
     tool_accuracy: nullGate, knowledge_eval: nullGate,
     open_p0s: { ...nullGate, value: 0 }, consecutive_aborts: { ...nullGate, value: 0 },
@@ -160,15 +161,21 @@ async function evaluateAgent(agentId: string): Promise<AgentGateResult> {
 
     // Output quality + success rate — subqueries avoid Cartesian product from multi-join on assignment_evaluations
     queryOne<{
-      eval_run_count: number; exec_quality: number | null; team_quality: number | null;
+      eval_run_count: number; overall_accuracy: number | null; exec_quality: number | null; team_quality: number | null;
       success_rate: number | null; constitutional_score: number | null;
       tool_accuracy: number | null; constitutional_hard_fails: number;
     }>(`
       SELECT
-        (SELECT COUNT(DISTINCT wa.id)
-         FROM work_assignments wa
-         WHERE wa.assigned_to = $1
-         AND wa.created_at > NOW() - INTERVAL '60 days') AS eval_run_count,
+        (SELECT COUNT(*)
+         FROM task_run_outcomes tro
+         WHERE tro.agent_role = $1
+         AND tro.created_at > NOW() - INTERVAL '60 days'
+         AND COALESCE(tro.batch_quality_score, tro.per_run_quality_score) IS NOT NULL) AS eval_run_count,
+        (SELECT ROUND(AVG(COALESCE(tro.batch_quality_score, tro.per_run_quality_score) / 5.0)::numeric, 4)
+         FROM task_run_outcomes tro
+         WHERE tro.agent_role = $1
+         AND tro.created_at > NOW() - INTERVAL '60 days'
+         AND COALESCE(tro.batch_quality_score, tro.per_run_quality_score) IS NOT NULL) AS overall_accuracy,
         (SELECT AVG(ae.score_normalized)
          FROM assignment_evaluations ae
          INNER JOIN work_assignments wa ON wa.id = ae.assignment_id
@@ -304,7 +311,7 @@ async function evaluateAgent(agentId: string): Promise<AgentGateResult> {
       gates: buildNullGates(),
       warnings: [],
       eval_run_count: evalRunCount,
-      insufficient_data_reason: `Only ${evalRunCount} scored runs. Minimum ${T.min_eval_runs} required.`,
+      insufficient_data_reason: `Only ${evalRunCount} evaluated runs. Minimum ${T.min_eval_runs} required.`,
       last_evaluated_at: new Date().toISOString(),
     };
   }
@@ -316,6 +323,7 @@ async function evaluateAgent(agentId: string): Promise<AgentGateResult> {
 
   const gates: AgentGateResult['gates'] = {
     performance_score: gate(agentRow?.performance_score ?? null, T.performance_score_min),
+    overall_accuracy:  gate(qualityData?.overall_accuracy ?? null, T.overall_accuracy_min),
     output_quality:    gate(outputQuality,                       T.output_quality_min),
     success_rate:      gate(qualityData?.success_rate ?? null,   T.success_rate_min),
     constitutional:    gate(qualityData?.constitutional_score ?? null, T.constitutional_min),
