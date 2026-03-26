@@ -178,6 +178,16 @@ function escapeXmlText(text: string): string {
     .replace(/\n/g, '&#10;');
 }
 
+function decodeXmlText(text: string): string {
+  return text
+    .replace(/&#10;/g, '\n')
+    .replace(/&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&gt;/g, '>')
+    .replace(/&lt;/g, '<')
+    .replace(/&amp;/g, '&');
+}
+
 function splitParagraphs(text: string): string[] {
   return cleanMojibakeText(text)
     .split(/\n+/)
@@ -273,6 +283,187 @@ function addDocxInfographicBlock(children: (Paragraph | Table)[], heading: strin
   }
 }
 
+type TemplateTextNode = {
+  fullMatch: string;
+  openTag: string;
+  closeTag: string;
+  innerXml: string;
+};
+
+type TemplateReplacementEntry = {
+  source: string;
+  normalizedSource: string;
+  replacement: string;
+};
+
+const TEMPLATE_UNRESOLVED_SENTINELS = [
+  'Report Title',
+  'Subtitle',
+  'Section Title',
+  'Slide Title',
+  'Brief description of this section.',
+  'Body text. Clear, direct, architectural. Present tense, active voice. Numbers beat adjectives. Lead with the outcome, not the method.',
+  'Second paragraph. Continue the narrative with additional context, evidence, or analysis.',
+  'Subsection body text. Specific, evidenced, grounded.',
+  'Cross-Framework Insight body text. Specific, evidenced, grounded.',
+  'First key point.',
+  'Second key point.',
+  'Third key point.',
+  'Critical information or decision point. One clear, direct statement.',
+  'Critical insight, grounded in evidence. One direct statement.',
+  'Data Table',
+];
+
+function normalizeTemplateMatchText(text: string): string {
+  return cleanMojibakeText(decodeXmlText(text)).replace(/\s+/g, ' ').trim();
+}
+
+function buildTemplateReplacementEntries(vars: Record<string, string>): TemplateReplacementEntry[] {
+  const entries: TemplateReplacementEntry[] = [];
+
+  for (const [rawKey, rawValue] of Object.entries(vars)) {
+    const key = rawKey.trim();
+    if (!key || key === '__literal_replacements_json__') continue;
+    const replacement = rawValue ?? '';
+    const patterns = [
+      `{{${key}}}`,
+      `[[${key}]]`,
+      `<<${key}>>`,
+      `\${${key}}`,
+      `{{${key.toUpperCase()}}}`,
+      `[[${key.toUpperCase()}]]`,
+      `<<${key.toUpperCase()}>>`,
+      `\${${key.toUpperCase()}}`,
+    ];
+
+    for (const source of patterns) {
+      entries.push({
+        source,
+        normalizedSource: normalizeTemplateMatchText(source),
+        replacement,
+      });
+    }
+  }
+
+  const literalVars = vars.__literal_replacements_json__
+    ? JSON.parse(vars.__literal_replacements_json__)
+    : null;
+
+  if (literalVars && typeof literalVars === 'object') {
+    for (const [source, replacement] of Object.entries(literalVars as Record<string, string>)) {
+      if (!source) continue;
+      entries.push({
+        source,
+        normalizedSource: normalizeTemplateMatchText(source),
+        replacement: replacement ?? '',
+      });
+    }
+  }
+
+  return entries;
+}
+
+function collectTemplateTextNodes(xml: string, format: TemplateFormat): TemplateTextNode[] {
+  const pattern = format === 'docx'
+    ? /(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/g
+    : /(<a:t>)([\s\S]*?)(<\/a:t>)/g;
+
+  const nodes: TemplateTextNode[] = [];
+  for (const match of xml.matchAll(pattern)) {
+    nodes.push({
+      fullMatch: match[0],
+      openTag: match[1],
+      innerXml: match[2],
+      closeTag: match[3],
+    });
+  }
+  return nodes;
+}
+
+function applyDirectTextReplacements(text: string, entries: TemplateReplacementEntry[]): { text: string; replacements: number } {
+  let next = text;
+  let replacements = 0;
+
+  for (const entry of entries) {
+    if (!entry.source || !next.includes(entry.source)) continue;
+    const parts = next.split(entry.source);
+    const count = parts.length - 1;
+    if (count > 0) {
+      replacements += count;
+      next = parts.join(entry.replacement);
+    }
+  }
+
+  return { text: next, replacements };
+}
+
+function applyTextNodeReplacements(xml: string, format: TemplateFormat, vars: Record<string, string>): { xml: string; replacements: number } {
+  const nodes = collectTemplateTextNodes(xml, format);
+  if (nodes.length === 0) return { xml, replacements: 0 };
+
+  const entries = buildTemplateReplacementEntries(vars);
+  if (entries.length === 0) return { xml, replacements: 0 };
+
+  const nodeTexts = nodes.map((node) => normalizeTemplateMatchText(node.innerXml));
+  let replacements = 0;
+
+  for (let index = 0; index < nodes.length; index++) {
+    const decoded = decodeXmlText(nodes[index].innerXml);
+    const direct = applyDirectTextReplacements(decoded, entries);
+    if (direct.replacements > 0) {
+      nodes[index].innerXml = escapeXmlText(direct.text);
+      nodeTexts[index] = normalizeTemplateMatchText(direct.text);
+      replacements += direct.replacements;
+    }
+  }
+
+  for (let start = 0; start < nodes.length; start++) {
+    for (let span = Math.min(6, nodes.length - start); span >= 2; span--) {
+      const slice = nodeTexts.slice(start, start + span);
+      const spaced = slice.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+      const compact = slice.join('').replace(/\s+/g, ' ').trim();
+      if (!spaced && !compact) continue;
+
+      const match = entries.find((entry) => entry.normalizedSource === spaced || entry.normalizedSource === compact);
+      if (!match) continue;
+
+      nodes[start].innerXml = escapeXmlText(match.replacement);
+      nodeTexts[start] = normalizeTemplateMatchText(match.replacement);
+      for (let offset = 1; offset < span; offset++) {
+        nodes[start + offset].innerXml = '';
+        nodeTexts[start + offset] = '';
+      }
+      replacements += 1;
+      start += span - 1;
+      break;
+    }
+  }
+
+  let nextXml = xml;
+  for (let index = nodes.length - 1; index >= 0; index--) {
+    const node = nodes[index];
+    nextXml = nextXml.replace(node.fullMatch, `${node.openTag}${node.innerXml}${node.closeTag}`);
+  }
+
+  return { xml: nextXml, replacements };
+}
+
+function countUnresolvedTemplateSentinels(xml: string, format: TemplateFormat): number {
+  const texts = collectTemplateTextNodes(xml, format)
+    .map((node) => normalizeTemplateMatchText(node.innerXml))
+    .filter(Boolean);
+
+  let unresolved = 0;
+  for (const sentinel of TEMPLATE_UNRESOLVED_SENTINELS) {
+    const normalizedSentinel = normalizeTemplateMatchText(sentinel);
+    if (texts.some((text) => text === normalizedSentinel)) {
+      unresolved += 1;
+    }
+  }
+
+  return unresolved;
+}
+
 function applyPlaceholderReplacements(xml: string, vars: Record<string, string>): { xml: string; replacements: number } {
   let next = xml;
   let replacements = 0;
@@ -345,6 +536,7 @@ function buildStrategyTemplateLiteralVars(record: StrategyAnalysisRecord): Recor
     'Cross-Framework Insight body text. Specific, evidenced, grounded.': clampWords(insights[1] ?? summary, 24),
     'KEY FINDING  Critical information or decision point. One clear, direct statement.': `KEY FINDING  ${clampWords(keyFinding, 18)}`,
     'Critical information or decision point. One clear, direct statement.': clampWords(keyFinding, 16),
+    'Critical insight, grounded in evidence. One direct statement.': clampWords(keyFinding, 16),
     'First key point.': clampWords(insights[0] ?? summary, 12),
     'Second key point.': clampWords(insights[1] ?? summary, 12),
     'Third key point.': clampWords(insights[2] ?? summary, 12),
@@ -416,9 +608,13 @@ function buildAnalysisTemplateVars(record: AnalysisRecord): Record<string, strin
     'Cross-Framework Insight body text. Specific, evidenced, grounded.': clampWords(recommendations[0]?.detail ?? summary, 24),
     'KEY FINDING  Critical information or decision point. One clear, direct statement.': `KEY FINDING  ${clampWords(keyFindings[0] ?? risks[0] ?? summary, 18)}`,
     'Critical information or decision point. One clear, direct statement.': clampWords(keyFindings[0] ?? risks[0] ?? summary, 16),
+    'Critical insight, grounded in evidence. One direct statement.': clampWords(keyFindings[0] ?? risks[0] ?? summary, 16),
     'First key point.': clampWords(keyFindings[0] ?? summary, 12),
     'Second key point.': clampWords(keyFindings[1] ?? summary, 12),
     'Third key point.': clampWords(keyFindings[2] ?? recommendations[0]?.title ?? summary, 12),
+    'Lead with the outcome, not the process. Numbers beat adjectives every time.': clampWords(keyFindings[0] ?? summary, 16),
+    'Confident, clear, architectural tone. Present tense, active voice throughout.': clampWords(keyFindings[1] ?? summary, 16),
+    'Scope discipline — define what we produce and what we explicitly do not.': clampWords(keyFindings[2] ?? recommendations[0]?.title ?? summary, 16),
   });
 
   return vars;
@@ -502,9 +698,13 @@ function buildDeepDiveTemplateVars(record: DeepDiveRecord): Record<string, strin
     'Cross-Framework Insight body text. Specific, evidenced, grounded.': clampWords(recommendations[0]?.description ?? summary, 24),
     'KEY FINDING  Critical information or decision point. One clear, direct statement.': `KEY FINDING  ${clampWords(strengths[0] ?? challenges[0] ?? summary, 18)}`,
     'Critical information or decision point. One clear, direct statement.': clampWords(strengths[0] ?? challenges[0] ?? summary, 16),
+    'Critical insight, grounded in evidence. One direct statement.': clampWords(strengths[0] ?? challenges[0] ?? summary, 16),
     'First key point.': clampWords(strengths[0] ?? summary, 12),
     'Second key point.': clampWords(challenges[0] ?? summary, 12),
     'Third key point.': clampWords(recommendations[0]?.title ?? summary, 12),
+    'Lead with the outcome, not the process. Numbers beat adjectives every time.': clampWords(strengths[0] ?? summary, 16),
+    'Confident, clear, architectural tone. Present tense, active voice throughout.': clampWords(challenges[0] ?? summary, 16),
+    'Scope discipline — define what we produce and what we explicitly do not.': clampWords(recommendations[0]?.title ?? summary, 16),
   });
 
   return vars;
@@ -539,6 +739,16 @@ async function renderTemplateDocument(format: TemplateFormat, vars: Record<strin
         const { xml: withLiterals, replacements: literalReplacements } = applyLiteralReplacements(updatedXml, literalVars as Record<string, string>);
         updatedXml = withLiterals;
         fileReplacements += literalReplacements;
+      }
+
+      const { xml: withTextNodeReplacements, replacements: textNodeReplacements } = applyTextNodeReplacements(updatedXml, format, vars);
+      updatedXml = withTextNodeReplacements;
+      fileReplacements += textNodeReplacements;
+
+      const unresolvedSentinels = countUnresolvedTemplateSentinels(updatedXml, format);
+      if (unresolvedSentinels > 0) {
+        warnTemplateOnce(`Loaded ${format.toUpperCase()} template but unresolved placeholder scaffolding remained after merge; falling back to in-code builders.`);
+        return null;
       }
 
       if (fileReplacements > 0) {
@@ -2021,6 +2231,7 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
   return [
     `Create a polished, magazine-quality corporate infographic in 16:9 landscape format (1536x1024px).`,
     `Style: clean modern flat design, white background, generous whitespace, minimal text. Use large icons, bold color blocks, and data visualizations instead of paragraphs of text. Think executive strategy consulting slide â€” NOT a document.`,
+    `Overall style: clean, data-rich, executive-ready slide, with clear section headings, consistent iconography, and sufficient whitespace for readability.`,
     ``,
     `Color palette: primary cyan (#00E0FF), white (#FFFFFF) background, dark charcoal (#1A1A2E) text, emerald (#34D399) for positive, rose (#FB7185) for negative, amber (#FBBF24) for caution. Use soft pastel tinted backgrounds for card sections.`,
     ``,
@@ -2047,6 +2258,8 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
     `LEFT: "${recCount} Strategic Actions" â€” show as ${recCount} large colored pill badges in a row. ${highCount} red pills, ${medCount} amber pills, rest blue. Each pill has only a number inside (1, 2, 3, 4). A small "Priority Matrix" scatter plot beside it with dots plotted on an Impact vs Effort 2x2 grid.`,
     ``,
     `RIGHT: A thin metadata strip in small gray text: "${record.depth} depth Â· ${record.type.replace(/_/g, ' ')} Â· ${threadCount} threads Â· ${record.requested_by}"`,
+    ``,
+    `Footer: a full-width thin bar in light gray with centered small text: "© Glyphor Corporation. All rights reserved."`,
     ``,
     `CRITICAL RULES:`,
     `- MINIMAL TEXT. Use icons, shapes, numbers, charts, and color instead of words.`,
@@ -3451,7 +3664,9 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     `Bottom-right: a compact callout titled "${bottomRightSection.title}" using ${bottomRightSection.layoutHint}`,
     ...formatPromptItems(bottomRightSection.items, 'dash'),
     '',
-    'Footer: a full-width thin light-gray bar with centered small text: "Confidential strategic briefing".',
+    'Footer: a full-width thin bar in light gray with centered small text: "© Glyphor Corporation. All rights reserved."',
+    '',
+    'Overall style: clean, data-rich, executive-ready slide, with clear section headings, consistent iconography, and sufficient whitespace for readability.',
     '',
     'STRICT OUTPUT RULES:',
     '- Use only the provided facts; do not invent brands, logos, product names, metrics, dates, or numeric deltas',

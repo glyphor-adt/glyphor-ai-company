@@ -461,6 +461,8 @@ function buildResearchAreas(target: string): ResearchArea[] {
 /* ── Engine ─────────────────────────────────── */
 
 export class DeepDiveEngine {
+  private static readonly STALE_RUN_TIMEOUT_MINUTES = 90;
+
   constructor(
     private modelClient: ModelClient,
     private model = getSpecialized('deep_research'),
@@ -498,11 +500,13 @@ export class DeepDiveEngine {
   }
 
   async get(id: string): Promise<DeepDiveRecord | null> {
+    await this.failStaleRuns();
     const [row] = await systemQuery<DeepDiveRecord>('SELECT * FROM deep_dives WHERE id = $1', [id]);
     return row ?? null;
   }
 
   async list(limit = 20): Promise<DeepDiveRecord[]> {
+    await this.failStaleRuns();
     const rows = await systemQuery<DeepDiveRecord>('SELECT * FROM deep_dives ORDER BY created_at DESC LIMIT $1', [limit]);
     return rows;
   }
@@ -1260,6 +1264,25 @@ export class DeepDiveEngine {
 
   private async updateStatus(id: string, status: DeepDiveStatus): Promise<void> {
     await systemQuery('UPDATE deep_dives SET status=$1 WHERE id=$2', [status, id]);
+  }
+
+  private async failStaleRuns(): Promise<void> {
+    await systemQuery(
+      `UPDATE deep_dives
+       SET status = 'failed',
+           error = COALESCE(
+             NULLIF(error, ''),
+             $1
+           ),
+           completed_at = COALESCE(completed_at, NOW())
+       WHERE completed_at IS NULL
+         AND status IN ('scoping', 'researching', 'analyzing', 'framework-analysis', 'synthesizing')
+         AND created_at < NOW() - ($2::text || ' minutes')::interval`,
+      [
+        'Deep dive execution was interrupted before completion. The current /deep-dive/run path detaches in-process work after the HTTP request returns, which is not durable on Cloud Run. Rerun after moving this job to a durable worker or queue-backed execution path.',
+        String(DeepDiveEngine.STALE_RUN_TIMEOUT_MINUTES),
+      ],
+    );
   }
 
   private async updateAreas(id: string, areas: ResearchArea[]): Promise<void> {

@@ -114,21 +114,44 @@ async function applyWatermark(imageB64: string): Promise<string> {
   const imgBuf = Buffer.from(imageB64, 'base64');
   const meta = await sharp(imgBuf).metadata();
   const imgW = meta.width ?? 1536;
-  // Place Glyphor logo in the reserved top-right slot.
-  // Baseline geometry is 160px logo width with 32px inset on a 1536px canvas.
-  const logoW = Math.max(96, Math.round((imgW * 160) / 1536));
+  const imgH = meta.height ?? 1024;
+  const footerH = Math.max(34, Math.round((imgH * 46) / 1024));
+  const footerY = imgH - footerH;
+  const pad = Math.max(12, Math.round((imgW * 18) / 1536));
+  const logoW = Math.max(44, Math.round((imgW * 68) / 1536));
   const resizedLogo = await sharp(logoBuf)
     .resize({ width: logoW, fit: 'inside' })
     .toBuffer();
   const logoMeta = await sharp(resizedLogo).metadata();
   const logoH = logoMeta.height ?? logoW;
-  const pad = Math.max(16, Math.round((imgW * 32) / 1536));
+  const footerText = '© Glyphor Corporation. All rights reserved.';
+  const footerSvg = Buffer.from(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="${imgW}" height="${footerH}" viewBox="0 0 ${imgW} ${footerH}">
+      <rect width="${imgW}" height="${footerH}" fill="#E5E7EB"/>
+      <text
+        x="${Math.round((imgW - (logoW + pad * 4)) / 2)}"
+        y="${Math.round(footerH / 2)}"
+        text-anchor="middle"
+        dominant-baseline="middle"
+        font-family="Segoe UI, Arial, sans-serif"
+        font-size="${Math.max(12, Math.round((imgW * 16) / 1536))}"
+        fill="#64748B"
+      >${footerText}</text>
+    </svg>
+  `);
   const result = await sharp(imgBuf)
-    .composite([{
-      input: resizedLogo,
-      left: imgW - logoW - pad,
-      top: pad,
-    }])
+    .composite([
+      {
+        input: footerSvg,
+        left: 0,
+        top: footerY,
+      },
+      {
+        input: resizedLogo,
+        left: imgW - logoW - pad,
+        top: footerY + Math.max(2, Math.round((footerH - logoH) / 2)),
+      },
+    ])
     .png()
     .toBuffer();
   return result.toString('base64');
@@ -4360,6 +4383,7 @@ function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiv
   return [
     `Create a polished, magazine-quality corporate infographic in 16:9 landscape format (1536x1024px).`,
     `Style: clean modern flat design, white background, generous whitespace, minimal text. Use large icons, bold number callouts, color blocks, and data visualizations. Think executive consulting slide deck — NOT a text document.`,
+    `Overall style: clean, data-rich, executive-ready slide, with clear section headings, consistent iconography, and sufficient whitespace for readability.`,
     ``,
     `Color palette: primary cyan (#00E0FF), white (#FFFFFF) background, dark charcoal (#1A1A2E) text, emerald (#34D399) for positive, rose (#FB7185) for negative, amber (#FBBF24) for caution.`,
     ``,
@@ -4393,6 +4417,8 @@ function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiv
     `CENTER (30%): "Roadmap" — a horizontal timeline with ${roadmapPhases} connected nodes/dots. Each node has ONLY the phase name (1-2 words). Color gradient from cyan to emerald.`,
     ``,
     `RIGHT (30%): "Risk" — a small 2x2 heatmap grid (Impact vs Probability) with ${riskCount} colored dots plotted on it. Red for high-high, amber for medium, green for low. NO text labels on individual risks.`,
+    ``,
+    `Footer: a full-width thin bar in light gray with centered small text: "© Glyphor Corporation. All rights reserved."`,
     ``,
     `CRITICAL RULES:`,
     `- MINIMAL TEXT. Maximum 35 words total on the infographic (excluding title).`,
