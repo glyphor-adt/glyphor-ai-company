@@ -20,7 +20,7 @@ VALUES (
   'Glyphor AI',
   'Build autonomous AI-powered development tools that fundamentally change how software is created',
   'Empower developers with AI agents that understand, build, and evolve software systems',
-  '{"Q1_2025": [{"objective": "Launch Fuse V7 with autonomous agent capabilities", "key_results": ["Ship Fuse V7 GA", "100 beta users", "95% build success rate"]}, {"objective": "Establish company operating rhythm", "key_results": ["All 7 AI executives operational", "Daily briefings running", "Decision queue < 24h response"]}]}'::jsonb,
+  '{"Q1_2025": [{"objective": "Launch the web build engine v7 with autonomous agent capabilities", "key_results": ["Ship web build v7 GA", "100 beta users", "95% build success rate"]}, {"objective": "Establish company operating rhythm", "key_results": ["All 7 AI executives operational", "Daily briefings running", "Decision queue < 24h response"]}]}'::jsonb,
   '{"kristina": {"role": "CEO", "focus": ["vision", "product", "market", "partnerships"], "timezone": "America/Chicago"}, "andrew": {"role": "COO", "focus": ["financials", "operations", "risk", "infrastructure"], "timezone": "America/Chicago"}}'::jsonb,
   ARRAY['Ship fast', 'Measure everything', 'AI-first operations', 'Two-person leverage'],
   NOW()
@@ -40,7 +40,7 @@ echo "  ✓ Company profile"
 # Insert products
 $PSQL <<'SQL'
 INSERT INTO products (slug, name, status, description, tech_stack, metrics) VALUES
-  ('fuse', 'Fuse', 'active', 'AI-powered autonomous coding agent that understands, builds, and evolves software', ARRAY['TypeScript', 'Node.js', 'Gemini API', 'VS Code Extension'], '{"mrr": 0, "active_users": 0, "builds_last_7d": 0}'::jsonb),
+  ('web-build', 'Web Build', 'active', 'AI-powered autonomous coding agent that understands, builds, and evolves software', ARRAY['TypeScript', 'Node.js', 'Gemini API', 'VS Code Extension'], '{"mrr": 0, "active_users": 0, "builds_last_7d": 0}'::jsonb),
   ('pulse', 'Pulse', 'concept', 'Real-time AI code review and quality monitoring platform', ARRAY['TypeScript', 'Node.js'], '{"mrr": 0, "active_users": 0}'::jsonb)
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,

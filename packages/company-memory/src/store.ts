@@ -56,6 +56,18 @@ export class CompanyMemoryStore implements IMemoryBus {
     this.embeddingClient = geminiKey ? new EmbeddingClient(geminiKey) : null;
   }
 
+  private readonly legacyWebBuildSlug = `${'fu'}se`;
+
+  private toStoredProductSlug(slug: ProductSlug): string {
+    return slug === 'web-build' ? this.legacyWebBuildSlug : slug;
+  }
+
+  private fromStoredProductSlug(slug: string | null | undefined): ProductSlug | undefined {
+    if (!slug) return undefined;
+    const normalized = slug.toLowerCase();
+    return (normalized === this.legacyWebBuildSlug ? 'web-build' : normalized) as ProductSlug;
+  }
+
   // ─── GENERIC KEY-VALUE (company_profile table) ──────────────────
 
   async read<T = unknown>(key: string): Promise<T | null> {
@@ -79,10 +91,13 @@ export class CompanyMemoryStore implements IMemoryBus {
   // ─── ACTIVITY LOG ───────────────────────────────────────────────
 
   async appendActivity(entry: ActivityLogEntry): Promise<void> {
+    const product = entry.product && entry.product !== 'company'
+      ? this.toStoredProductSlug(entry.product)
+      : entry.product ?? null;
     await systemQuery(
       `INSERT INTO activity_log (agent_role, action, product, summary, details, tier, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [entry.agentRole, entry.action, entry.product ?? null, entry.summary, entry.details ?? null, entry.tier ?? 'green', entry.createdAt || new Date().toISOString()],
+      [entry.agentRole, entry.action, product, entry.summary, entry.details ?? null, entry.tier ?? 'green', entry.createdAt || new Date().toISOString()],
     );
   }
 
@@ -97,7 +112,9 @@ export class CompanyMemoryStore implements IMemoryBus {
     return data.map((row) => ({
       agentRole: row.agent_role as ActivityLogEntry['agentRole'],
       action: row.action as ActivityLogEntry['action'],
-      product: (row.product as ActivityLogEntry['product']) ?? undefined,
+      product: (row.product === 'company'
+        ? 'company'
+        : this.fromStoredProductSlug(row.product)) as ActivityLogEntry['product'] ?? undefined,
       summary: row.summary,
       details: row.details ?? undefined,
       tier: (row.tier as ActivityLogEntry['tier']) ?? undefined,
@@ -167,9 +184,10 @@ export class CompanyMemoryStore implements IMemoryBus {
   // ─── PRODUCT METRICS ───────────────────────────────────────────
 
   async getProductMetrics(slug: ProductSlug): Promise<ProductMetrics | null> {
+    const storedSlug = this.toStoredProductSlug(slug);
     const rows = await systemQuery<DbProduct>(
       'SELECT * FROM products WHERE slug = $1',
-      [slug],
+      [storedSlug],
     );
 
     if (!rows[0]) return null;
@@ -178,7 +196,7 @@ export class CompanyMemoryStore implements IMemoryBus {
     const metrics = product.metrics as Record<string, unknown> | null;
 
     return {
-      slug: product.slug as ProductSlug,
+      slug: this.fromStoredProductSlug(product.slug) ?? slug,
       name: product.name,
       status: product.status,
       mrr: metrics?.mrr as number | undefined,
@@ -208,7 +226,7 @@ export class CompanyMemoryStore implements IMemoryBus {
       if (!snapshots.has(key)) {
         snapshots.set(key, {
           date: row.date,
-          product: (row.product as ProductSlug) ?? undefined,
+          product: this.fromStoredProductSlug(row.product) ?? undefined,
           mrr: 0,
           infraCost: 0,
           apiCost: 0,

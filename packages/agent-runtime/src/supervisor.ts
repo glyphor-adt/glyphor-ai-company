@@ -1,7 +1,7 @@
 /**
  * Agent Supervisor — Lifecycle supervision
  *
- * Ported from Fuse V7 runtime/supervisor.ts.
+ * Ported from the prior internal runtime supervisor.
  * Owns AbortController wired into every async operation.
  * Supervision: maxTurns, maxStallTurns, timeoutMs, external abort.
  */

@@ -1,7 +1,7 @@
 /**
  * Company Agent Runner — Core Execution Loop
  *
- * Ported from Fuse V7 runtime/agentRunner.ts and adapted for company agents.
+ * Ported from the prior internal runtime baseline and adapted for company agents.
  * Loop: supervisor check → context injection → model call → tool dispatch → loop
  */
 

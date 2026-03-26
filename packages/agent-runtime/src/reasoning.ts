@@ -1,7 +1,7 @@
 /**
  * Reasoning Extraction — XML block parsing
  *
- * Ported from Fuse V7 runtime/reasoning.ts.
+ * Ported from the prior internal runtime reasoning module.
  */
 
 import type { ReasoningEnvelope } from './types.js';

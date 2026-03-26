@@ -35,7 +35,7 @@ Founders work full-time at Microsoft and have limited weekly time for Glyphor. D
 - Revenue and retention are the only objectives that matter right now
 - Slack is the go-to-market wedge; Teams comes later
 - No new external products until the AI Marketing Department proves demand and retention
-- Dashboard, Pulse, and Fuse are internal capabilities, not standalone products for this phase
+- Dashboard and internal engines are internal capabilities, not standalone products for this phase
 
 ## Current Priorities
 1. Platform health stabilization

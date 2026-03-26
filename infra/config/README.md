@@ -2,7 +2,7 @@
 
 ## Overview
 
-This directory contains templates and guidance for configuring Vercel projects (Pulse and Fuse) to allow Google PageSpeed Insights / Lighthouse audits without rate limiting.
+This directory contains templates and guidance for configuring Vercel projects (Pulse and the web build app) to allow Google PageSpeed Insights / Lighthouse audits without rate limiting.
 
 ## Files
 
@@ -16,7 +16,7 @@ This directory contains templates and guidance for configuring Vercel projects (
 
 1. **Navigate to project settings**
    - Pulse: https://vercel.com/[team]/pulse → Settings → Firewall
-   - Fuse: https://vercel.com/[team]/fuse → Settings → Firewall
+   - Web build app: https://vercel.com/[team]/dashboard → Settings → Firewall
 
 2. **Add Trusted IPs**
    - Go to "Trusted IPs" section

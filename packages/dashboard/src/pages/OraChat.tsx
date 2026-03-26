@@ -141,7 +141,7 @@ interface OraPreferences {
 
 const GITHUB_REPO_OPTIONS = [
   { value: 'company', label: 'glyphor-ai-company' },
-  { value: 'fuse', label: 'glyphor-ai-spark-c03e7e1a' },
+  { value: 'web-build', label: 'glyphor-ai-spark-c03e7e1a' },
   { value: 'pulse', label: 'glyphor-ally-ai' },
 ] as const;
 

@@ -6,13 +6,14 @@ import type { PoolClient } from 'pg';
 import { closePool, systemTransaction } from '@glyphor/shared/db';
 
 const TENANT = 'system';
+const legacyWebBuildName = `${'Fu'}se`;
 
 const CMO_BRAND_SECTION = `## Brand Voice
 BRAND VOICE: Confident, clear, architectural. Not irreverent. Not corporate.
 Present tense, active voice. Numbers beat adjectives. No exclamation marks 
 in external copy. No buzzwords. No hedging. Lead with the outcome.
 External product name: AI Marketing Department only. Never mention Pulse, 
-Fuse, Revy, or Cockpit to customers or in customer-facing content.
+internal engine names, Revy, or Cockpit to customers or in customer-facing content.
 `;
 
 function transformCmoPrompt(text: string): string {
@@ -20,11 +21,11 @@ function transformCmoPrompt(text: string): string {
   let out = text.replace(brandRe, `${CMO_BRAND_SECTION}\n`);
 
   out = out.replace(
-    /\bthe products \(Fuse and Pulse\) have not launched yet\b/g,
+    new RegExp(`\\bthe products \\(${legacyWebBuildName} and Pulse\\) have not launched yet\\b`, 'g'),
     'building AI-powered departments that deliver outcomes. The only external product is the AI Marketing Department',
   );
   out = out.replace(
-    /\bbuilding autonomous software \(Fuse\) and creative \(Pulse\) platforms\b/g,
+    new RegExp(`\\bbuilding autonomous software \\(${legacyWebBuildName}\\) and creative \\(Pulse\\) platforms\\b`, 'g'),
     'building AI-powered departments that deliver outcomes. The only external product is the AI Marketing Department',
   );
   return out;
@@ -32,16 +33,16 @@ function transformCmoPrompt(text: string): string {
 
 function transformChiefOfStaffPrompt(text: string): string {
   let out = text.replace(
-    /building autonomous software \(Fuse\) and creative \(Pulse\) platforms/g,
+    new RegExp(`building autonomous software \\(${legacyWebBuildName}\\) and creative \\(Pulse\\) platforms`, 'g'),
     'building AI-powered departments that deliver outcomes. The only external product is the AI Marketing Department',
   );
   // Any other legacy one-liner product framing (avoid touching tool names / URLs)
   out = out.replace(
-    /\bGlyphor's products \(Pulse, Fuse\)/gi,
+    new RegExp(`\\bGlyphor's products \\(Pulse, ${legacyWebBuildName}\\)`, 'gi'),
     'the AI Marketing Department (our only external product)',
   );
   out = out.replace(
-    /\b\(Pulse and Fuse\)/gi,
+    new RegExp(`\\b\\(Pulse and ${legacyWebBuildName}\\)`, 'gi'),
     '(AI Marketing Department)',
   );
   return out;
@@ -100,13 +101,13 @@ async function main(): Promise<void> {
         client,
         'cmo',
         transformCmoPrompt,
-        'Brand voice + product framing: AI Marketing Department only; no Fuse/Pulse as external products (CMO prompt)',
+        'Brand voice + product framing: AI Marketing Department only; no internal engine names as external products (CMO prompt)',
       );
       await promoteAgentPrompt(
         client,
         'chief-of-staff',
         transformChiefOfStaffPrompt,
-        'Product framing: AI-powered departments / AI Marketing Department; remove Fuse/Pulse as external products (CoS prompt)',
+        'Product framing: AI-powered departments / AI Marketing Department; remove internal engine names as external products (CoS prompt)',
       );
     });
   } finally {

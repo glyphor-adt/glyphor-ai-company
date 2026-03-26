@@ -24,7 +24,7 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const metrics = await memory.getProductMetrics(params.product as 'fuse' | 'pulse');
+        const metrics = await memory.getProductMetrics(params.product as 'web-build' | 'pulse');
         return { success: true, data: metrics };
       },
     },
@@ -153,7 +153,7 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         await memory.appendActivity({
           agentRole: ctx.agentRole,
           action: params.action as 'content' | 'analysis',
-          product: (params.product as 'fuse' | 'pulse' | 'company') ?? 'company',
+          product: (params.product as 'web-build' | 'pulse' | 'company') ?? 'company',
           summary: params.summary as string,
           createdAt: new Date().toISOString(),
         });

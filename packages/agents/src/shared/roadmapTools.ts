@@ -34,8 +34,8 @@ export function createRoadmapTools(): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Which internal engine this item belongs to (fuse/pulse are internal engines, not external products).',
-          enum: ['pulse', 'fuse'],
+          description: 'Which internal engine this item belongs to (web-build/pulse are internal engines, not external products).',
+          enum: ['pulse', 'web-build'],
           required: true,
         },
         priority: {
@@ -177,7 +177,7 @@ export function createRoadmapTools(): ToolDefinition[] {
         product: {
           type: 'string',
           description: 'Filter by internal engine or view all.',
-          enum: ['pulse', 'fuse', 'all'],
+          enum: ['pulse', 'web-build', 'all'],
         },
         quarter: {
           type: 'string',
@@ -365,7 +365,7 @@ export function createRoadmapTools(): ToolDefinition[] {
         product: {
           type: 'string',
           description: 'Filter by internal engine or view all.',
-          enum: ['pulse', 'fuse', 'all'],
+          enum: ['pulse', 'web-build', 'all'],
           required: true,
         },
       },

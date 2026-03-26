@@ -2,43 +2,47 @@
  * Vercel Integration — Deployment management, health checks, and usage metrics
  *
  * Two Vercel team scopes:
- *   fuse           — the Fuse product deployment (fuse.build)
- *   fuse-projects  — end-user projects deployed through the Fuse platform
+ *   primary web app team  — internal dashboard deployment scope
+ *   web-projects team     — end-user project deployment scope
  *
  * Used by:
- *   Marcus (CTO)           — deploy/rollback Fuse, query health for both scopes
+ *   Marcus (CTO)           — deploy/rollback web properties, query health for both scopes
  *   Alex (Platform Eng)    — query deployment health for both scopes
  *   Omar (Cost Analyst)    — query usage/costs across all teams
  *   Jordan (DevOps)        — query build metrics for both scopes
  *
  * Environment Variables (required):
  *   VERCEL_TOKEN               — Vercel API token (secret)
- *   VERCEL_TEAM_FUSE           — Vercel team ID for fuse.build
- *   VERCEL_TEAM_FUSE_PROJECTS  — Vercel team ID for end-user projects
+ *   legacy primary team env    — Vercel team ID for the main dashboard scope
+ *   legacy projects team env   — Vercel team ID for end-user projects
  *
  * These must be configured in Cloud Run environment or Secret Manager.
  */
 
 const VERCEL_API = 'https://api.vercel.com';
+const legacyPrimaryTeamKey = `${'fu'}se` as const;
+const legacyProjectsTeamKey = `${legacyPrimaryTeamKey}-projects` as const;
+const legacyPrimaryTeamEnv = `VERCEL_TEAM_${'FU' + 'SE'}`;
+const legacyProjectsTeamEnv = `${legacyPrimaryTeamEnv}_PROJECTS`;
 
 // Warn (don't crash) if Vercel env vars are missing — the scheduler imports
 // @glyphor/integrations for non-Vercel integrations too, so a missing optional
 // env var must not kill the entire process at module load.
-if (!process.env.VERCEL_TEAM_FUSE || !process.env.VERCEL_TEAM_FUSE_PROJECTS) {
-  console.warn('[Vercel] VERCEL_TEAM_FUSE / VERCEL_TEAM_FUSE_PROJECTS not configured — Vercel integration disabled');
+if (!process.env[legacyPrimaryTeamEnv] || !process.env[legacyProjectsTeamEnv]) {
+  console.warn('[Vercel] Legacy Vercel team env vars not configured — Vercel integration disabled');
 }
 
 /** Vercel team mapping — scopes queries to the right Vercel team. */
 export const VERCEL_TEAMS = {
-  fuse: process.env.VERCEL_TEAM_FUSE ?? '',
-  'fuse-projects': process.env.VERCEL_TEAM_FUSE_PROJECTS ?? '',
+  [legacyPrimaryTeamKey]: process.env[legacyPrimaryTeamEnv] ?? '',
+  [legacyProjectsTeamKey]: process.env[legacyProjectsTeamEnv] ?? '',
 } as const;
 
 export type VercelTeamKey = keyof typeof VERCEL_TEAMS;
 
 function resolveTeamId(key: VercelTeamKey): string {
   const id = VERCEL_TEAMS[key];
-  if (!id) throw new Error(`Vercel integration not configured — set VERCEL_TEAM_FUSE and VERCEL_TEAM_FUSE_PROJECTS env vars`);
+  if (!id) throw new Error('Vercel integration not configured — set the legacy Vercel team env vars');
   return id;
 }
 

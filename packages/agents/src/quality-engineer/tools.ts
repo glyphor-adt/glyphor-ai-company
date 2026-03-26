@@ -92,7 +92,7 @@ export function createQualityEngineerTools(memory: CompanyMemoryStore): ToolDefi
         severity: { type: 'string', description: 'Bug severity', required: true, enum: ['P0', 'P1', 'P2', 'P3'] },
         title: { type: 'string', description: 'Bug title', required: true },
         description: { type: 'string', description: 'Detailed description with repro steps', required: true },
-        product: { type: 'string', description: 'Affected component', required: true, enum: ['fuse', 'pulse', 'platform'] },
+        product: { type: 'string', description: 'Affected component', required: true, enum: ['web-build', 'pulse', 'platform'] },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         const date = new Date().toISOString();

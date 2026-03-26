@@ -4,8 +4,7 @@
  * Used by Marcus (CTO), Jordan (DevOps), and Marcus's engineering team
  * to monitor CI/CD, review PRs, manage issues, and track code health.
  *
- * Requires GITHUB_TOKEN secret (Fine-Grained PAT with access to:
- *   glyphor-adt/glyphor-ai-company, fuse-builder, fuse-ui-registry, pulse)
+ * Requires GITHUB_TOKEN secret (Fine-Grained PAT with access to the managed Glyphor repos).
  */
 
 import { Octokit } from '@octokit/rest';
@@ -13,7 +12,7 @@ import { Octokit } from '@octokit/rest';
 const ORG = 'glyphor-adt';
 const REPO_CONTEXT_CHAR_LIMIT = 12000;
 
-/** The repos the agents have access to — product repos (Fuse/Pulse) are separate codebases and not managed here */
+/** The repos the agents have access to — product repos are separate codebases and not managed here */
 export const GLYPHOR_REPOS = {
   company: 'glyphor-ai-company',
 } as const;

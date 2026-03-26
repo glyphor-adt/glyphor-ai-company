@@ -318,7 +318,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
              FROM fleet_findings
             WHERE finding_type = 'tool_gap'
               AND resolved_at IS NULL
-            ORDER BY created_at ASC
+            ORDER BY detected_at ASC
             LIMIT $1`,
           [limit],
         );
@@ -1018,8 +1018,8 @@ export function createPlatformIntelTools(): ToolDefinition[] {
       execute: async (params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> => {
         const toolName = params.tool_name as string;
 
-        const [existing] = await systemQuery<{ id: string }>(
-          `SELECT id FROM tool_registry WHERE name = $1 AND is_active = true`,
+        const [existing] = await systemQuery<{ name: string }>(
+          `SELECT name FROM tool_registry WHERE name = $1 AND is_active = true`,
           [toolName],
         );
         if (!existing) {

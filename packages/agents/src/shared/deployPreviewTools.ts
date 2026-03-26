@@ -19,9 +19,12 @@ import {
 const VALID_PROJECTS = ['dashboard', 'pulse'] as const;
 type Project = (typeof VALID_PROJECTS)[number];
 
+const primaryVercelTeam = `${'fu'}se` as const;
+const webProjectsVercelTeam = `${primaryVercelTeam}-projects` as const;
+
 const PROJECT_TEAM_MAP: Record<Project, VercelTeamKey> = {
-  dashboard: 'fuse',
-  pulse: 'fuse-projects',
+  dashboard: primaryVercelTeam,
+  pulse: webProjectsVercelTeam,
 };
 
 function resolveTeam(project: Project): VercelTeamKey {

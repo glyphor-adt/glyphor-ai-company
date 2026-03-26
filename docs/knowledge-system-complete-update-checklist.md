@@ -155,7 +155,7 @@ INSERT INTO company_knowledge_base (section, audience, content) VALUES
 ('glossary', 'all', E'# Internal Terminology — Never Reference Externally
 
 - **Pulse**: Internal AI video/creative production engine. Powers the AI Marketing Department''s video and image output. NOT a product name customers see. Externally: "your AI marketing department creates videos."
-- **Fuse**: Internal development acceleration engine. Powers internal platform builds. Not sold. Never mentioned externally.
+- **Web build engine**: Internal development acceleration engine. Powers internal platform builds. Not sold. Never mentioned externally.
 - **Revy / Rêve**: Future roadmap initiative. Not active. Never mentioned externally or in planning.
 - **Cockpit**: Internal dashboard at app.glyphor.ai. Agent management, orchestration, governance, cost tracking. Not customer-facing.
 - **Ora**: Internal multi-model triangulated chat feature. Fans queries to Claude, Gemini, GPT with a judge model. Internal tool only.
@@ -203,7 +203,7 @@ INSERT INTO company_knowledge_base (section, audience, content) VALUES
 
 ## What the Customer Does NOT See
 - Internal orchestration, agent runner, MCP servers, Cockpit dashboard
-- Pulse/Fuse/internal tool names
+- Pulse/internal engine names/internal tool names
 - Multi-model routing, cost tracking, authority tiers
 - The agent platform architecture
 
@@ -346,7 +346,7 @@ These decisions have been made. Do not re-propose, re-open, or work around them.
 
 ## Strategy
 - Pulse is NOT a standalone product. It is an internal engine. (March 2026)
-- Fuse is NOT a standalone product. It is an internal engine. (March 2026)
+- The web build engine is NOT a standalone product. It is an internal engine. (March 2026)
 - The only external product is the AI Marketing Department. (March 2026)
 - Slack is the go-to-market wedge. Teams comes after Slack validation. (March 2026)
 - No dashboard as primary product experience. (March 2026, per Operating Doctrine)
@@ -366,7 +366,7 @@ These decisions have been made. Do not re-propose, re-open, or work around them.
 - KNOWLEDGE.md is deprecated. SQL DB is source of truth. (March 2026)
 
 ## Brand
-- Never call Fuse "vibe coding." (Standing rule)
+- Never call the internal web build engine "vibe coding." (Standing rule)
 - Never use "AI-powered" in external copy. (Per Brand Guide)
 - Never call Glyphor a copilot, assistant, or tool. (Per Brand Guide)
 - Agent names ARE used externally. They have public identities. (Per Brand Guide)
@@ -473,7 +473,7 @@ Tell each agent what mistakes they're most likely to make:
 | **Marcus** | Over-engineering solutions, proposing infra work that doesn't serve the AI Marketing Dept, not coordinating cost impact with Nadia |
 | **Nadia** | Making up numbers instead of querying live data, panicking over small variances, not checking billing sync freshness |
 | **Rachel** | Targeting enterprise instead of SMB, quoting final pricing, describing internal architecture to prospects |
-| **Tyler** | Using banned words, writing generic AI content instead of Glyphor-specific, mentioning Pulse/Fuse/internal names |
+| **Tyler** | Using banned words, writing generic AI content instead of Glyphor-specific, mentioning Pulse/internal engine names |
 | **Kai** | Using emoji, exclamation marks, defensive tone when engaging with criticism, posting without Maya's review |
 
 ---

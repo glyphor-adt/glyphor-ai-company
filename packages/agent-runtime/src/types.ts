@@ -1,8 +1,8 @@
 /**
  * Company Agent Runtime — Core Type Definitions
  *
- * Ported from Fuse V7 runtime/types.ts and adapted for company executive agents.
- * Stripped: build/design/component types (Fuse-specific)
+ * Ported from the prior internal runtime types and adapted for company executive agents.
+ * Stripped: build/design/component types from the earlier product runtime
  * Added: company memory contract, decision tiers, briefing types
  */
 
@@ -287,7 +287,7 @@ export interface SupervisorConfig {
 
 export type DecisionTier = 'green' | 'yellow' | 'red';
 export type DecisionStatus = 'pending' | 'approved' | 'rejected' | 'discussed';
-export type ProductSlug = 'fuse' | 'pulse';
+export type ProductSlug = 'web-build' | 'pulse';
 
 export interface CompanyDecision {
   id: string;
@@ -611,9 +611,9 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'create_github_issue',
   // Infrastructure / deployment
   'deploy_to_staging',
-  'invoke_fuse_build',
-  'invoke_fuse_iterate',
-  'invoke_fuse_upgrade',
+  'invoke_web_build',
+  'invoke_web_iterate',
+  'invoke_web_upgrade',
   'trigger_agent_run',
   'retry_failed_run',
   'pause_agent',

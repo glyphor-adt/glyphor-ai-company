@@ -80,7 +80,7 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
       initialMessage = `Run the sales pipeline review for ${today}.
 
 Steps:
-1. Use get_product_metrics for Fuse and Pulse to see adoption and growth
+1. Use get_product_metrics for both internal engines to see adoption and growth
 2. Use get_financials for revenue data
 3. Use read_company_memory for "sales.pipeline" and "customers.segments"
 4. Analyse the current pipeline: leads → qualified → proposals → closed

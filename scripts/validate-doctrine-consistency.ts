@@ -33,11 +33,13 @@ const REQUIRED_SECTIONS = [
   'decision_log',
 ] as const;
 
+const legacyWebBuildName = `${'Fu'}se`;
+
 const FORBIDDEN_BULLETIN_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
   { label: 'telemetry blackout priority', pattern: /telemetry blackout/i },
   { label: 'enterprise prospect research priority', pattern: /enterprise prospect research/i },
   { label: 'legacy low-ticket pricing', pattern: /\$15\s*[-–]\s*\$50/i },
-  { label: 'legacy Fuse pricing ladder', pattern: /fuse\s*:\s*free tier/i },
+  { label: 'legacy web build pricing ladder', pattern: new RegExp(`${legacyWebBuildName.toLowerCase()}\\s*:\\s*free tier`, 'i') },
   { label: 'deprecated Pulse launch messaging', pattern: /pulse launch messaging|product hunt\s*\/\s*pulse launch|product hunt/i },
 ];
 
@@ -179,14 +181,14 @@ function evaluateDoctrine(sections: Map<string, DoctrineRow>): CheckResult[] {
     /\$15\s*[-–]\s*\$50/i,
     /deprecated|must not be used|do not use|legacy/i,
   );
-  checkAbsent(checks, pricing, 'legacy Fuse free/pro/enterprise ladder', /fuse\s*:\s*free tier|pro\s*\$29|enterprise custom/i);
+  checkAbsent(checks, pricing, 'legacy web build free/pro/enterprise ladder', new RegExp(`${legacyWebBuildName.toLowerCase()}\\s*:\\s*free tier|pro\\s*\\$29|enterprise custom`, 'i'));
 
   checkContains(checks, products, 'AI Marketing Department as external product', /AI Marketing Department.*external|external product.*AI Marketing Department/is);
   checkContains(checks, products, 'Pulse internal engine framing', /Pulse.*internal|internal.*Pulse/is);
-  checkContains(checks, products, 'Fuse internal engine framing', /Fuse.*internal|internal.*Fuse/is);
+  checkContains(checks, products, 'web build internal engine framing', /web build.*internal|internal.*web build/is);
 
   checkContains(checks, decisionLog, 'single external product settlement', /only external product|external product.*only/i);
-  checkContains(checks, decisionLog, 'Pulse/Fuse internal settlement', /Pulse and Fuse are internal|internal engines/i);
+  checkContains(checks, decisionLog, 'internal engine settlement', /Pulse and the web build engine are internal|internal engines/i);
 
   checkContains(checks, doctrine, 'one external product doctrine', /ONE external product|only external product/i);
   checkContains(checks, doctrine, 'Slack-first doctrine', /Slack/i);

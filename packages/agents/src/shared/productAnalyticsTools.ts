@@ -24,9 +24,9 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
       parameters: {
         product: {
           type: 'string',
-          description: 'Internal engine identifier (fuse/pulse are internal engines, not external products).',
+          description: 'Internal engine identifier (web-build/pulse are internal engines, not external products).',
           required: true,
-          enum: ['pulse', 'fuse'],
+          enum: ['pulse', 'web-build'],
         },
         date_range: {
           type: 'string',
@@ -147,9 +147,9 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Internal engine identifier (fuse/pulse are internal engines, not external products).',
+          description: 'Internal engine identifier (web-build/pulse are internal engines, not external products).',
           required: true,
-          enum: ['pulse', 'fuse'],
+          enum: ['pulse', 'web-build'],
         },
       },
       async execute(params): Promise<ToolResult> {
@@ -221,9 +221,9 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
       parameters: {
         product: {
           type: 'string',
-          description: 'Internal engine identifier (fuse/pulse are internal engines, not external products).',
+          description: 'Internal engine identifier (web-build/pulse are internal engines, not external products).',
           required: true,
-          enum: ['pulse', 'fuse'],
+          enum: ['pulse', 'web-build'],
         },
         cohort_period: {
           type: 'string',
@@ -320,9 +320,9 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
       parameters: {
         product: {
           type: 'string',
-          description: 'Internal engine identifier (fuse/pulse are internal engines, not external products).',
+          description: 'Internal engine identifier (web-build/pulse are internal engines, not external products).',
           required: true,
-          enum: ['pulse', 'fuse'],
+          enum: ['pulse', 'web-build'],
         },
         feature_names: {
           type: 'string',
@@ -397,9 +397,9 @@ export function createProductAnalyticsTools(): ToolDefinition[] {
         },
         product: {
           type: 'string',
-          description: 'Internal engine identifier (fuse/pulse are internal engines, not external products).',
+          description: 'Internal engine identifier (web-build/pulse are internal engines, not external products).',
           required: true,
-          enum: ['pulse', 'fuse'],
+          enum: ['pulse', 'web-build'],
         },
       },
       async execute(params): Promise<ToolResult> {

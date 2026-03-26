@@ -227,7 +227,7 @@ locals {
     "teams-channel-engineering-id",
     "teams-channel-growth-id",
     "teams-channel-financials-id",
-    "teams-channel-product-fuse-id",
+    "teams-channel-product-web-build-id",
     "teams-channel-product-pulse-id",
     "teams-user-andrew-id",
     "teams-user-kristina-id",
@@ -1565,12 +1565,12 @@ resource "google_project_iam_member" "scheduler_bq_job_user" {
   member  = "serviceAccount:${google_service_account.glyphor.email}"
 }
 
-# ─── Cross-Project Access: Fuse & Pulse ──────────────────────
-# Marcus (CTO) needs visibility into the Fuse and Pulse GCP projects
+# ─── Cross-Project Access: Web Build & Pulse ─────────────────
+# Marcus (CTO) needs visibility into the web build and Pulse GCP projects
 # for platform health monitoring, deployment management, and log access.
 
-variable "fuse_project_id" {
-  description = "GCP project ID for the Fuse product"
+variable "web_build_project_id" {
+  description = "GCP project ID for the web build product"
   type        = string
   default     = "gen-lang-client-0834143721"
 }
@@ -1582,7 +1582,7 @@ variable "pulse_project_id" {
 }
 
 locals {
-  # Roles granted on both Fuse and Pulse projects
+  # Roles granted on both web build and Pulse projects
   cross_project_roles = [
     "roles/monitoring.viewer",
     "roles/run.viewer",
@@ -1593,13 +1593,13 @@ locals {
 
 resource "google_project_iam_member" "fuse_access" {
   for_each = toset(local.cross_project_roles)
-  project  = var.fuse_project_id
+  project  = var.web_build_project_id
   role     = each.value
   member   = "serviceAccount:${google_service_account.glyphor.email}"
 }
 
 resource "google_project_iam_member" "fuse_secrets" {
-  project = var.fuse_project_id
+  project = var.web_build_project_id
   role    = "roles/secretmanager.secretAccessor"
   member  = "serviceAccount:${google_service_account.glyphor.email}"
 }
@@ -1635,7 +1635,7 @@ locals {
 
   all_project_ids = [
     var.project_id,
-    var.fuse_project_id,
+    var.web_build_project_id,
     var.pulse_project_id,
   ]
 

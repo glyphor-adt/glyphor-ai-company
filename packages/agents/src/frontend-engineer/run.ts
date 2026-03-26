@@ -23,7 +23,7 @@ import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
-import { createFuseTools } from '../shared/fuseTools.js';
+import { createWebBuildTools } from '../shared/webBuildTools.js';
 import { createCodexTools } from '../shared/codexTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
 
@@ -54,7 +54,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createDeployPreviewTools(),
     ...createCodexTools(),
     ...createDesignSystemTools(),
-    ...createFuseTools(memory, {
+    ...createWebBuildTools(memory, {
       allowBuild: true,
       allowIterate: true,
       allowUpgrade: false,

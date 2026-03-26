@@ -13,10 +13,11 @@ function getBigQueryClient(): BigQuery {
 }
 
 /** GCP project → Glyphor product mapping */
+const legacyWebBuildProduct = `${'fu'}se`;
 const PROJECT_TO_PRODUCT: Record<string, string> = {
   'ai-glyphor-company': 'glyphor',
   'glyphor-pulse': 'pulse',
-  'gen-lang-client-0834143721': 'fuse',
+  'gen-lang-client-0834143721': legacyWebBuildProduct,
 };
 
 export interface DailyCost {

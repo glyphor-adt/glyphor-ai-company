@@ -487,7 +487,7 @@ export class ToolRetriever {
     // Vector search
     const vectorResults = vectorSearch(queryEmbedding, this.entries, remainingSlots * 2);
 
-    // ── Step 3: Fuse scores (Reciprocal Rank Fusion) ───────────────────────
+    // ── Step 3: RRF scores (Reciprocal Rank Fusion) ────────────────────────
     const fusedScores = new Map<number, { score: number; method: 'bm25' | 'vector' | 'hybrid' }>();
     const k = 60; // RRF constant
 

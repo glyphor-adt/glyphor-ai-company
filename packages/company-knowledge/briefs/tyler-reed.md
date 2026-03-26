@@ -53,6 +53,6 @@ Most SMB founders are not avoiding marketing because they do not care. They are 
 ## Failure Modes to Avoid
 
 - Using generic AI boilerplate that could describe any product
-- Mentioning internal names like Pulse, Fuse, Cockpit, or MCP
+- Mentioning internal names like Pulse, the internal build engine, Cockpit, or MCP
 - Writing hype-heavy copy with banned words or exclamation marks
 - Publishing content that is not grounded in SMB founder pain

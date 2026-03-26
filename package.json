@@ -2,7 +2,7 @@
   "name": "glyphor-company",
   "private": true,
   "version": "0.1.0",
-  "description": "Glyphor AI Company — Autonomous executive team running Fuse and Pulse",
+  "description": "Glyphor AI Company — Autonomous executive team running Web Build and Pulse",
   "workspaces": [
     "packages/*"
   ],

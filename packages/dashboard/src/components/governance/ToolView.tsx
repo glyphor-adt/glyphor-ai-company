@@ -34,8 +34,25 @@ interface EnrichedTool extends ToolReputation {
   severity: Severity;
 }
 
+function hoursSince(timestamp: string | null | undefined): number | null {
+  if (!timestamp) return null;
+  const ms = Date.parse(timestamp);
+  if (Number.isNaN(ms)) return null;
+  return (Date.now() - ms) / (1000 * 60 * 60);
+}
+
 function isFailingTool(tool: ToolReputation): boolean {
-  return tool.failed_calls > 0 || tool.timeout_calls > 0;
+  const recentFailureHours = hoursSince(tool.last_failed_at);
+  const hasRecentFailure = recentFailureHours != null && recentFailureHours <= 24;
+  if (!hasRecentFailure) return false;
+
+  const timeoutRate = tool.total_calls > 0 ? tool.timeout_calls / tool.total_calls : 0;
+  const criticalReliability = tool.reliability_score != null && tool.reliability_score < 0.5;
+  const criticalSuccess = tool.success_rate != null && tool.success_rate < 0.65;
+  const unstableTimeouts = timeoutRate >= 0.3;
+  const defectProne = tool.downstream_defect_count >= 3;
+
+  return criticalReliability || criticalSuccess || unstableTimeouts || defectProne;
 }
 
 function getToolSeverity(tool: ToolReputation): Severity {
@@ -86,7 +103,7 @@ function ToolHealthOverview({
   const cards: { label: string; value: string; tone: string; filter?: HealthFilter }[] = [
     { label: 'Active Tools', value: activeTools.length.toString(), tone: 'text-prism-sky' },
     { label: 'Avg Reliability', value: formatPercent(avgReliability, 0), tone: 'text-prism-teal' },
-    { label: 'Failing Tools', value: failingCount.toString(), tone: 'text-prism-critical', filter: 'failing' },
+    { label: 'Failing (24h)', value: failingCount.toString(), tone: 'text-prism-critical', filter: 'failing' },
     { label: 'High-Risk Tools', value: highRiskCount.toString(), tone: 'text-prism-critical', filter: 'high-risk' },
     { label: 'Stale Active Tools', value: staleCount.toString(), tone: 'text-prism-elevated', filter: 'stale' },
     { label: 'Awaiting Telemetry', value: telemetryGaps.length.toString(), tone: 'text-prism-sky', filter: 'telemetry-gap' },
@@ -156,7 +173,7 @@ function ToolReputationBoard({
   }, [items, activeFilter]);
 
   const filterLabel = activeFilter === 'failing'
-    ? 'Failing'
+    ? 'Failing (24h)'
     : activeFilter === 'high-risk'
       ? 'High-Risk'
       : activeFilter === 'stale'

@@ -74,7 +74,7 @@ export interface DbCompetitiveIntel {
   category: 'feature_launch' | 'pricing' | 'funding' | 'partnership';
   summary: string;
   source_url: string | null;
-  relevance: 'fuse' | 'pulse' | 'both' | null;
+  relevance: 'web-build' | 'pulse' | 'both' | null;
   action_recommended: string | null;
   detected_at: string;
 }

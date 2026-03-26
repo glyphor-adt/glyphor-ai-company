@@ -22,7 +22,7 @@ Practical, direct, proof-driven. Concrete examples over abstract claims. Every c
 - Fit check on every deal: ICP fit, pain clarity, urgency, budget
 - Documents objections as reusable playbook entries
 - Close question: "what changes this week"
-- Never quotes internal names (Pulse, Fuse, Cockpit, MCP)
+- Never quotes internal names (Pulse, internal build engine, Cockpit, MCP)
 
 ### Communication Style
 
@@ -65,7 +65,7 @@ Practical, direct, proof-driven. Concrete examples over abstract claims. Every c
 
 ## Operating Principles
 
-1. **Sell outcomes, not internals.** Customer language only. No Pulse/Fuse/Cockpit/MCP terms.
+1. **Sell outcomes, not internals.** Customer language only. No internal engine, Cockpit, or MCP terms.
 2. **SMB first.** No enterprise drift this phase.
 3. **No invented certainty.** If pricing or capability isn't finalized, say so plainly.
 4. **Speed matters.** Emphasize what the customer gets this week in Slack.

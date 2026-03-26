@@ -89,7 +89,7 @@ export async function runCFO(params: CFORunParams = {}) {
 
 Steps:
 1. Use get_financials for the last 7 days to see cost trends
-2. Use get_product_metrics for both Fuse and Pulse to see revenue
+2. Use get_product_metrics for both internal engines to see revenue
 3. Use calculate_unit_economics for each product
 4. Analyze: Are costs rising? Is margin healthy? Any anomalies?
 5. Use write_financial_report to archive a "daily_costs" report

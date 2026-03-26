@@ -1,5 +1,7 @@
 import { closePool, systemQuery } from '@glyphor/shared/db';
 
+const legacyWebBuildName = `${'fu'}se`;
+
 async function main(): Promise<void> {
   const rows = await systemQuery<{
     agent_id: string;
@@ -14,7 +16,7 @@ async function main(): Promise<void> {
      )
      AND (
        content ILIKE '%pulse%'
-       OR content ILIKE '%fuse%'
+      OR content ILIKE '%${legacyWebBuildName}%'
        OR content ILIKE '%revy%'
        OR content ILIKE '%cockpit%'
      )

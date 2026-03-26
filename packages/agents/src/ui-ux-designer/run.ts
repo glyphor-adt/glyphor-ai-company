@@ -23,7 +23,7 @@ import { createLogoTools } from '../shared/logoTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
-import { createFuseTools } from '../shared/fuseTools.js';
+import { createWebBuildTools } from '../shared/webBuildTools.js';
 import { createDesignBriefTools } from '../shared/designBriefTools.js';
 
 export interface UiUxDesignerRunParams {
@@ -51,7 +51,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createDesignSystemTools(),
     ...createDesignBriefTools(),
     ...createAssetTools(glyphorEventBus),
-    ...createFuseTools(memory, {
+    ...createWebBuildTools(memory, {
       allowBuild: true,
       allowIterate: false,
       allowUpgrade: false,

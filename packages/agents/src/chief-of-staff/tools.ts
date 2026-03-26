@@ -1039,7 +1039,7 @@ export function createChiefOfStaffTools(
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const metrics = await memory.getProductMetrics(params.product as 'fuse' | 'pulse');
+        const metrics = await memory.getProductMetrics(params.product as 'web-build' | 'pulse');
         return { success: true, data: metrics };
       },
     },
@@ -1298,14 +1298,14 @@ export function createChiefOfStaffTools(
           type: 'string',
           description: 'Related engine or company-wide',
           required: false,
-          enum: ['fuse', 'pulse', 'company'],
+          enum: ['web-build', 'pulse', 'company'],
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         await memory.appendActivity({
           agentRole: ctx.agentRole,
           action: params.action as 'analysis' | 'decision' | 'alert' | 'briefing',
-          product: (params.product as 'fuse' | 'pulse' | 'company') ?? 'company',
+          product: (params.product as 'web-build' | 'pulse' | 'company') ?? 'company',
           summary: params.summary as string,
           createdAt: new Date().toISOString(),
         });

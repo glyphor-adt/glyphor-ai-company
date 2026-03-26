@@ -58,7 +58,7 @@ const ASSIGNMENTS: AssignmentSeed[] = [
     priority: 'urgent',
     blocking: true,
     dependsOn: ['0.1'],
-    task: 'Create .codex/skills/ux-engineer/SKILL.md in web-template-react with design rules, implementation constraints, file contract, media handling, and quality enforcement from Fuse UX Engineer instruction.',
+    task: 'Create .codex/skills/ux-engineer/SKILL.md in web-template-react with design rules, implementation constraints, file contract, media handling, and quality enforcement from the legacy web build UX Engineer instruction.',
     deliverable: 'Complete ux-engineer SKILL.md in template repo with enforceable rules and execution contract.',
     acceptanceTest: 'SKILL.md includes banned fonts/layouts, token-first colors, interaction budget minimums, image manifest requirements, and design_plan requirement.',
   },

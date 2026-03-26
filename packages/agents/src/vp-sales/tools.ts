@@ -21,7 +21,7 @@ export function createVPSalesTools(memory: CompanyMemoryStore): ToolDefinition[]
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const metrics = await memory.getProductMetrics(params.product as 'fuse' | 'pulse');
+        const metrics = await memory.getProductMetrics(params.product as 'web-build' | 'pulse');
         if (!metrics) {
           return { success: true, data: { message: `No product data found for '${params.product}'. The product may not be tracked yet. This is NOT a pipeline blocker — do not fabricate deals or crises.` } };
         }
@@ -149,14 +149,14 @@ export function createVPSalesTools(memory: CompanyMemoryStore): ToolDefinition[]
           type: 'string',
           description: 'Related engine or company-wide',
           required: false,
-          enum: ['fuse', 'pulse', 'company'],
+          enum: ['web-build', 'pulse', 'company'],
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         await memory.appendActivity({
           agentRole: ctx.agentRole,
           action: params.action as 'analysis' | 'outreach' | 'briefing',
-          product: (params.product as 'fuse' | 'pulse' | 'company') ?? 'company',
+          product: (params.product as 'web-build' | 'pulse' | 'company') ?? 'company',
           summary: params.summary as string,
           createdAt: new Date().toISOString(),
         });

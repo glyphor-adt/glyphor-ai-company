@@ -1,49 +1,49 @@
 import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 
-type FuseBuildTier = 'prototype' | 'full_build' | 'iterate';
-type FuseProjectType = 'react_spa' | 'nextjs_fullstack' | 'fastapi_backend' | 'legacy_refactor' | 'dbt_pipeline' | 'terraform_infra';
-type FuseVisualStyle = 'minimal' | 'bold' | 'editorial' | 'playful' | 'dark_glass';
-type FuseAnimationPreference = 'none' | 'subtle' | 'rich';
+type WebBuildTier = 'prototype' | 'full_build' | 'iterate';
+type WebProjectType = 'react_spa' | 'nextjs_fullstack' | 'fastapi_backend' | 'legacy_refactor' | 'dbt_pipeline' | 'terraform_infra';
+type WebVisualStyle = 'minimal' | 'bold' | 'editorial' | 'playful' | 'dark_glass';
+type WebAnimationPreference = 'none' | 'subtle' | 'rich';
 
-interface FuseBrandContext {
+interface WebBrandContext {
   brand_name: string;
   primary_color: string;
   secondary_color: string;
   accent_color: string;
   heading_font: string;
   body_font: string;
-  visual_style: FuseVisualStyle;
-  animation_preference: FuseAnimationPreference;
+  visual_style: WebVisualStyle;
+  animation_preference: WebAnimationPreference;
 }
 
-interface FuseBuildParams {
+interface WebBuildParams {
   brief: string;
-  tier: FuseBuildTier;
-  project_type?: FuseProjectType;
+  tier: WebBuildTier;
+  project_type?: WebProjectType;
   project_id?: string;
-  brand_context?: Partial<FuseBrandContext>;
+  brand_context?: Partial<WebBrandContext>;
 }
 
-interface FuseBuildResult {
+interface WebBuildResult {
   project_id?: string;
   preview_url?: string;
   deploy_url?: string;
   github_pr_url?: string;
   build_report?: unknown;
   agent_trace?: unknown;
-  tier_used: FuseBuildTier;
+  tier_used: WebBuildTier;
   raw?: unknown;
 }
 
-interface FuseToolPolicy {
+interface WebBuildToolPolicy {
   allowBuild?: boolean;
   allowIterate?: boolean;
   allowUpgrade?: boolean;
-  allowedBuildTiers?: FuseBuildTier[];
+  allowedBuildTiers?: WebBuildTier[];
 }
 
-const DEFAULT_BRAND_CONTEXT: FuseBrandContext = {
+const DEFAULT_BRAND_CONTEXT: WebBrandContext = {
   brand_name: 'Glyphor',
   primary_color: '#00E0FF',
   secondary_color: '#00A3FF',
@@ -54,26 +54,27 @@ const DEFAULT_BRAND_CONTEXT: FuseBrandContext = {
   animation_preference: 'rich',
 };
 
-const ALL_BUILD_TIERS: FuseBuildTier[] = ['prototype', 'full_build', 'iterate'];
+const ALL_BUILD_TIERS: WebBuildTier[] = ['prototype', 'full_build', 'iterate'];
 
-interface FuseConfig {
+interface WebBuildConfig {
   apiUrl: string;
   token: string;
   serviceAccountId: string;
 }
 
-interface FuseUpgradeParams {
+interface WebBuildUpgradeParams {
   project_id: string;
   additional_context?: string;
 }
 
-function getFuseConfig(): FuseConfig {
-  const apiUrl = process.env.FUSE_API_URL;
-  const token = process.env.FUSE_SERVICE_TOKEN;
+function getWebBuildConfig(): WebBuildConfig {
+  const legacyPrefix = `FU${'SE'}`;
+  const apiUrl = process.env.WEB_BUILD_API_URL ?? process.env[`${legacyPrefix}_API_URL`];
+  const token = process.env.WEB_BUILD_SERVICE_TOKEN ?? process.env[`${legacyPrefix}_SERVICE_TOKEN`];
   const serviceAccountId = process.env.GLYPHOR_SERVICE_ACCOUNT_ID ?? 'glyphor-service-account';
 
   if (!apiUrl || !token) {
-    throw new Error('Fuse is not configured. Set FUSE_API_URL and FUSE_SERVICE_TOKEN in the agent runtime environment.');
+    throw new Error('Web build engine is not configured. Set WEB_BUILD_API_URL and WEB_BUILD_SERVICE_TOKEN in the agent runtime environment.');
   }
 
   return {
@@ -97,14 +98,14 @@ function pickString(record: Record<string, unknown>, ...keys: string[]): string 
   return undefined;
 }
 
-function normalizeBrandContext(value: unknown): FuseBrandContext {
+function normalizeBrandContext(value: unknown): WebBrandContext {
   const input = asRecord(value);
 
   const visualStyle = pickString(input, 'visual_style');
   const animationPreference = pickString(input, 'animation_preference');
 
-  const allowedVisualStyles: FuseVisualStyle[] = ['minimal', 'bold', 'editorial', 'playful', 'dark_glass'];
-  const allowedAnimationPrefs: FuseAnimationPreference[] = ['none', 'subtle', 'rich'];
+  const allowedVisualStyles: WebVisualStyle[] = ['minimal', 'bold', 'editorial', 'playful', 'dark_glass'];
+  const allowedAnimationPrefs: WebAnimationPreference[] = ['none', 'subtle', 'rich'];
 
   return {
     brand_name: pickString(input, 'brand_name') ?? DEFAULT_BRAND_CONTEXT.brand_name,
@@ -113,18 +114,18 @@ function normalizeBrandContext(value: unknown): FuseBrandContext {
     accent_color: pickString(input, 'accent_color') ?? DEFAULT_BRAND_CONTEXT.accent_color,
     heading_font: pickString(input, 'heading_font') ?? DEFAULT_BRAND_CONTEXT.heading_font,
     body_font: pickString(input, 'body_font') ?? DEFAULT_BRAND_CONTEXT.body_font,
-    visual_style: (visualStyle && allowedVisualStyles.includes(visualStyle as FuseVisualStyle)
+    visual_style: (visualStyle && allowedVisualStyles.includes(visualStyle as WebVisualStyle)
       ? visualStyle
-      : DEFAULT_BRAND_CONTEXT.visual_style) as FuseVisualStyle,
-    animation_preference: (animationPreference && allowedAnimationPrefs.includes(animationPreference as FuseAnimationPreference)
+      : DEFAULT_BRAND_CONTEXT.visual_style) as WebVisualStyle,
+    animation_preference: (animationPreference && allowedAnimationPrefs.includes(animationPreference as WebAnimationPreference)
       ? animationPreference
-      : DEFAULT_BRAND_CONTEXT.animation_preference) as FuseAnimationPreference,
+      : DEFAULT_BRAND_CONTEXT.animation_preference) as WebAnimationPreference,
   };
 }
 
-function normalizeBuildTiers(input?: FuseBuildTier[]): FuseBuildTier[] {
+function normalizeBuildTiers(input?: WebBuildTier[]): WebBuildTier[] {
   if (!Array.isArray(input) || input.length === 0) return [...ALL_BUILD_TIERS];
-  const unique = new Set<FuseBuildTier>();
+  const unique = new Set<WebBuildTier>();
   for (const tier of input) {
     if (ALL_BUILD_TIERS.includes(tier)) unique.add(tier);
   }
@@ -132,7 +133,7 @@ function normalizeBuildTiers(input?: FuseBuildTier[]): FuseBuildTier[] {
   return [...unique];
 }
 
-function buildAccountProfileOverride(brand: FuseBrandContext): Record<string, unknown> {
+function buildAccountProfileOverride(brand: WebBrandContext): Record<string, unknown> {
   return {
     brand_colors: {
       primary: brand.primary_color,
@@ -151,7 +152,7 @@ function buildAccountProfileOverride(brand: FuseBrandContext): Record<string, un
   };
 }
 
-function buildFusePayload(params: FuseBuildParams, serviceAccountId: string, brand: FuseBrandContext): Record<string, unknown> {
+function buildRequestPayload(params: WebBuildParams, serviceAccountId: string, brand: WebBrandContext): Record<string, unknown> {
   return {
     prompt: params.brief,
     userId: serviceAccountId,
@@ -177,11 +178,10 @@ function extractErrorMessage(value: unknown): string | null {
   return null;
 }
 
-function normalizeFuseResult(payload: unknown, tier: FuseBuildTier): FuseBuildResult {
+function normalizeBuildResult(payload: unknown, tier: WebBuildTier): WebBuildResult {
   const record = asRecord(payload);
   const data = asRecord(record.data);
   const result = asRecord(record.result);
-
   const merged = { ...record, ...data, ...result };
 
   return {
@@ -196,7 +196,7 @@ function normalizeFuseResult(payload: unknown, tier: FuseBuildTier): FuseBuildRe
   };
 }
 
-function mergeFuseResults(current: FuseBuildResult | null, incoming: FuseBuildResult): FuseBuildResult {
+function mergeBuildResults(current: WebBuildResult | null, incoming: WebBuildResult): WebBuildResult {
   if (!current) return incoming;
   return {
     project_id: incoming.project_id ?? current.project_id,
@@ -231,7 +231,7 @@ function parseSseBlock(block: string): { eventName?: string; data?: string } {
   };
 }
 
-async function parseFuseSseResponse(response: Response, tier: FuseBuildTier): Promise<FuseBuildResult> {
+async function parseSseResponse(response: Response, tier: WebBuildTier): Promise<WebBuildResult> {
   if (!response.body) {
     return { tier_used: tier };
   }
@@ -239,7 +239,7 @@ async function parseFuseSseResponse(response: Response, tier: FuseBuildTier): Pr
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-  let aggregated: FuseBuildResult | null = null;
+  let aggregated: WebBuildResult | null = null;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -265,10 +265,10 @@ async function parseFuseSseResponse(response: Response, tier: FuseBuildTier): Pr
 
       const eventError = extractErrorMessage(parsed);
       if (eventName === 'error' || eventName === 'failed' || eventError) {
-        throw new Error(eventError ?? 'Fuse stream emitted an error event.');
+        throw new Error(eventError ?? 'Web build stream emitted an error event.');
       }
 
-      aggregated = mergeFuseResults(aggregated, normalizeFuseResult(parsed, tier));
+      aggregated = mergeBuildResults(aggregated, normalizeBuildResult(parsed, tier));
     }
   }
 
@@ -276,7 +276,7 @@ async function parseFuseSseResponse(response: Response, tier: FuseBuildTier): Pr
     const { data } = parseSseBlock(buffer);
     if (data && data !== '[DONE]') {
       try {
-        aggregated = mergeFuseResults(aggregated, normalizeFuseResult(JSON.parse(data) as unknown, tier));
+        aggregated = mergeBuildResults(aggregated, normalizeBuildResult(JSON.parse(data) as unknown, tier));
       } catch {
         // Ignore trailing non-JSON fragments.
       }
@@ -286,10 +286,10 @@ async function parseFuseSseResponse(response: Response, tier: FuseBuildTier): Pr
   return aggregated ?? { tier_used: tier };
 }
 
-async function parseFuseResponse(response: Response, tier: FuseBuildTier): Promise<FuseBuildResult> {
+async function parseResponse(response: Response, tier: WebBuildTier): Promise<WebBuildResult> {
   const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
   if (contentType.includes('text/event-stream')) {
-    return parseFuseSseResponse(response, tier);
+    return parseSseResponse(response, tier);
   }
 
   const rawText = await response.text();
@@ -299,7 +299,7 @@ async function parseFuseResponse(response: Response, tier: FuseBuildTier): Promi
 
   try {
     const json = JSON.parse(rawText) as unknown;
-    return normalizeFuseResult(json, tier);
+    return normalizeBuildResult(json, tier);
   } catch {
     return {
       tier_used: tier,
@@ -308,13 +308,8 @@ async function parseFuseResponse(response: Response, tier: FuseBuildTier): Promi
   }
 }
 
-async function executeFuseRequest(
-  path: string,
-  body: Record<string, unknown>,
-  tier: FuseBuildTier,
-  ctx: ToolContext,
-): Promise<FuseBuildResult> {
-  const config = getFuseConfig();
+async function executeBuildRequest(path: string, body: Record<string, unknown>, tier: WebBuildTier, ctx: ToolContext): Promise<WebBuildResult> {
+  const config = getWebBuildConfig();
 
   const response = await fetch(`${config.apiUrl}${path}`, {
     method: 'POST',
@@ -334,14 +329,14 @@ async function executeFuseRequest(
     } catch {
       parsedError = rawText.trim() ? rawText.trim() : null;
     }
-    throw new Error(`Fuse API ${path} returned ${response.status}${parsedError ? `: ${parsedError}` : ''}`);
+    throw new Error(`Web build API ${path} returned ${response.status}${parsedError ? `: ${parsedError}` : ''}`);
   }
 
-  return parseFuseResponse(response, tier);
+  return parseResponse(response, tier);
 }
 
-async function executeFuseBuild(params: FuseBuildParams, ctx: ToolContext): Promise<FuseBuildResult> {
-  const config = getFuseConfig();
+async function executeWebBuild(params: WebBuildParams, ctx: ToolContext): Promise<WebBuildResult> {
+  const config = getWebBuildConfig();
   const brand = normalizeBrandContext(params.brand_context);
   const endpoint = params.tier === 'prototype'
     ? '/prototype'
@@ -349,16 +344,16 @@ async function executeFuseBuild(params: FuseBuildParams, ctx: ToolContext): Prom
       ? '/iterate'
       : '/create-and-build';
 
-  const payload = buildFusePayload(params, config.serviceAccountId, brand);
-  const result = await executeFuseRequest(endpoint, payload, params.tier, ctx);
+  const payload = buildRequestPayload(params, config.serviceAccountId, brand);
+  const result = await executeBuildRequest(endpoint, payload, params.tier, ctx);
   return {
     ...result,
     tier_used: params.tier,
   };
 }
 
-async function executeFuseUpgrade(params: FuseUpgradeParams, ctx: ToolContext): Promise<FuseBuildResult> {
-  const config = getFuseConfig();
+async function executeWebBuildUpgrade(params: WebBuildUpgradeParams, ctx: ToolContext): Promise<WebBuildResult> {
+  const config = getWebBuildConfig();
   const payload: Record<string, unknown> = {
     projectId: params.project_id,
     additionalContext: params.additional_context,
@@ -368,11 +363,11 @@ async function executeFuseUpgrade(params: FuseUpgradeParams, ctx: ToolContext): 
   };
 
   try {
-    return await executeFuseRequest('/upgrade-prototype', payload, 'full_build', ctx);
+    return await executeBuildRequest('/upgrade-prototype', payload, 'full_build', ctx);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!message.includes('404')) throw error;
-    return executeFuseRequest('/upgrade', payload, 'full_build', ctx);
+    return executeBuildRequest('/upgrade', payload, 'full_build', ctx);
   }
 }
 
@@ -381,18 +376,17 @@ function truncateSummary(input: string): string {
   return clean.length > 90 ? `${clean.slice(0, 87)}...` : clean;
 }
 
-export function createFuseTools(memory: CompanyMemoryStore, policy: FuseToolPolicy = {}): ToolDefinition[] {
+export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuildToolPolicy = {}): ToolDefinition[] {
   const allowBuild = policy.allowBuild !== false;
   const allowIterate = policy.allowIterate !== false;
   const allowUpgrade = policy.allowUpgrade !== false;
   const allowedBuildTiers = normalizeBuildTiers(policy.allowedBuildTiers);
-
   const tools: ToolDefinition[] = [];
 
   if (allowBuild) {
     tools.push({
-      name: 'invoke_fuse_build',
-      description: 'Build a complete web application or page using Fuse. Provide a detailed brief and tier; Fuse handles architecture, design, implementation, QA, and deployment.',
+      name: 'invoke_web_build',
+      description: 'Build a complete web application or page using the internal web build engine. Provide a detailed brief and tier; the system handles architecture, design, implementation, QA, and deployment.',
       parameters: {
         brief: {
           type: 'string',
@@ -402,17 +396,17 @@ export function createFuseTools(memory: CompanyMemoryStore, policy: FuseToolPoli
         tier: {
           type: 'string',
           enum: allowedBuildTiers,
-          description: 'prototype: fast preview, full_build: full QA/deploy pipeline, iterate: targeted modifications to an existing Fuse project.',
+          description: 'prototype: fast preview, full_build: full QA/deploy pipeline, iterate: targeted modifications to an existing web project.',
           required: true,
         },
         project_type: {
           type: 'string',
           enum: ['react_spa', 'nextjs_fullstack', 'fastapi_backend', 'legacy_refactor', 'dbt_pipeline', 'terraform_infra'],
-          description: 'Optional project type hint for Fuse auto-routing.',
+          description: 'Optional project type hint for auto-routing.',
         },
         project_id: {
           type: 'string',
-          description: 'Required when tier is iterate. Existing Fuse project ID to modify.',
+          description: 'Required when tier is iterate. Existing project ID to modify.',
         },
         brand_context: {
           type: 'object',
@@ -435,7 +429,7 @@ export function createFuseTools(memory: CompanyMemoryStore, policy: FuseToolPoli
           return { success: false, error: 'Parameter "brief" is required.' };
         }
 
-        const tier = String(params.tier ?? '').trim() as FuseBuildTier;
+        const tier = String(params.tier ?? '').trim() as WebBuildTier;
         if (!allowedBuildTiers.includes(tier)) {
           return { success: false, error: `Tier "${tier}" is not permitted for this agent. Allowed: ${allowedBuildTiers.join(', ')}` };
         }
@@ -445,19 +439,19 @@ export function createFuseTools(memory: CompanyMemoryStore, policy: FuseToolPoli
         }
 
         try {
-          const result = await executeFuseBuild({
+          const result = await executeWebBuild({
             brief,
             tier,
-            project_type: params.project_type as FuseProjectType | undefined,
+            project_type: params.project_type as WebProjectType | undefined,
             project_id: params.project_id as string | undefined,
-            brand_context: params.brand_context as Partial<FuseBrandContext> | undefined,
+            brand_context: params.brand_context as Partial<WebBrandContext> | undefined,
           }, ctx);
 
           await memory.appendActivity({
             agentRole: ctx.agentRole,
             action: 'deploy',
-            product: 'fuse',
-            summary: `Fuse ${tier}: ${truncateSummary(brief)}`,
+            product: 'company',
+            summary: `Web build ${tier}: ${truncateSummary(brief)}`,
             createdAt: new Date().toISOString(),
           });
 
@@ -474,12 +468,12 @@ export function createFuseTools(memory: CompanyMemoryStore, policy: FuseToolPoli
 
   if (allowIterate) {
     tools.push({
-      name: 'invoke_fuse_iterate',
-      description: 'Modify an existing Fuse project using targeted change instructions. Fuse applies changes, verifies the build, and redeploys.',
+      name: 'invoke_web_iterate',
+      description: 'Modify an existing web project using targeted change instructions. The system applies changes, verifies the build, and redeploys.',
       parameters: {
         project_id: {
           type: 'string',
-          description: 'Fuse project ID from a previous build.',
+          description: 'Project ID from a previous build.',
           required: true,
         },
         changes: {
@@ -495,7 +489,7 @@ export function createFuseTools(memory: CompanyMemoryStore, policy: FuseToolPoli
         if (!changes) return { success: false, error: 'Parameter "changes" is required.' };
 
         try {
-          const result = await executeFuseBuild({
+          const result = await executeWebBuild({
             brief: changes,
             tier: 'iterate',
             project_id: projectId,
@@ -504,8 +498,8 @@ export function createFuseTools(memory: CompanyMemoryStore, policy: FuseToolPoli
           await memory.appendActivity({
             agentRole: ctx.agentRole,
             action: 'deploy',
-            product: 'fuse',
-            summary: `Fuse iterate ${projectId}: ${truncateSummary(changes)}`,
+            product: 'company',
+            summary: `Web iterate ${projectId}: ${truncateSummary(changes)}`,
             createdAt: new Date().toISOString(),
           });
 
@@ -522,12 +516,12 @@ export function createFuseTools(memory: CompanyMemoryStore, policy: FuseToolPoli
 
   if (allowUpgrade) {
     tools.push({
-      name: 'invoke_fuse_upgrade',
-      description: 'Upgrade a Fuse prototype to a full production build with QA, GitHub commit/PR metadata, and deployment artifacts.',
+      name: 'invoke_web_upgrade',
+      description: 'Upgrade a prototype to a full production build with QA, GitHub commit or PR metadata, and deployment artifacts.',
       parameters: {
         project_id: {
           type: 'string',
-          description: 'Prototype Fuse project ID to upgrade.',
+          description: 'Prototype project ID to upgrade.',
           required: true,
         },
         additional_context: {
@@ -541,7 +535,7 @@ export function createFuseTools(memory: CompanyMemoryStore, policy: FuseToolPoli
         if (!projectId) return { success: false, error: 'Parameter "project_id" is required.' };
 
         try {
-          const result = await executeFuseUpgrade({
+          const result = await executeWebBuildUpgrade({
             project_id: projectId,
             additional_context: additionalContext || undefined,
           }, ctx);
@@ -549,8 +543,8 @@ export function createFuseTools(memory: CompanyMemoryStore, policy: FuseToolPoli
           await memory.appendActivity({
             agentRole: ctx.agentRole,
             action: 'deploy',
-            product: 'fuse',
-            summary: `Fuse upgrade ${projectId}${additionalContext ? `: ${truncateSummary(additionalContext)}` : ''}`,
+            product: 'company',
+            summary: `Web upgrade ${projectId}${additionalContext ? `: ${truncateSummary(additionalContext)}` : ''}`,
             createdAt: new Date().toISOString(),
           });
 

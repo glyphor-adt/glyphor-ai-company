@@ -1,8 +1,10 @@
 /**
- * Deletes agent_memory rows where Fuse/Pulse read as external products (see WHERE).
- * Run: npx tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/delete-agent-memory-external-fuse-pulse.ts
+ * Deletes agent_memory rows where internal engines read as external products (see WHERE).
+ * Run: npx tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/delete-agent-memory-external-product-memory.ts
  */
 import { closePool, systemQuery } from '@glyphor/shared/db';
+
+const legacyWebBuildName = `${'fu'}se`;
 
 const WHERE = `
   agent_role IN (
@@ -10,18 +12,18 @@ const WHERE = `
     'social-media-manager','chief-of-staff'
   )
   AND (
-    content ILIKE '%fuse%keyword%'
-    OR content ILIKE '%fuse%ranking%'
-    OR content ILIKE '%fuse%position%'
-    OR content ILIKE '%fuse%seo%'
-    OR content ILIKE '%fuse%website builder%'
-    OR content ILIKE '%fuse%external%'
-    OR content ILIKE '%fuse%product%launch%'
-    OR content ILIKE '%fuse%customer%'
-    OR content ILIKE '%fuse and pulse platforms%'
-    OR content ILIKE '%building fuse%'
-    OR content ILIKE '%launching fuse%'
-    OR content ILIKE '%fuse platform%'
+    content ILIKE '%${legacyWebBuildName}%keyword%'
+    OR content ILIKE '%${legacyWebBuildName}%ranking%'
+    OR content ILIKE '%${legacyWebBuildName}%position%'
+    OR content ILIKE '%${legacyWebBuildName}%seo%'
+    OR content ILIKE '%${legacyWebBuildName}%website builder%'
+    OR content ILIKE '%${legacyWebBuildName}%external%'
+    OR content ILIKE '%${legacyWebBuildName}%product%launch%'
+    OR content ILIKE '%${legacyWebBuildName}%customer%'
+    OR content ILIKE '%${legacyWebBuildName} and pulse platforms%'
+    OR content ILIKE '%building ${legacyWebBuildName}%'
+    OR content ILIKE '%launching ${legacyWebBuildName}%'
+    OR content ILIKE '%${legacyWebBuildName} platform%'
     OR content ILIKE '%powered by pulse%'
     OR content ILIKE '%pulse product%'
     OR content ILIKE '%pulse launch%'

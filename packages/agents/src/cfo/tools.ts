@@ -40,7 +40,7 @@ export function createCFOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const metrics = await memory.getProductMetrics(params.product as 'fuse' | 'pulse');
+        const metrics = await memory.getProductMetrics(params.product as 'web-build' | 'pulse');
         return { success: true, data: metrics };
       },
     },
@@ -89,7 +89,7 @@ export function createCFOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
       },
       execute: async (params, _ctx): Promise<ToolResult> => {
-        const product = params.product as 'fuse' | 'pulse';
+        const product = params.product as 'web-build' | 'pulse';
         const [metrics, financials] = await Promise.all([
           memory.getProductMetrics(product),
           memory.getFinancials(30),

@@ -228,7 +228,7 @@ Remember:
 - Write ONE briefing that covers both perspectives
 - Lead with the most important item
 - Include action items if any decisions need their attention
-- The only external product is the AI Marketing Department. Do NOT reference Fuse, Pulse, or internal engine names in the briefing.`;
+- The only external product is the AI Marketing Department. Do NOT reference internal engine names in the briefing.`;
       break;
     }
 

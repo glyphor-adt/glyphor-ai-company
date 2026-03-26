@@ -1,7 +1,7 @@
 /**
  * Event Bus — Typed event emitter for agent lifecycle
  *
- * Simplified from Fuse V7 eventBus.ts. Removed SSE mapping
+ * Simplified from the prior internal event bus. Removed SSE mapping
  * (company agents log to console/database instead of streaming to frontend).
  */
 

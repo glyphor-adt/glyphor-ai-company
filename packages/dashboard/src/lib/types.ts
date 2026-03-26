@@ -563,7 +563,7 @@ export const AGENT_SOUL: Record<string, { mission: string; persona: string; tone
     ethics: 'Research is your weapon — the more you know, the higher the close rate. ROI must be defensible. Never promise features that don\'t exist.',
   },
   'vp-design': {
-    mission: 'Ensure every Fuse build looks agency-grade, not AI-generated. Own the design system, component library, and template registry. Eliminate "AI smell" patterns.',
+    mission: 'Ensure every web build looks agency-grade, not AI-generated. Own the design system, component library, and template registry. Eliminate "AI smell" patterns.',
     persona: 'Opinionated but evidence-based. Design engineer at the intersection of aesthetics and code. Opens DevTools on every website, notices when letter-spacing is 0.02em too tight.',
     tone: 'opinionated, precise, visual-first, quality-obsessed, evidence-based',
     ethics: 'The details are the design — pixel-level precision matters. Kill the blur: generic AI output is the enemy. Design is not decoration.',
@@ -777,7 +777,7 @@ const _auditDsgn = ['check_ai_smell', 'check_build_errors', 'check_bundle_size',
 const _deployPrev = ['deploy_preview', 'get_deployment_status', 'list_deployments'] as const;
 const _codex = ['codex', 'codex-reply'] as const;
 const _designBrief = ['ambient-pattern', 'capability-context', 'cta_section', 'footer', 'hero', 'hero-background', 'hero-loop', 'normalize_design_brief', 'value_proposition'] as const;
-const _fuse = ['invoke_fuse_build', 'invoke_fuse_iterate', 'invoke_fuse_upgrade'] as const;
+const _webBuild = ['invoke_web_build', 'invoke_web_iterate', 'invoke_web_upgrade'] as const;
 // Marketing
 const _content = ['approve_content_draft', 'create_content_draft', 'generate_content_image', 'get_content_calendar', 'get_content_drafts', 'get_content_metrics', 'publish_content', 'reject_content_draft', 'submit_content_for_review', 'update_content_draft'] as const;
 const _seo = ['analyze_page_seo', 'get_backlink_profile', 'get_indexing_status', 'get_search_performance', 'submit_sitemap', 'track_keyword_rankings', 'update_seo_data'] as const;
@@ -835,7 +835,7 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
     'get_financials', 'get_product_metrics', 'get_recent_activity', 'read_company_memory', 'calculate_unit_economics', 'write_financial_report', 'log_activity', 'query_stripe_mrr', 'query_stripe_subscriptions', 'create_decision'],
   cmo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
     ..._teamOrch, ..._peer, ..._init, ..._execOrch,
-    ..._content, ..._seo, ..._socialMedia, ..._mktgIntel, ..._canva, ..._logo, ..._fuse,
+    ..._content, ..._seo, ..._socialMedia, ..._mktgIntel, ..._canva, ..._logo, ..._webBuild,
     'get_product_metrics', 'get_recent_activity', 'read_company_memory', 'write_content', 'write_company_memory', 'log_activity', 'create_decision'],
   clo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir, ..._docuSign,
     'draft_legal_document', 'prepare_signing_envelope'],
@@ -845,7 +845,7 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
   'vp-design': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
     ..._teamOrch, ..._peer, ..._init,
     ..._frontendCode, ..._screenshot, ..._designSys, ..._auditDsgn, ..._designBrief,
-    ..._asset, ..._scaffold, ..._deployPrev, ..._fuse, ..._figma, ..._storybook, ..._canva, ..._logo,
+    ..._asset, ..._scaffold, ..._deployPrev, ..._webBuild, ..._figma, ..._storybook, ..._canva, ..._logo,
     'run_lighthouse', 'run_lighthouse_batch', 'get_design_quality_summary', 'get_component_library', 'get_template_registry', 'write_design_audit', 'get_recent_activity', 'read_company_memory', 'log_activity', 'create_decision'],
   'vp-research': [..._core, ..._toolGrant, ..._graph, ..._sp,
     ..._teamOrch, ..._peer, ..._init, ..._researchRepo, ..._researchMon,
@@ -885,10 +885,10 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
     'query_social_metrics', 'query_post_performance', 'query_optimal_times', 'query_audience_demographics', 'monitor_mentions', 'log_activity'],
   // ── Sub-team: Design & Frontend ──
   'ui-ux-designer': [..._core, ..._graph, ..._sp,
-    ..._frontendCode, ..._screenshot, ..._designSys, ..._designBrief, ..._asset, ..._fuse, ..._figma, ..._logo,
+    ..._frontendCode, ..._screenshot, ..._designSys, ..._designBrief, ..._asset, ..._webBuild, ..._figma, ..._logo,
     'save_component_spec', 'query_design_tokens', 'query_component_implementations', 'log_activity'],
   'frontend-engineer': [..._core, ..._graph, ..._sp,
-    ..._frontendCode, ..._screenshot, ..._auditDsgn, ..._scaffold, ..._deployPrev, ..._codex, ..._fuse, ..._storybook,
+    ..._frontendCode, ..._screenshot, ..._auditDsgn, ..._scaffold, ..._deployPrev, ..._codex, ..._webBuild, ..._storybook,
     'run_lighthouse', 'get_file_contents', 'push_component', 'create_component_branch', 'create_component_pr', 'save_component_implementation', 'query_component_specs', 'query_my_implementations', 'log_activity'],
   'design-critic': [..._core, ..._graph, ..._sp,
     ..._frontendCode, ..._screenshot, ..._designSys, ..._auditDsgn, ..._figma, ..._storybook,

@@ -116,7 +116,7 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
 
     {
       name: 'get_design_quality_summary',
-      description: 'Get a summary of recent Fuse output quality: grade distribution, dimension scores, and trends.',
+      description: 'Get a summary of recent web build output quality: grade distribution, dimension scores, and trends.',
       parameters: {
         days: {
           type: 'number',
@@ -131,7 +131,7 @@ export function createVPDesignTools(memory: CompanyMemoryStore): ToolDefinition[
         if (!data && !trends) {
           return {
             success: true,
-            data: { NO_DATA: true, message: 'No design quality data exists in memory. No Fuse audit has run yet or no builds have been graded. You must report this honestly — do not invent any grades or activity.' },
+            data: { NO_DATA: true, message: 'No design quality data exists in memory. No web build audit has run yet or no builds have been graded. You must report this honestly — do not invent any grades or activity.' },
           };
         }
         return {

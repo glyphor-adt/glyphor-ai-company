@@ -1032,10 +1032,10 @@ export default function Financials() {
   );
 }
 
-const PRODUCTS = ['fuse', 'pulse', 'reve'] as const;
-const PRODUCT_COLORS: Record<string, string> = { fuse: '#2563EB', pulse: '#7C3AED', reve: '#0891B2', glyphor: '#6366F1', unassigned: '#94A3B8' };
-const PRODUCT_LABELS: Record<string, string> = { fuse: 'Fuse', pulse: 'Pulse', reve: 'Reve', glyphor: 'Glyphor', unassigned: 'Unassigned' };
-const PROJECT_TO_PRODUCT_LABEL: Record<string, string> = { 'ai-glyphor-company': 'Glyphor', 'glyphor-pulse': 'Pulse', 'gen-lang-client-0834143721': 'Fuse' };
+const PRODUCTS = ['web-build', 'pulse', 'reve'] as const;
+const PRODUCT_COLORS: Record<string, string> = { 'web-build': '#2563EB', pulse: '#7C3AED', reve: '#0891B2', glyphor: '#6366F1', unassigned: '#94A3B8' };
+const PRODUCT_LABELS: Record<string, string> = { 'web-build': 'Web Build', pulse: 'Pulse', reve: 'Reve', glyphor: 'Glyphor', unassigned: 'Unassigned' };
+const PROJECT_TO_PRODUCT_LABEL: Record<string, string> = { 'ai-glyphor-company': 'Glyphor', 'glyphor-pulse': 'Pulse', 'gen-lang-client-0834143721': 'Web Build' };
 const GCP_COLORS = [...GLYPHOR_PALETTE];
 const GCP_SERVICE_COLORS: Record<string, string> = {
   'gemini-api': '#2563EB', sql: '#6366F1', run: '#00A3C4',

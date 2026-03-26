@@ -98,7 +98,7 @@ Steps:
 6. Use log_activity to record this analysis
 7. If you find critical issues, use create_decision
 
-IMPORTANT: Glyphor is pre-revenue, pre-launch. The only external product is the AI Marketing Department. Do NOT reference Fuse or Pulse — those are internal engine names. If product data is unavailable, report "no product data available yet" and focus on development/operational progress.`;
+IMPORTANT: Glyphor is pre-revenue, pre-launch. The only external product is the AI Marketing Department. Do NOT reference internal engine names. If product data is unavailable, report "no product data available yet" and focus on development/operational progress.`;
       break;
 
     case 'competitive_scan':
@@ -111,7 +111,7 @@ Steps:
 2. Write a competitive analysis report
 3. Log the activity
 
-IMPORTANT: Do NOT reference Fuse or Pulse — those are internal engine names, not products.`;
+IMPORTANT: Do NOT reference internal engine names — they are not products.`;
       break;
 
     case 'on_demand':

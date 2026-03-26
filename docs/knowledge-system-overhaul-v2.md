@@ -95,7 +95,7 @@ Defined deliverables with clear boundaries:
 Agents must actively detect and prevent scope creep. The fastest way for this model to fail is to drift into consulting behavior while charging product pricing.
 
 ## Internal Architecture — Not Customer-Facing
-Pulse (AI video/creative engine), Fuse (development acceleration engine), and Revy (roadmap initiative) are internal capabilities. They power the departments but are not standalone external products. The internal command center (Cockpit dashboard) manages agents, orchestration, governance, cost tracking, and quality control. It is not customer-facing.
+Pulse (AI video/creative engine), the web build engine (development acceleration engine), and Revy (roadmap initiative) are internal capabilities. They power the departments but are not standalone external products. The internal command center (Cockpit dashboard) manages agents, orchestration, governance, cost tracking, and quality control. It is not customer-facing.
 
 ## Defensibility
 Moat comes from workflow embedding + accumulated brand knowledge, not patents. As customers use the department, the system accumulates brand voice memory, campaign history, engagement data, and content archives. This creates switching cost because historical data and embedded workflows would be lost.
@@ -144,7 +144,7 @@ Go-to-market: Slack-first. Teams planned after validation.
 ## Pulse (INTERNAL engine)
 AI video/creative production engine. Powers the marketing department''s video output. Not sold directly.
 
-## Fuse (INTERNAL engine)
+## Web Build Engine (INTERNAL engine)
 Development acceleration engine. Powers internal platform development. Not an external product.
 
 ## Revy (ROADMAP)

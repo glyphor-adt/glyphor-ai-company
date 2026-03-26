@@ -62,7 +62,7 @@ export async function runDesignCritic(params: DesignCriticRunParams = {}) {
   let initialMessage: string;
   switch (task) {
     case 'grade_builds':
-      initialMessage = 'Review recent Fuse builds and grade each on the quality rubric. Look for anti-patterns: centered gradient blobs, generic hero sections, flat section rhythm, and rainbow color palettes. Provide specific fix recommendations.';
+      initialMessage = 'Review recent web builds and grade each on the quality rubric. Look for anti-patterns: centered gradient blobs, generic hero sections, flat section rhythm, and rainbow color palettes. Provide specific fix recommendations.';
       break;
     case 'quality_report':
       initialMessage = 'Generate a quality trend report. Analyze grades over the last 30 days, identify improving and declining patterns, and update the Wall of Fame / Wall of Shame.';

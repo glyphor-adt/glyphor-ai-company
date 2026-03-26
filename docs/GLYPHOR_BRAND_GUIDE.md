@@ -411,7 +411,7 @@ Each ad follows the same structure:
 |---------|-----------|
 | Primary surface | Slack is the primary customer experience for the AI Marketing Department. Keep customer workflows in Slack first. |
 | Interaction model | Requests, draft approvals, and feedback should happen in-thread with minimal context switching. |
-| Language | Customer-facing copy says "AI marketing department" and avoids internal terms (Pulse, Fuse, Cockpit, MCP). |
+| Language | Customer-facing copy says "AI marketing department" and avoids internal terms (Pulse, web build engine, Cockpit, MCP). |
 | Output expectation | Show weekly cadence: social posts, blog drafts, campaign assets, and summaries delivered directly in Slack. |
 
 ### Web (glyphor.ai)

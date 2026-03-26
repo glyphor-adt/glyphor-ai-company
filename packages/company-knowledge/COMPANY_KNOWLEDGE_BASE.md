@@ -15,7 +15,7 @@ Glyphor does not sell AI tools. Glyphor sells AI-powered departments that delive
 ## Products
 - AI Marketing Department — external product delivered in Slack
 - Pulse — internal creative engine
-- Fuse — internal development acceleration engine
+- Internal web build engine — internal development acceleration capability
 - Cockpit dashboard — internal command center
 
 ## Founders

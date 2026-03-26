@@ -217,7 +217,7 @@ const TOOL_PLATFORM_MAP: Record<string, ToolPlatform> = {
   save_component_implementation: 'glyphor-design', query_component_specs: 'glyphor-design', query_my_implementations: 'glyphor-design',
   grade_build: 'glyphor-design', query_build_grades: 'glyphor-design', query_build_grades_by_template: 'glyphor-design',
   save_template_variant: 'glyphor-design', query_template_variants: 'glyphor-design', update_template_status: 'glyphor-design',
-  invoke_fuse_build: 'glyphor-design', invoke_fuse_iterate: 'glyphor-design', invoke_fuse_upgrade: 'glyphor-design',
+  invoke_web_build: 'glyphor-design', invoke_web_iterate: 'glyphor-design', invoke_web_upgrade: 'glyphor-design',
 
   // Glyphor MCP — HR
   update_agent_profile: 'glyphor-hr', update_agent_name: 'glyphor-hr',

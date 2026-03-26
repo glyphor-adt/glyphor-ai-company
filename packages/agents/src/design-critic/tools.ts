@@ -12,7 +12,7 @@ export function createDesignCriticTools(memory: CompanyMemoryStore): ToolDefinit
   return [
     {
       name: 'grade_build',
-      description: 'Grade a Fuse build on the quality rubric (A+ to F). Stores the grade and feedback.',
+      description: 'Grade a web build on the quality rubric (A+ to F). Stores the grade and feedback.',
       parameters: {
         buildId: { type: 'string', description: 'Build or template identifier', required: true },
         grade: { type: 'string', description: 'Letter grade: A+, A, B+, B, C, D, F', required: true },

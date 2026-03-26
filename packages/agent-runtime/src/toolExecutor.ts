@@ -193,9 +193,9 @@ const LONG_RUNNING_TOOLS = new Set([
 ]);
 
 const VERY_LONG_RUNNING_TOOLS = new Set([
-  'invoke_fuse_build',
-  'invoke_fuse_iterate',
-  'invoke_fuse_upgrade',
+  'invoke_web_build',
+  'invoke_web_iterate',
+  'invoke_web_upgrade',
 ]);
 
 // Tools that are safe to execute in dry-run mode (read-only / computation)

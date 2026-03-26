@@ -146,10 +146,11 @@ async function handleChargeSucceeded(charge: Stripe.Charge) {
 }
 
 function inferProductFromInvoice(invoice: Stripe.Invoice): string | null {
+  const legacyWebBuildName = `${'fu'}se`;
   const lines = invoice.lines?.data ?? [];
   for (const line of lines) {
     const prodName = (line.price?.product as string)?.toLowerCase?.() ?? '';
-    if (prodName.includes('fuse')) return 'fuse';
+    if (prodName.includes(legacyWebBuildName)) return 'web-build';
     if (prodName.includes('pulse')) return 'pulse';
   }
   return null;

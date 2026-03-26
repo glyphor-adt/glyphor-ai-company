@@ -78,7 +78,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           type: 'string',
           description: 'Repository key',
           required: false,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
         branch: {
           type: 'string',
@@ -94,7 +94,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           }
           const repo = (params.repo as GlyphorRepo) || 'company';
           const repoName = GLYPHOR_REPOS[repo];
-          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
+          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company` };
           const result = await getFileContents(repoName, filePath, params.branch as string | undefined);
           if (!result) return { success: false, error: `File not found: ${filePath}` };
           return { success: true, data: result };
@@ -120,7 +120,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           type: 'string',
           description: 'Repository key (defaults to company)',
           required: false,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
       },
       async execute(params): Promise<ToolResult> {
@@ -129,7 +129,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           if (!query) return { success: false, error: 'Missing required parameter: query' };
           const repo = (params.repo as GlyphorRepo) || 'company';
           const repoName = GLYPHOR_REPOS[repo];
-          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
+          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company` };
           const gh = getGitHubClient();
           const pathScopes = [
             'path:packages/dashboard',
@@ -168,7 +168,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           type: 'string',
           description: 'Repository key (defaults to company)',
           required: false,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
       },
       async execute(params): Promise<ToolResult> {
@@ -179,7 +179,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           }
           const repo = (params.repo as GlyphorRepo) || 'company';
           const repoName = GLYPHOR_REPOS[repo];
-          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
+          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company` };
           const gh = getGitHubClient();
           const response = await gh.repos.getContent({ owner: 'glyphor-adt', repo: repoName, path: dirPath });
           if (!Array.isArray(response.data)) {
@@ -244,7 +244,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           }
           const repo = (params.repo as GlyphorRepo) || 'company';
           const repoName = GLYPHOR_REPOS[repo];
-          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
+          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company` };
           await createOrUpdateFile(
             repoName,
             filePath,
@@ -274,7 +274,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           type: 'string',
           description: 'Repository key (defaults to company)',
           required: false,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
       },
       async execute(params): Promise<ToolResult> {
@@ -285,7 +285,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           }
           const repo = (params.repo as GlyphorRepo) || 'company';
           const repoName = GLYPHOR_REPOS[repo];
-          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
+          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company` };
           await createBranch(repoName, branchName);
           return { success: true, data: `Branch "${branchName}" created from main` };
         } catch (err) {
@@ -355,7 +355,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           type: 'string',
           description: 'Repository key (defaults to company)',
           required: false,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
       },
       async execute(params): Promise<ToolResult> {
@@ -365,7 +365,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           }
           const repo = (params.repo as GlyphorRepo) || 'company';
           const repoName = GLYPHOR_REPOS[repo];
-          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company, fuse, pulse` };
+          if (!repoName) return { success: false, error: `Unknown repo "${params.repo}". Use: company` };
           const pr = await createGitHubPR(
             repoName,
             params.branch as string,
@@ -389,7 +389,7 @@ export function createFrontendCodeTools(): ToolDefinition[] {
           type: 'string',
           description: 'Repository key (defaults to company)',
           required: false,
-          enum: ['company', 'fuse', 'pulse'],
+          enum: ['company'],
         },
       },
       async execute(params): Promise<ToolResult> {

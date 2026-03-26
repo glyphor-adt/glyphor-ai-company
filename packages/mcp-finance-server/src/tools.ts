@@ -104,7 +104,7 @@ export const tools: ToolDefinition[] = [
       properties: {
         provider: { type: 'string', description: 'Filter by API provider (openai, anthropic, kling).' },
         service: { type: 'string', description: 'Filter by model/service name (gpt-4o, claude-sonnet-4-20250514, etc.).' },
-        product: { type: 'string', description: 'Filter by product (pulse, fuse, glyphor-ai-company).' },
+        product: { type: 'string', description: 'Filter by product (pulse, web-build, glyphor-ai-company).' },
         since: { type: 'string', description: 'Only return records after this ISO-8601 timestamp.' },
         limit: { type: 'number', description: 'Max rows to return (default 50, max 200).' },
       },

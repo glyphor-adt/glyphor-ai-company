@@ -36,7 +36,7 @@ import { createLogoTools } from '../shared/logoTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
-import { createFuseTools } from '../shared/fuseTools.js';
+import { createWebBuildTools } from '../shared/webBuildTools.js';
 import { systemQuery } from '@glyphor/shared/db';
 
 export interface CMORunParams {
@@ -98,7 +98,7 @@ export async function runCMO(params: CMORunParams = {}) {
     ...createSeoTools(),
     ...createSocialMediaTools(glyphorEventBus),
     ...createMarketingIntelTools(),
-    ...createFuseTools(memory, {
+    ...createWebBuildTools(memory, {
       allowBuild: true,
       allowIterate: false,
       allowUpgrade: false,
@@ -133,7 +133,7 @@ export async function runCMO(params: CMORunParams = {}) {
 
 Steps:
 1. Use read_company_memory to check the current content calendar and brand guidelines
-2. Use get_product_metrics for both Fuse and Pulse to find data-driven angles
+2. Use get_product_metrics for both internal engines to find data-driven angles
 3. Use get_recent_activity for the past week to find newsworthy events
 4. Plan 3-5 content pieces for the week:
    - At least 1 blog post concept (technical or case study)

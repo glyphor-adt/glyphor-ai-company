@@ -187,10 +187,10 @@ const KNOWN_TOOLS = new Set([
   'deploy_preview',
   'get_deployment_status',
   'list_deployments',
-  // fuseTools
-  'invoke_fuse_build',
-  'invoke_fuse_iterate',
-  'invoke_fuse_upgrade',
+  // webBuildTools
+  'invoke_web_build',
+  'invoke_web_iterate',
+  'invoke_web_upgrade',
   'normalize_design_brief',
   'codex',
   'codex-reply',
