@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Report Exporter
  *
  * Generates downloadable documents from analysis, simulation, and CoT reports.
@@ -2237,8 +2237,8 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
     ``,
     `LAYOUT (3 rows):`,
     ``,
-    `ROW 1 â€” Header banner (10% height):`,
-    `Full-width cyan gradient banner. Large bold white title: "${title.toUpperCase()}". Smaller subtitle below in light gray: "${record.query}". Keep text SHORT.`,
+    `ROW 1 â€” Header banner (8% height):`,
+    `Full-width solid dark blue (#0F4FA8) bar. Large bold white sans-serif title: "${title.toUpperCase()}", left-aligned with comfortable padding. Leave the top-right corner empty — a logo will be composited there after generation. Do NOT render any icon, logo, wordmark, subtitle, date, or secondary text in the header.`,
     ``,
     `ROW 2 â€” Main content (65% height), split into 2 columns:`,
     ``,
@@ -2259,7 +2259,7 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
     ``,
     `RIGHT: A thin metadata strip in small gray text: "${record.depth} depth Â· ${record.type.replace(/_/g, ' ')} Â· ${threadCount} threads Â· ${record.requested_by}"`,
     ``,
-    `Reserve a clean footer-safe zone across the bottom of the image for a system-applied footer overlay. Do not render any copyright line, footer bar, or logo inside the image content.`,
+    `Reserve a clean footer-safe zone across the bottom of the image for a system-applied footer overlay. Do not render any copyright line, footer bar, or logo inside the image content. Also leave the top-right corner of the header clear for a system-applied logo overlay.`,
     ``,
     `CRITICAL RULES:`,
     `- MINIMAL TEXT. Use icons, shapes, numbers, charts, and color instead of words.`,
@@ -2267,7 +2267,7 @@ export function buildVisualPrompt(record: AnalysisRecord): string {
     `- Maximum 30 total words on the entire infographic (excluding the title/subtitle).`,
     `- All text must be crisp, readable sans-serif typography.`,
     `- Professional, clean, corporate aesthetic with lots of whitespace.`,
-    `- Do NOT include any "Powered by" branding or logo â€” the image should be clean.`,
+    `- Do NOT render any logo, icon, wordmark, or company branding — branding is applied after generation.`,
   ].join('\n');
 }
 
@@ -3640,14 +3640,13 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
 
   return [
     `A professional corporate infographic in 16:9 landscape format titled "${displayTitle}".`,
-    `Subtitle: "${sanitizePromptSentence(vars.report_subtitle)}".`,
     `Narrative anchor: "${narrativeAnchor}".`,
     '',
-    `White background, modern flat design, corporate sans-serif typography, and executive-ready slide composition. Use ${accentColor} as the primary Glyphor accent color, with light gray and soft teal secondary accents. Keep the visual clean, data-rich, and highly legible, with rounded rectangles, thin dividers, subtle drop shadows, and generous whitespace.`,
+    `White background, modern flat design, corporate sans-serif typography, and executive-ready slide composition. Use ${accentColor} as the primary accent color, with light gray and soft teal secondary accents. Keep the visual clean, data-rich, and highly legible, with rounded rectangles, thin dividers, subtle drop shadows, and generous whitespace.`,
     '',
-    `Header strip: top-left a prominent Glyphor icon with Glyphor wordmark, plus a horizontal ${accentColor} accent bar directly beneath it; top-right a clean rounded context badge reading "${formatTypeLabel(record.analysis_type)} · ${vars.report_date}". Center the main title in the header area and keep the header aligned to a corporate presentation grid. Brand the header as Glyphor corporate identity, not as the analyzed market or topic.`,
+    `Header strip: a full-width solid dark blue (#0F4FA8) bar spanning the top of the image, approximately 8% of image height. Inside it, render the report title "${displayTitle}" in bold white sans-serif text, left-aligned with comfortable padding. Leave the top-right corner of the header empty — a logo will be composited there after generation. Do NOT render any icon, logo, wordmark, company name, date badge, or secondary text in the header. Just the title in white on the blue bar.`,
     '',
-    'Upper center: a bold metric band with three large numeric callouts in separate rounded rectangles:',
+    'Below the header: a bold metric band with three large numeric callouts in separate rounded rectangles:',
     ...metricCallouts.map((item, index) => `${index + 1}) "${item}"`),
     'Each callout should use a small relevant icon, bold numeric emphasis, and a subtle drop shadow.',
     '',
@@ -3664,7 +3663,7 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     `Bottom-right: a compact callout titled "${bottomRightSection.title}" using ${bottomRightSection.layoutHint}`,
     ...formatPromptItems(bottomRightSection.items, 'dash'),
     '',
-    'Reserve a clean footer-safe zone across the bottom of the image for a system-applied footer overlay. Do not render any copyright line, footer bar, or logo inside the image content.',
+    'Reserve a clean footer-safe zone across the bottom of the image for a system-applied footer overlay. Do not render any copyright line, footer bar, or logo inside the image content. Also leave the top-right corner of the header clear for a system-applied logo overlay.',
     '',
     'Overall style: clean, data-rich, executive-ready slide, with clear section headings, consistent iconography, and sufficient whitespace for readability.',
     '',
@@ -3672,12 +3671,12 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     '- Use only the provided facts; do not invent brands, logos, product names, metrics, dates, or numeric deltas',
     '- Preserve currencies, percentages, YoY changes, quarter labels, and dates exactly as written in the supplied facts',
     '- No lorem ipsum, pseudo-text, or misspelled labels; all text must be correct English and fully legible',
-    '- Use Glyphor branding in the header strip; do not treat the report subject or market as a logo',
-    '- Follow the layout literally: header, metric band, left middle section, right middle section, bottom-left panel, bottom-right panel, footer',
+    '- Do NOT render any logo, icon, wordmark, or company branding anywhere in the image — branding is applied after generation',
+    '- Follow the layout literally: blue header bar with white title, metric band, left middle section, right middle section, bottom-left panel, bottom-right panel, footer zone',
     '- Favor concise labels and short clauses, but keep the important numbers and named entities intact',
     '- If a section has fewer facts, enlarge the remaining cards instead of fabricating filler text',
-    '- Keep icon style consistent across all panels and do not add Powered by branding',
-    '- Keep icon style consistent across all panels and do not add logos, footer text, or Powered by branding',
+    '- Keep icon style consistent across all panels',
+    '- Do not add logos, footer text, copyright notices, or Powered by branding',
   ].join('\n');
 }
 

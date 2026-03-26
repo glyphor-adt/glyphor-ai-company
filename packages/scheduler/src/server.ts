@@ -118,20 +118,38 @@ async function applyWatermark(imageB64: string): Promise<string> {
   const footerH = Math.max(44, Math.round((imgH * 60) / 1024));
   const footerY = imgH - footerH;
   const pad = Math.max(10, Math.round((imgW * 14) / 1536));
-  const logoMaxW = Math.max(52, Math.round((imgW * 78) / 1536));
-  const logoMaxH = Math.max(30, footerH - pad * 2);
   const footerText = '© Glyphor Corporation. All rights reserved.';
-  let resizedLogo: Buffer | null = null;
-  let logoW = 0;
-  let logoH = 0;
+
+  // ── Top-right logo (header overlay) ──
+  const headerLogoMaxW = Math.max(120, Math.round((imgW * 180) / 1536));
+  const headerLogoMaxH = Math.max(36, Math.round((imgH * 50) / 1024));
+  let headerLogo: Buffer | null = null;
+  let headerLogoW = 0;
+  let headerLogoH = 0;
 
   if (logoBuf) {
-    resizedLogo = await sharp(logoBuf)
-      .resize({ width: logoMaxW, height: logoMaxH, fit: 'inside', withoutEnlargement: true })
+    headerLogo = await sharp(logoBuf)
+      .resize({ width: headerLogoMaxW, height: headerLogoMaxH, fit: 'inside', withoutEnlargement: true })
       .toBuffer();
-    const logoMeta = await sharp(resizedLogo).metadata();
-    logoW = logoMeta.width ?? logoMaxW;
-    logoH = logoMeta.height ?? logoMaxH;
+    const hlMeta = await sharp(headerLogo).metadata();
+    headerLogoW = hlMeta.width ?? headerLogoMaxW;
+    headerLogoH = hlMeta.height ?? headerLogoMaxH;
+  }
+
+  // ── Footer logo (bottom-right corner) ──
+  const footerLogoMaxW = Math.max(52, Math.round((imgW * 78) / 1536));
+  const footerLogoMaxH = Math.max(30, footerH - pad * 2);
+  let footerLogo: Buffer | null = null;
+  let footerLogoW = 0;
+  let footerLogoH = 0;
+
+  if (logoBuf) {
+    footerLogo = await sharp(logoBuf)
+      .resize({ width: footerLogoMaxW, height: footerLogoMaxH, fit: 'inside', withoutEnlargement: true })
+      .toBuffer();
+    const flMeta = await sharp(footerLogo).metadata();
+    footerLogoW = flMeta.width ?? footerLogoMaxW;
+    footerLogoH = flMeta.height ?? footerLogoMaxH;
   }
 
   const footerSvg = Buffer.from(`
@@ -156,11 +174,23 @@ async function applyWatermark(imageB64: string): Promise<string> {
     },
   ];
 
-  if (resizedLogo) {
+  // Header logo — top-right corner with padding
+  if (headerLogo) {
+    const headerPad = Math.max(12, Math.round((imgW * 20) / 1536));
+    const headerBarH = Math.round(imgH * 0.08);
     composites.push({
-      input: resizedLogo,
-      left: Math.max(pad, imgW - logoW - pad),
-      top: footerY + Math.max(0, Math.round((footerH - logoH) / 2)),
+      input: headerLogo,
+      left: imgW - headerLogoW - headerPad,
+      top: Math.max(headerPad, Math.round((headerBarH - headerLogoH) / 2)),
+    });
+  }
+
+  // Footer logo — bottom-right corner
+  if (footerLogo) {
+    composites.push({
+      input: footerLogo,
+      left: Math.max(pad, imgW - footerLogoW - pad),
+      top: footerY + Math.max(0, Math.round((footerH - footerLogoH) / 2)),
     });
   }
 
@@ -264,8 +294,6 @@ async function buildStrategyFallbackVisualPng(
   <rect x="0" y="0" width="1536" height="78" fill="#0F4FA8"/>
 
   <text x="56" y="49" fill="#FFFFFF" font-size="24" font-family="${svgFont}" font-weight="700">${escapeSvgText(title)}</text>
-  <text x="56" y="71" fill="#DCEAFE" font-size="16" font-family="${svgFont}" font-weight="500">${escapeSvgText(subtitle)}</text>
-  <text x="1410" y="50" text-anchor="end" fill="#E0F2FE" font-size="16" font-family="${svgFont}" font-weight="600">${escapeSvgText(new Date(record.created_at).toLocaleDateString())}</text>
 
   <rect x="40" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#D5DEEA"/>
   <rect x="533" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#D5DEEA"/>
@@ -4446,8 +4474,8 @@ function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiv
     ``,
     `LAYOUT (3 rows):`,
     ``,
-    `ROW 1 — Header (10% height):`,
-    `Full-width dark charcoal banner with bold white title: "${r.targetName.toUpperCase()} — DEEP DIVE". Small cyan accent line below. Tiny gray text: "${totalSources} sources analyzed".`,
+    `ROW 1 — Header (8% height):`,
+    `Full-width solid dark blue (#0F4FA8) bar with bold white sans-serif title: "${r.targetName.toUpperCase()} — DEEP DIVE", left-aligned with comfortable padding. Leave the top-right corner empty — a logo will be composited there after generation. Do NOT render any icon, logo, wordmark, date, or secondary text in the header.`,
     ``,
     `ROW 2 — Main content (60% height), 3 equal columns separated by thin gray dividers:`,
     ``,
@@ -4475,7 +4503,7 @@ function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiv
     ``,
     `RIGHT (30%): "Risk" — a small 2x2 heatmap grid (Impact vs Probability) with ${riskCount} colored dots plotted on it. Red for high-high, amber for medium, green for low. NO text labels on individual risks.`,
     ``,
-    `Reserve a clean footer-safe zone across the bottom of the image for a system-applied footer overlay. Do not render any copyright line, footer bar, or logo inside the image content.`,
+    `Reserve a clean footer-safe zone across the bottom of the image for a system-applied footer overlay. Do not render any copyright line, footer bar, or logo inside the image content. Also leave the top-right corner of the header clear for a system-applied logo overlay.`,
     ``,
     `CRITICAL RULES:`,
     `- MINIMAL TEXT. Maximum 35 words total on the infographic (excluding title).`,
@@ -4483,7 +4511,7 @@ function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiv
     `- No sentences, no paragraphs, no bullet-point lists.`,
     `- All text must be crisp, readable sans-serif.`,
     `- Professional, clean, corporate aesthetic.`,
-    `- Do NOT include any "Powered by" branding or logo.`,
+    `- Do NOT render any logo, icon, wordmark, or company branding — branding is applied after generation.`,
   ].join('\n');
 }
 
