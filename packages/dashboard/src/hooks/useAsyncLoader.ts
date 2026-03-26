@@ -11,6 +11,8 @@ interface UseAsyncLoaderOptions {
   tier: LoaderTier;
   loading: boolean;
   complete: boolean;
+  /** Optional wallclock start time — elapsed will be derived from this so it survives remounts. */
+  startedAt?: string | null;
 }
 
 interface UseAsyncLoaderReturn {
@@ -31,14 +33,20 @@ function getStepDuration(index: number, totalMain: number): number {
 
 const HOLD_INTERVAL = 12000;
 
-export function useAsyncLoader({ tier, loading, complete }: UseAsyncLoaderOptions): UseAsyncLoaderReturn {
+export function useAsyncLoader({ tier, loading, complete, startedAt }: UseAsyncLoaderOptions): UseAsyncLoaderReturn {
   const mainStates = LOADER_STATES[tier];
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<'main' | 'hold' | 'complete'>('main');
   const [holdIndex, setHoldIndex] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
+  const [elapsed, setElapsed] = useState(() => {
+    if (startedAt) {
+      return Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
+    }
+    return 0;
+  });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wasLoadingRef = useRef(loading);
 
   const states: LoadingState[] =
     phase === 'complete'
@@ -55,13 +63,15 @@ export function useAsyncLoader({ tier, loading, complete }: UseAsyncLoaderOption
         : step;
 
   useEffect(() => {
-    if (loading && !complete) {
+    // Only reset when transitioning from not-loading → loading (not on remount while loading)
+    if (loading && !complete && !wasLoadingRef.current) {
       setStep(0);
       setPhase('main');
       setHoldIndex(0);
-      setElapsed(0);
+      setElapsed(startedAt ? Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)) : 0);
     }
-  }, [loading, complete]);
+    wasLoadingRef.current = loading;
+  }, [loading, complete, startedAt]);
 
   useEffect(() => {
     if (complete && loading) {

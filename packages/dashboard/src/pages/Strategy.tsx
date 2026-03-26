@@ -451,12 +451,13 @@ function DeepDivesPanel() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  const hasRunning = records.some((r) => !['completed', 'failed', 'cancelled'].includes(r.status));
+
   useEffect(() => {
-    const running = records.some((r) => !['completed', 'failed', 'cancelled'].includes(r.status));
-    if (!running) return;
+    if (!hasRunning) return;
     const interval = setInterval(refresh, 4000);
     return () => clearInterval(interval);
-  }, [records, refresh]);
+  }, [hasRunning, refresh]);
 
   const launch = async () => {
     if (!target.trim()) return;
@@ -611,6 +612,7 @@ function DeepDiveWaveProgress({ record }: { record: DeepDiveRecord }) {
     tier: inferTier({ type: 'strategy_report', searchDepth: 'deep' }),
     loading,
     complete,
+    startedAt: record.created_at,
   });
 
   if (!loading) return null;
@@ -2344,12 +2346,12 @@ function StrategyLabV2Panel() {
   useEffect(() => { refresh(); }, [refresh]);
 
   // Poll while any are running
+  const slHasRunning = records.some((r) => !['completed', 'failed'].includes(r.status));
   useEffect(() => {
-    const running = records.some((r) => !['completed', 'failed'].includes(r.status));
-    if (!running) return;
+    if (!slHasRunning) return;
     const interval = setInterval(refresh, 4000);
     return () => clearInterval(interval);
-  }, [records, refresh]);
+  }, [slHasRunning, refresh]);
 
   const launch = async () => {
     if (!query.trim()) return;
@@ -2527,7 +2529,7 @@ function SLv2WaveProgress({ record }: { record: SLv2Record }) {
     searchDepth: r.depth,
   });
 
-  const loader = useAsyncLoader({ tier, loading, complete });
+  const loader = useAsyncLoader({ tier, loading, complete, startedAt: r.created_at });
 
   // Ensure JSONB fields are arrays (may arrive as {} from DB)
   const researchProgress = Array.isArray(r.research_progress) ? r.research_progress : [];
