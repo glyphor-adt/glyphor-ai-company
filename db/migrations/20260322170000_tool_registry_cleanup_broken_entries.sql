@@ -33,5 +33,5 @@ WHERE name = 'get_competitor_intelligence';
 
 INSERT INTO fleet_findings (agent_id, severity, finding_type, description)
 VALUES
-  ('tool-registry', 'P2', 'tool_deleted', 'update_vercel_env_vars removed from tool_registry — Vercel/Fuse env flow deprecated; use approved static paths.'),
+  ('tool-registry', 'P2', 'tool_deleted', 'update_vercel_env_vars removed from tool_registry — Vercel/Web Build env flow deprecated; use approved static paths.'),
   ('tool-registry', 'P2', 'tool_deleted', 'create_git_branch removed from tool_registry — duplicate of static create_git_branch in frontendCodeTools / create_branch');

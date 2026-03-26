@@ -1,4 +1,4 @@
--- Sync shared advanced web creation skill for Fuse orchestration.
+-- Sync shared advanced web creation skill for Web Build orchestration.
 -- Source:
 --   skills/design/advanced-web-creation.md
 
@@ -10,14 +10,14 @@ WITH skill_payload (slug, name, category, description, methodology, tools_grante
       'advanced-web-creation',
       'advanced-web-creation',
       'design',
-      'Orchestrate Fuse for complete page and application builds while preserving precise control over brand direction and quality gates. Use when a request is larger than a component tweak and requires architecture, implementation, QA, and deployment as one flow.',
+      'Orchestrate Web Build for complete page and application builds while preserving precise control over brand direction and quality gates. Use when a request is larger than a component tweak and requires architecture, implementation, QA, and deployment as one flow.',
       $advanced_web_creation$
 # Advanced Web Creation
 
-Use Fuse as the default path for complete page or app deliverables.
+Use Web Build as the default path for complete page or app deliverables.
 
 Decision rule:
-- "Build me a page/app" -> Fuse orchestration.
+- "Build me a page/app" -> Web Build orchestration.
 - "Change this component/section" -> individual tools.
 
 Core loop:
@@ -104,7 +104,7 @@ ON CONFLICT (agent_role, skill_id) DO UPDATE SET
 WITH mapping_payload AS (
   SELECT *
   FROM (VALUES
-    ('(?i)(advanced web creation|fuse build|landing page build|web app build|coming.?soon page|invoke_fuse|prototype tier|full build tier|iterate build)', 'advanced-web-creation', 18)
+    ('(?i)(advanced web creation|web-build build|landing page build|web app build|coming.?soon page|invoke_fuse|prototype tier|full build tier|iterate build)', 'advanced-web-creation', 18)
   ) AS x(task_regex, skill_slug, priority)
 ),
 target_slugs AS (
@@ -117,7 +117,7 @@ WHERE t.skill_slug = s.skill_slug;
 WITH mapping_payload AS (
   SELECT *
   FROM (VALUES
-    ('(?i)(advanced web creation|fuse build|landing page build|web app build|coming.?soon page|invoke_fuse|prototype tier|full build tier|iterate build)', 'advanced-web-creation', 18)
+    ('(?i)(advanced web creation|web-build build|landing page build|web app build|coming.?soon page|invoke_fuse|prototype tier|full build tier|iterate build)', 'advanced-web-creation', 18)
   ) AS x(task_regex, skill_slug, priority)
 )
 INSERT INTO task_skill_map (task_regex, skill_slug, priority)

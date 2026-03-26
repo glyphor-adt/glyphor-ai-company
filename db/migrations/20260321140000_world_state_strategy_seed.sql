@@ -23,7 +23,7 @@ VALUES
   ],
   "product_naming": {
     "external": "AI Marketing Department",
-    "never_externally": ["Pulse", "Fuse", "Revy", "Cockpit"]
+    "never_externally": ["Pulse", "Web Build", "Revy", "Cockpit"]
   }
 }$brand_voice$::jsonb,
   'founder:kristina',

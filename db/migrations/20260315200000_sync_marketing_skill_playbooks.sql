@@ -177,7 +177,7 @@ The full production treatment — coordinate across all formats:
 4. Background score — pulse_generate_music
 5. Social campaign — hero then promo scenes then platform variants then scheduled posts
 6. Email blast — announcement email + header image + video embed link
-7. Landing page brief — if needed, write brief and coordinate with Mia to invoke Fuse
+7. Landing page brief — if needed, write brief and coordinate with Mia to invoke Web Build
 
 ### Case Study (written + visual + optional video)
 

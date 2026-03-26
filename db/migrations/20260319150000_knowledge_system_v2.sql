@@ -81,7 +81,7 @@ WHERE section IN ('mission','authority_model','founders','culture','products','o
 
 -- MISSION — Layer 1, founders-owned, never auto-expires
 UPDATE company_knowledge_base SET
-  content = 'Glyphor builds AI-powered departments that deliver outcomes. We sell functional work, not software interfaces. The only external product is the AI Marketing Department — an AI team embedded into customer Slack workspaces that produces social content, short-form videos, blog drafts, email campaigns, and performance reporting. Internal capabilities (Pulse, Fuse) power the department but are never surfaced to customers. We are revenue-first, capital-efficient, and pre-scale. One department ships, validates, and embeds before any expansion occurs.',
+  content = 'Glyphor builds AI-powered departments that deliver outcomes. We sell functional work, not software interfaces. The only external product is the AI Marketing Department — an AI team embedded into customer Slack workspaces that produces social content, short-form videos, blog drafts, email campaigns, and performance reporting. Internal capabilities (Pulse, Web Build) power the department but are never surfaced to customers. We are revenue-first, capital-efficient, and pre-scale. One department ships, validates, and embeds before any expansion occurs.',
   layer = 1,
   audience = 'all',
   owner_agent_id = NULL,
@@ -249,7 +249,7 @@ UPDATE company_knowledge_base SET
   content = 'Settled decisions (do not re-open without founder directive):
 - AI Marketing Department is the only external product this phase
 - Slack-first GTM (Teams planned as parallel surface, not primary)
-- Pulse and Fuse are internal capabilities, not standalone external products
+- Pulse and Web Build are internal capabilities, not standalone external products
 - Flat-rate pricing model (specific price point under validation)
 - No enterprise/regulated expansion this phase
 - No new external products until revenue and retention milestones met',

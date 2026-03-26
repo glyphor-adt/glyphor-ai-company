@@ -60,11 +60,11 @@ INSERT INTO company_knowledge_base (section, title, content, audience) VALUES
  'all'),
 
 ('products', 'Products',
- E'**Fuse** — Autonomous Development Platform\nUsers describe what they want to build. Fuse''s AI agents design, code, and deploy complete web applications autonomously.\nTarget: Solo founders, small teams, non-technical builders, SMBs, enterprises replacing contractor teams\nTech stack: Next.js, TypeScript, Gemini 2.5 Pro/Flash, Cloud SQL, Vercel, Cloud Run\nPricing: Free tier (3 builds/mo) → Pro $29/mo → Enterprise custom ($25K-50K/mo)\nStatus: Pre-launch. $0 MRR. 0 paying users.\nColor identity: Electric blue (#60a5fa)\n\n**Pulse** — Autonomous Creative Platform\nAI agents create brand identities, marketing assets, social content, and design systems autonomously.\nTarget: Startups needing brand identity, marketing teams wanting to scale creative output\nStatus: Pre-launch beta. $0 MRR. 0 paying users.\nColor identity: Warm pink (#f472b6)',
+ E'**Web Build** — Autonomous Development Platform\nUsers describe what they want to build. Web Build''s AI agents design, code, and deploy complete web applications autonomously.\nTarget: Solo founders, small teams, non-technical builders, SMBs, enterprises replacing contractor teams\nTech stack: Next.js, TypeScript, Gemini 2.5 Pro/Flash, Cloud SQL, Vercel, Cloud Run\nPricing: Free tier (3 builds/mo) → Pro $29/mo → Enterprise custom ($25K-50K/mo)\nStatus: Pre-launch. $0 MRR. 0 paying users.\nColor identity: Electric blue (#60a5fa)\n\n**Pulse** — Autonomous Creative Platform\nAI agents create brand identities, marketing assets, social content, and design systems autonomously.\nTarget: Startups needing brand identity, marketing teams wanting to scale creative output\nStatus: Pre-launch beta. $0 MRR. 0 paying users.\nColor identity: Warm pink (#f472b6)',
  'all'),
 
 ('current_priorities', 'Current Priorities',
- E'1. Complete platform build — Fuse and Pulse ready for public launch\n2. Content marketing and SEO foundation — blog posts, social, brand positioning\n3. Enterprise prospect research — identify first target customers\n4. Agent workforce fully operational — all 42 agents running on schedules\n5. Launch prep — pricing validation, onboarding flow, legal compliance',
+ E'1. Complete platform build — Web Build and Pulse ready for public launch\n2. Content marketing and SEO foundation — blog posts, social, brand positioning\n3. Enterprise prospect research — identify first target customers\n4. Agent workforce fully operational — all 42 agents running on schedules\n5. Launch prep — pricing validation, onboarding flow, legal compliance',
  'all'),
 
 ('metrics', 'Current Metrics',
@@ -92,7 +92,7 @@ INSERT INTO company_knowledge_base (section, title, content, audience) VALUES
  'all'),
 
 ('pricing', 'Pricing Strategy',
- E'Fuse: Free tier (3 builds/mo) → Pro $29/mo → Enterprise custom ($25K-50K/mo)\nTarget enterprise: $10K-$75K/month subscriptions\nSegments: Starter ($10K), Growth ($25K), Enterprise ($50K-75K)\nModel: Per-seat + platform fee\nNot finalized — Rachel and Nadia collaborating on final model.',
+ E'Web Build: Free tier (3 builds/mo) → Pro $29/mo → Enterprise custom ($25K-50K/mo)\nTarget enterprise: $10K-$75K/month subscriptions\nSegments: Starter ($10K), Growth ($25K), Enterprise ($50K-75K)\nModel: Per-seat + platform fee\nNot finalized — Rachel and Nadia collaborating on final model.',
  'all')
 
 ON CONFLICT (section) DO NOTHING;
@@ -102,7 +102,7 @@ ON CONFLICT (section) DO NOTHING;
 -- Products
 INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
-('product', 'Fuse', 'AI-powered autonomous development platform. Users describe what they want to build, and Fuse''s AI agents design, code, and deploy complete web applications autonomously. Status: Pre-launch. $0 MRR. 0 paying users.', 'product', 1.0, ARRAY['fuse', 'product', 'core', 'development'], 'system', 1.0),
+('product', 'Web Build', 'AI-powered autonomous development platform. Users describe what they want to build, and Web Build''s AI agents design, code, and deploy complete web applications autonomously. Status: Pre-launch. $0 MRR. 0 paying users.', 'product', 1.0, ARRAY['web-build', 'product', 'core', 'development'], 'system', 1.0),
 ('product', 'Pulse', 'Autonomous creative platform. AI agents create brand identities, marketing assets, social content, and design systems. Status: Pre-launch beta. $0 MRR. 0 paying users.', 'product', 0.9, ARRAY['pulse', 'product', 'core', 'creative'], 'system', 1.0)
 ON CONFLICT DO NOTHING;
 
@@ -132,7 +132,7 @@ ON CONFLICT DO NOTHING;
 -- Risks
 INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, confidence)
 VALUES
-('risk', 'Platform Readiness', 'Fuse and Pulse are in pre-launch development. Platform must be fully operational before public launch — build pipeline, auth, billing, and monitoring all need to be validated.', 'engineering', 1.0, ARRAY['launch', 'readiness', 'platform', 'pre-launch'], 'system', 1.0),
+('risk', 'Platform Readiness', 'Web Build and Pulse are in pre-launch development. Platform must be fully operational before public launch — build pipeline, auth, billing, and monitoring all need to be validated.', 'engineering', 1.0, ARRAY['launch', 'readiness', 'platform', 'pre-launch'], 'system', 1.0),
 ('risk', 'Pre-Revenue Risk', 'Company is pre-revenue with ~$850/mo infrastructure burn. $0 MRR — this is expected for a pre-launch company. First enterprise customer needed to validate market and begin revenue.', 'finance', 0.8, ARRAY['revenue', 'runway', 'risk'], 'system', 0.9)
 ON CONFLICT DO NOTHING;
 
@@ -145,11 +145,11 @@ ON CONFLICT DO NOTHING;
 -- ─── 5. SEED KNOWLEDGE GRAPH EDGES ───────────────────────────────
 -- Connect nodes with meaningful relationships
 
--- Fuse → Target Market (enables)
+-- Web Build → Target Market (enables)
 INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
-SELECT s.id, t.id, 'enables', 0.9, 0.9, 'Fuse is the primary revenue product targeting the enterprise market', 'system'
+SELECT s.id, t.id, 'enables', 0.9, 0.9, 'Web Build is the primary revenue product targeting the enterprise market', 'system'
 FROM kg_nodes s, kg_nodes t
-WHERE s.title = 'Fuse' AND s.node_type = 'product'
+WHERE s.title = 'Web Build' AND s.node_type = 'product'
   AND t.title = 'Target Market' AND t.node_type = 'concept'
 ON CONFLICT DO NOTHING;
 
@@ -185,20 +185,20 @@ WHERE s.title = 'Authority Model' AND s.node_type = 'concept'
   AND t.title = 'Multi-Agent Orchestration' AND t.node_type = 'concept'
 ON CONFLICT DO NOTHING;
 
--- Fuse enables Pulse (related products)
+-- Web Build enables Pulse (related products)
 INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
 SELECT s.id, t.id, 'relates_to', 0.7, 0.9, 'Same core runtime powers both products; shared infrastructure and agent architecture', 'system'
 FROM kg_nodes s, kg_nodes t
-WHERE s.title = 'Fuse' AND s.node_type = 'product'
+WHERE s.title = 'Web Build' AND s.node_type = 'product'
   AND t.title = 'Pulse' AND t.node_type = 'product'
 ON CONFLICT DO NOTHING;
 
--- Devin → Fuse (relates_to competitive)
+-- Devin → Web Build (relates_to competitive)
 INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence, created_by)
 SELECT s.id, t.id, 'relates_to', 0.8, 0.9, 'Direct competitor — single agent vs our multi-agent orchestration approach', 'system'
 FROM kg_nodes s, kg_nodes t
 WHERE s.title = 'Devin (Cognition)' AND s.node_type = 'concept'
-  AND t.title = 'Fuse' AND t.node_type = 'product'
+  AND t.title = 'Web Build' AND t.node_type = 'product'
 ON CONFLICT DO NOTHING;
 
 -- ─── 6. SEED COMPANY PULSE (if not already populated) ────────────
@@ -212,7 +212,7 @@ VALUES (
   0,
   'green',
   'building',
-  '[{"agent": "system", "type": "positive", "text": "42 agents configured with roles and authority"},{"agent": "system", "type": "positive", "text": "Platform deployed on GCP Cloud Run"},{"agent": "system", "type": "neutral", "text": "Pre-revenue: Fuse and Pulse in pre-launch development"}]'::jsonb,
+  '[{"agent": "system", "type": "positive", "text": "42 agents configured with roles and authority"},{"agent": "system", "type": "positive", "text": "Platform deployed on GCP Cloud Run"},{"agent": "system", "type": "neutral", "text": "Pre-revenue: Web Build and Pulse in pre-launch development"}]'::jsonb,
   NOW()
 )
 ON CONFLICT (id) DO UPDATE SET

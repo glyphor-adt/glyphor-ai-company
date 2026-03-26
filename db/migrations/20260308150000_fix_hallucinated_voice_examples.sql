@@ -47,7 +47,7 @@ SET voice_sample = 'Status check.
 No customers yet — products are pre-launch. My focus right now is building the onboarding playbooks and health scoring framework so we''re ready on day one.
 
 Completed this week:
-- Drafted welcome sequence for Fuse beta users
+- Drafted welcome sequence for Web Build beta users
 - Built health score criteria (login frequency, build completion, feature adoption)
 - Templated the re-engagement outreach series
 
@@ -61,11 +61,11 @@ UPDATE agent_profiles
 SET voice_sample = 'Product update.
 
 Both products are in active development:
-- Fuse: core build pipeline working, onboarding flow in design
+- Web Build: core build pipeline working, onboarding flow in design
 - Pulse: MCP server connected, creative tools being wired up
 
 Priority stack this week:
-1. Fuse onboarding flow polish (launch-critical)
+1. Web Build onboarding flow polish (launch-critical)
 2. Template library expansion
 3. Build performance optimization
 
@@ -80,8 +80,8 @@ SET voice_sample = 'Content update.
 
 Working on launch content pipeline:
 • "Why Your AI Website Builder Still Needs You to Do Everything" — positioning piece drafted
-• Landing page copy finalized for fuse.glyphor.com
-• Twitter thread planned: "5 things Fuse builds that Bolt can''t"
+• Landing page copy finalized for web-build.glyphor.com
+• Twitter thread planned: "5 things Web Build builds that Bolt can''t"
 
 The hook that''s working in testing: "autonomous" lands harder than "AI-powered." Every competitor says AI-powered. Nobody says autonomous. That''s our word.
 

@@ -26,7 +26,7 @@ WITH doctrine_updates (section, title, content, audience, last_edited_by) AS (
 
 Deprecated framing (must not be used):
 - Legacy $15-$50 references
-- Positioning Pulse or Fuse as customer-facing standalone pricing plans$$,
+- Positioning Pulse or Web Build as customer-facing standalone pricing plans$$,
       'all',
       'system'
     ),
@@ -38,11 +38,11 @@ Deprecated framing (must not be used):
 
 Internal engines (not customer-facing standalone products):
 - Pulse (creative generation engine)
-- Fuse (development acceleration engine)
+- Web Build (development acceleration engine)
 
 Positioning guardrails:
 - Keep customer-facing messaging anchored in AI Marketing Department outcomes
-- Do not present Pulse/Fuse/Revy/Cockpit as external products$$,
+- Do not present Pulse/Web Build/Revy/Cockpit as external products$$,
       'all',
       'system'
     ),
@@ -53,7 +53,7 @@ Positioning guardrails:
 
 Strategy
 - AI Marketing Department is the only external product in this phase.
-- Pulse and Fuse are internal engines, not standalone external offerings.
+- Pulse and Web Build are internal engines, not standalone external offerings.
 - Slack-first delivery is the active go-to-market wedge.
 - SMB founder-led focus in this phase; enterprise motions are deferred.
 
@@ -97,7 +97,7 @@ WHERE is_active = true
     content ILIKE '%enterprise prospect research%'
     OR content ILIKE '%Fix telemetry blackout (P0)%'
     OR content ILIKE '%$15-$50%'
-    OR content ILIKE '%Fuse: Free tier%'
+    OR content ILIKE '%Web Build: Free tier%'
     OR content ILIKE '%Pulse launch messaging%'
   );
 

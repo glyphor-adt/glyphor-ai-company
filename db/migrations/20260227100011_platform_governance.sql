@@ -151,8 +151,8 @@ INSERT INTO platform_iam_state (platform, credential_id, agent_role, permissions
 
   -- GitHub
   ('github', 'glyphor-bot', 'cto',
-   '{"repos": ["fuse", "pulse", "agent-runtime", "infra"], "permissions": {"contents": "write", "pull_requests": "write", "actions": "write", "deployments": "write"}}',
-   '{"repos": ["fuse", "pulse", "agent-runtime", "infra"], "permissions": {"contents": "write", "pull_requests": "write", "actions": "write", "deployments": "write"}}',
+   '{"repos": ["web-build", "pulse", "agent-runtime", "infra"], "permissions": {"contents": "write", "pull_requests": "write", "actions": "write", "deployments": "write"}}',
+   '{"repos": ["web-build", "pulse", "agent-runtime", "infra"], "permissions": {"contents": "write", "pull_requests": "write", "actions": "write", "deployments": "write"}}',
    true),
 
   -- Stripe

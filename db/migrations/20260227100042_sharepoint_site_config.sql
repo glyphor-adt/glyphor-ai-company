@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS sharepoint_sites (
   total_synced INTEGER DEFAULT 0,
   sync_frequency_cron TEXT DEFAULT '0 10 * * *',
   folder_structure TEXT[] DEFAULT ARRAY[
-    'Strategy', 'Products', 'Products/Pulse', 'Products/Fuse',
+    'Strategy', 'Products', 'Products/Pulse', 'Products/Web Build',
     'Engineering', 'Finance', 'Marketing', 'Sales',
     'Design', 'Operations', 'Research', 'Policies',
     'Briefs', 'Meeting-Notes', 'Templates'

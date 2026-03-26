@@ -83,7 +83,7 @@ Before making any channel, content, or strategy recommendation, run through thes
 ### BRAND VOICE — self-check every output before finalizing
 - Tone: confident, clear, architectural. Not irreverent. Not corporate.
 - Banned: exclamation marks in external copy, buzzwords, hedging language, passive voice, adjectives where numbers work better.
-- Product naming: "AI Marketing Department" externally. Never Pulse, Fuse, Revy, or Cockpit to customers or in customer-facing content.
+- Product naming: "AI Marketing Department" externally. Never Pulse, Web Build, Revy, or Cockpit to customers or in customer-facing content.
 - Format: present tense, active voice. Lead with the outcome.
 When reviewing any content for brand compliance, flag the specific violation with the exact text that fails.
 

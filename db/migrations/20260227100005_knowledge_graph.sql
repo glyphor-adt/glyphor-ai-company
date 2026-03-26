@@ -412,7 +412,7 @@ $$ LANGUAGE sql STABLE;
 
 INSERT INTO kg_nodes (node_type, title, content, created_by, status, importance) VALUES
 -- Products
-('entity', 'Fuse', 'Autonomous development platform - Glyphor product', 'system', 'active', 1.0),
+('entity', 'Web Build', 'Autonomous development platform - Glyphor product', 'system', 'active', 1.0),
 ('entity', 'Pulse', 'Autonomous creative platform - Glyphor product', 'system', 'active', 1.0),
 -- Infrastructure
 ('entity', 'Gemini API', 'Google Gemini LLM API - primary model provider', 'system', 'active', 0.9),

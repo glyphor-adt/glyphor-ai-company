@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS roadmap_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   description TEXT,
-  product TEXT NOT NULL CHECK (product IN ('pulse', 'fuse')),
+  product TEXT NOT NULL CHECK (product IN ('pulse', 'web-build')),
   priority TEXT DEFAULT 'medium' CHECK (priority IN ('critical', 'high', 'medium', 'low')),
   estimated_effort TEXT CHECK (estimated_effort IN ('xs', 's', 'm', 'l', 'xl')),
   expected_impact TEXT CHECK (expected_impact IN ('low', 'medium', 'high', 'transformative')),

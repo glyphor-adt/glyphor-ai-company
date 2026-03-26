@@ -9,7 +9,7 @@ WHERE section = 'mission';
 
 -- Fix the metrics section — replace fake data with correct pre-launch values
 UPDATE company_knowledge_base
-SET content = E'MRR: $0 (pre-revenue, pre-launch)\nPaying users: 0 (products have not launched)\nActive agents: 28\nMonthly compute budget target: $150\nInfrastructure: GCP Cloud Run, Cloud SQL PostgreSQL, Cloud Scheduler\n\nGlyphor is pre-revenue and pre-launch. There are zero customers, zero users, and $0 MRR. This is expected — Pulse and Fuse are still in development. Do NOT report any other MRR or user count.',
+SET content = E'MRR: $0 (pre-revenue, pre-launch)\nPaying users: 0 (products have not launched)\nActive agents: 28\nMonthly compute budget target: $150\nInfrastructure: GCP Cloud Run, Cloud SQL PostgreSQL, Cloud Scheduler\n\nGlyphor is pre-revenue and pre-launch. There are zero customers, zero users, and $0 MRR. This is expected — Pulse and Web Build are still in development. Do NOT report any other MRR or user count.',
     updated_at = NOW()
 WHERE section = 'metrics';
 

@@ -7,7 +7,7 @@ VALUES
   'glossary',
   'Internal Terminology - External Usage Rules',
   $$- Pulse: Internal creative engine. Do not use as a customer-facing product name.
-- Fuse: Internal development acceleration engine. Do not position as external product.
+- Web Build: Internal development acceleration engine. Do not position as external product.
 - Reve/Revy: Future roadmap initiative. Do not reference externally.
 - Cockpit: Internal dashboard for orchestration/governance. Not customer-facing.
 - Ora: Internal multi-model chat capability. Internal use only.
@@ -93,7 +93,7 @@ Not primary fit in this phase:
   $$Settled strategic decisions:
 - AI Marketing Department is the external product focus for this phase.
 - Slack-first GTM is the active wedge.
-- Pulse and Fuse are internal capabilities for current strategy framing.
+- Pulse and Web Build are internal capabilities for current strategy framing.
 - Product Hunt Pulse-first strategy is deprecated.
 - Simple flat-rate pricing posture remains target direction.
 

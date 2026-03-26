@@ -31,7 +31,7 @@ The work must stay productized. Agents should detect and prevent scope creep int
 5. Still You Campaign Launch — launch the campaign after brand and landing-page prerequisites are complete.$$ , 'all', 'system'),
 ('products', 'Products', $$AI Marketing Department is the only external revenue product.
 
-Pulse is an internal creative engine. Fuse is an internal development acceleration engine. Revy remains future roadmap work. The Cockpit dashboard is an internal command center, not a customer-facing product.$$ , 'all', 'system'),
+Pulse is an internal creative engine. Web Build is an internal development acceleration engine. Revy remains future roadmap work. The Cockpit dashboard is an internal command center, not a customer-facing product.$$ , 'all', 'system'),
 ('founders', 'Founders', $$Kristina Denney is CEO and the sole technical architect. Andrew Zwelling is COO and owns operations, business development, and partnerships.
 
 Technical architecture, infrastructure, and agent-system design escalate to Kristina. Business strategy, partnerships, pricing, and go-to-market escalate to Andrew. Red-tier decisions require both founders.$$ , 'all', 'system'),

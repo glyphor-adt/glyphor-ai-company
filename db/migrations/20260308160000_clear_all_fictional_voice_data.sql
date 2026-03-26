@@ -360,7 +360,7 @@ Status sourced from live agent health checks — not estimated or assumed.
 WHERE agent_id = 'ops';
 
 -- === VP Design ===
--- Old: "8 Fuse builds reviewed", A/B/C/F grades, specific patterns
+-- Old: "8 Web Build builds reviewed", A/B/C/F grades, specific patterns
 UPDATE agent_profiles SET voice_sample =
 'Design audit framework.
 

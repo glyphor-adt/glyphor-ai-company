@@ -78,14 +78,14 @@ jobs:
             
             1. **Vercel Pulse project** (`pulse.glyphor.ai`)
                - Update Trusted IPs or WAF configuration
-            2. **Vercel Fuse project** (`fuse.glyphor.ai`)
+            2. **Vercel Web Build project** (`web-build.glyphor.ai`)
                - Update Trusted IPs or WAF configuration
             
             ### Verification Steps
             
             After deployment:
             - [ ] Test Lighthouse audit on Pulse: `run_lighthouse(url: "https://pulse.glyphor.ai")`
-            - [ ] Test Lighthouse audit on Fuse: `run_lighthouse(url: "https://fuse.glyphor.ai")`
+            - [ ] Test Lighthouse audit on Web Build: `run_lighthouse(url: "https://web-build.glyphor.ai")`
             - [ ] Verify no 429 errors in agent activity logs
             - [ ] Check Vercel logs for successful Google PageSpeed requests
             

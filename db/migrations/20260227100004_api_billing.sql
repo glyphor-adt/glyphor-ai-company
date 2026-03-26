@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS api_billing (
   service     TEXT NOT NULL,             -- gpt-4o, claude-sonnet-4-20250514, kling-video, etc.
   cost_usd    DECIMAL(10,4) NOT NULL,
   usage       JSONB DEFAULT '{}',        -- tokens, requests, seconds, etc.
-  product     TEXT,                       -- pulse, fuse, glyphor-ai-company, etc.
+  product     TEXT,                       -- pulse, web-build, glyphor-ai-company, etc.
   recorded_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_api_billing_provider  ON api_billing(provider);
