@@ -187,7 +187,7 @@ echo -n "..." | gcloud secrets versions add teams-channel-engineering-id --data-
 echo -n "..." | gcloud secrets versions add teams-channel-growth-id --data-file=-
 echo -n "..." | gcloud secrets versions add teams-channel-financials-id --data-file=-
 echo -n "..." | gcloud secrets versions add teams-channel-general-id --data-file=-
-echo -n "..." | gcloud secrets versions add teams-channel-product-fuse-id --data-file=-
+echo -n "..." | gcloud secrets versions add teams-channel-product-web-build-id --data-file=-
 echo -n "..." | gcloud secrets versions add teams-channel-product-pulse-id --data-file=-
 
 # Teams — Webhook fallbacks

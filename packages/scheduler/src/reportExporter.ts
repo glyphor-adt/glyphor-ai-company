@@ -3596,7 +3596,7 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
   const displayTitle = reportTimeframe && vars.subject_company !== 'Analyzed Market'
     ? `${vars.subject_company} ${reportTimeframe} Strategic Highlights`
     : vars.report_title;
-  const accentColor = inferBrandAccent(record);
+  const accentColor = BRAND.cyan;
   const narrativeAnchor = clampWords(
     sanitizePromptSentence(normalizePhrase(record.synthesis.executiveSummary, 'Strategic analysis completed.')),
     28,
@@ -3643,9 +3643,9 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     `Subtitle: "${sanitizePromptSentence(vars.report_subtitle)}".`,
     `Narrative anchor: "${narrativeAnchor}".`,
     '',
-    `White background, modern flat design, corporate sans-serif typography, and executive-ready slide composition. Use ${accentColor} as the primary accent color, with light gray and soft teal secondary accents. Keep the visual clean, data-rich, and highly legible, with rounded rectangles, thin dividers, subtle drop shadows, and generous whitespace.`,
+    `White background, modern flat design, corporate sans-serif typography, and executive-ready slide composition. Use ${accentColor} as the primary Glyphor accent color, with light gray and soft teal secondary accents. Keep the visual clean, data-rich, and highly legible, with rounded rectangles, thin dividers, subtle drop shadows, and generous whitespace.`,
     '',
-    `Header strip: top-left simple ${vars.subject_company} wordmark with a ${accentColor} accent bar; top-right a clean context badge reading "${formatTypeLabel(record.analysis_type)} · ${vars.report_date}". Center the main title in the header area and keep the header aligned to a corporate presentation grid.`,
+    `Header strip: top-left a prominent Glyphor icon with Glyphor wordmark, plus a horizontal ${accentColor} accent bar directly beneath it; top-right a clean rounded context badge reading "${formatTypeLabel(record.analysis_type)} · ${vars.report_date}". Center the main title in the header area and keep the header aligned to a corporate presentation grid. Brand the header as Glyphor corporate identity, not as the analyzed market or topic.`,
     '',
     'Upper center: a bold metric band with three large numeric callouts in separate rounded rectangles:',
     ...metricCallouts.map((item, index) => `${index + 1}) "${item}"`),
@@ -3672,6 +3672,7 @@ export function buildStrategyLabVisualPrompt(record: StrategyAnalysisRecord): st
     '- Use only the provided facts; do not invent brands, logos, product names, metrics, dates, or numeric deltas',
     '- Preserve currencies, percentages, YoY changes, quarter labels, and dates exactly as written in the supplied facts',
     '- No lorem ipsum, pseudo-text, or misspelled labels; all text must be correct English and fully legible',
+    '- Use Glyphor branding in the header strip; do not treat the report subject or market as a logo',
     '- Follow the layout literally: header, metric band, left middle section, right middle section, bottom-left panel, bottom-right panel, footer',
     '- Favor concise labels and short clauses, but keep the important numbers and named entities intact',
     '- If a section has fewer facts, enlarge the remaining cards instead of fabricating filler text',

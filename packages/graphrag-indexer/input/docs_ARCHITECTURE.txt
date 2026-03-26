@@ -123,7 +123,7 @@ cross-functional synthesis, inter-agent communication, and strategic analysis.
 │  │   │  + Personality Block  │ │  │  │  #growth                    │
 │  │   │  + Agent systemPrompt │ │  │  │  #financials                │
 │  │   └───────────────────────┘ │  │  │  #glyphor-general           │
-│  │   ├─ ModelClient            │  │  │  #product-fuse              │
+│  │   ├─ ModelClient            │  │  │  #product-web-build              │
 │  │   │  (Gemini/OpenAI/Claude) │  │  │  #product-pulse             │
 │  │   ├─ AgentSupervisor        │  │  │                              │
 │  │   ├─ ToolExecutor           │  │  │  Adaptive Cards:            │
@@ -649,7 +649,7 @@ path that powers 24/7 autonomous operations.
 
 ### Agent Execution Loop (CompanyAgentRunner)
 
-The core execution loop (ported from Fuse V7 `agentRunner.ts`). Every single agent run —
+The core execution loop (ported from Web Build V7 `agentRunner.ts`). Every single agent run —
 whether triggered by cron, chat, heartbeat, or event — flows through this exact loop:
 
 ```
@@ -1983,7 +1983,7 @@ Total: **35+ migration files**, **70+ tables**, **9 RPC functions**, **1 extensi
 | #growth | Maya Brooks & Elena Vasquez updates |
 | #financials | Nadia Okafor reports |
 | #glyphor-general | Cross-functional announcements |
-| #product-fuse | Fuse-specific updates |
+| #product-web-build | Web Build-specific updates |
 | #product-pulse | Pulse-specific updates |
 
 ### Adaptive Card Types

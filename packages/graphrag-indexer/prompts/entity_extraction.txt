@@ -134,9 +134,9 @@ output:
 ##
 ("entity"<|>Q1 2026 GOALS<|>Organizational Concept<|>Specific, marketing-relevant objectives set to be achieved during the first quarter of 2026.)
 ##
-("entity"<|>ACTIVE FUSE USERS GOAL<|>Metric<|>A Q1 2026 goal to achieve 100 active users for the Fuse product.)
+("entity"<|>ACTIVE Web Build USERS GOAL<|>Metric<|>A Q1 2026 goal to achieve 100 active users for the Web Build product.)
 ##
-("entity"<|>FUSE<|>Product<|>A product offered by the company, for which a goal of 100 active users has been set.)
+("entity"<|>Web Build<|>Product<|>A product offered by the company, for which a goal of 100 active users has been set.)
 ##
 ("entity"<|>PULSE<|>Product<|>A product planned for a public launch as part of the Q1 2026 goals.)
 ##
@@ -168,13 +168,13 @@ output:
 ##
 ("relationship"<|>YELLOW AUTHORITY TIER (CONTENT STRATEGY)<|>KRISTINA<|>Kristina is the individual responsible for approving shifts in content strategy that fall under the Yellow authority tier.<|>9)
 ##
-("relationship"<|>Q1 2026 GOALS<|>ACTIVE FUSE USERS GOAL<|>The active Fuse users goal is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
+("relationship"<|>Q1 2026 GOALS<|>ACTIVE Web Build USERS GOAL<|>The active Web Build users goal is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
 ##
 ("relationship"<|>Q1 2026 GOALS<|>PULSE<|>The public launch of Pulse is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
 ##
 ("relationship"<|>Q1 2026 GOALS<|>ENTERPRISE PILOT GOAL<|>The enterprise pilot goal is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
 ##
-("relationship"<|>ACTIVE FUSE USERS GOAL<|>FUSE<|>The goal of 100 active users is specifically tied to the Fuse product.<|>9)
+("relationship"<|>ACTIVE Web Build USERS GOAL<|>Web Build<|>The goal of 100 active users is specifically tied to the Web Build product.<|>9)
 ##
 ("relationship"<|>SOCIAL ENGAGEMENT<|>LINKEDIN<|>LinkedIn is identified as the primary platform for tracking social engagement.<|>8)
 ##
@@ -268,11 +268,11 @@ output:
 ##
 ("entity"<|>RED AUTHORITY<|>Authority Tier<|>The highest level of authority, which involves providing assessment and input but not making final decisions, for critical actions like architectural changes to core runtime, new product technical feasibility assessment, infrastructure migration or provider changes, and brand positioning changes.")
 ##
-("entity"<|>FUSE<|>Product<|>A product for which the company has a Q1 2026 goal of achieving 100 active users.")
+("entity"<|>Web Build<|>Product<|>A product for which the company has a Q1 2026 goal of achieving 100 active users.")
 ##
 ("entity"<|>PULSE<|>Product<|>A product scheduled for a public launch in Q1 2026.")
 ##
-("entity"<|>100 ACTIVE FUSE USERS<|>Metric<|>A specific Q1 2026 goal to have 100 active users for the Fuse product.")
+("entity"<|>100 ACTIVE Web Build USERS<|>Metric<|>A specific Q1 2026 goal to have 100 active users for the Web Build product.")
 ##
 ("entity"<|>PULSE PUBLIC LAUNCH<|>Organizational Concept<|>A Q1 2026 goal involving the public release and introduction of the Pulse product.")
 ##
@@ -282,7 +282,7 @@ output:
 ##
 ("entity"<|>CONTENT STRATEGY SHIFTS<|>Organizational Concept<|>Significant alterations to the company's content plan, requiring approval under Yellow Authority by Kristina Denney.")
 ##
-("entity"<|>Q1 2026 GOALS<|>Organizational Concept<|>A set of marketing-relevant objectives established for the first quarter of 2026, including achieving 100 active Fuse users, the public launch of Pulse, and securing one enterprise pilot.")
+("entity"<|>Q1 2026 GOALS<|>Organizational Concept<|>A set of marketing-relevant objectives established for the first quarter of 2026, including achieving 100 active Web Build users, the public launch of Pulse, and securing one enterprise pilot.")
 ##
 ("relationship"<|>KRISTINA DENNEY<|>CONTENT STRATEGY SHIFTS<|>Kristina Denney is explicitly identified as the approver for content strategy shifts, which fall under Yellow Authority.<|>9)
 ##
@@ -296,7 +296,7 @@ output:
 ##
 ("relationship"<|>SEO RANKINGS<|>AUTONOMOUS DEVELOPMENT PLATFORM<|>The 'autonomous development platform' keyword is a specific target for tracking SEO rankings.<|>8)
 ##
-("relationship"<|>FUSE<|>100 ACTIVE FUSE USERS<|>The metric '100 active Fuse users' is a direct goal for the Fuse product.<|>9)
+("relationship"<|>Web Build<|>100 ACTIVE Web Build USERS<|>The metric '100 active Web Build users' is a direct goal for the Web Build product.<|>9)
 ##
 ("relationship"<|>PULSE<|>
 #############################
@@ -453,9 +453,9 @@ output:
 ##
 ("entity"<|>Q1 2026 GOALS<|>Organizational Concept<|>Specific, marketing-relevant objectives set to be achieved during the first quarter of 2026.)
 ##
-("entity"<|>ACTIVE FUSE USERS GOAL<|>Metric<|>A Q1 2026 goal to achieve 100 active users for the Fuse product.)
+("entity"<|>ACTIVE Web Build USERS GOAL<|>Metric<|>A Q1 2026 goal to achieve 100 active users for the Web Build product.)
 ##
-("entity"<|>FUSE<|>Product<|>A product offered by the company, for which a goal of 100 active users has been set.)
+("entity"<|>Web Build<|>Product<|>A product offered by the company, for which a goal of 100 active users has been set.)
 ##
 ("entity"<|>PULSE<|>Product<|>A product planned for a public launch as part of the Q1 2026 goals.)
 ##
@@ -487,13 +487,13 @@ output:
 ##
 ("relationship"<|>YELLOW AUTHORITY TIER (CONTENT STRATEGY)<|>KRISTINA<|>Kristina is the individual responsible for approving shifts in content strategy that fall under the Yellow authority tier.<|>9)
 ##
-("relationship"<|>Q1 2026 GOALS<|>ACTIVE FUSE USERS GOAL<|>The active Fuse users goal is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
+("relationship"<|>Q1 2026 GOALS<|>ACTIVE Web Build USERS GOAL<|>The active Web Build users goal is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
 ##
 ("relationship"<|>Q1 2026 GOALS<|>PULSE<|>The public launch of Pulse is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
 ##
 ("relationship"<|>Q1 2026 GOALS<|>ENTERPRISE PILOT GOAL<|>The enterprise pilot goal is one of the specific marketing-relevant objectives for Q1 2026.<|>9)
 ##
-("relationship"<|>ACTIVE FUSE USERS GOAL<|>FUSE<|>The goal of 100 active users is specifically tied to the Fuse product.<|>9)
+("relationship"<|>ACTIVE Web Build USERS GOAL<|>Web Build<|>The goal of 100 active users is specifically tied to the Web Build product.<|>9)
 ##
 ("relationship"<|>SOCIAL ENGAGEMENT<|>LINKEDIN<|>LinkedIn is identified as the primary platform for tracking social engagement.<|>8)
 ##

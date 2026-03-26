@@ -4,7 +4,7 @@ slug: advanced-web-creation
 category: design
 description: Execute Glyphor's end-to-end web creation pipeline from normalized brief to quality-gated ship. Use when asked to build a website, landing page, or web app where design direction, implementation, media generation, review, and iteration must run as one orchestrated system.
 holders: vp-design, frontend-engineer, ui-ux-designer, cto, cmo
-tools_granted: normalize_design_brief, codex, codex-reply, deploy_preview, screenshot_page, check_ai_smell, run_accessibility_audit, save_memory, send_agent_message, invoke_fuse_build, invoke_fuse_iterate, invoke_fuse_upgrade
+tools_granted: normalize_design_brief, codex, codex-reply, deploy_preview, screenshot_page, check_ai_smell, run_accessibility_audit, save_memory, send_agent_message, invoke_web_build, invoke_web_iterate, invoke_web_upgrade
 version: 2
 ---
 

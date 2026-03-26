@@ -581,7 +581,7 @@ search_linkedin_profiles(company, roles)    — find decision makers by title/co
 search_job_postings(company, keywords)      — infer strategy from hiring patterns
 analyze_tech_stack(domain)                  — BuiltWith/Wappalyzer tech detection
 estimate_dev_spend(company_data)            — model target's development costs
-calculate_roi(company_data, product)        — Fuse/Pulse ROI model for prospect
+calculate_roi(company_data, product)        — Web Build/Pulse ROI model for prospect
 generate_proposal(prospect_id)              — create executive summary document
 update_pipeline(prospect_id, data)          — update deal stage, notes, next steps
 query_pipeline(filters)                     — current pipeline by stage/value/age
@@ -644,7 +644,7 @@ Per run: $0.05 | Daily: $0.50 | Monthly: $15
 ## MIA TANAKA — VP Design & Frontend
 
 ### Skills
-- Output quality auditing — grading Fuse builds on a scale from F (AI smell) to A+ (agency-grade)
+- Output quality auditing — grading Web Build builds on a scale from F (AI smell) to A+ (agency-grade)
 - Design system governance — design tokens, component library, template registry
 - Lighthouse performance and accessibility auditing
 - Anti-AI-smell pattern detection and elimination
@@ -655,7 +655,7 @@ Per run: $0.05 | Daily: $0.50 | Monthly: $15
 ```
 run_lighthouse(url, strategy)               — Google PageSpeed Insights audit (performance, a11y, SEO)
 run_lighthouse_batch(urls, strategy)         — multi-URL Lighthouse comparison (max 5)
-get_design_quality_summary(days)             — Fuse output quality grades and trends
+get_design_quality_summary(days)             — Web Build output quality grades and trends
 get_design_tokens(category)                  — design token values: typography, color, spacing, borders, shadows
 get_component_library(component)             — component library registry and variants
 get_template_registry()                      — template usage data and quality grades
@@ -686,7 +686,7 @@ WRITE: design quality reports, design audit GCS, agent_memory (own + design dept
 ```
 🟢 GREEN (autonomous):
    - Run Lighthouse audits on any live URL
-   - Grade Fuse builds based on quality data
+   - Grade Web Build builds based on quality data
    - Write design audit reports
    - Assign tasks to Leo, Ava, Sofia, Ryan
    - Spawn temporary design specialists (≤7 days)
@@ -1049,7 +1049,7 @@ MRR decomposition (new/expansion/contraction/churn), revenue attribution, cohort
 ### Tools
 ```
 query_stripe(metric, period, filters)     — MRR, subscriptions, invoices, churn events
-query_revenue_by_product(period)          — Fuse vs Pulse breakdown
+query_revenue_by_product(period)          — Web Build vs Pulse breakdown
 query_revenue_by_cohort(signup_month)     — LTV curves by signup cohort
 query_attribution(period)                 — revenue by source (SEO, social, direct, referral)
 calculate_ltv_cac(segment)                — lifetime value / acquisition cost ratio

@@ -1377,11 +1377,11 @@ Used by `CompanyMemoryStore` for key-value access patterns on top of Supabase ro
 | Prefix | Examples | Table |
 |--------|----------|-------|
 | `company.*` | `company.profile`, `company.okrs`, `company.culture` | `company_profile` |
-| `product.*` | `product.fuse.metrics`, `product.pulse.status` | `products` |
+| `product.*` | `product.web-build.metrics`, `product.pulse.status` | `products` |
 | `agent.*` | `agent.cto.last_run`, `agent.cfo.config` | `company_agents` |
 | `decision.pending.*` | `decision.pending.{id}` | `decisions` (status=pending) |
 | `decision.resolved.*` | `decision.resolved.{id}` | `decisions` (status=approved/rejected) |
-| `metric.*` | `metric.mrr.fuse`, `metric.costs.infra` | `financials` |
+| `metric.*` | `metric.mrr.web-build`, `metric.costs.infra` | `financials` |
 | `intel.*` | `intel.competitor.{name}`, `intel.market.{segment}` | `competitive_intel` |
 | `activity.*` | `activity.decision.{id}` | `activity_log` |
 
@@ -1416,7 +1416,7 @@ interface IMemoryBus {
 | `BriefingData` | `recipient`, `date`, `metrics[]`, `greenItems[]`, `yellowItems[]`, `redItems[]`, `highlights[]`, `actionRequired[]` |
 | `DecisionTier` | `'green' \| 'yellow' \| 'red'` |
 | `DecisionStatus` | `'pending' \| 'approved' \| 'rejected' \| 'discussed'` |
-| `ProductSlug` | `'fuse' \| 'pulse'` |
+| `ProductSlug` | `'web-build' \| 'pulse'` |
 
 ---
 

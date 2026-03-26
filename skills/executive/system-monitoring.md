@@ -151,7 +151,7 @@ Add: agent run volume for the day, any decisions that were filed, any notable ou
 
 You see everything. You must prioritize. When three things go wrong simultaneously (it happens), triage:
 1. **Active data loss or security breach** → immediate, everything else waits
-2. **Revenue-affecting outage** → next priority (customers can't use Pulse/Fuse)
+2. **Revenue-affecting outage** → next priority (customers can't use Pulse/Web Build)
 3. **Agent failure cascade** → high priority (multiple agents failing = systematic issue)
 4. **Individual agent failure** → normal priority (one agent failing is usually isolated)
 5. **Performance degradation** → lower priority (things are slow but working)

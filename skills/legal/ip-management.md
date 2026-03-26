@@ -59,12 +59,12 @@ Trademarks protect brand identity — names, logos, and distinctive elements tha
 - **Glyphor** — the company name (if not already filed)
 - **Prism** — the design system name (if used externally)
 - **Pulse** — the creative production product
-- **Fuse** — the development product
+- **Web Build** — the development product
 - **The Glyphor logo mark** — the visual identifier
 
 **Trademark process:**
 1. Search for conflicts — `web_search` for existing trademarks in software/AI classes. Check USPTO TESS database.
-2. Assess strength — "Glyphor" is a coined term (strong, highly protectable). "Pulse" and "Fuse" are common words (weaker, but protectable in the AI software context). Generic terms cannot be trademarked.
+2. Assess strength — "Glyphor" is a coined term (strong, highly protectable). "Pulse" and "Web Build" are common words (weaker, but protectable in the AI software context). Generic terms cannot be trademarked.
 3. File via `create_ip_filing` — record the application with status, filing date, and class.
 4. Monitor status — trademark prosecution takes 8-18 months. Track deadlines for responses to office actions.
 5. Renewal — trademarks require periodic renewal and continued use. Set calendar reminders.
@@ -119,7 +119,7 @@ This is evolving law. The US Copyright Office has stated that AI-generated conte
 Use `monitor_ip_infringement` to watch for:
 
 - **Patent infringement** — competitors implementing systems that match our patent claims (if we have patents)
-- **Trademark infringement** — use of "Glyphor," "Pulse," "Fuse," or confusingly similar marks by others
+- **Trademark infringement** — use of "Glyphor," "Pulse," "Web Build," or confusingly similar marks by others
 - **Trade secret misappropriation** — former contractors, employees of partners, or competitors who may have accessed our proprietary systems appearing to implement suspiciously similar approaches
 - **Copyright infringement** — our code, content, or design assets used without authorization
 

@@ -44,9 +44,9 @@ Codex invocation pattern:
     'run_accessibility_audit',
     'save_memory',
     'send_agent_message',
-    'invoke_fuse_build',
-    'invoke_fuse_iterate',
-    'invoke_fuse_upgrade'
+    'invoke_web_build',
+    'invoke_web_iterate',
+    'invoke_web_upgrade'
   ]::text[],
   2
 )

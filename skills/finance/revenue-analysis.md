@@ -46,7 +46,7 @@ Track NRR monthly and flag any month below 100% as a Yellow-tier finding.
 `query_revenue_by_product` — which products drive revenue?
 
 - **Pulse** (AI creative production): revenue, customer count, average deal size
-- **Fuse** (AI development): revenue, customer count, average deal size
+- **Web Build** (AI development): revenue, customer count, average deal size
 - **Any other revenue streams** (consulting, custom work, etc.)
 
 Product mix matters for strategic planning. If 80% of revenue comes from one product, that's concentration risk. If the smaller product is growing faster, that may be the future and deserves more investment.

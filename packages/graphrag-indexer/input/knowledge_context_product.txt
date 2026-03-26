@@ -2,7 +2,7 @@
 
 ## Product Portfolio
 
-### Fuse — Autonomous Development Platform
+### Web Build — Autonomous Development Platform
 - Users describe what they want → AI agents design, code, deploy complete web apps
 - **Target:** Solo founders, small teams, SMBs, enterprises replacing contractor teams
 - **Stack:** Next.js, TypeScript, Gemini 2.5 Pro/Flash, Supabase, Vercel, Cloud Run
@@ -13,7 +13,7 @@
 - AI creates brand identities, marketing assets, social content, design systems
 - **Target:** Startups needing brand identity, marketing teams, agencies
 - **Status:** Beta. 8 users. $400 MRR.
-- Same core runtime as Fuse plus image generation
+- Same core runtime as Web Build plus image generation
 
 ### Future Portfolio
 - CPO evaluates new product opportunities. Pipeline: Glyphor Flow (data pipelines) + TBD.
@@ -22,7 +22,7 @@
 ## Key Product Metrics
 
 - **Build success rate** — by product (target: >90%)
-- **Average build time** — Fuse (target: <4 min)
+- **Average build time** — Web Build (target: <4 min)
 - **User activation rate** — signups → first build
 - **Feature adoption** — what drives retention
 - **NPS** — when measured

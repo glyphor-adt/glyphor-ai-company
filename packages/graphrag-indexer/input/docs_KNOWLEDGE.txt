@@ -35,7 +35,7 @@ INSERT INTO company_knowledge_base (section, title, content, audience) VALUES
 'Glyphor, Inc. is an AI-native product company building production-grade creative and development tools. Delaware C Corporation, incorporated July 21, 2025. Founded by Kristina Denney (CEO) and Andrew Zwelling (Co-founder).
 
 Main domain: glyphor.ai
-Products: pulse.glyphor.ai (PRIORITY ONE), fuse.glyphor.ai (PRIORITY TWO), Rêve (FUTURE — not built)
+Products: pulse.glyphor.ai (PRIORITY ONE), web-build.glyphor.ai (PRIORITY TWO), Rêve (FUTURE — not built)
 Social: @glyphor.ai on Facebook, LinkedIn, Instagram, TikTok
 
 We build tools that operationalize AI into reliable workflows producing premium results. We are a PRODUCT company shipping consumer and prosumer SaaS. Not a services company, not an agency, not building internal tools for other enterprises.
@@ -53,7 +53,7 @@ Non-negotiable standards:
 
 PRIORITY ORDER (non-negotiable):
 1. PULSE — Launch-ready ASAP. This is the lead product. All marketing, content, pricing, and launch planning centers on Pulse first.
-2. FUSE — Secondary. Continue monitoring infrastructure, but do not divert resources from Pulse launch.
+2. Web Build — Secondary. Continue monitoring infrastructure, but do not divert resources from Pulse launch.
 3. RÊVE — Future. Domain only. No development, no marketing, no resource allocation.
 
 IMMEDIATE OBJECTIVES (next 30 days):
@@ -67,12 +67,12 @@ IMMEDIATE OBJECTIVES (next 30 days):
 1. Launch Pulse publicly via Product Hunt
 2. Acquire first paying customers (content creators and influencers)
 3. Reach initial MRR milestone (target TBD based on pricing model)
-4. Begin Fuse launch preparation once Pulse is live
+4. Begin Web Build launch preparation once Pulse is live
 5. Establish content marketing cadence for organic growth
 
 WHAT AGENTS SHOULD NOT SPEND TIME ON:
 - Enterprise sales outreach (we are B2C/prosumer first with Pulse)
-- Fuse marketing or content (until Pulse is launched)
+- Web Build marketing or content (until Pulse is launched)
 - Rêve anything
 - Complex financial modeling beyond Pulse pricing analysis
 - Hiring plans or organizational scaling', 'all'),
@@ -99,7 +99,7 @@ Agent implications:
 - Revenue modeling should focus on Pulse pricing × volume scenarios
 - The $1M target at consumer price points ($15-50/month) means significant user volume needed
 - Growth efficiency matters more than speed — no paid acquisition budget initially
-- Track costs across THREE separate infrastructure stacks (Pulse, Fuse, Agent Platform)
+- Track costs across THREE separate infrastructure stacks (Pulse, Web Build, Agent Platform)
 
 Financial decisions route to: Both founders (Kristina and Andrew jointly)', 'all'),
 
@@ -143,11 +143,11 @@ LAUNCH: Product Hunt. Maya preparing all assets.
 
 WHAT NEEDS TO HAPPEN BEFORE LAUNCH: Elena, Marcus, and Mia need to audit current state — what works, what needs updating, what UI needs polish. Their recommendations determine launch timeline.', 'all'),
 
--- ---- FUSE ----
-('products_fuse', 'Fuse — Full Product Knowledge (PRIORITY TWO)',
-'WHAT FUSE IS: An AI development platform that transforms natural language prompts into fully built, deployed React SPAs and Next.js apps. Uses a squad of specialized build agents (NOT the 27 company agents — these are product agents).
+-- ---- Web Build ----
+('products_fuse', 'Web Build — Full Product Knowledge (PRIORITY TWO)',
+'WHAT Web Build IS: An AI development platform that transforms natural language prompts into fully built, deployed React SPAs and Next.js apps. Uses a squad of specialized build agents (NOT the 27 company agents — these are product agents).
 
-URL: fuse.glyphor.ai (landing page live)
+URL: web-build.glyphor.ai (landing page live)
 Status: Production beta (V8.1). Core pipeline functional. SECONDARY PRIORITY — Pulse launches first.
 
 THREE EXECUTION TIERS:
@@ -155,7 +155,7 @@ THREE EXECUTION TIERS:
 2. Full Build (Tier 2): Squad pipeline: UX Engineer → Build Verifier → Developer (repair) → Publisher → Deployment Sentinel. 2-5 minutes. Deployed to live URL.
 3. Iterate (Tier 3): Targeted changes via GitHub MCP → verify → deploy. 30-90 seconds.
 
-FUSE BUILD AGENTS (product agents, NOT company agents):
+Web Build BUILD AGENTS (product agents, NOT company agents):
 - UX Engineer (Gemini 3 Pro): Single-pass full site builder
 - Build Verifier: npm build hard gate — nothing ships without passing
 - Developer Agent: LLM-based error repair
@@ -180,9 +180,9 @@ TECH STACK:
 - Sandbox: Node.js runner (Vite dev server)
 - AI: Gemini 3 Pro, Gemini 3 Flash, Gemini 3.1 Pro preview
 
-TERMINOLOGY: NEVER call Fuse "vibe coding" — not internally, not externally. Fuse is a "structured, observable AI development platform" or "autonomous development platform."
+TERMINOLOGY: NEVER call Web Build "vibe coding" — not internally, not externally. Web Build is a "structured, observable AI development platform" or "autonomous development platform."
 
-CURRENT AGENT ACTIONS: Marcus monitors Fuse infrastructure. Daniel tracks competitors. All others focus on Pulse.', 'all'),
+CURRENT AGENT ACTIONS: Marcus monitors Web Build infrastructure. Daniel tracks competitors. All others focus on Pulse.', 'all'),
 
 -- ---- RÊVE ----
 ('products_reve', 'Rêve — Future Product (NOT ACTIVE)',
@@ -202,7 +202,7 @@ Agent directive: Do not plan for, market, research, or reference Rêve externall
    AI APIs: Google (Gemini/Imagen), Kling, Veo, Sora, OpenAI, ElevenLabs, Runway
    Secrets: 34 configured in Supabase Dashboard
 
-2. FUSE (fuse.glyphor.ai) — PRIORITY TWO
+2. Web Build (web-build.glyphor.ai) — PRIORITY TWO
    Frontend: Vercel
    Agent Orchestration: GCP Cloud Run
    Metadata + Auth: Supabase (Project: mkuswtoicpnhkcwkpjaa)
@@ -221,7 +221,7 @@ Agent directive: Do not plan for, market, research, or reference Rêve externall
    Messaging: Microsoft Teams (Graph API + Bot Framework)
    Region: us-central1
 
-CRITICAL: These are separate systems. A Pulse outage ≠ a Fuse outage ≠ an agent platform outage. Monitor, cost-track, and incident-manage each independently.', 'all'),
+CRITICAL: These are separate systems. A Pulse outage ≠ a Web Build outage ≠ an agent platform outage. Monitor, cost-track, and incident-manage each independently.', 'all'),
 
 -- ---- AI MODELS ----
 ('ai_models', 'AI Model Portfolio',
@@ -237,7 +237,7 @@ PULSE MODELS:
 - ElevenLabs: Sound effects, music, TTS
 - Runway Gen-3: Video generation
 
-FUSE MODELS:
+Web Build MODELS:
 - Gemini 3 Pro: UX Engineer (full site builds)
 - Gemini 3 Flash: Prototyping, iteration
 - Gemini 3.1 Pro preview: Latest model
@@ -278,10 +278,10 @@ Phase 2 (Post-Pulse Launch → 3 months):
 - Drive signups and conversions from PH traffic
 - Content marketing engine (SEO, social, community)
 - User feedback collection and iteration
-- Begin Fuse launch prep
+- Begin Web Build launch prep
 
 Phase 3 (Months 3-6):
-- Launch Fuse
+- Launch Web Build
 - Expand Pulse customer base
 - Evaluate enterprise/agency segments
 
@@ -311,8 +311,8 @@ NEVER: Invent facts, claim unbuilt capabilities, attribute decisions to anyone o
 
 GOOD: "Pulse takes you from idea to share-ready video in under a minute."
 BAD: "Pulse is a revolutionary AI platform disrupting the creative industry."
-GOOD: "Fuse replaces your development process — strategy, design, build, verify, deploy."
-BAD: "Fuse leverages cutting-edge AI to optimize development workflows."', 'all'),
+GOOD: "Web Build replaces your development process — strategy, design, build, verify, deploy."
+BAD: "Web Build leverages cutting-edge AI to optimize development workflows."', 'all'),
 
 -- ---- COMPETITIVE LANDSCAPE ----
 ('competitive_landscape', 'Competitive Landscape',
@@ -328,7 +328,7 @@ Adobe Firefly ($10-55/mo): Enterprise, trusted. Complex, slow, expensive. OUR ED
 
 Leonardo AI ($12-48/mo): Good generation, model variety. Weak workflows. OUR EDGE: Full pipeline, not just generation.
 
-FUSE COMPETITORS (secondary):
+Web Build COMPETITORS (secondary):
 
 Devin (~$500/mo): Single agent, black box. OUR EDGE: Transparent squad pipeline. See every decision, every file, every build result. Three tiers (60s prototype → 5min build → 90s iterate).
 
@@ -345,7 +345,7 @@ RULES: Lead with what we do, not what competitors lack. Be factual. Respect comp
 - 20+ years enterprise technology experience
 - Platinum Club — top 1% of 70,000+ sellers at Microsoft
 - Influenced over $157M in technology investments
-- Built Glyphor entire technology platform end-to-end (Pulse, Fuse, agent platform)
+- Built Glyphor entire technology platform end-to-end (Pulse, Web Build, agent platform)
 - AI transformation specialist across Fortune 500 (HP, Textron Aviation, NI/Emerson, Eaton)
 - Based in Dallas, TX
 
@@ -430,7 +430,7 @@ CREATE TABLE IF NOT EXISTS founder_bulletins (
 INSERT INTO founder_bulletins (created_by, content, audience, priority, expires_at) VALUES
 
 ('kristina', 
-'COMPANY PRIORITY: Pulse launches first. ALL marketing, content, pricing, and launch planning centers on Pulse. Fuse is secondary. Rêve does not exist yet. If your current task does not serve the Pulse launch, re-evaluate whether it should wait.',
+'COMPANY PRIORITY: Pulse launches first. ALL marketing, content, pricing, and launch planning centers on Pulse. Web Build is secondary. Rêve does not exist yet. If your current task does not serve the Pulse launch, re-evaluate whether it should wait.',
 'all', 'urgent', NULL),
 
 ('kristina',
@@ -446,7 +446,7 @@ INSERT INTO founder_bulletins (created_by, content, audience, priority, expires_
 'all', 'important', NOW() + INTERVAL '30 days'),
 
 ('kristina',
-'INFRASTRUCTURE NOTE: We run THREE separate systems — Pulse (Supabase + Vercel), Fuse (GCP Cloud Run + Supabase + Firebase), and the Agent Platform (GCP Cloud Run + Supabase). These are different databases, different hosting, different AI providers. Monitor and cost-track each independently. Supabase project IDs — Pulse: iyabxcmsncmbtbbdngid, Fuse: mkuswtoicpnhkcwkpjaa.',
+'INFRASTRUCTURE NOTE: We run THREE separate systems — Pulse (Supabase + Vercel), Web Build (GCP Cloud Run + Supabase + Firebase), and the Agent Platform (GCP Cloud Run + Supabase). These are different databases, different hosting, different AI providers. Monitor and cost-track each independently. Supabase project IDs — Pulse: iyabxcmsncmbtbbdngid, Web Build: mkuswtoicpnhkcwkpjaa.',
 'engineering', 'important', NOW() + INTERVAL '30 days'),
 
 ('kristina',
@@ -468,7 +468,7 @@ VALUES (
   1, 0, 2, 'degraded', 'building',
   ARRAY[
     'Pulse ~80-90% built, targeting Product Hunt launch (PRIORITY ONE)',
-    'Fuse ~80% built (PRIORITY TWO, launches after Pulse)',
+    'Web Build ~80% built (PRIORITY TWO, launches after Pulse)',
     'Pulse audit needed — Elena, Marcus, Mia to assess launch readiness',
     'Pricing not decided — Nadia modeling scenarios',
     'Agent platform deployed on GCP, activation in progress',
@@ -504,7 +504,7 @@ INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, c
 -- Products
 ('product', 'Pulse', 'Glyphor creative production studio. PRIORITY ONE. AI-powered image generation (Imagen 4), video generation (Kling, Veo, Sora, Runway), multi-track video editing, storyboarding with AI narrative agents, audio suite (ElevenLabs), brand analysis, campaign launcher, avatar system. 100+ edge functions, 80+ hooks. Deployed at pulse.glyphor.ai on Supabase + Vercel. Stripe payments built. ~80-90% complete, needs audit before Product Hunt launch.', 'product', 1.0, ARRAY['pulse', 'product', 'priority-one', 'creative', 'launch', 'B2C'], 'system', 'active'),
 
-('product', 'Fuse', 'Glyphor AI development platform. PRIORITY TWO. Transforms prompts into deployed React/Next.js apps via squad of build agents (UX Engineer, Build Verifier, Developer, Publisher, Deployment Sentinel). Three tiers: Prototype (<60s), Full Build (2-5min), Iterate (30-90s). Persistent intelligence with plan caching, graph memory, critique-revise loops. Deployed at fuse.glyphor.ai on GCP Cloud Run + Supabase + Firebase. NEVER call it "vibe coding."', 'product', 0.8, ARRAY['fuse', 'product', 'priority-two', 'development', 'agents'], 'system', 'active'),
+('product', 'Web Build', 'Glyphor AI development platform. PRIORITY TWO. Transforms prompts into deployed React/Next.js apps via squad of build agents (UX Engineer, Build Verifier, Developer, Publisher, Deployment Sentinel). Three tiers: Prototype (<60s), Full Build (2-5min), Iterate (30-90s). Persistent intelligence with plan caching, graph memory, critique-revise loops. Deployed at web-build.glyphor.ai on GCP Cloud Run + Supabase + Firebase. NEVER call it "vibe coding."', 'product', 0.8, ARRAY['web-build', 'product', 'priority-two', 'development', 'agents'], 'system', 'active'),
 
 ('product', 'Reve', 'AI-powered virtual try-on fashion app. FUTURE — domain only, no development. Zero resource allocation.', 'product', 0.2, ARRAY['reve', 'future', 'inactive'], 'system', 'active'),
 
@@ -519,7 +519,7 @@ INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, c
 ('metric', 'Monthly Burn', '~$800/mo infrastructure. GCP $187, Gemini API $412, Supabase $125, Vercel $67. Offset by $2K/mo founder contributions. Net +$1,200/mo surplus.', 'finance', 0.8, ARRAY['burn', 'cost', 'budget'], 'system', 'active'),
 
 -- Infrastructure
-('concept', 'Three Infrastructure Stacks', 'Glyphor runs three separate systems: (1) Pulse on Supabase + Vercel + R2, (2) Fuse on GCP Cloud Run + Supabase + Firebase + GCS + Cloudflare Workers, (3) Agent Platform on GCP Cloud Run + Supabase + Pub/Sub. Different databases, hosting, AI providers. Must monitor, cost-track, incident-manage independently.', 'engineering', 0.9, ARRAY['infrastructure', 'architecture', 'monitoring'], 'system', 'active'),
+('concept', 'Three Infrastructure Stacks', 'Glyphor runs three separate systems: (1) Pulse on Supabase + Vercel + R2, (2) Web Build on GCP Cloud Run + Supabase + Firebase + GCS + Cloudflare Workers, (3) Agent Platform on GCP Cloud Run + Supabase + Pub/Sub. Different databases, hosting, AI providers. Must monitor, cost-track, incident-manage independently.', 'engineering', 0.9, ARRAY['infrastructure', 'architecture', 'monitoring'], 'system', 'active'),
 
 -- Competitive
 ('concept', 'Midjourney', 'Primary Pulse competitor. Best image generation quality. Discord-only (friction). No editing/video/audio/storyboards/campaigns. $10-30/mo. Our edge: full production studio vs single generator.', 'marketing', 0.7, ARRAY['competitor', 'midjourney', 'pulse'], 'system', 'active'),
@@ -528,7 +528,7 @@ INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, c
 
 ('concept', 'Runway', 'Video-focused Pulse competitor. Gen-3 model. $12-76/mo. Our edge: video + image + audio + editing + storyboards + brand tools. Complete vs video-only.', 'marketing', 0.7, ARRAY['competitor', 'runway', 'pulse'], 'system', 'active'),
 
-('concept', 'Devin', 'Primary Fuse competitor. Single AI agent, black box, ~$500/mo. Our edge: transparent squad pipeline, three execution tiers, persistent learning, observable.', 'product', 0.6, ARRAY['competitor', 'devin', 'fuse'], 'system', 'active'),
+('concept', 'Devin', 'Primary Web Build competitor. Single AI agent, black box, ~$500/mo. Our edge: transparent squad pipeline, three execution tiers, persistent learning, observable.', 'product', 0.6, ARRAY['competitor', 'devin', 'web-build'], 'system', 'active'),
 
 -- Social
 ('concept', 'Social Media Presence', 'All accounts: @glyphor.ai on Facebook, LinkedIn, Instagram, TikTok. Maya has Meta Business Platform access. Pre-launch content should build audience toward Product Hunt launch.', 'marketing', 0.8, ARRAY['social', 'marketing', 'channels'], 'system', 'active'),
@@ -542,7 +542,7 @@ INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, c
 ('opportunity', 'Creator Economy Distribution', 'Creators share tools with audiences. One influential creator using Pulse visibly could drive thousands of signups. Maya: identify creator partnerships. Kai: social content showing Pulse outputs.', 'marketing', 0.8, ARRAY['growth', 'creators', 'viral', 'distribution'], 'system', 'active'),
 
 -- Eaton (informational context only)
-('opportunity', 'Eaton Corporation (Context)', 'Fortune 500 manufacturer. Active AI transformation. Met Feb 20, 2026. CONTEXT ONLY — Microsoft customer engagement, not a Glyphor prospect currently. May become relevant for Fuse enterprise positioning in future.', 'sales', 0.3, ARRAY['eaton', 'context', 'future', 'microsoft'], 'system', 'active');
+('opportunity', 'Eaton Corporation (Context)', 'Fortune 500 manufacturer. Active AI transformation. Met Feb 20, 2026. CONTEXT ONLY — Microsoft customer engagement, not a Glyphor prospect currently. May become relevant for Web Build enterprise positioning in future.', 'sales', 0.3, ARRAY['eaton', 'context', 'future', 'microsoft'], 'system', 'active');
 
 -- Key edges
 INSERT INTO kg_edges (source_id, target_id, edge_type, strength, confidence, evidence)
@@ -594,7 +594,7 @@ ARRAY['cmo'],
 NOW() + INTERVAL '14 days'),
 
 ('AI Model Cost Analysis',
-'Omar and Nadia: Pull actual per-call costs from ALL AI provider APIs across all three infrastructure stacks. Google Cloud Billing API (Gemini, Imagen, Veo — for both Pulse and Fuse), Kling dashboard/API, OpenAI usage API (GPT-5, Sora), ElevenLabs usage, Runway usage. Categorize by: product (Pulse/Fuse/Agent Platform), model, cost per call, monthly total. This feeds directly into pricing analysis.',
+'Omar and Nadia: Pull actual per-call costs from ALL AI provider APIs across all three infrastructure stacks. Google Cloud Billing API (Gemini, Imagen, Veo — for both Pulse and Web Build), Kling dashboard/API, OpenAI usage API (GPT-5, Sora), ElevenLabs usage, Runway usage. Categorize by: product (Pulse/Web Build/Agent Platform), model, cost per call, monthly total. This feeds directly into pricing analysis.',
 'high', 'finance',
 ARRAY['cfo', 'cost-analyst'],
 'active',
@@ -619,7 +619,7 @@ NOW() + INTERVAL '7 days');
 -- ============================================================
 
 -- Agents that need Supabase API access to product databases:
--- Marcus (CTO): Both Pulse (iyabxcmsncmbtbbdngid) and Fuse (mkuswtoicpnhkcwkpjaa) — health monitoring
+-- Marcus (CTO): Both Pulse (iyabxcmsncmbtbbdngid) and Web Build (mkuswtoicpnhkcwkpjaa) — health monitoring
 -- Elena (CPO): Pulse (iyabxcmsncmbtbbdngid) — product audit, feature assessment
 -- Mia (VP Design): Pulse (iyabxcmsncmbtbbdngid) — UI audit
 -- Nadia (CFO): Both — cost tracking
@@ -651,7 +651,7 @@ When an agent wakes up for the first time, their context now includes:
 
 **Nadia (CFO):** Knows $0 MRR, $800 burn, $2K inflow. Knows pricing is her first task. Knows to pull actual AI costs via API. Has three scenarios to model. Knows the $1M target.
 
-**Elena (CPO):** Knows Pulse is the audit target. Has Supabase access to inspect. Knows to deliver prioritized recommendations. Knows Fuse waits.
+**Elena (CPO):** Knows Pulse is the audit target. Has Supabase access to inspect. Knows to deliver prioritized recommendations. Knows Web Build waits.
 
 **Maya (CMO):** Knows Product Hunt is the launch event. Has social access on all 4 platforms. Knows to prepare taglines, screenshots, demo video, blog, community plan. Knows @glyphor.ai handles.
 
@@ -659,6 +659,6 @@ When an agent wakes up for the first time, their context now includes:
 
 **Mia (VP Design):** Knows the Precision Dark design system. Knows to audit Pulse UI. Has Supabase access to inspect components.
 
-**Daniel (Competitive Intel):** Knows to focus on Pulse competitors (Midjourney, Canva, Runway) not Fuse competitors. Knows to compile pricing matrix.
+**Daniel (Competitive Intel):** Knows to focus on Pulse competitors (Midjourney, Canva, Runway) not Web Build competitors. Knows to compile pricing matrix.
 
 **Everyone:** Knows the domain structure, product priority, financial reality, and what NOT to work on.

@@ -26,6 +26,6 @@
 
 ## Pricing
 
-- **Fuse:** Free (3 builds/mo) → Pro $29/mo → Enterprise custom ($25K-50K/mo)
+- **Web Build:** Free (3 builds/mo) → Pro $29/mo → Enterprise custom ($25K-50K/mo)
 - **Pulse:** Beta pricing TBD
 - Pricing changes → Red (both founders required)

@@ -115,11 +115,11 @@ async function applyWatermark(imageB64: string): Promise<string> {
   const meta = await sharp(imgBuf).metadata();
   const imgW = meta.width ?? 1536;
   const imgH = meta.height ?? 1024;
-  const footerH = Math.max(38, Math.round((imgH * 52) / 1024));
+  const footerH = Math.max(44, Math.round((imgH * 60) / 1024));
   const footerY = imgH - footerH;
-  const pad = Math.max(10, Math.round((imgW * 16) / 1536));
-  const logoMaxW = Math.max(36, Math.round((imgW * 54) / 1536));
-  const logoMaxH = Math.max(20, footerH - pad * 2);
+  const pad = Math.max(10, Math.round((imgW * 14) / 1536));
+  const logoMaxW = Math.max(52, Math.round((imgW * 78) / 1536));
+  const logoMaxH = Math.max(30, footerH - pad * 2);
   const footerText = '© Glyphor Corporation. All rights reserved.';
   let resizedLogo: Buffer | null = null;
   let logoW = 0;

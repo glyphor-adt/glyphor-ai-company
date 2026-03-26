@@ -15,7 +15,7 @@ Both work full-time at Microsoft (5-10h/week for Glyphor). **Default to autonomo
 
 ## Products
 
-- **Fuse** — Autonomous dev platform. Users describe → AI agents build complete web apps. 39 paying users, $2,847 MRR, 91% success rate. Color: #60a5fa
+- **Web Build** — Autonomous dev platform. Users describe → AI agents build complete web apps. 39 paying users, $2,847 MRR, 91% success rate. Color: #60a5fa
 - **Pulse** — Autonomous creative platform. AI creates brands, marketing, design. Beta. 8 users, $400 MRR. Color: #f472b6
 
 ## Authority Tiers

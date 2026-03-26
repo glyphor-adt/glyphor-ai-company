@@ -22,7 +22,7 @@ Glyphor is a Delaware C-Corp that builds and operates autonomous AI agents. This
 
 **AI agents act on behalf of the company.** When an agent sends an email, creates a document, files a decision, or interacts with a customer system via MCP, it is creating legally attributable actions. The question "who is liable when an AI agent makes a mistake?" is not theoretical for Glyphor — it's operational.
 
-**The product IS AI agents.** Glyphor sells autonomous AI capability to customers (Pulse for creative production, Fuse for development). Customer agreements must address: output ownership, liability for AI-generated content, data usage and retention, SLA guarantees for an inherently non-deterministic system.
+**The product IS AI agents.** Glyphor sells autonomous AI capability to customers (Pulse for creative production, Web Build for development). Customer agreements must address: output ownership, liability for AI-generated content, data usage and retention, SLA guarantees for an inherently non-deterministic system.
 
 **Model routing sends legal work to Claude Sonnet 4.6.** The runtime's complexity classifier routes legal reasoning to Anthropic's strongest model. This means Victoria's analysis has access to high-quality reasoning, but also that her runs are more expensive. Budget accordingly.
 

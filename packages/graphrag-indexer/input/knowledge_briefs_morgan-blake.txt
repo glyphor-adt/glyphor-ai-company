@@ -82,7 +82,7 @@ When onboarding a new employee, execute this standardized process:
 | Department | Channels |
 |---|---|
 | Engineering | #general, #engineering |
-| Product | #general, #product-fuse, #product-pulse |
+| Product | #general, #product-web-build, #product-pulse |
 | Finance | #general, #financials |
 | Marketing | #general, #growth |
 | Customer Success | #general |

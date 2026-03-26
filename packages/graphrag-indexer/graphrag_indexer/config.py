@@ -36,7 +36,7 @@ DOCS_DIR = _REPO_ROOT / "docs"
 # Domain hint for auto prompt tuning
 DOMAIN = (
     "An AI-first company called Glyphor that builds autonomous software platforms "
-    "(Fuse for web development, Pulse for creative/branding). The company is run by "
+    "(Web Build for web development, Pulse for creative/branding). The company is run by "
     "~30 AI agents (executives and sub-team specialists) orchestrated by a scheduler, "
     "with two human founders (Kristina and Andrew) who work part-time. Key concepts "
     "include: multi-agent orchestration, authority tiers (green/yellow/red), knowledge "

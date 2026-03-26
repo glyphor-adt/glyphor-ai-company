@@ -35,10 +35,10 @@ Rule of thumb:
 ## Web Build Build Workflow
 
 1. Define the brief with strategic clarity.
-2. Run `invoke_fuse_build` with the right tier.
+2. Run `invoke_web_build` with the right tier.
 3. Review output quality with screenshots and AI-smell checks.
-4. Iterate with `invoke_fuse_iterate` when specific changes are needed.
-5. Upgrade prototypes with `invoke_fuse_upgrade` when production hardening is required.
+4. Iterate with `invoke_web_iterate` when specific changes are needed.
+5. Upgrade prototypes with `invoke_web_upgrade` when production hardening is required.
 
 ## Tier Strategy
 
@@ -93,7 +93,7 @@ If quality is below bar, iterate. Do not hand off first-pass output as final.
 
 If a requested Web Build action is outside your tool access, escalate through assignment routing rather than attempting manual workarounds.
       $advanced_web_creation$,
-      ARRAY['invoke_fuse_build', 'invoke_fuse_iterate', 'invoke_fuse_upgrade', 'screenshot_page', 'check_ai_smell', 'run_lighthouse_audit', 'run_lighthouse_batch', 'save_memory', 'send_agent_message']::text[],
+      ARRAY['invoke_web_build', 'invoke_web_iterate', 'invoke_web_upgrade', 'screenshot_page', 'check_ai_smell', 'run_lighthouse_audit', 'run_lighthouse_batch', 'save_memory', 'send_agent_message']::text[],
       1
     ),
     (

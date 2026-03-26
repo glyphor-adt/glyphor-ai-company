@@ -22,17 +22,17 @@ Decision rule:
 
 Core loop:
 1. Write a detailed brief with audience, structure, style, brand, and requirements.
-2. Run invoke_fuse_build with the correct tier.
+2. Run invoke_web_build with the correct tier.
 3. Review quality with screenshots + AI-smell/perf checks.
-4. Iterate with invoke_fuse_iterate for targeted changes.
-5. Promote to production with invoke_fuse_upgrade when available.
+4. Iterate with invoke_web_iterate for targeted changes.
+5. Promote to production with invoke_web_upgrade when available.
 
 Aim for orchestration speed without sacrificing visual craft or technical quality.
       $advanced_web_creation$,
       ARRAY[
-        'invoke_fuse_build',
-        'invoke_fuse_iterate',
-        'invoke_fuse_upgrade',
+        'invoke_web_build',
+        'invoke_web_iterate',
+        'invoke_web_upgrade',
         'screenshot_page',
         'check_ai_smell',
         'run_lighthouse_audit',

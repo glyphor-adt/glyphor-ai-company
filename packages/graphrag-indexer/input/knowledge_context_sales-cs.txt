@@ -8,7 +8,7 @@
 
 ## Customer Metrics
 
-- Paying users: 47 (Fuse: 39, Pulse: 8)
+- Paying users: 47 (Web Build: 39, Pulse: 8)
 - Churn rate — tracked monthly
 - LTV/CAC — lifetime value vs acquisition cost
 - ARPU — average revenue per user
@@ -27,5 +27,5 @@
 ## Q1 2026 Goals
 
 - $5K MRR
-- 100 active Fuse users
+- 100 active Web Build users
 - 1 enterprise pilot

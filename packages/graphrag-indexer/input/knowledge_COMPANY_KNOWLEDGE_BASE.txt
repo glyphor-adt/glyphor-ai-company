@@ -61,19 +61,19 @@ Kristina and Andrew work full-time at Microsoft. They have 5-10 hours per week f
 
 ### Product Portfolio
 
-#### Fuse — Autonomous Development Platform
-- **What it does:** Users describe what they want to build. Fuse's AI agents design, code, and deploy complete web applications autonomously.
+#### Web Build — Autonomous Development Platform
+- **What it does:** Users describe what they want to build. Web Build's AI agents design, code, and deploy complete web applications autonomously.
 - **Target users:** Solo founders, small teams, non-technical builders, SMBs wanting to reduce dev costs, enterprises replacing contractor teams
 - **Tech stack:** Next.js, TypeScript, Gemini 2.5 Pro/Flash, Supabase, Vercel, Cloud Run
 - **Pricing:** Free tier (3 builds/mo) → Pro $29/mo → Enterprise custom ($25K-50K/mo)
 - **Key metrics (current):** 39 paying users, $2,847 MRR, 91% build success rate, 4.2 min avg build time
-- **Color identity:** Electric blue (#60a5fa) — use this when referencing Fuse in any content or reporting
+- **Color identity:** Electric blue (#60a5fa) — use this when referencing Web Build in any content or reporting
 
 #### Pulse — Autonomous Creative Platform
 - **What it does:** AI agents create brand identities, marketing assets, social content, and design systems autonomously.
 - **Target users:** Startups needing brand identity, marketing teams wanting to scale creative output, agencies augmenting capacity
 - **Status:** Beta. 8 paying users. $400 MRR.
-- **Tech stack:** Same core runtime as Fuse, plus image generation models
+- **Tech stack:** Same core runtime as Web Build, plus image generation models
 - **Color identity:** Warm pink (#f472b6) — use this when referencing Pulse
 
 #### Future Portfolio
@@ -200,10 +200,10 @@ COST IMPACT: [Dollar amount if applicable]
 
 | Service | What it does | Cost |
 |---------|-------------|------|
-| GCP Cloud Run | Agent execution, Fuse/Pulse builds | ~$187/mo |
+| GCP Cloud Run | Agent execution, Web Build/Pulse builds | ~$187/mo |
 | Gemini API | All AI inference | ~$412/mo (watch this) |
 | Supabase | Database, realtime, auth | $125/mo (Pro) |
-| Vercel | Frontend hosting (Fuse, Pulse, dashboard) | ~$67/mo |
+| Vercel | Frontend hosting (Web Build, Pulse, dashboard) | ~$67/mo |
 | GCS | Large document storage | ~$5/mo |
 | Cloud Scheduler | Agent cron jobs | Free tier |
 | Pub/Sub | Event routing | Free tier |
@@ -222,7 +222,7 @@ COST IMPACT: [Dollar amount if applicable]
 
 ### Revenue
 - **MRR** (Monthly Recurring Revenue) — primary growth metric
-- **Paying users** — by product (Fuse / Pulse)
+- **Paying users** — by product (Web Build / Pulse)
 - **Churn rate** — monthly
 - **LTV/CAC** — lifetime value vs acquisition cost
 - **ARPU** — average revenue per user
@@ -230,7 +230,7 @@ COST IMPACT: [Dollar amount if applicable]
 
 ### Product
 - **Build success rate** — by product (target: >90%)
-- **Average build time** — Fuse (target: <4 min)
+- **Average build time** — Web Build (target: <4 min)
 - **User activation rate** — % of signups who complete first build
 - **Feature adoption** — which features drive retention
 - **NPS / satisfaction** — when measured
@@ -264,7 +264,7 @@ COST IMPACT: [Dollar amount if applicable]
 
 **Q1 2026 Goals:**
 - $5K MRR
-- 100 active Fuse users
+- 100 active Web Build users
 - Pulse public launch
 - 1 enterprise pilot
 - Evaluate 3rd product line
