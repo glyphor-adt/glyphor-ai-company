@@ -2310,6 +2310,14 @@ function cleanExecutiveSummary(value: unknown): string {
   return formatNarrativeMarkdown(text);
 }
 
+function toBulletMarkdown(items: string[]): string {
+  return items
+    .map((item) => item.replace(/^\s*[•\-*]\s*/, '').trim())
+    .filter(Boolean)
+    .map((item) => `- ${item}`)
+    .join('\n');
+}
+
 function slv2StatusColor(status: SLv2Status) {
   if (status === 'completed') return 'bg-tier-green';
   if (status === 'failed') return 'bg-prism-critical';
@@ -2619,8 +2627,12 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
     setGeneratingVisual(false);
   }
 
+  const crossFrameworkMarkdown = toBulletMarkdown(crossFrameworkInsights);
+  const keyRisksMarkdown = toBulletMarkdown(keyRisks);
+  const openQuestionsMarkdown = toBulletMarkdown(openQuestions);
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Section tabs */}
       <div className="flex w-fit gap-1 rounded-lg border border-border/60 theme-glass-panel p-1">
         {([
@@ -2634,7 +2646,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
           <button
             key={k}
             onClick={() => setShowSection(k)}
-            className={`rounded-md px-3 py-1 text-[11px] font-medium transition-colors ${
+            className={`rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors ${
               showSection === k ? 'border border-cyan/40 bg-transparent text-cyan' : 'border border-transparent text-txt-muted hover:text-txt-secondary'
             }`}
           >
@@ -2644,24 +2656,20 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
       </div>
 
       {showSection === 'summary' && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {visualNotice && (
             <div className="rounded-md border border-prism-elevated/35 bg-transparent px-3 py-2 text-[11px] text-prism-elevated">
               {visualNotice}
             </div>
           )}
-          <div className="rounded-lg border border-cyan/35 bg-transparent px-4 py-3">
+          <div className="rounded-lg border border-cyan/35 bg-transparent px-5 py-4">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan mb-1.5">Executive Summary</p>
-            <div className="text-sm text-txt-primary leading-relaxed"><ChatMarkdown>{executiveSummary}</ChatMarkdown></div>
+            <div className="text-[15px] text-txt-primary leading-8"><ChatMarkdown>{executiveSummary}</ChatMarkdown></div>
           </div>
-          {crossFrameworkInsights.length > 0 && (
-            <div>
+          {crossFrameworkMarkdown && (
+            <div className="rounded-lg border border-border/50 bg-transparent px-5 py-4">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-1.5">Cross-Framework Insights</p>
-              <ul className="space-y-1">
-                {crossFrameworkInsights.map((i, idx) => (
-                  <li key={idx} className="text-[12px] text-txt-secondary leading-relaxed">• {i}</li>
-                ))}
-              </ul>
+              <div className="text-[14px] leading-7 text-txt-secondary"><ChatMarkdown>{crossFrameworkMarkdown}</ChatMarkdown></div>
             </div>
           )}
         </div>
@@ -2680,7 +2688,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
         return (
           <div className="space-y-4">
             {/* Classic 2×2 SWOT grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {(['strengths', 'weaknesses', 'opportunities', 'threats'] as const).map((cat) => {
                 const colors = {
                   strengths: { border: 'border-tier-green/35', bg: 'bg-transparent', label: 'text-tier-green' },
@@ -2694,7 +2702,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
                     <p className={`text-[10px] font-semibold uppercase tracking-wider ${c.label} mb-1.5`}>{cat}</p>
                     <ul className="space-y-1">
                       {s.unifiedSwot[cat].map((item, i) => (
-                        <li key={i} className="text-[11px] text-txt-secondary leading-relaxed">• {item}</li>
+                        <li key={i} className="text-[13px] text-txt-secondary leading-6">• {item}</li>
                       ))}
                     </ul>
                     {s.unifiedSwot[cat].length === 0 && <p className="text-[11px] text-txt-faint">—</p>}
@@ -2727,11 +2735,11 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
                                   {pair.confidence ? <span className={`text-[9px] ${confidenceColor(pair.confidence as string)}`}>● {pair.confidence as string}</span> : null}
                                 </div>
                               </div>
-                              <div className="grid grid-cols-2 gap-1 text-[10px] mb-1">
+                              <div className="grid grid-cols-1 gap-1 text-[11px] mb-1 md:grid-cols-2">
                                 <div><span className="text-txt-faint">{q.aLabel}:</span> <span className="text-txt-secondary">{(pair[q.aLabel.toLowerCase()] ?? pair.item_a) as string}</span></div>
                                 <div><span className="text-txt-faint">{q.bLabel}:</span> <span className="text-txt-secondary">{(pair[q.bLabel.toLowerCase()] ?? pair.item_b) as string}</span></div>
                               </div>
-                              <p className="text-[10px] text-txt-primary leading-relaxed">{(pair[q.actionKey] ?? pair.interaction) as string}</p>
+                              <p className="text-[12px] text-txt-primary leading-relaxed">{(pair[q.actionKey] ?? pair.interaction) as string}</p>
                               {pair[q.extraKey] ? (
                                 <p className="text-[9px] text-txt-muted mt-1"><span className="font-medium">{q.extraLabel}:</span> {pair[q.extraKey] as string}</p>
                               ) : null}
@@ -2779,7 +2787,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
       {showSection === 'recs' && (
         <div className="space-y-3">
           {s.strategicRecommendations.map((rec, i) => (
-            <div key={i} className="rounded-lg border border-border/60 bg-transparent px-4 py-3">
+            <div key={i} className="rounded-lg border border-border/60 bg-transparent px-5 py-4">
               <div className="flex items-start justify-between mb-1.5">
                 <span className="text-sm font-medium text-txt-primary">{rec.title}</span>
                 <div className="flex gap-1.5">
@@ -2803,12 +2811,14 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
                   </span>
                 </div>
               </div>
-              <p className="text-[12px] text-txt-muted leading-relaxed mb-2">{rec.description}</p>
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="mb-2 text-[14px] text-txt-muted leading-7"><ChatMarkdown>{formatNarrativeMarkdown(rec.description)}</ChatMarkdown></div>
+              <div className="grid grid-cols-1 gap-2 text-[12px] md:grid-cols-2">
                 <div><span className="text-txt-faint">Owner:</span> <span className="text-txt-secondary">{normalizeReportText(rec.owner)}</span></div>
                 <div><span className="text-txt-faint">Expected:</span> <span className="text-txt-secondary">{normalizeReportText(rec.expectedOutcome)}</span></div>
               </div>
-              <p className="mt-1.5 text-[11px] text-prism-critical/80">⚠ {normalizeReportText(rec.riskIfNot)}</p>
+              <div className="mt-2 rounded-md border border-prism-critical/25 bg-transparent px-3 py-2 text-[12px] text-prism-critical/80">
+                <span className="font-medium">Risk if ignored:</span> {normalizeReportText(rec.riskIfNot)}
+              </div>
             </div>
           ))}
           {s.strategicRecommendations.length === 0 && <p className="text-sm text-txt-faint">No recommendations generated</p>}
@@ -2819,25 +2829,11 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
         <div className="space-y-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Key Risks</p>
-            <ul className="space-y-1">
-              {keyRisks.map((risk, i) => (
-                <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
-                  <MdFlag className="h-3.5 w-3.5 text-prism-elevated shrink-0 mt-0.5" />
-                  {risk}
-                </li>
-              ))}
-            </ul>
+            <div className="text-[14px] leading-7 text-txt-secondary"><ChatMarkdown>{keyRisksMarkdown}</ChatMarkdown></div>
           </div>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-txt-muted mb-2">Open Questions for Founders</p>
-            <ul className="space-y-1">
-              {openQuestions.map((q, i) => (
-                <li key={i} className="flex items-start gap-2 text-[12px] text-txt-secondary leading-relaxed">
-                  <MdChevronRight className="h-3.5 w-3.5 text-cyan shrink-0 mt-0.5" />
-                  {q}
-                </li>
-              ))}
-            </ul>
+            <div className="text-[14px] leading-7 text-txt-secondary"><ChatMarkdown>{openQuestionsMarkdown}</ChatMarkdown></div>
           </div>
         </div>
       )}
