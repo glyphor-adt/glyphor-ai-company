@@ -2066,6 +2066,14 @@ export function createOrchestrationTools(
           return { success: false, error: 'Assignment not found' };
         }
 
+        const taskDescription = String(assignment.task_description ?? '');
+        const likelyStaleInfraSetupRequest =
+          /\b(add|create|configure|set|mount|provide|wire|update)\b[\s\S]{0,80}\b(secret|secrets|env|environment variable|environment variables)\b/i.test(taskDescription) ||
+          /\b(GITHUB_TOKEN|VERCEL_TOKEN|GITHUB_APP_ID|GITHUB_APP_PRIVATE_KEY|GITHUB_INSTALLATION_ID|FIGMA_ACCESS_TOKEN)\b/i.test(taskDescription);
+        const guardedTaskDescription = likelyStaleInfraSetupRequest
+          ? `${taskDescription}\n\nVERIFICATION OVERRIDE:\n- Before requesting, creating, or re-asking for secrets or environment variables, verify the live state with your available tools first.\n- If the config already exists, do NOT ask founders for the same secret again. Diagnose the real issue instead: stale directive text, service mismatch, bad error handling, or an incorrect assumption in the task.\n- Use read_company_knowledge for the canonical infrastructure policy when needed, and treat assignment wording as potentially stale if it conflicts with live verification.`
+          : taskDescription;
+
         // 2. Send inter-agent message to the target agent
         const directiveTitle = assignment.directive_title ?? 'Unknown directive';
 
@@ -2074,7 +2082,7 @@ export function createOrchestrationTools(
             `**Work Assignment from Sarah (Chief of Staff)**\n\n` +
             `**Directive:** ${directiveTitle}\n` +
             `**Priority:** ${assignment.priority}\n\n` +
-            `**Your Task:**\n${assignment.task_description}\n\n` +
+            `**Your Task:**\n${guardedTaskDescription}\n\n` +
             `**Expected Output:**\n${assignment.expected_output}\n\n` +
             `**ACTION MODE:** This is not a report-only task. You are expected to TAKE ACTION:\n` +
             `- If you find issues you can fix → fix them immediately and log what you did\n` +
@@ -2093,7 +2101,7 @@ export function createOrchestrationTools(
         const runPayload = {
           agentRole: assignment.assigned_to,
           task: assignment.task_type,
-          message: assignment.task_description,
+          message: guardedTaskDescription,
           payload: { directiveAssignmentId: assignmentId },
         };
 

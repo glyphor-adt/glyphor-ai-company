@@ -41,6 +41,7 @@ export interface PlanVerificationResult {
     dependency_validity: { passed: boolean; issues: string[] };
     context_sufficiency: { passed: boolean; issues: string[] };
     workload_balance: { passed: boolean; issues: string[] };
+    stale_infra_setup: { passed: boolean; issues: string[] };
   };
   suggestions: string[];
 }
@@ -79,6 +80,17 @@ const CREATIVE_MARKETING_ROLES = new Set(['cmo', 'content-creator', 'social-medi
 const KEYWORD_TOOL_SKIPS_FOR_CREATIVE_ROLES = new Set(['calendar', 'onboarding']);
 
 const MAX_ASSIGNMENTS_PER_AGENT = 3;
+
+const STANDARD_INFRA_KEYS = [
+  'GITHUB_TOKEN',
+  'VERCEL_TOKEN',
+  'GITHUB_APP_ID',
+  'GITHUB_APP_PRIVATE_KEY',
+  'GITHUB_INSTALLATION_ID',
+  'FIGMA_ACCESS_TOKEN',
+  'GOOGLE_AI_API_KEY',
+  'DB_PASSWORD',
+];
 
 // ─── Deterministic Checks ───────────────────────────────────────
 
@@ -240,6 +252,39 @@ function checkWorkloadBalance(
   return { passed: issues.length === 0, issues };
 }
 
+function checkStaleInfraSetup(
+  request: PlanVerificationRequest,
+): { passed: boolean; issues: string[] } {
+  const issues: string[] = [];
+  const combinedText = [
+    request.directive.title,
+    request.directive.description,
+    ...request.proposed_assignments.flatMap((assignment) => [
+      assignment.task_description,
+      assignment.expected_output,
+    ]),
+  ].join('\n');
+  const normalized = combinedText.toLowerCase();
+  const matchedKeys = STANDARD_INFRA_KEYS.filter((key) => normalized.includes(key.toLowerCase()));
+
+  if (matchedKeys.length === 0) {
+    return { passed: true, issues };
+  }
+
+  const hasSetupLanguage =
+    /\b(add|create|configure|set|mount|provide|wire|update)\b[\s\S]{0,80}\b(secret|secrets|env|environment variable|environment variables)\b/i.test(combinedText);
+
+  if (!hasSetupLanguage) {
+    return { passed: true, issues };
+  }
+
+  issues.push(
+    `Plan asks agents to add/configure standard infrastructure keys (${matchedKeys.join(', ')}). Rewrite this as live verification or diagnosis of a concrete runtime gap instead of re-requesting setup.`,
+  );
+
+  return { passed: false, issues };
+}
+
 // ─── LLM Verification Pass ─────────────────────────────────────
 
 const PLAN_VERIFIER_PROMPT = `You are a plan verification agent. Evaluate the proposed work decomposition for quality.
@@ -340,10 +385,11 @@ export async function verifyPlan(
   const t0 = Date.now();
 
   // 1. Deterministic pre-checks (always run)
-  const [depResult, toolResult, workloadResult] = await Promise.all([
+  const [depResult, toolResult, workloadResult, staleInfraResult] = await Promise.all([
     Promise.resolve(checkDependencyValidity(request.proposed_assignments)),
     checkToolCoverage(request.proposed_assignments),
     Promise.resolve(checkWorkloadBalance(request.proposed_assignments)),
+    Promise.resolve(checkStaleInfraSetup(request)),
   ]);
 
   // 2. LLM verification (conditional)
@@ -371,9 +417,10 @@ export async function verifyPlan(
     dependency_validity: depResult,
     context_sufficiency: ctxResult,
     workload_balance: workloadResult,
+    stale_infra_setup: staleInfraResult,
   };
 
-  const allChecks = [depResult, toolResult, workloadResult, atomResult, ctxResult];
+  const allChecks = [depResult, toolResult, workloadResult, staleInfraResult, atomResult, ctxResult];
   const totalIssues = allChecks.reduce((n, c) => n + c.issues.length, 0);
   const passedCount = allChecks.filter((c) => c.passed).length;
 
@@ -385,7 +432,7 @@ export async function verifyPlan(
   const suggestions: string[] = allChecks.flatMap((c) => c.issues);
 
   let verdict: PlanVerificationResult['verdict'];
-  if (!depResult.passed || (needsLlm && !atomResult.passed && llmScore < 0.5)) {
+  if (!depResult.passed || !staleInfraResult.passed || (needsLlm && !atomResult.passed && llmScore < 0.5)) {
     verdict = 'REVISE';
   } else if (totalIssues > 0) {
     verdict = 'WARN';

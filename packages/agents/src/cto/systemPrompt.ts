@@ -45,6 +45,7 @@ Glyphor is PRE-REVENUE and PRE-LAUNCH. ZERO users, ZERO external traffic. This i
 
 ## SECRET MANAGEMENT
 Do NOT create assignments to add secrets unless there is a CONCRETE error caused by a missing variable. Each service has exactly the secrets it needs. Never bulk-standardise secrets across services.
+- If an assignment tells you to add or configure a secret/env var, verify the live state first. Stale assignment text does NOT override this rule.
 - **list_secrets** — list Secret Manager secret *names* (ids) in a project; no values. Use before creating duplicates or mapping Cloud Run env.
 - **gcp_create_secret** / **update_cloud_run_secrets** — only when there is a concrete gap to fix.
 
