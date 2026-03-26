@@ -3611,6 +3611,8 @@ const server = createServer(async (req, res) => {
         requestedBy: requestedBy ?? 'dashboard',
       };
       const ddId = await deepDiveEngine.create(deepDiveRequest);
+      let dispatchMode: 'queued' | 'inline' = 'inline';
+      let dispatchWarning: string | null = null;
 
       if (isWorkerQueueConfigured()) {
         try {
@@ -3620,31 +3622,31 @@ const server = createServer(async (req, res) => {
             context: ddContext,
             requestedBy: requestedBy ?? 'dashboard',
           });
+          dispatchMode = 'queued';
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          await systemQuery(
-            'UPDATE deep_dives SET status=$1, error=$2, completed_at=NOW(), last_heartbeat_at=NOW() WHERE id=$3',
-            ['failed', `Failed to enqueue deep dive worker task: ${message}`, ddId],
-          );
-          json(res, 500, { error: `Failed to enqueue deep dive worker task: ${message}` });
-          return;
+          dispatchWarning = `Failed to enqueue deep dive worker task, running inline fallback: ${message}`;
+          console.warn('[DeepDive] Queue dispatch failed, using inline fallback:', message);
+
+          void deepDiveEngine.execute(ddId, deepDiveRequest).catch((err) => {
+            console.error('[DeepDive] Inline fallback run failed after enqueue error:', err);
+          });
         }
       } else {
-        if (process.env.NODE_ENV === 'production') {
-          await systemQuery(
-            'UPDATE deep_dives SET status=$1, error=$2, completed_at=NOW(), last_heartbeat_at=NOW() WHERE id=$3',
-            ['failed', 'Deep dive worker queue is not configured in production.', ddId],
-          );
-          json(res, 500, { error: 'Deep dive worker queue is not configured in production.' });
-          return;
-        }
+        dispatchWarning = 'Deep dive worker queue is not configured; running inline execution fallback.';
+        console.warn('[DeepDive] Worker queue not configured, using inline fallback.');
 
         void deepDiveEngine.execute(ddId, deepDiveRequest).catch((err) => {
-          console.error('[DeepDive] Inline development run failed after launch:', err);
+          console.error('[DeepDive] Inline fallback run failed after launch:', err);
         });
       }
 
-      json(res, 200, { success: true, id: ddId });
+      json(res, 200, {
+        success: true,
+        id: ddId,
+        dispatch_mode: dispatchMode,
+        warning: dispatchWarning,
+      });
       return;
     }
 

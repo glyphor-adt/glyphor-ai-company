@@ -1570,9 +1570,22 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     await this.updateStatus(id, 'synthesizing', { synthesis_started_at: new Date().toISOString() });
 
     const finalOutput = await this.pollDeepResearchResult(interactionId);
-    const synthesis = this.parseDeepResearchSynthesis(finalOutput.text);
+    let synthesis = this.parseDeepResearchSynthesis(finalOutput.text);
     const sourceIndex = this.extractSourcesFromDeepResearchOutput(finalOutput.raw);
     synthesis.sourceIndex = sourceIndex;
+
+    // If Deep Research returned narrative instead of structured JSON, re-synthesize
+    // using a standard model to extract structured sections.
+    if (this.synthesisNeedsRefinement(synthesis)) {
+      console.log(`[StrategyLab] Deep Research output for ${id} lacks structured sections — running re-synthesis.`);
+      try {
+        synthesis = await this.reSynthesizeFromNarrative(finalOutput.text, req.query, analysisType);
+        synthesis.sourceIndex = sourceIndex;
+      } catch (err) {
+        console.error(`[StrategyLab] Re-synthesis failed for ${id}:`, err);
+        // Keep the original (best-effort) synthesis
+      }
+    }
 
     await systemQuery(
       'UPDATE strategy_analyses SET status=$1, synthesis=$2, sources=$3, total_sources=$4, total_searches=$5, research_progress=$6, completed_at=$7 WHERE id=$8',
@@ -1603,6 +1616,109 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     );
   }
 
+  /**
+   * Check whether the parsed synthesis is missing key structured sections.
+   * Deep Research often returns narrative prose; this detects when JSON extraction failed
+   * to populate SWOT, recommendations, risks, and questions.
+   */
+  private synthesisNeedsRefinement(synthesis: SynthesisOutput): boolean {
+    const swot = synthesis.unifiedSwot;
+    const hasSwot = swot.strengths.length > 0 || swot.weaknesses.length > 0 ||
+                    swot.opportunities.length > 0 || swot.threats.length > 0;
+    const hasRecs = synthesis.strategicRecommendations.length > 0;
+    const hasRisks = synthesis.keyRisks.length > 0;
+    const hasQuestions = synthesis.openQuestionsForFounders.length > 0;
+    // If at least 3 of 4 sections are empty, we need re-synthesis
+    const filledCount = [hasSwot, hasRecs, hasRisks, hasQuestions].filter(Boolean).length;
+    return filledCount < 2;
+  }
+
+  /**
+   * Re-synthesize structured strategic data from narrative Deep Research output.
+   * Uses a standard model (gpt-5.4-mini) with a strict JSON extraction prompt.
+   */
+  private async reSynthesizeFromNarrative(
+    rawResearch: string,
+    query: string,
+    analysisType: StrategyAnalysisType,
+  ): Promise<SynthesisOutput> {
+    // Truncate research to fit model context (keep most relevant parts)
+    const maxChars = 120_000;
+    const research = rawResearch.length > maxChars
+      ? rawResearch.slice(0, maxChars) + '\n[...truncated]'
+      : rawResearch;
+
+    const reSynthPrompt = [
+      `You are a senior strategist. Below is raw research output from a deep research agent analyzing:`,
+      `Query: "${query}"`,
+      `Analysis Type: ${analysisType.replace(/_/g, ' ')}`,
+      ``,
+      `RESEARCH OUTPUT:`,
+      research,
+      ``,
+      `Extract and organize the research findings into the following structured JSON format.`,
+      `Every section MUST be populated — extract data from the research above.`,
+      ``,
+      `REQUIREMENTS:`,
+      `- executiveSummary: 3-4 sentence synthesis of the research findings`,
+      `- unifiedSwot: at least 3 items per category (strengths, weaknesses, opportunities, threats) — extract from the research`,
+      `- crossFrameworkInsights: 3-5 key strategic insights that emerge from the research`,
+      `- strategicRecommendations: 3-6 actionable recommendations with title, description, impact, feasibility, owner, expectedOutcome, riskIfNot`,
+      `- keyRisks: 3-5 risks that could invalidate this analysis or threaten the strategy`,
+      `- openQuestionsForFounders: 2-4 decisions that require founder input`,
+      ``,
+      `Return ONLY valid JSON matching this exact schema:`,
+      `{`,
+      `  "executiveSummary": "string",`,
+      `  "unifiedSwot": {`,
+      `    "strengths": ["string"],`,
+      `    "weaknesses": ["string"],`,
+      `    "opportunities": ["string"],`,
+      `    "threats": ["string"]`,
+      `  },`,
+      `  "crossFrameworkInsights": ["string"],`,
+      `  "strategicRecommendations": [`,
+      `    {`,
+      `      "title": "string",`,
+      `      "description": "string",`,
+      `      "impact": "high|medium|low",`,
+      `      "feasibility": "high|medium|low",`,
+      `      "owner": "string",`,
+      `      "expectedOutcome": "string",`,
+      `      "riskIfNot": "string"`,
+      `    }`,
+      `  ],`,
+      `  "keyRisks": ["string"],`,
+      `  "openQuestionsForFounders": ["string"]`,
+      `}`,
+    ].join('\n');
+
+    const response = await this.modelClient.generate({
+      model: getTierModel('high'),
+      systemInstruction: 'You are extracting structured strategic data from research output. Respond ONLY with valid JSON — no markdown fences, no commentary. Every section must be populated.',
+      contents: [{ role: 'user', content: reSynthPrompt, timestamp: Date.now() }],
+      temperature: 0.2,
+      metadata: { engineSource: 'strategy_lab' },
+    });
+
+    const output = response.text ?? '';
+    const parsed = parseObjectFromModelOutput(output);
+    if (parsed) {
+      return this.coerceDeepResearchSynthesis(parsed as Partial<SynthesisOutput>, rawResearch);
+    }
+
+    // If re-synthesis also failed, return best-effort from raw text
+    return {
+      executiveSummary: cleanSynthesisSummaryText(rawResearch),
+      unifiedSwot: { strengths: [], weaknesses: [], opportunities: [], threats: [] },
+      crossFrameworkInsights: [],
+      strategicRecommendations: [],
+      keyRisks: [],
+      openQuestionsForFounders: [],
+      sourceIndex: [],
+    };
+  }
+
   private buildDeepResearchPrompt(
     query: string,
     analysisType: StrategyAnalysisType,
@@ -1615,30 +1731,43 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
       comprehensive: 'Perform comprehensive web research with extensive source triangulation and explicit uncertainty tracking.',
     };
 
-    return `You are the Gemini Deep Research Agent producing a founder-grade strategy report for Glyphor.
+    return `You are the Gemini Deep Research Agent conducting a thorough strategic analysis for Glyphor.
 
 TASK
 - Query: ${query}
-- Analysis Type: ${analysisType}
+- Analysis Type: ${analysisType.replace(/_/g, ' ')}
 - Requested Depth: ${depth}
 
-INSTRUCTIONS
-- Use iterative planning, searching, and reading before concluding.
-- Prioritize current and credible sources.
-- If a key metric is unavailable, explicitly say unavailable; do not fabricate.
+RESEARCH INSTRUCTIONS
+- Conduct real web research on the topic. Search for recent data, reports, and credible sources.
+- Find actual market size numbers, growth rates, key players, and competitive dynamics.
+- Look for specific company data: revenue, funding, headcount, recent announcements.
+- Identify real risks, regulatory factors, and industry trends with evidence.
+- Cross-validate key claims across multiple sources.
 - ${depthGuidance[depth]}
+- If a key metric is unavailable after searching, explicitly say unavailable; do not fabricate.
 
-REQUIRED OUTPUT FORMAT
-Return ONLY valid JSON with this exact shape:
+REQUIRED ANALYSIS SECTIONS
+After completing your research, you MUST produce ALL of the following:
+
+1. EXECUTIVE SUMMARY: 3-4 sentences synthesizing your key findings
+2. SWOT ANALYSIS: At least 3 Strengths, 3 Weaknesses, 3 Opportunities, 3 Threats — each grounded in your research
+3. CROSS-FRAMEWORK INSIGHTS: 3-5 strategic insights that emerge from the data
+4. STRATEGIC RECOMMENDATIONS: 3-6 specific, actionable recommendations with owner and expected outcome
+5. KEY RISKS: 3-5 risks that could invalidate assumptions or threaten the strategy
+6. OPEN QUESTIONS: 2-4 decisions requiring founder input
+
+OUTPUT FORMAT
+Return ONLY valid JSON with this exact shape (no markdown fences, no commentary before or after):
 {
-  "executiveSummary": "string",
+  "executiveSummary": "3-4 sentence synthesis",
   "unifiedSwot": {
-    "strengths": ["string"],
-    "weaknesses": ["string"],
-    "opportunities": ["string"],
-    "threats": ["string"]
+    "strengths": ["at least 3 items"],
+    "weaknesses": ["at least 3 items"],
+    "opportunities": ["at least 3 items"],
+    "threats": ["at least 3 items"]
   },
-  "crossFrameworkInsights": ["string"],
+  "crossFrameworkInsights": ["3-5 items"],
   "strategicRecommendations": [
     {
       "title": "string",
@@ -1650,8 +1779,8 @@ Return ONLY valid JSON with this exact shape:
       "riskIfNot": "string"
     }
   ],
-  "keyRisks": ["string"],
-  "openQuestionsForFounders": ["string"]
+  "keyRisks": ["3-5 items"],
+  "openQuestionsForFounders": ["2-4 items"]
 }`;
   }
 
