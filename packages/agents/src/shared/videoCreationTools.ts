@@ -90,6 +90,38 @@ async function requestElevenLabsAudio(
   return { buffer: Buffer.from(arrayBuffer), contentType };
 }
 
+async function enhancePromptWithGemini(rawPrompt: string): Promise<string> {
+  const apiKey = resolveGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY or GOOGLE_AI_API_KEY is not configured');
+  }
+
+  const genai = new GoogleGenAI({ apiKey });
+  const response = await genai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: [
+              'Rewrite the following rough video prompt into a cinematic, production-ready Veo prompt.',
+              'Return only the improved prompt text. No markdown, no explanation.',
+              `Prompt: ${rawPrompt}`,
+            ].join('\n'),
+          },
+        ],
+      },
+    ],
+  });
+
+  const enhanced = response.text?.trim();
+  if (!enhanced) {
+    throw new Error('Gemini returned an empty prompt enhancement');
+  }
+  return enhanced;
+}
+
 export function createVideoCreationTools(_jobContext: VideoJobContext): ToolDefinition[] {
   return [
     {
@@ -510,6 +542,33 @@ export function createVideoCreationTools(_jobContext: VideoJobContext): ToolDefi
           };
         } catch (err) {
           return { success: false, error: `generate_music failed: ${(err as Error).message}` };
+        }
+      },
+    },
+    {
+      name: 'enhance_video_prompt',
+      description: 'Enhance a rough video prompt into a cinematic Veo-ready prompt.',
+      parameters: {
+        prompt: {
+          type: 'string',
+          description: 'Raw video prompt to enhance',
+          required: true,
+        },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        try {
+          const prompt = params.prompt as string;
+          if (!prompt?.trim()) return { success: false, error: 'prompt is required' };
+
+          const enhancedPrompt = await enhancePromptWithGemini(prompt);
+          return {
+            success: true,
+            data: {
+              enhancedPrompt,
+            },
+          };
+        } catch (err) {
+          return { success: false, error: `enhance_video_prompt failed: ${(err as Error).message}` };
         }
       },
     },

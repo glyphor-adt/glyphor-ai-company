@@ -214,6 +214,7 @@ jobs:
             --memory=4Gi \
             --cpu=2 \
             --cpu-boost \
+            --no-cpu-throttling \
             --min-instances=1 \
             --max-instances=1 \
             --port=8080 \

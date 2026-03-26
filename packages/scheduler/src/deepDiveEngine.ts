@@ -554,6 +554,14 @@ export class DeepDiveEngine {
     );
   }
 
+  /** Mark a deep dive as failed without overwriting an error already set by the engine. */
+  async markError(id: string, error: string): Promise<void> {
+    await systemQuery(
+      `UPDATE deep_dives SET status='failed', error=COALESCE(NULLIF(error,''), $1), completed_at=COALESCE(completed_at, NOW()), last_heartbeat_at=NOW() WHERE id=$2 AND status != 'completed'`,
+      [error, id],
+    );
+  }
+
   /**
    * Launch a deep dive via workflow orchestration for deep/complex analyses.
    * Used when research areas > 3, indicating a long-running multi-phase operation.

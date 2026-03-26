@@ -3628,16 +3628,20 @@ const server = createServer(async (req, res) => {
           dispatchWarning = `Failed to enqueue deep dive worker task, running inline fallback: ${message}`;
           console.warn('[DeepDive] Queue dispatch failed, using inline fallback:', message);
 
-          void deepDiveEngine.execute(ddId, deepDiveRequest).catch((err) => {
+          void deepDiveEngine.execute(ddId, deepDiveRequest).catch(async (err) => {
             console.error('[DeepDive] Inline fallback run failed after enqueue error:', err);
+            const msg = err instanceof Error ? err.message : String(err);
+            try { await deepDiveEngine.markError(ddId, `Inline execution failed: ${msg}`); } catch { /* best effort */ }
           });
         }
       } else {
         dispatchWarning = 'Deep dive worker queue is not configured; running inline execution fallback.';
         console.warn('[DeepDive] Worker queue not configured, using inline fallback.');
 
-        void deepDiveEngine.execute(ddId, deepDiveRequest).catch((err) => {
+        void deepDiveEngine.execute(ddId, deepDiveRequest).catch(async (err) => {
           console.error('[DeepDive] Inline fallback run failed after launch:', err);
+          const msg = err instanceof Error ? err.message : String(err);
+          try { await deepDiveEngine.markError(ddId, `Inline execution failed: ${msg}`); } catch { /* best effort */ }
         });
       }
 
