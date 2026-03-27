@@ -33,22 +33,24 @@ export const MODEL_CONFIG = {
     transcription: 'gpt-4o-transcribe',                  // Azure Foundry - Teams audio bridge
     images:        'gpt-image-1.5',                      // OpenAI image generation
     reflection:    'gpt-5-mini',                         // lower-cost agent self-eval
-    shadow_eval:   'gemini-2.5-flash',                   // Gemini API - shadow runner
+    shadow_eval:   'gemini-3.1-flash-lite-preview',      // Gemini API - shadow runner
     deep_research: 'deep-research-pro-preview-12-2025',  // Gemini API - strategy reports
   },
 
   // -- Fallback chains ---------------------------------------------------------
   fallbacks: {
-    'gemini-3.1-flash-lite-preview': 'gemini-2.5-flash',     // preview -> stable
+    'gemini-3.1-flash-lite-preview': 'gemini-2.5-flash-lite', // preview -> lite
     'gpt-5-nano':                    'gemini-2.5-flash-lite', // Azure down -> Google
-    'gemini-2.5-flash':              'gemini-2.5-flash-lite', // flash -> lite
   },
 
   // -- Disabled models ---------------------------------------------------------
   disabled: {
     'gemini-3-pro-preview':      true, // shut down March 9 2026
     'gemini-2.0-flash-lite':     true, // shuts down June 1 2026
-    'gemini-3-flash-preview':    true, // unstable preview
+    'gemini-3-flash-preview':    true, // retired Mar 26 2026 - cost prohibitive
+    'gemini-3.1-pro-preview':    true, // retired Mar 26 2026 - cost prohibitive
+    'gemini-2.5-flash':          true, // retired Mar 26 2026 - cost prohibitive
+    'claude-opus-4-6':           true, // retired Mar 26 2026 - cost prohibitive ($5/$25 per MTok)
     'claude-sonnet-4-20250514':  true, // stale string - was reflection model
     'claude-sonnet-4-6':          true, // disabled for cost-control policy
     'gpt-5-mini-2025-08-07':     true, // 4 hardcoded agents - migrate to default tier

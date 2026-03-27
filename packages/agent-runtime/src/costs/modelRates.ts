@@ -26,16 +26,17 @@ export const MODEL_RATES: Record<string, { input: number; output: number; thinki
   'model-router':               { input: 0.75,   output: 4.50 },
   'o3':                         { input: 2.00,   output: 8.00,   thinking: 8.00 },
   'o4-mini':                    { input: 1.10,   output: 4.40,   thinking: 4.40 },
-  // Gemini
-  'gemini-3.1-pro-preview':     { input: 2.00,   output: 12.00,  thinking: 12.00 },
-  'gemini-3.1-flash-lite-preview': { input: 0.25, output: 1.50,  thinking: 1.50 },
-  'gemini-3-flash-preview':     { input: 0.50,   output: 3.00,   thinking: 3.00 },
-  'gemini-3.1-pro':             { input: 2.00,   output: 12.00,  thinking: 12.00 },
-  'gemini-3.1-flash-lite':      { input: 0.25,   output: 1.50 },
-  'gemini-3-flash':             { input: 0.50,   output: 3.00 },
-  'gemini-2.5-pro':             { input: 1.25,   output: 10.00,  thinking: 10.00 },
-  'gemini-2.5-flash':           { input: 0.30,   output: 2.50,   thinking: 2.50 },
-  'gemini-2.5-flash-lite':      { input: 0.10,   output: 0.40 },
+  // Gemini — rates calibrated 5x against GCP billing (Mar 25 2026)
+  // Only flash-lite + lite remain active; retired models kept for historical cost lookups
+  'gemini-3.1-pro-preview':     { input: 10.00,  output: 60.00,  thinking: 60.00 },
+  'gemini-3.1-flash-lite-preview': { input: 1.25, output: 7.50,  thinking: 7.50 },
+  'gemini-3-flash-preview':     { input: 2.50,   output: 15.00,  thinking: 15.00 },
+  'gemini-3.1-pro':             { input: 10.00,  output: 60.00,  thinking: 60.00 },
+  'gemini-3.1-flash-lite':      { input: 1.25,   output: 7.50 },
+  'gemini-3-flash':             { input: 2.50,   output: 15.00 },
+  'gemini-2.5-pro':             { input: 6.25,   output: 50.00,  thinking: 50.00 },
+  'gemini-2.5-flash':           { input: 1.50,   output: 12.50,  thinking: 12.50 },
+  'gemini-2.5-flash-lite':      { input: 0.50,   output: 2.00 },
 };
 
 export function calculateLlmCost(

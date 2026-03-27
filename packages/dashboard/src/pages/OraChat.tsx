@@ -490,8 +490,8 @@ export default function OraChat() {
   const [mode, setMode] = useState<OraMode>('triangulated');
   const [selectedModel, setSelectedModel] = useState('gpt-5.4');
   const [triangulationModels, setTriangulationModels] = useState({
-    claude: 'claude-opus-4-6',
-    gemini: 'gemini-3.1-pro-preview',
+    claude: 'claude-sonnet-4-5',
+    gemini: 'gemini-3.1-flash-lite-preview',
     openai: 'gpt-5.4',
   });
   const [selectedGithubRepos, setSelectedGithubRepos] = useState<string[]>([]);

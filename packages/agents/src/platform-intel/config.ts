@@ -10,7 +10,7 @@ export const PLATFORM_INTEL_CONFIG = {
   name: 'Nexus',
   title: 'Platform Intelligence',
   department: 'Operations',
-  model: 'claude-opus-4-6',
+  model: 'model-router',
   maxTurns: 40,
   autonomyTier: 'supervised',
 } as const;
