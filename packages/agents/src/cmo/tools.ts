@@ -7,7 +7,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { createAllPulseTools } from '../shared/pulseTools.js';
+// Pulse tools removed — Pulse is not yet deployed
 import { createFacebookTools } from '../shared/facebookTools.js';
 import { createLinkedInTools } from '../shared/linkedinTools.js';
 
@@ -206,9 +206,6 @@ export function createCMOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         return { success: true, data: { decisionId: id }, memoryKeysWritten: 1 };
       },
     },
-
-    // ── Pulse Creative Studio tools (MCP) ──
-    ...createAllPulseTools(memory),
 
     // ── Facebook / Meta Page tools ──
     ...createFacebookTools(),

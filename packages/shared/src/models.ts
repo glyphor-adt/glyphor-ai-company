@@ -498,8 +498,13 @@ export function estimateModelCost(
   const thinkingRate = pricing.thinkingPer1M ?? pricing.outputPer1M;
   const cacheDiscount = pricing.cachedInputDiscount ?? 1.0;
 
-  // Cached tokens are already counted in inputTokens — adjust by giving back the discount portion
-  const uncachedInputTokens = inputTokens - cachedInputTokens;
+  // Some providers (Anthropic) report cached tokens separately (additive) while
+  // others include them in the input total.  When cached > input the caller is
+  // using additive semantics — derive the real total so the math stays positive.
+  const totalInput = cachedInputTokens > inputTokens
+    ? inputTokens + cachedInputTokens   // additive: inputTokens is uncached-only
+    : inputTokens;                       // inclusive: inputTokens already contains cached
+  const uncachedInputTokens = totalInput - cachedInputTokens;
   const inputCost = (uncachedInputTokens * pricing.inputPer1M + cachedInputTokens * pricing.inputPer1M * cacheDiscount) / 1_000_000;
   const outputCost = (outputTokens * pricing.outputPer1M) / 1_000_000;
   const thinkingCost = (thinkingTokens * thinkingRate) / 1_000_000;

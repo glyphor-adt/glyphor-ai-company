@@ -1016,6 +1016,8 @@ export class CompanyAgentRunner {
     let totalOutputTokens = 0;
     let totalThinkingTokens = 0;
     let totalCachedInputTokens = 0;
+    let actualModelUsed: string | undefined;
+    let actualProviderUsed: 'gemini' | 'openai' | 'anthropic' | undefined;
 
     // ─── TOOL INVENTORY LOG ──────────────────────────────────────
     // Log static tools per agent on startup for pipeline diagnostics
@@ -1487,6 +1489,10 @@ export class CompanyAgentRunner {
           totalCachedInputTokens,
           undefined,
             buildRoutingSummary(),
+            0,
+            undefined,
+            actualModelUsed,
+            actualProviderUsed,
           );
       }
       if (preCheck.context) {
@@ -1619,6 +1625,7 @@ export class CompanyAgentRunner {
           if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
           return this.buildResult(
             config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
+            0, undefined, actualModelUsed, actualProviderUsed,
           );
         }
 
@@ -1873,6 +1880,8 @@ export class CompanyAgentRunner {
           totalOutputTokens += response.usageMetadata.outputTokens;
           totalThinkingTokens += response.usageMetadata.thinkingTokens ?? 0;
           totalCachedInputTokens += response.usageMetadata.cachedInputTokens ?? 0;
+          actualModelUsed = response.actualModel ?? routedModel.model;
+          actualProviderUsed = response.actualProvider;
 
           emitEvent({
             type: 'model_response',
@@ -1889,6 +1898,7 @@ export class CompanyAgentRunner {
             return this.buildResult(
               config, 'aborted', lastTextOutput, history, supervisor,
               errMsg, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
+              0, undefined, actualModelUsed, actualProviderUsed,
             );
           }
           throw error;
@@ -1992,6 +2002,7 @@ export class CompanyAgentRunner {
               return this.buildResult(
                 config, 'aborted', lastTextOutput, history, supervisor,
                 progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
+                0, undefined, actualModelUsed, actualProviderUsed,
               );
             }
           }
@@ -2232,6 +2243,8 @@ export class CompanyAgentRunner {
         buildRoutingSummary(),
         compactionCount,
         compactionSummary,
+        actualModelUsed,
+        actualProviderUsed,
       );
       if (reasoningResult) {
         result.reasoningMeta = {
@@ -2297,6 +2310,8 @@ export class CompanyAgentRunner {
         buildRoutingSummary(),
         compactionCount,
         compactionSummary,
+        actualModelUsed,
+        actualProviderUsed,
       );
     }
   }
@@ -2353,8 +2368,11 @@ export class CompanyAgentRunner {
     routing?: Pick<RoutingDecision, 'routingRule' | 'capabilities' | 'model'> & Pick<AgentExecutionResult, 'modelRoutingReason' | 'subtaskComplexity'>,
     compactionCount = 0,
     compactionSummary?: string,
+    actualModel?: string,
+    actualProvider?: 'gemini' | 'openai' | 'anthropic',
   ): AgentExecutionResult {
     const stats = supervisor.stats;
+    const estimatedCost = estimateCost(routing?.model ?? config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens);
     return {
       agentId: config.id,
       role: config.role,
@@ -2368,7 +2386,10 @@ export class CompanyAgentRunner {
       outputTokens,
       thinkingTokens,
       cachedInputTokens,
-      cost: estimateCost(routing?.model ?? config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens),
+      cost: estimatedCost,
+      estimatedCostUsd: estimatedCost,
+      actualModel,
+      actualProvider,
       abortReason: status === 'aborted' ? errorMsg : undefined,
       error: status === 'error' ? errorMsg : undefined,
       resultSummary: status === 'skipped_precheck' && errorMsg
