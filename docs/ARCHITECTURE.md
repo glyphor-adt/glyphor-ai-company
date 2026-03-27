@@ -1164,7 +1164,7 @@ The shared tool surface has expanded materially and now includes specialized mod
   - frontendCodeTools.ts, scaffoldTools.ts, screenshotTools.ts, designSystemTools.ts, storybookTools.ts, figmaTools.ts, patchHarness.ts, v4aDiff.ts
 
 - Content and marketing execution
-  - contentTools.ts, socialMediaTools.ts, seoTools.ts, researchTools.ts, emailMarketingTools.ts, pulseTools.ts, marketingIntelTools.ts
+  - contentTools.ts, socialMediaTools.ts, seoTools.ts, researchTools.ts, emailMarketingTools.ts, marketingIntelTools.ts
 
 - Finance and legal execution
   - revenueTools.ts, cashFlowTools.ts, costManagementTools.ts, legalTools.ts, docusignTools.ts

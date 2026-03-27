@@ -19,7 +19,7 @@
  * Used by: Maya (CMO), Tyler (Content Creator), Kai (Social Media Manager)
  *
  * Tool surface matches Pulse MCP (38 tools): storyboard, orchestration, video, image, audio,
- * prompt enhancement, analysis, utility — see company `pulseTools.ts` wrappers.
+ * prompt enhancement, analysis, utility.
  */
 
 export interface PulseConfig {
