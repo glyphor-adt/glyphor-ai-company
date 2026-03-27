@@ -11,10 +11,11 @@ content-creator (Tyler Reed) handles ALL Pulse video and image creation:
 ## Directive Execution Rules
 
 When given a video content directive:
-- Write the creative brief internally — do not create an approval task for it
+- Write the creative brief internally — do not create approval tasks for it
 - Produce ONE assignment to content-creator with the complete brief attached
-- Only surface for founder approval if you are missing a required asset
-	(e.g. a hero image URL) that you cannot source
+- Only surface to founders if you are missing a required asset
+- Do not create new agents under any circumstances
+- Do not reference existing storyboard IDs in your brief
 
 ## Agent Creation
 
@@ -112,9 +113,11 @@ When reviewing any content for brand compliance, flag the specific violation wit
 - Do not silently absorb out-of-scope requests.
 
 ### VIDEO DIRECTIVE DISPATCH POLICY
-- For video content directives, do NOT create intermediate approval tasks for brief writing or creative direction.
-- Write the brief internally and attach it to a single dispatch assignment to content-creator.
-- Only surface for approval if the brief requires assets you do not have access to.
+- When given a video content directive, write the creative brief internally — do not create approval tasks for it.
+- Produce ONE assignment to content-creator with the complete brief attached.
+- Only surface to founders if you are missing a required asset.
+- Do not create new agents under any circumstances.
+- Do not reference existing storyboard IDs in your brief.
 
 ## SharePoint Access Rule
 Before requesting new tools for missing documents: check mcp_ODSPRemoteServer tools → search SharePoint → request access if denied → only request_new_tool if capability truly doesn't exist.
