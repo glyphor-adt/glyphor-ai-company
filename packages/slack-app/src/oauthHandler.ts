@@ -9,6 +9,7 @@
  *   4. We upsert a customer_tenants row so the workspace is known
  */
 import { systemQuery } from '@glyphor/shared/db';
+import { startOnboarding } from './onboardingHandler.js';
 
 const SLACK_OAUTH_URL = 'https://slack.com/api/oauth.v2.access';
 
@@ -60,6 +61,20 @@ export async function handleOAuthCallback(
   );
 
   console.log(`[Slack] OAuth install complete: team=${teamId} (${teamName})`);
+
+  // Kick off onboarding — look up the customer_tenant row we just upserted
+  const ctRows = await systemQuery<{ id: string }>(
+    `SELECT id FROM customer_tenants WHERE slack_team_id = $1 AND status = 'active' LIMIT 1`,
+    [teamId],
+  );
+  const customerTenantId = ctRows[0]?.id;
+  const installerUserId = (data['authed_user'] as { id?: string })?.id ?? '';
+
+  if (customerTenantId && botToken && installerUserId) {
+    startOnboarding(customerTenantId, botToken, installerUserId).catch((err: unknown) => {
+      console.error(`[Slack] Onboarding start failed for team=${teamId}:`, err);
+    });
+  }
 
   return { ok: true, tenantId: glyphorTenantId, slackTeamId: teamId, teamName };
 }

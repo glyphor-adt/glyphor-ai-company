@@ -18,6 +18,7 @@ import { systemQuery } from '@glyphor/shared/db';
 import { postMessage } from './slackClient.js';
 import { routeMessage } from './router.js';
 import { createApproval } from './approvalHandler.js';
+import { handleOnboardingReply } from './onboardingHandler.js';
 import type { DbCustomerTenant, SlackInnerEvent } from './types.js';
 
 export async function handleSlackEvent(
@@ -54,6 +55,10 @@ async function handleMessage(
   if (!channel || !text) return;
 
   console.log(`[Slack] Message from ${event.user} in ${channel}: ${text.slice(0, 80)}`);
+
+  // 0. Check if this message is part of the onboarding questionnaire
+  const isOnboarding = await handleOnboardingReply(customerTenant, channel, text);
+  if (isOnboarding) return;
 
   // 1. Persist to customer_content
   const contentRows = await systemQuery<{ id: string }>(

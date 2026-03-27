@@ -2,6 +2,7 @@
  * Slack App HTTP Server — Cloud Run entry point
  *
  * Handles inbound Slack platform traffic:
+ *   POST /slack/commands     — Slash command handler (/glyphor)
  *   POST /slack/events       — Slack Events API (URL verification + event dispatch)
  *   POST /slack/interactions — Slack interactive components (buttons, modals, shortcuts)
  *   GET  /slack/oauth        — OAuth 2.0 redirect from Slack after workspace install
@@ -18,6 +19,7 @@ import { verifySlackSignature } from './verify.js';
 import { handleSlackEvent } from './eventHandler.js';
 import { handleApprovalAction } from './approvalHandler.js';
 import { handleOAuthCallback } from './oauthHandler.js';
+import { handleSlackCommand, type SlackCommandPayload } from './commandHandler.js';
 import type { SlackEvent, SlackInteractionPayload } from './types.js';
 
 const PORT = parseInt(process.env.PORT ?? '8095', 10);
@@ -83,6 +85,47 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     if (method === 'GET' && url === '/health') {
       const dbOk = await checkDbHealth();
       json(res, 200, { status: dbOk ? 'ok' : 'degraded', service: 'slack-app', db: dbOk });
+      return;
+    }
+
+    // ── Slash Commands (/glyphor) ──────────────────────────────────────────
+    if (method === 'POST' && url === '/slack/commands') {
+      const rawBody = await readBody(req);
+      const params = new URLSearchParams(rawBody);
+
+      const teamId = params.get('team_id') ?? '';
+      if (!teamId) {
+        json(res, 400, { error: 'Missing team_id' });
+        return;
+      }
+
+      const customerTenant = await getCustomerTenantByTeamId(teamId);
+      if (customerTenant) {
+        const timestamp = req.headers['x-slack-request-timestamp'] as string ?? '';
+        const signature = req.headers['x-slack-signature'] as string ?? '';
+        if (!verifySlackSignature(customerTenant.signing_secret, rawBody, timestamp, signature)) {
+          json(res, 401, { error: 'Invalid Slack signature' });
+          return;
+        }
+      }
+
+      // Acknowledge immediately — Slack requires <3s response
+      json(res, 200, { response_type: 'ephemeral', text: 'On it...' });
+
+      // Dispatch async
+      const payload: SlackCommandPayload = {
+        team_id: teamId,
+        user_id: params.get('user_id') ?? '',
+        text: params.get('text') ?? '',
+        response_url: params.get('response_url') ?? '',
+        channel_id: params.get('channel_id') ?? '',
+        command: params.get('command') ?? '',
+        trigger_id: params.get('trigger_id') ?? '',
+      };
+
+      handleSlackCommand(payload).catch((err: unknown) => {
+        console.error(`[Slack] Command dispatch error (team=${teamId}):`, err);
+      });
       return;
     }
 
@@ -226,6 +269,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
 server.listen(PORT, () => {
   console.log(`[Slack App] Listening on port ${PORT}`);
+  console.log(`[Slack App] Commands:     POST /slack/commands`);
   console.log(`[Slack App] Events:       POST /slack/events`);
   console.log(`[Slack App] Interactions: POST /slack/interactions`);
   console.log(`[Slack App] OAuth:        GET  /slack/oauth`);

@@ -671,6 +671,10 @@ const KNOWN_TOOLS = new Set([
   'check_team_assignments',
   'notify_founders',
   'escalate_to_sarah',
+
+  // ── Customer Slack output tools ──
+  'post_to_slack',
+  'request_slack_approval',
 ]);
 
 /** True if the tool name exists in the compiled-in static tool list (code-backed tools). */

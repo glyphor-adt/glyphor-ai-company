@@ -25,6 +25,7 @@ import { createDeliverableTools } from './deliverableTools.js';
 import { createExternalA2aTools } from './externalA2aTools.js';
 import { createKnowledgeRetrievalTools } from './knowledgeRetrievalTools.js';
 import { createChannelNotifyTools } from './channelNotifyTools.js';
+import { createSlackOutputTools } from './slackOutputTools.js';
 
 export const CORE_TOOL_NAMES: Set<string> = new Set([
   // Assignment lifecycle
@@ -52,6 +53,9 @@ export const CORE_TOOL_NAMES: Set<string> = new Set([
   // Channel updates
   'post_to_briefings',
   'post_to_deliverables',
+  // Slack customer output
+  'post_to_slack',
+  'request_slack_approval',
   // Shared artifacts
   'publish_deliverable',
   'get_deliverables',
@@ -77,6 +81,7 @@ export function createCoreTools(deps: CoreToolDeps): ToolDefinition[] {
     ...createEventTools(deps.glyphorEventBus),
     ...createDmTools(),
     ...createChannelNotifyTools(),
+    ...createSlackOutputTools(),
     ...createDeliverableTools(deps.glyphorEventBus),
     ...createExternalA2aTools(deps.externalA2aRegistryUrl ?? process.env.A2A_REGISTRY_URL),
     ...createKnowledgeRetrievalTools(),

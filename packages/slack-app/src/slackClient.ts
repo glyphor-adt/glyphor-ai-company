@@ -71,3 +71,19 @@ export async function getCustomerTenantById(
   );
   return rows[0] ?? null;
 }
+
+export async function openDM(
+  botToken: string,
+  userId: string,
+): Promise<{ ok: boolean; channelId: string | null }> {
+  const res = await fetch(`${SLACK_API_BASE}/conversations.open`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${botToken}`,
+    },
+    body: JSON.stringify({ users: userId }),
+  });
+  const data = (await res.json()) as { ok: boolean; channel?: { id: string } };
+  return { ok: data.ok, channelId: data.channel?.id ?? null };
+}
