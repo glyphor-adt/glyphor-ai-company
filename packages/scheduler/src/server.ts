@@ -265,24 +265,24 @@ async function buildStrategyFallbackVisualPng(
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1536" height="864" viewBox="0 0 1536 864">
   <rect width="1536" height="864" fill="#F6F8FB"/>
-  <rect x="0" y="0" width="1536" height="78" fill="#0F4FA8"/>
+  <rect x="0" y="0" width="1536" height="78" fill="#000000"/>
 
   <text x="56" y="49" fill="#FFFFFF" font-size="24" font-family="${svgFont}" font-weight="700">${escapeSvgText(title)}</text>
 
   <rect x="40" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#D5DEEA"/>
   <rect x="533" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#D5DEEA"/>
   <rect x="1026" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#D5DEEA"/>
-  <text x="66" y="130" fill="#3B82F6" font-size="14" font-family="${svgFont}" font-weight="700">CONFIDENCE</text>
+  <text x="66" y="130" fill="#00E0FF" font-size="14" font-family="${svgFont}" font-weight="700">CONFIDENCE</text>
   <text x="66" y="168" fill="#0F172A" font-size="34" font-family="${svgFont}" font-weight="700">${escapeSvgText(confidence)}</text>
 
-  <text x="559" y="130" fill="#3B82F6" font-size="14" font-family="${svgFont}" font-weight="700">RESEARCH COVERAGE</text>
+  <text x="559" y="130" fill="#00E0FF" font-size="14" font-family="${svgFont}" font-weight="700">RESEARCH COVERAGE</text>
   <text x="559" y="168" fill="#0F172A" font-size="28" font-family="${svgFont}" font-weight="700">${sources} sources / ${searches} searches</text>
 
-  <text x="1052" y="130" fill="#3B82F6" font-size="14" font-family="${svgFont}" font-weight="700">SWOT BALANCE</text>
+  <text x="1052" y="130" fill="#00E0FF" font-size="14" font-family="${svgFont}" font-weight="700">SWOT BALANCE</text>
   <text x="1052" y="168" fill="#0F172A" font-size="28" font-family="${svgFont}" font-weight="700">S${strengths} / W${weaknesses} / O${opportunities} / T${threats}</text>
 
   <rect x="40" y="214" rx="14" ry="14" width="950" height="310" fill="#FFFFFF" stroke="#D5DEEA"/>
-  <text x="66" y="248" fill="#0F4FA8" font-size="20" font-family="${svgFont}" font-weight="700">Executive Summary Snapshot</text>
+  <text x="66" y="248" fill="#00E0FF" font-size="20" font-family="${svgFont}" font-weight="700">Executive Summary Snapshot</text>
 
   <rect x="66" y="270" rx="10" ry="10" width="286" height="226" fill="#F8FAFC" stroke="#E2E8F0"/>
   <rect x="372" y="270" rx="10" ry="10" width="286" height="226" fill="#F8FAFC" stroke="#E2E8F0"/>
@@ -298,15 +298,15 @@ async function buildStrategyFallbackVisualPng(
   <text x="696" y="336" fill="#334155" font-size="15" font-family="${svgFont}">${escapeSvgText(summaryPoints[2] ?? 'No summary point available.')}</text>
 
   <rect x="1010" y="214" rx="14" ry="14" width="486" height="150" fill="#FFFFFF" stroke="#D5DEEA"/>
-  <text x="1036" y="248" fill="#0F4FA8" font-size="20" font-family="${svgFont}" font-weight="700">Priority Actions</text>
+  <text x="1036" y="248" fill="#00E0FF" font-size="20" font-family="${svgFont}" font-weight="700">Priority Actions</text>
   <text x="1036" y="280" fill="#0F172A" font-size="15" font-family="${svgFont}">1) ${escapeSvgText(actionItems[0] ?? 'No action available')}</text>
   <text x="1036" y="310" fill="#0F172A" font-size="15" font-family="${svgFont}">2) ${escapeSvgText(actionItems[1] ?? 'No action available')}</text>
   <text x="1036" y="340" fill="#0F172A" font-size="15" font-family="${svgFont}">3) ${escapeSvgText(actionItems[2] ?? 'No action available')}</text>
 
   <rect x="1010" y="374" rx="14" ry="14" width="486" height="150" fill="#FFFFFF" stroke="#D5DEEA"/>
-  <text x="1036" y="408" fill="#0F4FA8" font-size="20" font-family="${svgFont}" font-weight="700">SWOT Trend</text>
+  <text x="1036" y="408" fill="#00E0FF" font-size="20" font-family="${svgFont}" font-weight="700">SWOT Trend</text>
   <line x1="1048" y1="500" x2="1460" y2="500" stroke="#CBD5E1"/>
-  <rect x="1080" y="${500 - hStrengths}" width="72" height="${hStrengths}" fill="#3B82F6"/>
+  <rect x="1080" y="${500 - hStrengths}" width="72" height="${hStrengths}" fill="#00E0FF"/>
   <rect x="1190" y="${500 - hOpportunities}" width="72" height="${hOpportunities}" fill="#06B6D4"/>
   <rect x="1300" y="${500 - hThreats}" width="72" height="${hThreats}" fill="#FB7185"/>
   <text x="1080" y="522" fill="#334155" font-size="14" font-family="${svgFont}">Strengths ${strengths}</text>
@@ -315,11 +315,11 @@ async function buildStrategyFallbackVisualPng(
 
   <rect x="40" y="540" rx="14" ry="14" width="728" height="230" fill="#FFFFFF" stroke="#D5DEEA"/>
   <rect x="768" y="540" rx="14" ry="14" width="728" height="230" fill="#FFFFFF" stroke="#D5DEEA"/>
-  <text x="66" y="574" fill="#0F4FA8" font-size="20" font-family="${svgFont}" font-weight="700">Key Risks</text>
+  <text x="66" y="574" fill="#00E0FF" font-size="20" font-family="${svgFont}" font-weight="700">Key Risks</text>
   <text x="66" y="608" fill="#0F172A" font-size="15" font-family="${svgFont}">1) ${escapeSvgText(riskItems[0] ?? 'No key risk recorded')}</text>
   <text x="66" y="638" fill="#0F172A" font-size="15" font-family="${svgFont}">2) ${escapeSvgText(riskItems[1] ?? 'No additional key risk recorded')}</text>
 
-  <text x="794" y="574" fill="#0F4FA8" font-size="20" font-family="${svgFont}" font-weight="700">Open Questions</text>
+  <text x="794" y="574" fill="#00E0FF" font-size="20" font-family="${svgFont}" font-weight="700">Open Questions</text>
   <text x="794" y="608" fill="#0F172A" font-size="15" font-family="${svgFont}">1) ${escapeSvgText(questionItems[0] ?? 'No open question recorded')}</text>
   <text x="794" y="638" fill="#0F172A" font-size="15" font-family="${svgFont}">2) ${escapeSvgText(questionItems[1] ?? 'No additional open question recorded')}</text>
 
@@ -4449,7 +4449,7 @@ function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiv
     `LAYOUT (3 rows):`,
     ``,
     `ROW 1 — Header (8% height):`,
-    `Full-width solid dark blue (#0F4FA8) bar with bold white sans-serif title: "${r.targetName.toUpperCase()} — DEEP DIVE", left-aligned with comfortable padding. Leave the top-right corner empty — a logo will be composited there after generation. Do NOT render any icon, logo, wordmark, date, or secondary text in the header.`,
+    `Full-width solid black (#000000) bar with bold white sans-serif title: "${r.targetName.toUpperCase()} — DEEP DIVE", left-aligned with comfortable padding. Leave the top-right corner empty — a logo will be composited there after generation. Do NOT render any icon, logo, wordmark, date, or secondary text in the header.`,
     ``,
     `ROW 2 — Main content (60% height), 3 equal columns separated by thin gray dividers:`,
     ``,
