@@ -57,17 +57,41 @@ async function logPlatformAction(
   return row?.id;
 }
 
+/** Common English words and SQL column names that must never be treated as tool names. */
+const TOOL_NAME_BLOCKLIST = new Set([
+  'name', 'tool', 'agent', 'status', 'type', 'role', 'description',
+  'missing', 'blocked', 'access', 'permission', 'capability', 'system',
+  'the', 'and', 'for', 'but', 'not', 'this', 'that', 'from', 'with',
+  'pulse', 'video', 'generation', 'create', 'tool_gap',
+]);
+
+function isValidToolName(candidate: string): boolean {
+  if (!candidate || candidate.length < 3) return false;
+  // Must contain an underscore or hyphen (real tool names are snake_case or kebab-case)
+  if (!/[_-]/.test(candidate)) return false;
+  if (TOOL_NAME_BLOCKLIST.has(candidate.toLowerCase())) return false;
+  return true;
+}
+
 function extractToolNameFromFinding(description: string): string | null {
   const patterns = [
+    // tool 'pulse_generate_video' or tool "upload_to_sharepoint"
     /tool\s*["'`]([a-z][a-z0-9_-]{2,63})["'`]/i,
+    // tool_name: pulse_generate_video
     /tool[_\s-]?name\s*[:=]\s*([a-z][a-z0-9_-]{2,63})/i,
-    /missing\s+tool\s+([a-z][a-z0-9_-]{2,63})/i,
-    /\b([a-z][a-z0-9_]{2,63})\b\s+does not exist/i,
+    // missing tool pulse_generate_video / missing pulse_generate_video tool
+    /missing\s+(?:tool\s+)?([a-z][a-z0-9_-]{2,63})/i,
+    // pulse_generate_video does not exist / is unavailable / is missing / is blocked
+    /\b([a-z][a-z0-9_-]{2,63})\b\s+(?:does not exist|is unavailable|is missing|is blocked)/i,
+    // because pulse_generate_video is unavailable (preceded by common prepositions)
+    /(?:because|that|since)\s+([a-z][a-z0-9_-]{2,63})\s+is\s+(?:unavailable|missing|blocked)/i,
+    // due to missing pulse_generate_video tool
+    /due to missing\s+([a-z][a-z0-9_-]{2,63})\s+tool/i,
   ];
 
   for (const pattern of patterns) {
     const match = description.match(pattern);
-    if (match?.[1]) return match[1];
+    if (match?.[1] && isValidToolName(match[1])) return match[1];
   }
 
   return null;
@@ -337,37 +361,42 @@ export function createPlatformIntelTools(): ToolDefinition[] {
             continue;
           }
 
+          const toolAlreadyKnown = await isKnownToolAsync(toolName);
           let createdTool = false;
 
-          if (!(await isKnownToolAsync(toolName))) {
+          if (!toolAlreadyKnown) {
+            // Tool doesn't exist in the registry — Nexus cannot conjure infrastructure.
+            // Escalate instead of auto-creating a hollow registry entry.
             await systemQuery(
-              `INSERT INTO tool_registry (name, description, category, parameters, api_config, created_by, approved_by, is_active, tags)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8)
-               ON CONFLICT (name) DO NOTHING`,
+              `INSERT INTO fleet_findings (agent_id, severity, finding_type, description)
+               VALUES ($1, 'P1', 'tool_gap_escalation', $2)
+               ON CONFLICT DO NOTHING`,
               [
-                toolName,
-                `Auto-created by Nexus from tool_gap finding ${finding.id}`,
-                'integration',
-                {},
-                null,
-                'platform-intel',
-                'platform-intel',
-                ['nexus-auto-tool-gap'],
+                finding.agent_id,
+                `Tool gap requires manual build: ${toolName}. Nexus could not auto-resolve — tool requires implementation. (source finding: ${finding.id})`,
               ],
             );
-            await refreshDynamicToolCache();
-            createdTool = true;
 
             await logPlatformAction(
-              'register_tool',
+              'escalate_tool_gap',
               'autonomous',
-              null,
-              `Auto-registered ${toolName} from tool_gap finding ${finding.id}`,
+              finding.agent_id,
+              `Escalated: tool '${toolName}' does not exist in registry, cannot auto-resolve finding ${finding.id}`,
               { tool_name: toolName, finding_id: finding.id },
               ctx.runId,
             );
+
+            results.push({
+              finding_id: finding.id,
+              agent_id: finding.agent_id,
+              tool_name: toolName,
+              status: 'escalated',
+              reason: `Tool '${toolName}' not in registry — requires manual build`,
+            });
+            continue;
           }
 
+          // Tool exists — grant it to the agent.
           await systemQuery(
             `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
              VALUES ($1, $2, $3, $4)
@@ -413,19 +442,19 @@ export function createPlatformIntelTools(): ToolDefinition[] {
 
         const processed = results.filter((r) => r.status === 'processed');
         const skipped = results.filter((r) => r.status === 'skipped');
-        const created = processed.filter((r) => r.tool_created);
+        const escalated = results.filter((r) => r.status === 'escalated');
 
         return {
           success: true,
           data: {
             summary: `Processed ${results.length} tool_gap findings. ` +
               `Granted: ${processed.length}. ` +
-              `Created: ${created.length}. ` +
+              `Escalated: ${escalated.length}. ` +
               `Skipped: ${skipped.length}.`,
             scanned: findings.length,
             processed: processed.length,
             skipped: skipped.length,
-            created: created.length,
+            escalated: escalated.length,
             results,
           },
         };

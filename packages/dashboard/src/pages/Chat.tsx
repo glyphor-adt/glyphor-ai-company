@@ -391,6 +391,7 @@ function SidebarContent({
 export default function Chat({ embedded }: { embedded?: boolean } = {}) {
   const { agentId } = useParams();
   const { data: agents } = useAgents();
+  const activeAgents = useMemo(() => agents.filter((a) => a.status !== 'retired'), [agents]);
   const { user } = useAuth();
   const userEmail = (user?.email ?? 'unknown').toLowerCase();
   const userInitials = user?.name
@@ -551,7 +552,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
   const mentionables: { role: string; name: string; isFounder?: boolean }[] = [
     ...FOUNDERS.map((f) => ({ role: f.role, name: f.name, isFounder: true })),
-    ...agents.map((a) => ({ role: a.role, name: DISPLAY_NAME_MAP[a.role] ?? a.role })),
+    ...activeAgents.map((a) => ({ role: a.role, name: DISPLAY_NAME_MAP[a.role] ?? a.role })),
   ];
   const filteredMentions = mentionFilter
     ? mentionables.filter(
@@ -1376,7 +1377,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
       {/* Org Chart Picker */}
       {showOrgChart && (
         <OrgChartPicker
-          agents={agents}
+          agents={activeAgents}
           onSelect={(role) => { setSelectedRole(role); setShowOrgChart(false); }}
           onClose={() => setShowOrgChart(false)}
         />
