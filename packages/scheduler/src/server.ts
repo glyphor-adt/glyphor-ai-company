@@ -119,7 +119,7 @@ async function applyWatermark(imageB64: string): Promise<string> {
   const footerY = imgH - footerH;
   const footerText = '© Glyphor Corporation. All rights reserved.';
 
-  // ── Header logo (top-right on blue bar) ──
+  // ── Header logo (top-right on header bar) ──
   const headerLogoMaxW = Math.max(180, Math.round((imgW * 260) / 1536));
   const headerLogoMaxH = Math.max(40, Math.round((imgH * 56) / 1024));
   let headerLogo: Buffer | null = null;
@@ -137,7 +137,7 @@ async function applyWatermark(imageB64: string): Promise<string> {
 
   const footerSvg = Buffer.from(`
     <svg xmlns="http://www.w3.org/2000/svg" width="${imgW}" height="${footerH}" viewBox="0 0 ${imgW} ${footerH}">
-      <rect width="${imgW}" height="${footerH}" fill="#E5E7EB"/>
+      <rect width="${imgW}" height="${footerH}" fill="#000000"/>
       <text
         x="${Math.round(imgW / 2)}"
         y="${Math.round(footerH / 2)}"
@@ -145,7 +145,7 @@ async function applyWatermark(imageB64: string): Promise<string> {
         dominant-baseline="middle"
         font-family="Segoe UI, Arial, sans-serif"
         font-size="${Math.max(12, Math.round((imgW * 16) / 1536))}"
-        fill="#64748B"
+        fill="#FFFFFF"
       >${footerText}</text>
     </svg>
   `);
@@ -157,7 +157,7 @@ async function applyWatermark(imageB64: string): Promise<string> {
     },
   ];
 
-  // Header logo — top-right corner on the blue bar
+  // Header logo — top-right corner on the header bar
   if (headerLogo) {
     const headerPad = Math.max(16, Math.round((imgW * 24) / 1536));
     const headerBarH = Math.round(imgH * 0.08);
@@ -269,9 +269,9 @@ async function buildStrategyFallbackVisualPng(
 
   <text x="56" y="49" fill="#FFFFFF" font-size="24" font-family="${svgFont}" font-weight="700">${escapeSvgText(title)}</text>
 
-  <rect x="40" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#D5DEEA"/>
-  <rect x="533" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#D5DEEA"/>
-  <rect x="1026" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <rect x="40" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#1A1A2E"/>
+  <rect x="533" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#1A1A2E"/>
+  <rect x="1026" y="98" rx="14" ry="14" width="470" height="94" fill="#FFFFFF" stroke="#1A1A2E"/>
   <text x="66" y="130" fill="#00E0FF" font-size="14" font-family="${svgFont}" font-weight="700">CONFIDENCE</text>
   <text x="66" y="168" fill="#0F172A" font-size="34" font-family="${svgFont}" font-weight="700">${escapeSvgText(confidence)}</text>
 
@@ -281,12 +281,12 @@ async function buildStrategyFallbackVisualPng(
   <text x="1052" y="130" fill="#00E0FF" font-size="14" font-family="${svgFont}" font-weight="700">SWOT BALANCE</text>
   <text x="1052" y="168" fill="#0F172A" font-size="28" font-family="${svgFont}" font-weight="700">S${strengths} / W${weaknesses} / O${opportunities} / T${threats}</text>
 
-  <rect x="40" y="214" rx="14" ry="14" width="950" height="310" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <rect x="40" y="214" rx="14" ry="14" width="950" height="310" fill="#FFFFFF" stroke="#1A1A2E"/>
   <text x="66" y="248" fill="#00E0FF" font-size="20" font-family="${svgFont}" font-weight="700">Executive Summary Snapshot</text>
 
-  <rect x="66" y="270" rx="10" ry="10" width="286" height="226" fill="#F8FAFC" stroke="#E2E8F0"/>
-  <rect x="372" y="270" rx="10" ry="10" width="286" height="226" fill="#F8FAFC" stroke="#E2E8F0"/>
-  <rect x="678" y="270" rx="10" ry="10" width="286" height="226" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <rect x="66" y="270" rx="10" ry="10" width="286" height="226" fill="#F8FAFC" stroke="#1A1A2E"/>
+  <rect x="372" y="270" rx="10" ry="10" width="286" height="226" fill="#F8FAFC" stroke="#1A1A2E"/>
+  <rect x="678" y="270" rx="10" ry="10" width="286" height="226" fill="#F8FAFC" stroke="#1A1A2E"/>
 
   <text x="84" y="302" fill="#111827" font-size="16" font-family="${svgFont}" font-weight="700">Insight 1</text>
   <text x="84" y="336" fill="#334155" font-size="15" font-family="${svgFont}">${escapeSvgText(summaryPoints[0] ?? 'No summary point available.')}</text>
@@ -297,13 +297,13 @@ async function buildStrategyFallbackVisualPng(
   <text x="696" y="302" fill="#111827" font-size="16" font-family="${svgFont}" font-weight="700">Insight 3</text>
   <text x="696" y="336" fill="#334155" font-size="15" font-family="${svgFont}">${escapeSvgText(summaryPoints[2] ?? 'No summary point available.')}</text>
 
-  <rect x="1010" y="214" rx="14" ry="14" width="486" height="150" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <rect x="1010" y="214" rx="14" ry="14" width="486" height="150" fill="#FFFFFF" stroke="#1A1A2E"/>
   <text x="1036" y="248" fill="#00E0FF" font-size="20" font-family="${svgFont}" font-weight="700">Priority Actions</text>
   <text x="1036" y="280" fill="#0F172A" font-size="15" font-family="${svgFont}">1) ${escapeSvgText(actionItems[0] ?? 'No action available')}</text>
   <text x="1036" y="310" fill="#0F172A" font-size="15" font-family="${svgFont}">2) ${escapeSvgText(actionItems[1] ?? 'No action available')}</text>
   <text x="1036" y="340" fill="#0F172A" font-size="15" font-family="${svgFont}">3) ${escapeSvgText(actionItems[2] ?? 'No action available')}</text>
 
-  <rect x="1010" y="374" rx="14" ry="14" width="486" height="150" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <rect x="1010" y="374" rx="14" ry="14" width="486" height="150" fill="#FFFFFF" stroke="#1A1A2E"/>
   <text x="1036" y="408" fill="#00E0FF" font-size="20" font-family="${svgFont}" font-weight="700">SWOT Trend</text>
   <line x1="1048" y1="500" x2="1460" y2="500" stroke="#CBD5E1"/>
   <rect x="1080" y="${500 - hStrengths}" width="72" height="${hStrengths}" fill="#00E0FF"/>
@@ -313,8 +313,8 @@ async function buildStrategyFallbackVisualPng(
   <text x="1184" y="522" fill="#334155" font-size="14" font-family="${svgFont}">Opportunities ${opportunities}</text>
   <text x="1326" y="522" fill="#334155" font-size="14" font-family="${svgFont}" text-anchor="middle">Threats ${threats}</text>
 
-  <rect x="40" y="540" rx="14" ry="14" width="728" height="230" fill="#FFFFFF" stroke="#D5DEEA"/>
-  <rect x="768" y="540" rx="14" ry="14" width="728" height="230" fill="#FFFFFF" stroke="#D5DEEA"/>
+  <rect x="40" y="540" rx="14" ry="14" width="728" height="230" fill="#FFFFFF" stroke="#1A1A2E"/>
+  <rect x="768" y="540" rx="14" ry="14" width="728" height="230" fill="#FFFFFF" stroke="#1A1A2E"/>
   <text x="66" y="574" fill="#00E0FF" font-size="20" font-family="${svgFont}" font-weight="700">Key Risks</text>
   <text x="66" y="608" fill="#0F172A" font-size="15" font-family="${svgFont}">1) ${escapeSvgText(riskItems[0] ?? 'No key risk recorded')}</text>
   <text x="66" y="638" fill="#0F172A" font-size="15" font-family="${svgFont}">2) ${escapeSvgText(riskItems[1] ?? 'No additional key risk recorded')}</text>
@@ -323,8 +323,8 @@ async function buildStrategyFallbackVisualPng(
   <text x="794" y="608" fill="#0F172A" font-size="15" font-family="${svgFont}">1) ${escapeSvgText(questionItems[0] ?? 'No open question recorded')}</text>
   <text x="794" y="638" fill="#0F172A" font-size="15" font-family="${svgFont}">2) ${escapeSvgText(questionItems[1] ?? 'No additional open question recorded')}</text>
 
-  <rect x="0" y="834" width="1536" height="30" fill="#E5E7EB"/>
-  <text x="768" y="854" text-anchor="middle" fill="#64748B" font-size="13" font-family="${svgFont}">Generated by Glyphor Strategy Lab · Data-faithful deterministic infographic</text>
+  <rect x="0" y="834" width="1536" height="30" fill="#000000"/>
+  <text x="768" y="854" text-anchor="middle" fill="#FFFFFF" font-size="13" font-family="${svgFont}">Generated by Glyphor Strategy Lab · Data-faithful deterministic infographic</text>
 </svg>`;
 
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
@@ -4444,7 +4444,7 @@ function buildDeepDiveVisualPrompt(record: import('./deepDiveEngine.js').DeepDiv
     `Style: clean modern flat design, white background, generous whitespace, minimal text. Use large icons, bold number callouts, color blocks, and data visualizations. Think executive consulting slide deck — NOT a text document.`,
     `Overall style: clean, data-rich, executive-ready slide, with clear section headings, consistent iconography, and sufficient whitespace for readability.`,
     ``,
-    `Color palette: primary cyan (#00E0FF), white (#FFFFFF) background, dark charcoal (#1A1A2E) text, emerald (#34D399) for positive, rose (#FB7185) for negative, amber (#FBBF24) for caution.`,
+    `Color palette: primary cyan (#00E0FF), white (#FFFFFF) background, dark charcoal (#1A1A2E) text, emerald (#34D399) for positive, rose (#FB7185) for negative, amber (#FBBF24) for caution. Use thin black (#1A1A2E) borders on all cards and sections. Footer bar should be black with white text.`,
     ``,
     `LAYOUT (3 rows):`,
     ``,
