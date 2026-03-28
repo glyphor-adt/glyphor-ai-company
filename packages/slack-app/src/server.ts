@@ -221,11 +221,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         return;
       }
 
-      // Acknowledge interactions immediately
-      json(res, 200, { ok: true });
-
-      // ─── view_submission (modal submit) ────────────────────────────────
+      // ─── view_submission (modal submit) — respond with empty 200 to close modal
       if (interaction.type === 'view_submission') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('');
+
         const callbackId = interaction.view?.callback_id;
         if (callbackId === 'submit_website_url') {
           const values = interaction.view?.state?.values ?? {};
@@ -243,6 +243,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         }
         return;
       }
+
+      // Acknowledge all other interactions immediately
+      json(res, 200, { ok: true });
 
       // ─── block_actions (buttons, menus) ────────────────────────────────
       if (interaction.type === 'block_actions' && interaction.actions?.length) {
@@ -298,7 +301,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     if (method === 'GET' && url.startsWith('/slack/oauth')) {
       const parsedUrl = new URL(url, `http://localhost:${PORT}`);
       const code = parsedUrl.searchParams.get('code');
-      const tenantId = parsedUrl.searchParams.get('state') ?? process.env.DEFAULT_TENANT_ID ?? '';
+      const GLYPHOR_TENANT_ID = '00000000-0000-0000-0000-000000000000';
+      const rawState = parsedUrl.searchParams.get('state');
+      const tenantId = (rawState && rawState.length > 0) ? rawState : (process.env.DEFAULT_TENANT_ID || GLYPHOR_TENANT_ID);
 
       if (!code) {
         const errorCode = parsedUrl.searchParams.get('error') ?? 'unknown';

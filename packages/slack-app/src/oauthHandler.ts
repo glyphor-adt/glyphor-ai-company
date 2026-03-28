@@ -20,10 +20,17 @@ export interface OAuthResult {
   teamName: string;
 }
 
+const GLYPHOR_TENANT_ID = '00000000-0000-0000-0000-000000000000';
+
 export async function handleOAuthCallback(
   code: string,
   glyphorTenantId: string,
 ): Promise<OAuthResult> {
+  // Guard: ensure tenant_id is a valid UUID — fall back to Glyphor default
+  const tenantId = glyphorTenantId && glyphorTenantId.length >= 36
+    ? glyphorTenantId
+    : (process.env.DEFAULT_TENANT_ID || GLYPHOR_TENANT_ID);
+
   const clientId = process.env.SLACK_CLIENT_ID;
   const clientSecret = process.env.SLACK_CLIENT_SECRET;
   const signingSecret = process.env.SLACK_SIGNING_SECRET;
@@ -57,7 +64,7 @@ export async function handleOAuthCallback(
            scopes         = EXCLUDED.scopes,
            status         = 'active',
            updated_at     = NOW()`,
-    [glyphorTenantId, teamId, teamName, botUserId, botToken, signingSecret, scopes],
+    [tenantId, teamId, teamName, botUserId, botToken, signingSecret, scopes],
   );
 
   console.log(`[Slack] OAuth install complete: team=${teamId} (${teamName})`);
@@ -76,5 +83,5 @@ export async function handleOAuthCallback(
     });
   }
 
-  return { ok: true, tenantId: glyphorTenantId, slackTeamId: teamId, teamName };
+  return { ok: true, tenantId, slackTeamId: teamId, teamName };
 }
