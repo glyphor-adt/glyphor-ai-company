@@ -22,7 +22,7 @@ import { handleOAuthCallback } from './oauthHandler.js';
 import { handleSlackCommand, type SlackCommandPayload } from './commandHandler.js';
 import type { SlackEvent, SlackInteractionPayload } from './types.js';
 
-const PORT = parseInt(process.env.PORT ?? '8095', 10);
+const PORT = parseInt(process.env.PORT ?? '8080', 10);
 
 // ─── HTTP helpers ────────────────────────────────────────────────────────────
 
