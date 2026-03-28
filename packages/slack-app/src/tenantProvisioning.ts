@@ -23,16 +23,16 @@ const MARKETING_AGENTS: AgentSpec[] = [
 ];
 
 interface ScheduleSpec {
-  agent_role: string;
+  agent_id: string;
   task: string;
   cron_expression: string;
 }
 
 const DEFAULT_SCHEDULES: ScheduleSpec[] = [
-  { agent_role: 'cmo',                  task: 'weekly_report',    cron_expression: '0 9 * * 1' },
-  { agent_role: 'content-creator',      task: 'content_check',    cron_expression: '0 8 * * *' },
-  { agent_role: 'seo-analyst',          task: 'ranking_check',    cron_expression: '0 7 * * 1' },
-  { agent_role: 'social-media-manager', task: 'schedule_content', cron_expression: '0 8 * * *' },
+  { agent_id: 'cmo',                  task: 'weekly_report',    cron_expression: '0 9 * * 1' },
+  { agent_id: 'content-creator',      task: 'content_check',    cron_expression: '0 8 * * *' },
+  { agent_id: 'seo-analyst',          task: 'ranking_check',    cron_expression: '0 7 * * 1' },
+  { agent_id: 'social-media-manager', task: 'schedule_content', cron_expression: '0 8 * * *' },
 ];
 
 export async function provisionMarketingDepartment(tenantId: string): Promise<void> {
@@ -48,10 +48,10 @@ export async function provisionMarketingDepartment(tenantId: string): Promise<vo
 
   for (const schedule of DEFAULT_SCHEDULES) {
     await systemQuery(
-      `INSERT INTO agent_schedules (tenant_id, agent_role, task, cron_expression, enabled, created_at)
+      `INSERT INTO agent_schedules (tenant_id, agent_id, task, cron_expression, enabled, created_at)
        VALUES ($1, $2, $3, $4, true, NOW())
        ON CONFLICT DO NOTHING`,
-      [tenantId, schedule.agent_role, schedule.task, schedule.cron_expression],
+      [tenantId, schedule.agent_id, schedule.task, schedule.cron_expression],
     );
   }
 
