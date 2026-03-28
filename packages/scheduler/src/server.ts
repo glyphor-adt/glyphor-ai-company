@@ -8,7 +8,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { AgentApplication, CloudAdapter, MemoryStorage, TurnState, authorizeJWT } from '@microsoft/agents-hosting';
+import { AgentApplication, CloudAdapter, MemoryStorage, TurnContext, TurnState, authorizeJWT } from '@microsoft/agents-hosting';
 import type { AuthConfiguration, Request as AgentHostingRequest } from '@microsoft/agents-hosting';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { GlyphorEventBus, ModelClient, promptCache, getRedisCache, WorkflowOrchestrator } from '@glyphor/agent-runtime';
@@ -894,14 +894,20 @@ function buildAgent365DecisionAuthConfig(): AuthConfiguration | null {
   const clientId = process.env.AGENT365_CLIENT_ID?.trim();
   const clientSecret = process.env.AGENT365_CLIENT_SECRET?.trim();
   const tenantId = process.env.AGENT365_TENANT_ID?.trim();
-  if (!clientId || !clientSecret || !tenantId) {
+  if (!clientId || !clientSecret) {
     return null;
   }
+
+  // Multi-tenant bot: when AGENT365_TENANT_ID is blank or "common",
+  // the bot accepts activities from any Entra tenant (required for
+  // customer Teams workspace installs). Single-tenant when set to a
+  // specific tenant GUID.
+  const resolvedTenantId = tenantId && tenantId !== 'common' ? tenantId : 'common';
 
   const serviceConnection: AuthConfiguration = {
     clientId,
     clientSecret,
-    tenantId,
+    tenantId: resolvedTenantId,
     authority: 'https://login.microsoftonline.com',
     connectionName: 'serviceConnection',
   };
@@ -1220,6 +1226,121 @@ async function handleDirectiveActionExecute(
     : `✕ Directive "${directive.title}" rejected by ${capitalizeFounder(founder)}.`;
 }
 
+// ─── Customer Teams onboarding (conversationUpdate handler) ─────────────
+
+async function handleTeamsInstallEvent(context: TurnContext): Promise<void> {
+  const activity = context.activity as Record<string, unknown>;
+  const conversation = activity.conversation as { tenantId?: string; id?: string } | undefined;
+  const teamsTenantId = conversation?.tenantId;
+  const conversationId = conversation?.id;
+  const serviceUrl = activity.serviceUrl as string | undefined;
+  const recipient = activity.recipient as { id?: string } | undefined;
+  const botId = recipient?.id;
+
+  // Only act when the *bot* was added (not when a human joins a channel)
+  const membersAdded = (activity.membersAdded ?? []) as Array<{ id?: string; aadObjectId?: string }>;
+  const botWasAdded = membersAdded.some((m) => m.id === botId);
+  if (!botWasAdded) return;
+
+  if (!teamsTenantId) {
+    console.warn('[Teams Onboarding] conversationUpdate missing tenantId — skipping');
+    return;
+  }
+
+  const installerAadId = membersAdded.find((m) => m.id !== botId)?.aadObjectId ?? null;
+
+  // Extract teamId from channelData if available (Teams group conversations)
+  const channelData = activity.channelData as { team?: { id?: string }; tenant?: { id?: string } } | undefined;
+  const teamsTeamId = channelData?.team?.id ?? null;
+
+  console.log(`[Teams Onboarding] Bot installed: tenant=${teamsTenantId} team=${teamsTeamId ?? 'personal'} installer=${installerAadId ?? 'unknown'}`);
+
+  // Upsert customer_tenants row
+  const rows = await systemQuery<{ id: string; settings: Record<string, unknown> }>(
+    `INSERT INTO customer_tenants
+       (tenant_id, teams_tenant_id, teams_team_id, teams_installer_aad_id,
+        teams_service_url, teams_conversation_id, platform, status, installed_by)
+     VALUES (
+       (SELECT id FROM tenants LIMIT 1),
+       $1, $2, $3, $4, $5, 'teams', 'active', 'teams_install'
+     )
+     ON CONFLICT (teams_tenant_id, teams_team_id)
+       WHERE teams_tenant_id IS NOT NULL
+     DO UPDATE
+       SET teams_installer_aad_id = COALESCE(EXCLUDED.teams_installer_aad_id, customer_tenants.teams_installer_aad_id),
+           teams_service_url      = COALESCE(EXCLUDED.teams_service_url, customer_tenants.teams_service_url),
+           teams_conversation_id  = COALESCE(EXCLUDED.teams_conversation_id, customer_tenants.teams_conversation_id),
+           status                 = 'active',
+           updated_at             = NOW()
+     RETURNING id, settings`,
+    [teamsTenantId, teamsTeamId, installerAadId, serviceUrl, conversationId],
+  );
+
+  const customerTenant = rows[0];
+  if (!customerTenant) {
+    console.error('[Teams Onboarding] Failed to upsert customer_tenants row');
+    return;
+  }
+
+  // If onboarding is already complete, send a welcome-back message
+  if (customerTenant.settings?.['onboarding_complete']) {
+    await context.sendActivity('Welcome back! Glyphor is reconnected to this workspace.');
+    return;
+  }
+
+  // Start the onboarding questionnaire
+  await context.sendActivity(
+    "Hi \u2014 I'm Maya, your CMO. Before I get started, I have a few quick questions " +
+    'so I can tailor everything to your business.\n\n' +
+    "What's your product or service? Give me 2-3 sentences.",
+  );
+
+  // Store onboarding state
+  await systemQuery(
+    `UPDATE customer_tenants
+     SET settings = COALESCE(settings, '{}'::jsonb) || $2::jsonb,
+         updated_at = NOW()
+     WHERE id = $1`,
+    [
+      customerTenant.id,
+      JSON.stringify({
+        onboarding_step: 0,
+        onboarding_conversation_id: conversationId,
+        onboarding_answers: {},
+      }),
+    ],
+  );
+
+  console.log(`[Teams Onboarding] Started for customer_tenant=${customerTenant.id}`);
+}
+
+// ─── Customer approval handler (Action.Execute from Adaptive Cards) ──────────
+
+async function handleCustomerApprovalAction(
+  approvalId: string,
+  status: 'approved' | 'rejected',
+): Promise<string> {
+  if (!approvalId) return 'Missing approval_id';
+
+  const rows = await systemQuery<{ id: string; status: string; payload: Record<string, unknown> }>(
+    `UPDATE slack_approvals
+        SET status = $2, updated_at = NOW()
+      WHERE id = $1 AND status = 'pending'
+      RETURNING id, status, payload`,
+    [approvalId, status],
+  );
+
+  const row = rows[0];
+  if (!row) return `Approval ${approvalId} was already resolved or not found.`;
+
+  const summary = (row.payload?.summary as string) ?? '';
+  const agentRole = (row.payload?.agent_role as string) ?? 'unknown';
+  const emoji = status === 'approved' ? '✓' : '✕';
+
+  console.log(`[Customer Approval] ${approvalId} → ${status} (agent=${agentRole})`);
+  return `${emoji} ${agentRole} deliverable "${summary.slice(0, 60)}" ${status}.`;
+}
+
 function getAgent365DecisionApp(): { adapter: CloudAdapter; app: AgentApplication<TurnState> } | null {
   if (agent365DecisionAppSingleton && agent365DecisionAdapterSingleton) {
     return { adapter: agent365DecisionAdapterSingleton, app: agent365DecisionAppSingleton };
@@ -1252,6 +1373,25 @@ function getAgent365DecisionApp(): { adapter: CloudAdapter; app: AgentApplicatio
   app.adaptiveCards.actionExecute<DirectiveActionExecutePayload>('directive.reject', async (context, _state, action) => {
     return await handleDirectiveActionExecute(context.activity as Record<string, unknown>, action, false);
   });
+
+  // ── Customer onboarding: handle Teams app install (conversationUpdate) ──
+  app.onConversationUpdate('membersAdded', async (context, _state) => {
+    await handleTeamsInstallEvent(context);
+  });
+
+  // ── Customer-facing approval card buttons ──
+  app.adaptiveCards.actionExecute<{ data?: { approval_id?: string; action?: string } }>(
+    'customer_approval.approve',
+    async (_context, _state, action) => {
+      return await handleCustomerApprovalAction(action.data?.approval_id ?? '', 'approved');
+    },
+  );
+  app.adaptiveCards.actionExecute<{ data?: { approval_id?: string; action?: string } }>(
+    'customer_approval.reject',
+    async (_context, _state, action) => {
+      return await handleCustomerApprovalAction(action.data?.approval_id ?? '', 'rejected');
+    },
+  );
 
   agent365DecisionAdapterSingleton = adapter;
   agent365DecisionAppSingleton = app;

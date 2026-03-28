@@ -547,6 +547,10 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   update_template_status: ['simple_tool_calling'],
   query_build_grades_by_template: ['structured_extraction'],
 
+  // Customer Teams output
+  post_to_customer_teams: ['simple_tool_calling'],
+  request_teams_approval: ['simple_tool_calling'],
+
   // Routing helpers
   who_handles: ['simple_tool_calling'],
   get_agent_directory: ['simple_tool_calling'],

@@ -83,6 +83,13 @@ export interface DbCustomerTenant {
   status: 'active' | 'paused' | 'revoked';
   installed_by: string | null;
   settings: Record<string, unknown>;
+  platform: 'slack' | 'teams' | 'both';
+  // Teams-specific columns (null for Slack-only installs)
+  teams_tenant_id: string | null;
+  teams_team_id: string | null;
+  teams_installer_aad_id: string | null;
+  teams_service_url: string | null;
+  teams_conversation_id: string | null;
   created_at: string;
   updated_at: string;
 }

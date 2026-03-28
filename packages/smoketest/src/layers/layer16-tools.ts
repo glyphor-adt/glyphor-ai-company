@@ -93,6 +93,7 @@ import { createEventTools } from '@glyphor/agents/shared/eventTools';
 import { createMemoryTools } from '@glyphor/agents/shared/memoryTools';
 import { createPeerCoordinationTools } from '@glyphor/agents/shared/peerCoordinationTools';
 import { createTeamOrchestrationTools } from '@glyphor/agents/shared/teamOrchestrationTools';
+import { createTeamsOutputTools } from '@glyphor/agents/shared/teamsOutputTools';
 import { createToolGrantTools } from '@glyphor/agents/shared/toolGrantTools';
 
 // ═════════════════════════════════════════════════════════════════════
@@ -189,6 +190,7 @@ const FACTORIES: FactoryEntry[] = [
   { name: 'memoryTools', wave: 7, factory: () => createMemoryTools({} as CompanyMemoryStore) },
   { name: 'peerCoordinationTools', wave: 7, factory: () => createPeerCoordinationTools({} as GlyphorEventBus) },
   { name: 'teamOrchestrationTools', wave: 7, factory: () => createTeamOrchestrationTools({} as GlyphorEventBus) },
+  { name: 'teamsOutputTools', wave: 7, factory: () => createTeamsOutputTools() },
   { name: 'toolGrantTools', wave: 7, factory: () => createToolGrantTools('smoketest') },
 ];
 

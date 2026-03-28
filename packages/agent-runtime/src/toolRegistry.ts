@@ -659,6 +659,10 @@ const KNOWN_TOOLS = new Set([
   'get_infrastructure_inventory',
   'get_service_dependencies',
 
+  // ── Customer Teams output (tenant-routed) ──
+  'post_to_customer_teams',
+  'request_teams_approval',
+
   // ── Peer/team orchestration aliases (Wave 7) ──
   'create_peer_work_request',
   'request_peer_work',
