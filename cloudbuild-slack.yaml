@@ -1,0 +1,12 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/glyphor-slack:$BUILD_ID'
+      - '-f'
+      - 'docker/Dockerfile.slack-app'
+      - '.'
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/glyphor-slack:$BUILD_ID'
+timeout: 600s
