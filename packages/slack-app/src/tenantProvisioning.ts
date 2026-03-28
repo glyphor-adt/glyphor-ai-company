@@ -12,13 +12,14 @@ interface AgentSpec {
   display_name: string;
   title: string;
   model_tier: string;
+  brief_template: string;
 }
 
 const MARKETING_AGENTS: AgentSpec[] = [
-  { role: 'cmo',                  display_name: 'Maya Brooks',  title: 'Chief Marketing Officer', model_tier: 'high' },
-  { role: 'content-creator',      display_name: 'Tyler Reed',   title: 'Content Creator',         model_tier: 'default' },
-  { role: 'seo-analyst',          display_name: 'Lisa Chen',    title: 'SEO Analyst',             model_tier: 'default' },
-  { role: 'social-media-manager', display_name: 'Kai Johnson',  title: 'Social Media Manager',    model_tier: 'default' },
+  { role: 'cmo',                  display_name: 'Maya Brooks',  title: 'Chief Marketing Officer', model_tier: 'high',    brief_template: 'Review customer brand knowledge, plan content calendar, and coordinate the marketing team.' },
+  { role: 'content-creator',      display_name: 'Tyler Reed',   title: 'Content Creator',         model_tier: 'default', brief_template: 'Create blog posts, social media copy, and marketing collateral based on the content calendar.' },
+  { role: 'seo-analyst',          display_name: 'Lisa Chen',    title: 'SEO Analyst',             model_tier: 'default', brief_template: 'Analyze search performance, track keyword rankings, and recommend SEO improvements.' },
+  { role: 'social-media-manager', display_name: 'Kai Johnson',  title: 'Social Media Manager',    model_tier: 'default', brief_template: 'Schedule and publish social media content, monitor engagement, and optimize posting cadence.' },
 ];
 
 interface ScheduleSpec {
@@ -38,10 +39,10 @@ export async function provisionMarketingDepartment(tenantId: string): Promise<vo
   for (const agent of MARKETING_AGENTS) {
     await systemQuery(
       `INSERT INTO tenant_agents
-         (tenant_id, agent_role, display_name, title, model_tier, is_active, created_at)
-       VALUES ($1, $2, $3, $4, $5, true, NOW())
+         (tenant_id, agent_role, display_name, title, model_tier, brief_template, is_active, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, true, NOW())
        ON CONFLICT (tenant_id, agent_role) DO NOTHING`,
-      [tenantId, agent.role, agent.display_name, agent.title, agent.model_tier],
+      [tenantId, agent.role, agent.display_name, agent.title, agent.model_tier, agent.brief_template],
     );
   }
 
