@@ -21,6 +21,8 @@ import { postMessage, openDM } from './slackClient.js';
 import { provisionMarketingDepartment } from './tenantProvisioning.js';
 import type { DbCustomerTenant } from './types.js';
 
+const DEFAULT_SCHEDULER_URL = 'https://glyphor-scheduler-610179349713.us-central1.run.app';
+
 // ─── Start onboarding — post connection card ─────────────────────────────────
 
 export async function startOnboarding(
@@ -174,9 +176,12 @@ export async function triggerWebsiteIngestion(
   );
 
   // Dispatch scrape_website to the scheduler for the CMO agent
-  const schedulerUrl = process.env.SCHEDULER_URL ?? 'http://localhost:8080';
+  const schedulerUrl = process.env.SCHEDULER_URL?.trim() || (
+    process.env.NODE_ENV === 'production' ? DEFAULT_SCHEDULER_URL : 'http://localhost:8080'
+  );
+  const schedulerEndpoint = `${schedulerUrl.replace(/\/$/, '')}/run`;
   try {
-    await fetch(`${schedulerUrl}/run`, {
+    const res = await fetch(schedulerEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -191,7 +196,12 @@ export async function triggerWebsiteIngestion(
         },
       }),
     });
-    console.log(`[Onboarding] Website ingestion dispatched for ${url} tenant=${ct.tenant_id}`);
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => '');
+      throw new Error(`Scheduler responded ${res.status}${errorText ? `: ${errorText.slice(0, 200)}` : ''}`);
+    }
+
+    console.log(`[Onboarding] Website ingestion dispatched for ${url} tenant=${ct.tenant_id} via ${schedulerEndpoint}`);
   } catch (err) {
     console.error(`[Onboarding] Failed to dispatch website ingestion:`, err);
     if (dmChannel) {

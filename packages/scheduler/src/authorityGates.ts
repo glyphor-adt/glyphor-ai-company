@@ -40,7 +40,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'cmo': new Set([
     'blog_post', 'social_post', 'seo_analysis', 'case_study_draft',
     'content_calendar', 'generate_content', 'weekly_content_planning',
-    'content_creation', 'audit',
+    'content_creation', 'audit', 'onboarding_ingestion',
     'on_demand', 'agent365_mail_triage',
   ]),
   'cfo': new Set([
