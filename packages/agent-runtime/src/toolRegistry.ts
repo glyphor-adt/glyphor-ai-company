@@ -424,6 +424,9 @@ const KNOWN_TOOLS = new Set([
   'search_news',
   'submit_research_packet',
 
+  // ── Website ingestion (onboarding) ──
+  'scrape_website',
+
   // ── External / legacy tools ──
   'web_search',
   'file_decision',

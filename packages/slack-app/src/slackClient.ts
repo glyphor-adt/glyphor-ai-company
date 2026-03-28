@@ -87,3 +87,36 @@ export async function openDM(
   const data = (await res.json()) as { ok: boolean; channel?: { id: string } };
   return { ok: data.ok, channelId: data.channel?.id ?? null };
 }
+
+export async function openModal(
+  botToken: string,
+  triggerId: string,
+  view: Record<string, unknown>,
+): Promise<SlackApiResponse> {
+  const res = await fetch(`${SLACK_API_BASE}/views.open`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${botToken}`,
+    },
+    body: JSON.stringify({ trigger_id: triggerId, view }),
+  });
+  return res.json() as Promise<SlackApiResponse>;
+}
+
+export async function updateMessage(
+  botToken: string,
+  channel: string,
+  ts: string,
+  opts: { text?: string; blocks?: unknown[] },
+): Promise<SlackApiResponse> {
+  const res = await fetch(`${SLACK_API_BASE}/chat.update`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${botToken}`,
+    },
+    body: JSON.stringify({ channel, ts, ...opts }),
+  });
+  return res.json() as Promise<SlackApiResponse>;
+}

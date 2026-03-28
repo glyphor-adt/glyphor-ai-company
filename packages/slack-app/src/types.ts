@@ -50,6 +50,7 @@ export interface SlackView {
   id: string;
   type: string;
   callback_id?: string;
+  private_metadata?: string;
   state?: { values: Record<string, Record<string, SlackBlockValue>> };
 }
 

@@ -20,6 +20,8 @@ import { handleSlackEvent } from './eventHandler.js';
 import { handleApprovalAction } from './approvalHandler.js';
 import { handleOAuthCallback } from './oauthHandler.js';
 import { handleSlackCommand, type SlackCommandPayload } from './commandHandler.js';
+import { triggerWebsiteIngestion } from './onboardingHandler.js';
+import { openModal } from './slackClient.js';
 import type { SlackEvent, SlackInteractionPayload } from './types.js';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
@@ -222,13 +224,64 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       // Acknowledge interactions immediately
       json(res, 200, { ok: true });
 
-      // Route block_actions (button clicks for approvals) and other interaction types
+      // ─── view_submission (modal submit) ────────────────────────────────
+      if (interaction.type === 'view_submission') {
+        const callbackId = interaction.view?.callback_id;
+        if (callbackId === 'submit_website_url') {
+          const values = interaction.view?.state?.values ?? {};
+          const urlBlock = values['website_url_block'];
+          const url = urlBlock?.['website_url_input']?.value ?? '';
+          const customerTenantId = interaction.view?.private_metadata ?? '';
+
+          if (url && customerTenantId) {
+            triggerWebsiteIngestion(customerTenantId, url).catch((err: unknown) => {
+              console.error(`[Slack] Website ingestion error:`, err);
+            });
+          }
+        } else {
+          console.log(`[Slack] Unhandled view_submission callback_id=${callbackId}`);
+        }
+        return;
+      }
+
+      // ─── block_actions (buttons, menus) ────────────────────────────────
       if (interaction.type === 'block_actions' && interaction.actions?.length) {
         for (const action of interaction.actions) {
-          const result = await handleApprovalAction(
-            action.action_id,
-            interaction.user?.id ?? 'unknown',
-          );
+          const aid = action.action_id;
+
+          // Connection card actions
+          if (aid === 'connect_website') {
+            const customerTenantId = action.value ?? '';
+            await openModal(customerTenant.bot_token, interaction.trigger_id ?? '', {
+              type: 'modal',
+              callback_id: 'submit_website_url',
+              private_metadata: customerTenantId,
+              title: { type: 'plain_text', text: 'Connect Website' },
+              submit: { type: 'plain_text', text: 'Submit' },
+              blocks: [
+                {
+                  type: 'input',
+                  block_id: 'website_url_block',
+                  label: { type: 'plain_text', text: 'Website URL' },
+                  element: {
+                    type: 'url_text_input',
+                    action_id: 'website_url_input',
+                    placeholder: { type: 'plain_text', text: 'https://yourcompany.com' },
+                  },
+                },
+              ],
+            });
+            continue;
+          }
+
+          if (aid === 'connect_linkedin' || aid === 'connect_google_drive') {
+            // Placeholder — not yet implemented
+            console.log(`[Slack] ${aid} clicked by ${interaction.user?.id}, tenant=${action.value}`);
+            continue;
+          }
+
+          // Approval actions (approve_<uuid> / reject_<uuid>)
+          const result = await handleApprovalAction(aid, interaction.user?.id ?? 'unknown');
           if (result.ok) {
             console.log(
               `[Slack] Approval ${result.approvalId} → ${result.status} by ${interaction.user?.id}`,

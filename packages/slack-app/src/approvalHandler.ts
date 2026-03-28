@@ -13,7 +13,7 @@
 
 import { systemQuery } from '@glyphor/shared/db';
 import type { DbCustomerTenant } from './types.js';
-import { postMessage } from './slackClient.js';
+import { postMessage, updateMessage, getCustomerTenantById } from './slackClient.js';
 import type { RoutingDecision } from './router.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -129,6 +129,64 @@ export async function handleApprovalAction(
        WHERE id = $2`,
       [newStatus === 'approved' ? 'processed' : 'failed', approval.content_id],
     );
+  }
+
+  // ── Post-decision side effects ───────────────────────────────────────
+
+  // Load tenant for posting follow-up messages
+  const ct = approval.customer_tenant_id
+    ? await getCustomerTenantById(approval.customer_tenant_id)
+    : null;
+
+  if (newStatus === 'approved') {
+    // Dispatch to agent_wake_queue so the originating agent can continue
+    const agentRole = (approval.payload?.agent_role as string) ?? 'cmo';
+    await systemQuery(
+      `INSERT INTO agent_wake_queue (agent_role, task, reason, context)
+       VALUES ($1, 'approval_granted', $2, $3)`,
+      [
+        agentRole,
+        `Approval ${approvalId} granted by ${decisionBy}`,
+        JSON.stringify({
+          approval_id: approvalId,
+          content_id: approval.content_id,
+          destination: approval.destination,
+          payload: approval.payload,
+        }),
+      ],
+    );
+
+    // Post confirmation to the Slack thread
+    if (ct && approval.slack_channel_id && approval.slack_message_ts) {
+      await postMessage(ct.bot_token, {
+        channel: approval.slack_channel_id,
+        thread_ts: approval.slack_message_ts,
+        text: `Approved. Executing now.`,
+      });
+    }
+  } else {
+    // Rejected — write negative world model evidence
+    const agentRole = (approval.payload?.agent_role as string) ?? 'cmo';
+    const intentLabel = (approval.payload?.intent_label as string) ?? 'unknown';
+    await systemQuery(
+      `INSERT INTO agent_world_model_evidence
+         (agent_role, evidence_type, skill, description, weight)
+       VALUES ($1, 'negative', $2, $3, 1.0)`,
+      [
+        agentRole,
+        intentLabel,
+        `Approval ${approvalId} rejected by ${decisionBy}. Reason: ${reason ?? 'none given'}. Destination: ${approval.destination}`,
+      ],
+    );
+
+    // Post rejection to the Slack thread
+    if (ct && approval.slack_channel_id && approval.slack_message_ts) {
+      await postMessage(ct.bot_token, {
+        channel: approval.slack_channel_id,
+        thread_ts: approval.slack_message_ts,
+        text: `Rejected.${reason ? ` Reason: ${reason}` : ''} I'll adjust next time.`,
+      });
+    }
   }
 
   return { ok: true, approvalId, status: newStatus };

@@ -1,41 +1,33 @@
 /**
- * Onboarding handler — runs a 5-question DM questionnaire after OAuth install.
+ * Onboarding handler — connection card flow after OAuth install.
  *
  * Flow:
- *   1. OAuth completes → startOnboarding() sends first question via DM
- *   2. User replies → handleOnboardingReply() stores answer, sends next question
- *   3. After all 5 questions → finalizeOnboarding() stores channel config + sends welcome
+ *   1. OAuth completes → startOnboarding() DMs a connection card with asset buttons
+ *   2. Customer clicks "Connect Website" → modal opens for URL input
+ *   3. URL submitted → triggerWebsiteIngestion() scrapes, extracts brand signals
+ *   4. Maya synthesizes a company brief + sends first message to DM
+ *   5. Marketing department agents provisioned, work begins
+ *
+ * Also handles a single channel-setup reply:
+ *   After ingestion, Maya asks "Which channel should completed work go to?"
+ *   The reply sets settings.channels.deliverables.
  *
  * State is tracked in customer_tenants.settings:
- *   { "onboarding_step": 0..4, "onboarding_dm": "D...", "onboarding_answers": {...} }
+ *   { "onboarding_phase": "awaiting_connect" | "awaiting_channel" | "complete",
+ *     "onboarding_dm": "D...", "installer_user_id": "U..." }
  */
 import { systemQuery } from '@glyphor/shared/db';
-import { postMessage, openDM, getCustomerTenantByTeamId } from './slackClient.js';
+import { postMessage, openDM } from './slackClient.js';
+import { provisionMarketingDepartment } from './tenantProvisioning.js';
 import type { DbCustomerTenant } from './types.js';
 
-// ─── Questions ───────────────────────────────────────────────────────────────
-
-interface OnboardingQuestion {
-  key: string;
-  question: string;
-}
-
-const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
-  { key: 'product',              question: "What's your product or service? Give me 2-3 sentences." },
-  { key: 'audience',             question: "Who's your target audience?" },
-  { key: 'brand_voice',          question: "How would you describe your brand voice? (e.g. confident, playful, technical)" },
-  { key: 'deliverables_channel', question: "Which Slack channel should I post completed work to? (e.g. #marketing)" },
-  { key: 'reports_channel',      question: "Which Slack channel should I post weekly reports to?" },
-];
-
-// ─── Start onboarding ────────────────────────────────────────────────────────
+// ─── Start onboarding — post connection card ─────────────────────────────────
 
 export async function startOnboarding(
   customerTenantId: string,
   botToken: string,
   installerUserId: string,
 ): Promise<void> {
-  // Open a DM with the installer
   const dmResult = await openDM(botToken, installerUserId);
   if (!dmResult.ok || !dmResult.channelId) {
     console.error(`[Onboarding] Failed to open DM with ${installerUserId}`);
@@ -44,14 +36,43 @@ export async function startOnboarding(
 
   const dmChannelId = dmResult.channelId;
 
-  // Send the welcome + first question
-  const firstQ = ONBOARDING_QUESTIONS[0];
   await postMessage(botToken, {
     channel: dmChannelId,
-    text: `Hi — I'm Maya, your CMO. Before I get started, I have a few quick questions so I can tailor everything to your business.\n\n${firstQ.question}`,
+    text: 'Connect your assets and I will take it from there.',
+    blocks: [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: 'Connect your assets and I will take it from there.',
+        },
+      },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Connect Website' },
+            action_id: 'connect_website',
+            value: customerTenantId,
+          },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Connect LinkedIn' },
+            action_id: 'connect_linkedin',
+            value: customerTenantId,
+          },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Connect Google Drive' },
+            action_id: 'connect_google_drive',
+            value: customerTenantId,
+          },
+        ],
+      },
+    ],
   });
 
-  // Store onboarding state
   await systemQuery(
     `UPDATE customer_tenants
      SET settings = COALESCE(settings, '{}'::jsonb) || $2::jsonb,
@@ -60,17 +81,18 @@ export async function startOnboarding(
     [
       customerTenantId,
       JSON.stringify({
-        onboarding_step: 0,
+        onboarding_phase: 'awaiting_connect',
         onboarding_dm: dmChannelId,
-        onboarding_answers: {},
+        installer_user_id: installerUserId,
+        channels: { dm_owner: dmChannelId },
       }),
     ],
   );
 
-  console.log(`[Onboarding] Started for tenant=${customerTenantId} dm=${dmChannelId}`);
+  console.log(`[Onboarding] Connection card sent for tenant=${customerTenantId} dm=${dmChannelId}`);
 }
 
-// ─── Handle reply during onboarding ──────────────────────────────────────────
+// ─── Handle reply during onboarding (channel setup) ──────────────────────────
 
 /**
  * Returns true if this message was consumed by the onboarding flow,
@@ -82,27 +104,14 @@ export async function handleOnboardingReply(
   text: string,
 ): Promise<boolean> {
   const settings = customerTenant.settings ?? {};
-  const step = settings['onboarding_step'] as number | undefined;
+  const phase = settings['onboarding_phase'] as string | undefined;
   const onboardingDm = settings['onboarding_dm'] as string | undefined;
 
-  // Not in onboarding, or message isn't in the onboarding DM
-  if (step === undefined || step === null || !onboardingDm || channel !== onboardingDm) {
-    return false;
-  }
+  if (!phase || !onboardingDm || channel !== onboardingDm) return false;
 
-  if (step < 0 || step >= ONBOARDING_QUESTIONS.length) {
-    return false;
-  }
-
-  const currentQuestion = ONBOARDING_QUESTIONS[step];
-  const answers = (settings['onboarding_answers'] as Record<string, string>) ?? {};
-  answers[currentQuestion.key] = text;
-
-  const nextStep = step + 1;
-
-  if (nextStep < ONBOARDING_QUESTIONS.length) {
-    // More questions — store answer and ask next
-    const nextQuestion = ONBOARDING_QUESTIONS[nextStep];
+  if (phase === 'awaiting_channel') {
+    const channelName = text.trim().replace(/^#/, '');
+    const existingChannels = (settings['channels'] as Record<string, string | null>) ?? {};
 
     await systemQuery(
       `UPDATE customer_tenants
@@ -112,89 +121,107 @@ export async function handleOnboardingReply(
       [
         customerTenant.id,
         JSON.stringify({
-          onboarding_step: nextStep,
-          onboarding_answers: answers,
+          onboarding_phase: 'complete',
+          channels: { ...existingChannels, deliverables: channelName },
         }),
       ],
     );
 
     await postMessage(customerTenant.bot_token, {
       channel: onboardingDm,
-      text: nextQuestion.question,
+      text: `Got it — deliverables will go to #${channelName}.`,
     });
 
-    console.log(`[Onboarding] tenant=${customerTenant.id} step=${nextStep}/${ONBOARDING_QUESTIONS.length}`);
-  } else {
-    // All questions answered — finalize
-    await finalizeOnboarding(customerTenant, answers, onboardingDm);
+    console.log(`[Onboarding] Channel set to #${channelName} for tenant=${customerTenant.id}`);
+    return true;
   }
 
-  return true;
+  return false;
 }
 
-// ─── Finalize ────────────────────────────────────────────────────────────────
+// ─── Website ingestion trigger ───────────────────────────────────────────────
 
-async function finalizeOnboarding(
-  customerTenant: DbCustomerTenant,
-  answers: Record<string, string>,
-  onboardingDm: string,
+export async function triggerWebsiteIngestion(
+  customerTenantId: string,
+  url: string,
 ): Promise<void> {
-  // Store answers as knowledge and build channel config
-  // Channel answers might be "#marketing" or "marketing" — we'll store the raw text
-  // and resolve to channel IDs later when the bot joins those channels.
-  const channelConfig = {
-    deliverables: answers['deliverables_channel'] ?? null,
-    reports: answers['reports_channel'] ?? null,
-    dm_owner: onboardingDm,
-    general: customerTenant.default_channel ?? null,
-  };
+  const rows = await systemQuery<DbCustomerTenant>(
+    `SELECT * FROM customer_tenants WHERE id = $1 AND status = 'active' LIMIT 1`,
+    [customerTenantId],
+  );
+  const ct = rows[0];
+  if (!ct) {
+    console.error(`[Onboarding] Tenant not found: ${customerTenantId}`);
+    return;
+  }
 
-  // Update settings: clear onboarding state, store channels + brand info
+  const dmChannel = ((ct.settings ?? {})['onboarding_dm'] as string) ?? null;
+
+  if (dmChannel) {
+    await postMessage(ct.bot_token, {
+      channel: dmChannel,
+      text: `Reading ${url} now. This will take a minute.`,
+    });
+  }
+
+  // Store URL as customer_knowledge entry
+  await systemQuery(
+    `INSERT INTO customer_knowledge
+       (tenant_id, section, title, content, content_type, audience, tags, is_active, version, last_edited_by)
+     VALUES ($1, 'source', 'Website URL', $2, 'text', 'all', ARRAY['onboarding', 'website'], true, 1, 'onboarding')
+     ON CONFLICT DO NOTHING`,
+    [ct.tenant_id, url],
+  );
+
+  // Dispatch scrape_website to the scheduler for the CMO agent
+  const schedulerUrl = process.env.SCHEDULER_URL ?? 'http://localhost:8080';
+  try {
+    await fetch(`${schedulerUrl}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agentRole: 'cmo',
+        task: 'onboarding_ingestion',
+        message: `Scrape the customer website at ${url}, extract brand signals, synthesize a company brief, then send the first message. Tenant: ${ct.tenant_id}`,
+        payload: {
+          tenant_id: ct.tenant_id,
+          customer_tenant_id: customerTenantId,
+          website_url: url,
+          onboarding: true,
+        },
+      }),
+    });
+    console.log(`[Onboarding] Website ingestion dispatched for ${url} tenant=${ct.tenant_id}`);
+  } catch (err) {
+    console.error(`[Onboarding] Failed to dispatch website ingestion:`, err);
+    if (dmChannel) {
+      await postMessage(ct.bot_token, {
+        channel: dmChannel,
+        text: 'Something went wrong starting the website analysis. Retrying shortly.',
+      });
+    }
+  }
+
+  // Transition to awaiting_channel phase
   await systemQuery(
     `UPDATE customer_tenants
      SET settings = COALESCE(settings, '{}'::jsonb) || $2::jsonb,
          updated_at = NOW()
      WHERE id = $1`,
     [
-      customerTenant.id,
-      JSON.stringify({
-        onboarding_step: null,
-        onboarding_dm: null,
-        onboarding_answers: null,
-        onboarding_complete: true,
-        channels: channelConfig,
-        brand: {
-          product: answers['product'] ?? null,
-          audience: answers['audience'] ?? null,
-          voice: answers['brand_voice'] ?? null,
-        },
-      }),
+      customerTenantId,
+      JSON.stringify({ onboarding_phase: 'awaiting_channel' }),
     ],
   );
 
-  // Store brand knowledge in customer_knowledge for agent RAG
-  const knowledgeEntries = [
-    { section: 'brand', title: 'Product Description', content: answers['product'] ?? '' },
-    { section: 'brand', title: 'Target Audience', content: answers['audience'] ?? '' },
-    { section: 'brand', title: 'Brand Voice', content: answers['brand_voice'] ?? '' },
-  ];
+  // Provision the marketing department
+  await provisionMarketingDepartment(ct.tenant_id);
 
-  for (const entry of knowledgeEntries) {
-    if (!entry.content) continue;
-    await systemQuery(
-      `INSERT INTO customer_knowledge
-         (tenant_id, section, title, content, content_type, audience, tags, is_active, version, last_edited_by)
-       VALUES ($1, $2, $3, $4, 'text', 'all', ARRAY['onboarding'], true, 1, 'onboarding')
-       ON CONFLICT DO NOTHING`,
-      [customerTenant.tenant_id, entry.section, entry.title, entry.content],
-    );
+  // Ask the channel question
+  if (dmChannel) {
+    await postMessage(ct.bot_token, {
+      channel: dmChannel,
+      text: 'Which channel should completed work go to? (e.g. #marketing)',
+    });
   }
-
-  // Send the "I'm ready" message
-  await postMessage(customerTenant.bot_token, {
-    channel: onboardingDm,
-    text: `Thanks — that's everything I need.\n\nI'm Maya, your CMO. I've read your brief and I'm ready to start. I'll post deliverables to ${answers['deliverables_channel'] ?? 'your workspace'} and weekly reports to ${answers['reports_channel'] ?? 'your workspace'}.\n\nYou can give me instructions anytime with \`/glyphor\` — for example:\n\`/glyphor brief the team on a new product launch campaign\`\n\nLet's build something great. 🚀`,
-  });
-
-  console.log(`[Onboarding] Complete for tenant=${customerTenant.id}`);
 }

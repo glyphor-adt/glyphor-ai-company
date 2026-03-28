@@ -37,6 +37,7 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createWebBuildTools } from '../shared/webBuildTools.js';
+import { createWebsiteIngestionTools } from '../shared/websiteIngestionTools.js';
 import { systemQuery } from '@glyphor/shared/db';
 
 export interface CMORunParams {
@@ -48,8 +49,10 @@ export interface CMORunParams {
     | 'content_planning_cycle'
     | 'work_loop'
     | 'process_assignments'
+    | 'onboarding_ingestion'
     | 'on_demand';
   message?: string;
+  payload?: Record<string, unknown>;
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
   evalMode?: boolean;
@@ -106,6 +109,7 @@ export async function runCMO(params: CMORunParams = {}) {
     }),
     ...createCanvaTools(),
     ...createLogoTools(),
+    ...createWebsiteIngestionTools(),
     ...await createAgent365McpTools('cmo'),
     ...await createGlyphorMcpTools('cmo'),
   ];
@@ -208,6 +212,28 @@ Steps:
         params.message ||
         `Assignment sweep for ${today}. Process pending marketing work: read_founder_directives, check_team_status, dispatch or evaluate outputs, use synthesize_team_deliverable when ready, escalate blockers to Sarah.`;
       break;
+
+    case 'onboarding_ingestion': {
+      const websiteUrl = (params.payload?.website_url as string) ?? '';
+      const tenantId = (params.payload?.tenant_id as string) ?? '';
+      const customerTenantId = (params.payload?.customer_tenant_id as string) ?? '';
+      initialMessage = `A new customer just connected their workspace. Their website is ${websiteUrl}.
+
+Steps:
+1. Use scrape_website with url="${websiteUrl}" and tenant_id="${tenantId}" to crawl their site and extract brand signals.
+2. From the scraped pages, identify: what they sell, who their audience is, their brand voice/tone, and key differentiators.
+3. Synthesize a concise company brief (3-4 paragraphs) and store it using read_company_knowledge patterns — save sections: "brand/Company Brief", "brand/Target Audience", "brand/Voice and Tone", "brand/Key Differentiators" to customer_knowledge for tenant ${tenantId}.
+4. Send the customer a first message via post_to_slack with context_type "question". The message should:
+   - Start with what you found about their business (demonstrate you read their site)
+   - Name one specific thing you plan to work on first
+   - Ask a single, focused question to narrow scope
+   - NO greeting, NO emoji, NO "Hi I'm Maya"
+   Example tone: "Your positioning around [X] is strong. The [product page / about section] gives me enough to start a content calendar. I'll begin with [specific deliverable]. One question: [focused question]?"
+5. Do NOT mark this as an assignment — this is a direct onboarding task.
+
+Customer tenant ID: ${customerTenantId}`;
+      break;
+    }
 
     default:
       initialMessage = params.message || 'Provide a content and marketing strategy summary.';
