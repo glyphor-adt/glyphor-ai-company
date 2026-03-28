@@ -54,21 +54,37 @@ UPDATE agent_schedules
  WHERE tenant_id IS NULL;
 
 -- ── 3. Set NOT NULL after backfill ──────────────────────────────
+-- Use DO blocks to skip if already NOT NULL.
 
-ALTER TABLE fleet_findings
-  ALTER COLUMN tenant_id SET NOT NULL;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='fleet_findings' AND column_name='tenant_id' AND is_nullable='YES') THEN
+    ALTER TABLE fleet_findings ALTER COLUMN tenant_id SET NOT NULL;
+  END IF;
+END $$;
 
-ALTER TABLE agent_tool_grants
-  ALTER COLUMN tenant_id SET NOT NULL;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_tool_grants' AND column_name='tenant_id' AND is_nullable='YES') THEN
+    ALTER TABLE agent_tool_grants ALTER COLUMN tenant_id SET NOT NULL;
+  END IF;
+END $$;
 
-ALTER TABLE agent_world_model
-  ALTER COLUMN tenant_id SET NOT NULL;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_world_model' AND column_name='tenant_id' AND is_nullable='YES') THEN
+    ALTER TABLE agent_world_model ALTER COLUMN tenant_id SET NOT NULL;
+  END IF;
+END $$;
 
-ALTER TABLE agent_memory
-  ALTER COLUMN tenant_id SET NOT NULL;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_memory' AND column_name='tenant_id' AND is_nullable='YES') THEN
+    ALTER TABLE agent_memory ALTER COLUMN tenant_id SET NOT NULL;
+  END IF;
+END $$;
 
-ALTER TABLE agent_schedules
-  ALTER COLUMN tenant_id SET NOT NULL;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_schedules' AND column_name='tenant_id' AND is_nullable='YES') THEN
+    ALTER TABLE agent_schedules ALTER COLUMN tenant_id SET NOT NULL;
+  END IF;
+END $$;
 
 -- ── 4. Enable Row-Level Security ────────────────────────────────
 
@@ -79,38 +95,79 @@ ALTER TABLE agent_memory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_schedules ENABLE ROW LEVEL SECURITY;
 
 -- ── 5. Tenant isolation policies (app-level) ────────────────────
+-- Use DO blocks because CREATE POLICY has no IF NOT EXISTS syntax.
 
-CREATE POLICY tenant_isolation_fleet_findings ON fleet_findings
-  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'tenant_isolation_fleet_findings' AND tablename = 'fleet_findings') THEN
+    CREATE POLICY tenant_isolation_fleet_findings ON fleet_findings
+      USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+  END IF;
+END $$;
 
-CREATE POLICY tenant_isolation_agent_tool_grants ON agent_tool_grants
-  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'tenant_isolation_agent_tool_grants' AND tablename = 'agent_tool_grants') THEN
+    CREATE POLICY tenant_isolation_agent_tool_grants ON agent_tool_grants
+      USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+  END IF;
+END $$;
 
-CREATE POLICY tenant_isolation_agent_world_model ON agent_world_model
-  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'tenant_isolation_agent_world_model' AND tablename = 'agent_world_model') THEN
+    CREATE POLICY tenant_isolation_agent_world_model ON agent_world_model
+      USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+  END IF;
+END $$;
 
-CREATE POLICY tenant_isolation_agent_memory ON agent_memory
-  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'tenant_isolation_agent_memory' AND tablename = 'agent_memory') THEN
+    CREATE POLICY tenant_isolation_agent_memory ON agent_memory
+      USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+  END IF;
+END $$;
 
-CREATE POLICY tenant_isolation_agent_schedules ON agent_schedules
-  USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'tenant_isolation_agent_schedules' AND tablename = 'agent_schedules') THEN
+    CREATE POLICY tenant_isolation_agent_schedules ON agent_schedules
+      USING (tenant_id = current_setting('app.current_tenant', true)::uuid);
+  END IF;
+END $$;
 
 -- ── 6. System bypass policies (glyphor_system) ──────────────────
 
-CREATE POLICY system_bypass_fleet_findings ON fleet_findings
-  TO glyphor_system USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'system_bypass_fleet_findings' AND tablename = 'fleet_findings') THEN
+    CREATE POLICY system_bypass_fleet_findings ON fleet_findings
+      TO glyphor_system USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
-CREATE POLICY system_bypass_agent_tool_grants ON agent_tool_grants
-  TO glyphor_system USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'system_bypass_agent_tool_grants' AND tablename = 'agent_tool_grants') THEN
+    CREATE POLICY system_bypass_agent_tool_grants ON agent_tool_grants
+      TO glyphor_system USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
-CREATE POLICY system_bypass_agent_world_model ON agent_world_model
-  TO glyphor_system USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'system_bypass_agent_world_model' AND tablename = 'agent_world_model') THEN
+    CREATE POLICY system_bypass_agent_world_model ON agent_world_model
+      TO glyphor_system USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
-CREATE POLICY system_bypass_agent_memory ON agent_memory
-  TO glyphor_system USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'system_bypass_agent_memory' AND tablename = 'agent_memory') THEN
+    CREATE POLICY system_bypass_agent_memory ON agent_memory
+      TO glyphor_system USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
-CREATE POLICY system_bypass_agent_schedules ON agent_schedules
-  TO glyphor_system USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'system_bypass_agent_schedules' AND tablename = 'agent_schedules') THEN
+    CREATE POLICY system_bypass_agent_schedules ON agent_schedules
+      TO glyphor_system USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- ── 7. Indexes for tenant_id lookups ────────────────────────────
 
