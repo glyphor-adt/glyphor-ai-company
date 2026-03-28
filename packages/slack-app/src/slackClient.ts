@@ -120,3 +120,40 @@ export async function updateMessage(
   });
   return res.json() as Promise<SlackApiResponse>;
 }
+
+export async function publishHomeTab(
+  botToken: string,
+  userId: string,
+): Promise<SlackApiResponse> {
+  const res = await fetch(`${SLACK_API_BASE}/views.publish`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${botToken}`,
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      view: {
+        type: 'home',
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: '*Welcome to Glyphor* :rocket:\nYour AI marketing team is ready.',
+            },
+          },
+          { type: 'divider' },
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: 'Use `/glyphor` to give instructions, or send messages directly in the *Messages* tab.',
+            },
+          },
+        ],
+      },
+    }),
+  });
+  return res.json() as Promise<SlackApiResponse>;
+}

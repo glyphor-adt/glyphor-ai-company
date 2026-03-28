@@ -10,6 +10,7 @@
  */
 import { systemQuery } from '@glyphor/shared/db';
 import { startOnboarding } from './onboardingHandler.js';
+import { publishHomeTab } from './slackClient.js';
 
 const SLACK_OAUTH_URL = 'https://slack.com/api/oauth.v2.access';
 
@@ -78,6 +79,11 @@ export async function handleOAuthCallback(
   const installerUserId = (data['authed_user'] as { id?: string })?.id ?? '';
 
   if (customerTenantId && botToken && installerUserId) {
+    // Publish App Home tab to activate the Messages tab for DMs
+    publishHomeTab(botToken, installerUserId).catch((err: unknown) => {
+      console.error(`[Slack] Home tab publish failed for team=${teamId}:`, err);
+    });
+
     startOnboarding(customerTenantId, botToken, installerUserId).catch((err: unknown) => {
       console.error(`[Slack] Onboarding start failed for team=${teamId}:`, err);
     });

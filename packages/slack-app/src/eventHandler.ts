@@ -15,7 +15,7 @@
  *   4. Otherwise, an immediate acknowledgement is sent back in-thread.
  */
 import { systemQuery } from '@glyphor/shared/db';
-import { postMessage } from './slackClient.js';
+import { postMessage, publishHomeTab } from './slackClient.js';
 import { routeMessage } from './router.js';
 import { createApproval } from './approvalHandler.js';
 import { handleOnboardingReply } from './onboardingHandler.js';
@@ -26,6 +26,11 @@ export async function handleSlackEvent(
   event: SlackInnerEvent,
 ): Promise<void> {
   const { type } = event;
+
+  if (type === 'app_home_opened' && event.user) {
+    await publishHomeTab(customerTenant.bot_token, event.user);
+    return;
+  }
 
   if (type === 'app_mention' || type === 'message') {
     await handleMessage(customerTenant, event);
