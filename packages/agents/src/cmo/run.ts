@@ -223,15 +223,15 @@ Steps:
       initialMessage = `A new customer just connected their workspace. Their website is ${websiteUrl}.
 
 Steps:
-1. Use scrape_website with url="${websiteUrl}" and tenant_id="${tenantId}" to crawl their site and extract brand signals.
-2. From the scraped pages, identify: what they sell, who their audience is, their brand voice/tone, and key differentiators.
-3. Synthesize a concise company brief (3-4 paragraphs) and store it using read_company_knowledge patterns — save sections: "brand/Company Brief", "brand/Target Audience", "brand/Voice and Tone", "brand/Key Differentiators" to customer_knowledge for tenant ${tenantId}.
-4. Send the customer a first message via post_to_slack with context_type "question". The message should:
+    1. Analyze the connected source(s). If the website URL is available, use scrape_website with url="${websiteUrl}" and tenant_id="${tenantId}" to crawl it and extract brand signals.
+    2. From whichever sources are available, identify: what they sell, who their audience is, their brand voice/tone, and key differentiators. If a source is missing or inaccessible, call that out and ask a targeted follow-up question.
+    3. Synthesize a concise company brief (3-4 paragraphs) and store it using read_company_knowledge patterns — save sections: "brand/Company Brief", "brand/Target Audience", "brand/Voice and Tone", "brand/Key Differentiators" to customer_knowledge for tenant ${tenantId}.
+    4. Send the customer a first message via post_to_slack with context_type "question". The message should:
    - Start with what you found about their business (demonstrate you read their site)
    - Name one specific thing you plan to work on first
-   - Ask a single, focused question to narrow scope
+       - Ask the most important missing question or questions needed to complete the brief
    - NO greeting, NO emoji, NO "Hi I'm Maya"
-   Example tone: "Your positioning around [X] is strong. The [product page / about section] gives me enough to start a content calendar. I'll begin with [specific deliverable]. One question: [focused question]?"
+       Example tone: "Your positioning around [X] is strong. I’ve got enough to start with [specific deliverable]. I still need [missing info]."
 5. Do NOT mark this as an assignment — this is a direct onboarding task.
 
 Customer tenant ID: ${customerTenantId}`;

@@ -21,7 +21,7 @@ import { handleApprovalAction } from './approvalHandler.js';
 import { handleOAuthCallback } from './oauthHandler.js';
 import { handleSlackCommand, type SlackCommandPayload } from './commandHandler.js';
 import { triggerWebsiteIngestion } from './onboardingHandler.js';
-import { openModal } from './slackClient.js';
+import { openModal, postMessage } from './slackClient.js';
 import type { SlackEvent, SlackInteractionPayload } from './types.js';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
@@ -278,7 +278,15 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           }
 
           if (aid === 'connect_linkedin' || aid === 'connect_google_drive') {
-            // Placeholder — not yet implemented
+            const onboardingDm = (customerTenant.settings?.['onboarding_dm'] as string | undefined) ?? null;
+            if (onboardingDm) {
+              await postMessage(customerTenant.bot_token, {
+                channel: onboardingDm,
+                text: aid === 'connect_linkedin'
+                  ? 'LinkedIn onboarding is not live yet. Website is the only active connector right now.'
+                  : 'Google Drive onboarding is not live yet. Website is the only active connector right now.',
+              });
+            }
             console.log(`[Slack] ${aid} clicked by ${interaction.user?.id}, tenant=${action.value}`);
             continue;
           }

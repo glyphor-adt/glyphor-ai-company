@@ -13,8 +13,23 @@ import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 
 const MAX_PAGES = 6; // landing + up to 5 internal links
+const MAX_SOCIAL_PAGES = 6;
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_TEXT_LENGTH = 12_000;
+
+const SOCIAL_HOSTS = [
+  /(^|\.)linkedin\.com$/i,
+  /(^|\.)x\.com$/i,
+  /(^|\.)twitter\.com$/i,
+  /(^|\.)facebook\.com$/i,
+  /(^|\.)instagram\.com$/i,
+  /(^|\.)threads\.net$/i,
+  /(^|\.)youtube\.com$/i,
+  /(^|\.)youtu\.be$/i,
+  /(^|\.)tiktok\.com$/i,
+  /(^|\.)pinterest\.com$/i,
+  /(^|\.)github\.com$/i,
+];
 
 /** Allowlisted path patterns that likely contain useful brand/product content. */
 const USEFUL_PATHS = [
@@ -71,6 +86,40 @@ function extractInternalLinks(html: string, origin: string): string[] {
     }
   }
   return [...seen].slice(0, MAX_PAGES - 1);
+}
+
+function isSocialHost(hostname: string): boolean {
+  return SOCIAL_HOSTS.some((pattern) => pattern.test(hostname));
+}
+
+function isSocialUrl(url: string): boolean {
+  try {
+    return isSocialHost(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+function extractSocialLinks(html: string, origin: string): string[] {
+  const seen = new Set<string>();
+  const re = /href="([^"]+)"/gi;
+  let m: RegExpExecArray | null;
+
+  while ((m = re.exec(html)) !== null) {
+    const href = m[1];
+    try {
+      const resolved = new URL(href, origin);
+      if (resolved.origin === origin) continue;
+      if (!isSocialHost(resolved.hostname)) continue;
+      const normalized = resolved.href.replace(/#.*$/, '');
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+    } catch {
+      // skip invalid URLs
+    }
+  }
+
+  return [...seen].slice(0, MAX_SOCIAL_PAGES);
 }
 
 async function fetchPage(url: string): Promise<{ html: string; text: string; title: string } | null> {
@@ -155,9 +204,25 @@ export function createWebsiteIngestionTools(): ToolDefinition[] {
           }),
         );
 
-        const allPages = [
-          { url: rawUrl, text: landing.text, title: landing.title },
+        const sourcePages = [
+          { url: rawUrl, text: landing.text, title: landing.title, html: landing.html },
           ...internalPages
+            .filter((p): p is { url: string; text: string; title: string; html: string } => p !== null)
+            .map((p) => ({ url: p.url, text: p.text, title: p.title, html: p.html })),
+        ];
+
+        const socialLinks = [...new Set(sourcePages.flatMap((page) => extractSocialLinks(page.html, origin)))];
+
+        const socialPages = await Promise.all(
+          socialLinks.map(async (link) => {
+            const page = await fetchPage(link);
+            return page ? { url: link, ...page } : null;
+          }),
+        );
+
+        const allPages = [
+          ...sourcePages.map((page) => ({ url: page.url, text: page.text, title: page.title })),
+          ...socialPages
             .filter((p): p is { url: string; text: string; title: string; html: string } => p !== null)
             .map((p) => ({ url: p.url, text: p.text, title: p.title })),
         ];
@@ -165,25 +230,31 @@ export function createWebsiteIngestionTools(): ToolDefinition[] {
         // Store each page as customer_knowledge
         for (const page of allPages) {
           if (!page.text) continue;
+          const section = isSocialUrl(page.url) ? 'social' : 'website';
+          const tags = isSocialUrl(page.url)
+            ? ['onboarding', 'social', 'scraped']
+            : ['onboarding', 'website', 'scraped'];
           await systemQuery(
             `INSERT INTO customer_knowledge
                (tenant_id, section, title, content, content_type, audience, tags, is_active, version, last_edited_by)
-             VALUES ($1, 'website', $2, $3, 'text', 'all', ARRAY['onboarding', 'website', 'scraped'], true, 1, 'scrape_website')
+             VALUES ($1, $2, $3, $4, 'text', 'all', $5, true, 1, 'scrape_website')
              ON CONFLICT DO NOTHING`,
-            [tenantId, page.title || page.url, `Source: ${page.url}\n\n${page.text}`],
+            [tenantId, section, page.title || page.url, `Source: ${page.url}\n\n${page.text}`, tags],
           );
         }
 
         return {
           success: true,
           data: {
-            pages_scraped: allPages.length,
+            pages_scraped: sourcePages.length,
+            social_pages_scraped: socialPages.filter((page) => page !== null).length,
             pages: allPages.map((p) => ({
               url: p.url,
               title: p.title,
               text_length: p.text.length,
               text_preview: p.text.slice(0, 500),
             })),
+            social_links: socialLinks,
           },
         };
       },

@@ -2,10 +2,10 @@
  * Onboarding handler — connection card flow after OAuth install.
  *
  * Flow:
- *   1. OAuth completes → startOnboarding() DMs a connection card with asset buttons
+ *   1. OAuth completes → startOnboarding() DMs Sarah's intro and the live connection card
  *   2. Customer clicks "Connect Website" → modal opens for URL input
  *   3. URL submitted → triggerWebsiteIngestion() scrapes, extracts brand signals
- *   4. Maya synthesizes a company brief + sends first message to DM
+ *   4. Sarah introduces the team first; Maya follows after source ingestion
  *   5. Marketing department agents provisioned, work begins
  *
  * Also handles a single channel-setup reply:
@@ -40,14 +40,30 @@ export async function startOnboarding(
 
   await postMessage(botToken, {
     channel: dmChannelId,
-    text: 'Connect your assets and I will take it from there.',
+    text: 'Sarah here. I’ll introduce the team and then Maya will analyze whatever you connect.',
     blocks: [
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: 'Connect your assets and I will take it from there.',
+          text: '*Sarah Chen, Chief of Staff*\nI’ll get you oriented, then Maya will review the sources you connect and ask for anything still missing.',
         },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*Glyphor team*\n• *Sarah* — Chief of Staff: coordinates onboarding and keeps the team aligned.\n• *Maya* — CMO: analyzes your connected sources and turns them into brand and marketing direction.\n• *Marcus* — CTO: handles platform and technical execution.\n• *Nadia* — CFO: handles costs, operating discipline, and financial planning.\n• *Elena* — CPO: handles product direction and roadmap.',
+        },
+      },
+      {
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: 'Website connection is live today. LinkedIn and Google Drive are not live yet and will be added separately.',
+          },
+        ],
       },
       {
         type: 'actions',
@@ -56,18 +72,6 @@ export async function startOnboarding(
             type: 'button',
             text: { type: 'plain_text', text: 'Connect Website' },
             action_id: 'connect_website',
-            value: customerTenantId,
-          },
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: 'Connect LinkedIn' },
-            action_id: 'connect_linkedin',
-            value: customerTenantId,
-          },
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: 'Connect Google Drive' },
-            action_id: 'connect_google_drive',
             value: customerTenantId,
           },
         ],
