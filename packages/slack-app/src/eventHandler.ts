@@ -146,7 +146,7 @@ async function sendSlowAckFallback(
         channel,
         thread_ts: ts,
         text: 'On it.',
-      }, { agentRole: 'chief-of-staff' });
+      });
     }
   } catch (e) {
     console.error('[Slack] Slow ack fallback failed:', e);

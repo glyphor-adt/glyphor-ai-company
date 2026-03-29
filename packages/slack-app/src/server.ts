@@ -23,6 +23,7 @@ import { handleSlackCommand, type SlackCommandPayload } from './commandHandler.j
 import { triggerWebsiteIngestion } from './onboardingHandler.js';
 import { checkRateLimit } from './rateLimiter.js';
 import { openModal, postMessage } from './slackClient.js';
+import { startDirectivePoller } from './directivePoller.js';
 import type { SlackEvent, SlackInteractionPayload } from './types.js';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
@@ -359,6 +360,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 });
 
 server.listen(PORT, () => {
+  startDirectivePoller();
   console.log(`[Slack App] Listening on port ${PORT}`);
   console.log(`[Slack App] Commands:     POST /slack/commands`);
   console.log(`[Slack App] Events:       POST /slack/events`);

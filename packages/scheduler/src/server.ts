@@ -429,6 +429,28 @@ function buildChiefOfStaffReactiveMessage(
       ? payload.message.trim()
       : undefined;
 
+  if (task === 'process_directive') {
+    const context = payload.context && typeof payload.context === 'object'
+      ? payload.context as Record<string, unknown>
+      : undefined;
+    const directiveText = typeof context?.text === 'string' ? context.text.trim() : '';
+    const replyChannel = typeof context?.channel === 'string' ? context.channel : 'unknown';
+    const replyTs = typeof context?.ts === 'string' ? context.ts : 'none';
+    const source = typeof context?.source === 'string' ? context.source : 'unknown';
+
+    const lines = [
+      'A customer message arrived via Slack.',
+      `Source: ${source}`,
+      `Channel: ${replyChannel}`,
+      `Thread: ${replyTs}`,
+      directiveText ? `Message: "${directiveText}"` : 'Message: (empty)',
+      '',
+      'Reply in the same Slack thread using post_to_slack and route any actionable marketing work appropriately.',
+    ];
+
+    return lines.join('\n');
+  }
+
   if (task !== 'orchestrate') return providedMessage;
 
   const wakeReason =
@@ -583,7 +605,7 @@ const agentExecutor = async (
   }
 
   if (agentRole === 'chief-of-staff') {
-    const taskMap: Record<string, 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'orchestrate' | 'strategic_planning' | 'midday_digest' | 'on_demand'> = {
+    const taskMap: Record<string, 'generate_briefing' | 'check_escalations' | 'weekly_review' | 'monthly_retrospective' | 'orchestrate' | 'strategic_planning' | 'midday_digest' | 'process_directive' | 'on_demand'> = {
       morning_briefing: 'generate_briefing',
       check_escalations: 'check_escalations',
       eod_summary: 'generate_briefing',
@@ -591,6 +613,7 @@ const agentExecutor = async (
       weekly_review: 'weekly_review',
       monthly_retrospective: 'monthly_retrospective',
       orchestrate: 'orchestrate',
+      process_directive: 'process_directive',
       // Heartbeat wakes CoS with work_loop/proactive for assignment health checks.
       // Route these through orchestrate mode so decomposition/dispatch behavior
       // is available instead of generic on_demand handling.
@@ -603,6 +626,7 @@ const agentExecutor = async (
       task: mappedTask,
       recipient: payload.founder as 'kristina' | 'andrew' | undefined,
       message: buildChiefOfStaffReactiveMessage(mappedTask, payload),
+      context: payload.context as Record<string, unknown> | undefined,
       conversationHistory,
     });
   } else if (agentRole === 'cto') {
@@ -1836,8 +1860,12 @@ const trackedAgentExecutor = async (
       [agentRole],
     ).catch(() => []);
 
-    const tenantId = agentMeta?.tenant_id ?? '00000000-0000-0000-0000-000000000000';
-    const source = agentMeta?.created_via === 'client_sdk' ? 'client_sdk' : 'internal';
+    const payloadTenantId = typeof payload?.tenantId === 'string'
+      ? payload.tenantId
+      : (typeof payload?.tenant_id === 'string' ? payload.tenant_id : null);
+    const tenantId = payloadTenantId ?? agentMeta?.tenant_id ?? '00000000-0000-0000-0000-000000000000';
+    const payloadSource = typeof payload?.source === 'string' ? payload.source : null;
+    const source = payloadSource ?? (agentMeta?.created_via === 'client_sdk' ? 'client_sdk' : 'internal');
     const clientId = agentMeta?.created_by_client_id ?? null;
 
     try {

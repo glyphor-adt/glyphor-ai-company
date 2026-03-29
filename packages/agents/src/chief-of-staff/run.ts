@@ -47,9 +47,11 @@ export interface CoSRunParams {
     | 'orchestrate'
     | 'strategic_planning'
     | 'midday_digest'
+    | 'process_directive'
     | 'on_demand';
   recipient?: 'kristina' | 'andrew' | 'both';
   message?: string;
+  context?: Record<string, unknown>;
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
   evalMode?: boolean;
@@ -382,6 +384,38 @@ Synthesize into a SHORT status update (not a full briefing). Structure:
 
 Send via send_dm to the #briefings channel. If send_dm doesn't support channels, send to kristina and then andrew (two separate calls — same message).
 Keep it under 400 words. Be direct — this is a status pulse, not a report.`;
+      break;
+    }
+
+    case 'process_directive': {
+      const context = params.context ?? {};
+      const directiveText = typeof context.text === 'string' ? context.text.trim() : (params.message?.trim() ?? '');
+      const replyChannel = typeof context.channel === 'string' ? context.channel : 'unknown';
+      const replyTs = typeof context.ts === 'string' ? context.ts : 'none';
+      const source = typeof context.source === 'string' ? context.source : 'unknown';
+      const userId = typeof context.user_id === 'string' ? context.user_id : 'unknown';
+
+      initialMessage = `A message came in from a customer via Slack.
+
+Message: "${directiveText}"
+Source: ${source}
+User: ${userId}
+Channel: ${replyChannel}
+Thread: ${replyTs}
+
+Your job:
+1. Understand what they are asking for.
+2. If it is actionable marketing work, brief and route it to the correct marketing agent.
+3. If it is a status question, inspect the relevant work and answer with specifics.
+4. If it is unclear, ask one clarifying question.
+5. Reply in the same Slack thread using post_to_slack with thread_ts="${replyTs}".
+
+Rules:
+- No greeting.
+- No exclamation marks.
+- No emoji unless it is a status indicator.
+- Sound like a chief of staff, not a chatbot.
+- Send exactly one Slack response.`;
       break;
     }
 
