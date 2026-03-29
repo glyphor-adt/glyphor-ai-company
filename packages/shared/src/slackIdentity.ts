@@ -117,7 +117,7 @@ export async function getSlackAgentIdentity(agentRole: string): Promise<SlackAge
   }>(
     `SELECT ca.role,
             COALESCE(NULLIF(TRIM(ca.display_name), ''), NULLIF(TRIM(ca.name), ''), ca.role) AS display_name,
-            COALESCE(NULLIF(TRIM(ca.title), ''), NULLIF(TRIM(ap.title), ''), ca.role) AS title,
+            COALESCE(NULLIF(TRIM(ca.title), ''), ca.role) AS title,
             COALESCE(NULLIF(TRIM(ap.avatar_url), ''), '/avatars/' || ca.role || '.png') AS avatar_url
      FROM company_agents ca
      LEFT JOIN agent_profiles ap ON ap.agent_id = ca.role
