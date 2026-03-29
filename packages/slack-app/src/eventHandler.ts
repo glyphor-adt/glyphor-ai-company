@@ -12,7 +12,7 @@
  *   2. Classified by routeMessage() into a destination + intent label
  *   3. If the routing rule requires approval, createApproval() posts an
  *      interactive Slack message and persists a slack_approvals row.
- *   4. Otherwise, an immediate acknowledgement is sent back in-thread.
+ *   4. Otherwise, Sarah sends the immediate acknowledgement in-thread.
  */
 import { systemQuery } from '@glyphor/shared/db';
 import { postMessage, publishHomeTab } from './slackClient.js';
@@ -112,7 +112,7 @@ async function handleMessage(
     channel,
     text: ackText,
     thread_ts: threadTs,
-  });
+  }, { agentRole: 'chief-of-staff' });
 
   // Mark content as processing now that it has been routed
   if (contentId) {
@@ -154,6 +154,7 @@ async function handleFileShared(
 
 function buildAckText(destination: string, intentLabel: string): string {
   const teamLabel: Record<string, string> = {
+    'chief-of-staff': 'Sarah',
     billing: 'billing team',
     engineering: 'engineering team',
     sales: 'sales team',
@@ -162,6 +163,7 @@ function buildAckText(destination: string, intentLabel: string): string {
   };
   const label = teamLabel[destination] ?? 'team';
   const intentMap: Record<string, string> = {
+    coordinator_intake: 'request',
     billing_inquiry: 'billing question',
     bug_report: 'technical issue',
     sales_inquiry: 'question about plans',
@@ -169,5 +171,8 @@ function buildAckText(destination: string, intentLabel: string): string {
     general_inquiry: 'question',
   };
   const friendly = intentMap[intentLabel] ?? 'message';
+  if (destination === 'chief-of-staff') {
+    return `Sarah is on it. She’ll review your ${friendly} and route it to the right team.`;
+  }
   return `Got it — I've forwarded your ${friendly} to the ${label} and someone will follow up shortly.`;
 }

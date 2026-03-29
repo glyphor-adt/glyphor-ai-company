@@ -21,10 +21,13 @@ import { handleApprovalAction } from './approvalHandler.js';
 import { handleOAuthCallback } from './oauthHandler.js';
 import { handleSlackCommand, type SlackCommandPayload } from './commandHandler.js';
 import { triggerWebsiteIngestion } from './onboardingHandler.js';
+import { checkRateLimit } from './rateLimiter.js';
 import { openModal, postMessage } from './slackClient.js';
 import type { SlackEvent, SlackInteractionPayload } from './types.js';
 
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
+const SLACK_RATE_LIMIT_WINDOW_MS = 60_000;
+const SLACK_RATE_LIMIT_MAX = 120;
 
 // ─── HTTP helpers ────────────────────────────────────────────────────────────
 
@@ -56,6 +59,31 @@ function json(res: ServerResponse, status: number, data: unknown): void {
 function text(res: ServerResponse, status: number, content: string): void {
   res.writeHead(status, { 'Content-Type': 'text/plain' });
   res.end(content);
+}
+
+function getRequestKey(req: IncomingMessage): string {
+  return req.socket.remoteAddress ?? 'unknown';
+}
+
+function allowRequest(
+  res: ServerResponse,
+  key: string,
+  label: string,
+  limit = SLACK_RATE_LIMIT_MAX,
+  windowMs = SLACK_RATE_LIMIT_WINDOW_MS,
+): boolean {
+  const result = checkRateLimit(key, limit, windowMs);
+  if (result.allowed) return true;
+
+  res.setHeader('Retry-After', String(result.retryAfterSeconds));
+  json(res, 429, { error: 'Rate limit exceeded', scope: label });
+  return false;
+}
+
+function respondInternalError(res: ServerResponse, method: string, url: string, err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[Slack App] Error handling ${method} ${url}:`, message);
+  json(res, 500, { error: 'Internal server error' });
 }
 
 // ─── Request verification helper ─────────────────────────────────────────────
@@ -100,6 +128,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         json(res, 400, { error: 'Missing team_id' });
         return;
       }
+
+      if (!allowRequest(res, `slack-commands:${teamId}`, 'commands')) return;
 
       const customerTenant = await getCustomerTenantByTeamId(teamId);
       if (customerTenant) {
@@ -157,6 +187,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         return;
       }
 
+      if (!allowRequest(res, `slack-events:${teamId}`, 'events')) return;
+
       const customerTenant = await getCustomerTenantByTeamId(teamId);
       if (!customerTenant) {
         // Unknown workspace — return 200 to prevent Slack retries
@@ -207,6 +239,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         json(res, 400, { error: 'Missing team id in interaction payload' });
         return;
       }
+
+      if (!allowRequest(res, `slack-interactions:${teamId}`, 'interactions')) return;
 
       const customerTenant = await getCustomerTenantByTeamId(teamId);
       if (!customerTenant) {
@@ -304,6 +338,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const rawState = parsedUrl.searchParams.get('state');
       const tenantId = (rawState && rawState.length > 0) ? rawState : (process.env.DEFAULT_TENANT_ID || GLYPHOR_TENANT_ID);
 
+      if (!allowRequest(res, `slack-oauth:${getRequestKey(req)}`, 'oauth', 20, SLACK_RATE_LIMIT_WINDOW_MS)) return;
+
       if (!code) {
         const errorCode = parsedUrl.searchParams.get('error') ?? 'unknown';
         json(res, 400, { error: `OAuth denied: ${errorCode}` });
@@ -318,9 +354,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     // ── 404 ──────────────────────────────────────────────────────────────
     json(res, 404, { error: 'Not found' });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[Slack App] Error handling ${method} ${url}:`, message);
-    json(res, 500, { error: message });
+    respondInternalError(res, method, url, err);
   }
 });
 

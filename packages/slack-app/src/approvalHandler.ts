@@ -88,7 +88,7 @@ export async function createApproval(opts: ApprovalCreateOptions): Promise<strin
     thread_ts: slackMessageTs,
     text: `⚠️ This message has been flagged for review (${decision.intentLabel}).`,
     blocks: buildApprovalBlocks(approvalId, originalText, decision),
-  });
+  }, { agentRole: 'chief-of-staff' });
 
   return approvalId;
 }
@@ -162,7 +162,7 @@ export async function handleApprovalAction(
         channel: approval.slack_channel_id,
         thread_ts: approval.slack_message_ts,
         text: `Approved. Executing now.`,
-      });
+      }, { agentRole: 'chief-of-staff' });
     }
   } else {
     // Rejected — write negative world model evidence
@@ -185,7 +185,7 @@ export async function handleApprovalAction(
         channel: approval.slack_channel_id,
         thread_ts: approval.slack_message_ts,
         text: `Rejected.${reason ? ` Reason: ${reason}` : ''} I'll adjust next time.`,
-      });
+      }, { agentRole: 'chief-of-staff' });
     }
   }
 

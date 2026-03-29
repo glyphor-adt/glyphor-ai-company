@@ -9,6 +9,9 @@
  *   2. Persists the command as a customer_content row (source='slash_command')
  *   3. Creates a directive for the CoS/CMO to pick up
  *   4. Posts a threaded acknowledgement via response_url
+ *
+ * Special commands:
+ *   - `/glyphor offboard confirm` revokes the workspace installation
  */
 import { systemQuery } from '@glyphor/shared/db';
 import { getCustomerTenantByTeamId } from './slackClient.js';
@@ -44,6 +47,40 @@ export async function handleSlackCommand(payload: SlackCommandPayload): Promise<
   }
 
   console.log(`[Slack] Command from ${user_id} in team=${team_id}: /glyphor ${commandText.slice(0, 80)}`);
+
+  if (/^(offboard|disconnect)(?:\s+confirm)?$/i.test(commandText)) {
+    if (!/confirm$/i.test(commandText)) {
+      await respondToSlack(
+        response_url,
+        'This will revoke the Slack workspace connection. Run `/glyphor offboard confirm` to proceed.',
+      );
+      return;
+    }
+
+    await systemQuery(
+      `UPDATE customer_tenants
+       SET status = 'revoked',
+           settings = COALESCE(settings, '{}'::jsonb) || $2::jsonb,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [
+        customerTenant.id,
+        JSON.stringify({
+          onboarding_phase: 'offboarded',
+          offboarded_at: new Date().toISOString(),
+          offboarded_by: user_id,
+        }),
+      ],
+    );
+
+    await respondToSlack(
+      response_url,
+      'Workspace offboarded. The Slack app is now revoked for this tenant.',
+    );
+
+    console.log(`[Slack] Workspace offboarded for tenant=${customerTenant.id} by user=${user_id}`);
+    return;
+  }
 
   // 2. Persist as customer_content
   const contentRows = await systemQuery<{ id: string }>(
