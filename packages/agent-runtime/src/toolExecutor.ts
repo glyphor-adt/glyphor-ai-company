@@ -46,6 +46,7 @@ import {
   loadBehaviorProfile,
   persistBehavioralAnomalies,
 } from './behavioralFingerprint.js';
+import { classifyActionRisk } from './actionRiskClassifier.js';
 
 // ─── Tool Call Trace Persistence ───────────────────────────────
 // Fire-and-forget write of each tool call to tool_call_traces for
@@ -71,7 +72,7 @@ async function persistToolCallTrace(
       `INSERT INTO tool_call_traces
        (run_id, assignment_id, agent_id, agent_role, tool_name, args,
         result_success, result_data, result_error, files_written, memory_keys_written,
-        constitutional_check, estimated_cost_usd, turn_number,
+        constitutional_check, estimated_cost_usd, risk_level, turn_number,
         retrieval_method, retrieval_score, tools_available, model_cap)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
       [
@@ -88,6 +89,7 @@ async function persistToolCallTrace(
         log.result.memoryKeysWritten ?? 0,
         log.result.constitutional_check ? JSON.stringify(log.result.constitutional_check) : null,
         log.estimatedCostUsd,
+        log.riskLevel,
         turnNumber,
         retrievalMeta?.method ?? null,
         retrievalMeta?.score ?? null,
@@ -560,6 +562,7 @@ export class ToolExecutor {
     args: Record<string, unknown>,
     result: ToolResult,
     costUsd: number,
+    riskLevel: ToolCallLog['riskLevel'],
   ): void {
     this.callLog.push({
       agentId,
@@ -568,6 +571,7 @@ export class ToolExecutor {
       args,
       result,
       estimatedCostUsd: costUsd,
+      riskLevel,
       timestamp: new Date().toISOString(),
     });
   }
@@ -625,6 +629,8 @@ export class ToolExecutor {
       console.warn(`[ToolExecutor] Aliased requested tool ${requestedToolName} -> ${toolName}`);
     }
 
+    const riskAssessment = classifyActionRisk(toolName);
+
     const tool = this.tools.get(toolName) ?? getVirtualTool(toolName);
     if (!tool) {
       // ─── Runtime tool routing ──────────────────────────────
@@ -636,13 +642,13 @@ export class ToolExecutor {
           const result = await context.runtimeToolFactory.execute(toolName, params as Record<string, any>);
           recordToolCall(toolName, 'runtime', true, false, Date.now() - rtStart)
             .catch(err => console.warn('[ToolReputation] tracking failed:', err));
-          return { success: true, data: result };
+          return { success: true, data: result, riskLevel: riskAssessment.level };
         } catch (err: any) {
           const rtLatency = Date.now() - rtStart;
           const rtTimedOut = err.message?.includes('timeout') || rtLatency >= 60_000;
           recordToolCall(toolName, 'runtime', false, rtTimedOut, rtLatency)
             .catch(e => console.warn('[ToolReputation] tracking failed:', e));
-          return { success: false, error: `Runtime tool error: ${err.message}` };
+          return { success: false, error: `Runtime tool error: ${err.message}`, riskLevel: riskAssessment.level };
         }
       }
 
@@ -654,10 +660,22 @@ export class ToolExecutor {
         const dynamicResult = await executeDynamicTool(toolName, params);
         if (dynamicResult) {
           const dynLatency = Date.now() - dynStart;
-          this.logToolCall(context.agentId, context.agentRole, toolName, params, dynamicResult, estimateToolCost(toolName));
+          const classifiedDynamicResult: ToolResult = {
+            ...dynamicResult,
+            riskLevel: riskAssessment.level,
+          };
+          this.logToolCall(
+            context.agentId,
+            context.agentRole,
+            toolName,
+            params,
+            classifiedDynamicResult,
+            estimateToolCost(toolName),
+            riskAssessment.level,
+          );
           recordToolCall(toolName, 'dynamic_registry', dynamicResult.success, false, dynLatency)
             .catch(err => console.warn('[ToolReputation] tracking failed:', err));
-          return dynamicResult;
+          return classifiedDynamicResult;
         }
       } catch (dynErr) {
         const dynLatency = Date.now() - dynStart;
@@ -674,11 +692,58 @@ export class ToolExecutor {
           'If it does not exist, call request_new_tool and include suggested_api_config plus suggested_parameters so it can be auto-built immediately.',
         filesWritten: 0,
         memoryKeysWritten: 0,
+        riskLevel: riskAssessment.level,
       };
     }
 
     if (context.abortSignal.aborted) {
-      return { success: false, error: 'Agent aborted before tool execution', filesWritten: 0, memoryKeysWritten: 0 };
+      return {
+        success: false,
+        error: 'Agent aborted before tool execution',
+        filesWritten: 0,
+        memoryKeysWritten: 0,
+        riskLevel: riskAssessment.level,
+      };
+    }
+
+    if (riskAssessment.level === 'HARD_GATE') {
+      const blockedResult: ToolResult = {
+        success: false,
+        error: `Tool ${toolName} requires approval before execution.`,
+        filesWritten: 0,
+        memoryKeysWritten: 0,
+        riskLevel: riskAssessment.level,
+        approvalRequired: true,
+        approvalReason: riskAssessment.reason,
+      };
+
+      this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'ACTION_RISK_BLOCKED', {
+        level: riskAssessment.level,
+        reason: riskAssessment.reason,
+      });
+
+      this.logToolCall(
+        context.agentId,
+        context.agentRole,
+        toolName,
+        params,
+        blockedResult,
+        estimateToolCost(toolName),
+        riskAssessment.level,
+      );
+
+      const blockedLog = this.callLog[this.callLog.length - 1];
+      if (blockedLog) {
+        void persistToolCallTrace(
+          blockedLog,
+          context.runId,
+          context.assignmentId,
+          context.turnNumber,
+          context.retrievalMetadata?.get(toolName),
+        );
+      }
+
+      return blockedResult;
     }
 
     const preflight = normalizeAndValidateToolParams(toolName, tool, params);
@@ -688,6 +753,7 @@ export class ToolExecutor {
         error: preflight.error,
         filesWritten: 0,
         memoryKeysWritten: 0,
+        riskLevel: riskAssessment.level,
       };
     }
     params = preflight.params;
@@ -978,6 +1044,7 @@ export class ToolExecutor {
         filesWritten: result.filesWritten ?? 0,
         memoryKeysWritten: result.memoryKeysWritten ?? 0,
         constitutional_check: constitutionalCheckMeta,
+        riskLevel: riskAssessment.level,
       };
 
       // Auto-verify mutations by reading back the written data
@@ -1010,6 +1077,7 @@ export class ToolExecutor {
         params,
         finalResult,
         estimateToolCost(toolName),
+        riskAssessment.level,
       );
 
       // Track repeated tool failures for auto-escalation
@@ -1041,6 +1109,7 @@ export class ToolExecutor {
         error: (error as Error).message,
         filesWritten: 0,
         memoryKeysWritten: 0,
+        riskLevel: riskAssessment.level,
       };
 
       this.logToolCall(
@@ -1050,6 +1119,7 @@ export class ToolExecutor {
         params,
         failResult,
         estimateToolCost(toolName),
+        riskAssessment.level,
       );
 
       trackToolFailure(context.agentRole, toolName, (error as Error).message, context.glyphorEventBus);

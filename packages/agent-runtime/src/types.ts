@@ -133,6 +133,12 @@ export interface ToolResult {
   error?: string;
   filesWritten?: number;
   memoryKeysWritten?: number;
+  /** Runtime classification of the action's governance risk. */
+  riskLevel?: ActionRiskLevel;
+  /** True when the tool was blocked until approval. */
+  approvalRequired?: boolean;
+  /** Human-readable reason for the approval requirement or risk label. */
+  approvalReason?: string;
   /** Constitutional pre-check metadata (present for high-stakes tools). */
   constitutional_check?: {
     checked: boolean;
@@ -140,6 +146,8 @@ export interface ToolResult {
     blocked: boolean;
   };
 }
+
+export type ActionRiskLevel = 'AUTONOMOUS' | 'SOFT_GATE' | 'HARD_GATE';
 
 // ═══════════════════════════════════════════════════════════════════
 // CONVERSATION
@@ -515,6 +523,7 @@ export interface ToolCallLog {
   args: Record<string, unknown>;
   result: ToolResult;
   estimatedCostUsd: number;
+  riskLevel: ActionRiskLevel;
   timestamp: string;
 }
 
@@ -547,7 +556,8 @@ export type SecurityEventType =
   | 'DATA_EVIDENCE_MISSING'
   | 'CONSTITUTIONAL_BLOCK'
   | 'TOOL_VERIFICATION_BLOCK'
-  | 'BEHAVIORAL_ANOMALY';
+  | 'BEHAVIORAL_ANOMALY'
+  | 'ACTION_RISK_BLOCKED';
 
 export interface SecurityEvent {
   agentId: string;

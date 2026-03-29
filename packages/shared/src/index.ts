@@ -34,6 +34,13 @@ export {
 } from './storage.js';
 
 export {
+  getSlackAgentIdentity,
+  buildSlackAgentContextBlock,
+  decorateSlackBlocks,
+  type SlackAgentIdentity,
+} from './slackIdentity.js';
+
+export {
   SUPPORTED_MODELS,
   DEPRECATED_MODELS,
   DEFAULT_AGENT_MODEL,

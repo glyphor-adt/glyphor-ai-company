@@ -117,6 +117,80 @@ describe('ToolExecutor', () => {
     expect(highStakesTool.execute).toHaveBeenCalledOnce();
   });
 
+  it('blocks hard-gate tools before execution and records the risk level', async () => {
+    const hardGateTool: ToolDefinition = {
+      name: 'create_or_update_file',
+      description: 'Update a shared file',
+      parameters: {
+        path: { type: 'string', description: 'Path', required: true },
+        content: { type: 'string', description: 'Content', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: { updated: true } }),
+    };
+
+    const executor = new ToolExecutor([hardGateTool]);
+    const result = await executor.execute(
+      'create_or_update_file',
+      { path: 'README.md', content: 'updated' },
+      buildContext(),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('requires approval before execution');
+    expect(result.riskLevel).toBe('HARD_GATE');
+    expect(result.approvalRequired).toBe(true);
+    expect(hardGateTool.execute).not.toHaveBeenCalled();
+    expect(executor.getSecurityLog().some((event) => event.eventType === 'ACTION_RISK_BLOCKED')).toBe(true);
+    expect(executor.getCallLog()[0]?.riskLevel).toBe('HARD_GATE');
+  });
+
+  it('classifies soft-gate tools without blocking execution', async () => {
+    const softGateTool: ToolDefinition = {
+      name: 'post_to_slack',
+      description: 'Post to Slack',
+      parameters: {
+        channel: { type: 'string', description: 'Channel', required: true },
+        message: { type: 'string', description: 'Message', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: { sent: true } }),
+    };
+
+    const executor = new ToolExecutor([softGateTool]);
+    const result = await executor.execute(
+      'post_to_slack',
+      { channel: '#general', message: 'Hello' },
+      buildContext(),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.riskLevel).toBe('SOFT_GATE');
+    expect(softGateTool.execute).toHaveBeenCalledOnce();
+    expect(executor.getCallLog()[0]?.riskLevel).toBe('SOFT_GATE');
+  });
+
+  it('classifies read-only tools as autonomous', async () => {
+    const readOnlyTool: ToolDefinition = {
+      name: 'search_docs',
+      description: 'Search docs',
+      parameters: {
+        query: { type: 'string', description: 'Search query', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: [] }),
+    };
+
+    const executor = new ToolExecutor([readOnlyTool]);
+    const result = await executor.execute(
+      'search_docs',
+      { query: 'architecture' },
+      buildContext(),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.riskLevel).toBe('AUTONOMOUS');
+    expect(readOnlyTool.execute).toHaveBeenCalledOnce();
+    expect(executor.getCallLog()[0]?.riskLevel).toBe('AUTONOMOUS');
+  });
+
   it('omits provider-specific defer_loading from base tool declarations', () => {
     const deferredTool: ToolDefinition = {
       name: 'search_docs',

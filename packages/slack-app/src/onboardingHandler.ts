@@ -68,7 +68,7 @@ export async function startOnboarding(
         ],
       },
     ],
-  });
+  }, { agentRole: 'chief-of-staff' });
 
   await systemQuery(
     `UPDATE customer_tenants
@@ -127,7 +127,7 @@ export async function handleOnboardingReply(
     await postMessage(customerTenant.bot_token, {
       channel: onboardingDm,
       text: `Got it — deliverables will go to #${channelName}.`,
-    });
+    }, { agentRole: 'chief-of-staff' });
 
     console.log(`[Onboarding] Channel set to #${channelName} for tenant=${customerTenant.id}`);
     return true;
@@ -158,7 +158,7 @@ export async function triggerWebsiteIngestion(
     await postMessage(ct.bot_token, {
       channel: dmChannel,
       text: `Reading ${url} now. This will take a minute.`,
-    });
+    }, { agentRole: 'chief-of-staff' });
   }
 
   // Store URL as customer_knowledge entry
@@ -203,7 +203,7 @@ export async function triggerWebsiteIngestion(
       await postMessage(ct.bot_token, {
         channel: dmChannel,
         text: 'Something went wrong starting the website analysis. Retrying shortly.',
-      });
+      }, { agentRole: 'chief-of-staff' });
     }
   }
 
@@ -227,6 +227,6 @@ export async function triggerWebsiteIngestion(
     await postMessage(ct.bot_token, {
       channel: dmChannel,
       text: 'Which channel should completed work go to? (e.g. #marketing)',
-    });
+    }, { agentRole: 'chief-of-staff' });
   }
 }

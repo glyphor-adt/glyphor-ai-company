@@ -15,6 +15,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+import { decorateSlackBlocks, getSlackAgentIdentity } from '@glyphor/shared';
 
 const SLACK_API_BASE = 'https://slack.com/api';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -32,6 +33,7 @@ interface SlackIntegration {
     dm_owner: string | null;
     general: string | null;
   };
+  agentChannelPermissions: Record<string, string[]>;
 }
 
 interface SlackPostResponse {
@@ -63,6 +65,15 @@ async function getSlackIntegration(tenantId: string): Promise<SlackIntegration |
 
   const settings = row.settings ?? {};
   const channels = (settings['channels'] as Record<string, string | null>) ?? {};
+  const agentChannelPermissions = (settings['agent_channel_permissions'] as Record<string, unknown>) ??
+    (settings['agentChannelPermissions'] as Record<string, unknown>) ?? {};
+
+  const normalizedPermissions: Record<string, string[]> = {};
+  for (const [agentRole, permissions] of Object.entries(agentChannelPermissions)) {
+    if (Array.isArray(permissions)) {
+      normalizedPermissions[agentRole] = permissions.filter((permission): permission is string => typeof permission === 'string');
+    }
+  }
 
   return {
     customerTenantId: row.id,
@@ -75,20 +86,30 @@ async function getSlackIntegration(tenantId: string): Promise<SlackIntegration |
       dm_owner: channels['dm_owner'] ?? null,
       general: channels['general'] ?? row.default_channel ?? null,
     },
+    agentChannelPermissions: normalizedPermissions,
   };
 }
 
 async function slackPost(
   botToken: string,
   payload: Record<string, unknown>,
+  agentRole?: string,
 ): Promise<SlackPostResponse> {
+  const slackIdentity = agentRole ? await getSlackAgentIdentity(agentRole) : null;
   const res = await fetch(`${SLACK_API_BASE}/chat.postMessage`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       Authorization: `Bearer ${botToken}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...payload,
+      ...(slackIdentity ? {
+        username: slackIdentity.username,
+        icon_url: slackIdentity.iconUrl,
+        blocks: decorateSlackBlocks((payload.blocks as unknown[] | undefined), slackIdentity),
+      } : {}),
+    }),
   });
   return res.json() as Promise<SlackPostResponse>;
 }
@@ -117,6 +138,33 @@ function resolveChannel(
     case 'report':      return integration.channels.reports;
     case 'update':      return integration.channels.general;
     default:            return integration.channels.general;
+  }
+}
+
+function getChannelKey(channel: string, channels: SlackIntegration['channels']): string | null {
+  for (const [key, configuredChannel] of Object.entries(channels)) {
+    if (configuredChannel && configuredChannel === channel) {
+      return key;
+    }
+  }
+
+  return null;
+}
+
+function getDefaultChannelPermissions(agentRole: string): string[] {
+  switch (agentRole) {
+    case 'chief-of-staff':
+      return ['briefings', 'reports', 'general', 'dm_owner'];
+    case 'cmo':
+      return ['deliverables', 'briefings', 'reports', 'general', 'dm_owner'];
+    case 'content-creator':
+      return ['deliverables', 'general'];
+    case 'seo-analyst':
+      return ['reports', 'general'];
+    case 'social-media-manager':
+      return ['deliverables', 'general'];
+    default:
+      return [];
   }
 }
 
@@ -154,9 +202,14 @@ export function createSlackOutputTools(): ToolDefinition[] {
         const message = (params.message as string ?? '').trim();
         const contextType = params.context_type as string ?? 'update';
         const threadTs = params.thread_ts as string | undefined;
+        const agentRole = ctx.agentRole;
 
         if (!message) {
           return { success: false, error: 'message is required' };
+        }
+
+        if (!agentRole) {
+          return { success: false, error: 'No agent role available for permission enforcement.' };
         }
 
         // Resolve tenant — the agent's run context carries tenantId in the run config
@@ -183,11 +236,27 @@ export function createSlackOutputTools(): ToolDefinition[] {
           };
         }
 
+        const channelKey = getChannelKey(channel, integration.channels);
+        if (!channelKey) {
+          return {
+            success: false,
+            error: `Unable to resolve permission key for Slack channel ${channel}.`,
+          };
+        }
+
+        const agentPermissions = integration.agentChannelPermissions[agentRole] ?? getDefaultChannelPermissions(agentRole);
+        if (!agentPermissions.includes(channelKey)) {
+          return {
+            success: false,
+            error: `${agentRole} is not permitted to post to ${channelKey}`,
+          };
+        }
+
         const result = await slackPost(integration.botToken, {
           channel,
           text: message,
           ...(threadTs ? { thread_ts: threadTs } : {}),
-        });
+        }, agentRole);
 
         if (!result.ok) {
           return { success: false, error: `Slack API error: ${result.error ?? 'unknown'}` };
@@ -350,7 +419,7 @@ export function createSlackOutputTools(): ToolDefinition[] {
           channel: dmChannel,
           text: `${agentName} has a ${deliverableType.replace(/_/g, ' ')} ready for review.`,
           blocks,
-        });
+        }, agentRole);
 
         if (!postResult.ok) {
           return { success: false, error: `Slack API error: ${postResult.error ?? 'unknown'}` };

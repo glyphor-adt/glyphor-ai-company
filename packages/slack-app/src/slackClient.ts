@@ -3,6 +3,7 @@
  * and retrieving customer tenant configuration from the database.
  */
 import { systemQuery } from '@glyphor/shared/db';
+import { decorateSlackBlocks, getSlackAgentIdentity } from '@glyphor/shared';
 import type { DbCustomerTenant } from './types.js';
 
 const SLACK_API_BASE = 'https://slack.com/api';
@@ -14,6 +15,10 @@ export interface PostMessageOptions {
   thread_ts?: string;
 }
 
+export interface PostMessageIdentity {
+  agentRole: string;
+}
+
 export interface SlackApiResponse {
   ok: boolean;
   error?: string;
@@ -23,14 +28,23 @@ export interface SlackApiResponse {
 export async function postMessage(
   botToken: string,
   opts: PostMessageOptions,
+  identity?: PostMessageIdentity,
 ): Promise<SlackApiResponse> {
+  const slackIdentity = identity?.agentRole ? await getSlackAgentIdentity(identity.agentRole) : null;
   const res = await fetch(`${SLACK_API_BASE}/chat.postMessage`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       Authorization: `Bearer ${botToken}`,
     },
-    body: JSON.stringify(opts),
+    body: JSON.stringify({
+      ...opts,
+      ...(slackIdentity ? {
+        username: slackIdentity.username,
+        icon_url: slackIdentity.iconUrl,
+        blocks: decorateSlackBlocks(opts.blocks, slackIdentity),
+      } : {}),
+    }),
   });
   return res.json() as Promise<SlackApiResponse>;
 }

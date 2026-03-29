@@ -41,6 +41,8 @@ export {
 } from './toolRegistry.js';
 export type { RegisteredToolDef, ApiToolConfig } from './toolRegistry.js';
 export { executeDynamicTool, loadDynamicToolDeclarations } from './dynamicToolExecutor.js';
+export { classifyActionRisk } from './actionRiskClassifier.js';
+export type { ActionRiskAssessment } from './actionRiskClassifier.js';
 export { checkEventPermission, createEventSecurityLog } from './eventPermissions.js';
 export type { EventPermissionCheck } from './eventPermissions.js';
 export { executeWorkLoop, PROACTIVE_COOLDOWNS } from './workLoop.js';
@@ -165,6 +167,7 @@ export type {
   ToolGrant,
   AgentToolGrants,
   ToolCallLog,
+  ActionRiskLevel,
   ActionReceipt,
   ToolRetrievalMeta,
   ToolRetrievalMetadataMap,
