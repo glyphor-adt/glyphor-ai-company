@@ -17,6 +17,7 @@ import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 
 const SLACK_API_BASE = 'https://slack.com/api';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -92,6 +93,19 @@ async function slackPost(
   return res.json() as Promise<SlackPostResponse>;
 }
 
+async function resolveTenantIdFromRunId(runId: string | undefined): Promise<string | null> {
+  if (!runId || !UUID_RE.test(runId)) {
+    return null;
+  }
+
+  const runRows = await systemQuery<{ tenant_id: string }>(
+    `SELECT tenant_id FROM agent_runs WHERE id = $1 LIMIT 1`,
+    [runId],
+  );
+
+  return runRows[0]?.tenant_id ?? null;
+}
+
 function resolveChannel(
   integration: SlackIntegration,
   contextType: string,
@@ -147,17 +161,7 @@ export function createSlackOutputTools(): ToolDefinition[] {
 
         // Resolve tenant — the agent's run context carries tenantId in the run config
         // For now, look up the first active customer tenant associated with the run
-        const runId = ctx.runId;
-        let tenantId: string | null = null;
-
-        if (runId) {
-          // Try to resolve tenant from the agent run's assignment metadata
-          const runRows = await systemQuery<{ tenant_id: string }>(
-            `SELECT tenant_id FROM agent_runs WHERE id = $1 LIMIT 1`,
-            [runId],
-          );
-          tenantId = runRows[0]?.tenant_id ?? null;
-        }
+        const tenantId = await resolveTenantIdFromRunId(ctx.runId);
 
         if (!tenantId) {
           return {
@@ -242,16 +246,7 @@ export function createSlackOutputTools(): ToolDefinition[] {
         }
 
         const agentRole = ctx.agentRole;
-        const runId = ctx.runId;
-        let tenantId: string | null = null;
-
-        if (runId) {
-          const runRows = await systemQuery<{ tenant_id: string }>(
-            `SELECT tenant_id FROM agent_runs WHERE id = $1 LIMIT 1`,
-            [runId],
-          );
-          tenantId = runRows[0]?.tenant_id ?? null;
-        }
+        const tenantId = await resolveTenantIdFromRunId(ctx.runId);
 
         if (!tenantId) {
           return { success: false, error: 'No tenant context available.' };
@@ -284,7 +279,7 @@ export function createSlackOutputTools(): ToolDefinition[] {
               deliverable_type: deliverableType,
               estimated_cost: estimatedCost,
               agent_role: agentRole,
-              run_id: runId,
+              run_id: ctx.runId ?? null,
             }),
             dmChannel,
           ],

@@ -640,6 +640,7 @@ const agentExecutor = async (
         | 'process_assignments'
         | 'on_demand',
       message: cmoMessage,
+      payload,
       conversationHistory,
     });
   } else if (agentRole === 'vp-sales') {

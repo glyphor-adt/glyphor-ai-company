@@ -1011,6 +1011,7 @@ export class CompanyAgentRunner {
       ...cleanHistory,
       { role: 'user', content: initialMessage, timestamp: Date.now(), ...(initialAttachments ? { attachments: initialAttachments } : {}) },
     ];
+    const toolRunId = dbRunId ?? config.id;
     let lastTextOutput: string | null = null;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
@@ -1955,7 +1956,7 @@ export class CompanyAgentRunner {
               memoryBus,
               emitEvent,
               glyphorEventBus: deps?.glyphorEventBus,
-              runId: config.id,
+              runId: toolRunId,
               assignmentId: config.assignmentId,
               retrievalMetadata: lastRetrievalTrace
                 ? buildCompanyRetrievalMetadataMap(lastRetrievalTrace)

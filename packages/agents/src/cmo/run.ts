@@ -214,9 +214,12 @@ Steps:
       break;
 
     case 'onboarding_ingestion': {
-      const websiteUrl = (params.payload?.website_url as string) ?? '';
-      const tenantId = (params.payload?.tenant_id as string) ?? '';
-      const customerTenantId = (params.payload?.customer_tenant_id as string) ?? '';
+      const onboardingPayload = ((params.payload && typeof params.payload === 'object')
+        ? params.payload
+        : params) as Record<string, unknown>;
+      const websiteUrl = (onboardingPayload.website_url as string) ?? (onboardingPayload.url as string) ?? '';
+      const tenantId = (onboardingPayload.tenant_id as string) ?? '';
+      const customerTenantId = (onboardingPayload.customer_tenant_id as string) ?? '';
       initialMessage = `A new customer just connected their workspace. Their website is ${websiteUrl}.
 
 Steps:
