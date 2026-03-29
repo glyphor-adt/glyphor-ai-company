@@ -80,7 +80,7 @@ async function routeToChiefOfStaff(
       const directiveResult = await db.query<{ id: string }>(
         `INSERT INTO founder_directives
            (tenant_id, title, description, priority, category, status, created_by, target_agents, source)
-         VALUES ($1, $2, $3, 'high', 'general', 'active', $4, ARRAY['chief-of-staff'], 'slack_message')
+         VALUES ($1, $2, $3, 'high', 'general', 'active', $4, ARRAY['chief-of-staff'], 'external_a2a')
          RETURNING id`,
         [customerTenant.tenant_id, title, text, createdBy],
       );
