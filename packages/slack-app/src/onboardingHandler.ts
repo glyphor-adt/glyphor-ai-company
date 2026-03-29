@@ -53,7 +53,7 @@ export async function startOnboarding(
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: '*Glyphor team*\n• *Sarah* — Chief of Staff: coordinates onboarding and keeps the team aligned.\n• *Maya* — CMO: analyzes your connected sources and turns them into brand and marketing direction.\n• *Marcus* — CTO: handles platform and technical execution.\n• *Nadia* — CFO: handles costs, operating discipline, and financial planning.\n• *Elena* — CPO: handles product direction and roadmap.',
+          text: '*Glyphor marketing team*\n• *Sarah* — Chief of Staff: coordinates onboarding and keeps the handoff tight.\n• *Maya* — CMO: analyzes your connected sources and turns them into brand and marketing direction.\n• *Tyler* — Content Creator: drafts blog posts, social content, and marketing collateral.\n• *Lisa* — SEO Analyst: handles keyword strategy, search visibility, and content gaps.\n• *Kai* — Social Media Manager: schedules and monitors social content and engagement.',
         },
       },
       {
