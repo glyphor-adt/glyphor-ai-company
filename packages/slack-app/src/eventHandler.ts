@@ -8,16 +8,13 @@
  *   file_shared      — File shared in a workspace (queued for content ingestion)
  *
  * Each inbound message is:
- *   1. Persisted to customer_content (status='pending')
- *   2. Classified by routeMessage() into a destination + intent label
- *   3. If the routing rule requires approval, createApproval() posts an
- *      interactive Slack message and persists a slack_approvals row.
- *   4. Otherwise, Sarah sends the immediate acknowledgement in-thread.
+ *   1. Checked against onboarding flow first
+ *   2. Routed to Sarah as a directive for triage
+ *   3. Queued in agent_wake_queue for chief-of-staff processing
+ *   4. Given a delayed fallback acknowledgement if no run starts
  */
 import { systemQuery } from '@glyphor/shared/db';
 import { postMessage, publishHomeTab } from './slackClient.js';
-import { routeMessage } from './router.js';
-import { createApproval } from './approvalHandler.js';
 import { handleOnboardingReply } from './onboardingHandler.js';
 import type { DbCustomerTenant, SlackInnerEvent } from './types.js';
 
@@ -50,12 +47,13 @@ async function handleMessage(
   customerTenant: DbCustomerTenant,
   event: SlackInnerEvent,
 ): Promise<void> {
-  // Ignore bot messages to avoid loops
-  if (event.bot_id) return;
+  // Ignore bot messages and non-user message mutations
+  const subtype = typeof event.subtype === 'string' ? event.subtype : undefined;
+  if (event.bot_id || subtype === 'bot_message') return;
+  if (subtype === 'message_changed' || subtype === 'message_deleted') return;
 
   const channel = event.channel;
   const text = (event.text ?? '').trim();
-  const threadTs = event.thread_ts ?? event.ts;
 
   if (!channel || !text) return;
 
@@ -65,61 +63,73 @@ async function handleMessage(
   const isOnboarding = await handleOnboardingReply(customerTenant, channel, text);
   if (isOnboarding) return;
 
-  // 1. Persist to customer_content
-  const contentRows = await systemQuery<{ id: string }>(
-    `INSERT INTO customer_content
-       (tenant_id, customer_tenant_id, kind, body, slack_channel_id, slack_message_ts, submitted_by, status)
-     VALUES ($1, $2, 'snippet', $3, $4, $5, $6, 'pending')
-     RETURNING id`,
+  await routeToChiefOfStaff(customerTenant, event, text);
+}
+
+async function routeToChiefOfStaff(
+  customerTenant: DbCustomerTenant,
+  event: SlackInnerEvent,
+  text: string,
+): Promise<void> {
+  // Persist as a directive for Sarah-first triage.
+  await systemQuery(
+    `INSERT INTO directives
+       (tenant_id, source, source_user_id, source_channel, text, status, created_at)
+     VALUES ($1, 'slack_message', $2, $3, $4, 'pending', NOW())`,
+    [customerTenant.tenant_id, event.user ?? null, event.channel ?? null, text],
+  );
+
+  // Queue Sarah to process the directive.
+  await systemQuery(
+    `INSERT INTO agent_wake_queue (agent_role, task, reason, context)
+     VALUES ('chief-of-staff', 'process_directive', $1, $2::jsonb)`,
     [
-      customerTenant.tenant_id,
-      customerTenant.id,
-      text,
-      channel,
-      event.ts ?? null,
-      event.user ?? null,
+      `Slack directive from ${event.user ?? 'unknown-user'} in ${event.channel ?? 'unknown-channel'}`,
+      JSON.stringify({
+        tenant_id: customerTenant.tenant_id,
+        source: 'slack_message',
+        user_id: event.user ?? null,
+        channel: event.channel ?? null,
+        text,
+        ts: event.ts ?? null,
+      }),
     ],
   );
 
-  const contentId = contentRows[0]?.id;
+  const channel = event.channel;
+  const ts = event.ts;
+  if (!channel || !ts) return;
 
-  // 2. Route the message
-  const decision = await routeMessage(customerTenant.tenant_id, text);
+  // 8-second slow-ack fallback if no recent chief-of-staff run is detected.
+  setTimeout(() => {
+    void sendSlowAckFallback(customerTenant, channel, ts);
+  }, 8000);
+}
 
-  console.log(
-    `[Slack] Routed team=${customerTenant.slack_team_id} → ` +
-    `destination=${decision.destination} intent=${decision.intentLabel} ` +
-    `approval=${decision.requiresApproval}`,
-  );
-
-  // 3a. Approval path — post interactive approval request instead of direct reply
-  if (decision.requiresApproval && contentId) {
-    await createApproval({
-      customerTenant,
-      contentId,
-      decision,
-      originalText: text,
-      slackChannelId: channel,
-      slackMessageTs: event.ts ?? '',
-      submittedBy: event.user ?? null,
-    });
-    return;
-  }
-
-  // 3b. Direct acknowledgement with routing context
-  const ackText = buildAckText(decision.destination, decision.intentLabel);
-  await postMessage(customerTenant.bot_token, {
-    channel,
-    text: ackText,
-    thread_ts: threadTs,
-  }, { agentRole: 'chief-of-staff' });
-
-  // Mark content as processing now that it has been routed
-  if (contentId) {
-    await systemQuery(
-      `UPDATE customer_content SET status = 'processing', updated_at = NOW() WHERE id = $1`,
-      [contentId],
+async function sendSlowAckFallback(
+  customerTenant: DbCustomerTenant,
+  channel: string,
+  ts: string,
+): Promise<void> {
+  try {
+    const recentRuns = await systemQuery<{ id: string }>(
+      `SELECT id
+       FROM agent_runs
+       WHERE agent_id = 'chief-of-staff'
+         AND created_at > NOW() - INTERVAL '8 seconds'
+       LIMIT 1`,
+      [],
     );
+
+    if (recentRuns.length === 0) {
+      await postMessage(customerTenant.bot_token, {
+        channel,
+        thread_ts: ts,
+        text: 'On it.',
+      }, { agentRole: 'chief-of-staff' });
+    }
+  } catch (e) {
+    console.error('[Slack] Slow ack fallback failed:', e);
   }
 }
 
@@ -150,29 +160,3 @@ async function handleFileShared(
   }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function buildAckText(destination: string, intentLabel: string): string {
-  const teamLabel: Record<string, string> = {
-    'chief-of-staff': 'Sarah',
-    billing: 'billing team',
-    engineering: 'engineering team',
-    sales: 'sales team',
-    support: 'support team',
-    general: 'team',
-  };
-  const label = teamLabel[destination] ?? 'team';
-  const intentMap: Record<string, string> = {
-    coordinator_intake: 'request',
-    billing_inquiry: 'billing question',
-    bug_report: 'technical issue',
-    sales_inquiry: 'question about plans',
-    escalation: 'concern',
-    general_inquiry: 'question',
-  };
-  const friendly = intentMap[intentLabel] ?? 'message';
-  if (destination === 'chief-of-staff') {
-    return `Sarah is on it. She’ll review your ${friendly} and route it to the right team.`;
-  }
-  return `Got it — I've forwarded your ${friendly} to the ${label} and someone will follow up shortly.`;
-}
