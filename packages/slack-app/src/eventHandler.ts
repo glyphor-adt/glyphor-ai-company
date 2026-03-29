@@ -13,7 +13,7 @@
  *   3. Queued in agent_wake_queue for chief-of-staff processing
  *   4. Given a delayed fallback acknowledgement if no run starts
  */
-import { systemQuery } from '@glyphor/shared/db';
+import { systemQuery, systemTransaction } from '@glyphor/shared/db';
 import { postMessage, publishHomeTab } from './slackClient.js';
 import { handleOnboardingReply } from './onboardingHandler.js';
 import type { DbCustomerTenant, SlackInnerEvent } from './types.js';
@@ -71,30 +71,50 @@ async function routeToChiefOfStaff(
   event: SlackInnerEvent,
   text: string,
 ): Promise<void> {
-  // Persist as a directive for Sarah-first triage.
-  await systemQuery(
-    `INSERT INTO directives
-       (tenant_id, source, source_user_id, source_channel, text, status, created_at)
-     VALUES ($1, 'slack_message', $2, $3, $4, 'pending', NOW())`,
-    [customerTenant.tenant_id, event.user ?? null, event.channel ?? null, text],
-  );
+  try {
+    const directiveId = await systemTransaction(async (db) => {
+      const createdBy = `slack:${event.user ?? 'unknown-user'}`;
+      const title = `Slack message from ${event.user ?? 'unknown-user'}`;
+      const reason = `Slack directive from ${event.user ?? 'unknown-user'} in ${event.channel ?? 'unknown-channel'}`;
 
-  // Queue Sarah to process the directive.
-  await systemQuery(
-    `INSERT INTO agent_wake_queue (agent_role, task, reason, context)
-     VALUES ('chief-of-staff', 'process_directive', $1, $2::jsonb)`,
-    [
-      `Slack directive from ${event.user ?? 'unknown-user'} in ${event.channel ?? 'unknown-channel'}`,
-      JSON.stringify({
-        tenant_id: customerTenant.tenant_id,
-        source: 'slack_message',
-        user_id: event.user ?? null,
-        channel: event.channel ?? null,
-        text,
-        ts: event.ts ?? null,
-      }),
-    ],
-  );
+      const directiveResult = await db.query<{ id: string }>(
+        `INSERT INTO founder_directives
+           (tenant_id, title, description, priority, category, status, created_by, target_agents, source)
+         VALUES ($1, $2, $3, 'high', 'general', 'active', $4, ARRAY['chief-of-staff'], 'slack_message')
+         RETURNING id`,
+        [customerTenant.tenant_id, title, text, createdBy],
+      );
+
+      const insertedDirectiveId = directiveResult.rows[0]?.id ?? null;
+
+      await db.query(
+        `INSERT INTO agent_wake_queue (agent_role, task, reason, context)
+         VALUES ('chief-of-staff', 'process_directive', $1, $2::jsonb)`,
+        [
+          reason,
+          JSON.stringify({
+            directive_id: insertedDirectiveId,
+            tenant_id: customerTenant.tenant_id,
+            source: 'slack_message',
+            user_id: event.user ?? null,
+            channel: event.channel ?? null,
+            text,
+            ts: event.ts ?? null,
+          }),
+        ],
+      );
+
+      return insertedDirectiveId;
+    });
+
+    console.log(
+      `[Slack] Created founder directive ${directiveId ?? 'unknown'} and queued chief-of-staff wake ` +
+      `(team=${customerTenant.slack_team_id})`,
+    );
+  } catch (error) {
+    console.error('[Slack] Failed to create founder directive:', error);
+    return;
+  }
 
   const channel = event.channel;
   const ts = event.ts;
