@@ -1,6 +1,6 @@
 # Glyphor AI Company - Full Technical Architecture
 
-Last updated: 2026-03-15
+Last updated: 2026-03-29
 
 This document is the full technical architecture readout for the current monorepo.
 It combines a full subsystem walkthrough with current, filesystem-verified inventory counts.
@@ -21,14 +21,14 @@ At a high level:
 
 Verified from repository state:
 
-- Workspace packages under packages: 24
-- Integration modules under packages/integrations/src: 19
-- File-based agent role directories under packages/agents/src: 27
-- Dashboard page modules under packages/dashboard/src/pages: 29
-- SQL migrations under db/migrations: 169
-- Docker build files under docker (Dockerfile.*): 15
-- Dashboard route entries in packages/dashboard/src/App.tsx: 30 path routes (+ index route)
-- Dashboard TABLE_MAP aliases in packages/scheduler/src/dashboardApi.ts: 83 aliases mapped to 58 physical tables
+- Workspace packages under packages: 25
+- Integration modules under packages/integrations/src: 21
+- File-based agent role directories under packages/agents/src: 29
+- Dashboard page modules under packages/dashboard/src/pages: 30
+- SQL migrations under db/migrations: 261
+- Docker build files under docker (Dockerfile.*): 18
+- Dashboard route entries in packages/dashboard/src/App.tsx: 32 path routes (+ index route)
+- Dashboard TABLE_MAP aliases in packages/scheduler/src/dashboardApi.ts: 88 aliases mapped to 60 physical tables
 
 Top-level packages currently present:
 
@@ -49,6 +49,7 @@ Top-level packages currently present:
 - mcp-hr-server
 - mcp-legal-server
 - mcp-marketing-server
+- mcp-sharepoint-sites
 - mcp-slack-server
 - scheduler
 - shared
@@ -167,7 +168,7 @@ Primary role:
 
 - Role-specific prompts, toolsets, and runners for file-based agents plus shared execution wiring.
 
-File-based role directories currently present (27):
+File-based role directories currently present (29):
 
 - chief-of-staff
 - cto
@@ -179,6 +180,7 @@ File-based role directories currently present (27):
 - vp-design
 - vp-research
 - platform-engineer
+- platform-intel
 - quality-engineer
 - devops-engineer
 - m365-admin
@@ -187,6 +189,7 @@ File-based role directories currently present (27):
 - competitive-intel
 - content-creator
 - seo-analyst
+- shared
 - social-media-manager
 - ui-ux-designer
 - frontend-engineer
@@ -222,17 +225,19 @@ Primary role:
 
 - External system connectivity and domain-specific API clients.
 
-Current integration modules (19):
+Current integration modules (21):
 
 - agent365
 - anthropic
 - canva
 - credentials
 - docusign
+- facebook
 - gcp
 - github
 - governance
 - kling
+- linkedin
 - mercury
 - openai
 - posthog
@@ -908,6 +913,8 @@ Routes currently wired in dashboard App.tsx:
 - /policy (redirect)
 - /ora
 - /change-requests
+- /models (redirect)
+- /fleet
 - /settings
 - * -> / (catch-all redirect)
 
@@ -925,11 +932,13 @@ Legacy redirects currently preserved:
 Notable routing behavior:
 
 - Agent settings path uses AgentProfile route with settings tab mode.
+- Models route redirects into the governance page model tab.
+- Fleet is a dedicated operational page route.
 - Catch-all wildcard path redirects unknown routes back to dashboard home.
 
 ## 9. Dashboard Page Surface
 
-Current page module inventory under src/pages (29 files):
+Current page module inventory under src/pages (30 files):
 
 - Activity.tsx
 - AgentBuilder.tsx
@@ -943,11 +952,13 @@ Current page module inventory under src/pages (29 files):
 - Dashboard.tsx
 - Directives.tsx
 - Financials.tsx
+- Fleet.tsx
 - Governance.tsx
 - Graph.tsx
 - GroupChat.tsx
 - Knowledge.tsx
 - Meetings.tsx
+- ModelAdmin.tsx
 - Operations.tsx
 - OraChat.tsx
 - PolicyVersions.tsx
@@ -966,7 +977,7 @@ Current page module inventory under src/pages (29 files):
 ### 10.1 Persistence Strategy
 
 - PostgreSQL is used as the primary persistent state store.
-- Migrations are managed as SQL files under db/migrations (169 files currently).
+- Migrations are managed as SQL files under db/migrations (261 files currently).
 - Runtime writes are concentrated in execution, assignment, decision, memory, and telemetry domains.
 
 ### 10.2 Data Domains
@@ -994,7 +1005,7 @@ Representative data domains persisted in the platform include:
   - agent_memory
   - shared episodes/procedures style structures
   - knowledge graph nodes/edges
-  - company pulse and knowledge materialization
+  - company pulse, company vitals, and knowledge materialization
 
 - Communication
   - agent_messages
@@ -1007,7 +1018,7 @@ Representative data domains persisted in the platform include:
 
 ### 10.3 Dashboard API Table Map and Domain Coverage
 
-The dashboard CRUD layer currently maps 83 URL slugs to 58 physical PostgreSQL tables through TABLE_MAP in packages/scheduler/src/dashboardApi.ts.
+The dashboard CRUD layer currently maps 88 URL slugs to 60 physical PostgreSQL tables through TABLE_MAP in packages/scheduler/src/dashboardApi.ts.
 
 Primary domains and current table ownership anchors:
 
@@ -1030,7 +1041,7 @@ Primary domains and current table ownership anchors:
   - platform_iam_state, platform_audit_log, platform_secret_rotation, policy_versions, constitutional_gate_events
 
 - Tooling and capability governance (owner: agent-runtime tooling + scheduler policy/tool managers)
-  - tool_registry, agent_tool_grants, tool_reputation, agent_reasoning_config, role_rubrics, agent_skills, executive_orchestration_config
+  - tool_registry, agent_tool_grants, tool_reputation, agent_reasoning_config, role_rubrics, agent_skills, executive_orchestration_config, model_registry, routing_config
 
 - Financial and sync domains (owner: integrations sync endpoints)
   - financials, gcp_billing, api_billing, data_sync_status
@@ -1068,11 +1079,11 @@ Recent migration trend highlights:
 
 ### 10.5 Complete TABLE_MAP Alias Matrix
 
-This is the full current alias mapping from TABLE_MAP (all 58 physical tables).
+This is the full current alias mapping from TABLE_MAP (all 60 physical tables).
 
 | Physical table | URL slug aliases |
 | --- | --- |
-| activity_log | activity, activity_log |
+| activity_log | activity_log, activity |
 | agent_briefs | agent_briefs |
 | agent_eval_results | agent-eval-results, agent_eval_results |
 | agent_eval_scenarios | agent-eval-scenarios, agent_eval_scenarios |
@@ -1086,49 +1097,51 @@ This is the full current alias mapping from TABLE_MAP (all 58 physical tables).
 | agent_profiles | agent_profiles |
 | agent_readiness | agent-readiness, agent_readiness |
 | agent_reasoning_config | agent_reasoning_config |
-| agent_reflections | agent-reflections, agent_reflections |
+| agent_reflections | agent_reflections, agent-reflections |
 | agent_runs | agent-runs |
-| agent_skills | agent-skills, agent_skills |
+| agent_skills | agent_skills, agent-skills |
 | agent_tool_grants | agent-tool-grants |
-| agent_world_model | agent-world-model, agent_world_model |
+| agent_world_model | agent_world_model, agent-world-model |
 | api_billing | api-billing |
 | chat_messages | chat-messages, chat_messages |
-| company_agents | agents, company-agents, company_agents |
+| company_agents | company_agents, company-agents, agents |
 | company_knowledge | company_knowledge |
-| company_knowledge_base | company-knowledge-base |
-| company_pulse | company-pulse |
-| constitutional_gate_events | constitutional-gate-events, constitutional_gate_events |
+| company_knowledge_base | company-knowledge-base, knowledge |
+| company_vitals | company-vitals |
+| constitutional_gate_events | constitutional_gate_events, constitutional-gate-events |
 | dashboard_change_requests | dashboard-change-requests |
 | dashboard_users | dashboard-users |
-| data_sync_status | data-sync-status, data_sync_status |
+| data_sync_status | data_sync_status, data-sync-status |
 | decisions | decisions |
-| delegation_performance | delegation-performance, delegation_performance |
+| delegation_performance | delegation_performance, delegation-performance |
 | deliverables | deliverables |
-| executive_orchestration_config | executive-orchestration-config, executive_orchestration_config |
+| executive_orchestration_config | executive_orchestration_config, executive-orchestration-config |
 | financials | financials |
 | founder_bulletins | founder-bulletins |
-| founder_directives | directives, founder-directives |
+| founder_directives | founder-directives, directives |
 | gcp_billing | gcp-billing |
 | incidents | incidents |
 | initiatives | initiatives |
 | kg_edges | kg-edges |
 | kg_nodes | kg-nodes |
-| memory_archive | memory-archive, memory_archive |
-| memory_lifecycle | memory-lifecycle, memory_lifecycle |
-| ora_sessions | ora-sessions, ora_sessions |
-| plan_verifications | plan-verifications, plan_verifications |
+| memory_archive | memory_archive, memory-archive |
+| memory_lifecycle | memory_lifecycle, memory-lifecycle |
+| model_registry | model-registry, model_registry |
+| ora_sessions | ora_sessions, ora-sessions |
+| plan_verifications | plan_verifications, plan-verifications |
 | platform_audit_log | platform-audit-log |
 | platform_iam_state | platform-iam-state |
 | platform_secret_rotation | platform-secret-rotation |
-| policy_versions | policy-versions, policy_versions |
-| proposed_initiatives | proposed-initiatives, proposed_initiatives |
-| role_rubrics | role-rubrics, role_rubrics |
+| policy_versions | policy_versions, policy-versions |
+| proposed_initiatives | proposed_initiatives, proposed-initiatives |
+| role_rubrics | role_rubrics, role-rubrics |
+| routing_config | routing-config, routing_config |
 | skills | skills |
-| task_run_outcomes | task-run-outcomes, task_run_outcomes |
+| task_run_outcomes | task_run_outcomes, task-run-outcomes |
 | tool_registry | tool-registry |
-| tool_reputation | tool-reputation, tool_reputation |
+| tool_reputation | tool_reputation, tool-reputation |
 | work_assignments | work-assignments |
-| workflow_steps | workflow-steps, workflow_steps |
+| workflow_steps | workflow_steps, workflow-steps |
 | workflows | workflows |
 
 ## 11. Tooling and Capability Architecture

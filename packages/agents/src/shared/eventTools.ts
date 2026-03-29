@@ -8,6 +8,12 @@
 import type { ToolDefinition, ToolResult, EventPriority } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 
+function normalizeSourceRunId(runId: string | undefined): string | null {
+  if (!runId) return null;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidPattern.test(runId) ? runId : null;
+}
+
 export function createEventTools(glyphorEventBus: GlyphorEventBus): ToolDefinition[] {
   return [
     {
@@ -55,7 +61,7 @@ export function createEventTools(glyphorEventBus: GlyphorEventBus): ToolDefiniti
             insight: params.insight as string,
             domain: params.domain as string,
             product: params.product ?? null,
-            sourceRunId: ctx.agentId,
+            sourceRunId: normalizeSourceRunId(ctx.runId ?? ctx.assignmentId ?? ctx.agentId),
           },
           priority: (params.priority as EventPriority) ?? 'normal',
         });
@@ -97,7 +103,7 @@ export function createEventTools(glyphorEventBus: GlyphorEventBus): ToolDefiniti
           payload: {
             title: params.title as string,
             description: params.description as string,
-            sourceRunId: ctx.agentId,
+            sourceRunId: normalizeSourceRunId(ctx.runId ?? ctx.assignmentId ?? ctx.agentId),
           },
           priority: params.severity as EventPriority,
         });

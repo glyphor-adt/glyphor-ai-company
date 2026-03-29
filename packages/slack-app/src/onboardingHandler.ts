@@ -57,15 +57,6 @@ export async function startOnboarding(
         },
       },
       {
-        type: 'context',
-        elements: [
-          {
-            type: 'mrkdwn',
-            text: 'Website connection is live today. LinkedIn and Google Drive are not live yet and will be added separately.',
-          },
-        ],
-      },
-      {
         type: 'actions',
         elements: [
           {

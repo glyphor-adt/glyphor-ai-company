@@ -33,6 +33,12 @@ function isToxicMemory(content: string): boolean {
   return TOXIC_MEMORY_PATTERNS.some(p => p.test(content));
 }
 
+function normalizeSourceRunId(runId: string | undefined): string | undefined {
+  if (!runId) return undefined;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidPattern.test(runId) ? runId : undefined;
+}
+
 export function createMemoryTools(memory: CompanyMemoryStore): ToolDefinition[] {
   return [
     {
@@ -86,7 +92,7 @@ export function createMemoryTools(memory: CompanyMemoryStore): ToolDefinition[] 
           memoryType: params.memory_type as MemoryType,
           content,
           importance: Math.max(0, Math.min(1, params.importance as number)),
-          sourceRunId: ctx.agentId,
+          sourceRunId: normalizeSourceRunId(ctx.runId ?? ctx.assignmentId ?? ctx.agentId),
           tags: (params.tags as string[]) ?? undefined,
         });
         return { success: true, data: { memoryId: id }, memoryKeysWritten: 1 };
