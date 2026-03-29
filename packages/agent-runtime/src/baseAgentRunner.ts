@@ -202,6 +202,7 @@ export abstract class BaseAgentRunner {
     let initialAttachments: ConversationAttachment[] | undefined;
     const cleanHistory = (config.conversationHistory ?? []).filter((t) => {
       if (t.content.startsWith(DB_RUN_ID_TURN_PREFIX)) {
+        config.dbRunId = config.dbRunId ?? t.content.slice(DB_RUN_ID_TURN_PREFIX.length);
         return false;
       }
       if (t.content.startsWith(ASSIGNMENT_ID_TURN_PREFIX)) {
@@ -421,7 +422,11 @@ ${memPrompt}`, timestamp: Date.now() });
       }
     }
 
-    if (reasoningEngine && (reasoningEngine as any).config?.valueGateEnabled) {
+    if (
+      reasoningEngine &&
+      (reasoningEngine as any).config?.valueGateEnabled &&
+      taskForContext !== 'process_directive'
+    ) {
       try {
         const contextSummary = jitContext
           ? `JIT context: ${jitContext.tokenEstimate} tokens from ${jitContext.relevantMemories.length + jitContext.relevantKnowledge.length} sources`
@@ -660,7 +665,7 @@ ${memPrompt}`, timestamp: Date.now() });
               memoryBus,
               emitEvent,
               glyphorEventBus: safeDeps.glyphorEventBus,
-              runId: config.id,
+              runId: config.dbRunId ?? config.id,
               assignmentId: config.assignmentId,
               retrievalMetadata: lastRetrievalTrace
                 ? buildRetrievalMetadataMap(lastRetrievalTrace)

@@ -27,6 +27,8 @@ export interface AgentConfig {
   dryRun?: boolean;                  // When true, mutative tools are intercepted and logged
   /** Prior conversation turns for multi-turn chat (on_demand). */
   conversationHistory?: ConversationTurn[];
+  /** Database-backed agent_runs.id when available. */
+  dbRunId?: string;
   /** Work assignment ID (threaded from dispatch for outcome linkage). */
   assignmentId?: string;
   /** Founder directive ID (threaded from dispatch for outcome linkage). */
@@ -108,7 +110,7 @@ export interface ToolContext {
   glyphorEventBus?: import('./glyphorEventBus.js').GlyphorEventBus;
   /** RuntimeToolFactory — present when runtime tool synthesis is enabled. */
   runtimeToolFactory?: import('./runtimeToolFactory.js').RuntimeToolFactory;
-  /** Run ID for trace persistence (from AgentConfig.id). */
+  /** Run ID for trace persistence (prefers AgentConfig.dbRunId, falls back to AgentConfig.id). */
   runId?: string;
   /** Assignment ID for trace linkage (from AgentConfig.assignmentId). */
   assignmentId?: string;

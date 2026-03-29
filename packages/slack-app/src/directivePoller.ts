@@ -93,6 +93,11 @@ async function dispatchDirectiveWake(wake: PendingDirectiveWake): Promise<void> 
     const details = await response.text().catch(() => 'unknown error');
     throw new Error(`Scheduler /run failed (${response.status}): ${details}`);
   }
+
+  const result = await response.json().catch(() => null) as { action?: string; error?: string; reason?: string } | null;
+  if (result?.action !== 'executed') {
+    throw new Error(result?.error ?? result?.reason ?? `Scheduler /run returned action=${result?.action ?? 'unknown'}`);
+  }
 }
 
 async function pollOnce(): Promise<void> {
