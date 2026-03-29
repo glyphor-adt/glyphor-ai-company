@@ -50,6 +50,13 @@ import {
 // ─── Tool Call Trace Persistence ───────────────────────────────
 // Fire-and-forget write of each tool call to tool_call_traces for
 // eval and retrieval analytics. Never throws.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function normalizeTraceRunId(runId: string | undefined): string | null {
+  if (!runId || !UUID_RE.test(runId)) return null;
+  return runId;
+}
+
 async function persistToolCallTrace(
   log: ToolCallLog,
   runId: string | undefined,
@@ -57,7 +64,8 @@ async function persistToolCallTrace(
   turnNumber: number,
   retrievalMeta?: ToolRetrievalMeta,
 ): Promise<void> {
-  if (!runId) return;
+  const safeRunId = normalizeTraceRunId(runId);
+  if (!safeRunId) return;
   try {
     await systemQuery(
       `INSERT INTO tool_call_traces
@@ -67,7 +75,7 @@ async function persistToolCallTrace(
         retrieval_method, retrieval_score, tools_available, model_cap)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
       [
-        runId,
+        safeRunId,
         assignmentId ?? null,
         log.agentId,
         log.agentRole,
@@ -91,7 +99,7 @@ async function persistToolCallTrace(
     console.error('[persistToolCallTrace] INSERT failed', {
       agentId: log.agentId,
       toolName: log.toolName,
-      runId,
+      runId: safeRunId,
       error: String(err),
     });
   }
