@@ -94,10 +94,29 @@ export function buildSlackAgentContextBlock(identity: SlackAgentIdentity): unkno
 export function decorateSlackBlocks(
   blocks: unknown[] | undefined,
   identity: SlackAgentIdentity | null,
+  fallbackText?: string,
 ): unknown[] | undefined {
   if (!identity) return blocks;
   const identityBlock = buildSlackAgentContextBlock(identity);
-  return blocks ? [identityBlock, ...blocks] : [identityBlock];
+  if (blocks && blocks.length > 0) {
+    return [identityBlock, ...blocks];
+  }
+
+  const trimmedText = fallbackText?.trim();
+  if (!trimmedText) {
+    return [identityBlock];
+  }
+
+  return [
+    identityBlock,
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: trimmedText,
+      },
+    },
+  ];
 }
 
 export async function getSlackAgentIdentity(agentRole: string): Promise<SlackAgentIdentity | null> {

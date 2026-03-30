@@ -42,7 +42,7 @@ export async function postMessage(
       ...(slackIdentity ? {
         username: slackIdentity.username,
         icon_url: slackIdentity.iconUrl,
-        blocks: decorateSlackBlocks(opts.blocks, slackIdentity),
+        blocks: decorateSlackBlocks(opts.blocks, slackIdentity, opts.text),
       } : {}),
     }),
   });

@@ -107,7 +107,11 @@ async function slackPost(
       ...(slackIdentity ? {
         username: slackIdentity.username,
         icon_url: slackIdentity.iconUrl,
-        blocks: decorateSlackBlocks((payload.blocks as unknown[] | undefined), slackIdentity),
+        blocks: decorateSlackBlocks(
+          (payload.blocks as unknown[] | undefined),
+          slackIdentity,
+          typeof payload.text === 'string' ? payload.text : undefined,
+        ),
       } : {}),
     }),
   });
