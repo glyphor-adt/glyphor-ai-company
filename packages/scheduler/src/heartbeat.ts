@@ -232,11 +232,15 @@ export class HeartbeatManager {
       // Skip if agent was already added by directive detection above
       if (agentRole === 'chief-of-staff' && directiveWake) continue;
 
+      const hasQueuedWake = queuedWakeAgents.includes(agentRole);
+
       // Cost guard: skip non-critical wakes if agent exceeded daily budget
-      const agentCostToday = await this.getAgentCostToday(agentRole);
-      if (agentCostToday >= DAILY_COST_BUDGET_USD) {
-        console.log(`[Heartbeat] ${agentRole} daily cost $${agentCostToday.toFixed(2)} >= budget $${DAILY_COST_BUDGET_USD} — skipping heartbeat wake`);
-        continue;
+      if (!hasQueuedWake) {
+        const agentCostToday = await this.getAgentCostToday(agentRole);
+        if (agentCostToday >= DAILY_COST_BUDGET_USD) {
+          console.log(`[Heartbeat] ${agentRole} daily cost $${agentCostToday.toFixed(2)} >= budget $${DAILY_COST_BUDGET_USD} — skipping heartbeat wake`);
+          continue;
+        }
       }
 
       // Skip if agent ran recently
