@@ -71,8 +71,10 @@ async function routeToChiefOfStaff(
   event: SlackInnerEvent,
   text: string,
 ): Promise<void> {
+  let directiveId: string | null = null;
+
   try {
-    const directiveId = await systemTransaction(async (db) => {
+    directiveId = await systemTransaction(async (db) => {
       const createdBy = `slack:${event.user ?? 'unknown-user'}`;
       const title = `Slack message from ${event.user ?? 'unknown-user'}`;
       const reason = `Slack directive from ${event.user ?? 'unknown-user'} in ${event.channel ?? 'unknown-channel'}`;
@@ -122,7 +124,7 @@ async function routeToChiefOfStaff(
 
   // 8-second slow-ack fallback if no recent chief-of-staff run is detected.
   setTimeout(() => {
-    void sendSlowAckFallback(customerTenant, channel, ts);
+    void sendSlowAckFallback(customerTenant, channel, ts, directiveId);
   }, 8000);
 }
 
@@ -130,8 +132,27 @@ async function sendSlowAckFallback(
   customerTenant: DbCustomerTenant,
   channel: string,
   ts: string,
+  directiveId: string | null,
 ): Promise<void> {
   try {
+    if (directiveId) {
+      const wakeRows = await systemQuery<{ status: string }>(
+        `SELECT status
+         FROM agent_wake_queue
+         WHERE agent_role = 'chief-of-staff'
+           AND task = 'process_directive'
+           AND context->>'directive_id' = $1
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [directiveId],
+      );
+
+      const wakeStatus = wakeRows[0]?.status ?? null;
+      if (wakeStatus === 'dispatched' || wakeStatus === 'completed') {
+        return;
+      }
+    }
+
     const recentRuns = await systemQuery<{ id: string }>(
       `SELECT id
        FROM agent_runs
