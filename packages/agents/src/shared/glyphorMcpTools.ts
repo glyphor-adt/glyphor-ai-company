@@ -112,6 +112,7 @@ function getDefaultGlyphorServers(agentRole?: string): string[] {
 function convertMcpTool(
   mcpTool: Record<string, unknown>,
   serverUrl: string,
+  serverName: string,
   agentRole?: string,
 ): ToolDefinition {
   const inputSchema = (mcpTool.inputSchema as Record<string, unknown>) ?? {};
@@ -129,12 +130,14 @@ function convertMcpTool(
   }
 
   const toolName = mcpTool.name as string;
+  const abac = getAbacMetadata(serverName, toolName, props);
 
   return {
     name: toolName,
     description: (mcpTool.description as string) ?? '',
     parameters,
     deferLoading: true,
+    abac,
     execute: async (params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
       try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -178,6 +181,44 @@ function convertMcpTool(
       }
     },
   };
+}
+
+function getAbacMetadata(
+  serverName: string,
+  toolName: string,
+  props: Record<string, Record<string, unknown>>,
+): ToolDefinition['abac'] {
+  const domainMap: Record<string, string> = {
+    mcp_GlyphorFinance: 'finance',
+    mcp_GlyphorLegal: 'legal',
+    mcp_GlyphorHR: 'hr',
+    mcp_GlyphorEngineering: 'engineering',
+    mcp_GlyphorDesign: 'design',
+  };
+  const mcpDomain = domainMap[serverName];
+  if (!mcpDomain) return undefined;
+
+  const paramKeys = new Set(Object.keys(props));
+  const resourceTypeParam = ['resource_type', 'record_type', 'asset_type', 'contract_type', 'metric_type', 'event_type']
+    .find((key) => paramKeys.has(key));
+
+  const normalized = toolName.toLowerCase();
+  let resourceType: string;
+  if (mcpDomain === 'finance') {
+    if (normalized.includes('stripe')) resourceType = 'invoice_data';
+    else if (normalized.includes('payroll')) resourceType = 'payroll_data';
+    else resourceType = 'budget_reports';
+  } else if (mcpDomain === 'hr') {
+    resourceType = normalized.includes('org_chart') ? 'org_chart' : 'employee_records';
+  } else if (mcpDomain === 'legal') {
+    resourceType = normalized.includes('nda') ? 'ndas' : 'contracts';
+  } else if (mcpDomain === 'engineering') {
+    resourceType = normalized.includes('repo') ? 'code_repos' : 'deployment_configs';
+  } else {
+    resourceType = 'brand_assets';
+  }
+
+  return { mcpDomain, resourceType, resourceTypeParam };
 }
 
 // ── Public Factory ──────────────────────────────────────────────
@@ -249,7 +290,7 @@ export async function createGlyphorMcpTools(
 
         const tools = (result.result as Record<string, unknown>[] | undefined) ?? [];
         for (const mcpTool of tools) {
-          allTools.push(convertMcpTool(mcpTool, serverUrl, agentRole));
+          allTools.push(convertMcpTool(mcpTool, serverUrl, serverName, agentRole));
         }
 
         console.log(`[GlyphorMCP] ${serverName}: ${tools.length} tools (agent=${agentRole ?? 'anon'})`);

@@ -33,6 +33,7 @@ import { systemQuery } from '@glyphor/shared/db';
 import { buildSearchableToolDescription } from './toolRegistry.js';
 import type { FormalVerifier } from './formalVerifier.js';
 import { executeDynamicTool } from './dynamicToolExecutor.js';
+import { abacMiddleware } from './abac.js';
 import { HIGH_STAKES_TOOLS, preCheckTool } from './constitutionalPreCheck.js';
 import type { ConstitutionalGovernor } from './constitutionalGovernor.js';
 import type { ModelClient } from './modelClient.js';
@@ -1036,7 +1037,18 @@ export class ToolExecutor {
         );
       });
 
-      const result = await Promise.race([toolPromise, timeoutPromise, abortPromise]);
+      const result = await abacMiddleware(
+        context.agentRole,
+        {
+          tool,
+          toolName,
+          params,
+          taskId: context.assignmentId ?? context.runId,
+          agentRole: context.agentRole,
+          auditAgentId: context.agentId,
+        },
+        () => Promise.race([toolPromise, timeoutPromise, abortPromise]),
+      );
 
       const finalResult: ToolResult = {
         success: result.success,

@@ -53,6 +53,7 @@ import { DataSyncScheduler } from './dataSyncScheduler.js';
 import { HeartbeatManager } from './heartbeat.js';
 import { AgentNotifier } from './agentNotifier.js';
 import { handleDashboardApi } from './dashboardApi.js';
+import { handleAbacAdminApi } from './abacAdminApi.js';
 import { handleGovernanceApi } from './governanceApi.js';
 import { handleEvalApi } from './evalDashboard.js';
 import { verifyPlan } from './planVerifier.js';
@@ -4587,6 +4588,9 @@ const server = createServer(async (req, res) => {
 
     // ── Governance API (/api/governance/*) ────────────────────────
     if (await handleGovernanceApi(req, res, url, queryString ?? '', method)) return;
+
+    // ── Admin ABAC API (/admin/abac/*) ────────────────────────────
+    if (await handleAbacAdminApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Dashboard CRUD API (/api/*) ────────────────────────────────
     if (await handleDashboardApi(req, res, url, queryString ?? '', method)) return;

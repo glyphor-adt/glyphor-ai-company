@@ -88,7 +88,19 @@ export interface ToolDefinition {
   parameters: Record<string, ToolParameter>;
   /** Hint for provider adapters: defer tool schema loading when supported. */
   deferLoading?: boolean;
+  /** Optional ABAC metadata for data-domain MCP tools. */
+  abac?: AbacToolMetadata;
   execute: (params: Record<string, unknown>, context: ToolContext) => Promise<ToolResult>;
+}
+
+export type DataClassificationLevel = 'public' | 'internal' | 'confidential' | 'restricted';
+
+export type AbacPermission = 'allow' | 'deny';
+
+export interface AbacToolMetadata {
+  mcpDomain?: string;
+  resourceType?: string;
+  resourceTypeParam?: string;
 }
 
 export interface ToolParameter {

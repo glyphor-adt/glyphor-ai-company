@@ -45,6 +45,16 @@ export { classifyActionRisk } from './actionRiskClassifier.js';
 export type { ActionRiskAssessment } from './actionRiskClassifier.js';
 export { checkEventPermission, createEventSecurityLog } from './eventPermissions.js';
 export type { EventPermissionCheck } from './eventPermissions.js';
+export {
+  AgentPermissionError,
+  abacMiddleware,
+  checkAgentPermission,
+  ensureAgentRoleRecord,
+  resolveClassificationLevel,
+  testAgentPermissionByRole,
+  isClassificationLevel,
+} from './abac.js';
+export type { AbacPermissionResult, AbacToolCall } from './abac.js';
 export { executeWorkLoop, PROACTIVE_COOLDOWNS } from './workLoop.js';
 export type { WorkLoopResult } from './workLoop.js';
 export { extractTaskFromConfigId } from './taskIdentity.js';
@@ -141,12 +151,15 @@ export type {
   GeminiToolDeclaration,
   IMemoryBus,
   ReasoningEnvelope,
+  AbacPermission,
+  AbacToolMetadata,
   SupervisorConfig,
   ToolContext,
   ToolDefinition,
   ToolParameter,
   ToolResult,
   // Company-specific types
+  DataClassificationLevel,
   DecisionTier,
   DecisionStatus,
   ProductSlug,
