@@ -365,9 +365,9 @@ export function createSlackOutputTools(): ToolDefinition[] {
 
         // Build the agent-branded approval card
         const AGENT_NAMES: Record<string, string> = {
-          'chief-of-staff': 'Sarah Chen', cmo: 'Maya Brooks', cto: 'Marcus Reeves',
-          cfo: 'Nadia Okafor', cpo: 'Elena Vasquez', 'content-creator': 'Tyler Reed',
-          'seo-analyst': 'Lisa Chen', 'social-media-manager': 'Kai Johnson',
+          'chief-of-staff': 'Sarah', cmo: 'Maya', cto: 'Marcus',
+          cfo: 'Nadia', cpo: 'Elena', 'content-creator': 'Tyler',
+          'seo-analyst': 'Lisa', 'social-media-manager': 'Kai',
         };
         const agentName = AGENT_NAMES[agentRole] ?? agentRole;
         const costLine = estimatedCost ? ` — ${estimatedCost} est.` : '';
@@ -377,7 +377,7 @@ export function createSlackOutputTools(): ToolDefinition[] {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `*${agentName} · ${agentRole}*`,
+              text: `*${agentName}*`,
             },
           },
           {

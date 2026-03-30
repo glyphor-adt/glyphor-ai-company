@@ -431,9 +431,9 @@ export function createTeamsOutputTools(): ToolDefinition[] {
 
         // Build agent-branded Adaptive Card
         const AGENT_NAMES: Record<string, string> = {
-          'chief-of-staff': 'Sarah Chen', cmo: 'Maya Brooks', cto: 'Marcus Reeves',
-          cfo: 'Nadia Okafor', cpo: 'Elena Vasquez', 'content-creator': 'Tyler Reed',
-          'seo-analyst': 'Lisa Chen', 'social-media-manager': 'Kai Johnson',
+          'chief-of-staff': 'Sarah', cmo: 'Maya', cto: 'Marcus',
+          cfo: 'Nadia', cpo: 'Elena', 'content-creator': 'Tyler',
+          'seo-analyst': 'Lisa', 'social-media-manager': 'Kai',
         };
         const agentName = AGENT_NAMES[agentRole] ?? agentRole;
         const costLine = estimatedCost ? ` — ${estimatedCost} est.` : '';
@@ -441,7 +441,7 @@ export function createTeamsOutputTools(): ToolDefinition[] {
         const cardBody: Record<string, unknown>[] = [
           {
             type: 'TextBlock',
-            text: `${agentName} · ${agentRole}`,
+            text: agentName,
             weight: 'Bolder',
             size: 'Medium',
           },

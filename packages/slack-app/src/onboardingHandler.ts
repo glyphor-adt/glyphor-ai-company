@@ -2,18 +2,14 @@
  * Onboarding handler — connection card flow after OAuth install.
  *
  * Flow:
- *   1. OAuth completes → startOnboarding() DMs Sarah's intro and the live connection card
+ *   1. OAuth completes → startOnboarding() asks for the website URL right away
  *   2. Customer clicks "Connect Website" → modal opens for URL input
  *   3. URL submitted → triggerWebsiteIngestion() scrapes, extracts brand signals
- *   4. Sarah introduces the team first; Maya follows after source ingestion
+ *   4. Sarah confirms the handoff and explains Maya will follow up to finish onboarding
  *   5. Marketing department agents provisioned, work begins
  *
- * Also handles a single channel-setup reply:
- *   After ingestion, Maya asks "Which channel should completed work go to?"
- *   The reply sets settings.channels.deliverables.
- *
  * State is tracked in customer_tenants.settings:
- *   { "onboarding_phase": "awaiting_connect" | "awaiting_channel" | "complete",
+ *   { "onboarding_phase": "awaiting_connect" | "maya_followup" | "complete",
  *     "onboarding_dm": "D...", "installer_user_id": "U..." }
  */
 import { systemQuery } from '@glyphor/shared/db';
@@ -40,20 +36,20 @@ export async function startOnboarding(
 
   await postMessage(botToken, {
     channel: dmChannelId,
-    text: 'Sarah here. I’ll introduce the team and then Maya will analyze whatever you connect.',
+    text: 'Connect your website to get started.',
     blocks: [
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: '*Sarah Chen, Chief of Staff*\nI’ll get you oriented, then Maya will review the sources you connect and ask for anything still missing.',
+          text: '*Connect your website*\nStart by sharing your main website so we can understand what you do and get onboarding moving.',
         },
       },
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: '*Glyphor marketing team*\n• *Sarah* — Chief of Staff: coordinates onboarding and keeps the handoff tight.\n• *Maya* — CMO: analyzes your connected sources and turns them into brand and marketing direction.\n• *Tyler* — Content Creator: drafts blog posts, social content, and marketing collateral.\n• *Lisa* — SEO Analyst: handles keyword strategy, search visibility, and content gaps.\n• *Kai* — Social Media Manager: schedules and monitors social content and engagement.',
+          text: '*You’ll work with*\n• *Sarah* keeps onboarding moving and handles the handoff.\n• *Maya* reviews your website and follows up with whatever is still missing.\n• *Tyler*, *Lisa*, and *Kai* step in once Maya has the brief she needs.',
         },
       },
       {
@@ -89,7 +85,7 @@ export async function startOnboarding(
   console.log(`[Onboarding] Connection card sent for tenant=${customerTenantId} dm=${dmChannelId}`);
 }
 
-// ─── Handle reply during onboarding (channel setup) ──────────────────────────
+// ─── Handle reply during onboarding ───────────────────────────────────────────
 
 /**
  * Returns true if this message was consumed by the onboarding flow,
@@ -98,40 +94,13 @@ export async function startOnboarding(
 export async function handleOnboardingReply(
   customerTenant: DbCustomerTenant,
   channel: string,
-  text: string,
+  _text: string,
 ): Promise<boolean> {
   const settings = customerTenant.settings ?? {};
   const phase = settings['onboarding_phase'] as string | undefined;
   const onboardingDm = settings['onboarding_dm'] as string | undefined;
 
   if (!phase || !onboardingDm || channel !== onboardingDm) return false;
-
-  if (phase === 'awaiting_channel') {
-    const channelName = text.trim().replace(/^#/, '');
-    const existingChannels = (settings['channels'] as Record<string, string | null>) ?? {};
-
-    await systemQuery(
-      `UPDATE customer_tenants
-       SET settings = COALESCE(settings, '{}'::jsonb) || $2::jsonb,
-           updated_at = NOW()
-       WHERE id = $1`,
-      [
-        customerTenant.id,
-        JSON.stringify({
-          onboarding_phase: 'complete',
-          channels: { ...existingChannels, deliverables: channelName },
-        }),
-      ],
-    );
-
-    await postMessage(customerTenant.bot_token, {
-      channel: onboardingDm,
-      text: `Got it — deliverables will go to #${channelName}.`,
-    }, { agentRole: 'chief-of-staff' });
-
-    console.log(`[Onboarding] Channel set to #${channelName} for tenant=${customerTenant.id}`);
-    return true;
-  }
 
   return false;
 }
@@ -157,7 +126,16 @@ export async function triggerWebsiteIngestion(
   if (dmChannel) {
     await postMessage(ct.bot_token, {
       channel: dmChannel,
-      text: `Reading ${url} now. This will take a minute.`,
+      text: `Got it — I’m handing this to Maya now.`,
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*Sarah*\nI’ve got your website: ${url}\n\nMaya is reviewing it now. She’ll follow up here with what she found and anything she still needs to finish onboarding.`,
+          },
+        },
+      ],
     }, { agentRole: 'chief-of-staff' });
   }
 
@@ -207,7 +185,7 @@ export async function triggerWebsiteIngestion(
     }
   }
 
-  // Transition to awaiting_channel phase
+  // Transition to Maya follow-up phase
   await systemQuery(
     `UPDATE customer_tenants
      SET settings = COALESCE(settings, '{}'::jsonb) || $2::jsonb,
@@ -215,18 +193,10 @@ export async function triggerWebsiteIngestion(
      WHERE id = $1`,
     [
       customerTenantId,
-      JSON.stringify({ onboarding_phase: 'awaiting_channel' }),
+      JSON.stringify({ onboarding_phase: 'maya_followup' }),
     ],
   );
 
   // Provision the marketing department
   await provisionMarketingDepartment(ct.tenant_id);
-
-  // Ask the channel question
-  if (dmChannel) {
-    await postMessage(ct.bot_token, {
-      channel: dmChannel,
-      text: 'Which channel should completed work go to? (e.g. #marketing)',
-    }, { agentRole: 'chief-of-staff' });
-  }
 }
