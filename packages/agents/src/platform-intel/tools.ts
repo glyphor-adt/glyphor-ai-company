@@ -105,6 +105,8 @@ type ChannelAuditExpectation = {
   requiredBy: string[];
   severity: 'P1' | 'P2';
   findingType: string;
+  requiresSharedPostingPath?: boolean;
+  webhookEnv?: string;
 };
 
 const CHANNEL_AUDIT_EXPECTATIONS: ChannelAuditExpectation[] = [
@@ -115,6 +117,8 @@ const CHANNEL_AUDIT_EXPECTATIONS: ChannelAuditExpectation[] = [
     requiredBy: ['chief-of-staff.send_briefing', 'founder briefings delivery'],
     severity: 'P1',
     findingType: 'channel_config_missing:briefings',
+    requiresSharedPostingPath: true,
+    webhookEnv: 'TEAMS_WEBHOOK_BRIEFINGS',
   },
   {
     key: 'decisions',
@@ -129,6 +133,8 @@ const CHANNEL_AUDIT_EXPECTATIONS: ChannelAuditExpectation[] = [
     requiredBy: ['content-creator.post_to_deliverables', 'cmo.post_to_deliverables', 'deliverables review'],
     severity: 'P1',
     findingType: 'channel_config_missing:deliverables',
+    requiresSharedPostingPath: true,
+    webhookEnv: 'TEAMS_WEBHOOK_DELIVERABLES',
   },
   {
     key: 'engineering',
@@ -168,10 +174,13 @@ function trimEnv(name: string): string | null {
 function auditChannelDeliveryConfig(): {
   configured_channels: string[];
   missing_channels: Array<Record<string, unknown>>;
+  delivery_risks: Array<Record<string, unknown>>;
   team_configured: boolean;
 } {
   const channels = buildChannelMap();
   const configuredChannels = Object.keys(channels);
+  const delegatedFallbackEnabled = process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS === 'true';
+  const delegatedRefreshTokenConfigured = Boolean(trimEnv('GRAPH_DELEGATED_REFRESH_TOKEN'));
 
   const missingChannels = CHANNEL_AUDIT_EXPECTATIONS.flatMap((expectation) => {
     if (channels[expectation.key]) {
@@ -198,9 +207,37 @@ function auditChannelDeliveryConfig(): {
     }];
   });
 
+  const deliveryRisks = CHANNEL_AUDIT_EXPECTATIONS.flatMap((expectation) => {
+    if (!expectation.requiresSharedPostingPath) {
+      return [];
+    }
+    if (!channels[expectation.key]) {
+      return [];
+    }
+
+    const webhookConfigured = expectation.webhookEnv ? Boolean(trimEnv(expectation.webhookEnv)) : false;
+    const delegatedFallbackConfigured = delegatedFallbackEnabled && delegatedRefreshTokenConfigured;
+
+    if (webhookConfigured || delegatedFallbackConfigured) {
+      return [];
+    }
+
+    return [{
+      channel: expectation.key,
+      severity: expectation.severity,
+      finding_type: `channel_delivery_path_unavailable:${expectation.key}`,
+      required_by: expectation.requiredBy,
+      reason: `Channel ${expectation.key} is configured, but there is no shared webhook or delegated posting fallback. Delivery depends entirely on agent identity posting succeeding.`,
+      webhook_env: expectation.webhookEnv ?? null,
+      delegated_fallback_enabled: delegatedFallbackEnabled,
+      delegated_refresh_token_configured: delegatedRefreshTokenConfigured,
+    }];
+  });
+
   return {
     configured_channels: configuredChannels,
     missing_channels: missingChannels,
+    delivery_risks: deliveryRisks,
     team_configured: Boolean(trimEnv('TEAMS_TEAM_ID')),
   };
 }
@@ -222,7 +259,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
           success: true,
           data: {
             ...audit,
-            issue_count: audit.missing_channels.length,
+            issue_count: audit.missing_channels.length + audit.delivery_risks.length,
           },
         };
       },
