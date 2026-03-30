@@ -25,7 +25,7 @@ import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 import { PLATFORM_INTEL_CONFIG } from './config.js';
 
 export interface PlatformIntelRunParams {
-  task?: 'daily_analysis' | 'on_demand';
+  task?: 'daily_analysis' | 'on_demand' | 'watch_tool_gaps';
   message?: string;
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
@@ -67,6 +67,10 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
   switch (task) {
     case 'daily_analysis':
       initialMessage = params.message ?? `Run your daily analysis cycle for ${today}. Start by calling audit_channel_delivery_config and treat any missing or mismatched Teams channel config as an active fleet issue. If the audit reports missing channels, write fleet findings for the impacted delivery paths before continuing. Then analyze the full fleet, take autonomous actions, send approval requests for anything outside your autonomous tier. Before finishing, call watch_tool_gaps so unresolved fleet_findings where finding_type='tool_gap' are auto-built and granted without waiting for human dispatch. Produce your structured output.`;
+      break;
+
+    case 'watch_tool_gaps':
+      initialMessage = params.message ?? 'Run watch_tool_gaps now. Focus only on unresolved fleet_findings where finding_type=\'tool_gap\'. Auto-resolve what is safe, escalate the rest, and return a concise status summary.';
       break;
 
     case 'on_demand':

@@ -723,7 +723,7 @@ const agentExecutor = async (
   }
   // Platform Intelligence
   else if (agentRole === 'platform-intel') {
-    return runPlatformIntel({ task: (task as 'daily_analysis' | 'on_demand'), message, conversationHistory });
+    return runPlatformIntel({ task: (task as 'daily_analysis' | 'on_demand' | 'watch_tool_gaps'), message, conversationHistory });
   }
   // Strategy Lab v2 — Research Analysts
   else if (agentRole === 'vp-research') {

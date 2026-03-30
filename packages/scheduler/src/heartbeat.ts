@@ -400,10 +400,13 @@ export class HeartbeatManager {
     // Check 1: Queued reactive wakes from WakeRouter (event-driven, highest precedence)
     const queuedWakes = await this.wakeRouter.drainQueue(agentRole);
     if (queuedWakes.length > 0) {
+      const [primaryWake] = queuedWakes;
       return {
         shouldWake: true,
-        reason: 'queued_wake',
+        reason: `queued_wake:${primaryWake.reason}`,
         context: {
+          task: primaryWake.task,
+          ...primaryWake.context,
           queued_tasks: queuedWakes.map(w => ({ task: w.task, reason: w.reason })),
         },
       };
