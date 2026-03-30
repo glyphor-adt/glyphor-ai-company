@@ -54,6 +54,8 @@ import { HeartbeatManager } from './heartbeat.js';
 import { AgentNotifier } from './agentNotifier.js';
 import { handleDashboardApi } from './dashboardApi.js';
 import { handleAbacAdminApi } from './abacAdminApi.js';
+import { handleCapacityAdminApi } from './capacityAdminApi.js';
+import { handleDisclosureAdminApi } from './disclosureAdminApi.js';
 import { handleGovernanceApi } from './governanceApi.js';
 import { handleEvalApi } from './evalDashboard.js';
 import { verifyPlan } from './planVerifier.js';
@@ -4591,6 +4593,12 @@ const server = createServer(async (req, res) => {
 
     // ── Admin ABAC API (/admin/abac/*) ────────────────────────────
     if (await handleAbacAdminApi(req, res, url, queryString ?? '', method)) return;
+
+    // ── Admin Capacity API (/admin/agents/*, /admin/commitments/*) ─
+    if (await handleCapacityAdminApi(req, res, url, queryString ?? '', method)) return;
+
+    // ── Admin Disclosure API (/admin/agents/*, /admin/disclosure/*) ──
+    if (await handleDisclosureAdminApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Dashboard CRUD API (/api/*) ────────────────────────────────
     if (await handleDashboardApi(req, res, url, queryString ?? '', method)) return;

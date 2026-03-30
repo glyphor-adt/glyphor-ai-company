@@ -2,6 +2,8 @@ import { AGENT_EMAIL_MAP } from './agentEmails.js';
 
 const SIGNATURE_HTML_MARKER = '<!-- GLYPHOR_SIGNATURE_V1 -->';
 const SIGNATURE_TEXT_MARKER = '[GLYPHOR_SIGNATURE_V1]';
+const DISCLOSURE_HTML_MARKER = '<!-- GLYPHOR_DISCLOSURE_V1 -->';
+const DISCLOSURE_TEXT_MARKER = '[GLYPHOR_DISCLOSURE_V1]';
 
 const DEFAULT_COMPANY_NAME = 'Glyphor';
 const DEFAULT_COMPANY_WEBSITE = 'https://glyphor.ai';
@@ -43,7 +45,10 @@ const FOUNDER_SIGNATURE_BY_EMAIL: Record<string, SignatureProfile> = {
 };
 
 export function containsGlyphorSignatureMarker(body: string): boolean {
-  return body.includes(SIGNATURE_HTML_MARKER) || body.includes(SIGNATURE_TEXT_MARKER);
+  return body.includes(SIGNATURE_HTML_MARKER)
+    || body.includes(SIGNATURE_TEXT_MARKER)
+    || body.includes(DISCLOSURE_HTML_MARKER)
+    || body.includes(DISCLOSURE_TEXT_MARKER);
 }
 
 export function isGlyphorInternalEmail(email: string): boolean {

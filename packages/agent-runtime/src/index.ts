@@ -55,6 +55,22 @@ export {
   isClassificationLevel,
 } from './abac.js';
 export type { AbacPermissionResult, AbacToolCall } from './abac.js';
+export {
+  DisclosureRequiredError,
+  DEFAULT_DISCLOSURE_EMAIL_SIGNATURE_TEMPLATE,
+  DEFAULT_DISCLOSURE_DISPLAY_NAME_SUFFIX,
+  DEFAULT_EXTERNAL_COMMITMENT_RULES,
+  applyDisclosurePolicy,
+  getAgentDisclosureConfig,
+  inferRecipientTypeFromEmails,
+  isExternalCommitment,
+} from './disclosure.js';
+export type {
+  DisclosurePolicyResult,
+  DisclosurePolicyOptions,
+  ExternalCommitmentRule,
+  ExternalCommitmentToolCall,
+} from './disclosure.js';
 export { executeWorkLoop, PROACTIVE_COOLDOWNS } from './workLoop.js';
 export type { WorkLoopResult } from './workLoop.js';
 export { extractTaskFromConfigId } from './taskIdentity.js';
@@ -153,6 +169,10 @@ export type {
   ReasoningEnvelope,
   AbacPermission,
   AbacToolMetadata,
+  AgentDisclosureConfig,
+  CommunicationType,
+  DisclosureLevel,
+  RecipientType,
   SupervisorConfig,
   ToolContext,
   ToolDefinition,

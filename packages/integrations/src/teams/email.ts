@@ -14,7 +14,7 @@
  */
 
 import type { GraphTeamsClient } from './graphClient.js';
-import { appendGlyphorEmailSignature, isGlyphorInternalEmail } from '@glyphor/agent-runtime';
+import { applyDisclosurePolicy, isGlyphorInternalEmail } from '@glyphor/agent-runtime';
 
 // ─── TYPES ──────────────────────────────────────────────────────
 
@@ -31,6 +31,7 @@ export interface EmailAttachment {
 }
 
 export interface SendEmailOptions {
+  agentId?: string;
   to: EmailRecipient[];
   cc?: EmailRecipient[];
   subject: string;
@@ -66,6 +67,7 @@ export interface InboxMessage {
 }
 
 export interface ReplyOptions {
+  agentId?: string;
   /** Message ID to reply to */
   messageId: string;
   /** Reply body (HTML) */
@@ -120,10 +122,14 @@ export class GraphEmailClient {
     const recipients = [...options.to, ...(options.cc ?? [])].map((r) => r.email);
     const internalOnly = recipients.length > 0 && recipients.every((email) => isGlyphorInternalEmail(email));
     const senderIdentity = process.env.GLYPHOR_MAIL_SENDER_EMAIL ?? this.senderUserId;
-    const signedBody = appendGlyphorEmailSignature(options.body, senderIdentity, {
-      format: 'html',
-      internal: internalOnly,
-    });
+    const disclosure = await applyDisclosurePolicy(
+      options.agentId ?? senderIdentity,
+      'email',
+      { body: options.body },
+      internalOnly ? 'internal' : 'external',
+      { toolName: 'send_email' },
+    );
+    const signedBody = String(disclosure.payload.body ?? options.body);
 
     const payload = {
       message: {
@@ -182,10 +188,14 @@ export class GraphEmailClient {
     }));
     const recipients = [...options.to, ...(options.cc ?? [])].map((r) => r.email);
     const internalOnly = recipients.length > 0 && recipients.every((email) => isGlyphorInternalEmail(email));
-    const signedBody = appendGlyphorEmailSignature(options.body, senderEmail, {
-      format: 'html',
-      internal: internalOnly,
-    });
+    const disclosure = await applyDisclosurePolicy(
+      options.agentId ?? senderEmail,
+      'email',
+      { body: options.body },
+      internalOnly ? 'internal' : 'external',
+      { toolName: 'send_email' },
+    );
+    const signedBody = String(disclosure.payload.body ?? options.body);
 
     const payload = {
       message: {
@@ -313,10 +323,14 @@ export class GraphEmailClient {
   async replyToEmail(mailboxEmail: string, options: ReplyOptions): Promise<void> {
     const token = await this.getGraphToken();
     const endpoint = options.replyAll ? 'replyAll' : 'reply';
-    const signedBody = appendGlyphorEmailSignature(options.body, mailboxEmail, {
-      format: 'text',
-      internal: isGlyphorInternalEmail(mailboxEmail),
-    });
+    const disclosure = await applyDisclosurePolicy(
+      options.agentId ?? mailboxEmail,
+      'email',
+      { body: options.body },
+      'external',
+      { toolName: 'reply_to_email' },
+    );
+    const signedBody = String(disclosure.payload.body ?? options.body);
 
     const response = await fetch(
       `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailboxEmail)}/messages/${encodeURIComponent(options.messageId)}/${endpoint}`,

@@ -39,16 +39,23 @@ import type { ConstitutionalGovernor } from './constitutionalGovernor.js';
 import type { ModelClient } from './modelClient.js';
 import { VerifierRunner } from './verifierRunner.js';
 import type { RedisCache } from './redisCache.js';
-import { getTierModel } from '@glyphor/shared';
+import { enforceCapacityTier, executeCommitment, getTierModel, type CapacityEnforcementAction } from '@glyphor/shared';
 import { recordToolCall, detectToolSource } from './toolReputationTracker.js';
 import { applyPatchToGitHub } from './patchHarness.js';
 import { extractPredictionRecords, persistPredictionRecords } from './predictionJournal.js';
+import {
+  DisclosureRequiredError,
+  applyDisclosurePolicy,
+  inferRecipientTypeFromEmails,
+  isExternalCommitment,
+} from './disclosure.js';
 import {
   detectBehavioralAnomalies,
   loadBehaviorProfile,
   persistBehavioralAnomalies,
 } from './behavioralFingerprint.js';
 import { classifyActionRisk } from './actionRiskClassifier.js';
+import type { CommunicationType, RecipientType } from './types.js';
 
 // ─── Tool Call Trace Persistence ───────────────────────────────
 // Fire-and-forget write of each tool call to tool_call_traces for
@@ -215,6 +222,43 @@ const READ_ONLY_PREFIXES = ['get_', 'read_', 'calculate_', 'recall_', 'query_', 
 
 function isReadOnlyTool(name: string): boolean {
   return READ_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
+
+function extractCounterparty(params: Record<string, unknown>): string | null {
+  const candidateKeys = [
+    'externalCounterparty', 'counterparty', 'vendor', 'customer', 'recipient', 'to',
+    'email', 'organization', 'company', 'channel', 'platform', 'target',
+  ];
+
+  for (const key of candidateKeys) {
+    const value = params[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function extractEstimatedValue(params: Record<string, unknown>): string | number | null {
+  const candidateKeys = ['estimatedValue', 'estimated_value', 'amount', 'value', 'cost', 'budget', 'payment_amount'];
+  for (const key of candidateKeys) {
+    const value = params[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+  }
+  return null;
+}
+
+function buildCapacityAction(toolName: string, params: Record<string, unknown>): CapacityEnforcementAction {
+  return {
+    type: toolName,
+    toolCall: { name: toolName, input: params },
+    externalCounterparty: extractCounterparty(params),
+    estimatedValue: extractEstimatedValue(params),
+    requiresExternalCommitment: isExternalCommitment({ toolName, params }),
+    actionDescription: `Tool call ${toolName}`,
+  };
 }
 
 function resolveToolAlias(name: string, tools: Map<string, ToolDefinition>): string {
@@ -760,6 +804,89 @@ export class ToolExecutor {
     }
     params = preflight.params;
 
+    const disclosureTarget = classifyDisclosureTarget(toolName, params);
+    if (disclosureTarget) {
+      try {
+        const disclosureResult = await applyDisclosurePolicy(
+          context.agentId,
+          disclosureTarget.communicationType,
+          disclosureTarget.payload,
+          disclosureTarget.recipientType,
+          { toolName },
+        );
+
+        if (disclosureResult.requiresApproval) {
+          return {
+            success: false,
+            error: `Tool ${toolName} requires approval before execution.`,
+            filesWritten: 0,
+            memoryKeysWritten: 0,
+            riskLevel: riskAssessment.level,
+            approvalRequired: true,
+            approvalReason: disclosureResult.reason,
+            data: disclosureResult.payload,
+          };
+        }
+
+        params = disclosureTarget.applyToParams(disclosureResult.payload);
+      } catch (err) {
+        if (err instanceof DisclosureRequiredError) {
+          return {
+            success: false,
+            error: err.message,
+            filesWritten: 0,
+            memoryKeysWritten: 0,
+            riskLevel: riskAssessment.level,
+          };
+        }
+        throw err;
+      }
+    }
+
+    const capacityAction = buildCapacityAction(toolName, params);
+    const capacityCheck = await enforceCapacityTier(context.agentRole, capacityAction);
+    if (!capacityCheck.proceed) {
+      const blockedResult: ToolResult = {
+        success: false,
+        error: capacityCheck.reason,
+        filesWritten: 0,
+        memoryKeysWritten: 0,
+        riskLevel: riskAssessment.level,
+        approvalRequired: capacityCheck.requiresApproval,
+        approvalReason: capacityCheck.reason,
+        registryEntryId: capacityCheck.registryEntryId ?? undefined,
+      };
+
+      this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'CAPACITY_TIER_BLOCKED', {
+        reason: capacityCheck.reason,
+        requiresApproval: capacityCheck.requiresApproval,
+        registryEntryId: capacityCheck.registryEntryId ?? undefined,
+      });
+
+      this.logToolCall(
+        context.agentId,
+        context.agentRole,
+        toolName,
+        params,
+        blockedResult,
+        estimateToolCost(toolName),
+        riskAssessment.level,
+      );
+
+      const blockedLog = this.callLog[this.callLog.length - 1];
+      if (blockedLog) {
+        void persistToolCallTrace(
+          blockedLog,
+          context.runId,
+          context.assignmentId,
+          context.turnNumber,
+          context.retrievalMetadata?.get(toolName),
+        );
+      }
+
+      return blockedResult;
+    }
+
     // ─── Enforcement checks ────────────────────────────────────
     if (this.enforcementEnabled) {
       const role = context.agentRole;
@@ -1058,9 +1185,16 @@ export class ToolExecutor {
         memoryKeysWritten: result.memoryKeysWritten ?? 0,
         constitutional_check: constitutionalCheckMeta,
         riskLevel: riskAssessment.level,
+        registryEntryId: capacityCheck.registryEntryId ?? undefined,
       };
 
       if (finalResult.success) {
+        if (capacityCheck.registryEntryId) {
+          executeCommitment(capacityCheck.registryEntryId).catch((err: unknown) => {
+            console.warn(`[ToolExecutor] Failed to mark commitment ${capacityCheck.registryEntryId} executed:`, (err as Error).message);
+          });
+        }
+
         const predictions = extractPredictionRecords(finalResult.data);
         if (predictions.length > 0) {
           try {
@@ -1139,6 +1273,7 @@ export class ToolExecutor {
         filesWritten: 0,
         memoryKeysWritten: 0,
         riskLevel: riskAssessment.level,
+        registryEntryId: capacityCheck.registryEntryId ?? undefined,
       };
 
       this.logToolCall(
@@ -1173,6 +1308,117 @@ export class ToolExecutor {
 
       return failResult;
     }
+  }
+}
+
+interface DisclosureToolTarget {
+  communicationType: CommunicationType;
+  recipientType: RecipientType;
+  payload: Record<string, unknown>;
+  applyToParams: (payload: Record<string, unknown>) => Record<string, unknown>;
+}
+
+function classifyDisclosureTarget(
+  toolName: string,
+  params: Record<string, unknown>,
+): DisclosureToolTarget | null {
+  if (toolName === 'send_email' || toolName === 'reply_to_email' || toolName === 'reply_email_with_attachments') {
+    const emails = extractEmailsFromParams(params);
+    return {
+      communicationType: 'email',
+      recipientType: inferRecipientTypeFromEmails(emails),
+      payload: {
+        body: typeof params.body === 'string' ? params.body : '',
+      },
+      applyToParams: (payload) => ({
+        ...params,
+        ...(typeof payload.body === 'string' ? { body: payload.body } : {}),
+      }),
+    };
+  }
+
+  if (toolName === 'post_to_slack') {
+    return {
+      communicationType: 'slack_message',
+      recipientType: 'external',
+      payload: {
+        message: typeof params.message === 'string' ? params.message : '',
+        sender_name: typeof params.sender_name === 'string'
+          ? params.sender_name
+          : typeof params.senderName === 'string'
+            ? params.senderName
+            : typeof params.username === 'string'
+              ? params.username
+              : undefined,
+      },
+      applyToParams: (payload) => ({
+        ...params,
+        ...(typeof payload.message === 'string' ? { message: payload.message } : {}),
+        ...(typeof payload.sender_name === 'string' ? { sender_name: payload.sender_name } : {}),
+        ...(typeof payload.senderName === 'string' ? { sender_name: payload.senderName } : {}),
+      }),
+    };
+  }
+
+  if (toolName === 'post_to_customer_teams' || toolName === 'send_dm' || toolName === 'post_to_channel') {
+    return {
+      communicationType: 'teams_message',
+      recipientType: toolName === 'post_to_customer_teams' ? 'external' : 'internal',
+      payload: {
+        message: typeof params.message === 'string' ? params.message : '',
+        senderName: typeof params.senderName === 'string'
+          ? params.senderName
+          : typeof params.sender_name === 'string'
+            ? params.sender_name
+            : undefined,
+      },
+      applyToParams: (payload) => ({
+        ...params,
+        ...(typeof payload.message === 'string' ? { message: payload.message } : {}),
+        ...(typeof payload.senderName === 'string' ? { sender_name: payload.senderName } : {}),
+      }),
+    };
+  }
+
+  if (isExternalCommitment({ toolName, params })) {
+    const emails = extractEmailsFromParams(params);
+    return {
+      communicationType: 'external_api_call',
+      recipientType: inferRecipientTypeFromEmails(emails),
+      payload: { ...params },
+      applyToParams: (payload) => ({ ...params, ...payload }),
+    };
+  }
+
+  return null;
+}
+
+function extractEmailsFromParams(params: Record<string, unknown>): string[] {
+  const emails = new Set<string>();
+  for (const key of ['to', 'cc', 'bcc', 'recipients', 'toRecipients', 'ccRecipients', 'attendees', 'signers', 'cc_recipients']) {
+    collectEmails(params[key], emails);
+  }
+  return Array.from(emails);
+}
+
+function collectEmails(value: unknown, emails: Set<string>): void {
+  if (!value) return;
+  if (typeof value === 'string') {
+    for (const part of value.split(/[;,]/)) {
+      const email = part.trim().match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0];
+      if (email) emails.add(email.toLowerCase());
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) collectEmails(entry, emails);
+    return;
+  }
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (typeof record.email === 'string') emails.add(record.email.trim().toLowerCase());
+    if (typeof record.address === 'string') emails.add(record.address.trim().toLowerCase());
+    if (record.emailAddress && typeof record.emailAddress === 'object') collectEmails(record.emailAddress, emails);
   }
 }
 

@@ -93,6 +93,21 @@ export interface ToolDefinition {
   execute: (params: Record<string, unknown>, context: ToolContext) => Promise<ToolResult>;
 }
 
+export type DisclosureLevel = 'off' | 'internal_only' | 'all_communications';
+
+export type CommunicationType = 'email' | 'slack_message' | 'teams_message' | 'external_api_call';
+
+export type RecipientType = 'internal' | 'external';
+
+export interface AgentDisclosureConfig {
+  agentId: string;
+  disclosureLevel: DisclosureLevel;
+  emailSignatureTemplate: string | null;
+  displayNameSuffix: string | null;
+  externalCommitmentGate: boolean;
+  updatedAt: string;
+}
+
 export type DataClassificationLevel = 'public' | 'internal' | 'confidential' | 'restricted';
 
 export type AbacPermission = 'allow' | 'deny';
@@ -153,6 +168,8 @@ export interface ToolResult {
   approvalRequired?: boolean;
   /** Human-readable reason for the approval requirement or risk label. */
   approvalReason?: string;
+  /** Commitment registry entry associated with this tool call, when applicable. */
+  registryEntryId?: string;
   /** Constitutional pre-check metadata (present for high-stakes tools). */
   constitutional_check?: {
     checked: boolean;
@@ -587,7 +604,8 @@ export type SecurityEventType =
   | 'CONSTITUTIONAL_BLOCK'
   | 'TOOL_VERIFICATION_BLOCK'
   | 'BEHAVIORAL_ANOMALY'
-  | 'ACTION_RISK_BLOCKED';
+  | 'ACTION_RISK_BLOCKED'
+  | 'CAPACITY_TIER_BLOCKED';
 
 export interface SecurityEvent {
   agentId: string;

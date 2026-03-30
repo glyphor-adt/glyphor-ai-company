@@ -11,6 +11,30 @@ export {
 } from './db.js';
 
 export {
+  getAgentCapacityConfig,
+  upsertAgentCapacityConfig,
+  enforceCapacityTier,
+  logCommitment,
+  approveCommitment,
+  rejectCommitment,
+  executeCommitment,
+  reverseCommitment,
+  listCommitments,
+  getPendingCommitments,
+} from './agentCapacity.js';
+export type {
+  CapacityTier,
+  CommitmentRegistryStatus,
+  AgentCapacityConfig,
+  CapacityEnforcementAction,
+  CapacityEnforcementResult,
+  CommitmentRegistryEntry,
+  CommitmentListFilters,
+  CommitmentListResult,
+  UpsertAgentCapacityInput,
+} from './agentCapacity.js';
+
+export {
   WORK_ASSIGNMENT_DEDUP_PREFIX_LEN,
   normalizeWorkAssignmentTaskPrefix,
   assertWorkAssignmentDispatchAllowed,

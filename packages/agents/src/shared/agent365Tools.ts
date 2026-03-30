@@ -245,7 +245,7 @@ function createReadInboxFallback(agentRole: CompanyAgentRole): ToolDefinition | 
         required: false,
       },
     },
-    execute: async (params) => {
+    execute: async (params, ctx) => {
       try {
         const token = await getM365Token('agent365_mail_read_inbox');
         const limitRaw = typeof params.limit === 'number' ? params.limit : 10;

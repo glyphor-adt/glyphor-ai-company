@@ -96,6 +96,14 @@ async function slackPost(
   agentRole?: string,
 ): Promise<SlackPostResponse> {
   const slackIdentity = agentRole ? await getSlackAgentIdentity(agentRole) : null;
+  const usernameOverride = typeof payload.sender_name === 'string'
+    ? payload.sender_name
+    : typeof payload.senderName === 'string'
+      ? payload.senderName
+      : null;
+  const effectiveIdentity = slackIdentity && usernameOverride
+    ? { ...slackIdentity, username: usernameOverride }
+    : slackIdentity;
   const res = await fetch(`${SLACK_API_BASE}/chat.postMessage`, {
     method: 'POST',
     headers: {
@@ -104,12 +112,12 @@ async function slackPost(
     },
     body: JSON.stringify({
       ...payload,
-      ...(slackIdentity ? {
-        username: slackIdentity.username,
-        icon_url: slackIdentity.iconUrl,
+      ...(effectiveIdentity ? {
+        username: effectiveIdentity.username,
+        icon_url: effectiveIdentity.iconUrl,
         blocks: decorateSlackBlocks(
           (payload.blocks as unknown[] | undefined),
-          slackIdentity,
+          effectiveIdentity,
           typeof payload.text === 'string' ? payload.text : undefined,
         ),
       } : {}),
