@@ -60,6 +60,10 @@ export {
   type AgentKnowledgeEvalReport,
 } from './agentKnowledgeEvaluator.js';
 export {
+  resolvePredictionJournal,
+  type PredictionResolutionResult,
+} from './predictionResolver.js';
+export {
   runModelChecker,
   type ModelCheckerResult,
 } from './modelChecker.js';

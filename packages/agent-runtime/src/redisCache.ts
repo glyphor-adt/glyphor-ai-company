@@ -35,6 +35,7 @@ export interface CacheEntry<T> {
 
 export const CACHE_KEYS = {
   jit: (role: string, hash: string) => `jit:${role}:${hash}`,
+  global_extraction: (contentKey: string) => `global-extraction:${contentKey}`,
   directive: (id: string) => `directive:${id}`,
   profile: (role: string) => `profile:${role}`,
   reasoning: (role: string) => `reasoning-result:${role}`,
@@ -49,6 +50,7 @@ export const CACHE_KEYS = {
 
 export const CACHE_TTL = {
   jit: 180,            // 3 min — task-specific context
+  globalExtraction: 900, // 15 min — shared raw retrievals/doc/query results
   directive: 300,      // 5 min — founder directives
   profile: 600,        // 10 min — agent personality
   reasoning: 120,      // 2 min — reasoning results

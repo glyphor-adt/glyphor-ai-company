@@ -75,6 +75,8 @@ export { JitContextRetriever } from './jitContextRetriever.js';
 export type { JitContext, JitContextItem, EmbeddingClient } from './jitContextRetriever.js';
 export { RedisCache, getRedisCache, CACHE_KEYS, CACHE_TTL } from './redisCache.js';
 export type { CacheConfig, CacheEntry } from './redisCache.js';
+export { extractPredictionRecords, persistPredictionRecords } from './predictionJournal.js';
+export type { PredictionJournalRecord, PredictionJournalStatus } from './types.js';
 export { ContextDistiller } from './contextDistiller.js';
 export type { DistilledContext } from './contextDistiller.js';
 export { RuntimeToolFactory } from './runtimeToolFactory.js';

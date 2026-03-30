@@ -444,6 +444,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/batch-eval/run',
     enabled: true,
   },
+  // Prediction journal resolver — nightly resolution of due forecast records
+  {
+    id: 'prediction-journal-resolver',
+    schedule: '0 5 * * *',     // 5:00 AM UTC daily
+    timezone: 'UTC',
+    endpoint: '/predictions/resolve',
+    enabled: true,
+  },
   // Cascade prediction evaluator — weekly calibration of prior Cascade Analysis calls
   {
     id: 'cascade-prediction-eval',

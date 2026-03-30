@@ -31,6 +31,7 @@ export type TrustDeltaSource =
   | 'formal_failure'
   | 'reflection_quality'
   | 'drift_detection'
+  | 'prediction_accuracy'
   | 'task_outcome_quality';
 
 export interface TrustDelta {
@@ -59,6 +60,7 @@ const DELTA_WEIGHTS: Record<TrustDeltaSource, number> = {
   formal_failure: -0.09,
   reflection_quality: 0.02,
   drift_detection: -0.04,
+  prediction_accuracy: 0.08,
   task_outcome_quality: 1.0,
 };
 

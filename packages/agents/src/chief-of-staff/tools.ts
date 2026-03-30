@@ -6,7 +6,7 @@
  */
 
 import type { ToolDefinition, ToolContext, ToolResult, BriefingData, CompanyAgentRole, StructuredReflection, OrchestratorGrade } from '@glyphor/agent-runtime';
-import { invalidateGrantCache } from '@glyphor/agent-runtime';
+import { getRedisCache, invalidateGrantCache } from '@glyphor/agent-runtime';
 import { isKnownTool } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { markOutcomeRevised, markOutcomeAccepted } from '@glyphor/agent-runtime';
@@ -2289,7 +2289,7 @@ export function createOrchestrationTools(
 
           if (assignmentData?.assigned_to) {
             const embeddingClient = new EmbeddingClient(process.env.GOOGLE_AI_API_KEY!);
-            const sharedMemLoader = new SharedMemoryLoader(embeddingClient, graphReader ?? null);
+            const sharedMemLoader = new SharedMemoryLoader(embeddingClient, graphReader ?? null, getRedisCache());
             const updater = new WorldModelUpdater(sharedMemLoader);
 
             const qualityScore = params.quality_score as number;

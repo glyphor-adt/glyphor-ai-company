@@ -10,8 +10,14 @@
  *   get_customer_ltv       — Calculate customer lifetime value by segment
  */
 
-import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import type { PredictionJournalRecord, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+
+function addMonthsIso(base: Date, monthsAhead: number): string {
+  const target = new Date(base);
+  target.setUTCMonth(target.getUTCMonth() + monthsAhead);
+  return target.toISOString();
+}
 
 async function stripeFetch(path: string): Promise<Record<string, unknown>> {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -266,6 +272,20 @@ export function createRevenueTools(): ToolDefinition[] {
             projections.push({ month: i, projected_mrr: Math.round(mrr * 100) / 100 });
           }
 
+          const baseDate = new Date();
+          const predictions: PredictionJournalRecord[] = projections.map((projection) => ({
+            prediction_type: 'revenue_forecast_mrr',
+            predicted_value: {
+              projected_mrr: projection.projected_mrr,
+              month_index: projection.month,
+              scenario,
+              growth_rate: adjustedGrowth,
+              churn_rate: churnRate,
+            },
+            target_date: addMonthsIso(baseDate, projection.month),
+            resolution_source: 'stripe_mrr_30d',
+          }));
+
           return {
             success: true,
             data: {
@@ -274,6 +294,7 @@ export function createRevenueTools(): ToolDefinition[] {
               growth_rate: adjustedGrowth,
               churn_rate: churnRate,
               projections,
+              predictions,
             },
           };
         } catch (err) {

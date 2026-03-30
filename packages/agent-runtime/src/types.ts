@@ -149,6 +149,22 @@ export interface ToolResult {
   };
 }
 
+export type PredictionJournalStatus = 'pending' | 'resolved' | 'failed';
+
+export interface PredictionJournalRecord {
+  run_id?: string;
+  agent_role?: CompanyAgentRole | string;
+  prediction_type: string;
+  predicted_value: unknown;
+  target_date: string;
+  resolution_source: string;
+  actual_value?: unknown;
+  accuracy_score?: number | null;
+  status?: PredictionJournalStatus;
+  created_at?: string;
+  resolved_at?: string | null;
+}
+
 export type ActionRiskLevel = 'AUTONOMOUS' | 'SOFT_GATE' | 'HARD_GATE';
 
 // ═══════════════════════════════════════════════════════════════════

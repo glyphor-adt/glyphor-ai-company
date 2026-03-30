@@ -164,7 +164,7 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
     try {
       const agentRoles = [...new Set(outcomes.map(o => o.agent_role))];
       const embeddingClient = new EmbeddingClient(process.env.GOOGLE_AI_API_KEY!);
-      const sharedMemory = new SharedMemoryLoader(embeddingClient, null);
+      const sharedMemory = new SharedMemoryLoader(embeddingClient, null, cache);
       const worldModelUpdater = new WorldModelUpdater(sharedMemory);
       const trustScorer = new TrustScorer(cache);
 

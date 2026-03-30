@@ -66,6 +66,21 @@ export class JitContextRetriever {
     private cache?: RedisCache,
   ) {}
 
+  private async getGlobalCachedItems(
+    contentKey: string,
+    factory: () => Promise<JitContextItem[]>,
+  ): Promise<JitContextItem[]> {
+    if (!this.cache) return factory();
+
+    const cacheKey = CACHE_KEYS.global_extraction(contentKey);
+    const cached = await this.cache.get<JitContextItem[]>(cacheKey);
+    if (cached) return cached;
+
+    const items = await factory();
+    await this.cache.set(cacheKey, items, CACHE_TTL.globalExtraction);
+    return items;
+  }
+
   /**
    * Retrieve task-relevant context from all knowledge stores.
    * Results are cached in Redis keyed by agent + task hash.
@@ -114,15 +129,16 @@ export class JitContextRetriever {
     }
 
     const embeddingStr = `[${embedding.join(',')}]`;
+    const queryHash = this.hashTask(task);
 
     // Query all stores in parallel
     const [memories, graphNodes, episodes, procedures, transferableSkills, knowledge] = await Promise.allSettled([
       this.queryMemories(embeddingStr, agentRole),
       this.queryGraphNodes(embeddingStr, agentRole),
-      this.queryEpisodes(embeddingStr),
-      this.queryProcedures(task),
+      this.queryEpisodes(queryHash, embeddingStr),
+      this.queryProcedures(queryHash, task),
       this.queryTransferableSkills(task, agentRole),
-      this.queryKnowledge(embeddingStr),
+      this.queryKnowledge(queryHash, embeddingStr),
     ]);
 
     const relevantMemories = memories.status === 'fulfilled' ? memories.value : [];
@@ -223,26 +239,28 @@ export class JitContextRetriever {
   }
 
   /** Query shared episodes by embedding similarity. */
-  private async queryEpisodes(embeddingStr: string): Promise<JitContextItem[]> {
-    try {
-      const data = await systemQuery<{ summary: string; confidence: number; similarity: number; outcome?: string }>(
-        'SELECT * FROM match_shared_episodes($1, $2, $3)',
-        [embeddingStr, DEFAULT_MATCH_COUNT, DEFAULT_MATCH_THRESHOLD],
-      );
+  private async queryEpisodes(queryHash: string, embeddingStr: string): Promise<JitContextItem[]> {
+    return this.getGlobalCachedItems(`episodes:${queryHash}`, async () => {
+      try {
+        const data = await systemQuery<{ summary: string; confidence: number; similarity: number; outcome?: string }>(
+          'SELECT * FROM match_shared_episodes($1, $2, $3)',
+          [embeddingStr, DEFAULT_MATCH_COUNT, DEFAULT_MATCH_THRESHOLD],
+        );
 
-      return data.map(row => ({
-        source: 'episode' as const,
-        content: row.outcome ? `${row.summary} → ${row.outcome}` : row.summary,
-        score: row.similarity * (row.confidence ?? 1),
-        metadata: { confidence: row.confidence },
-      }));
-    } catch {
-      return [];
-    }
+        return data.map(row => ({
+          source: 'episode' as const,
+          content: row.outcome ? `${row.summary} → ${row.outcome}` : row.summary,
+          score: row.similarity * (row.confidence ?? 1),
+          metadata: { confidence: row.confidence },
+        }));
+      } catch {
+        return [];
+      }
+    });
   }
 
   /** Query shared procedures by text similarity (keyword match). */
-  private async queryProcedures(task: string): Promise<JitContextItem[]> {
+  private async queryProcedures(queryHash: string, task: string): Promise<JitContextItem[]> {
     // Use ilike for keyword matching on procedures (they may not have embeddings)
     const keywords = task.split(/\s+/).filter(w => w.length > 3).slice(0, 5);
     if (keywords.length === 0) return [];
@@ -250,20 +268,22 @@ export class JitContextRetriever {
     const conditions = keywords.map((_, i) => `(title ILIKE $${i + 1} OR description ILIKE $${i + 1})`).join(' OR ');
     const params = keywords.map(k => `%${k}%`);
 
-    try {
-      const data = await systemQuery<{ title: string; description: string; steps?: string[]; confidence?: number }>(
-        `SELECT title, description, steps, confidence FROM shared_procedures WHERE ${conditions} LIMIT ${DEFAULT_MATCH_COUNT}`,
-        params,
-      );
+    return this.getGlobalCachedItems(`procedures:${queryHash}`, async () => {
+      try {
+        const data = await systemQuery<{ title: string; description: string; steps?: string[]; confidence?: number }>(
+          `SELECT title, description, steps, confidence FROM shared_procedures WHERE ${conditions} LIMIT ${DEFAULT_MATCH_COUNT}`,
+          params,
+        );
 
-      return data.map(row => ({
-        source: 'procedure' as const,
-        content: `${row.title}: ${row.description}${row.steps ? '\nSteps: ' + row.steps.join(' → ') : ''}`,
-        score: row.confidence ?? 0.7,
-      }));
-    } catch {
-      return [];
-    }
+        return data.map(row => ({
+          source: 'procedure' as const,
+          content: `${row.title}: ${row.description}${row.steps ? '\nSteps: ' + row.steps.join(' → ') : ''}`,
+          score: row.confidence ?? 0.7,
+        }));
+      } catch {
+        return [];
+      }
+    });
   }
 
   /** Query high-proficiency skills from other agents and inject them as reusable procedures. */
@@ -356,21 +376,23 @@ export class JitContextRetriever {
   }
 
   /** Query company knowledge base by embedding similarity. */
-  private async queryKnowledge(embeddingStr: string): Promise<JitContextItem[]> {
-    try {
-      const data = await systemQuery<{ title: string; content: string; section: string; similarity: number }>(
-        'SELECT * FROM match_company_knowledge($1, $2, $3)',
-        [embeddingStr, DEFAULT_MATCH_COUNT, DEFAULT_MATCH_THRESHOLD],
-      );
+  private async queryKnowledge(queryHash: string, embeddingStr: string): Promise<JitContextItem[]> {
+    return this.getGlobalCachedItems(`knowledge:${queryHash}`, async () => {
+      try {
+        const data = await systemQuery<{ title: string; content: string; section: string; similarity: number }>(
+          'SELECT * FROM match_company_knowledge($1, $2, $3)',
+          [embeddingStr, DEFAULT_MATCH_COUNT, DEFAULT_MATCH_THRESHOLD],
+        );
 
-      return data.map(row => ({
-        source: 'knowledge' as const,
-        content: `[${row.section}] ${row.title}: ${row.content}`,
-        score: row.similarity,
-      }));
-    } catch {
-      return [];
-    }
+        return data.map(row => ({
+          source: 'knowledge' as const,
+          content: `[${row.section}] ${row.title}: ${row.content}`,
+          score: row.similarity,
+        }));
+      } catch {
+        return [];
+      }
+    });
   }
 
   private async matchTaskSkillSlugs(task: string): Promise<string[]> {

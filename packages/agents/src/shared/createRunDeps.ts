@@ -127,11 +127,11 @@ export function createRunDeps(
   if (!graphReader) {
     console.warn('[createRunDeps] Knowledge graph reader unavailable (GOOGLE_AI_API_KEY may be missing from CompanyMemoryStore). L3 semantic memory will be skipped, but world models and episodes still work.');
   }
-  const sharedMemoryLoader = new SharedMemoryLoader(embeddingClient, graphReader);
+  const cache = getRedisCache();
+  const sharedMemoryLoader = new SharedMemoryLoader(embeddingClient, graphReader, cache);
   const worldModelUpdater = new WorldModelUpdater(sharedMemoryLoader);
 
   // Redis cache (singleton) + JIT context retriever
-  const cache = getRedisCache();
   const jitContextRetriever = new JitContextRetriever(embeddingClient, cache);
 
   // Context distiller — compresses raw JIT results into focused briefings

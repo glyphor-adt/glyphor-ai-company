@@ -15,6 +15,8 @@
 import { systemQuery } from '@glyphor/shared/db';
 import type { EmbeddingClient } from './embeddingClient.js';
 import type { KnowledgeGraphReader } from './graphReader.js';
+import type { RedisCache } from '@glyphor/agent-runtime';
+import { CACHE_KEYS, CACHE_TTL } from '@glyphor/agent-runtime';
 import type {
   CompanyAgentRole,
   SharedEpisode,
@@ -23,6 +25,7 @@ import type {
   AgentWorldModel,
   EpisodeType,
 } from '@glyphor/agent-runtime';
+import { createHash } from 'node:crypto';
 
 // ─── Role → Domain mapping ──────────────────────────────────────
 
@@ -65,7 +68,24 @@ export class SharedMemoryLoader {
   constructor(
     private embedding: EmbeddingClient,
     private graphReader: KnowledgeGraphReader | null = null,
+    private cache: RedisCache | null = null,
   ) {}
+
+  private hashGlobalScope(parts: unknown[]): string {
+    return createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 16);
+  }
+
+  private async getGlobalCached<T>(scope: string, loader: () => Promise<T>): Promise<T> {
+    if (!this.cache) return loader();
+
+    const cacheKey = CACHE_KEYS.global_extraction(scope);
+    const cached = await this.cache.get<T>(cacheKey);
+    if (cached != null) return cached;
+
+    const result = await loader();
+    await this.cache.set(cacheKey, result, CACHE_TTL.globalExtraction);
+    return result;
+  }
 
   /**
    * Load shared memory context for an agent run.
@@ -147,41 +167,43 @@ export class SharedMemoryLoader {
     options: { domains?: string[]; limit?: number; maxAgeDays?: number } = {},
   ): Promise<SharedEpisode[]> {
     const { domains = [], limit = 5, maxAgeDays = 30 } = options;
+    const globalScope = this.hashGlobalScope(['shared-episodes', query, [...domains].sort(), limit, maxAgeDays]);
 
-    const queryEmb = await this.embedding.embed(query);
-    const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
+    return this.getGlobalCached(`shared-episodes:${globalScope}`, async () => {
+      const queryEmb = await this.embedding.embed(query);
+      const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
 
-    const data = await systemQuery(
-      'SELECT * FROM match_shared_episodes($1, $2, $3, $4, $5)',
-      [JSON.stringify(queryEmb), 0.6, limit, domains.length > 0 ? domains : null, cutoff],
-    );
+      const data = await systemQuery(
+        'SELECT * FROM match_shared_episodes($1, $2, $3, $4, $5)',
+        [JSON.stringify(queryEmb), 0.6, limit, domains.length > 0 ? domains : null, cutoff],
+      );
 
-    if (!data.length) return [];
+      if (!data.length) return [];
 
-    // Increment access counters (fire-and-forget)
-    const ids = data.map((e: any) => e.id);
-    if (ids.length > 0) {
-      void systemQuery('SELECT * FROM increment_episode_access($1)', [ids]).catch(() => {});
-    }
+      const ids = data.map((e: any) => e.id);
+      if (ids.length > 0) {
+        void systemQuery('SELECT * FROM increment_episode_access($1)', [ids]).catch(() => {});
+      }
 
-    return data.map((row: any) => ({
-      id: row.id,
-      createdAt: row.created_at,
-      authorAgent: row.author_agent,
-      episodeType: row.episode_type,
-      summary: row.summary,
-      detail: row.detail,
-      outcome: row.outcome,
-      confidence: row.confidence,
-      domains: row.domains,
-      tags: row.tags,
-      relatedAgents: row.related_agents,
-      directiveId: row.directive_id,
-      assignmentId: row.assignment_id,
-      timesAccessed: row.times_accessed ?? 0,
-      promotedToSemantic: row.promoted_to_semantic ?? false,
-      archivedAt: row.archived_at,
-    }));
+      return data.map((row: any) => ({
+        id: row.id,
+        createdAt: row.created_at,
+        authorAgent: row.author_agent,
+        episodeType: row.episode_type,
+        summary: row.summary,
+        detail: row.detail,
+        outcome: row.outcome,
+        confidence: row.confidence,
+        domains: row.domains,
+        tags: row.tags,
+        relatedAgents: row.related_agents,
+        directiveId: row.directive_id,
+        assignmentId: row.assignment_id,
+        timesAccessed: row.times_accessed ?? 0,
+        promotedToSemantic: row.promoted_to_semantic ?? false,
+        archivedAt: row.archived_at,
+      }));
+    });
   }
 
   /**
@@ -245,41 +267,45 @@ export class SharedMemoryLoader {
     task: string,
     domains: string[],
   ): Promise<SharedProcedure[]> {
-    let sql = "SELECT * FROM shared_procedures WHERE status = 'active'";
-    const params: any[] = [];
+    const globalScope = this.hashGlobalScope(['shared-procedures', task, [...domains].sort()]);
 
-    if (domains.length > 0) {
-      params.push(domains);
-      sql += ` AND domain = ANY($${params.length})`;
-    }
+    return this.getGlobalCached(`shared-procedures:${globalScope}`, async () => {
+      let sql = "SELECT * FROM shared_procedures WHERE status = 'active'";
+      const params: any[] = [];
 
-    sql += ' ORDER BY times_used DESC LIMIT 5';
+      if (domains.length > 0) {
+        params.push(domains);
+        sql += ` AND domain = ANY($${params.length})`;
+      }
 
-    const data = await systemQuery(sql, params);
+      sql += ' ORDER BY times_used DESC LIMIT 5';
 
-    if (!data.length) return [];
+      const data = await systemQuery(sql, params);
 
-    return data.map((row: any) => ({
-      id: row.id,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      slug: row.slug,
-      name: row.name,
-      domain: row.domain,
-      description: row.description,
-      steps: row.steps,
-      preconditions: row.preconditions,
-      toolsNeeded: row.tools_needed,
-      exampleInput: row.example_input,
-      exampleOutput: row.example_output,
-      discoveredBy: row.discovered_by,
-      validatedBy: row.validated_by,
-      sourceEpisodes: row.source_episodes,
-      timesUsed: row.times_used ?? 0,
-      successRate: row.success_rate,
-      version: row.version ?? 1,
-      status: row.status,
-    }));
+      if (!data.length) return [];
+
+      return data.map((row: any) => ({
+        id: row.id,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        slug: row.slug,
+        name: row.name,
+        domain: row.domain,
+        description: row.description,
+        steps: row.steps,
+        preconditions: row.preconditions,
+        toolsNeeded: row.tools_needed,
+        exampleInput: row.example_input,
+        exampleOutput: row.example_output,
+        discoveredBy: row.discovered_by,
+        validatedBy: row.validated_by,
+        sourceEpisodes: row.source_episodes,
+        timesUsed: row.times_used ?? 0,
+        successRate: row.success_rate,
+        version: row.version ?? 1,
+        status: row.status,
+      }));
+    });
   }
 
   /**

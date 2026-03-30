@@ -41,6 +41,7 @@ import type { RedisCache } from './redisCache.js';
 import { getTierModel } from '@glyphor/shared';
 import { recordToolCall, detectToolSource } from './toolReputationTracker.js';
 import { applyPatchToGitHub } from './patchHarness.js';
+import { extractPredictionRecords, persistPredictionRecords } from './predictionJournal.js';
 import {
   detectBehavioralAnomalies,
   loadBehaviorProfile,
@@ -1046,6 +1047,22 @@ export class ToolExecutor {
         constitutional_check: constitutionalCheckMeta,
         riskLevel: riskAssessment.level,
       };
+
+      if (finalResult.success) {
+        const predictions = extractPredictionRecords(finalResult.data);
+        if (predictions.length > 0) {
+          try {
+            const inserted = await persistPredictionRecords(context.runId, context.agentRole, predictions);
+            if (inserted > 0) {
+              finalResult.data = typeof finalResult.data === 'object' && finalResult.data !== null
+                ? { ...finalResult.data as Record<string, unknown>, prediction_journal_records: inserted }
+                : { result: finalResult.data, prediction_journal_records: inserted };
+            }
+          } catch (err) {
+            console.warn(`[ToolExecutor] Prediction journaling failed for ${toolName}:`, (err as Error).message);
+          }
+        }
+      }
 
       // Auto-verify mutations by reading back the written data
       if (isMutation(toolName) && finalResult.success) {

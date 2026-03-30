@@ -18,8 +18,14 @@
  *   get_platform_audit_log     — View platform actions
  */
 
-import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import type { PredictionJournalRecord, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+
+function addDaysIso(base: Date, daysAhead: number): string {
+  const target = new Date(base);
+  target.setUTCDate(target.getUTCDate() + daysAhead);
+  return target.toISOString();
+}
 
 export function createOpsExtensionTools(): ToolDefinition[] {
   return [
@@ -394,6 +400,30 @@ export function createOpsExtensionTools(): ToolDefinition[] {
           const projectedTotalCost = Math.round(projectedDailyCost * daysAhead * 100) / 100;
 
           const trendDirection = runSlope > 0.5 ? 'increasing' : runSlope < -0.5 ? 'decreasing' : 'stable';
+          const targetDate = addDaysIso(new Date(), daysAhead);
+          const predictions: PredictionJournalRecord[] = [
+            {
+              prediction_type: 'capacity_daily_runs',
+              predicted_value: {
+                projected_daily_runs: projectedDailyRuns,
+                trend: trendDirection,
+                forecast_days: daysAhead,
+              },
+              target_date: targetDate,
+              resolution_source: 'agent_runs_daily_runs',
+            },
+            {
+              prediction_type: 'capacity_daily_cost',
+              predicted_value: {
+                projected_daily_cost: projectedDailyCost,
+                projected_total_cost: projectedTotalCost,
+                trend: trendDirection,
+                forecast_days: daysAhead,
+              },
+              target_date: targetDate,
+              resolution_source: 'agent_runs_daily_cost',
+            },
+          ];
 
           return {
             success: true,
@@ -411,6 +441,7 @@ export function createOpsExtensionTools(): ToolDefinition[] {
                 : projectedDailyRuns < avgRuns * 0.5
                   ? 'Consider scaling down — projected demand is below 50% of current baseline'
                   : 'Current capacity appears sufficient',
+              predictions,
             },
           };
         } catch (err) {

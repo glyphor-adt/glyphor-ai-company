@@ -61,6 +61,7 @@ import { archiveExpiredMemory } from './memoryArchiver.js';
 import { evaluateBatch } from './batchOutcomeEvaluator.js';
 import { runShadow, getPendingShadowTasks, evaluatePromotion, getPendingChallengerVersions, getWorldStateHealth } from '@glyphor/agent-runtime';
 import { evaluateCascadePredictions } from './cascadePredictionEvaluator.js';
+import { resolvePredictionJournal } from './predictionResolver.js';
 import { handlePlatformIntelApproval } from './platformIntelApproval.js';
 import { handleDirectiveApproval } from './directiveApproval.js';
 import { expireTools } from './toolExpirationManager.js';
@@ -2842,6 +2843,18 @@ const server = createServer(async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[CascadePredictionEvaluator] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    if (method === 'POST' && url === '/predictions/resolve') {
+      try {
+        const result = await resolvePredictionJournal();
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[PredictionResolver] Endpoint error:', message);
         json(res, 500, { success: false, error: message });
       }
       return;
