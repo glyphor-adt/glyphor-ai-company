@@ -10,6 +10,7 @@ import type { ToolDefinition, ToolContext, ToolResult } from '@glyphor/agent-run
 import { isValidUUID } from '@glyphor/agent-runtime';
 import { invalidateGrantCache, refreshDynamicToolCache, isKnownToolAsync } from '@glyphor/agent-runtime';
 import { A365TeamsChatClient } from '@glyphor/integrations';
+import { buildChannelMap } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
 
 // ── Teams DM helper ────────────────────────────────────────────
@@ -97,12 +98,135 @@ function extractToolNameFromFinding(description: string): string | null {
   return null;
 }
 
+type ChannelAuditExpectation = {
+  key: 'briefings' | 'decisions' | 'deliverables' | 'engineering' | 'growth' | 'financials' | 'general';
+  expectedEnv: string;
+  legacyEnv?: string[];
+  requiredBy: string[];
+  severity: 'P1' | 'P2';
+  findingType: string;
+};
+
+const CHANNEL_AUDIT_EXPECTATIONS: ChannelAuditExpectation[] = [
+  {
+    key: 'briefings',
+    expectedEnv: 'TEAMS_CHANNEL_BRIEFINGS_ID',
+    legacyEnv: ['TEAMS_CHANNEL_BRIEFING_KRISTINA_ID', 'TEAMS_CHANNEL_BRIEFING_ANDREW_ID'],
+    requiredBy: ['chief-of-staff.send_briefing', 'founder briefings delivery'],
+    severity: 'P1',
+    findingType: 'channel_config_missing:briefings',
+  },
+  {
+    key: 'decisions',
+    expectedEnv: 'TEAMS_CHANNEL_DECISIONS_ID',
+    requiredBy: ['chief-of-staff.route_decision', 'decision approval cards'],
+    severity: 'P1',
+    findingType: 'channel_config_missing:decisions',
+  },
+  {
+    key: 'deliverables',
+    expectedEnv: 'TEAMS_CHANNEL_DELIVERABLES_ID',
+    requiredBy: ['content-creator.post_to_deliverables', 'cmo.post_to_deliverables', 'deliverables review'],
+    severity: 'P1',
+    findingType: 'channel_config_missing:deliverables',
+  },
+  {
+    key: 'engineering',
+    expectedEnv: 'TEAMS_CHANNEL_ENGINEERING_ID',
+    requiredBy: ['cto.post_to_teams_channel', 'engineering updates'],
+    severity: 'P2',
+    findingType: 'channel_config_missing:engineering',
+  },
+  {
+    key: 'growth',
+    expectedEnv: 'TEAMS_CHANNEL_GROWTH_ID',
+    requiredBy: ['marketing and growth team updates'],
+    severity: 'P2',
+    findingType: 'channel_config_missing:growth',
+  },
+  {
+    key: 'financials',
+    expectedEnv: 'TEAMS_CHANNEL_FINANCIALS_ID',
+    requiredBy: ['finance team updates'],
+    severity: 'P2',
+    findingType: 'channel_config_missing:financials',
+  },
+  {
+    key: 'general',
+    expectedEnv: 'TEAMS_CHANNEL_GENERAL_ID',
+    requiredBy: ['general team updates', 'fallback team communication'],
+    severity: 'P2',
+    findingType: 'channel_config_missing:general',
+  },
+];
+
+function trimEnv(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value && value.length > 0 ? value : null;
+}
+
+function auditChannelDeliveryConfig(): {
+  configured_channels: string[];
+  missing_channels: Array<Record<string, unknown>>;
+  team_configured: boolean;
+} {
+  const channels = buildChannelMap();
+  const configuredChannels = Object.keys(channels);
+
+  const missingChannels = CHANNEL_AUDIT_EXPECTATIONS.flatMap((expectation) => {
+    if (channels[expectation.key]) {
+      return [];
+    }
+
+    const legacyMatches = (expectation.legacyEnv ?? [])
+      .map((envName) => ({ env: envName, configured: trimEnv(envName) }))
+      .filter((item) => item.configured);
+
+    const expectedValue = trimEnv(expectation.expectedEnv);
+    const reason = expectedValue
+      ? `Channel key ${expectation.key} is unusable despite ${expectation.expectedEnv} being set.`
+      : `Missing ${expectation.expectedEnv}${legacyMatches.length > 0 ? ' while legacy briefing-specific vars are set' : ''}.`;
+
+    return [{
+      channel: expectation.key,
+      severity: expectation.severity,
+      finding_type: expectation.findingType,
+      expected_env: expectation.expectedEnv,
+      legacy_env_present: legacyMatches.map((item) => item.env),
+      required_by: expectation.requiredBy,
+      reason,
+    }];
+  });
+
+  return {
+    configured_channels: configuredChannels,
+    missing_channels: missingChannels,
+    team_configured: Boolean(trimEnv('TEAMS_TEAM_ID')),
+  };
+}
+
 // ── Tool factory ────────────────────────────────────────────────
 
 export function createPlatformIntelTools(): ToolDefinition[] {
   return [
 
     // ── READ TOOLS ──────────────────────────────────────────────
+
+    {
+      name: 'audit_channel_delivery_config',
+      description: 'Audit Teams channel delivery configuration for core posting flows. Detects missing canonical TEAMS_CHANNEL_* env vars, legacy variable mismatches, and delivery paths likely to break briefings, decisions, or deliverables.',
+      parameters: {},
+      execute: async (): Promise<ToolResult> => {
+        const audit = auditChannelDeliveryConfig();
+        return {
+          success: true,
+          data: {
+            ...audit,
+            issue_count: audit.missing_channels.length,
+          },
+        };
+      },
+    },
 
     {
       name: 'read_blocked_assignments',

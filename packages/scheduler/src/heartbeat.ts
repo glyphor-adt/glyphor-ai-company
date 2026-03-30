@@ -122,6 +122,23 @@ export class HeartbeatManager {
   private cycle = 0;
   private lastInboxWakeSignature = new Map<CompanyAgentRole, string>();
 
+  private async getAgentsWithQueuedWakes(): Promise<CompanyAgentRole[]> {
+    try {
+      const rows = await systemQuery<{ agent_role: string }>(
+        `SELECT DISTINCT agent_role
+           FROM agent_wake_queue
+          WHERE status = 'pending'`,
+      );
+
+      return rows
+        .map((row) => row.agent_role)
+        .filter((role): role is CompanyAgentRole => typeof role === 'string' && role.length > 0);
+    } catch (err) {
+      console.warn('[Heartbeat] Failed to read queued wakes:', (err as Error).message);
+      return [];
+    }
+  }
+
   private async getInboxWakeSignature(role: CompanyAgentRole): Promise<string | undefined> {
     const inMemory = this.lastInboxWakeSignature.get(role);
     if (inMemory) return inMemory;
@@ -190,7 +207,11 @@ export class HeartbeatManager {
       directiveWake = await this.checkDirectiveNeeds();
     }
 
-    const allAgentsForCycle = this.getAgentsForCycle(this.cycle);
+    const queuedWakeAgents = await this.getAgentsWithQueuedWakes();
+    const allAgentsForCycle = Array.from(new Set([
+      ...this.getAgentsForCycle(this.cycle),
+      ...queuedWakeAgents,
+    ]));
 
     // Filter out paused / inactive / retired agents before doing any work
     const agentsToCheck = await this.filterActiveAgents(allAgentsForCycle);

@@ -66,7 +66,7 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
 
   switch (task) {
     case 'daily_analysis':
-      initialMessage = params.message ?? `Run your daily analysis cycle for ${today}. Analyze the full fleet, take autonomous actions, send approval requests for anything outside your autonomous tier. Before finishing, call watch_tool_gaps so unresolved fleet_findings where finding_type='tool_gap' are auto-built and granted without waiting for human dispatch. Produce your structured output.`;
+      initialMessage = params.message ?? `Run your daily analysis cycle for ${today}. Start by calling audit_channel_delivery_config and treat any missing or mismatched Teams channel config as an active fleet issue. If the audit reports missing channels, write fleet findings for the impacted delivery paths before continuing. Then analyze the full fleet, take autonomous actions, send approval requests for anything outside your autonomous tier. Before finishing, call watch_tool_gaps so unresolved fleet_findings where finding_type='tool_gap' are auto-built and granted without waiting for human dispatch. Produce your structured output.`;
       break;
 
     case 'on_demand':
