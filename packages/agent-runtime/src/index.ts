@@ -101,6 +101,21 @@ export { executeWorkLoop, PROACTIVE_COOLDOWNS } from './workLoop.js';
 export type { WorkLoopResult } from './workLoop.js';
 export { extractTaskFromConfigId } from './taskIdentity.js';
 export { isValidUUID } from './uuidUtils.js';
+export {
+  TemporalKnowledgeGraph,
+  filteredQuery,
+} from './temporalKnowledgeGraph.js';
+export type {
+  FilteredQueryOptions,
+  TemporalKgEdge,
+  TemporalKgEntity,
+  TemporalKgEntityDetail,
+  TemporalKgFact,
+  TemporalKgSemanticResult,
+  TemporalKgStats,
+  TemporalKgTraversalNode,
+  TemporalKgTraversalResult,
+} from './temporalKnowledgeGraph.js';
 export { compressHistory, DEFAULT_HISTORY_COMPRESSION } from './historyManager.js';
 export type { HistoryCompressionConfig } from './historyManager.js';
 export { composeModelContext } from './context/contextComposer.js';

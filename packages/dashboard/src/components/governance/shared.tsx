@@ -3,7 +3,7 @@ import { MdChevronRight, MdExpandMore } from 'react-icons/md';
 import { Card } from '../ui';
 import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../../lib/types';
 
-export type GovernanceSurface = 'tool-view' | 'access-control' | 'models';
+export type GovernanceSurface = 'tool-view' | 'access-control' | 'authority' | 'models';
 export type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info' | 'good' | 'warning';
 
@@ -134,6 +134,36 @@ export interface PendingApproval {
   proposed_by: string;
   data: Record<string, unknown> | null;
   created_at: string;
+}
+
+export interface AgentCapacityConfig {
+  id: string;
+  agentId: string;
+  capacityTier: 'observe' | 'draft' | 'execute' | 'commit';
+  requiresHumanApprovalFor: string[];
+  overrideByRoles: string[];
+  updatedAt: string;
+  updatedBy: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface CommitmentRegistryEntry {
+  id: string;
+  agentId: string;
+  agentName: string;
+  actionType: string;
+  actionDescription: string;
+  externalCounterparty: string | null;
+  commitmentValue: string | null;
+  toolCalled: string;
+  toolInput: Record<string, unknown>;
+  approvedByHumanId: string | null;
+  approvedAt: string | null;
+  autoApproved: boolean;
+  status: 'pending_approval' | 'approved' | 'rejected' | 'executed' | 'reversed';
+  createdAt: string;
+  executedAt: string | null;
+  metadata: Record<string, unknown>;
 }
 
 export const ADMIN_EMAILS = [

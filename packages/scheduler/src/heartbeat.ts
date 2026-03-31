@@ -119,6 +119,7 @@ function directivePriorityRank(priority: string | null | undefined): number {
 export class HeartbeatManager {
   private executor: AgentExecutorFn;
   private wakeRouter: WakeRouter;
+  private contradictionProcessor?: () => Promise<void>;
   private cycle = 0;
   private lastInboxWakeSignature = new Map<CompanyAgentRole, string>();
 
@@ -170,9 +171,11 @@ export class HeartbeatManager {
   constructor(
     executor: AgentExecutorFn,
     wakeRouter: WakeRouter,
+    contradictionProcessor?: () => Promise<void>,
   ) {
     this.executor = executor;
     this.wakeRouter = wakeRouter;
+    this.contradictionProcessor = contradictionProcessor;
   }
 
   /**
@@ -193,6 +196,14 @@ export class HeartbeatManager {
       }
     } catch (err) {
       console.warn(`[Heartbeat] Change request processing failed:`, (err as Error).message);
+    }
+
+    if (this.contradictionProcessor) {
+      try {
+        await this.contradictionProcessor();
+      } catch (err) {
+        console.warn('[Heartbeat] Contradiction processing failed:', (err as Error).message);
+      }
     }
 
     // ── Phase 0c: DIRECTIVE DETECTION — runs EVERY cycle (~10 min) ──

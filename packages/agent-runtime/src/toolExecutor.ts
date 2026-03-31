@@ -116,6 +116,61 @@ async function persistToolCallTrace(
   }
 }
 
+async function persistToolActivityLog(
+  toolName: string,
+  params: Record<string, unknown>,
+  result: ToolResult,
+  context: ToolContext,
+): Promise<string | null> {
+  const summary = result.success
+    ? `${context.agentRole} executed ${toolName}`
+    : `${context.agentRole} attempted ${toolName}: ${result.error ?? 'failed'}`;
+
+  const details = {
+    tool_name: toolName,
+    tool_args: params,
+    run_id: context.runId ?? null,
+    task_id: context.assignmentId ?? context.runId ?? null,
+    result_success: result.success,
+    result_error: result.error ?? null,
+    risk_level: result.riskLevel ?? null,
+    approval_required: result.approvalRequired ?? false,
+    approval_reason: result.approvalReason ?? null,
+    registry_entry_id: result.registryEntryId ?? null,
+  };
+
+  try {
+    const rows = await systemQuery<{ id: string }>(
+      `INSERT INTO activity_log (
+         agent_role,
+         agent_id,
+         action,
+         activity_type,
+         summary,
+         description,
+         details,
+         created_at
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
+       RETURNING id`,
+      [
+        context.agentRole,
+        context.agentRole,
+        toolName,
+        'decision_trace',
+        summary,
+        result.success ? null : (result.error ?? null),
+        JSON.stringify(details),
+        new Date().toISOString(),
+      ],
+    );
+    return rows[0]?.id ?? null;
+  } catch (err) {
+    console.warn(`[ToolExecutor] Failed to write activity log for ${toolName}:`, (err as Error).message);
+    return null;
+  }
+}
+
 // ─── Emergency Block Cache ─────────────────────────────────────
 const BLOCK_CACHE_TTL_MS = 60_000; // 60 seconds
 
@@ -1172,7 +1227,7 @@ export class ToolExecutor {
           params,
           taskId: context.assignmentId ?? context.runId,
           agentRole: context.agentRole,
-          auditAgentId: context.agentId,
+          auditAgentId: context.agentRole,
         },
         () => Promise.race([toolPromise, timeoutPromise, abortPromise]),
       );
@@ -1187,6 +1242,8 @@ export class ToolExecutor {
         riskLevel: riskAssessment.level,
         registryEntryId: capacityCheck.registryEntryId ?? undefined,
       };
+
+      finalResult.auditLogId = await persistToolActivityLog(toolName, params, finalResult, context) ?? undefined;
 
       if (finalResult.success) {
         if (capacityCheck.registryEntryId) {

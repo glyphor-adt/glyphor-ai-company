@@ -35,6 +35,28 @@ export type {
 } from './agentCapacity.js';
 
 export {
+  captureDecisionTrace,
+  queryDecisionTrace,
+  getDecisionTraceById,
+  getDecisionTraceByAuditLogId,
+  updateDecisionTraceExplanation,
+} from './decisionTraces.js';
+export type {
+  ReactIteration,
+  SelfCritiqueOutput,
+  T1SimulationResult,
+  ValueAnalysisResult,
+  AlternativeRejected,
+  AbacDecisionTrace,
+  AuditLogLink,
+  LinkedContract,
+  DecisionTraceEntry,
+  DecisionTraceQueryFilters,
+  DecisionTraceQueryResult,
+  CaptureDecisionTraceInput,
+} from './decisionTraces.js';
+
+export {
   WORK_ASSIGNMENT_DEDUP_PREFIX_LEN,
   normalizeWorkAssignmentTaskPrefix,
   assertWorkAssignmentDispatchAllowed,

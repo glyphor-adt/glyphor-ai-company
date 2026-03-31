@@ -66,9 +66,13 @@ import { AgentNotifier } from './agentNotifier.js';
 import { handleDashboardApi } from './dashboardApi.js';
 import { handleAbacAdminApi } from './abacAdminApi.js';
 import { handleCapacityAdminApi } from './capacityAdminApi.js';
+import { createContradictionAdminApi } from './contradictionAdminApi.js';
+import { ContradictionProcessor } from './contradictionProcessor.js';
+import { handleDecisionTraceAdminApi } from './decisionTraceAdminApi.js';
 import { handleDisclosureAdminApi } from './disclosureAdminApi.js';
 import { handleHandoffContractAdminApi } from './handoffContractAdminApi.js';
 import { handleGovernanceApi } from './governanceApi.js';
+import { handleTemporalKnowledgeGraphAdminApi } from './temporalKnowledgeGraphAdminApi.js';
 import { HandoffContractMonitor } from './handoffContractMonitor.js';
 import { handleEvalApi } from './evalDashboard.js';
 import { verifyPlan } from './planVerifier.js';
@@ -2114,7 +2118,15 @@ const trackedAgentExecutor = async (
 
 const router = new EventRouter(trackedAgentExecutor, decisionQueue);
 const wakeRouter = new WakeRouter(trackedAgentExecutor);
-const heartbeatManager = new HeartbeatManager(trackedAgentExecutor, wakeRouter);
+const contradictionAdminApi = createContradictionAdminApi(memory);
+const contradictionProcessor = new ContradictionProcessor(memory, trackedAgentExecutor, null);
+const heartbeatManager = new HeartbeatManager(
+  trackedAgentExecutor,
+  wakeRouter,
+  async () => {
+    await contradictionProcessor.processDetectedContradictions();
+  },
+);
 
 const strategyModelClient = new ModelClient({
   geminiApiKey: process.env.GOOGLE_AI_API_KEY,
@@ -4653,11 +4665,20 @@ const server = createServer(async (req, res) => {
     // ── Admin Capacity API (/admin/agents/*, /admin/commitments/*) ─
     if (await handleCapacityAdminApi(req, res, url, queryString ?? '', method)) return;
 
+    // ── Admin Contradictions API (/admin/contradictions/*) ────────
+    if (await contradictionAdminApi(req, res, url, queryString ?? '', method)) return;
+
     // ── Admin Disclosure API (/admin/agents/*, /admin/disclosure/*) ──
     if (await handleDisclosureAdminApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Admin Handoff Contract API (/admin/contracts/*, /admin/agents/:id/contracts) ──
     if (await handleHandoffContractAdminApi(req, res, url, queryString ?? '', method)) return;
+
+    // ── Admin Decision Trace API (/admin/decisions/*, /admin/agents/:id/decisions) ──
+    if (await handleDecisionTraceAdminApi(req, res, url, queryString ?? '', method, { modelClient: strategyModelClient })) return;
+
+    // ── Admin Temporal KG API (/admin/kg/*) ─────────────────────
+    if (await handleTemporalKnowledgeGraphAdminApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Dashboard CRUD API (/api/*) ────────────────────────────────
     if (await handleDashboardApi(req, res, url, queryString ?? '', method)) return;

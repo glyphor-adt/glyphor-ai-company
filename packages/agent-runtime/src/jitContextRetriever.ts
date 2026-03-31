@@ -9,6 +9,7 @@
 
 import { systemQuery } from '@glyphor/shared/db';
 import type { RedisCache } from './redisCache.js';
+import { TemporalKnowledgeGraph } from './temporalKnowledgeGraph.js';
 
 /** Minimal interface to avoid circular dependency on @glyphor/company-memory */
 export interface EmbeddingClient {
@@ -134,7 +135,7 @@ export class JitContextRetriever {
     // Query all stores in parallel
     const [memories, graphNodes, episodes, procedures, transferableSkills, knowledge] = await Promise.allSettled([
       this.queryMemories(embeddingStr, agentRole),
-      this.queryGraphNodes(embeddingStr, agentRole),
+      this.queryGraphNodes(embeddingStr, agentRole, task),
       this.queryEpisodes(queryHash, embeddingStr),
       this.queryProcedures(queryHash, task),
       this.queryTransferableSkills(task, agentRole),
@@ -196,7 +197,19 @@ export class JitContextRetriever {
   }
 
   /** Query knowledge graph nodes by embedding similarity. */
-  private async queryGraphNodes(embeddingStr: string, agentRole: string): Promise<JitContextItem[]> {
+  private async queryGraphNodes(embeddingStr: string, agentRole: string, task: string): Promise<JitContextItem[]> {
+    const [legacyGraph, temporalGraph] = await Promise.allSettled([
+      this.queryLegacyGraphNodes(embeddingStr, agentRole),
+      this.queryTemporalGraph(task, agentRole),
+    ]);
+
+    return [
+      ...(legacyGraph.status === 'fulfilled' ? legacyGraph.value : []),
+      ...(temporalGraph.status === 'fulfilled' ? temporalGraph.value : []),
+    ].sort((left, right) => right.score - left.score);
+  }
+
+  private async queryLegacyGraphNodes(embeddingStr: string, agentRole: string): Promise<JitContextItem[]> {
     try {
       const data = await systemQuery<{ name: string; description: string; similarity: number }>(
         `WITH allowed_scope AS (
@@ -233,6 +246,55 @@ export class JitContextRetriever {
         content: `${row.name}: ${row.description}`,
         score: row.similarity,
       }));
+    } catch {
+      return [];
+    }
+  }
+
+  private async queryTemporalGraph(task: string, agentRole: string): Promise<JitContextItem[]> {
+    try {
+      const graph = new TemporalKnowledgeGraph(this.embeddingClient);
+      const entities = await graph.semanticSearch(task, undefined, DEFAULT_MATCH_COUNT, agentRole);
+      const items: JitContextItem[] = [];
+
+      for (const entity of entities.slice(0, DEFAULT_MATCH_COUNT)) {
+        const [facts, traversal] = await Promise.all([
+          graph.getCurrentFacts(entity.id),
+          graph.traverseGraph(entity.id, [], 2, agentRole),
+        ]);
+
+        const factLines = facts.slice(0, 5).map((fact) => {
+          const value = typeof fact.factValue === 'string' ? fact.factValue : JSON.stringify(fact.factValue);
+          return `- ${fact.factKey}: ${value}`;
+        });
+        const relatedLines = traversal.nodes
+          .filter((node) => node.id !== entity.id)
+          .slice(0, 6)
+          .map((node) => `- depth ${node.depth}: ${node.name} (${node.entityType})${node.viaEdgeType ? ` via ${node.viaEdgeType}` : ''}`);
+        const propertyText = Object.keys(entity.properties ?? {}).length > 0
+          ? JSON.stringify(entity.properties)
+          : '{}';
+
+        items.push({
+          source: 'graph' as const,
+          score: entity.similarity,
+          metadata: {
+            temporal: true,
+            entityId: entity.id,
+            entityType: entity.entityType,
+          },
+          content: [
+            `[temporal_entity] ${entity.name} (${entity.entityType}:${entity.entityId})`,
+            `Properties: ${propertyText}`,
+            factLines.length > 0 ? 'Current facts:' : 'Current facts: none',
+            ...factLines,
+            relatedLines.length > 0 ? 'Connected context:' : 'Connected context: none',
+            ...relatedLines,
+          ].join('\n'),
+        });
+      }
+
+      return items;
     } catch {
       return [];
     }

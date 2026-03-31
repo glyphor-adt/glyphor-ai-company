@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Card, PageTabs, SectionHeader, Skeleton } from '../components/ui';
 import AccessControl from '../components/governance/AccessControl';
+import AuthorityControl from '../components/governance/AuthorityControl';
 import ToolView from '../components/governance/ToolView';
 import ModelAdmin from './ModelAdmin';
 import {
   ADMIN_EMAILS,
   AccessPostureResponse,
+  AgentCapacityConfig,
+  CommitmentRegistryEntry,
   GovernanceAction,
   GovernanceChangeItem,
   GovernanceSurface,
@@ -24,6 +27,7 @@ import {
 } from '../components/governance/shared';
 import { useAuth } from '../lib/auth';
 import { apiCall } from '../lib/firebase';
+import { useAgents } from '../lib/hooks';
 import { ROLE_DEPARTMENT } from '../lib/types';
 
 type UnknownRecord = Record<string, unknown>;
@@ -385,6 +389,82 @@ function normalizePendingApprovals(raw: unknown): PendingApproval[] {
   }));
 }
 
+function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => asString(item)?.trim() ?? '')
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    try {
+      return normalizeStringArray(JSON.parse(value));
+    } catch {
+      return value.split(',').map((item) => item.trim()).filter(Boolean);
+    }
+  }
+
+  return [];
+}
+
+function normalizeObjectRecord(value: unknown): Record<string, unknown> {
+  if (isRecord(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return isRecord(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function normalizeAgentCapacity(raw: unknown): AgentCapacityConfig | null {
+  const item = getObjectOrFirst(raw);
+  if (!item) return null;
+
+  return {
+    id: asString(getValue(item, ['id'])) ?? 'capacity-config',
+    agentId: asString(getValue(item, ['agentId', 'agent_id'])) ?? 'unknown',
+    capacityTier: (asString(getValue(item, ['capacityTier', 'capacity_tier'])) as AgentCapacityConfig['capacityTier']) ?? 'execute',
+    requiresHumanApprovalFor: normalizeStringArray(getValue(item, ['requiresHumanApprovalFor', 'requires_human_approval_for'])),
+    overrideByRoles: normalizeStringArray(getValue(item, ['overrideByRoles', 'override_by_roles'])),
+    updatedAt: asString(getValue(item, ['updatedAt', 'updated_at'])) ?? new Date(0).toISOString(),
+    updatedBy: asString(getValue(item, ['updatedBy', 'updated_by'])) ?? 'system',
+    metadata: normalizeObjectRecord(getValue(item, ['metadata'])),
+  };
+}
+
+function normalizeCommitments(raw: unknown): { page: number; pageSize: number; total: number; items: CommitmentRegistryEntry[] } {
+  const record = isRecord(raw) ? raw : null;
+  const items = getRecordList(raw).map((item, index) => ({
+    id: asString(getValue(item, ['id'])) ?? `commitment-${index}`,
+    agentId: asString(getValue(item, ['agentId', 'agent_id'])) ?? 'unknown',
+    agentName: asString(getValue(item, ['agentName', 'agent_name'])) ?? 'Unknown Agent',
+    actionType: asString(getValue(item, ['actionType', 'action_type'])) ?? 'unknown_action',
+    actionDescription: asString(getValue(item, ['actionDescription', 'action_description'])) ?? 'Binding action',
+    externalCounterparty: asString(getValue(item, ['externalCounterparty', 'external_counterparty'])),
+    commitmentValue: asString(getValue(item, ['commitmentValue', 'commitment_value'])),
+    toolCalled: asString(getValue(item, ['toolCalled', 'tool_called'])) ?? 'unknown_tool',
+    toolInput: normalizeObjectRecord(getValue(item, ['toolInput', 'tool_input'])),
+    approvedByHumanId: asString(getValue(item, ['approvedByHumanId', 'approved_by_human_id'])),
+    approvedAt: asString(getValue(item, ['approvedAt', 'approved_at'])),
+    autoApproved: asBoolean(getValue(item, ['autoApproved', 'auto_approved'])) ?? false,
+    status: (asString(getValue(item, ['status'])) as CommitmentRegistryEntry['status']) ?? 'pending_approval',
+    createdAt: asString(getValue(item, ['createdAt', 'created_at'])) ?? new Date(0).toISOString(),
+    executedAt: asString(getValue(item, ['executedAt', 'executed_at'])),
+    metadata: normalizeObjectRecord(getValue(item, ['metadata'])),
+  }));
+
+  return {
+    page: asNumber(record?.page) ?? 1,
+    pageSize: asNumber(record?.pageSize ?? record?.page_size) ?? items.length,
+    total: asNumber(record?.total) ?? items.length,
+    items,
+  };
+}
+
 async function fetchWithFallback(paths: string[]): Promise<unknown> {
   let lastError: unknown = null;
   for (const path of paths) {
@@ -414,10 +494,11 @@ async function apiCallWithTimeout<T = unknown>(path: string, options: RequestIni
   }
 }
 
-const VALID_TABS: GovernanceSurface[] = ['tool-view', 'access-control', 'models'];
+const VALID_TABS: GovernanceSurface[] = ['tool-view', 'access-control', 'authority', 'models'];
 
 export default function Governance() {
   const { user } = useAuth();
+  const { data: agents, loading: agentsLoading } = useAgents();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as GovernanceSurface | null;
   const [activeTab, setActiveTab] = useState<GovernanceSurface>(
@@ -436,8 +517,27 @@ export default function Governance() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyDecisionId, setBusyDecisionId] = useState<string | null>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState('');
+  const [capacityConfig, setCapacityConfig] = useState<AgentCapacityConfig | null>(null);
+  const [authorityLoading, setAuthorityLoading] = useState(false);
+  const [savingCapacity, setSavingCapacity] = useState(false);
+  const [busyCommitmentId, setBusyCommitmentId] = useState<string | null>(null);
+  const [pendingCommitments, setPendingCommitments] = useState<CommitmentRegistryEntry[]>([]);
+  const [pendingCommitmentTotal, setPendingCommitmentTotal] = useState(0);
+  const [agentCommitments, setAgentCommitments] = useState<CommitmentRegistryEntry[]>([]);
+  const [agentCommitmentTotal, setAgentCommitmentTotal] = useState(0);
 
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
+
+  useEffect(() => {
+    if (agents.length === 0) return;
+    if (selectedAgentId && agents.some((agent) => agent.role === selectedAgentId || agent.id === selectedAgentId)) return;
+    const nextAgent = [...agents]
+      .sort((left, right) => (left.display_name || left.name || left.role).localeCompare(right.display_name || right.name || right.role))[0];
+    if (nextAgent) {
+      setSelectedAgentId(nextAgent.role || nextAgent.id);
+    }
+  }, [agents, selectedAgentId]);
 
   const refresh = useCallback(async (mode: 'initial' | 'refresh' = 'refresh') => {
     if (mode === 'initial') {
@@ -492,9 +592,56 @@ export default function Governance() {
     }
   }, []);
 
+  const refreshPendingCommitments = useCallback(async () => {
+    const raw = await apiCallWithTimeout('/admin/commitments/pending?pageSize=12').catch(() => null);
+    const normalized = normalizeCommitments(raw);
+    setPendingCommitments(normalized.items);
+    setPendingCommitmentTotal(normalized.total);
+  }, []);
+
+  const refreshSelectedAuthority = useCallback(async (agentId: string) => {
+    if (!agentId) {
+      setCapacityConfig(null);
+      setAgentCommitments([]);
+      setAgentCommitmentTotal(0);
+      return;
+    }
+
+    const encodedAgentId = encodeURIComponent(agentId);
+    const [capacityRaw, commitmentsRaw] = await Promise.all([
+      apiCallWithTimeout(`/admin/agents/${encodedAgentId}/capacity`).catch(() => null),
+      apiCallWithTimeout(`/admin/commitments?agent=${encodedAgentId}&pageSize=20`).catch(() => null),
+    ]);
+
+    setCapacityConfig(normalizeAgentCapacity(capacityRaw));
+    const normalizedCommitments = normalizeCommitments(commitmentsRaw);
+    setAgentCommitments(normalizedCommitments.items);
+    setAgentCommitmentTotal(normalizedCommitments.total);
+  }, []);
+
+  const refreshAuthority = useCallback(async (agentId: string, mode: 'initial' | 'refresh' = 'refresh') => {
+    if (mode === 'initial') {
+      setAuthorityLoading(true);
+    }
+
+    try {
+      await Promise.all([
+        refreshPendingCommitments(),
+        refreshSelectedAuthority(agentId),
+      ]);
+    } finally {
+      setAuthorityLoading(false);
+    }
+  }, [refreshPendingCommitments, refreshSelectedAuthority]);
+
   useEffect(() => {
     refresh('initial');
   }, [refresh]);
+
+  useEffect(() => {
+    if (!selectedAgentId) return;
+    refreshAuthority(selectedAgentId, 'initial');
+  }, [refreshAuthority, selectedAgentId]);
 
   const handleResolveApproval = useCallback(async (id: string, approve: boolean) => {
     setBusyDecisionId(id);
@@ -532,6 +679,72 @@ export default function Governance() {
     await refresh();
   }, [refresh]);
 
+  const handleSaveCapacity = useCallback(async (input: {
+    capacityTier: AgentCapacityConfig['capacityTier'];
+    requiresHumanApprovalFor: string[];
+    overrideByRoles: string[];
+  }) => {
+    if (!selectedAgentId) return;
+    setSavingCapacity(true);
+    try {
+      const updated = await apiCall('/admin/agents/' + encodeURIComponent(selectedAgentId) + '/capacity', {
+        method: 'PUT',
+        body: JSON.stringify({
+          capacityTier: input.capacityTier,
+          requiresHumanApprovalFor: input.requiresHumanApprovalFor,
+          overrideByRoles: input.overrideByRoles,
+          updatedBy: user?.email ?? 'dashboard',
+        }),
+      });
+      setCapacityConfig(normalizeAgentCapacity(updated));
+      await refreshPendingCommitments();
+    } finally {
+      setSavingCapacity(false);
+    }
+  }, [refreshPendingCommitments, selectedAgentId, user?.email]);
+
+  const handleApproveCommitment = useCallback(async (id: string) => {
+    setBusyCommitmentId(id);
+    try {
+      await apiCall(`/admin/commitments/${id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ approverHumanId: user?.email ?? 'dashboard' }),
+      });
+      await refreshAuthority(selectedAgentId);
+    } finally {
+      setBusyCommitmentId(null);
+    }
+  }, [refreshAuthority, selectedAgentId, user?.email]);
+
+  const handleRejectCommitment = useCallback(async (id: string, reason: string) => {
+    setBusyCommitmentId(id);
+    try {
+      await apiCall(`/admin/commitments/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({
+          approverHumanId: user?.email ?? 'dashboard',
+          reason,
+        }),
+      });
+      await refreshAuthority(selectedAgentId);
+    } finally {
+      setBusyCommitmentId(null);
+    }
+  }, [refreshAuthority, selectedAgentId, user?.email]);
+
+  const handleReverseCommitment = useCallback(async (id: string, reason: string) => {
+    setBusyCommitmentId(id);
+    try {
+      await apiCall(`/admin/commitments/${id}/reverse`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+      await refreshAuthority(selectedAgentId);
+    } finally {
+      setBusyCommitmentId(null);
+    }
+  }, [refreshAuthority, selectedAgentId]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -547,7 +760,7 @@ export default function Governance() {
         <div>
           <SectionHeader
             title="Governance Control Plane"
-            subtitle="Tool View and Access Control surfaces for managing agent tools and grants."
+            subtitle="Tool, authority, and access-control surfaces for managing agent execution rights and approvals."
           />
           <Card className="max-w-3xl border-prism-sky/20 bg-prism-sky/5">
             <p className="text-[13px] text-txt-secondary">
@@ -562,11 +775,11 @@ export default function Governance() {
         </div>
         <button
           type="button"
-          onClick={() => refresh()}
-          disabled={refreshing}
+          onClick={() => Promise.all([refresh(), refreshAuthority(selectedAgentId)])}
+          disabled={refreshing || authorityLoading}
           className="rounded-lg theme-glass-panel-soft px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary disabled:opacity-50"
         >
-          {refreshing ? 'Refreshing…' : 'Refresh'}
+          {refreshing || authorityLoading ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
 
@@ -574,6 +787,7 @@ export default function Governance() {
         tabs={[
           { key: 'tool-view', label: 'Tool View' },
           { key: 'access-control', label: 'Access Control' },
+          { key: 'authority', label: 'Authority' },
           { key: 'models', label: 'Models' },
         ]}
         active={activeTab}
@@ -608,6 +822,29 @@ export default function Governance() {
             onGrant={handleGrant}
             onRevoke={handleRevoke}
             onResolveApproval={handleResolveApproval}
+          />
+        </div>
+      )}
+
+      {activeTab === 'authority' && (
+        <div id="authority">
+          <AuthorityControl
+            loading={authorityLoading || agentsLoading}
+            agents={agents}
+            selectedAgentId={selectedAgentId}
+            capacityConfig={capacityConfig}
+            pendingCommitments={pendingCommitments}
+            pendingCommitmentTotal={pendingCommitmentTotal}
+            agentCommitments={agentCommitments}
+            agentCommitmentTotal={agentCommitmentTotal}
+            isAdmin={isAdmin}
+            savingCapacity={savingCapacity}
+            busyCommitmentId={busyCommitmentId}
+            onSelectAgent={setSelectedAgentId}
+            onSaveCapacity={handleSaveCapacity}
+            onApproveCommitment={handleApproveCommitment}
+            onRejectCommitment={handleRejectCommitment}
+            onReverseCommitment={handleReverseCommitment}
           />
         </div>
       )}

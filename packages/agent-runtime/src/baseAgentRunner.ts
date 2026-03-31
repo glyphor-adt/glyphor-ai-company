@@ -53,7 +53,13 @@ import type { RoutingDecision } from './routing/index.js';
 import { determineVerificationTier } from './verificationPolicy.js';
 import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from './subtaskRouter.js';
 import { learnFromAgentRun } from './skillLearning.js';
-import { getTierModel } from '@glyphor/shared';
+import {
+  captureDecisionTrace,
+  getTierModel,
+  type AlternativeRejected,
+  type SelfCritiqueOutput,
+  type ValueAnalysisResult,
+} from '@glyphor/shared';
 
 const CONTEXT_COMPOSITION_MAX_TOKENS = 12_000;
 
@@ -123,6 +129,86 @@ const PLANNING_INTENT_PATTERNS = [
 
 function containsPlanningIntent(text: string): boolean {
   return PLANNING_INTENT_PATTERNS.some(p => p.test(text));
+}
+
+function summarizeDecisionText(output: string | null): string | null {
+  if (!output) return null;
+  const normalized = output.replace(/\s+/g, ' ').trim();
+  if (normalized.length === 0) return null;
+  const sentence = normalized.split(/(?<=[.!?])\s+/)[0] ?? normalized;
+  return sentence.slice(0, 600);
+}
+
+function buildValueAnalysisTrace(valueAssessment: import('./reasoningEngine.js').ValueScore | null): ValueAnalysisResult | null {
+  if (!valueAssessment) return null;
+  const costScore = Math.max(0, 1 - Math.min(1, valueAssessment.costUsd / 0.1));
+  return {
+    function_score: valueAssessment.score,
+    cost_score: costScore,
+    value_ratio: valueAssessment.costUsd > 0 ? valueAssessment.score / valueAssessment.costUsd : valueAssessment.score,
+    alternatives_considered: (valueAssessment.alternatives ?? []).map((alternative) => ({
+      approach: alternative.approach,
+      estimated_savings: alternative.estimatedSavings,
+    })),
+  };
+}
+
+function buildAlternativesRejected(valueAssessment: import('./reasoningEngine.js').ValueScore | null): AlternativeRejected[] {
+  return (valueAssessment?.alternatives ?? []).map((alternative) => ({
+    description: alternative.approach,
+    rejection_reason: `Rejected during value analysis in favor of the selected execution path; estimated savings noted as ${alternative.estimatedSavings}.`,
+  }));
+}
+
+function buildSelfCritiqueTrace(reasoningResult: import('./reasoningEngine.js').ReasoningResult | null): SelfCritiqueOutput | null {
+  if (!reasoningResult) return null;
+  return {
+    issues_found: Array.from(new Set(reasoningResult.passes.flatMap((pass) => pass.issues))),
+    revisions_made: reasoningResult.revised
+      ? Array.from(new Set(reasoningResult.passes.flatMap((pass) => pass.suggestions)))
+      : [],
+    final_confidence: reasoningResult.overallConfidence,
+  };
+}
+
+async function persistDecisionAuditLog(entry: {
+  agentRole: string;
+  taskId: string;
+  action: string;
+  summary: string;
+  description?: string | null;
+  details?: Record<string, unknown>;
+}): Promise<string | null> {
+  try {
+    const rows = await systemQuery<{ id: string }>(
+      `INSERT INTO activity_log (
+         agent_role,
+         agent_id,
+         action,
+         activity_type,
+         summary,
+         description,
+         details,
+         created_at
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
+       RETURNING id`,
+      [
+        entry.agentRole,
+        entry.agentRole,
+        entry.action,
+        'decision_trace',
+        entry.summary,
+        entry.description ?? null,
+        JSON.stringify({ ...(entry.details ?? {}), task_id: entry.taskId }),
+        new Date().toISOString(),
+      ],
+    );
+    return rows[0]?.id ?? null;
+  } catch (err) {
+    console.warn(`[${entry.agentRole}] Failed to persist decision audit log:`, (err as Error).message);
+    return null;
+  }
 }
 
 /** Build a per-tool retrieval metadata map from the ToolRetriever trace. */
@@ -245,6 +331,9 @@ export abstract class BaseAgentRunner {
     let actualModelUsed: string | undefined;
     let actualProviderUsed: 'gemini' | 'openai' | 'anthropic' | undefined;
     const actionReceipts: ActionReceipt[] = [];
+    const traceAuditLogIds = new Set<string>();
+    const traceTaskId = config.assignmentId ?? config.id;
+    let reactIterationCounter = 0;
 
     // ─── Load shared memory + JIT context in parallel ───────────
     const taskForContext = extractTaskFromConfigId(config.id);
@@ -435,6 +524,29 @@ ${memPrompt}`, timestamp: Date.now() });
 
         if (valueAssessment.recommendation === 'abort') {
           console.log(`[${this.archetype}Runner] Value gate aborted run for ${config.role}: ${valueAssessment.reasoning}`);
+          const auditLogId = await persistDecisionAuditLog({
+            agentRole: config.role,
+            taskId: traceTaskId,
+            action: 'agent.value_gate_abort',
+            summary: `Value gate aborted ${config.role} run`,
+            description: valueAssessment.reasoning,
+            details: {
+              run_id: config.dbRunId ?? config.id,
+              value_assessment: buildValueAnalysisTrace(valueAssessment),
+            },
+          });
+          if (auditLogId) {
+            await captureDecisionTrace(auditLogId, {
+              agentId: config.role,
+              taskId: traceTaskId,
+              valueAnalysisResult: buildValueAnalysisTrace(valueAssessment),
+              alternativesRejected: buildAlternativesRejected(valueAssessment),
+              confidenceAtDecision: valueAssessment.score,
+              finalDecisionSummary: `The agent chose not to execute because the value gate determined the work did not justify the expected cost. ${valueAssessment.reasoning}`,
+            }).catch((err: unknown) => {
+              console.warn(`[${this.archetype}Runner] Failed to capture value-gate decision trace for ${config.role}:`, (err as Error).message);
+            });
+          }
           return this.buildResult(config, 'aborted', `Value gate: ${valueAssessment.reasoning}`, history, supervisor, 'value_gate_abort', totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary());
         }
       } catch (err) {
@@ -675,6 +787,24 @@ ${memPrompt}`, timestamp: Date.now() });
             const resultContent = result.data !== undefined ? JSON.stringify(result.data) : result.error ?? 'ok';
             history.push({ role: 'tool_result', content: resultContent, toolName: call.name, toolResult: result, timestamp: Date.now() });
             emitEvent({ type: 'tool_result', agentId: config.id, turnNumber, toolName: call.name, success: result.success, filesWritten: result.filesWritten ?? 0, memoryKeysWritten: result.memoryKeysWritten ?? 0 });
+
+            if (result.auditLogId) {
+              traceAuditLogIds.add(result.auditLogId);
+              reactIterationCounter += 1;
+              await captureDecisionTrace(result.auditLogId, {
+                agentId: config.role,
+                taskId: traceTaskId,
+                reactIterations: [{
+                  thought: (call.thoughtSignature ?? response.thinkingText ?? '').slice(0, 4000),
+                  action: `${call.name} ${JSON.stringify(call.args).slice(0, 2000)}`,
+                  observation: resultContent.slice(0, 4000),
+                  iteration: reactIterationCounter,
+                }],
+                valueAnalysisResult: buildValueAnalysisTrace(valueAssessment),
+              }).catch((err: unknown) => {
+                console.warn(`[${this.archetype}Runner] Failed to capture ReAct trace for ${config.role}/${call.name}:`, (err as Error).message);
+              });
+            }
 
             actionReceipts.push({
               tool: call.name,
@@ -948,6 +1078,41 @@ ${memPrompt}`, timestamp: Date.now() });
           recommendation: valueAssessment.recommendation,
           costUsd: valueAssessment.costUsd,
         };
+      }
+
+      if (traceAuditLogIds.size === 0 && lastTextOutput) {
+        const auditLogId = await persistDecisionAuditLog({
+          agentRole: config.role,
+          taskId: traceTaskId,
+          action: 'agent.decision',
+          summary: summarizeDecisionText(lastTextOutput) ?? `${config.role} completed a decision`,
+          description: summarizeDecisionText(lastTextOutput),
+          details: {
+            run_id: config.dbRunId ?? config.id,
+            verification_tier: verificationMeta.tier,
+            verification_passes: verificationMeta.passes,
+            reasoning_confidence: reasoningResult?.overallConfidence ?? null,
+          },
+        });
+        if (auditLogId) {
+          traceAuditLogIds.add(auditLogId);
+        }
+      }
+
+      if (traceAuditLogIds.size > 0) {
+        const finalTraceUpdate = {
+          agentId: config.role,
+          taskId: traceTaskId,
+          selfCritiqueOutput: buildSelfCritiqueTrace(reasoningResult),
+          valueAnalysisResult: buildValueAnalysisTrace(valueAssessment),
+          alternativesRejected: buildAlternativesRejected(valueAssessment),
+          confidenceAtDecision: reasoningResult?.overallConfidence ?? valueAssessment?.score ?? null,
+          finalDecisionSummary: summarizeDecisionText(lastTextOutput),
+        };
+
+        await Promise.allSettled(
+          [...traceAuditLogIds].map((auditLogId) => captureDecisionTrace(auditLogId, finalTraceUpdate)),
+        );
       }
 
       // Fire-and-forget: harvest skill signals from efficient successful runs.

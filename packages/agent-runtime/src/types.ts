@@ -217,6 +217,8 @@ export interface ToolResult {
   approvalReason?: string;
   /** Commitment registry entry associated with this tool call, when applicable. */
   registryEntryId?: string;
+  /** Activity log row created for this tool call. */
+  auditLogId?: string;
   /** Constitutional pre-check metadata (present for high-stakes tools). */
   constitutional_check?: {
     checked: boolean;

@@ -10,6 +10,14 @@
 import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { EmbeddingClient } from './embeddingClient.js';
+import {
+  KnowledgeContradictionStore,
+  type ContradictionDetail,
+  type ContradictionListFilters,
+  type ContradictionListItem,
+  type ContradictionResolutionResult,
+  type FactProvenanceScore,
+} from './contradictions.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // TYPES
@@ -143,6 +151,8 @@ export interface FounderBulletin {
 }
 
 export class CollectiveIntelligenceStore {
+  private readonly contradictionStore = new KnowledgeContradictionStore();
+
   constructor(
     private embeddingClient: EmbeddingClient | null = null,
   ) {}
@@ -572,51 +582,53 @@ ${lines.join('\n')}`;
 
   // --- Contradiction Detection ---
 
-  async detectContradictions(): Promise<{
-    knowledge_a: { id: string; agent_role: string; content: string };
-    knowledge_b: { id: string; agent_role: string; content: string; similarity: number };
-  }[]> {
-    if (!this.embeddingClient) return [];
+  async detectContradictions(): Promise<ContradictionListItem[]> {
+    return this.contradictionStore.detectContradictions();
+  }
 
-    // Get recent active knowledge with embeddings
-    const allKnowledge = await systemQuery<{
-      id: string; agent_role: string; content: string; embedding: string; memory_type: string;
-    }>(
-      "SELECT id, agent_role, content, embedding, memory_type FROM agent_memory WHERE memory_type = 'fact' AND embedding IS NOT NULL ORDER BY created_at DESC LIMIT 100",
-    );
+  async scoreFactProvenance(factId: string): Promise<FactProvenanceScore> {
+    return this.contradictionStore.scoreFactProvenance(factId);
+  }
 
-    if (!allKnowledge.length) return [];
+  async resolveContradiction(contradictionId: string): Promise<ContradictionResolutionResult> {
+    return this.contradictionStore.resolveContradiction(contradictionId);
+  }
 
-    const conflicts: {
-      knowledge_a: { id: string; agent_role: string; content: string };
-      knowledge_b: { id: string; agent_role: string; content: string; similarity: number };
-    }[] = [];
+  async applyChiefOfStaffContradictionDecision(
+    contradictionId: string,
+    decision: {
+      action: 'resolve' | 'escalate_to_human';
+      winnerFactId?: string;
+      reason: string;
+      payload?: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    return this.contradictionStore.applyChiefOfStaffDecision(contradictionId, decision);
+  }
 
-    // Sample a subset to avoid O(n²) explosion
-    const sample = allKnowledge.slice(0, 30);
-    for (const k of sample) {
-      const similar = await systemQuery<{
-        id: string; agent_role: string; content: string; similarity: number;
-      }>(
-        'SELECT * FROM match_memories($1, $2, $3, $4)',
-        [k.embedding, k.agent_role, 0.85, 5],
-      );
+  async listContradictions(filters: ContradictionListFilters): Promise<{ items: ContradictionListItem[]; total: number; page: number; pageSize: number }> {
+    return this.contradictionStore.listContradictions(filters);
+  }
 
-      // Filter to knowledge from DIFFERENT agents
-      const crossAgent = (similar).filter(
-        (s: { id: string; agent_role: string }) =>
-          s.agent_role !== k.agent_role && s.id !== k.id,
-      );
+  async getContradictionDetail(contradictionId: string): Promise<ContradictionDetail | null> {
+    return this.contradictionStore.getContradictionDetail(contradictionId);
+  }
 
-      for (const ca of crossAgent) {
-        conflicts.push({
-          knowledge_a: { id: k.id, agent_role: k.agent_role, content: k.content },
-          knowledge_b: { id: ca.id, agent_role: ca.agent_role, content: ca.content, similarity: ca.similarity },
-        });
-      }
-    }
+  async resolveContradictionByHuman(
+    contradictionId: string,
+    winnerFactId: string,
+    reason: string,
+    resolvedBy: string,
+  ): Promise<void> {
+    return this.contradictionStore.resolveContradictionByHuman(contradictionId, winnerFactId, reason, resolvedBy);
+  }
 
-    return conflicts;
+  async dismissContradiction(
+    contradictionId: string,
+    reason: string,
+    resolvedBy: string,
+  ): Promise<void> {
+    return this.contradictionStore.dismissContradiction(contradictionId, reason, resolvedBy);
   }
 
   // ─── LAYER 3: ORGANIZATIONAL LEARNING ───────────────────────

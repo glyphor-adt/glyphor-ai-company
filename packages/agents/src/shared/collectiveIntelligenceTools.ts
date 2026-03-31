@@ -385,7 +385,7 @@ export function createCollectiveIntelligenceTools(
 
     {
       name: 'detect_contradictions',
-      description: 'Scan agent knowledge for potential contradictions — cases where two agents hold semantically similar but different facts.',
+      description: 'Scan persisted knowledge facts for active contradictions, score provenance, and surface the queue of unresolved fact conflicts.',
       parameters: {},
       execute: async (): Promise<ToolResult> => {
         const conflicts = await ci.detectContradictions();
