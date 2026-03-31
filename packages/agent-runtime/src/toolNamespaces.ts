@@ -13,7 +13,7 @@ export const TOOL_NAMESPACES: ToolNamespaceConfig[] = [
   {
     name: 'engineering',
     description: 'System health, logs, CI/CD, repository, deployment, and testing tools.',
-    toolPrefixes: ['check_system', 'query_log', 'query_error', 'query_uptime', 'query_cloud', 'query_db', 'get_deployment', 'get_ci', 'get_pipeline', 'get_recent_commits', 'check_pr', 'check_build', 'create_github', 'create_branch', 'merge_github', 'comment_on_pr', 'run_test', 'query_test', 'get_quality', 'get_code_coverage', 'deploy_', 'scale_service', 'inspect_cloud', 'run_health', 'get_container', 'get_service_dep', 'get_infrastructure', 'list_deployments', 'github_create_from_template', 'github_push_files', 'vercel_', 'cloudflare_'],
+    toolPrefixes: ['check_system', 'query_log', 'query_error', 'query_uptime', 'query_cloud', 'query_db', 'get_deployment', 'get_ci', 'get_pipeline', 'get_recent_commits', 'check_pr', 'check_build', 'create_github', 'create_branch', 'merge_github', 'comment_on_pr', 'run_test', 'query_test', 'get_quality', 'get_code_coverage', 'deploy_', 'scale_service', 'inspect_cloud', 'run_health', 'get_container', 'get_service_dep', 'get_infrastructure', 'list_deployments', 'github_create_from_template', 'github_push_files', 'github_create_', 'github_merge_', 'vercel_', 'cloudflare_'],
   },
   {
     name: 'marketing',

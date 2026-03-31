@@ -778,7 +778,7 @@ const _deployPrev = ['deploy_preview', 'get_deployment_status', 'list_deployment
 const _codex = ['codex', 'codex-reply'] as const;
 const _designBrief = ['ambient-pattern', 'capability-context', 'cta_section', 'footer', 'hero', 'hero-background', 'hero-loop', 'normalize_design_brief', 'value_proposition'] as const;
 const _webBuild = ['invoke_web_build', 'invoke_web_iterate', 'invoke_web_upgrade'] as const;
-const _clientWebsitePipeline = ['build_website_foundation', 'github_create_from_template', 'github_push_files', 'vercel_create_project', 'vercel_get_preview_url', 'cloudflare_register_preview', 'cloudflare_update_preview'] as const;
+const _clientWebsitePipeline = ['build_website_foundation', 'github_create_from_template', 'github_push_files', 'github_create_pull_request', 'github_merge_pull_request', 'vercel_create_project', 'vercel_get_preview_url', 'cloudflare_register_preview', 'cloudflare_update_preview'] as const;
 // Marketing
 const _content = ['approve_content_draft', 'create_content_draft', 'generate_content_image', 'get_content_calendar', 'get_content_drafts', 'get_content_metrics', 'publish_content', 'reject_content_draft', 'submit_content_for_review', 'update_content_draft'] as const;
 const _seo = ['analyze_page_seo', 'get_backlink_profile', 'get_indexing_status', 'get_search_performance', 'submit_sitemap', 'track_keyword_rankings', 'update_seo_data'] as const;

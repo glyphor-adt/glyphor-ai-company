@@ -717,6 +717,8 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'create_branch',
   'create_github_pr',
   'merge_github_pr',
+  'github_create_pull_request',
+  'github_merge_pull_request',
   'create_github_issue',
   // Infrastructure / deployment
   'deploy_to_staging',
@@ -726,6 +728,8 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'build_website_foundation',
   'github_create_from_template',
   'github_push_files',
+  'github_create_pull_request',
+  'github_merge_pull_request',
   'vercel_create_project',
   'cloudflare_register_preview',
   'cloudflare_update_preview',

@@ -30,6 +30,8 @@ const HARD_GATE_EXACT = new Set([
   'create_branch',
   'create_github_pr',
   'merge_github_pr',
+  'github_create_pull_request',
+  'github_merge_pull_request',
   'create_github_issue',
   'apply_patch_call',
 ]);

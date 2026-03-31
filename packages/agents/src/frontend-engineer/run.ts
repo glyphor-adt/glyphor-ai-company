@@ -27,7 +27,7 @@ import { createWebBuildTools } from '../shared/webBuildTools.js';
 import { createBuildWebsiteFoundationTools } from '../shared/webBuildTools.js';
 import { createCodexTools } from '../shared/codexTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
-import { createGithubFromTemplateTools, createGithubPushFilesTools, createVercelProjectTools, createCloudflarePreviewTools } from '@glyphor/integrations';
+import { createGithubFromTemplateTools, createGithubPushFilesTools, createGithubPullRequestTools, createVercelProjectTools, createCloudflarePreviewTools } from '@glyphor/integrations';
 
 export interface FrontendEngineerRunParams {
   task?: 'implement_component' | 'accessibility_audit' | 'on_demand';
@@ -58,6 +58,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createDesignSystemTools(),
     ...createGithubFromTemplateTools(),
     ...createGithubPushFilesTools(),
+    ...createGithubPullRequestTools(),
     ...createVercelProjectTools(),
     ...createCloudflarePreviewTools(),
     ...createBuildWebsiteFoundationTools(),

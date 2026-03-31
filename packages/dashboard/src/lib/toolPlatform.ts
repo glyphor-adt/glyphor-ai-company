@@ -220,6 +220,7 @@ const TOOL_PLATFORM_MAP: Record<string, ToolPlatform> = {
   invoke_web_build: 'glyphor-design', invoke_web_iterate: 'glyphor-design', invoke_web_upgrade: 'glyphor-design',
   build_website_foundation: 'glyphor-design',
   github_create_from_template: 'glyphor-engineering', github_push_files: 'glyphor-engineering',
+  github_create_pull_request: 'glyphor-engineering', github_merge_pull_request: 'glyphor-engineering',
   vercel_create_project: 'glyphor-engineering', vercel_get_preview_url: 'glyphor-engineering',
   cloudflare_register_preview: 'glyphor-engineering', cloudflare_update_preview: 'glyphor-engineering',
 

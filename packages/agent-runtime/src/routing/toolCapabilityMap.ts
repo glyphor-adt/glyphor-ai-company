@@ -14,6 +14,8 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   create_branch: ['code_generation'],
   create_github_pr: ['code_generation'],
   merge_github_pr: ['code_generation'],
+  github_create_pull_request: ['code_generation'],
+  github_merge_pull_request: ['code_generation'],
   create_github_issue: ['simple_tool_calling'],
   deploy_to_staging: ['code_generation'],
   read_file: ['structured_extraction'],
