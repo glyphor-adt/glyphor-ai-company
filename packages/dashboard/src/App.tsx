@@ -22,6 +22,7 @@ import Settings from './pages/Settings';
 import ChangeRequests from './pages/ChangeRequests';
 import OraChat from './pages/OraChat';
 import Fleet from './pages/Fleet';
+import Onboarding from './pages/Onboarding';
 import SmbTeam from './pages/SmbTeam';
 import SmbWork from './pages/SmbWork';
 import SmbApprovals from './pages/SmbApprovals';
@@ -46,6 +47,28 @@ function DashboardEntryGate() {
   return (
     <Navigate
       to={effectiveDashboardMode === 'smb' ? '/app/smb/dashboard' : '/app/internal/dashboard'}
+      replace
+    />
+  );
+}
+
+function OnboardingEntryGate() {
+  const { effectiveDashboardMode, profileLoading } = useAuth();
+
+  if (profileLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-base">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan border-t-transparent" />
+          <p className="text-sm text-txt-muted">Loading onboarding...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Navigate
+      to={effectiveDashboardMode === 'smb' ? '/app/smb/onboarding' : '/app/internal/onboarding'}
       replace
     />
   );
@@ -78,7 +101,6 @@ const LEGACY_INTERNAL_REDIRECTS = [
   { from: 'meetings', to: '/app/internal/comms' },
   { from: 'world-model', to: '/app/internal/skills' },
   { from: 'group-chat', to: '/app/internal/comms' },
-  { from: 'onboarding', to: '/app/internal/dashboard' },
   { from: 'policy', to: '/app/internal/governance' },
   { from: 'models', to: '/app/internal/governance?tab=models' },
 ];
@@ -114,6 +136,7 @@ export default function App() {
         <Route path="models" element={<Navigate to="../governance?tab=models" replace />} />
         <Route path="fleet" element={<Fleet />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="onboarding" element={<Onboarding />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
 
@@ -125,12 +148,15 @@ export default function App() {
         <Route path="approvals" element={<SmbApprovals />} />
         <Route path="insights" element={<SmbInsights />} />
         <Route path="settings" element={<SmbSettings />} />
+        <Route path="onboarding" element={<Onboarding />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
 
       {LEGACY_INTERNAL_REDIRECTS.map((route) => (
         <Route key={route.from} path={route.from} element={<Navigate to={route.to} replace />} />
       ))}
+      <Route path="onboarding" element={<OnboardingEntryGate />} />
+      <Route path="app/onboarding" element={<OnboardingEntryGate />} />
       <Route path="agents/:agentId" element={<Navigate to="/app/internal/workforce" replace />} />
       <Route path="agents/:agentId/settings" element={<Navigate to="/app/internal/workforce" replace />} />
       <Route path="chat/:agentId" element={<Navigate to="/app/internal/comms" replace />} />

@@ -131,6 +131,18 @@ function getDashboardModeOverride(): DashboardMode | null {
   }
 }
 
+function setDashboardModeOverrideStorage(mode: DashboardMode | null) {
+  try {
+    if (mode) {
+      sessionStorage.setItem(DASHBOARD_MODE_OVERRIDE_KEY, mode);
+    } else {
+      sessionStorage.removeItem(DASHBOARD_MODE_OVERRIDE_KEY);
+    }
+  } catch {
+    // Ignore storage failures for test-only login view selection.
+  }
+}
+
 function AuthenticatedProvider({
   user,
   logout,
@@ -336,6 +348,11 @@ function GoogleAuthGate({ children }: { children: ReactNode }) {
   });
 
   const [error, setError] = useState('');
+  const [selectedMode, setSelectedMode] = useState<DashboardMode>(() => getDashboardModeOverride() ?? 'internal');
+
+  useEffect(() => {
+    setDashboardModeOverrideStorage(selectedMode);
+  }, [selectedMode]);
 
   const logout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
@@ -387,6 +404,45 @@ function GoogleAuthGate({ children }: { children: ReactNode }) {
             <p className="mb-6 text-center text-sm text-txt-secondary">
               Sign in with your Glyphor Google account
             </p>
+            <div className="mb-6">
+              <p className="mb-3 text-center text-xs font-medium uppercase tracking-[0.18em] text-txt-faint">
+                Testing view
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  {
+                    mode: 'internal' as const,
+                    title: 'Advanced view',
+                    detail: 'Open the internal dashboard after sign-in.',
+                  },
+                  {
+                    mode: 'smb' as const,
+                    title: 'SMB view',
+                    detail: 'Open the simple SMB dashboard after sign-in.',
+                  },
+                ].map((option) => {
+                  const isActive = selectedMode === option.mode;
+                  return (
+                    <button
+                      key={option.mode}
+                      type="button"
+                      onClick={() => setSelectedMode(option.mode)}
+                      className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                        isActive
+                          ? 'border-cyan bg-cyan/10 text-txt-primary'
+                          : 'border-border bg-base text-txt-secondary hover:border-border-hover hover:text-txt-primary'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold">{option.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-inherit/80">{option.detail}</p>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-center text-xs text-txt-faint">
+                This only affects the current browser session.
+              </p>
+            </div>
             <div className="flex justify-center">
               <GoogleLogin
                 onSuccess={handleSuccess}
