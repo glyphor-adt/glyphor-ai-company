@@ -11,7 +11,18 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { AgentApplication, CloudAdapter, MemoryStorage, TurnContext, TurnState, authorizeJWT } from '@microsoft/agents-hosting';
 import type { AuthConfiguration, Request as AgentHostingRequest } from '@microsoft/agents-hosting';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { GlyphorEventBus, ModelClient, promptCache, getRedisCache, WorkflowOrchestrator } from '@glyphor/agent-runtime';
+import {
+  GlyphorEventBus,
+  ModelClient,
+  buildDefaultExpectedOutputSchema,
+  buildRequiredInputs,
+  completeContractForTask,
+  failContractForTask,
+  getRedisCache,
+  issueContract,
+  promptCache,
+  WorkflowOrchestrator,
+} from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
@@ -56,7 +67,9 @@ import { handleDashboardApi } from './dashboardApi.js';
 import { handleAbacAdminApi } from './abacAdminApi.js';
 import { handleCapacityAdminApi } from './capacityAdminApi.js';
 import { handleDisclosureAdminApi } from './disclosureAdminApi.js';
+import { handleHandoffContractAdminApi } from './handoffContractAdminApi.js';
 import { handleGovernanceApi } from './governanceApi.js';
+import { HandoffContractMonitor } from './handoffContractMonitor.js';
 import { handleEvalApi } from './evalDashboard.js';
 import { verifyPlan } from './planVerifier.js';
 import { consolidateMemory } from './memoryConsolidator.js';
@@ -2114,6 +2127,7 @@ const meetingEngine = new MeetingEngine(trackedAgentExecutor);
 const cotEngine = new CotEngine(strategyModelClient);
 const deepDiveEngine = new DeepDiveEngine(strategyModelClient);
 const strategyLabEngine = new StrategyLabEngine(strategyModelClient, trackedAgentExecutor);
+const handoffContractMonitor = new HandoffContractMonitor();
 router.setCascadePreviewBuilder(async ({ action, tier }) => {
   const preview = await simulationEngine.runQuick({
     action,
@@ -3117,6 +3131,31 @@ const server = createServer(async (req, res) => {
           'UPDATE work_assignments SET agent_output=$1, status=$2, completed_at=$3 WHERE id=$4',
           [result.output ?? result.error ?? 'No output captured', result.error ? 'failed' : 'completed', new Date().toISOString(), assignmentId],
         );
+        if (result.error) {
+          await failContractForTask(
+            assignmentId,
+            agentRole,
+            result.error,
+            {
+              output: result.output ?? result.error,
+              assignmentId,
+              submittedBy: agentRole,
+              status: 'failed',
+            },
+          );
+        } else {
+          await completeContractForTask(
+            assignmentId,
+            agentRole,
+            {
+              output: result.output ?? 'No output captured',
+              assignmentId,
+              submittedBy: agentRole,
+              status: 'completed',
+            },
+            1,
+          );
+        }
       }
 
       json(res, 200, result);
@@ -4327,6 +4366,23 @@ const server = createServer(async (req, res) => {
           [agentRole, assignedBy, taskDescription, 'on_demand', expectedOutput, priority, 'pending'],
         );
 
+        await issueContract({
+          requestingAgentId: assignedBy,
+          requestingAgentName: assignedBy,
+          receivingAgentId: agentRole,
+          receivingAgentName: agentRole,
+          taskId: assignment.id,
+          taskDescription,
+          requiredInputs: buildRequiredInputs([
+            { key: 'taskDescription', type: 'string', value: taskDescription },
+            { key: 'expectedOutput', type: 'string', value: expectedOutput },
+            { key: 'priority', type: 'string', value: priority },
+          ]),
+          expectedOutputSchema: buildDefaultExpectedOutputSchema(expectedOutput ?? taskDescription),
+          confidenceThreshold: 0.7,
+          escalationPolicy: 'return_to_issuer',
+        });
+
         // 2. Wake the agent so they pick it up on next heartbeat
         await systemQuery(
           'INSERT INTO agent_wake_queue (agent_role, task, reason, context, status) VALUES ($1,$2,$3,$4,$5)',
@@ -4600,6 +4656,9 @@ const server = createServer(async (req, res) => {
     // ── Admin Disclosure API (/admin/agents/*, /admin/disclosure/*) ──
     if (await handleDisclosureAdminApi(req, res, url, queryString ?? '', method)) return;
 
+    // ── Admin Handoff Contract API (/admin/contracts/*, /admin/agents/:id/contracts) ──
+    if (await handleHandoffContractAdminApi(req, res, url, queryString ?? '', method)) return;
+
     // ── Dashboard CRUD API (/api/*) ────────────────────────────────
     if (await handleDashboardApi(req, res, url, queryString ?? '', method)) return;
 
@@ -4792,6 +4851,8 @@ async function startServer(): Promise<void> {
     // Start data sync scheduler (fires DATA_SYNC_JOBS on their cron schedule)
     const dataSyncScheduler = new DataSyncScheduler(PORT);
     dataSyncScheduler.start();
+
+    handoffContractMonitor.start();
   });
 }
 
@@ -4806,6 +4867,9 @@ process.on('SIGTERM', async () => {
   try {
     chatSubscriptionManager?.stopAutoRenewal();
     graphChatHandler?.destroy();
+  } catch { /* best-effort */ }
+  try {
+    handoffContractMonitor.stop();
   } catch { /* best-effort */ }
   try {
     const cache = getRedisCache();

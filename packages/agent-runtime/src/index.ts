@@ -71,6 +71,32 @@ export type {
   ExternalCommitmentRule,
   ExternalCommitmentToolCall,
 } from './disclosure.js';
+export {
+  ContractRequiredError,
+  DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+  acceptContract,
+  acceptContractForTask,
+  buildDefaultExpectedOutputSchema,
+  buildRequiredInputs,
+  checkSLAs,
+  completeContract,
+  completeContractForTask,
+  failContract,
+  failContractForTask,
+  getActiveContractForTask,
+  getContractById,
+  issueContract,
+  listContracts,
+  markContractInProgress,
+  markContractInProgressForTask,
+  rejectContract,
+  requireContractForTask,
+  validateContractOutput,
+} from './handoffContracts.js';
+export type {
+  ContractSlaCheckResult,
+  ContractValidationResult,
+} from './handoffContracts.js';
 export { executeWorkLoop, PROACTIVE_COOLDOWNS } from './workLoop.js';
 export type { WorkLoopResult } from './workLoop.js';
 export { extractTaskFromConfigId } from './taskIdentity.js';
@@ -172,6 +198,10 @@ export type {
   AgentDisclosureConfig,
   CommunicationType,
   DisclosureLevel,
+  HandoffContract,
+  HandoffContractInputValue,
+  HandoffContractStatus,
+  HandoffEscalationPolicy,
   RecipientType,
   SupervisorConfig,
   ToolContext,

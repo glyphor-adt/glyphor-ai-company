@@ -10,7 +10,14 @@
  * agent reports back → Sarah evaluates.
  */
 
-import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import {
+  ContractRequiredError,
+  completeContractForTask,
+  markContractInProgressForTask,
+  requireContractForTask,
+  type ToolDefinition,
+  type ToolResult,
+} from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 
@@ -197,6 +204,7 @@ export function createAssignmentTools(
 
           // Route notification to whoever assigned this work (default: chief-of-staff)
           const notifyAgent = (assignment.assigned_by as string) || 'chief-of-staff';
+          await requireContractForTask(assignmentId, ctx.agentRole);
 
           // Build update
           const now = new Date().toISOString();
@@ -208,6 +216,17 @@ export function createAssignmentTools(
           );
 
           if (status === 'completed') {
+            await completeContractForTask(
+              assignmentId,
+              ctx.agentRole,
+              {
+                output,
+                assignmentId,
+                submittedBy: ctx.agentRole,
+                status,
+              },
+              1,
+            );
             if (current && !current.dispatched_at) {
               await systemQuery(
                 'UPDATE work_assignments SET agent_output = $1, status = $2, updated_at = $3, completed_at = $3, dispatched_at = $3 WHERE id = $4',
@@ -220,6 +239,7 @@ export function createAssignmentTools(
               );
             }
           } else {
+            await markContractInProgressForTask(assignmentId, ctx.agentRole);
             if (current && !current.dispatched_at) {
               await systemQuery(
                 'UPDATE work_assignments SET agent_output = $1, status = $2, updated_at = $3, dispatched_at = $3 WHERE id = $4',
@@ -283,6 +303,9 @@ export function createAssignmentTools(
             },
           };
         } catch (err) {
+          if (err instanceof ContractRequiredError) {
+            throw err;
+          }
           return { success: false, error: (err as Error).message };
         }
       },

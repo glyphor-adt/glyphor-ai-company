@@ -9,7 +9,14 @@
  * Peer coordination avoids routing through Sarah for lateral requests.
  */
 
-import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import {
+  DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+  buildDefaultExpectedOutputSchema,
+  buildRequiredInputs,
+  issueContract,
+  type ToolDefinition,
+  type ToolResult,
+} from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
@@ -107,6 +114,24 @@ export function createPeerCoordinationTools(
               'pending', 'peer_request',
             ],
           );
+
+          await issueContract({
+            requestingAgentId: ctx.agentRole,
+            requestingAgentName: ctx.agentRole,
+            receivingAgentId: peerRole,
+            receivingAgentName: peerRole,
+            taskId: assignment.id,
+            taskDescription: requestDescription,
+            requiredInputs: buildRequiredInputs([
+              { key: 'request_description', type: 'string', value: requestDescription },
+              { key: 'expected_deliverable', type: 'string', value: expectedDeliverable },
+              { key: 'context', type: 'string', value: params.context ?? null },
+              { key: 'priority', type: 'string', value: priority },
+            ]),
+            expectedOutputSchema: buildDefaultExpectedOutputSchema(expectedDeliverable),
+            confidenceThreshold: DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+            escalationPolicy: 'return_to_issuer',
+          });
 
           // Send inter-agent message with full context
           const contextStr = params.context ? `\n\n**Context:**\n${params.context}` : '';

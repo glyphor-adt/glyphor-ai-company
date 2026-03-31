@@ -7,7 +7,15 @@
  *   call_meeting       — Convene a multi-agent meeting
  */
 
-import type { ToolDefinition, ToolResult, CompanyAgentRole } from '@glyphor/agent-runtime';
+import {
+  DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+  buildDefaultExpectedOutputSchema,
+  buildRequiredInputs,
+  issueContract,
+  type ToolDefinition,
+  type ToolResult,
+  type CompanyAgentRole,
+} from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
@@ -289,6 +297,23 @@ export function createCommunicationTools(
             'peer_request',
           ],
         );
+
+        await issueContract({
+          requestingAgentId: ctx.agentRole,
+          requestingAgentName: ctx.agentRole,
+          receivingAgentId: toAgent,
+          receivingAgentName: toAgent,
+          taskId: assignment.id,
+          taskDescription: requestText,
+          requiredInputs: buildRequiredInputs([
+            { key: 'request', type: 'string', value: requestText },
+            { key: 'expected_deliverable', type: 'string', value: expectedDeliverable },
+            { key: 'priority', type: 'string', value: priority },
+          ]),
+          expectedOutputSchema: buildDefaultExpectedOutputSchema(expectedDeliverable),
+          confidenceThreshold: DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+          escalationPolicy: 'return_to_issuer',
+        });
 
         await systemQuery(
           'INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',

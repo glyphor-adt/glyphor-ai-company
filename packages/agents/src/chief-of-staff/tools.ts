@@ -6,7 +6,15 @@
  */
 
 import type { ToolDefinition, ToolContext, ToolResult, BriefingData, CompanyAgentRole, StructuredReflection, OrchestratorGrade } from '@glyphor/agent-runtime';
-import { getRedisCache, invalidateGrantCache } from '@glyphor/agent-runtime';
+import {
+  DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+  buildDefaultExpectedOutputSchema,
+  buildRequiredInputs,
+  getActiveContractForTask,
+  getRedisCache,
+  invalidateGrantCache,
+  issueContract,
+} from '@glyphor/agent-runtime';
 import { isKnownTool } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { markOutcomeRevised, markOutcomeAccepted } from '@glyphor/agent-runtime';
@@ -1944,6 +1952,31 @@ export function createOrchestrationTools(
         }
         const data = await systemQuery(`INSERT INTO work_assignments ${columns} VALUES ${placeholders.join(', ')} RETURNING *`, values);
         const createdIds = (data as any[]).map((r: any) => r.id);
+
+        for (let i = 0; i < createdIds.length; i++) {
+          const assignment = canonicalAssignments[i];
+          const parentContract = assignment.depends_on?.[0]
+            ? await getActiveContractForTask(assignment.depends_on[0])
+            : null;
+          await issueContract({
+            requestingAgentId: 'chief-of-staff',
+            requestingAgentName: 'chief-of-staff',
+            receivingAgentId: assignment.assigned_to,
+            receivingAgentName: assignment.assigned_to,
+            taskId: createdIds[i],
+            parentContractId: parentContract?.id,
+            taskDescription: assignment.task_description,
+            requiredInputs: buildRequiredInputs([
+              { key: 'task_description', type: 'string', value: assignment.task_description },
+              { key: 'expected_output', type: 'string', value: assignment.expected_output },
+              { key: 'directive_id', type: 'string', value: directiveId },
+              { key: 'priority', type: 'string', value: assignment.priority },
+            ]),
+            expectedOutputSchema: buildDefaultExpectedOutputSchema(assignment.expected_output),
+            confidenceThreshold: DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+            escalationPolicy: 'return_to_issuer',
+          });
+        }
 
         // Backfill depends_on with resolved UUID references now that IDs are known.
         for (let i = 0; i < dependencySpecs.length; i++) {

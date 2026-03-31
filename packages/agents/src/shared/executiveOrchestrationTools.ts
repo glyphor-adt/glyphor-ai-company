@@ -15,7 +15,15 @@
  * in allowed_assignees and directives delegated to them.
  */
 
-import type { ToolDefinition, ToolResult, CompanyAgentRole } from '@glyphor/agent-runtime';
+import {
+  DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+  buildDefaultExpectedOutputSchema,
+  buildRequiredInputs,
+  issueContract,
+  type ToolDefinition,
+  type ToolResult,
+  type CompanyAgentRole,
+} from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { markOutcomeAccepted, markOutcomeRevised } from '@glyphor/agent-runtime';
 import { assertBatchWorkAssignmentsDeduped, assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
@@ -281,6 +289,27 @@ export function createExecutiveOrchestrationTools(
             values,
           );
           const createdIds = (data as any[]).map((r: any) => r.id);
+
+          for (let i = 0; i < createdIds.length; i++) {
+            const assignment = canonicalAssignments[i];
+            await issueContract({
+              requestingAgentId: agentRole,
+              requestingAgentName: agentRole,
+              receivingAgentId: assignment.assigned_to,
+              receivingAgentName: assignment.assigned_to,
+              taskId: createdIds[i],
+              taskDescription: assignment.task_description,
+              requiredInputs: buildRequiredInputs([
+                { key: 'task_description', type: 'string', value: assignment.task_description },
+                { key: 'expected_output', type: 'string', value: assignment.expected_output },
+                { key: 'depends_on', type: 'array', value: assignment.depends_on ?? null },
+                { key: 'directive_id', type: 'string', value: directiveId },
+              ]),
+              expectedOutputSchema: buildDefaultExpectedOutputSchema(assignment.expected_output),
+              confidenceThreshold: DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+              escalationPolicy: agentRole === 'chief-of-staff' ? 'return_to_issuer' : 'escalate_to_chief_of_staff',
+            });
+          }
 
           // ── Plan Verification ──
           let verification: { verdict: string; suggestions: string[] } | null = null;

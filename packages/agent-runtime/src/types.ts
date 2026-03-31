@@ -108,6 +108,53 @@ export interface AgentDisclosureConfig {
   updatedAt: string;
 }
 
+export type HandoffEscalationPolicy =
+  | 'return_to_issuer'
+  | 'escalate_to_chief_of_staff'
+  | 'escalate_to_human';
+
+export type HandoffContractStatus =
+  | 'issued'
+  | 'accepted'
+  | 'rejected'
+  | 'in_progress'
+  | 'completed'
+  | 'failed'
+  | 'escalated';
+
+export interface HandoffContractInputValue {
+  key: string;
+  type: string;
+  value: unknown;
+  provided: boolean;
+}
+
+export interface HandoffContract {
+  id: string;
+  issuedAt: Date;
+  requestingAgentId: string;
+  requestingAgentName: string;
+  receivingAgentId: string;
+  receivingAgentName: string;
+  taskId: string;
+  parentContractId?: string;
+  taskDescription: string;
+  requiredInputs: HandoffContractInputValue[];
+  expectedOutputSchema: Record<string, unknown>;
+  confidenceThreshold: number;
+  deadline?: Date;
+  escalationPolicy: HandoffEscalationPolicy;
+  status: HandoffContractStatus;
+  acceptedAt?: Date;
+  completedAt?: Date;
+  outputPayload?: unknown;
+  outputConfidenceScore?: number;
+  rejectionReason?: string;
+  escalationReason?: string;
+  slaBreachedAt?: Date;
+  updatedAt: Date;
+}
+
 export type DataClassificationLevel = 'public' | 'internal' | 'confidential' | 'restricted';
 
 export type AbacPermission = 'allow' | 'deny';

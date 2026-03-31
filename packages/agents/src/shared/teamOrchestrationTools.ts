@@ -10,7 +10,17 @@
  * Direct reports are loaded dynamically from company_agents table.
  */
 
-import { AGENT_EMAIL_MAP, type CompanyAgentRole, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
+import {
+  AGENT_EMAIL_MAP,
+  DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+  buildDefaultExpectedOutputSchema,
+  buildRequiredInputs,
+  getActiveContractForTask,
+  issueContract,
+  type CompanyAgentRole,
+  type ToolDefinition,
+  type ToolResult,
+} from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { A365TeamsChatClient } from '@glyphor/integrations';
 import { assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
@@ -231,6 +241,26 @@ export function createTeamOrchestrationTools(
             insertValues,
           );
 
+          const parentContract = parentId ? await getActiveContractForTask(parentId) : null;
+          await issueContract({
+            requestingAgentId: ctx.agentRole,
+            requestingAgentName: ctx.agentRole,
+            receivingAgentId: agentRole,
+            receivingAgentName: agentRole,
+            taskId: assignment.id,
+            parentContractId: parentContract?.id,
+            taskDescription: params.task_description as string,
+            requiredInputs: buildRequiredInputs([
+              { key: 'task_description', type: 'string', value: params.task_description },
+              { key: 'expected_output', type: 'string', value: params.expected_output },
+              { key: 'priority', type: 'string', value: priority },
+              { key: 'parent_assignment_id', type: 'string', value: parentId ?? null },
+            ]),
+            expectedOutputSchema: buildDefaultExpectedOutputSchema(params.expected_output as string),
+            confidenceThreshold: DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+            escalationPolicy: ctx.agentRole === 'chief-of-staff' ? 'return_to_issuer' : 'escalate_to_chief_of_staff',
+          });
+
           // Send inter-agent message
           await systemQuery(
             'INSERT INTO agent_messages (from_agent, to_agent, message, message_type, priority, status) VALUES ($1,$2,$3,$4,$5,$6)',
@@ -395,6 +425,25 @@ export function createTeamOrchestrationTools(
             `INSERT INTO work_assignments (${columns.join(', ')}) VALUES (${placeholders}) RETURNING id`,
             values,
           );
+
+          await issueContract({
+            requestingAgentId: ctx.agentRole,
+            requestingAgentName: ctx.agentRole,
+            receivingAgentId: assignee,
+            receivingAgentName: assignee,
+            taskId: assignment.id,
+            taskDescription: `${params.title as string}: ${fullDescription}`,
+            requiredInputs: buildRequiredInputs([
+              { key: 'title', type: 'string', value: params.title },
+              { key: 'description', type: 'string', value: fullDescription },
+              { key: 'priority', type: 'string', value: mappedPriority },
+              { key: 'directive_id', type: 'string', value: directiveId ?? null },
+            ]),
+            expectedOutputSchema: buildDefaultExpectedOutputSchema(fullDescription),
+            confidenceThreshold: DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD,
+            deadline: dueDate ? new Date(dueDate) : undefined,
+            escalationPolicy: ctx.agentRole === 'chief-of-staff' ? 'return_to_issuer' : 'escalate_to_chief_of_staff',
+          });
 
           await systemQuery(
             'INSERT INTO agent_messages (from_agent, to_agent, message, message_type, priority, status) VALUES ($1,$2,$3,$4,$5,$6)',

@@ -15,6 +15,7 @@
 
 import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole } from './types.js';
+import { acceptContractForTask, markContractInProgressForTask } from './handoffContracts.js';
 
 /** Executive roles that manage teams and evaluate team output */
 const EXECUTIVE_ROLES = new Set([
@@ -160,9 +161,10 @@ export async function executeWorkLoop(
     status: string;
     evaluation: unknown;
     assigned_to: string;
+    assigned_by: string | null;
     founder_directives: { title?: string; priority?: string; description?: string } | null;
   }>(
-    `SELECT wa.id, wa.task_description, wa.expected_output AS instructions, wa.status, wa.evaluation, wa.assigned_to,
+    `SELECT wa.id, wa.task_description, wa.expected_output AS instructions, wa.status, wa.evaluation, wa.assigned_to, wa.assigned_by,
             json_build_object('title', fd.title, 'priority', fd.priority, 'description', fd.description) AS founder_directives
      FROM work_assignments wa
      LEFT JOIN founder_directives fd ON wa.directive_id = fd.id
@@ -180,6 +182,10 @@ export async function executeWorkLoop(
       'UPDATE work_assignments SET status = $1, dispatched_at = $2 WHERE id = $3',
       ['in_progress', new Date().toISOString(), assignment.id],
     );
+    if (assignment.assigned_to && assignment.assigned_to !== assignment.assigned_by) {
+      await acceptContractForTask(assignment.id, agentRole);
+      await markContractInProgressForTask(assignment.id, agentRole);
+    }
 
     let execMessage = `REVISION REQUIRED: ${assignment.task_description}\n`;
     if (fd?.title) execMessage += `Directive: ${fd.title}\n`;
@@ -415,6 +421,10 @@ export async function executeWorkLoop(
           'UPDATE work_assignments SET status = $1, dispatched_at = $2, updated_at = NOW() WHERE id = $3',
           ['in_progress', new Date().toISOString(), assignment.id],
         );
+        if (assignment.assigned_by && assignment.assigned_by !== assignment.assigned_to) {
+          await acceptContractForTask(assignment.id, agentRole);
+          await markContractInProgressForTask(assignment.id, agentRole);
+        }
       }
 
       // Build execution message with full context embedded
@@ -453,6 +463,10 @@ export async function executeWorkLoop(
           'UPDATE work_assignments SET status = $1, dispatched_at = $2, updated_at = NOW() WHERE id = $3',
           ['in_progress', new Date().toISOString(), assignment.id],
         );
+        if (assignment.assigned_by && assignment.assigned_by !== assignment.assigned_to) {
+          await acceptContractForTask(assignment.id, agentRole);
+          await markContractInProgressForTask(assignment.id, agentRole);
+        }
       }
 
       return {
