@@ -386,7 +386,7 @@ export async function logCommitment(
        metadata
      )
      VALUES (
-       $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, CASE WHEN $9 IS NULL THEN NULL ELSE NOW() END,
+       $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::text, CASE WHEN $9::text IS NULL THEN NULL ELSE NOW() END,
        $10, $11, $12::jsonb
      )
      RETURNING *`,

@@ -1,4 +1,4 @@
-import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { ModelClient, type ConversationTurn, type ToolContext, type ToolDeclaration, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 
 type WebBuildTier = 'prototype' | 'full_build' | 'iterate';
@@ -562,8 +562,8 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
   return tools;
 }
 
-const DEFAULT_WEBSITE_FOUNDATION_MODEL = process.env.UX_ENGINEER_MODEL?.trim() || 'claude-opus-4-6';
-const WEBSITE_FOUNDATION_REPAIR_MODEL = 'claude-sonnet-4-6';
+const DEFAULT_WEBSITE_FOUNDATION_MODEL = process.env.UX_ENGINEER_MODEL?.trim() || 'gemini-3.1-flash-lite-preview';
+const WEBSITE_FOUNDATION_REPAIR_MODEL = process.env.UX_ENGINEER_REPAIR_MODEL?.trim() || 'gpt-5.4-mini';
 const WEBSITE_FOUNDATION_MAX_TOKENS = 100000;
 const WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS = 4;
 
@@ -716,6 +716,16 @@ const WEBSITE_FOUNDATION_LOOKUP_TOOLS = [
   },
 ];
 
+const WEBSITE_FOUNDATION_TOOL_DECLARATIONS: ToolDeclaration[] = WEBSITE_FOUNDATION_LOOKUP_TOOLS.map((tool) => ({
+  name: tool.name,
+  description: tool.description,
+  parameters: {
+    type: String(tool.input_schema.type ?? 'object'),
+    properties: tool.input_schema.properties as Record<string, unknown>,
+    required: tool.input_schema.required,
+  },
+}));
+
 interface WebsiteFoundationFileEntry {
   filePath: string;
   content: string;
@@ -737,60 +747,49 @@ interface WebsiteFoundationOutput {
   image_manifest: WebsiteFoundationImageManifestEntry[];
 }
 
-function getAnthropicApiKey(): string {
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key) throw new Error('ANTHROPIC_API_KEY is not configured.');
-  return key;
+function createWebsiteFoundationModelClient(): ModelClient {
+  return new ModelClient({
+    geminiApiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY,
+    azureFoundryEndpoint: process.env.AZURE_FOUNDRY_ENDPOINT,
+    azureFoundryApi: process.env.AZURE_FOUNDRY_API,
+    azureFoundryApiVersion: process.env.AZURE_FOUNDRY_API_VERSION,
+  });
 }
 
-async function callWebsiteFoundationAnthropic(
-  messages: Array<{ role: string; content: unknown }>,
-  model: string,
-  signal?: AbortSignal,
-): Promise<{ content: Array<{ type: string; text?: string; id?: string; name?: string; input?: unknown }> }> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': getAnthropicApiKey(),
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'output-128k-2025-02-19',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: WEBSITE_FOUNDATION_MAX_TOKENS,
-      system: UX_ENGINEER_SYSTEM_PROMPT,
-      tools: WEBSITE_FOUNDATION_LOOKUP_TOOLS,
-      tool_choice: { type: 'auto' },
-      messages,
-    }),
-    signal,
-  });
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Anthropic API error (${response.status}): ${err.slice(0, 500)}`);
-  }
-
-  return response.json() as Promise<{ content: Array<{ type: string; text?: string; id?: string; name?: string; input?: unknown }> }>;
+function createConversationTurn(turn: Omit<ConversationTurn, 'timestamp'>): ConversationTurn {
+  return {
+    ...turn,
+    timestamp: Date.now(),
+  };
 }
 
 async function executeWebsiteLookupTool(
   toolName: string,
   toolInput: Record<string, unknown>,
   ctx: ToolContext,
-): Promise<string> {
+): Promise<Record<string, unknown>> {
   try {
     if (ctx.executeChildTool) {
       const result = await ctx.executeChildTool(toolName, toolInput);
-      return typeof result === 'string' ? result : JSON.stringify(result);
+      if (typeof result === 'string') {
+        return { text: result };
+      }
+      if (result && typeof result === 'object') {
+        return result as Record<string, unknown>;
+      }
+      return { value: result ?? null };
     }
-    return JSON.stringify({
+    return {
       note: `Tool ${toolName} lookup was requested but no child executor is available. Proceed with best-known API details.`,
-    });
+    };
   } catch (err) {
-    return JSON.stringify({ error: `Tool ${toolName} failed: ${(err as Error).message}` });
+    return { error: `Tool ${toolName} failed: ${(err as Error).message}` };
   }
+}
+
+function appendModelText(turns: ConversationTurn[], text: string | null | undefined): void {
+  if (!text?.trim()) return;
+  turns.push(createConversationTurn({ role: 'assistant', content: text.trim() }));
 }
 
 function parseWebsiteFoundationOutput(text: string): WebsiteFoundationOutput | null {
@@ -833,55 +832,69 @@ async function runWebsiteFoundationLoop(
   model: string,
   ctx: ToolContext,
 ): Promise<{ output: WebsiteFoundationOutput; toolRounds: number }> {
-  const messages: Array<{ role: string; content: unknown }> = [{ role: 'user', content: userPrompt }];
+  const modelClient = createWebsiteFoundationModelClient();
+  const turns: ConversationTurn[] = [createConversationTurn({ role: 'user', content: userPrompt })];
   let toolRounds = 0;
   let output: WebsiteFoundationOutput | null = null;
 
   while (toolRounds <= WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS) {
-    const response = await callWebsiteFoundationAnthropic(messages, model, ctx.abortSignal);
-    const content = response.content ?? [];
-    const toolUses = content.filter((block) => block.type === 'tool_use');
-    const textBlocks = content.filter((block) => block.type === 'text');
+    const response = await modelClient.generate({
+      model,
+      systemInstruction: UX_ENGINEER_SYSTEM_PROMPT,
+      contents: turns,
+      tools: WEBSITE_FOUNDATION_TOOL_DECLARATIONS,
+      maxTokens: WEBSITE_FOUNDATION_MAX_TOKENS,
+      thinkingEnabled: true,
+      reasoningLevel: 'deep',
+      signal: ctx.abortSignal,
+      callTimeoutMs: 300_000,
+      metadata: {
+        agentRole: ctx.agentRole,
+      },
+    });
 
-    for (const block of textBlocks) {
-      if (!block.text || !block.text.includes('foundation_files')) continue;
-      const parsed = parseWebsiteFoundationOutput(block.text);
+    appendModelText(turns, response.thinkingText);
+    appendModelText(turns, response.text);
+
+    if (response.text?.includes('foundation_files')) {
+      const parsed = parseWebsiteFoundationOutput(response.text);
       if (parsed) {
         output = parsed;
-        break;
       }
     }
 
     if (output) break;
 
-    if (toolUses.length === 0) {
+    if ((response.toolCalls?.length ?? 0) === 0) {
       if (toolRounds === WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS) {
         throw new Error('Model did not produce a valid website build output after the maximum number of rounds.');
       }
-      messages.push({ role: 'assistant', content });
-      messages.push({
+      turns.push(createConversationTurn({
         role: 'user',
         content: 'Output the complete JSON build object now. Do not include markdown fences or any other text.',
-      });
+      }));
       toolRounds += 1;
       continue;
     }
 
-    messages.push({ role: 'assistant', content });
-    for (const toolUse of toolUses) {
+    for (const toolUse of response.toolCalls) {
+      turns.push(createConversationTurn({
+        role: 'tool_call',
+        toolName: String(toolUse.name),
+        toolParams: toolUse.args ?? {},
+        content: '',
+        thoughtSignature: toolUse.thoughtSignature,
+      }));
       const toolResult = await executeWebsiteLookupTool(
         String(toolUse.name),
-        (toolUse.input as Record<string, unknown>) ?? {},
+        (toolUse.args as Record<string, unknown>) ?? {},
         ctx,
       );
-      messages.push({
-        role: 'user',
-        content: [{
-          type: 'tool_result',
-          tool_use_id: toolUse.id,
-          content: toolResult,
-        }],
-      });
+      turns.push(createConversationTurn({
+        role: 'tool_result',
+        toolName: String(toolUse.name),
+        content: JSON.stringify(toolResult),
+      }));
     }
     toolRounds += 1;
   }
