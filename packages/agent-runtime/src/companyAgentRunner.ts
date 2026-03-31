@@ -105,6 +105,62 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number, 
   return estimateModelCost(model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens);
 }
 
+function summarizeRunOutput(output: string | null, fallback: string): string {
+  if (!output) return fallback;
+  const normalized = output.replace(/\s+/g, ' ').trim();
+  if (!normalized) return fallback;
+  const sentence = normalized.split(/(?<=[.!?])\s+/)[0] ?? normalized;
+  return sentence.slice(0, 600);
+}
+
+async function persistRunMetricsAuditLog(entry: {
+  agentRole: string;
+  taskId: string;
+  runId: string;
+  model: string;
+  summary: string;
+  inputTokens: number;
+  outputTokens: number;
+  thinkingTokens: number;
+  cachedInputTokens: number;
+}): Promise<void> {
+  try {
+    await systemQuery(
+      `INSERT INTO activity_log (
+         agent_role,
+         agent_id,
+         action,
+         activity_type,
+         summary,
+         details,
+         input_tokens,
+         output_tokens,
+         thinking_tokens,
+         cached_input_tokens,
+         estimated_cost_usd,
+         created_at
+       )
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12)`,
+      [
+        entry.agentRole,
+        entry.agentRole,
+        'agent.run.completed',
+        'run_metrics',
+        entry.summary,
+        JSON.stringify({ task_id: entry.taskId, run_id: entry.runId, model: entry.model }),
+        entry.inputTokens,
+        entry.outputTokens,
+        entry.thinkingTokens,
+        entry.cachedInputTokens,
+        estimateCost(entry.model, entry.inputTokens, entry.outputTokens, entry.thinkingTokens, entry.cachedInputTokens),
+        new Date().toISOString(),
+      ],
+    );
+  } catch (err) {
+    console.warn(`[CompanyAgentRunner] Failed to persist run metrics audit log for ${entry.agentRole}:`, (err as Error).message);
+  }
+}
+
 /** Overall supervisor limits for on_demand (chat) — keep well within the
  *  dashboard's 180 s fetch-abort so users actually see the response.
  *  Turn budget: up to 6 tool turns + 1 forced-text turn.
@@ -2256,6 +2312,17 @@ export class CompanyAgentRunner {
         };
       }
       result.verificationMeta = verificationMeta;
+      await persistRunMetricsAuditLog({
+        agentRole: config.role,
+        taskId: config.assignmentId ?? extractTaskFromConfigId(config.id),
+        runId: config.dbRunId ?? config.id,
+        model: actualModelUsed ?? config.model,
+        summary: summarizeRunOutput(lastTextOutput, `${config.role} completed run ${config.id}`),
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        thinkingTokens: totalThinkingTokens,
+        cachedInputTokens: totalCachedInputTokens,
+      });
       void learnFromAgentRun({
         result,
         agentRole: config.role,

@@ -90,6 +90,34 @@ export type {
 } from './decisionTraces.js';
 
 export {
+  computeAgentMetrics,
+  computeFleetMetrics,
+  getAgentMetricsWindows,
+  listAgentMetrics,
+  getExceptionLog,
+  logReversal,
+  listActionReversals,
+  getReversalStats,
+  getBenchmarkReport,
+} from './agentMetrics.js';
+export type {
+  AgentMetricsSnapshot,
+  FleetMetricsSnapshot,
+  ExceptionLogFilters,
+  ExceptionLogEntry,
+  ExceptionLogResult,
+  ActionReversalEntry,
+  ReversalLogFilters,
+  ReversalLogResult,
+  ReversalStats,
+  AgentMetricsWindows,
+  BenchmarkReport,
+  BenchmarkRoleCategoryMetric,
+  BenchmarkAutonomyMetric,
+  BenchmarkEscalationMetric,
+} from './agentMetrics.js';
+
+export {
   WORK_ASSIGNMENT_DEDUP_PREFIX_LEN,
   normalizeWorkAssignmentTaskPrefix,
   assertWorkAssignmentDispatchAllowed,

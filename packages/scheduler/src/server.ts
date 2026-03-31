@@ -65,6 +65,7 @@ import { HeartbeatManager } from './heartbeat.js';
 import { AgentNotifier } from './agentNotifier.js';
 import { handleDashboardApi } from './dashboardApi.js';
 import { handleAbacAdminApi } from './abacAdminApi.js';
+import { handleAutonomyAdminApi } from './autonomyAdminApi.js';
 import { handleCapacityAdminApi } from './capacityAdminApi.js';
 import { createContradictionAdminApi } from './contradictionAdminApi.js';
 import { ContradictionProcessor } from './contradictionProcessor.js';
@@ -72,6 +73,7 @@ import { handleDecisionTraceAdminApi } from './decisionTraceAdminApi.js';
 import { handleDisclosureAdminApi } from './disclosureAdminApi.js';
 import { handleHandoffContractAdminApi } from './handoffContractAdminApi.js';
 import { handleGovernanceApi } from './governanceApi.js';
+import { handleMetricsAdminApi } from './metricsAdminApi.js';
 import { handleTemporalKnowledgeGraphAdminApi } from './temporalKnowledgeGraphAdminApi.js';
 import { HandoffContractMonitor } from './handoffContractMonitor.js';
 import { handleEvalApi } from './evalDashboard.js';
@@ -90,6 +92,7 @@ import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
 import { runGtmReadinessEval, persistGtmReport } from './gtmReadiness/index.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
 import { enqueueDeepDiveExecution, isWorkerQueueConfigured } from './workerQueue.js';
+import { processDailyAutonomyAdjustments } from '@glyphor/shared';
 import {
   handleFounderRejection,
   handleIllegalAgentCreationRequest,
@@ -2801,6 +2804,28 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Daily autonomy evaluator endpoint — applies configurable promotions and demotions.
+    if (method === 'POST' && url === '/autonomy/evaluate-daily') {
+      try {
+        const changes = await processDailyAutonomyAdjustments();
+        for (const change of changes) {
+          const notifyBlock = [
+            `<notify type="update" to="both" title="Autonomy ${change.changeType === 'auto_promote' ? 'promotion' : 'demotion'}: ${change.agentId}">`,
+            `${change.agentId} moved from level ${change.fromLevel} to level ${change.toLevel}.`,
+            `Reason: ${change.reason}`,
+            `</notify>`,
+          ].join('\n');
+          await agentNotifier.processAgentOutput('ops', notifyBlock);
+        }
+        json(res, 200, { success: true, changed: changes.length, changes });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[AutonomyDailyEval] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
     // Shadow evaluation endpoint — runs shadow A/B tests for staged prompt versions
     if (method === 'POST' && url === '/shadow-eval/run') {
       try {
@@ -4662,6 +4687,9 @@ const server = createServer(async (req, res) => {
     // ── Admin ABAC API (/admin/abac/*) ────────────────────────────
     if (await handleAbacAdminApi(req, res, url, queryString ?? '', method)) return;
 
+    // ── Admin Autonomy API (/admin/autonomy/*) ────────────────────
+    if (await handleAutonomyAdminApi(req, res, url, queryString ?? '', method, agentNotifier)) return;
+
     // ── Admin Capacity API (/admin/agents/*, /admin/commitments/*) ─
     if (await handleCapacityAdminApi(req, res, url, queryString ?? '', method)) return;
 
@@ -4676,6 +4704,9 @@ const server = createServer(async (req, res) => {
 
     // ── Admin Decision Trace API (/admin/decisions/*, /admin/agents/:id/decisions) ──
     if (await handleDecisionTraceAdminApi(req, res, url, queryString ?? '', method, { modelClient: strategyModelClient })) return;
+
+    // ── Admin Metrics API (/admin/metrics/*) ───────────────────
+    if (await handleMetricsAdminApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Admin Temporal KG API (/admin/kg/*) ─────────────────────
     if (await handleTemporalKnowledgeGraphAdminApi(req, res, url, queryString ?? '', method)) return;

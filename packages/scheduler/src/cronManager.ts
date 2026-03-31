@@ -444,6 +444,13 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/batch-eval/run',
     enabled: true,
   },
+  {
+    id: 'autonomy-daily-eval',
+    schedule: '0 4 * * *',     // 4:00 AM UTC daily
+    timezone: 'UTC',
+    endpoint: '/autonomy/evaluate-daily',
+    enabled: true,
+  },
   // Prediction journal resolver — nightly resolution of due forecast records
   {
     id: 'prediction-journal-resolver',

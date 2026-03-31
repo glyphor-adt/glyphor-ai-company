@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS agent_autonomy_config (
   promoted_at TIMESTAMPTZ,
   last_level_change_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_level_change_reason TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   tenant_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES tenants(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -164,6 +165,7 @@ BEGIN
     auto_demote,
     last_level_change_at,
     last_level_change_reason,
+    metadata,
     tenant_id,
     created_at,
     updated_at
@@ -176,6 +178,7 @@ BEGIN
     TRUE,
     NOW(),
     'Auto-provisioned for new agent',
+    '{}'::jsonb,
     COALESCE(NEW.tenant_id, '00000000-0000-0000-0000-000000000000'),
     NOW(),
     NOW()

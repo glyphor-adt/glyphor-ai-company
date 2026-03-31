@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Card, PageTabs, SectionHeader, Skeleton } from '../components/ui';
 import AccessControl from '../components/governance/AccessControl';
+import AutonomyDashboard from '../components/governance/AutonomyDashboard';
 import AuthorityControl from '../components/governance/AuthorityControl';
+import ReliabilityDashboard from '../components/governance/ReliabilityDashboard';
 import ToolView from '../components/governance/ToolView';
 import ModelAdmin from './ModelAdmin';
 import {
@@ -494,7 +496,7 @@ async function apiCallWithTimeout<T = unknown>(path: string, options: RequestIni
   }
 }
 
-const VALID_TABS: GovernanceSurface[] = ['tool-view', 'access-control', 'authority', 'models'];
+const VALID_TABS: GovernanceSurface[] = ['tool-view', 'access-control', 'authority', 'autonomy', 'reliability', 'models'];
 
 export default function Governance() {
   const { user } = useAuth();
@@ -760,7 +762,7 @@ export default function Governance() {
         <div>
           <SectionHeader
             title="Governance Control Plane"
-            subtitle="Tool, authority, and access-control surfaces for managing agent execution rights and approvals."
+            subtitle="Tool, authority, autonomy, and access-control surfaces for managing agent execution rights and approvals."
           />
           <Card className="max-w-3xl border-prism-sky/20 bg-prism-sky/5">
             <p className="text-[13px] text-txt-secondary">
@@ -788,6 +790,8 @@ export default function Governance() {
           { key: 'tool-view', label: 'Tool View' },
           { key: 'access-control', label: 'Access Control' },
           { key: 'authority', label: 'Authority' },
+          { key: 'autonomy', label: 'Autonomy' },
+          { key: 'reliability', label: 'Reliability' },
           { key: 'models', label: 'Models' },
         ]}
         active={activeTab}
@@ -846,6 +850,21 @@ export default function Governance() {
             onRejectCommitment={handleRejectCommitment}
             onReverseCommitment={handleReverseCommitment}
           />
+        </div>
+      )}
+
+      {activeTab === 'autonomy' && (
+        <div id="autonomy">
+          <AutonomyDashboard
+            isAdmin={isAdmin}
+            currentUserEmail={user?.email ?? null}
+          />
+        </div>
+      )}
+
+      {activeTab === 'reliability' && (
+        <div id="reliability">
+          <ReliabilityDashboard />
         </div>
       )}
 

@@ -3,7 +3,7 @@ import { MdChevronRight, MdExpandMore } from 'react-icons/md';
 import { Card } from '../ui';
 import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../../lib/types';
 
-export type GovernanceSurface = 'tool-view' | 'access-control' | 'authority' | 'models';
+export type GovernanceSurface = 'tool-view' | 'access-control' | 'authority' | 'autonomy' | 'reliability' | 'models';
 export type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info' | 'good' | 'warning';
 
@@ -145,6 +145,133 @@ export interface AgentCapacityConfig {
   updatedAt: string;
   updatedBy: string;
   metadata: Record<string, unknown>;
+}
+
+export interface AutonomyEvaluationMetrics {
+  avgCompletionRate: number;
+  avgConfidenceScore: number;
+  escalationRate: number;
+  contradictionRate: number;
+  slaBreachRate: number;
+  totalRuns30d: number;
+  totalTasksCompleted30d: number;
+  totalTasksCompletedLifetime: number;
+  currentTrustScore: number;
+  sparkline30d: number[];
+  trustTrend30d: number;
+}
+
+export interface AutonomyRequirementProgress {
+  key: 'completion_rate' | 'confidence_score' | 'escalation_rate' | 'contradiction_rate' | 'sla_breach_rate' | 'min_tasks_completed';
+  label: string;
+  operator: '>=' | '<=';
+  target: number;
+  actual: number;
+  met: boolean;
+  progress: number;
+}
+
+export interface AutonomyThresholdProgress {
+  level: number;
+  label: string;
+  met: boolean;
+  requirements: AutonomyRequirementProgress[];
+}
+
+export interface AgentAutonomyConfig {
+  agentId: string;
+  currentLevel: number;
+  maxAllowedLevel: number;
+  autoPromote: boolean;
+  autoDemote: boolean;
+  promotedAt: string | null;
+  lastLevelChangeAt: string;
+  lastLevelChangeReason: string | null;
+}
+
+export interface AutonomyOverviewItem {
+  agentId: string;
+  currentLevel: number;
+  suggestedLevel: number;
+  metrics: AutonomyEvaluationMetrics;
+  meetsThresholdFor: number[];
+  thresholdProgress: AutonomyThresholdProgress[];
+  displayName: string;
+  role: string;
+  title: string | null;
+  department: string | null;
+  status: string | null;
+  maxAllowedLevel: number;
+  autoPromote: boolean;
+  autoDemote: boolean;
+  lastLevelChangeAt: string;
+  lastLevelChangeReason: string | null;
+}
+
+export interface AutonomyLevelDefinition {
+  level: number;
+  label: string;
+  description: string;
+  executionPolicy: string;
+  reviewPolicy: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface AutonomyLevelThreshold {
+  level: number;
+  completionRateThreshold: number | null;
+  confidenceScoreThreshold: number | null;
+  escalationRateMax: number | null;
+  contradictionRateMax: number | null;
+  slaBreachRateMax: number | null;
+  minTasksCompleted: number | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface AutonomyHistoryEntry {
+  id: string;
+  agentId: string;
+  fromLevel: number;
+  toLevel: number;
+  changeType: 'promoted' | 'demoted' | 'admin_override' | 'auto_promote' | 'auto_demote';
+  trustScoreAtChange: number | null;
+  metricsSnapshot: Record<string, unknown>;
+  reason: string | null;
+  changedBy: string;
+  createdAt: string;
+}
+
+export interface AutonomyAgentDetail {
+  agent: {
+    id: string;
+    role: string;
+    displayName: string;
+    title: string | null;
+    department: string | null;
+    status: string | null;
+  };
+  config: AgentAutonomyConfig;
+  evaluation: {
+    agentId: string;
+    currentLevel: number;
+    suggestedLevel: number;
+    metrics: AutonomyEvaluationMetrics;
+    meetsThresholdFor: number[];
+    thresholdProgress: AutonomyThresholdProgress[];
+  };
+  levels: AutonomyLevelDefinition[];
+  thresholds: AutonomyLevelThreshold[];
+  history: AutonomyHistoryEntry[];
+}
+
+export interface AutonomyCohortBenchmark {
+  roleCategory: string;
+  averageLevel: number;
+  averageDaysToLevel0: number | null;
+  averageDaysToLevel1: number | null;
+  averageDaysToLevel2: number | null;
+  averageDaysToLevel3: number | null;
+  averageDaysToLevel4: number | null;
 }
 
 export interface CommitmentRegistryEntry {

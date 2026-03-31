@@ -211,6 +211,54 @@ async function persistDecisionAuditLog(entry: {
   }
 }
 
+async function persistRunMetricsAuditLog(entry: {
+  agentRole: string;
+  taskId: string;
+  runId: string;
+  model: string;
+  summary: string;
+  inputTokens: number;
+  outputTokens: number;
+  thinkingTokens: number;
+  cachedInputTokens: number;
+}): Promise<void> {
+  try {
+    await systemQuery(
+      `INSERT INTO activity_log (
+         agent_role,
+         agent_id,
+         action,
+         activity_type,
+         summary,
+         details,
+         input_tokens,
+         output_tokens,
+         thinking_tokens,
+         cached_input_tokens,
+         estimated_cost_usd,
+         created_at
+       )
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12)`,
+      [
+        entry.agentRole,
+        entry.agentRole,
+        'agent.run.completed',
+        'run_metrics',
+        entry.summary,
+        JSON.stringify({ task_id: entry.taskId, run_id: entry.runId, model: entry.model }),
+        entry.inputTokens,
+        entry.outputTokens,
+        entry.thinkingTokens,
+        entry.cachedInputTokens,
+        estimateCost(entry.model, entry.inputTokens, entry.outputTokens, entry.thinkingTokens, entry.cachedInputTokens),
+        new Date().toISOString(),
+      ],
+    );
+  } catch (err) {
+    console.warn(`[${entry.agentRole}] Failed to persist run metrics audit log:`, (err as Error).message);
+  }
+}
+
 /** Build a per-tool retrieval metadata map from the ToolRetriever trace. */
 function buildRetrievalMetadataMap(trace: ToolRetrieverTrace): ToolRetrievalMetadataMap {
   const map: ToolRetrievalMetadataMap = new Map();
@@ -1114,6 +1162,18 @@ ${memPrompt}`, timestamp: Date.now() });
           [...traceAuditLogIds].map((auditLogId) => captureDecisionTrace(auditLogId, finalTraceUpdate)),
         );
       }
+
+      await persistRunMetricsAuditLog({
+        agentRole: config.role,
+        taskId: traceTaskId,
+        runId: config.dbRunId ?? config.id,
+        model: actualModelUsed ?? config.model,
+        summary: summarizeDecisionText(lastTextOutput) ?? `${config.role} completed run ${config.id}`,
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        thinkingTokens: totalThinkingTokens,
+        cachedInputTokens: totalCachedInputTokens,
+      });
 
       // Fire-and-forget: harvest skill signals from efficient successful runs.
       void learnFromAgentRun({

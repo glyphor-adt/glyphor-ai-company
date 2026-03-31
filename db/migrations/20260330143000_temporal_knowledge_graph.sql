@@ -11,6 +11,22 @@ CREATE TABLE IF NOT EXISTS kg_entity_type_config (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE kg_entity_type_config
+  ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id),
+  ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE kg_entity_type_config
+  ALTER COLUMN tenant_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+
+UPDATE kg_entity_type_config
+SET tenant_id = '00000000-0000-0000-0000-000000000000'
+WHERE tenant_id IS NULL;
+
+ALTER TABLE kg_entity_type_config
+  ALTER COLUMN tenant_id SET NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_kg_entity_type_config_tenant
   ON kg_entity_type_config(tenant_id, is_active);
 
@@ -23,6 +39,22 @@ CREATE TABLE IF NOT EXISTS kg_edge_type_config (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE kg_edge_type_config
+  ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id),
+  ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE kg_edge_type_config
+  ALTER COLUMN tenant_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+
+UPDATE kg_edge_type_config
+SET tenant_id = '00000000-0000-0000-0000-000000000000'
+WHERE tenant_id IS NULL;
+
+ALTER TABLE kg_edge_type_config
+  ALTER COLUMN tenant_id SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_kg_edge_type_config_tenant
   ON kg_edge_type_config(tenant_id, is_active);
@@ -72,6 +104,54 @@ CREATE TABLE IF NOT EXISTS kg_entities (
   UNIQUE (tenant_id, entity_type, entity_id)
 );
 
+ALTER TABLE kg_entities
+  ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id),
+  ADD COLUMN IF NOT EXISTS entity_id TEXT,
+  ADD COLUMN IF NOT EXISTS name TEXT,
+  ADD COLUMN IF NOT EXISTS properties JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS embedding VECTOR(768),
+  ADD COLUMN IF NOT EXISTS updated_by_agent_id TEXT,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE kg_entities
+  ALTER COLUMN tenant_id SET DEFAULT '00000000-0000-0000-0000-000000000000',
+  ALTER COLUMN properties SET DEFAULT '{}'::jsonb;
+
+UPDATE kg_entities
+SET tenant_id = '00000000-0000-0000-0000-000000000000'
+WHERE tenant_id IS NULL;
+
+UPDATE kg_entities
+SET entity_id = COALESCE(entity_key, id::text)
+WHERE entity_id IS NULL;
+
+UPDATE kg_entities
+SET name = COALESCE(display_name, entity_key, entity_id, id::text)
+WHERE name IS NULL;
+
+UPDATE kg_entities
+SET properties = COALESCE(metadata, '{}'::jsonb)
+WHERE properties IS NULL;
+
+UPDATE kg_entities
+SET updated_by_agent_id = 'system'
+WHERE updated_by_agent_id IS NULL;
+
+ALTER TABLE kg_entities
+  ALTER COLUMN tenant_id SET NOT NULL,
+  ALTER COLUMN entity_id SET NOT NULL,
+  ALTER COLUMN name SET NOT NULL,
+  ALTER COLUMN properties SET NOT NULL,
+  ALTER COLUMN updated_by_agent_id SET NOT NULL;
+
+DO $$ BEGIN
+  ALTER TABLE kg_entities
+    ADD CONSTRAINT kg_entities_tenant_entity_key_unique UNIQUE (tenant_id, entity_type, entity_id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_kg_entities_type
   ON kg_entities(tenant_id, entity_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_kg_entities_name
@@ -92,6 +172,36 @@ CREATE TABLE IF NOT EXISTS kg_edges_temporal (
   created_by_agent_id TEXT NOT NULL,
   UNIQUE (tenant_id, from_entity_id, to_entity_id, edge_type)
 );
+
+ALTER TABLE kg_edges_temporal
+  ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id),
+  ADD COLUMN IF NOT EXISTS properties JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS created_by_agent_id TEXT;
+
+ALTER TABLE kg_edges_temporal
+  ALTER COLUMN tenant_id SET DEFAULT '00000000-0000-0000-0000-000000000000',
+  ALTER COLUMN properties SET DEFAULT '{}'::jsonb;
+
+UPDATE kg_edges_temporal
+SET tenant_id = '00000000-0000-0000-0000-000000000000'
+WHERE tenant_id IS NULL;
+
+UPDATE kg_edges_temporal
+SET created_by_agent_id = 'system'
+WHERE created_by_agent_id IS NULL;
+
+ALTER TABLE kg_edges_temporal
+  ALTER COLUMN tenant_id SET NOT NULL,
+  ALTER COLUMN properties SET NOT NULL,
+  ALTER COLUMN created_by_agent_id SET NOT NULL;
+
+DO $$ BEGIN
+  ALTER TABLE kg_edges_temporal
+    ADD CONSTRAINT kg_edges_temporal_unique UNIQUE (tenant_id, from_entity_id, to_entity_id, edge_type);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_kg_edges_temporal_from
   ON kg_edges_temporal(tenant_id, from_entity_id, edge_type);
@@ -116,6 +226,20 @@ CREATE TABLE IF NOT EXISTS kg_facts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE kg_facts
+  ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id),
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE kg_facts
+  ALTER COLUMN tenant_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+
+UPDATE kg_facts
+SET tenant_id = '00000000-0000-0000-0000-000000000000'
+WHERE tenant_id IS NULL;
+
+ALTER TABLE kg_facts
+  ALTER COLUMN tenant_id SET NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_kg_facts_entity_key_current
   ON kg_facts(tenant_id, entity_id, fact_key)
   WHERE valid_until IS NULL;
@@ -135,6 +259,27 @@ CREATE TABLE IF NOT EXISTS kg_access_log (
   task_id TEXT,
   timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE kg_access_log
+  ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id),
+  ADD COLUMN IF NOT EXISTS entities_accessed JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE kg_access_log
+  ALTER COLUMN tenant_id SET DEFAULT '00000000-0000-0000-0000-000000000000',
+  ALTER COLUMN entities_accessed SET DEFAULT '[]'::jsonb;
+
+UPDATE kg_access_log
+SET tenant_id = '00000000-0000-0000-0000-000000000000'
+WHERE tenant_id IS NULL;
+
+UPDATE kg_access_log
+SET entities_accessed = '[]'::jsonb
+WHERE entities_accessed IS NULL;
+
+ALTER TABLE kg_access_log
+  ALTER COLUMN tenant_id SET NOT NULL,
+  ALTER COLUMN entities_accessed SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_kg_access_log_agent
   ON kg_access_log(tenant_id, agent_id, timestamp DESC);
