@@ -1,1 +1,0 @@
-import { runFullToolHealthCheck } from './packages/agent-runtime/src/testing/toolTestRunner.js'; async function main() { console.log('Running locally...'); try { const summary = await runFullToolHealthCheck({ triggeredBy: 'manual', tiers: [1] }); console.log('Summary:', summary); } catch (err) { console.error('Error:', err); } } main();

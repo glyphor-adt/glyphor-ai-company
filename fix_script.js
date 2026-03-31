@@ -1,1 +1,0 @@
-const fs=require('fs'); let f = fs.readFileSync('packages/agent-runtime/src/testing/failureHandler.ts', 'utf8'); f = f.replace(/await dbQuery\(SELECT/g, 'await dbQuery(\SELECT'); f = f.replace(/await dbQuery\(UPDATE/g, 'await dbQuery(\UPDATE'); fs.writeFileSync('packages/agent-runtime/src/testing/failureHandler.ts', f);

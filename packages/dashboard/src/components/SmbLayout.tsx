@@ -1,5 +1,5 @@
 import { BarChart3, CheckSquare, LayoutGrid, Settings, Users } from 'lucide-react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { useEffect, useRef, useState } from 'react';
@@ -19,7 +19,8 @@ const NAV: Array<{
 
 export default function SmbLayout() {
   const { theme, toggle } = useTheme();
-  const { user, profile, logout } = useAuth();
+  const { user, profile, logout, setDashboardModeOverride } = useAuth();
+  const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const bgRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -48,6 +49,11 @@ export default function SmbLayout() {
     update();
     return () => main.removeEventListener('scroll', update);
   }, [theme]);
+
+  function openInternalDashboard() {
+    setDashboardModeOverride('internal');
+    navigate('/app/internal/dashboard');
+  }
 
   return (
     <>
@@ -81,6 +87,17 @@ export default function SmbLayout() {
           </nav>
 
           <div className="relative z-10 px-4 py-3">
+            <button
+              onClick={openInternalDashboard}
+              className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors ${
+                theme === 'dark'
+                  ? 'text-white/70 hover:bg-cyan/10 hover:text-white'
+                  : 'text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary'
+              }`}
+            >
+              <OrbitIcon className="h-5 w-5" />
+              Advanced view
+            </button>
             <button
               onClick={toggle}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors ${
@@ -150,6 +167,13 @@ export default function SmbLayout() {
               </nav>
 
               <div className="relative z-10 px-4 py-3">
+                <button
+                  onClick={openInternalDashboard}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-prism-tertiary"
+                >
+                  <OrbitIcon className="h-5 w-5" />
+                  Advanced view
+                </button>
                 <button
                   onClick={toggle}
                   className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-prism-tertiary"
@@ -225,6 +249,16 @@ function BrandLockup({ theme, compact = false }: { theme: 'dark' | 'light'; comp
         </span>
       )}
     </div>
+  );
+}
+
+function OrbitIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <circle cx="8" cy="8" r="1.8" />
+      <path d="M13.2 8a5.2 5.2 0 0 1-5.2 5.2A5.2 5.2 0 0 1 2.8 8 5.2 5.2 0 0 1 8 2.8 5.2 5.2 0 0 1 13.2 8Z" />
+      <path d="M3.8 3.8 12.2 12.2" />
+    </svg>
   );
 }
 
