@@ -17,8 +17,14 @@ function resolveEnv(...names: string[]): string | undefined {
   return undefined;
 }
 
-function toBase64Url(value: string | Buffer): string {
-  return Buffer.from(value)
+function toBase64Url(value: string | Buffer | ArrayBuffer): string {
+  const buffer = typeof value === 'string'
+    ? Buffer.from(value)
+    : value instanceof ArrayBuffer
+      ? Buffer.from(new Uint8Array(value))
+      : value;
+
+  return buffer
     .toString('base64')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
