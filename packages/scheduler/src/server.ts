@@ -70,6 +70,7 @@ import { handleCapacityAdminApi } from './capacityAdminApi.js';
 import { createContradictionAdminApi } from './contradictionAdminApi.js';
 import { ContradictionProcessor } from './contradictionProcessor.js';
 import { handleDecisionTraceAdminApi } from './decisionTraceAdminApi.js';
+import { handleDepartmentAdminApi } from './departmentAdminApi.js';
 import { handleDisclosureAdminApi } from './disclosureAdminApi.js';
 import { handleHandoffContractAdminApi } from './handoffContractAdminApi.js';
 import { handleGovernanceApi } from './governanceApi.js';
@@ -4695,6 +4696,9 @@ const server = createServer(async (req, res) => {
 
     // ── Admin Contradictions API (/admin/contradictions/*) ────────
     if (await contradictionAdminApi(req, res, url, queryString ?? '', method)) return;
+
+    // ── Admin Department Activation API (/admin/departments/*) ────
+    if (await handleDepartmentAdminApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Admin Disclosure API (/admin/agents/*, /admin/disclosure/*) ──
     if (await handleDisclosureAdminApi(req, res, url, queryString ?? '', method)) return;

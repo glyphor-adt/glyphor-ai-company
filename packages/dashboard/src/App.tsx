@@ -17,6 +17,7 @@ import Governance from './pages/Governance';
 import Knowledge from './pages/Knowledge';
 import Skills from './pages/Skills';
 import Comms from './pages/Comms';
+import Onboarding from './pages/Onboarding';
 import Settings from './pages/Settings';
 import ChangeRequests from './pages/ChangeRequests';
 import OraChat from './pages/OraChat';
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="financials" element={<Financials />} />
         <Route path="operations" element={<Operations />} />
         <Route path="strategy" element={<Strategy />} />
+        <Route path="onboarding" element={<Onboarding />} />
         <Route path="knowledge" element={<Knowledge />} />
         <Route path="skills" element={<Skills />} />
         <Route path="skills/:slug" element={<SkillDetail />} />

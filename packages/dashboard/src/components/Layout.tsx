@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
+  { to: '/onboarding', label: 'Onboarding', icon: Orbit },
   { to: '/directives', label: 'Directives', icon: DirectivesIcon },
   { to: '/workforce', label: 'Workforce', icon: UsersIcon },
   { to: '/comms', label: 'Comms', icon: ChatIcon },

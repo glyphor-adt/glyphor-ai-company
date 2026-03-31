@@ -68,6 +68,28 @@ export type {
 } from './agentAutonomy.js';
 
 export {
+  listDepartmentTemplates,
+  listDepartmentsWithStatus,
+  getDepartmentDetail,
+  listActiveDepartments,
+  pauseDepartment,
+  getExpansionRecommendations,
+  activateDepartment,
+} from './departmentActivation.js';
+export type {
+  DepartmentRecord,
+  AgentCatalogTemplate,
+  DepartmentStats,
+  DepartmentSummary,
+  DepartmentDetail,
+  ActivatedAgentRecord,
+  ConnectedDepartmentRecord,
+  ExpansionRecommendation,
+  ActivateDepartmentConfig,
+  ActivateDepartmentResult,
+} from './departmentActivation.js';
+
+export {
   captureDecisionTrace,
   queryDecisionTrace,
   getDecisionTraceById,
