@@ -287,6 +287,677 @@ function jsonResponse(res: ServerResponse, status: number, data: unknown) {
   res.end(JSON.stringify(data));
 }
 
+type DashboardMode = 'smb' | 'internal';
+
+type DashboardUserRow = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  tenant_id?: string | null;
+};
+
+type TenantRow = {
+  id: string;
+  name: string;
+  slug: string;
+  website: string | null;
+  industry: string | null;
+  brand_voice: string | null;
+  product: string;
+  status: string;
+  settings: unknown;
+  created_at: string;
+};
+
+function asObject(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function normalizeDashboardMode(value: unknown): DashboardMode {
+  return value === 'smb' ? 'smb' : 'internal';
+}
+
+function mergeObjects<T extends Record<string, unknown>>(base: T, patch: Record<string, unknown>): T {
+  const merged: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(patch)) {
+    if (
+      value
+      && typeof value === 'object'
+      && !Array.isArray(value)
+      && merged[key]
+      && typeof merged[key] === 'object'
+      && !Array.isArray(merged[key])
+    ) {
+      merged[key] = mergeObjects(
+        merged[key] as Record<string, unknown>,
+        value as Record<string, unknown>,
+      );
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged as T;
+}
+
+function firstSentence(value: string): string {
+  const match = value.match(/(.+?[.!?])(?:\s|$)/);
+  return (match?.[1] ?? value).trim();
+}
+
+function sanitizeSmbText(input: unknown): string {
+  const raw = typeof input === 'string' ? input : '';
+  if (!raw.trim()) return '';
+
+  const lines = raw
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '')
+    .replace(/\b(?:gpt|claude|gemini|o[134]|4o(?:-mini)?)(?:[-._a-z0-9]+)?\b/gi, 'the team')
+    .replace(/\b\d+[\d,]*(?:\.\d+)?\s*(?:tokens?|ms|milliseconds?|seconds?|usd|dollars?)\b/gi, '')
+    .replace(/\b(?:authority tier|authority-tier|governance policy|approval rate|confidence score|confidence)\b/gi, 'review')
+    .replace(/\b(?:run|task|assignment|directive|request)\s*#?\s*[a-z0-9_-]{6,}\b/gi, '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !/^at\s.+\(.+\)$/.test(line))
+    .filter((line) => !/^(error|trace|stack|sqlstate|postgres|database)\b/i.test(line));
+
+  const joined = lines.join(' ').replace(/\s+/g, ' ').trim();
+  if (!joined) return 'Ran into an issue while working on this.';
+  if (/(failed|exception|timeout|timed out|error)/i.test(joined)) {
+    return 'Ran into an issue while working on this.';
+  }
+  return joined;
+}
+
+function buildPreviewText(input: unknown): string {
+  const sanitized = sanitizeSmbText(input);
+  if (!sanitized) return 'Work is still in progress.';
+  const sentence = firstSentence(sanitized);
+  return sentence.length > 180 ? `${sentence.slice(0, 177).trim()}...` : sentence;
+}
+
+function getIsoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
+async function getDashboardUserColumns(): Promise<Set<string>> {
+  return getTableColumns('dashboard_users');
+}
+
+async function resolveDashboardContext(email: string | null) {
+  const dashboardUserColumns = await getDashboardUserColumns();
+  const hasTenantId = dashboardUserColumns.has('tenant_id');
+  const loweredEmail = email?.trim().toLowerCase() ?? null;
+
+  let user: DashboardUserRow | null = null;
+  if (loweredEmail) {
+    const userSql = hasTenantId
+      ? `SELECT id, email, name, role, tenant_id
+           FROM dashboard_users
+          WHERE LOWER(email) = $1
+          LIMIT 1`
+      : `SELECT id, email, name, role
+           FROM dashboard_users
+          WHERE LOWER(email) = $1
+          LIMIT 1`;
+    const rows = await systemQuery<DashboardUserRow>(userSql, [loweredEmail]);
+    user = rows[0] ?? null;
+  }
+
+  const preferredTenantId = hasTenantId ? user?.tenant_id ?? null : null;
+  const tenantRows = preferredTenantId
+    ? await systemQuery<TenantRow>(
+      `SELECT id, name, slug, website, industry, brand_voice, product, status, settings, created_at
+         FROM tenants
+        WHERE id = $1
+        LIMIT 1`,
+      [preferredTenantId],
+    )
+    : [];
+
+  const fallbackTenantRows = tenantRows.length > 0
+    ? tenantRows
+    : await systemQuery<TenantRow>(
+      `SELECT id, name, slug, website, industry, brand_voice, product, status, settings, created_at
+         FROM tenants
+        ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END, created_at ASC
+        LIMIT 1`,
+    );
+
+  const tenant = fallbackTenantRows[0] ?? null;
+  const tenantSettings = asObject(tenant?.settings);
+  const smbSettings = asObject(tenantSettings.smb);
+  const dashboardMode = normalizeDashboardMode(
+    smbSettings.dashboard_mode ?? tenantSettings.dashboard_mode,
+  );
+
+  const approvalRows = await systemQuery<{ count: string }>(
+    `SELECT COUNT(*)::text AS count
+       FROM decisions
+      WHERE status = 'pending'`,
+  );
+
+  return {
+    user: user ?? {
+      id: 'session-user',
+      email: loweredEmail ?? 'unknown',
+      name: loweredEmail?.split('@')[0] ?? 'User',
+      role: 'viewer',
+      tenant_id: tenant?.id ?? null,
+    },
+    organization: tenant
+      ? {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        website: tenant.website,
+        industry: tenant.industry,
+        brand_voice: tenant.brand_voice,
+        product: tenant.product,
+        status: tenant.status,
+        created_at: tenant.created_at,
+        settings: tenantSettings,
+        smb_settings: smbSettings,
+        dashboard_mode: dashboardMode,
+      }
+      : null,
+    pending_approvals: Number(approvalRows[0]?.count ?? 0),
+  };
+}
+
+async function getTenantWorkspaceMap(tenantId: string): Promise<Record<string, boolean>> {
+  const rows = await systemQuery<{ platform: string; is_active: boolean }>(
+    `SELECT platform, is_active
+       FROM tenant_workspaces
+      WHERE tenant_id = $1`,
+    [tenantId],
+  );
+  return rows.reduce<Record<string, boolean>>((acc, row) => {
+    acc[row.platform] = row.is_active === true;
+    return acc;
+  }, {});
+}
+
+async function buildSmbSettings(email: string | null) {
+  const context = await resolveDashboardContext(email);
+  const organization = context.organization;
+  if (!organization) {
+    return {
+      user: context.user,
+      organization: null,
+      team: { active_departments: [], available_departments: [], roster: [], authorized_users: [] },
+      work: {},
+      integrations: {},
+      brand_context: {},
+    };
+  }
+
+  const workspaceMap = await getTenantWorkspaceMap(organization.id);
+  const allAgents = await systemQuery<{
+    role: string;
+    display_name: string | null;
+    title: string | null;
+    department: string | null;
+    avatar_url: string | null;
+    personality_summary: string | null;
+    working_style: string | null;
+    working_voice: string | null;
+  }>(
+    `SELECT
+        ca.role,
+        ca.display_name,
+        ca.title,
+        ca.department,
+        ap.avatar_url,
+        ap.personality_summary,
+        ap.working_style,
+        ap.working_voice
+       FROM company_agents ca
+       LEFT JOIN agent_profiles ap ON ap.agent_id = ca.role
+      WHERE ca.tenant_id = $1
+      ORDER BY COALESCE(ca.department, 'General'), COALESCE(ca.display_name, ca.role)`,
+    [organization.id],
+  );
+
+  const authorizedUsers = await (async () => {
+    const columns = await getDashboardUserColumns();
+    if (columns.has('tenant_id')) {
+      return systemQuery<{ email: string; name: string; role: string }>(
+        `SELECT email, name, role
+           FROM dashboard_users
+          WHERE tenant_id = $1 OR tenant_id IS NULL
+          ORDER BY role DESC, email ASC`,
+        [organization.id],
+      );
+    }
+    return systemQuery<{ email: string; name: string; role: string }>(
+      `SELECT email, name, role
+         FROM dashboard_users
+        ORDER BY role DESC, email ASC`,
+    );
+  })();
+
+  const smbSettings = asObject(organization.smb_settings);
+  const teamSettings = asObject(smbSettings.team);
+  const workSettings = asObject(smbSettings.work);
+  const integrationSettings = asObject(smbSettings.integrations);
+  const brandContext = asObject(smbSettings.brand_context);
+
+  const availableDepartments = [...new Set(
+    allAgents
+      .map((agent) => agent.department?.trim())
+      .filter((department): department is string => Boolean(department)),
+  )].sort((a, b) => a.localeCompare(b));
+
+  const activeDepartments = Array.isArray(teamSettings.active_departments)
+    ? teamSettings.active_departments.filter((value): value is string => typeof value === 'string')
+    : availableDepartments;
+
+  return {
+    user: context.user,
+    organization: {
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+      website: organization.website,
+      industry: organization.industry,
+      brand_voice: organization.brand_voice,
+      dashboard_mode: organization.dashboard_mode,
+      created_at: organization.created_at,
+    },
+    team: {
+      active_departments: activeDepartments,
+      available_departments: availableDepartments,
+      roster: allAgents.map((agent) => ({
+        role: agent.role,
+        display_name: agent.display_name ?? agent.role,
+        title: agent.title,
+        department: agent.department,
+        avatar_url: agent.avatar_url,
+        personality_summary: sanitizeSmbText(agent.personality_summary),
+        working_style: sanitizeSmbText(agent.working_style),
+        working_voice: sanitizeSmbText(agent.working_voice),
+      })),
+      authorized_users: authorizedUsers,
+    },
+    work: {
+      communication_style: sanitizeSmbText(workSettings.communication_style ?? ''),
+      approval_preference: sanitizeSmbText(workSettings.approval_preference ?? ''),
+      focus_areas: Array.isArray(workSettings.focus_areas)
+        ? workSettings.focus_areas.filter((value): value is string => typeof value === 'string')
+        : [],
+    },
+    integrations: {
+      slack: Boolean(workspaceMap.slack || integrationSettings.slack === true || asObject(integrationSettings.slack).connected === true),
+      teams: Boolean(workspaceMap.teams || integrationSettings.teams === true || asObject(integrationSettings.teams).connected === true),
+      google_workspace: Boolean(asObject(integrationSettings.google_workspace).connected === true),
+      hubspot: Boolean(asObject(integrationSettings.hubspot).connected === true),
+    },
+    brand_context: {
+      website: organization.website ?? '',
+      brand_voice: sanitizeSmbText(organization.brand_voice ?? ''),
+      target_audience: sanitizeSmbText(brandContext.target_audience ?? ''),
+      differentiators: sanitizeSmbText(brandContext.differentiators ?? ''),
+      notes: sanitizeSmbText(brandContext.notes ?? ''),
+    },
+  };
+}
+
+async function buildSmbSummary(email: string | null) {
+  const context = await resolveDashboardContext(email);
+  const organization = context.organization;
+  if (!organization) {
+    return {
+      organization: null,
+      greeting_name: context.user.name || 'there',
+      tasks_completed_this_week: 0,
+      active_agents: [],
+      dormant_departments: [],
+      recent_activity: [],
+      pending_approvals: [],
+      metrics: [],
+      work_delivered_this_week: [],
+      weekly_work: [],
+      directives: [],
+    };
+  }
+
+  const smbSettings = asObject(organization.smb_settings);
+  const teamSettings = asObject(smbSettings.team);
+  const activeDepartmentSetting = Array.isArray(teamSettings.active_departments)
+    ? teamSettings.active_departments.filter((value): value is string => typeof value === 'string')
+    : [];
+
+  const [agents, activity, decisions, directives, weeklyCompleted, weeklySeries] = await Promise.all([
+    systemQuery<{
+      role: string;
+      display_name: string | null;
+      title: string | null;
+      department: string | null;
+      status: string | null;
+      last_run_at: string | null;
+      avatar_url: string | null;
+      personality_summary: string | null;
+    }>(
+      `SELECT
+          ca.role,
+          ca.display_name,
+          ca.title,
+          ca.department,
+          ca.status,
+          ca.last_run_at,
+          ap.avatar_url,
+          ap.personality_summary
+         FROM company_agents ca
+         LEFT JOIN agent_profiles ap ON ap.agent_id = ca.role
+        WHERE ca.tenant_id = $1
+        ORDER BY COALESCE(ca.department, 'General'), COALESCE(ca.display_name, ca.role)`,
+      [organization.id],
+    ),
+    systemQuery<{
+      agent_role: string;
+      summary: string;
+      action: string;
+      created_at: string;
+    }>(
+      `SELECT agent_role, summary, action, created_at
+         FROM activity_log
+        ORDER BY created_at DESC
+        LIMIT 12`,
+    ),
+    systemQuery<{
+      id: string;
+      title: string;
+      summary: string;
+      reasoning: string;
+      proposed_by: string;
+      assigned_to: string[] | null;
+      created_at: string;
+    }>(
+      `SELECT id, title, summary, reasoning, proposed_by, assigned_to, created_at
+         FROM decisions
+        WHERE status = 'pending'
+        ORDER BY created_at DESC
+        LIMIT 12`,
+    ),
+    systemQuery<{
+      id: string;
+      title: string;
+      description: string;
+      status: string;
+      priority: string;
+      created_at: string;
+      updated_at: string;
+    }>(
+      `SELECT id, title, description, status, priority, created_at, updated_at
+         FROM founder_directives
+        WHERE tenant_id = $1
+        ORDER BY created_at DESC
+        LIMIT 20`,
+      [organization.id],
+    ),
+    systemQuery<{ count: string }>(
+      `SELECT COUNT(*)::text AS count
+         FROM work_assignments
+        WHERE tenant_id = $1
+          AND status = 'completed'
+          AND completed_at >= $2`,
+      [organization.id, getIsoDaysAgo(7)],
+    ),
+    systemQuery<{ week_label: string; completed_count: string }>(
+      `WITH weeks AS (
+          SELECT generate_series(0, 7) AS offset
+       )
+       SELECT
+         TO_CHAR(date_trunc('week', NOW()) - (offset * INTERVAL '1 week'), 'Mon DD') AS week_label,
+         COALESCE((
+           SELECT COUNT(*)::int
+             FROM work_assignments wa
+            WHERE wa.tenant_id = $1
+              AND wa.status = 'completed'
+              AND wa.completed_at >= date_trunc('week', NOW()) - (offset * INTERVAL '1 week')
+              AND wa.completed_at < date_trunc('week', NOW()) - ((offset - 1) * INTERVAL '1 week')
+         ), 0)::text AS completed_count
+       FROM weeks
+       ORDER BY offset DESC`,
+      [organization.id],
+    ),
+  ]);
+
+  const directiveIds = directives.map((directive) => directive.id);
+  const assignments = directiveIds.length > 0
+    ? await systemQuery<{
+      id: string;
+      directive_id: string;
+      assigned_to: string;
+      task_description: string;
+      status: string;
+      created_at: string;
+      completed_at: string | null;
+      agent_output: string | null;
+      evaluation: string | null;
+      blocker_reason: string | null;
+      need_type: string | null;
+    }>(
+      `SELECT id, directive_id, assigned_to, task_description, status, created_at, completed_at, agent_output, evaluation, blocker_reason, need_type
+         FROM work_assignments
+        WHERE directive_id = ANY($1::uuid[])
+        ORDER BY created_at DESC`,
+      [directiveIds],
+    )
+    : [];
+
+  const assignmentsByDirective = new Map<string, typeof assignments>();
+  for (const assignment of assignments) {
+    const group = assignmentsByDirective.get(assignment.directive_id) ?? [];
+    group.push(assignment);
+    assignmentsByDirective.set(assignment.directive_id, group);
+  }
+
+  const departments = [...new Set(
+    agents
+      .map((agent) => agent.department?.trim())
+      .filter((department): department is string => Boolean(department)),
+  )].sort((a, b) => a.localeCompare(b));
+
+  const activeDepartments = activeDepartmentSetting.length > 0
+    ? activeDepartmentSetting
+    : [...new Set(
+      agents
+        .filter((agent) => agent.status === 'active' || Boolean(agent.last_run_at && agent.last_run_at >= getIsoDaysAgo(21)))
+        .map((agent) => agent.department?.trim())
+        .filter((department): department is string => Boolean(department)),
+    )];
+
+  const activeAgents = agents
+    .filter((agent) => {
+      if (!agent.department) return true;
+      return activeDepartments.includes(agent.department);
+    })
+    .slice(0, 12)
+    .map((agent) => ({
+      role: agent.role,
+      display_name: agent.display_name ?? agent.role,
+      title: agent.title,
+      department: agent.department,
+      avatar_url: agent.avatar_url,
+      summary: sanitizeSmbText(agent.personality_summary) || 'Ready to take on work for this area.',
+      status: agent.status === 'active' ? 'Working now' : 'Available',
+      last_run_at: agent.last_run_at,
+    }));
+
+  const dormantDepartments = departments
+    .filter((department) => !activeDepartments.includes(department))
+    .map((department) => {
+      const departmentAgents = agents.filter((agent) => agent.department === department);
+      return {
+        department,
+        count: departmentAgents.length,
+        sample_roles: departmentAgents.slice(0, 3).map((agent) => agent.display_name ?? agent.role),
+      };
+    });
+
+  const pendingApprovals = decisions.map((decision) => ({
+    id: decision.id,
+    title: sanitizeSmbText(decision.title) || 'Needs your input',
+    summary: sanitizeSmbText(decision.summary) || buildPreviewText(decision.reasoning),
+    requested_by: decision.proposed_by,
+    assigned_to: decision.assigned_to ?? [],
+    created_at: decision.created_at,
+  }));
+
+  const directiveCards = directives.map((directive) => {
+    const directiveAssignments = assignmentsByDirective.get(directive.id) ?? [];
+    const completed = directiveAssignments.filter((assignment) => assignment.status === 'completed').length;
+    const total = directiveAssignments.length;
+    const latestOutput = directiveAssignments.find((assignment) => assignment.agent_output?.trim());
+    const blocked = directiveAssignments.find((assignment) => assignment.status === 'blocked' || assignment.need_type || assignment.blocker_reason);
+    return {
+      id: directive.id,
+      title: sanitizeSmbText(directive.title) || 'New directive',
+      description: sanitizeSmbText(directive.description),
+      status: directive.status,
+      priority: directive.priority,
+      created_at: directive.created_at,
+      updated_at: directive.updated_at,
+      progress_label: total > 0 ? `${completed} of ${total} tasks finished` : 'Queued for the team',
+      output_preview: buildPreviewText(latestOutput?.agent_output ?? latestOutput?.evaluation ?? directive.description),
+      output_full: sanitizeSmbText(latestOutput?.agent_output ?? latestOutput?.evaluation ?? directive.description),
+      needs_input: blocked
+        ? sanitizeSmbText(blocked.blocker_reason ?? blocked.need_type) || 'Needs input before it can continue.'
+        : '',
+      assignments: directiveAssignments.slice(0, 8).map((assignment) => ({
+        id: assignment.id,
+        assigned_to: assignment.assigned_to,
+        task_description: sanitizeSmbText(assignment.task_description),
+        status: assignment.status,
+        created_at: assignment.created_at,
+        completed_at: assignment.completed_at,
+        preview: buildPreviewText(assignment.agent_output ?? assignment.evaluation ?? assignment.task_description),
+        full_output: sanitizeSmbText(assignment.agent_output ?? assignment.evaluation),
+        needs_input: sanitizeSmbText(assignment.blocker_reason ?? assignment.need_type),
+      })),
+    };
+  });
+
+  const workDeliveredThisWeek = assignments
+    .filter((assignment) => assignment.status === 'completed' && assignment.completed_at && assignment.completed_at >= getIsoDaysAgo(7))
+    .slice(0, 8)
+    .map((assignment) => ({
+      id: assignment.id,
+      title: sanitizeSmbText(assignment.task_description) || 'Work delivered',
+      by: assignment.assigned_to,
+      delivered_at: assignment.completed_at,
+      preview: buildPreviewText(assignment.agent_output ?? assignment.evaluation ?? assignment.task_description),
+    }));
+
+  return {
+    organization: {
+      id: organization.id,
+      name: organization.name,
+      website: organization.website,
+      dashboard_mode: organization.dashboard_mode,
+      created_at: organization.created_at,
+    },
+    greeting_name: context.user.name?.split(' ')[0] ?? 'there',
+    tasks_completed_this_week: Number(weeklyCompleted[0]?.count ?? 0),
+    active_agents: activeAgents,
+    dormant_departments: dormantDepartments,
+    recent_activity: activity.map((entry) => ({
+      agent_role: entry.agent_role,
+      summary: sanitizeSmbText(entry.summary) || 'The team finished a new update.',
+      created_at: entry.created_at,
+    })),
+    pending_approvals: pendingApprovals,
+    metrics: [
+      {
+        label: 'Tasks completed this week',
+        value: Number(weeklyCompleted[0]?.count ?? 0),
+        detail: 'Finished and ready to review',
+      },
+      {
+        label: 'Open directives',
+        value: directiveCards.filter((directive) => directive.status !== 'completed').length,
+        detail: 'Current work moving through the team',
+      },
+      {
+        label: 'Pending approvals',
+        value: pendingApprovals.length,
+        detail: pendingApprovals.length > 0 ? 'Waiting on your input' : 'Nothing waiting right now',
+      },
+    ],
+    work_delivered_this_week: workDeliveredThisWeek,
+    weekly_work: weeklySeries.map((row) => ({
+      week_label: row.week_label,
+      completed_count: Number(row.completed_count ?? 0),
+    })),
+    directives: directiveCards,
+  };
+}
+
+async function updateSmbSettings(email: string | null, payload: Record<string, unknown>) {
+  const context = await resolveDashboardContext(email);
+  const organization = context.organization;
+  if (!organization) {
+    throw new Error('No organization found for current dashboard user.');
+  }
+
+  const currentSettings = asObject(organization.settings);
+  const currentSmb = asObject(currentSettings.smb);
+  const teamPatch = asObject(payload.team);
+  const workPatch = asObject(payload.work);
+  const integrationsPatch = asObject(payload.integrations);
+  const brandContextPatch = asObject(payload.brand_context);
+
+  const smbPatch: Record<string, unknown> = {
+    team: teamPatch,
+    work: workPatch,
+    integrations: integrationsPatch,
+    brand_context: brandContextPatch,
+  };
+  if (Object.prototype.hasOwnProperty.call(payload, 'dashboard_mode')) {
+    smbPatch.dashboard_mode = normalizeDashboardMode(payload.dashboard_mode);
+  }
+
+  const nextSmb = mergeObjects(currentSmb, smbPatch);
+
+  const updates: string[] = ['settings = $1', 'updated_at = NOW()'];
+  const values: unknown[] = [JSON.stringify(mergeObjects(currentSettings, { smb: nextSmb }))];
+
+  if (typeof payload.website === 'string') {
+    values.push(payload.website.trim() || null);
+    updates.push(`website = $${values.length}`);
+  }
+
+  if (typeof payload.brand_voice === 'string') {
+    values.push(payload.brand_voice.trim() || null);
+    updates.push(`brand_voice = $${values.length}`);
+  }
+
+  values.push(organization.id);
+  await systemQuery(
+    `UPDATE tenants
+        SET ${updates.join(', ')}
+      WHERE id = $${values.length}`,
+    values,
+  );
+
+  return buildSmbSettings(email);
+}
+
 /** GET /api/ops/agent-work-signals — assignment completion + external eval quality per roster agent */
 async function handleAgentWorkSignals(
   res: ServerResponse,
@@ -652,6 +1323,59 @@ export async function handleDashboardApi(
   if (method === 'GET' && apiPath === 'ops/assignment-flow-metrics') {
     try {
       await handleAssignmentFlowMetrics(res, queryString);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      jsonResponse(res, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (apiPath === 'dashboard-profile/current' && method === 'GET') {
+    try {
+      const params = new URLSearchParams(queryString ?? '');
+      const email = params.get('email');
+      const profile = await resolveDashboardContext(email);
+      jsonResponse(res, 200, profile);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      jsonResponse(res, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (apiPath === 'smb/summary' && method === 'GET') {
+    try {
+      const params = new URLSearchParams(queryString ?? '');
+      const email = params.get('email');
+      const summary = await buildSmbSummary(email);
+      jsonResponse(res, 200, summary);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      jsonResponse(res, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (apiPath === 'smb/settings' && method === 'GET') {
+    try {
+      const params = new URLSearchParams(queryString ?? '');
+      const email = params.get('email');
+      const settings = await buildSmbSettings(email);
+      jsonResponse(res, 200, settings);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      jsonResponse(res, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (apiPath === 'smb/settings' && method === 'PATCH') {
+    try {
+      const params = new URLSearchParams(queryString ?? '');
+      const email = params.get('email');
+      const body = JSON.parse(await readBody(req)) as Record<string, unknown>;
+      const settings = await updateSmbSettings(email, body ?? {});
+      jsonResponse(res, 200, settings);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       jsonResponse(res, 500, { error: message });

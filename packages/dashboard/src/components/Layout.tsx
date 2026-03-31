@@ -5,40 +5,39 @@ import { Orbit } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: GridIcon },
-  { to: '/onboarding', label: 'Onboarding', icon: Orbit },
-  { to: '/directives', label: 'Directives', icon: DirectivesIcon },
-  { to: '/workforce', label: 'Workforce', icon: UsersIcon },
-  { to: '/comms', label: 'Comms', icon: ChatIcon },
-  { to: '/ora', label: 'Ora', icon: OraIcon },
-  { to: '/approvals', label: 'Approvals', icon: CheckIcon },
-  { to: '/financials', label: 'Financials', icon: ChartIcon },
-  { to: '/operations', label: 'Operations', icon: GearIcon },
-  { to: '/strategy', label: 'Strategy', icon: StrategyIcon },
-  { to: '/knowledge', label: 'Knowledge', icon: KnowledgeIcon },
-  { to: '/skills', label: 'Skills', icon: SkillsIcon },
-  { to: '/builder', label: 'Builder', icon: BuilderIcon },
-  { to: '/governance', label: 'Governance', icon: GovernanceIcon },
-  { to: '/change-requests', label: 'Change Requests', icon: ChangeRequestIcon },
-  { to: '/fleet', label: 'Fleet', icon: FleetIcon },
-  { to: '/settings', label: 'Settings', icon: SettingsIcon },
+  { to: 'dashboard', label: 'Dashboard', icon: GridIcon },
+  { to: 'directives', label: 'Directives', icon: DirectivesIcon },
+  { to: 'workforce', label: 'Workforce', icon: UsersIcon },
+  { to: 'comms', label: 'Comms', icon: ChatIcon },
+  { to: 'ora', label: 'Ora', icon: OraIcon },
+  { to: 'approvals', label: 'Approvals', icon: CheckIcon },
+  { to: 'financials', label: 'Financials', icon: ChartIcon },
+  { to: 'operations', label: 'Operations', icon: GearIcon },
+  { to: 'strategy', label: 'Strategy', icon: StrategyIcon },
+  { to: 'knowledge', label: 'Knowledge', icon: KnowledgeIcon },
+  { to: 'skills', label: 'Skills', icon: SkillsIcon },
+  { to: 'builder', label: 'Builder', icon: BuilderIcon },
+  { to: 'governance', label: 'Governance', icon: GovernanceIcon },
+  { to: 'change-requests', label: 'Change Requests', icon: ChangeRequestIcon },
+  { to: 'fleet', label: 'Fleet', icon: FleetIcon },
+  { to: 'settings', label: 'Settings', icon: SettingsIcon },
 ] as const;
 
 // Bottom tab bar shows these 5 + a "More" button for the slide-out drawer
 const MOBILE_TABS = [
-  { to: '/', label: 'Home', icon: GridIcon },
-  { to: '/workforce', label: 'Team', icon: UsersIcon },
-  { to: '/ora', label: 'Ora', icon: OraIcon },
-  { to: '/comms', label: 'Comms', icon: ChatIcon },
-  { to: '/approvals', label: 'Approvals', icon: CheckIcon },
+  { to: 'dashboard', label: 'Home', icon: GridIcon },
+  { to: 'workforce', label: 'Team', icon: UsersIcon },
+  { to: 'ora', label: 'Ora', icon: OraIcon },
+  { to: 'comms', label: 'Comms', icon: ChatIcon },
+  { to: 'approvals', label: 'Approvals', icon: CheckIcon },
 ] as const;
 
 export default function Layout() {
   const { theme, toggle } = useTheme();
   const { user, logout } = useAuth();
   const location = useLocation();
-  const FULL_BLEED_ROUTES = ['/comms', '/ora'];
-  const isFullBleed = FULL_BLEED_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + '/'));
+  const FULL_BLEED_ROUTES = ['/app/internal/comms', '/app/internal/ora'];
+  const isFullBleed = FULL_BLEED_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(`${r}/`));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const bgRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -81,7 +80,7 @@ export default function Layout() {
             <NavLink
               key={to}
               to={to}
-              end={to === '/'}
+              end={to === 'dashboard'}
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors ${
                   isActive
@@ -154,7 +153,7 @@ export default function Layout() {
                 <NavLink
                   key={to}
                   to={to}
-                  end={to === '/'}
+                  end={to === 'dashboard'}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors ${
                       isActive
@@ -220,7 +219,7 @@ export default function Layout() {
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
+            end={to === 'dashboard'}
             className={({ isActive }) =>
               `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors ${
                 isActive ? 'text-cyan' : 'text-prism-tertiary'

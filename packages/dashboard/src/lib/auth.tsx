@@ -5,6 +5,7 @@ import * as teamsJs from '@microsoft/teams-js';
 import { apiCall } from './firebase';
 
 const STORAGE_KEY = 'glyphor-auth';
+const DASHBOARD_MODE_OVERRIDE_KEY = 'glyphor-dashboard-mode-override';
 
 // Fallback allowlist in case DB is unreachable
 const FALLBACK_EMAILS = ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'devops@glyphor.ai', 'andrew.zwelling@gmail.com'];
@@ -74,14 +75,143 @@ interface User {
   picture: string;
 }
 
+export type DashboardMode = 'smb' | 'internal';
+
+export interface DashboardProfile {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    tenant_id?: string | null;
+  };
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+    website: string | null;
+    industry: string | null;
+    brand_voice: string | null;
+    product: string;
+    status: string;
+    created_at: string;
+    dashboard_mode: DashboardMode;
+  } | null;
+  pending_approvals: number;
+}
+
 interface AuthState {
   user: User | null;
+  profile: DashboardProfile | null;
+  profileLoading: boolean;
+  effectiveDashboardMode: DashboardMode;
+  refreshProfile: () => Promise<void>;
+  setDashboardModeOverride: (mode: DashboardMode | null) => void;
   logout: () => void;
 }
 
-const AuthContext = createContext<AuthState>({ user: null, logout: () => {} });
+const AuthContext = createContext<AuthState>({
+  user: null,
+  profile: null,
+  profileLoading: false,
+  effectiveDashboardMode: 'internal',
+  refreshProfile: async () => {},
+  setDashboardModeOverride: () => {},
+  logout: () => {},
+});
 
 export const useAuth = () => useContext(AuthContext);
+
+function getDashboardModeOverride(): DashboardMode | null {
+  try {
+    const stored = sessionStorage.getItem(DASHBOARD_MODE_OVERRIDE_KEY);
+    return stored === 'smb' || stored === 'internal' ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function AuthenticatedProvider({
+  user,
+  logout,
+  children,
+}: {
+  user: User;
+  logout: () => void;
+  children: ReactNode;
+}) {
+  const [profile, setProfile] = useState<DashboardProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [modeOverride, setModeOverrideState] = useState<DashboardMode | null>(() => getDashboardModeOverride());
+
+  const refreshProfile = useCallback(async () => {
+    setProfileLoading(true);
+    try {
+      const data = await apiCall<DashboardProfile>(`/api/dashboard-profile/current?email=${encodeURIComponent(user.email)}`);
+      setProfile(data);
+    } catch {
+      setProfile({
+        user: {
+          id: 'session-user',
+          email: user.email,
+          name: user.name,
+          role: 'viewer',
+          tenant_id: null,
+        },
+        organization: null,
+        pending_approvals: 0,
+      });
+    }
+    setProfileLoading(false);
+  }, [user.email, user.name]);
+
+  useEffect(() => {
+    void refreshProfile();
+  }, [refreshProfile]);
+
+  const setDashboardModeOverride = useCallback((mode: DashboardMode | null) => {
+    try {
+      if (mode) {
+        sessionStorage.setItem(DASHBOARD_MODE_OVERRIDE_KEY, mode);
+      } else {
+        sessionStorage.removeItem(DASHBOARD_MODE_OVERRIDE_KEY);
+      }
+    } catch {
+      // Ignore storage failures and keep the in-memory value.
+    }
+    setModeOverrideState(mode);
+  }, []);
+
+  const logoutAndClear = useCallback(() => {
+    try {
+      sessionStorage.removeItem(DASHBOARD_MODE_OVERRIDE_KEY);
+    } catch {
+      // Ignore storage failures.
+    }
+    setModeOverrideState(null);
+    setProfile(null);
+    logout();
+  }, [logout]);
+
+  const defaultMode = profile?.organization?.dashboard_mode ?? 'internal';
+  const effectiveDashboardMode = modeOverride ?? defaultMode;
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        profileLoading,
+        effectiveDashboardMode,
+        refreshProfile,
+        setDashboardModeOverride,
+        logout: logoutAndClear,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
 // ─── Teams SSO Auth Gate ────────────────────────────────────────
 
@@ -181,9 +311,9 @@ function TeamsAuthGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, logout }}>
+    <AuthenticatedProvider user={user} logout={logout}>
       {children}
-    </AuthContext.Provider>
+    </AuthenticatedProvider>
   );
 }
 
@@ -281,9 +411,9 @@ function GoogleAuthGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, logout }}>
+    <AuthenticatedProvider user={user} logout={logout}>
       {children}
-    </AuthContext.Provider>
+    </AuthenticatedProvider>
   );
 }
 
@@ -300,14 +430,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (!clientId) {
     // Dev mode without OAuth — skip auth
     return (
-      <AuthContext.Provider
-        value={{
-          user: { email: 'dev@localhost', name: 'Dev', picture: '' },
-          logout: () => {},
-        }}
+      <AuthenticatedProvider
+        user={{ email: 'dev@localhost', name: 'Dev', picture: '' }}
+        logout={() => {}}
       >
         {children}
-      </AuthContext.Provider>
+      </AuthenticatedProvider>
     );
   }
 
