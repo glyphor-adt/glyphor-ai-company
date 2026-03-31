@@ -333,3 +333,5 @@ export async function queryVercelUsage(days = 7): Promise<VercelUsageSummary> {
     checkedAt: new Date().toISOString(),
   };
 }
+
+export { createVercelProjectTools } from './vercelProjectTools.js';

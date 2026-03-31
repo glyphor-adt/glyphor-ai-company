@@ -13,7 +13,7 @@ export const TOOL_NAMESPACES: ToolNamespaceConfig[] = [
   {
     name: 'engineering',
     description: 'System health, logs, CI/CD, repository, deployment, and testing tools.',
-    toolPrefixes: ['check_system', 'query_log', 'query_error', 'query_uptime', 'query_cloud', 'query_db', 'get_deployment', 'get_ci', 'get_pipeline', 'get_recent_commits', 'check_pr', 'check_build', 'create_github', 'create_branch', 'merge_github', 'comment_on_pr', 'run_test', 'query_test', 'get_quality', 'get_code_coverage', 'deploy_', 'scale_service', 'inspect_cloud', 'run_health', 'get_container', 'get_service_dep', 'get_infrastructure', 'list_deployments'],
+    toolPrefixes: ['check_system', 'query_log', 'query_error', 'query_uptime', 'query_cloud', 'query_db', 'get_deployment', 'get_ci', 'get_pipeline', 'get_recent_commits', 'check_pr', 'check_build', 'create_github', 'create_branch', 'merge_github', 'comment_on_pr', 'run_test', 'query_test', 'get_quality', 'get_code_coverage', 'deploy_', 'scale_service', 'inspect_cloud', 'run_health', 'get_container', 'get_service_dep', 'get_infrastructure', 'list_deployments', 'github_create_from_template', 'github_push_files', 'vercel_', 'cloudflare_'],
   },
   {
     name: 'marketing',
@@ -23,7 +23,7 @@ export const TOOL_NAMESPACES: ToolNamespaceConfig[] = [
   {
     name: 'design',
     description: 'Design tokens, component libraries, Figma, accessibility, and Storybook tools.',
-    toolPrefixes: ['get_design', 'update_design', 'get_color', 'get_typography', 'get_component', 'save_component', 'query_component', 'check_ai_smell', 'run_accessibility', 'write_design', 'get_figma', 'export_figma', 'create_figma', 'post_figma', 'manage_figma', 'get_template', 'list_template', 'save_template', 'update_template', 'query_template', 'validate_tokens', 'create_logo', 'restyle_logo', 'generate_favicon', 'create_social_avatar', 'screenshot_component', 'screenshot_page', 'compare_screenshot', 'scaffold_component', 'scaffold_page', 'push_component', 'storybook_', 'invoke_web', 'normalize_design_brief', 'codex'],
+    toolPrefixes: ['get_design', 'update_design', 'get_color', 'get_typography', 'get_component', 'save_component', 'query_component', 'check_ai_smell', 'run_accessibility', 'write_design', 'get_figma', 'export_figma', 'create_figma', 'post_figma', 'manage_figma', 'get_template', 'list_template', 'save_template', 'update_template', 'query_template', 'validate_tokens', 'create_logo', 'restyle_logo', 'generate_favicon', 'create_social_avatar', 'screenshot_component', 'screenshot_page', 'compare_screenshot', 'scaffold_component', 'scaffold_page', 'push_component', 'storybook_', 'invoke_web', 'normalize_design_brief', 'codex', 'build_website_foundation'],
   },
   {
     name: 'research',

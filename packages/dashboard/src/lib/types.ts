@@ -778,6 +778,7 @@ const _deployPrev = ['deploy_preview', 'get_deployment_status', 'list_deployment
 const _codex = ['codex', 'codex-reply'] as const;
 const _designBrief = ['ambient-pattern', 'capability-context', 'cta_section', 'footer', 'hero', 'hero-background', 'hero-loop', 'normalize_design_brief', 'value_proposition'] as const;
 const _webBuild = ['invoke_web_build', 'invoke_web_iterate', 'invoke_web_upgrade'] as const;
+const _clientWebsitePipeline = ['build_website_foundation', 'github_create_from_template', 'github_push_files', 'vercel_create_project', 'vercel_get_preview_url', 'cloudflare_register_preview', 'cloudflare_update_preview'] as const;
 // Marketing
 const _content = ['approve_content_draft', 'create_content_draft', 'generate_content_image', 'get_content_calendar', 'get_content_drafts', 'get_content_metrics', 'publish_content', 'reject_content_draft', 'submit_content_for_review', 'update_content_draft'] as const;
 const _seo = ['analyze_page_seo', 'get_backlink_profile', 'get_indexing_status', 'get_search_performance', 'submit_sitemap', 'track_keyword_rankings', 'update_seo_data'] as const;
@@ -811,6 +812,7 @@ const _core  = [..._mem, ..._comm, ..._dm, ..._event, ..._assign, ..._toolReq, .
 export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
   // ── C-Suite & VPs ──
   'chief-of-staff': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
+    ..._clientWebsitePipeline,
     'get_recent_activity', 'get_pending_decisions', 'read_proposed_initiatives', 'read_initiatives', 'activate_initiative',
     'get_product_metrics', 'get_financials', 'read_company_memory', 'send_briefing', 'create_decision',
     'log_activity', 'check_escalations', 'send_dm', 'create_calendar_event', 'read_founder_directives',
@@ -870,6 +872,7 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
   'quality-engineer': [..._core, ..._graph, ..._sp, ..._engGap,
     'query_build_logs', 'query_error_patterns', 'create_bug_report', 'query_test_results', 'log_activity', 'list_cloud_builds', 'get_cloud_build_logs', 'get_github_actions_runs', 'create_github_bug'],
   'devops-engineer': [..._core, ..._graph, ..._sp, ..._diag, ..._engGap,
+    ..._clientWebsitePipeline,
     'query_cache_metrics', 'query_pipeline_metrics', 'query_resource_utilization', 'query_cold_starts', 'identify_unused_resources', 'calculate_cost_savings', 'log_activity', 'get_pipeline_runs', 'get_recent_commits', 'query_vercel_builds', 'comment_on_pr', 'list_cloud_builds'],
   // ── Sub-team: Product ──
   'user-researcher': [..._core, ..._graph, ..._sp, ..._prodAnalytics, ..._userResearch,
@@ -888,7 +891,7 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
     ..._frontendCode, ..._screenshot, ..._designSys, ..._designBrief, ..._asset, ..._webBuild, ..._figma, ..._logo,
     'save_component_spec', 'query_design_tokens', 'query_component_implementations', 'log_activity'],
   'frontend-engineer': [..._core, ..._graph, ..._sp,
-    ..._frontendCode, ..._screenshot, ..._auditDsgn, ..._scaffold, ..._deployPrev, ..._codex, ..._webBuild, ..._storybook,
+    ..._frontendCode, ..._screenshot, ..._auditDsgn, ..._scaffold, ..._deployPrev, ..._codex, ..._webBuild, ..._clientWebsitePipeline, ..._storybook,
     'run_lighthouse', 'get_file_contents', 'push_component', 'create_component_branch', 'create_component_pr', 'save_component_implementation', 'query_component_specs', 'query_my_implementations', 'log_activity'],
   'design-critic': [..._core, ..._graph, ..._sp,
     ..._frontendCode, ..._screenshot, ..._designSys, ..._auditDsgn, ..._figma, ..._storybook,

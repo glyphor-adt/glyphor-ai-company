@@ -20,6 +20,7 @@ import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { createGithubPushFilesTools, createVercelProjectTools, createCloudflarePreviewTools } from '@glyphor/integrations';
 
 export interface DevOpsEngineerRunParams {
   task?: 'optimization_scan' | 'pipeline_report' | 'on_demand';
@@ -49,6 +50,9 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     ...createSharePointTools(),
     ...createDiagnosticTools(),
     ...createEngineeringGapTools(),
+    ...createGithubPushFilesTools(),
+    ...createVercelProjectTools(),
+    ...createCloudflarePreviewTools(),
     ...await createAgent365McpTools('devops-engineer'),
     ...await createGlyphorMcpTools('devops-engineer'),
   ];

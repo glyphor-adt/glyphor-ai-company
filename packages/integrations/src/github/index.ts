@@ -516,6 +516,9 @@ export async function mergeGitHubPR(
   };
 }
 
+export { createGithubFromTemplateTools } from './githubFromTemplate.js';
+export { createGithubPushFilesTools } from './githubPushFiles.js';
+
 // ═══════════════════════════════════════════════════════════════════
 // PR REVIEW & QA — Submit formal reviews and quality checks
 // ═══════════════════════════════════════════════════════════════════

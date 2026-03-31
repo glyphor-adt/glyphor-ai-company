@@ -218,6 +218,10 @@ const TOOL_PLATFORM_MAP: Record<string, ToolPlatform> = {
   grade_build: 'glyphor-design', query_build_grades: 'glyphor-design', query_build_grades_by_template: 'glyphor-design',
   save_template_variant: 'glyphor-design', query_template_variants: 'glyphor-design', update_template_status: 'glyphor-design',
   invoke_web_build: 'glyphor-design', invoke_web_iterate: 'glyphor-design', invoke_web_upgrade: 'glyphor-design',
+  build_website_foundation: 'glyphor-design',
+  github_create_from_template: 'glyphor-engineering', github_push_files: 'glyphor-engineering',
+  vercel_create_project: 'glyphor-engineering', vercel_get_preview_url: 'glyphor-engineering',
+  cloudflare_register_preview: 'glyphor-engineering', cloudflare_update_preview: 'glyphor-engineering',
 
   // Glyphor MCP — HR
   update_agent_profile: 'glyphor-hr', update_agent_name: 'glyphor-hr',

@@ -210,6 +210,8 @@ export {
   createIssueForCopilot,
   findPRForIssue,
   getIssueDetails,
+  createGithubFromTemplateTools,
+  createGithubPushFilesTools,
   GLYPHOR_REPOS,
   type GlyphorRepo,
   type PullRequest,
@@ -229,6 +231,7 @@ export {
   rollbackDeployment,
   queryVercelHealth,
   queryVercelUsage,
+  createVercelProjectTools,
   VERCEL_TEAMS,
   type VercelTeamKey,
   type VercelDeployment,
@@ -236,6 +239,10 @@ export {
   type VercelHealthSummary,
   type VercelUsageSummary,
 } from './vercel/index.js';
+
+export {
+  createCloudflarePreviewTools,
+} from './cloudflare/index.js';
 
 // Facebook / Meta Graph API — page publishing, insights, audience data
 export {

@@ -181,6 +181,8 @@ export interface ToolContext {
   abortSignal: AbortSignal;
   memoryBus: IMemoryBus;
   emitEvent: (event: AgentEvent) => void;
+  /** Optional nested tool executor for orchestrator tools that need child lookups. */
+  executeChildTool?: (toolName: string, params: Record<string, unknown>) => Promise<unknown>;
   glyphorEventBus?: import('./glyphorEventBus.js').GlyphorEventBus;
   /** RuntimeToolFactory — present when runtime tool synthesis is enabled. */
   runtimeToolFactory?: import('./runtimeToolFactory.js').RuntimeToolFactory;
@@ -721,6 +723,12 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'invoke_web_build',
   'invoke_web_iterate',
   'invoke_web_upgrade',
+  'build_website_foundation',
+  'github_create_from_template',
+  'github_push_files',
+  'vercel_create_project',
+  'cloudflare_register_preview',
+  'cloudflare_update_preview',
   'trigger_agent_run',
   'retry_failed_run',
   'pause_agent',

@@ -1199,9 +1199,19 @@ export class ToolExecutor {
         : DEFAULT_TOOL_TIMEOUT_MS;
     const toolSource = detectToolSource(toolName);
     const execStart = Date.now();
+    const executionContext: ToolContext = {
+      ...context,
+      executeChildTool: async (childToolName, childParams) => {
+        const childResult = await this.execute(childToolName, childParams, context);
+        if (!childResult.success) {
+          throw new Error(childResult.error ?? `Child tool ${childToolName} failed.`);
+        }
+        return childResult.data ?? null;
+      },
+    };
 
     try {
-      const toolPromise = tool.execute(params, context);
+      const toolPromise = tool.execute(params, executionContext);
 
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error(`Tool ${toolName} timed out after ${timeoutMs}ms`)), timeoutMs),

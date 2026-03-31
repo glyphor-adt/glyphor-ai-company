@@ -24,8 +24,10 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createWebBuildTools } from '../shared/webBuildTools.js';
+import { createBuildWebsiteFoundationTools } from '../shared/webBuildTools.js';
 import { createCodexTools } from '../shared/codexTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
+import { createGithubFromTemplateTools, createGithubPushFilesTools, createVercelProjectTools, createCloudflarePreviewTools } from '@glyphor/integrations';
 
 export interface FrontendEngineerRunParams {
   task?: 'implement_component' | 'accessibility_audit' | 'on_demand';
@@ -54,6 +56,11 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createDeployPreviewTools(),
     ...createCodexTools(),
     ...createDesignSystemTools(),
+    ...createGithubFromTemplateTools(),
+    ...createGithubPushFilesTools(),
+    ...createVercelProjectTools(),
+    ...createCloudflarePreviewTools(),
+    ...createBuildWebsiteFoundationTools(),
     ...createWebBuildTools(memory, {
       allowBuild: true,
       allowIterate: true,

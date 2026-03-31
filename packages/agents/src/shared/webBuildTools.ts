@@ -561,3 +561,417 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
 
   return tools;
 }
+
+const DEFAULT_WEBSITE_FOUNDATION_MODEL = process.env.UX_ENGINEER_MODEL?.trim() || 'claude-opus-4-6';
+const WEBSITE_FOUNDATION_REPAIR_MODEL = 'claude-sonnet-4-6';
+const WEBSITE_FOUNDATION_MAX_TOKENS = 100000;
+const WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS = 4;
+
+const UX_ENGINEER_SYSTEM_PROMPT = `
+ROLE: You are a world-class design engineer. You receive a creative brief and build a complete,
+production-ready website. You output COMPLETE, PRODUCTION-READY code. No stubs. No placeholders.
+No TODOs. Every file you write must contain its full, working implementation.
+
+OUTPUT RULE:
+Respond ONLY with a valid JSON object matching the schema at the end of this prompt.
+Do not wrap in markdown code fences. Do not include any text before or after the JSON.
+You MAY call the provided MCP lookup tools (search_components, get_component_info,
+get_installation_info) before producing your final JSON output — use them to verify
+component APIs before writing code. After your lookups, produce the JSON output.
+
+TEMPLATE STACK (Non-Negotiable):
+- React 18 + Vite + TypeScript
+- Tailwind CSS v4 (CSS-first, @theme inline token bridge in tailwind.css)
+- shadcn/ui new-york style (imports from @/components/ui/<name>)
+- ReactBits Pro via @reactbits-pro registry (if used: install_item_from_registry first)
+- Aceternity via @aceternity registry (structural anchors only, max 2 per page)
+- Framer Motion (transitions, hover states, scroll animations)
+- lucide-react for icons (NEVER emoji as icons)
+- Google Fonts (load in index.html <head>)
+
+DO NOT create or modify: vite.config.ts, src/main.tsx, tsconfig.json, tsconfig.app.json,
+tsconfig.node.json, vercel.json, eslint.config.js.
+DO NOT create src/pages/ — everything composes in src/App.tsx.
+
+DESIGN PRIORITY (MANDATORY):
+- Create STUNNING, scroll-stopping designs that feel premium and intentional
+- Bold typography: mix weights dramatically (font-thin with font-black), oversized headlines
+- Subtle choreography: fade-ins, parallax hints, magnetic hover, scroll-driven reveals
+- Glass morphism, gradients, and layered depth where appropriate
+- Never generic, never boring, never template-like
+- Icon discipline: lucide-react with explicit size classes, token-safe colors
+
+LAYOUT AND COMPOSITION:
+- Avoid standard SaaS layouts, predictable grids, interchangeable card sections
+- Use asymmetry, strong negative space, confident vertical rhythm
+- Treat each section as a visual moment, not a reusable block
+- Let the layout breathe and guide the eye naturally
+
+TYPOGRAPHY MASTERY:
+- Headlines: text-5xl to text-8xl, font-black or font-bold, commanding
+- Mix weights dramatically — combine extremes for visual tension
+- Letter-spacing and line-height tuned explicitly (tracking-tight, leading-none etc)
+- Create clear hierarchy through size, weight, and color contrast
+
+BRAND LOGO (TEXT-ONLY WORDMARK):
+- Create a typographic wordmark using real text (the brand name), NOT an image
+- Use font/tracking/weight utility classes only
+- NEVER reference /images/logo* in components or image_manifest
+- Place in navbar and footer minimum
+
+COMPONENT SELECTION HIERARCHY:
+1. shadcn/ui — ALL functional UI primitives (buttons, inputs, nav, cards, tabs, dialogs)
+2. ReactBits Pro (@reactbits-pro) — motion and ambient effects ONLY
+3. Aceternity (@aceternity) — cinematic structural anchors ONLY
+4. Framer Motion — transitions, hover states, scroll-driven animations
+
+NEVER stack two animation libraries on the same section.
+NEVER use ReactBits/Aceternity for functional UI primitives.
+
+TOKEN-FIRST COLORS (HARD RULES):
+- ALL colors MUST go through CSS variables via Tailwind token classes
+- Use: bg-background, bg-card, bg-muted, bg-primary, bg-accent, bg-secondary
+       text-foreground, text-muted-foreground, text-primary-foreground, text-accent-foreground
+       border-border, ring-ring
+- HARD BAN: no hardcoded hex/rgb/hsl/oklch in className strings or inline styles
+- HARD BAN: no text-white, text-black, bg-white, bg-black, from-slate, to-zinc
+- For opacity: use token opacity variants — text-foreground/80, bg-card/70, border-border/60
+
+COLOR COMPOSITION (70/20/10 — MANDATORY):
+- 70% neutral surfaces: bg-background, bg-card, bg-muted
+- 20% supporting contrast: secondary, border emphasis, text hierarchy
+- 10% accent/CTA: primary, accent — CTAs, active states, key highlights ONLY
+- Never use primary or accent as full-section backgrounds
+- At least 60% of sections must use neutral surface tokens
+
+SCROLLBAR POLISH (Always Apply):
+In src/styles/tailwind.css @layer base:
+  * { scrollbar-width: none; -ms-overflow-style: none; }
+  *::-webkit-scrollbar { display: none; }
+
+OUTPUT JSON SCHEMA:
+{
+  "architectural_reasoning": "string",
+  "design_plan": {
+    "summary": "string",
+    "sections": [{ "id": "string", "objective": "string", "interaction": "string", "surface": "string" }],
+    "interaction_budget": {
+      "motion_signals_min": 3,
+      "hover_focus_signals_min": 10,
+      "primary_cta_interactions_min": 2
+    },
+    "brief_alignment": ["string", "string", "string"],
+    "color_strategy": {
+      "surface_ladder": "string",
+      "accent_policy": "string",
+      "section_surface_map": {},
+      "cta_color_map": {}
+    }
+  },
+  "foundation_files": [{ "filePath": "string", "content": "string" }],
+  "components": [{ "filePath": "string", "content": "string" }],
+  "utility_files": [{ "filePath": "string", "content": "string" }],
+  "image_manifest": [{ "fileName": "string", "prompt": "string", "aspect_ratio": "string", "altText": "string" }]
+}
+`.trim();
+
+const WEBSITE_FOUNDATION_LOOKUP_TOOLS = [
+  {
+    name: 'search_components',
+    description: 'Search the shadcn/ui and Aceternity component registries by name, description, or tags.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string', description: 'Search query.' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'get_component_info',
+    description: 'Get detailed API information for a specific component.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        component_name: { type: 'string', description: 'Component name.' },
+      },
+      required: ['component_name'],
+    },
+  },
+  {
+    name: 'get_installation_info',
+    description: 'Get installation command and setup instructions for a component.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        component_name: { type: 'string', description: 'Component name.' },
+        registry: {
+          type: 'string',
+          description: 'Registry prefix.',
+          enum: ['@reactbits-pro', '@aceternity', '@reactbits-starter'],
+        },
+      },
+      required: ['component_name'],
+    },
+  },
+];
+
+interface WebsiteFoundationFileEntry {
+  filePath: string;
+  content: string;
+}
+
+interface WebsiteFoundationImageManifestEntry {
+  fileName: string;
+  prompt: string;
+  aspect_ratio: string;
+  altText: string;
+}
+
+interface WebsiteFoundationOutput {
+  architectural_reasoning: string;
+  design_plan: Record<string, unknown>;
+  foundation_files: WebsiteFoundationFileEntry[];
+  components: WebsiteFoundationFileEntry[];
+  utility_files?: WebsiteFoundationFileEntry[];
+  image_manifest: WebsiteFoundationImageManifestEntry[];
+}
+
+function getAnthropicApiKey(): string {
+  const key = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!key) throw new Error('ANTHROPIC_API_KEY is not configured.');
+  return key;
+}
+
+async function callWebsiteFoundationAnthropic(
+  messages: Array<{ role: string; content: unknown }>,
+  model: string,
+  signal?: AbortSignal,
+): Promise<{ content: Array<{ type: string; text?: string; id?: string; name?: string; input?: unknown }> }> {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': getAnthropicApiKey(),
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'output-128k-2025-02-19',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: WEBSITE_FOUNDATION_MAX_TOKENS,
+      system: UX_ENGINEER_SYSTEM_PROMPT,
+      tools: WEBSITE_FOUNDATION_LOOKUP_TOOLS,
+      tool_choice: { type: 'auto' },
+      messages,
+    }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Anthropic API error (${response.status}): ${err.slice(0, 500)}`);
+  }
+
+  return response.json() as Promise<{ content: Array<{ type: string; text?: string; id?: string; name?: string; input?: unknown }> }>;
+}
+
+async function executeWebsiteLookupTool(
+  toolName: string,
+  toolInput: Record<string, unknown>,
+  ctx: ToolContext,
+): Promise<string> {
+  try {
+    if (ctx.executeChildTool) {
+      const result = await ctx.executeChildTool(toolName, toolInput);
+      return typeof result === 'string' ? result : JSON.stringify(result);
+    }
+    return JSON.stringify({
+      note: `Tool ${toolName} lookup was requested but no child executor is available. Proceed with best-known API details.`,
+    });
+  } catch (err) {
+    return JSON.stringify({ error: `Tool ${toolName} failed: ${(err as Error).message}` });
+  }
+}
+
+function parseWebsiteFoundationOutput(text: string): WebsiteFoundationOutput | null {
+  const cleaned = text
+    .replace(/^```(?:json)?\s*/m, '')
+    .replace(/\s*```\s*$/m, '')
+    .trim();
+
+  try {
+    const parsed = JSON.parse(cleaned) as WebsiteFoundationOutput;
+    if (!parsed.foundation_files || !parsed.components) return null;
+    return parsed;
+  } catch {
+    const jsonMatch = cleaned.match(/\{[\s\S]*"foundation_files"[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    try {
+      return JSON.parse(jsonMatch[0]) as WebsiteFoundationOutput;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function flattenWebsiteFoundationFiles(output: WebsiteFoundationOutput): Record<string, string> {
+  const files: Record<string, string> = {};
+  for (const entry of output.foundation_files ?? []) {
+    if (entry.filePath && entry.content) files[entry.filePath] = entry.content;
+  }
+  for (const entry of output.components ?? []) {
+    if (entry.filePath && entry.content) files[entry.filePath] = entry.content;
+  }
+  for (const entry of output.utility_files ?? []) {
+    if (entry.filePath && entry.content) files[entry.filePath] = entry.content;
+  }
+  return files;
+}
+
+async function runWebsiteFoundationLoop(
+  userPrompt: string,
+  model: string,
+  ctx: ToolContext,
+): Promise<{ output: WebsiteFoundationOutput; toolRounds: number }> {
+  const messages: Array<{ role: string; content: unknown }> = [{ role: 'user', content: userPrompt }];
+  let toolRounds = 0;
+  let output: WebsiteFoundationOutput | null = null;
+
+  while (toolRounds <= WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS) {
+    const response = await callWebsiteFoundationAnthropic(messages, model, ctx.abortSignal);
+    const content = response.content ?? [];
+    const toolUses = content.filter((block) => block.type === 'tool_use');
+    const textBlocks = content.filter((block) => block.type === 'text');
+
+    for (const block of textBlocks) {
+      if (!block.text || !block.text.includes('foundation_files')) continue;
+      const parsed = parseWebsiteFoundationOutput(block.text);
+      if (parsed) {
+        output = parsed;
+        break;
+      }
+    }
+
+    if (output) break;
+
+    if (toolUses.length === 0) {
+      if (toolRounds === WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS) {
+        throw new Error('Model did not produce a valid website build output after the maximum number of rounds.');
+      }
+      messages.push({ role: 'assistant', content });
+      messages.push({
+        role: 'user',
+        content: 'Output the complete JSON build object now. Do not include markdown fences or any other text.',
+      });
+      toolRounds += 1;
+      continue;
+    }
+
+    messages.push({ role: 'assistant', content });
+    for (const toolUse of toolUses) {
+      const toolResult = await executeWebsiteLookupTool(
+        String(toolUse.name),
+        (toolUse.input as Record<string, unknown>) ?? {},
+        ctx,
+      );
+      messages.push({
+        role: 'user',
+        content: [{
+          type: 'tool_result',
+          tool_use_id: toolUse.id,
+          content: toolResult,
+        }],
+      });
+    }
+    toolRounds += 1;
+  }
+
+  if (!output) {
+    throw new Error('Website foundation build completed without a valid output payload.');
+  }
+
+  return { output, toolRounds };
+}
+
+export function createBuildWebsiteFoundationTools(): ToolDefinition[] {
+  return [
+    {
+      name: 'build_website_foundation',
+      description: 'Generate a complete production-ready client website foundation as a file map using the Glyphor UX engineer build system.',
+      parameters: {
+        normalized_brief: {
+          type: 'object',
+          description: 'Normalized design brief from normalize_design_brief.',
+          required: true,
+        },
+        brand_spec: {
+          type: 'object',
+          description: 'Brand details such as colors, fonts, and tone.',
+          required: false,
+        },
+        intake_context: {
+          type: 'object',
+          description: 'Additional intake notes or project context.',
+          required: false,
+        },
+        component_context: {
+          type: 'object',
+          description: 'Optional pre-fetched component research context.',
+          required: false,
+        },
+        repair_context: {
+          type: 'string',
+          description: 'Optional revision notes from a prior review round.',
+          required: false,
+        },
+        model: {
+          type: 'string',
+          description: `Optional model override. Defaults to ${DEFAULT_WEBSITE_FOUNDATION_MODEL}.`,
+          required: false,
+        },
+      },
+      async execute(params, ctx): Promise<ToolResult> {
+        const normalizedBrief = params.normalized_brief;
+        if (!normalizedBrief || typeof normalizedBrief !== 'object') {
+          return { success: false, error: 'normalized_brief is required and must be an object.' };
+        }
+
+        const selectedModel = typeof params.model === 'string' && params.model.trim()
+          ? params.model.trim()
+          : (typeof params.repair_context === 'string' && params.repair_context.trim()
+              ? WEBSITE_FOUNDATION_REPAIR_MODEL
+              : DEFAULT_WEBSITE_FOUNDATION_MODEL);
+
+        const promptParts = [
+          `normalized_brief:\n${JSON.stringify(normalizedBrief, null, 2)}`,
+          `brand_spec:\n${JSON.stringify(params.brand_spec ?? {}, null, 2)}`,
+          `intake_context:\n${JSON.stringify(params.intake_context ?? {}, null, 2)}`,
+          `component_context:\n${JSON.stringify(params.component_context ?? {}, null, 2)}`,
+        ];
+        if (typeof params.repair_context === 'string' && params.repair_context.trim()) {
+          promptParts.push(`repair_context:\n${params.repair_context.trim()}`);
+        }
+
+        try {
+          const { output, toolRounds } = await runWebsiteFoundationLoop(promptParts.join('\n\n'), selectedModel, ctx);
+          return {
+            success: true,
+            data: {
+              files: flattenWebsiteFoundationFiles(output),
+              image_manifest: output.image_manifest,
+              architectural_reasoning: output.architectural_reasoning,
+              design_plan: output.design_plan,
+              tool_rounds: toolRounds,
+              model: selectedModel,
+            },
+          };
+        } catch (error) {
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+    },
+  ];
+}
