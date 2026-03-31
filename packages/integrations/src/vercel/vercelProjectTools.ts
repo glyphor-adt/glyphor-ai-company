@@ -88,7 +88,6 @@ export function createVercelProjectTools(): ToolDefinition[] {
               buildCommand: 'npm run build',
               outputDirectory: 'dist',
               installCommand: 'npm install',
-              autoAssignCustomDomains: false,
             },
             ctx.abortSignal,
           );
@@ -125,6 +124,11 @@ export function createVercelProjectTools(): ToolDefinition[] {
       name: 'vercel_get_preview_url',
       description: 'Get the latest preview deployment URL for a Vercel project.',
       parameters: {
+        project_id: {
+          type: 'string',
+          description: 'Optional Vercel project id. Preferred when available.',
+          required: false,
+        },
         project_name: {
           type: 'string',
           description: 'Vercel project name.',
@@ -139,10 +143,32 @@ export function createVercelProjectTools(): ToolDefinition[] {
       async execute(params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
         const projectName = String(params.project_name ?? '').trim();
         if (!projectName) return { success: false, error: 'project_name is required.' };
+        let projectId = String(params.project_id ?? '').trim();
         const branch = String(params.branch ?? '').trim();
 
         try {
-          const path = `/v6/deployments?projectId=${encodeURIComponent(projectName)}&limit=5${branch ? `&meta-gitBranch=${encodeURIComponent(branch)}` : ''}`;
+          if (!projectId) {
+            const projectLookup = await vercelRequest(
+              `/v9/projects/${encodeURIComponent(projectName)}`,
+              'GET',
+              undefined,
+              ctx.abortSignal,
+            );
+            if (!projectLookup.ok) {
+              return {
+                success: false,
+                error: `Vercel API error (${projectLookup.status}): could not resolve project id for ${projectName}.`,
+              };
+            }
+            const projectData = projectLookup.data as Record<string, unknown>;
+            projectId = String(projectData.id ?? '').trim();
+          }
+
+          if (!projectId) {
+            return { success: false, error: `Could not resolve Vercel project id for ${projectName}.` };
+          }
+
+          const path = `/v6/deployments?projectId=${encodeURIComponent(projectId)}&limit=5${branch ? `&meta-gitBranch=${encodeURIComponent(branch)}` : ''}`;
           const { ok, status, data } = await vercelRequest(path, 'GET', undefined, ctx.abortSignal);
           if (!ok) {
             return { success: false, error: `Vercel API error (${status}): could not fetch deployments.` };
@@ -151,7 +177,13 @@ export function createVercelProjectTools(): ToolDefinition[] {
           const result = data as Record<string, unknown>;
           const deployments = (result.deployments as unknown[]) ?? [];
           if (deployments.length === 0) {
-            return { success: false, error: 'No deployments found for this project.' };
+            return {
+              success: true,
+              data: {
+                state: 'PENDING',
+                preview_url: null,
+              },
+            };
           }
 
           const latest = deployments[0] as Record<string, unknown>;

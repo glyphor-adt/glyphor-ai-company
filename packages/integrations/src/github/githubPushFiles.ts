@@ -1,9 +1,5 @@
 import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { requireWebsitePipelineEnv } from '../websitePipelineEnv.js';
-
-function getGitHubToken(): string {
-  return requireWebsitePipelineEnv('github-token');
-}
+import { getWebsitePipelineGitHubToken } from './websitePipelineAuth.js';
 
 async function githubRequest(
   path: string,
@@ -11,10 +7,11 @@ async function githubRequest(
   body?: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
+  const token = await getWebsitePipelineGitHubToken();
   const response = await fetch(`https://api.github.com${path}`, {
     method,
     headers: {
-      Authorization: `Bearer ${getGitHubToken()}`,
+      Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
       'Content-Type': 'application/json',
