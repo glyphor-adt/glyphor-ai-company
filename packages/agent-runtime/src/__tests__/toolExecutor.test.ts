@@ -1,8 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('@glyphor/shared', async () => {
+  const actual = await vi.importActual<typeof import('@glyphor/shared')>('@glyphor/shared');
+  return {
+    ...actual,
+    enforceCapacityTier: vi.fn().mockResolvedValue({
+      proceed: true,
+      requiresApproval: false,
+      reason: 'Allowed in tests',
+      registryEntryId: null,
+    }),
+    executeCommitment: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 vi.mock('@glyphor/shared/db', () => ({
   systemQuery: vi.fn().mockResolvedValue([]),
 }));
+
+vi.mock('../disclosure.js', async () => {
+  const actual = await vi.importActual<typeof import('../disclosure.js')>('../disclosure.js');
+  return {
+    ...actual,
+    applyDisclosurePolicy: vi.fn().mockImplementation(async (_agentId, _communicationType, payload) => ({
+      payload,
+    })),
+  };
+});
 
 vi.mock('../dynamicToolExecutor.js', () => ({
   executeDynamicTool: vi.fn().mockResolvedValue(null),

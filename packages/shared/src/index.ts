@@ -35,6 +35,39 @@ export type {
 } from './agentCapacity.js';
 
 export {
+  getAutonomyLevels,
+  getAutonomyThresholds,
+  getAgentAutonomyConfig,
+  evaluateAutonomyLevel,
+  listAutonomyOverview,
+  getAutonomyHistory,
+  getAutonomyAgentDetail,
+  updateAgentAutonomyConfig,
+  promoteAgentAutonomy,
+  demoteAgentAutonomy,
+  getAutonomyCohortBenchmarks,
+  processDailyAutonomyAdjustments,
+} from './agentAutonomy.js';
+export type {
+  AutonomyChangeType,
+  AutonomyLevelDefinition,
+  AutonomyLevelThreshold,
+  AgentAutonomyConfig,
+  AutonomyEvaluationMetrics,
+  AutonomyRequirementProgress,
+  AutonomyThresholdProgress,
+  AutonomyEvaluationResult,
+  AutonomyHistoryEntry,
+  AutonomyOverviewItem,
+  AutonomyAgentDetail,
+  UpdateAgentAutonomyConfigInput,
+  ChangeAutonomyLevelInput,
+  AutonomyOverviewFilters,
+  AutonomyCohortBenchmark,
+  DailyAutonomyAdjustment,
+} from './agentAutonomy.js';
+
+export {
   captureDecisionTrace,
   queryDecisionTrace,
   getDecisionTraceById,
