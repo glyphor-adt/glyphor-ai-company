@@ -1,16 +1,15 @@
 import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { getWebsitePipelineOrg, requireWebsitePipelineEnv, resolveWebsitePipelineEnv } from '../websitePipelineEnv.js';
 
 const VERCEL_API = 'https://api.vercel.com';
-const GITHUB_ORG = process.env.GITHUB_CLIENT_REPOS_ORG || 'Glyphor-Fuse';
+const GITHUB_ORG = getWebsitePipelineOrg();
 
 function getVercelToken(): string {
-  const token = (process.env.VERCEL_API_TOKEN || '').trim();
-  if (!token) throw new Error('VERCEL_API_TOKEN is not configured.');
-  return token;
+  return requireWebsitePipelineEnv('vercel-token');
 }
 
 function getTeamId(): string | undefined {
-  return process.env.VERCEL_TEAM_ID?.trim() || undefined;
+  return resolveWebsitePipelineEnv('vercel-team-id');
 }
 
 async function vercelRequest(

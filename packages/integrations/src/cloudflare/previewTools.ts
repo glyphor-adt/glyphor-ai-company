@@ -1,18 +1,13 @@
 import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { getWebsitePipelineBucket, requireWebsitePipelineEnv } from '../websitePipelineEnv.js';
 
-const R2_BUCKET = process.env.PREVIEWS_R2_BUCKET || 'glyphor-fuse-storage';
+const R2_BUCKET = getWebsitePipelineBucket();
 const PREVIEW_DOMAIN = 'preview.glyphor.ai';
 
 function getR2Config(): { endpoint: string; accessKeyId: string; secretAccessKey: string } {
-  const endpoint = process.env.PREVIEWS_R2_ENDPOINT?.trim();
-  const accessKeyId = process.env.PREVIEWS_R2_ACCESS_KEY_ID?.trim();
-  const secretAccessKey = process.env.PREVIEWS_R2_SECRET_ACCESS_KEY?.trim();
-
-  if (!endpoint || !accessKeyId || !secretAccessKey) {
-    throw new Error(
-      'R2 credentials not configured. Set PREVIEWS_R2_ENDPOINT, PREVIEWS_R2_ACCESS_KEY_ID, and PREVIEWS_R2_SECRET_ACCESS_KEY.',
-    );
-  }
+  const endpoint = requireWebsitePipelineEnv('r2-endpoint');
+  const accessKeyId = requireWebsitePipelineEnv('r2-access-key-id');
+  const secretAccessKey = requireWebsitePipelineEnv('r2-secret-access-key');
 
   return { endpoint, accessKeyId, secretAccessKey };
 }

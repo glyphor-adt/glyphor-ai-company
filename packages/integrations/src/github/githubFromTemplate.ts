@@ -1,18 +1,12 @@
 import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { getWebsitePipelineOrg, requireWebsitePipelineEnv } from '../websitePipelineEnv.js';
 
 const TEMPLATE_OWNER = 'Glyphor-Fuse';
 const TEMPLATE_REPO = 'glyphor-fuse-template';
-const DEFAULT_ORG = process.env.GITHUB_CLIENT_REPOS_ORG || 'Glyphor-Fuse';
+const DEFAULT_ORG = getWebsitePipelineOrg();
 
 function getGitHubToken(): string {
-  const token = (
-    process.env.GITHUB_SERVICE_PAT ||
-    process.env.GITHUB_MCP_TOKEN ||
-    process.env.GITHUB_TOKEN ||
-    ''
-  ).trim();
-  if (!token) throw new Error('No GitHub token configured. Set GITHUB_SERVICE_PAT.');
-  return token;
+  return requireWebsitePipelineEnv('github-token');
 }
 
 async function githubRequest(

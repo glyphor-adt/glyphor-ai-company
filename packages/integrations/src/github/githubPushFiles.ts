@@ -1,14 +1,8 @@
 import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { requireWebsitePipelineEnv } from '../websitePipelineEnv.js';
 
 function getGitHubToken(): string {
-  const token = (
-    process.env.GITHUB_SERVICE_PAT ||
-    process.env.GITHUB_MCP_TOKEN ||
-    process.env.GITHUB_TOKEN ||
-    ''
-  ).trim();
-  if (!token) throw new Error('No GitHub token configured. Set GITHUB_SERVICE_PAT.');
-  return token;
+  return requireWebsitePipelineEnv('github-token');
 }
 
 async function githubRequest(
