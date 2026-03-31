@@ -22,6 +22,8 @@ import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
+import { createSharePointTools } from '../shared/sharepointTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { PLATFORM_INTEL_CONFIG } from './config.js';
 
 export interface PlatformIntelRunParams {
@@ -53,6 +55,8 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
     ...createPlatformIntelTools(),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...createDiagnosticTools(),
+    ...createSharePointTools(),
+    ...await createAgent365McpTools('platform-intel'),
   ];
   const toolExecutor = new ToolExecutor(tools);
 

@@ -534,6 +534,33 @@ async function downloadTextContent(
   return response.text();
 }
 
+async function downloadPdfAsText(
+  token: string,
+  siteId: string,
+  driveId: string,
+  itemId: string,
+  fileName: string,
+): Promise<string> {
+  const url = `${GRAPH_BASE}/sites/${encodeSiteId(siteId)}/drives/${encodeDriveId(driveId)}/items/${encodeURIComponent(itemId)}/content`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    redirect: 'follow',
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Failed to download SharePoint PDF (${response.status}): ${body}`);
+  }
+
+  const pdfBuffer = Buffer.from(await response.arrayBuffer());
+  const text = extractTextFromPdf(pdfBuffer);
+  if (text.length > 20) {
+    return text;
+  }
+
+  throw new Error(`Cannot extract readable text from PDF: ${fileName}`);
+}
+
 async function saveKnowledgeEntry(
   input: { content: string; evidence: string | null; tags: string[] },
 ): Promise<string> {
@@ -1703,6 +1730,8 @@ async function readDriveItem(
 
   if (OFFICE_EXTENSIONS.has(ext)) {
     content = await downloadOfficeAsText(token, siteId, driveId, meta.id, meta.name);
+  } else if (ext === '.pdf') {
+    content = await downloadPdfAsText(token, siteId, driveId, meta.id, meta.name);
   } else {
     content = await downloadTextContent(token, siteId, driveId, meta.id);
   }
