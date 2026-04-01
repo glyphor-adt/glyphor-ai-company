@@ -62,6 +62,9 @@ COPY packages/agent-runtime/src/config/ packages/agent-runtime/src/config/
 # Copy company knowledge files (read at runtime by agent runner)
 COPY packages/company-knowledge/ packages/company-knowledge/
 
+# Copy Agent365 fallback manifest used when tooling gateway discovery fails.
+COPY ToolingManifest.json ./ToolingManifest.json
+
 # Copy logos for watermarking from builder stage (dashboard package is in builder, not runtime)
 COPY --from=builder /app/packages/dashboard/public/glyphor-logo.png ./public/glyphor-logo.png
 COPY --from=builder /app/packages/dashboard/public/glyphor_full_white.png ./public/glyphor_full_white.png
