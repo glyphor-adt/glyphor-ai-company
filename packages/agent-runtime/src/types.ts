@@ -577,7 +577,7 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'seo-analyst':          { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'social-media-manager': { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'ui-ux-designer':       { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'frontend-engineer':    { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
+  'frontend-engineer':    { perRunUsd: 0.20, dailyUsd: 1.00, monthlyUsd: 30 },
   'design-critic':        { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'template-architect':   { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'm365-admin':           { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
