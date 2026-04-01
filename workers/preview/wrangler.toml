@@ -1,0 +1,18 @@
+name = "glyphor-preview-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-03-31"
+workers_dev = true
+
+[vars]
+PREVIEW_DOMAIN = "preview.glyphor.ai"
+PREVIEW_REGISTRY_PREFIX = "deployments"
+ALLOWED_ORIGIN_SUFFIX = ".vercel.app"
+
+[[routes]]
+pattern = "*.preview.glyphor.ai/*"
+zone_name = "glyphor.ai"
+
+[[r2_buckets]]
+binding = "PREVIEW_REGISTRY"
+bucket_name = "glyphor-fuse-storage"
+preview_bucket_name = "glyphor-fuse-storage"
