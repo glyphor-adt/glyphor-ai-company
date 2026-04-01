@@ -199,11 +199,11 @@ jobs:
         shell: bash
         run: |
           mappings=$(jq -r '
-            map(select(.Role and (.Role | type == "string") and (.Role | length > 0)))
-            | map("AGENT365_" + (.Role | gsub("[^A-Za-z0-9]+"; "_") | ascii_upcase) + "_CLIENT_SECRET=agent365-" + .Role + "-client-secret:latest")
-            | unique
+            keys_unsorted
+            | map(select(type == "string" and length > 0))
+            | map("AGENT365_" + (gsub("[^A-Za-z0-9]+"; "_") | ascii_upcase) + "_CLIENT_SECRET=agent365-" + . + "-client-secret:latest")
             | join(",")
-          ' _agent_secrets.json)
+          ' packages/agent-runtime/src/config/agentIdentities.json)
           echo "mappings=$mappings" >> "$GITHUB_OUTPUT"
 
       - name: Build & push scheduler image

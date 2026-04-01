@@ -13,16 +13,16 @@ echo "Region:  ${REGION}"
 
 build_agent365_role_secret_mappings() {
   if ! command -v jq >/dev/null 2>&1; then
-    echo "jq is required to build Agent365 role secret mappings from _agent_secrets.json" >&2
+    echo "jq is required to build Agent365 role secret mappings from packages/agent-runtime/src/config/agentIdentities.json" >&2
     return 1
   fi
 
   jq -r '
-    map(select(.Role and (.Role | type == "string") and (.Role | length > 0)))
-    | map("AGENT365_" + (.Role | gsub("[^A-Za-z0-9]+"; "_") | ascii_upcase) + "_CLIENT_SECRET=agent365-" + .Role + "-client-secret:latest")
-    | unique
+    keys_unsorted
+    | map(select(type == "string" and length > 0))
+    | map("AGENT365_" + (gsub("[^A-Za-z0-9]+"; "_") | ascii_upcase) + "_CLIENT_SECRET=agent365-" + . + "-client-secret:latest")
     | join(",")
-  ' _agent_secrets.json
+  ' packages/agent-runtime/src/config/agentIdentities.json
 }
 
 AGENT365_ROLE_SECRETS="$(build_agent365_role_secret_mappings)"
