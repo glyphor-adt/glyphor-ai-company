@@ -12,57 +12,7 @@ echo "Project: ${PROJECT_ID}"
 echo "Region:  ${REGION}"
 
 build_agent365_role_secret_mappings() {
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "jq is required to build Agent365 role secret mappings from packages/agent-runtime/src/config/agentIdentities.json" >&2
-    return 1
-  fi
-
-  if ! command -v gcloud >/dev/null 2>&1; then
-    echo "gcloud is required to filter Agent365 role secret mappings against existing Secret Manager secrets" >&2
-    return 1
-  fi
-
-  local existing_json
-  existing_json="$({
-    gcloud secrets list \
-      --project="$PROJECT_ID" \
-      --format='value(name)' \
-    | grep -E '^agent365-.*-client-secret$' || true
-  } | jq -R . | jq -s .)"
-
-  local mappings_json
-  mappings_json="$(jq -c '
-    keys_unsorted
-    | map(select(type == "string" and length > 0))
-    | map({
-        env: "AGENT365_" + (gsub("[^A-Za-z0-9]+"; "_") | ascii_upcase) + "_CLIENT_SECRET",
-        secret: "agent365-" + . + "-client-secret"
-      })
-  ' packages/agent-runtime/src/config/agentIdentities.json)"
-
-  local missing
-  missing="$(jq -rn \
-    --argjson mappings "$mappings_json" \
-    --argjson existing "$existing_json" '
-      $mappings
-      | map(select((.secret as $secret | $existing | index($secret)) | not))
-      | map(.secret)
-      | join(", ")
-    ')"
-
-  if [[ -n "$missing" ]]; then
-    echo "Skipping missing Agent365 role secrets: $missing" >&2
-  fi
-
-  jq -r '
-    $mappings
-    | map(select(.secret as $secret | $existing | index($secret)))
-    | map(.env + "=" + .secret + ":latest")
-    | join(",")
-  ' \
-    --argjson mappings "$mappings_json" \
-    --argjson existing "$existing_json" \
-    /dev/null
+  printf '%s' 'AGENT365_CFO_CLIENT_SECRET=agent365-cfo-client-secret:latest,AGENT365_SOCIAL_MEDIA_MANAGER_CLIENT_SECRET=agent365-social-media-manager-client-secret:latest'
 }
 
 AGENT365_ROLE_SECRETS="$(build_agent365_role_secret_mappings)"

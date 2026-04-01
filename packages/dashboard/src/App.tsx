@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import SmbLayout from './components/SmbLayout';
 import Dashboard from './pages/Dashboard';
@@ -72,6 +72,21 @@ function OnboardingEntryGate() {
       replace
     />
   );
+}
+
+function LegacyAgentRedirect() {
+  const { agentId } = useParams();
+  return <Navigate to={`/app/internal/agents/${encodeURIComponent(agentId ?? '')}`} replace />;
+}
+
+function LegacyAgentSettingsRedirect() {
+  const { agentId } = useParams();
+  return <Navigate to={`/app/internal/agents/${encodeURIComponent(agentId ?? '')}/settings`} replace />;
+}
+
+function LegacyChatRedirect() {
+  const { agentId } = useParams();
+  return <Navigate to={`/app/internal/chat/${encodeURIComponent(agentId ?? '')}`} replace />;
 }
 
 const LEGACY_INTERNAL_REDIRECTS = [
@@ -157,9 +172,9 @@ export default function App() {
       ))}
       <Route path="onboarding" element={<OnboardingEntryGate />} />
       <Route path="app/onboarding" element={<OnboardingEntryGate />} />
-      <Route path="agents/:agentId" element={<Navigate to="/app/internal/workforce" replace />} />
-      <Route path="agents/:agentId/settings" element={<Navigate to="/app/internal/workforce" replace />} />
-      <Route path="chat/:agentId" element={<Navigate to="/app/internal/comms" replace />} />
+      <Route path="agents/:agentId" element={<LegacyAgentRedirect />} />
+      <Route path="agents/:agentId/settings" element={<LegacyAgentSettingsRedirect />} />
+      <Route path="chat/:agentId" element={<LegacyChatRedirect />} />
       <Route path="skills/:slug" element={<Navigate to="/app/internal/skills" replace />} />
       <Route path="*" element={<DashboardEntryGate />} />
     </Routes>

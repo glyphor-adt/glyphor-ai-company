@@ -56,7 +56,7 @@ export default function AgentsList() {
               const directReports = agents.filter((member) => member.reports_to === agent.role && member.role !== agent.role);
               const skills = AGENT_SKILLS[agent.role] ?? [];
               return (
-                <Link key={agent.id} to={`/agents/${agent.role}`} className="group block h-full">
+                <Link key={agent.id} to={`/agents/${agent.role}/settings`} className="group block h-full">
                   <Card className="relative flex h-full flex-col overflow-hidden transition-all hover:border-cyan/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.06)]">
                     {/* Color accent */}
                     <div

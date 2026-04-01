@@ -304,7 +304,7 @@ export default function Workforce() {
                           <span className="flex items-center gap-1">Chat <MdArrowForward /></span>
                         </Link>
                         <Link
-                          to={`/agents/${agent.role}`}
+                          to={`/agents/${agent.role}/settings`}
                           className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:border-border-hover hover:text-txt-primary"
                         >
                           Settings
@@ -373,7 +373,7 @@ function FounderNode({ name, title, initials, color, photo }: { name: string; ti
 function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean }) {
   const meta = AGENT_META[agent.role];
   return (
-    <Link to={`/agents/${agent.role}`} className="block transition-transform hover:scale-[1.02]">
+    <Link to={`/agents/${agent.role}/settings`} className="block transition-transform hover:scale-[1.02]">
       <Card className={`${compact ? 'p-3' : 'p-4'} w-full text-center`}>
         <div className="flex flex-col items-center gap-1.5">
           <AgentAvatar role={agent.role} size={compact ? 40 : 52} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
@@ -435,7 +435,7 @@ function SubTeamNode({ member }: { member: Agent }) {
   const displayName = DISPLAY_NAME_MAP[member.role] ?? member.name ?? member.display_name ?? member.role;
   const title = TITLE_MAP[member.role] ?? member.title ?? member.role;
   return (
-    <Link to={`/agents/${member.role}`} className="block transition-transform hover:scale-[1.02]">
+    <Link to={`/agents/${member.role}/settings`} className="block transition-transform hover:scale-[1.02]">
       <Card className="p-3 min-h-[72px]">
         <div className="flex items-center gap-3 h-full">
           <AgentAvatar role={member.role} size={48} glow={member.status === 'active'} avatarUrl={member.avatar_url} />

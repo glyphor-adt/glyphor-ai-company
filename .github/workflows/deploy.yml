@@ -198,45 +198,7 @@ jobs:
         id: agent365-role-secrets
         shell: bash
         run: |
-          mapfile -t existing_secrets < <(
-            gcloud secrets list \
-              --project="${{ env.GCP_PROJECT_ID }}" \
-              --format='value(name)' \
-            | grep -E '^agent365-.*-client-secret$' || true
-          )
-
-          mappings=$(jq -r '
-            keys_unsorted
-            | map(select(type == "string" and length > 0))
-            | map({
-                env: "AGENT365_" + (gsub("[^A-Za-z0-9]+"; "_") | ascii_upcase) + "_CLIENT_SECRET",
-                secret: "agent365-" + . + "-client-secret"
-              })
-          ' packages/agent-runtime/src/config/agentIdentities.json)
-
-          filtered=$(jq -rn \
-            --argjson mappings "$mappings" \
-            --argjson existing "$(printf '%s\n' "${existing_secrets[@]}" | jq -R . | jq -s .)" '
-              $mappings
-              | map(select(.secret as $secret | $existing | index($secret)))
-              | map(.env + "=" + .secret + ":latest")
-              | join(",")
-            ')
-
-          missing=$(jq -rn \
-            --argjson mappings "$mappings" \
-            --argjson existing "$(printf '%s\n' "${existing_secrets[@]}" | jq -R . | jq -s .)" '
-              $mappings
-              | map(select((.secret as $secret | $existing | index($secret)) | not))
-              | map(.secret)
-              | join(", ")
-            ')
-
-          if [[ -n "$missing" ]]; then
-            echo "Skipping missing Agent365 role secrets: $missing"
-          fi
-
-          mappings="$filtered"
+          mappings="AGENT365_CFO_CLIENT_SECRET=agent365-cfo-client-secret:latest,AGENT365_SOCIAL_MEDIA_MANAGER_CLIENT_SECRET=agent365-social-media-manager-client-secret:latest"
           echo "mappings=$mappings" >> "$GITHUB_OUTPUT"
 
       - name: Build & push scheduler image

@@ -297,7 +297,7 @@ function parseProjectReference(projectId: string, tier: WebBuildTier): WebsitePi
 
 function shouldFallbackToDirectPipelineTool(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /not found|not available|no such tool|unknown tool/i.test(message);
+  return /not found|not available|no such tool|unknown tool|implemented in application code|dynamic http executor|tool bundle includes/i.test(message);
 }
 
 function getWebsitePipelineTool(name: WebsitePipelineToolName): ToolDefinition {
