@@ -4,7 +4,7 @@ slug: client-web-creation
 category: design
 description: Execute Glyphor's end-to-end client website pipeline — from normalized brief to quality-gated deployed site. Use when asked to build any client website, landing page, or marketing site. This skill governs design quality, component selection, build execution, and iteration discipline. It is a mandatory operating pipeline, not optional guidance.
 holders: frontend-engineer, vp-design, ui-ux-designer, cto, cmo
-tools_granted: normalize_design_brief, github_create_from_template, vercel_create_project, vercel_get_preview_url, cloudflare_register_preview, cloudflare_update_preview, search_components, get_component_info, get_installation_info, install_item_from_registry, build_website_foundation, github_push_files, github_create_pull_request, github_merge_pull_request, deploy_preview, screenshot_page, check_ai_smell, run_accessibility_audit, run_lighthouse_audit, save_memory, send_agent_message
+tools_granted: normalize_design_brief, github_create_from_template, vercel_create_project, vercel_get_preview_url, vercel_get_production_url, cloudflare_register_preview, cloudflare_update_preview, search_components, get_component_info, get_installation_info, install_item_from_registry, build_website_foundation, github_push_files, github_create_pull_request, github_get_pull_request_status, github_wait_for_pull_request_checks, github_merge_pull_request, deploy_preview, screenshot_page, check_ai_smell, run_accessibility_audit, run_lighthouse_audit, save_memory, send_agent_message
 version: 1
 ---
 
@@ -166,8 +166,9 @@ Maximum 3 iteration rounds. Escalate if score not clearing after 3.
 ### Phase 10 — Ship
 When score >= 90 and all gates pass:
 - `github_create_pull_request` from the working branch to `main`
-- devops-engineer verifies checks and uses `github_merge_pull_request`
-- Vercel auto-deploys to production
+- `github_wait_for_pull_request_checks` until CI is green
+- devops-engineer uses `github_merge_pull_request`
+- `vercel_get_production_url` until production is READY
 - Save final brief, score breakdown, and winning patterns to memory
 
 ## Design Quality Rules

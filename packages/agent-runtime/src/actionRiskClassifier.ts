@@ -10,6 +10,10 @@ const AUTONOMOUS_PREFIXES = [
   'calculate_', 'summarize_', 'draft_', 'plan_', 'review_', 'monitor_', 'recall_', 'generate_',
 ];
 
+const AUTONOMOUS_EXACT = new Set([
+  'github_wait_for_pull_request_checks',
+]);
+
 const SOFT_GATE_EXACT = new Set([
   'post_to_slack',
   'post_to_deliverables',
@@ -62,7 +66,7 @@ export function classifyActionRisk(toolName: string): ActionRiskAssessment {
     };
   }
 
-  if (matchesPrefix(normalized, AUTONOMOUS_PREFIXES)) {
+  if (AUTONOMOUS_EXACT.has(normalized) || matchesPrefix(normalized, AUTONOMOUS_PREFIXES)) {
     return {
       level: 'AUTONOMOUS',
       reason: 'This tool is read-only or computational and does not directly mutate shared state.',

@@ -44,6 +44,148 @@ async function githubRequest(
   return { ok: response.ok, status: response.status, data };
 }
 
+function classifyCheckState(state: string, conclusion?: string | null): 'success' | 'pending' | 'failure' {
+  const normalizedState = state.toLowerCase();
+  const normalizedConclusion = (conclusion ?? '').toLowerCase();
+
+  if (normalizedState === 'queued' || normalizedState === 'in_progress' || normalizedState === 'pending') {
+    return 'pending';
+  }
+
+  if (['failure', 'failed', 'timed_out', 'cancelled', 'cancel', 'action_required', 'startup_failure'].includes(normalizedConclusion)) {
+    return 'failure';
+  }
+
+  if (normalizedState === 'failure' || normalizedState === 'error') {
+    return 'failure';
+  }
+
+  if (normalizedState === 'success' || ['success', 'neutral', 'skipped'].includes(normalizedConclusion)) {
+    return 'success';
+  }
+
+  return 'pending';
+}
+
+function summarizeCheckRollup(items: Array<'success' | 'pending' | 'failure'>): 'success' | 'pending' | 'failure' {
+  if (items.some((item) => item === 'failure')) return 'failure';
+  if (items.some((item) => item === 'pending')) return 'pending';
+  return 'success';
+}
+
+async function getPullRequestStatus(
+  repoInput: string,
+  prNumber: number,
+  signal?: AbortSignal,
+): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
+  const { owner, name, fullName } = parseRepoFullName(repoInput);
+
+  const prResponse = await githubRequest(
+    `/repos/${owner}/${name}/pulls/${prNumber}`,
+    'GET',
+    undefined,
+    signal,
+  );
+  if (!prResponse.ok) {
+    const err = prResponse.data as Record<string, unknown> | null;
+    return {
+      success: false,
+      error: `GitHub API error (${prResponse.status}): ${String(err?.message ?? 'Unknown GitHub API error')}`,
+    };
+  }
+
+  const pr = prResponse.data as Record<string, unknown>;
+  const head = (pr.head as Record<string, unknown> | undefined) ?? {};
+  const sha = String(head.sha ?? '').trim();
+
+  let statusState: 'success' | 'pending' | 'failure' = 'pending';
+  let statusContexts: Array<Record<string, unknown>> = [];
+  if (sha) {
+    const statusResponse = await githubRequest(
+      `/repos/${owner}/${name}/commits/${sha}/status`,
+      'GET',
+      undefined,
+      signal,
+    );
+    if (statusResponse.ok) {
+      const statusData = statusResponse.data as Record<string, unknown>;
+      const combined = String(statusData.state ?? 'pending').toLowerCase();
+      if (combined === 'success') statusState = 'success';
+      else if (combined === 'failure' || combined === 'error') statusState = 'failure';
+
+      statusContexts = ((statusData.statuses as unknown[]) ?? []).map((entry) => {
+        const item = entry as Record<string, unknown>;
+        return {
+          context: String(item.context ?? ''),
+          state: String(item.state ?? ''),
+          description: String(item.description ?? ''),
+          target_url: String(item.target_url ?? ''),
+        };
+      });
+    }
+  }
+
+  let checkRuns: Array<Record<string, unknown>> = [];
+  let checkRunsState: 'success' | 'pending' | 'failure' = statusState;
+  if (sha) {
+    const checksResponse = await githubRequest(
+      `/repos/${owner}/${name}/commits/${sha}/check-runs`,
+      'GET',
+      undefined,
+      signal,
+    );
+    if (checksResponse.ok) {
+      const checksData = checksResponse.data as Record<string, unknown>;
+      checkRuns = ((checksData.check_runs as unknown[]) ?? []).map((entry) => {
+        const item = entry as Record<string, unknown>;
+        return {
+          name: String(item.name ?? ''),
+          status: String(item.status ?? ''),
+          conclusion: item.conclusion == null ? null : String(item.conclusion),
+          details_url: String(item.details_url ?? ''),
+        };
+      });
+      if (checkRuns.length > 0) {
+        checkRunsState = summarizeCheckRollup(
+          checkRuns.map((entry) => classifyCheckState(String(entry.status ?? ''), entry.conclusion as string | null | undefined)),
+        );
+      }
+    }
+  }
+
+  const overallChecksState = summarizeCheckRollup([statusState, checkRunsState]);
+  const mergeable = pr.mergeable == null ? null : Boolean(pr.mergeable);
+  const draft = Boolean(pr.draft);
+  const state = String(pr.state ?? 'unknown');
+
+  return {
+    success: true,
+    data: {
+      repo: fullName,
+      pr_number: prNumber,
+      title: String(pr.title ?? ''),
+      state,
+      draft,
+      mergeable,
+      mergeable_state: String(pr.mergeable_state ?? ''),
+      head_sha: sha,
+      head_branch: String((head.ref as string | undefined) ?? ''),
+      base_branch: String(((pr.base as Record<string, unknown> | undefined)?.ref as string | undefined) ?? ''),
+      pr_url: String(pr.html_url ?? ''),
+      overall_checks_state: overallChecksState,
+      status_state: statusState,
+      check_runs_state: checkRunsState,
+      status_contexts: statusContexts,
+      check_runs: checkRuns,
+      ready_to_merge: state === 'open' && !draft && mergeable !== false && overallChecksState === 'success',
+    },
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function createGithubPullRequestTools(): ToolDefinition[] {
   return [
     {
@@ -130,6 +272,119 @@ export function createGithubPullRequestTools(): ToolDefinition[] {
           return {
             success: false,
             error: `Failed to create pull request: ${(err as Error).message}`,
+          };
+        }
+      },
+    },
+    {
+      name: 'github_get_pull_request_status',
+      description: 'Get merge readiness and CI/check status for a pull request in an arbitrary GitHub repository in owner/name format.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repository in owner/name format.',
+          required: true,
+        },
+        pr_number: {
+          type: 'number',
+          description: 'Pull request number to inspect.',
+          required: true,
+        },
+      },
+      async execute(params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
+        const repoInput = String(params.repo ?? '').trim();
+        const prNumber = Number(params.pr_number ?? NaN);
+
+        if (!repoInput) return { success: false, error: 'repo is required.' };
+        if (!Number.isFinite(prNumber) || prNumber <= 0) {
+          return { success: false, error: 'pr_number must be a positive number.' };
+        }
+
+        try {
+          const result = await getPullRequestStatus(repoInput, prNumber, ctx.abortSignal);
+          if (!result.success) {
+            return { success: false, error: result.error ?? 'Failed to fetch pull request status.' };
+          }
+          return { success: true, data: result.data };
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to get pull request status: ${(err as Error).message}`,
+          };
+        }
+      },
+    },
+    {
+      name: 'github_wait_for_pull_request_checks',
+      description: 'Poll a pull request in an arbitrary GitHub repository until checks succeed, fail, or timeout.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repository in owner/name format.',
+          required: true,
+        },
+        pr_number: {
+          type: 'number',
+          description: 'Pull request number to monitor.',
+          required: true,
+        },
+        timeout_seconds: {
+          type: 'number',
+          description: 'Maximum time to wait. Defaults to 900 seconds.',
+          required: false,
+        },
+        poll_interval_seconds: {
+          type: 'number',
+          description: 'Polling interval. Defaults to 15 seconds.',
+          required: false,
+        },
+      },
+      async execute(params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
+        const repoInput = String(params.repo ?? '').trim();
+        const prNumber = Number(params.pr_number ?? NaN);
+        const timeoutSeconds = Math.max(30, Number(params.timeout_seconds ?? 900));
+        const pollIntervalSeconds = Math.max(5, Number(params.poll_interval_seconds ?? 15));
+
+        if (!repoInput) return { success: false, error: 'repo is required.' };
+        if (!Number.isFinite(prNumber) || prNumber <= 0) {
+          return { success: false, error: 'pr_number must be a positive number.' };
+        }
+
+        const deadline = Date.now() + timeoutSeconds * 1000;
+
+        try {
+          while (Date.now() < deadline) {
+            const result = await getPullRequestStatus(repoInput, prNumber, ctx.abortSignal);
+            if (!result.success) {
+              return { success: false, error: result.error ?? 'Failed to fetch pull request status.' };
+            }
+
+            const data = result.data as Record<string, unknown>;
+            const state = String(data.overall_checks_state ?? 'pending');
+            if (state === 'success') {
+              return { success: true, data: { ...data, wait_result: 'success' } };
+            }
+            if (state === 'failure') {
+              return { success: false, error: 'Pull request checks failed.', data: { ...data, wait_result: 'failure' } };
+            }
+
+            await sleep(pollIntervalSeconds * 1000);
+          }
+
+          const lastResult = await getPullRequestStatus(repoInput, prNumber, ctx.abortSignal);
+          if (!lastResult.success) {
+            return { success: false, error: lastResult.error ?? 'Timed out while waiting for pull request checks.' };
+          }
+
+          return {
+            success: false,
+            error: `Timed out waiting for pull request checks after ${timeoutSeconds} seconds.`,
+            data: { ...(lastResult.data ?? {}), wait_result: 'timeout' },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed while waiting for pull request checks: ${(err as Error).message}`,
           };
         }
       },

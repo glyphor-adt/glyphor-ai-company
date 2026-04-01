@@ -217,5 +217,96 @@ export function createVercelProjectTools(): ToolDefinition[] {
         }
       },
     },
+    {
+      name: 'vercel_get_production_url',
+      description: 'Get the latest production deployment URL for a Vercel project.',
+      parameters: {
+        project_id: {
+          type: 'string',
+          description: 'Optional Vercel project id. Preferred when available.',
+          required: false,
+        },
+        project_name: {
+          type: 'string',
+          description: 'Vercel project name.',
+          required: true,
+        },
+      },
+      async execute(params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
+        const projectName = String(params.project_name ?? '').trim();
+        if (!projectName) return { success: false, error: 'project_name is required.' };
+        let projectId = String(params.project_id ?? '').trim();
+
+        try {
+          if (!projectId) {
+            const projectLookup = await vercelRequest(
+              `/v9/projects/${encodeURIComponent(projectName)}`,
+              'GET',
+              undefined,
+              ctx.abortSignal,
+            );
+            if (!projectLookup.ok) {
+              return {
+                success: false,
+                error: `Vercel API error (${projectLookup.status}): could not resolve project id for ${projectName}.`,
+              };
+            }
+            const projectData = projectLookup.data as Record<string, unknown>;
+            projectId = String(projectData.id ?? '').trim();
+          }
+
+          if (!projectId) {
+            return { success: false, error: `Could not resolve Vercel project id for ${projectName}.` };
+          }
+
+          const path = `/v6/deployments?projectId=${encodeURIComponent(projectId)}&target=production&limit=5`;
+          const { ok, status, data } = await vercelRequest(path, 'GET', undefined, ctx.abortSignal);
+          if (!ok) {
+            return { success: false, error: `Vercel API error (${status}): could not fetch production deployments.` };
+          }
+
+          const result = data as Record<string, unknown>;
+          const deployments = (result.deployments as unknown[]) ?? [];
+          if (deployments.length === 0) {
+            return {
+              success: true,
+              data: {
+                state: 'PENDING',
+                production_url: null,
+              },
+            };
+          }
+
+          const latest = deployments[0] as Record<string, unknown>;
+          const deploymentUrl = String(latest.url ?? '');
+          const deploymentState = String(latest.state ?? 'UNKNOWN');
+          if (deploymentState === 'ERROR' || deploymentState === 'CANCELED') {
+            return { success: false, error: `Latest production deployment is ${deploymentState}.` };
+          }
+          if (deploymentState !== 'READY') {
+            return {
+              success: true,
+              data: {
+                state: deploymentState,
+                production_url: deploymentUrl ? `https://${deploymentUrl}` : null,
+              },
+            };
+          }
+
+          return {
+            success: true,
+            data: {
+              state: 'READY',
+              production_url: `https://${deploymentUrl}`,
+            },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to get production URL: ${(err as Error).message}`,
+          };
+        }
+      },
+    },
   ];
 }
