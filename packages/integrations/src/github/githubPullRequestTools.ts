@@ -177,7 +177,7 @@ async function getPullRequestStatus(
       check_runs_state: checkRunsState,
       status_contexts: statusContexts,
       check_runs: checkRuns,
-      ready_to_merge: state === 'open' && !draft && mergeable !== false && overallChecksState === 'success',
+      ready_to_merge: state === 'open' && !draft && mergeable === true && overallChecksState === 'success',
     },
   };
 }
@@ -360,11 +360,12 @@ export function createGithubPullRequestTools(): ToolDefinition[] {
             }
 
             const data = result.data as Record<string, unknown>;
-            const state = String(data.overall_checks_state ?? 'pending');
-            if (state === 'success') {
+            const checksState = String(data.overall_checks_state ?? 'pending');
+            const readyToMerge = data.ready_to_merge === true;
+            if (readyToMerge) {
               return { success: true, data: { ...data, wait_result: 'success' } };
             }
-            if (state === 'failure') {
+            if (checksState === 'failure') {
               return { success: false, error: 'Pull request checks failed.', data: { ...data, wait_result: 'failure' } };
             }
 
