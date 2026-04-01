@@ -582,20 +582,21 @@ async function executeWebBuild(
   let merge: Record<string, unknown> | null = null;
   let checks: Record<string, unknown> | null = null;
 
-  if (params.tier === 'full_build') {
-    pullRequest = await executeWebsitePipelineTool<Record<string, unknown>>(
-      'github_create_pull_request',
-      {
-        repo: project.repoFullName,
-        head_branch: project.branch,
-        base_branch: 'main',
-        title: options.prTitle ?? buildPullRequestTitle(project, params.tier),
-        body: options.prBody ?? buildPullRequestBody(params, project),
-      },
-      ctx,
-    );
-    githubPrUrl = pickString(pullRequest, 'pr_url');
+  pullRequest = await executeWebsitePipelineTool<Record<string, unknown>>(
+    'github_create_pull_request',
+    {
+      repo: project.repoFullName,
+      head_branch: project.branch,
+      base_branch: 'main',
+      title: options.prTitle ?? buildPullRequestTitle(project, params.tier),
+      body: options.prBody ?? buildPullRequestBody(params, project),
+      draft: params.tier !== 'full_build',
+    },
+    ctx,
+  );
+  githubPrUrl = pickString(pullRequest, 'pr_url');
 
+  if (params.tier === 'full_build') {
     checks = await executeWebsitePipelineTool<Record<string, unknown>>(
       'github_wait_for_pull_request_checks',
       {
@@ -657,8 +658,9 @@ async function executeWebBuild(
         'github_push_files',
         'vercel_get_preview_url',
         project.isExisting || params.tier === 'iterate' ? 'cloudflare_update_preview' : 'cloudflare_register_preview',
+        'github_create_pull_request',
         ...(params.tier === 'full_build'
-          ? ['github_create_pull_request', 'github_wait_for_pull_request_checks', 'github_merge_pull_request', 'vercel_get_production_url']
+          ? ['github_wait_for_pull_request_checks', 'github_merge_pull_request', 'vercel_get_production_url']
           : []),
       ],
     },

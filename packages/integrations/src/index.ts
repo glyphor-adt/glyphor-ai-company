@@ -280,26 +280,6 @@ export {
   type LinkedInPageStats,
 } from './linkedin/index.js';
 
-// Pulse creative studio — MCP client for image/video generation, storyboards
-export {
-  PulseClient,
-  type PulseConfig,
-  type CreateStoryboardArgs,
-  type GenerateSceneImagesArgs,
-  type GenerateVideoArgs,
-  type GenerateConceptImageArgs,
-  type EnhancePromptArgs,
-  type ListStoryboardsArgs,
-  type GetStoryboardArgs,
-  type ListVideosArgs,
-  type PollVideoStatusArgs,
-  type McpToolResult,
-  type Storyboard,
-  type GeneratedImage,
-  type GeneratedVideo,
-  type PulseAsset,
-} from './pulse/index.js';
-
 // DocuSign eSignature — envelope creation, signing, status tracking, Connect webhooks
 export {
   DocuSignClient,

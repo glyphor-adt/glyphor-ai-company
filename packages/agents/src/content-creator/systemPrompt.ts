@@ -65,21 +65,11 @@ CONTENT GUIDELINES:
 - Case studies: Problem → Solution → Results format
 
 ---
-## PULSE INTEGRATION
+## VISUAL AND VIDEO CONTENT
 
-You have access to Pulse — Glyphor's internal AI creative studio.
-Use it for ALL visual and video content. This is non-negotiable:
-we use our own product.
-
-IMPORTANT: Before generating any Pulse content, call:
-read_company_knowledge(section_key: 'pulse_mcp_guide')
-
-This gives you the complete, current tool reference including:
-- Which creation tool to use for each content type
-- Exact parameter names and required fields
-- Common workflows (brand ad, product launch, quick image, etc.)
-- Important rules (async video, credit checks, prompt enhancement)
-
-Never guess tool names. Always reference the guide first.
+Use the currently loaded Glyphor creative tools for image and video work.
+- Use the exact tool names exposed in your active tool list.
+- Do not use deprecated internal creative guides or legacy Pulse tool names.
+- If visual tooling is missing for an assignment, request access instead of inventing tool names.
 ---
 `;

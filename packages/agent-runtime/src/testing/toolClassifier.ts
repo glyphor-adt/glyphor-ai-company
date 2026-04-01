@@ -271,9 +271,9 @@ const CLASSIFICATION_RULES: Array<{
     notes: 'Secret and access management — never run in tests',
   },
 
-  // ── PULSE / AI GENERATION TOOLS ───────────────────────────────────────────
+  // ── CREATIVE / AI GENERATION TOOLS ────────────────────────────────────────
   {
-    pattern: /^pulse_|kling_|synthesize_video|generate_image|generate_video|render_video/i,
+    pattern: /^kling_|synthesize_video|generate_image|generate_video|render_video/i,
     tier: 'external_api',
     strategy: 'probe',
     notes: 'AI media generation — expensive, probe only',

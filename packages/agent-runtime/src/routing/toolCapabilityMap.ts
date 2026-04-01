@@ -87,7 +87,6 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   storybook_screenshot: ['visual_analysis'],
   storybook_screenshot_all: ['visual_analysis'],
   storybook_visual_diff: ['visual_analysis'],
-  pulse_analyze_image_for_video: ['visual_analysis'],
   get_design_tokens: ['structured_extraction'],
   get_component_library: ['structured_extraction'],
   get_template_registry: ['structured_extraction'],
@@ -138,8 +137,6 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   monitor_competitor_marketing: ['web_research'],
   analyze_market_trends: ['web_research'],
   get_trending_topics: ['web_research'],
-  pulse_analyze_brand_website: ['web_research'],
-
   // Legal
   get_compliance_status: ['legal_reasoning', 'needs_citations'],
   get_contracts: ['legal_reasoning', 'needs_citations'],

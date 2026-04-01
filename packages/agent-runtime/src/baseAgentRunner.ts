@@ -391,6 +391,17 @@ export abstract class BaseAgentRunner {
     // list_my_tools and check_tool_access return accurate data.
     if (initialToolNames.length > 0) {
       try {
+        await systemQuery(
+          `UPDATE agent_tool_grants
+              SET is_active = false,
+                  updated_at = NOW()
+            WHERE agent_role = $1
+              AND granted_by = 'system'
+              AND reason = 'auto-synced from static tool array'
+              AND is_active = true
+              AND NOT (tool_name = ANY($2::text[]))`,
+          [config.role, initialToolNames],
+        );
         const values = initialToolNames
           .map((_, i) => `($1, $${i + 2}, 'system', 'auto-synced from static tool array', NOW())`)
           .join(', ');
@@ -406,6 +417,21 @@ export abstract class BaseAgentRunner {
                last_synced_at = NOW(),
                updated_at = NOW()`,
           [config.role, ...initialToolNames],
+        );
+      } catch {
+        // Best-effort — DB may not be available in test/dev
+      }
+    } else {
+      try {
+        await systemQuery(
+          `UPDATE agent_tool_grants
+              SET is_active = false,
+                  updated_at = NOW()
+            WHERE agent_role = $1
+              AND granted_by = 'system'
+              AND reason = 'auto-synced from static tool array'
+              AND is_active = true`,
+          [config.role],
         );
       } catch {
         // Best-effort — DB may not be available in test/dev

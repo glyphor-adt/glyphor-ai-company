@@ -56,6 +56,8 @@ describe('webBuildTools website pipeline replacement', () => {
           return { state: 'READY', preview_url: 'https://acme-launch-git-feature.vercel.app' };
         case 'cloudflare_register_preview':
           return { preview_url: 'https://acme-launch.preview.glyphor.ai' };
+        case 'github_create_pull_request':
+          return { pr_number: 17, pr_url: 'https://github.com/Glyphor-Fuse/acme-launch/pull/17', draft: true };
         default:
           throw new Error(`Unexpected child tool: ${toolName}`);
       }
@@ -78,6 +80,7 @@ describe('webBuildTools website pipeline replacement', () => {
       project_id: 'Glyphor-Fuse/acme-launch',
       preview_url: 'https://acme-launch.preview.glyphor.ai',
       deploy_url: 'https://acme-launch-git-feature.vercel.app',
+      github_pr_url: 'https://github.com/Glyphor-Fuse/acme-launch/pull/17',
       tier_used: 'prototype',
     });
     expect(calls).toEqual([
@@ -88,6 +91,7 @@ describe('webBuildTools website pipeline replacement', () => {
       'github_push_files',
       'vercel_get_preview_url',
       'cloudflare_register_preview',
+      'github_create_pull_request',
     ]);
     expect(appendActivity).toHaveBeenCalledOnce();
   });

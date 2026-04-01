@@ -51,11 +51,6 @@ export const TOOL_NAMESPACES: ToolNamespaceConfig[] = [
     toolPrefixes: ['send_teams', 'read_teams', 'post_to_channel', 'add_channel', 'create_channel', 'list_channel', 'list_channels', 'send_dm', 'check_messages', 'list_calendar', 'create_calendar', 'send_briefing', 'read_inbox', 'send_email', 'reply_to_email', 'forward_email'],
   },
   {
-    name: 'pulse_creative',
-    description: 'Pulse creative production tools for image, video, storyboard, and voice.',
-    toolPrefixes: ['pulse_'],
-  },
-  {
     name: 'governance',
     description: 'Decision routing, directives, tool governance, and platform audit tools.',
     toolPrefixes: ['file_decision', 'propose_directive', 'propose_initiative', 'propose_authority', 'read_founder', 'read_initiative', 'read_proposed', 'update_directive', 'get_pending_decisions', 'get_authority', 'create_decision', 'run_access_audit', 'audit_access', 'get_access_matrix', 'view_access', 'view_pending', 'provision_access', 'revoke_access', 'grant_tool', 'revoke_tool', 'grant_project', 'revoke_project', 'review_tool_request', 'list_tool_requests', 'create_service_account', 'list_service_accounts', 'write_admin_log', 'get_platform_audit'],

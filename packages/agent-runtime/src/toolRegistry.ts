@@ -776,7 +776,6 @@ const TOOL_DESCRIPTION_HINTS: ToolDescriptionHint[] = [
   { prefix: 'write_', hints: ['report generation', 'documentation', 'artifact output'] },
   { prefix: 'search_', hints: ['discovery', 'lookup', 'investigation'] },
   { prefix: 'entra_', hints: ['Microsoft Entra ID', 'identity administration', 'M365 governance'] },
-  { prefix: 'pulse_', hints: ['creative generation', 'video and image workflows', 'brand content production'] },
   { prefix: 'mcp_', hints: ['remote MCP server actions', 'cross-service integration'] },
 ];
 

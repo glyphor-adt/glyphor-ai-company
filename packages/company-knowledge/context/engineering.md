@@ -23,8 +23,8 @@ All secrets and integrations below are **already provisioned** in GCP Secret Man
 **GitHub:** GITHUB_TOKEN (PAT with repo access), GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_INSTALLATION_ID, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
 **Microsoft 365 / Teams:** AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, TEAMS_TEAM_ID, all TEAMS_CHANNEL_* IDs, TEAMS_USER_* IDs, AGENT365_* credentials
 **Payments & Banking:** STRIPE_SECRET_KEY, MERCURY_API_TOKEN
-**Creative tools:** PULSE_SERVICE_ROLE_KEY, PULSE_MCP_ENDPOINT
-**Infrastructure:** GCP_PROJECT_ID, GCS_BUCKET
+**Creative tools:** GOOGLE_AI_API_KEY, ELEVENLABS_API_KEY, GCS_BUCKET
+**Infrastructure:** GCP_PROJECT_ID
 **Design:** FIGMA_ACCESS_TOKEN, CANVA credentials, VERCEL_TOKEN
 
 If a tool returns a "not configured" error for any of the above, the issue is a code bug — not a missing secret. Escalate to Marcus, don't self-block.
