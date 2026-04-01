@@ -192,6 +192,30 @@ describe('ToolExecutor', () => {
     expect(executor.getCallLog()[0]?.riskLevel).toBe('SOFT_GATE');
   });
 
+  it('allows invoke_web_build to execute as a soft-gated tool', async () => {
+    const webBuildTool: ToolDefinition = {
+      name: 'invoke_web_build',
+      description: 'Build a web app',
+      parameters: {
+        brief: { type: 'string', description: 'Build brief', required: true },
+        tier: { type: 'string', description: 'Build tier', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: { projectId: 'proj_123' } }),
+    };
+
+    const executor = new ToolExecutor([webBuildTool]);
+    const result = await executor.execute(
+      'invoke_web_build',
+      { brief: 'Weather monitoring landing page', tier: 'prototype' },
+      buildContext(),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.riskLevel).toBe('SOFT_GATE');
+    expect(result.approvalRequired).not.toBe(true);
+    expect(webBuildTool.execute).toHaveBeenCalledOnce();
+  });
+
   it('classifies read-only tools as autonomous', async () => {
     const readOnlyTool: ToolDefinition = {
       name: 'search_docs',

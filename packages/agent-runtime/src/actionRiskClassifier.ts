@@ -26,7 +26,7 @@ const SOFT_GATE_EXACT = new Set([
 ]);
 
 const SOFT_GATE_PREFIXES = [
-  'post_', 'send_', 'announce_', 'notify_', 'publish_', 'share_', 'compose_', 'create_note_',
+  'post_', 'send_', 'announce_', 'notify_', 'publish_', 'share_', 'compose_', 'create_note_', 'invoke_web_',
 ];
 
 const HARD_GATE_EXACT = new Set([
@@ -42,7 +42,7 @@ const HARD_GATE_EXACT = new Set([
 
 const HARD_GATE_PREFIXES = [
   'delete_', 'remove_', 'deploy_', 'trigger_agent_', 'retry_failed_', 'pause_agent', 'resume_agent',
-  'invoke_web_', 'run_migration',
+  'run_migration',
 ];
 
 function matchesPrefix(name: string, prefixes: string[]): boolean {
