@@ -641,7 +641,7 @@ function getDisplayName(agent: AgentRow): string {
 }
 
 export async function listAutonomyOverview(filters: AutonomyOverviewFilters = {}): Promise<AutonomyOverviewItem[]> {
-  const params: unknown[] = [DEFAULT_TENANT_ID];
+  const params: unknown[] = [];
   const where = [`COALESCE(status, 'active') NOT IN ('inactive', 'retired', 'deleted')`];
 
   if (filters.department) {

@@ -261,37 +261,41 @@ async function ensureAgentCapacityConfig(agentId: string): Promise<void> {
   const existing = await systemQuery<{ id: string }>('SELECT id FROM agent_capacity_config WHERE agent_id = $1 LIMIT 1', [agentId]);
   if (existing.length > 0) return;
 
-  const inserted = await systemQuery(
-    `INSERT INTO agent_capacity_config (
-       agent_id,
-       capacity_tier,
-       requires_human_approval_for,
-       override_by_roles,
-       updated_at,
-       updated_by,
-       metadata
-     )
-     SELECT
-       a.role,
-       COALESCE(d.capacity_tier, 'execute'::agent_capacity_tier),
-       COALESCE(d.requires_human_approval_for, '[]'::jsonb),
-       COALESCE(d.override_by_roles, '[]'::jsonb),
-       NOW(),
-       COALESCE(a.created_by, 'system'),
-       jsonb_strip_nulls(jsonb_build_object(
-         'role_category', d.role_category,
-         'commit_value_threshold', d.commit_value_threshold,
-         'commit_requires_dual_approval', d.commit_requires_dual_approval
-       ))
-     FROM company_agents a
-     LEFT JOIN LATERAL match_agent_capacity_role_default(a.role, a.department, a.title) d ON TRUE
-     WHERE (a.role = $1 OR a.id::text = $1)
-     ON CONFLICT (agent_id) DO NOTHING
-     RETURNING id`,
-    [agentId],
-  );
+  try {
+    const inserted = await systemQuery(
+      `INSERT INTO agent_capacity_config (
+         agent_id,
+         capacity_tier,
+         requires_human_approval_for,
+         override_by_roles,
+         updated_at,
+         updated_by,
+         metadata
+       )
+       SELECT
+         a.role,
+         COALESCE(d.capacity_tier, 'execute'::agent_capacity_tier),
+         COALESCE(d.requires_human_approval_for, '[]'::jsonb),
+         COALESCE(d.override_by_roles, '[]'::jsonb),
+         NOW(),
+         COALESCE(a.created_by, 'system'),
+         jsonb_strip_nulls(jsonb_build_object(
+           'role_category', d.role_category,
+           'commit_value_threshold', d.commit_value_threshold,
+           'commit_requires_dual_approval', d.commit_requires_dual_approval
+         ))
+       FROM company_agents a
+       LEFT JOIN LATERAL match_agent_capacity_role_default(a.role, a.department, a.title) d ON TRUE
+       WHERE (a.role = $1 OR a.id::text = $1)
+       ON CONFLICT (agent_id) DO NOTHING
+       RETURNING id`,
+      [agentId],
+    );
 
-  if (inserted.length > 0) return;
+    if (inserted.length > 0) return;
+  } catch {
+    // Fall through to a minimal default row when the DB is missing helper objects from the full migration.
+  }
 
   await systemQuery(
     `INSERT INTO agent_capacity_config (

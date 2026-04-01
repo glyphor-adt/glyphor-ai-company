@@ -1,5 +1,7 @@
 import { ModelClient, type ConversationTurn, type ToolContext, type ToolDeclaration, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
+import { createCloudflarePreviewTools, createGithubFromTemplateTools, createGithubPullRequestTools, createGithubPushFilesTools, createVercelProjectTools } from '@glyphor/integrations';
+import { createDesignBriefTools } from './designBriefTools.js';
 
 type WebBuildTier = 'prototype' | 'full_build' | 'iterate';
 type WebProjectType = 'react_spa' | 'nextjs_fullstack' | 'fastapi_backend' | 'legacy_refactor' | 'dbt_pipeline' | 'terraform_infra';
@@ -43,6 +45,20 @@ interface WebBuildToolPolicy {
   allowedBuildTiers?: WebBuildTier[];
 }
 
+type WebsitePipelineToolName =
+  | 'normalize_design_brief'
+  | 'build_website_foundation'
+  | 'github_create_from_template'
+  | 'github_push_files'
+  | 'github_create_pull_request'
+  | 'github_wait_for_pull_request_checks'
+  | 'github_merge_pull_request'
+  | 'vercel_create_project'
+  | 'vercel_get_preview_url'
+  | 'vercel_get_production_url'
+  | 'cloudflare_register_preview'
+  | 'cloudflare_update_preview';
+
 const DEFAULT_BRAND_CONTEXT: WebBrandContext = {
   brand_name: 'Glyphor',
   primary_color: '#00E0FF',
@@ -56,32 +72,39 @@ const DEFAULT_BRAND_CONTEXT: WebBrandContext = {
 
 const ALL_BUILD_TIERS: WebBuildTier[] = ['prototype', 'full_build', 'iterate'];
 
-interface WebBuildConfig {
-  apiUrl: string;
-  token: string;
-  serviceAccountId: string;
+const DEFAULT_INITIAL_BRANCH = 'feature/initial-build';
+const DEFAULT_PROTOTYPE_BRANCH = 'feature/prototype-build';
+const ITERATION_BRANCH_PREFIX = 'feature/web-iterate';
+const UPGRADE_BRANCH_PREFIX = 'feature/web-upgrade';
+const PREVIEW_POLL_ATTEMPTS = 30;
+const PREVIEW_POLL_INTERVAL_MS = 10_000;
+const PRODUCTION_POLL_ATTEMPTS = 30;
+const PRODUCTION_POLL_INTERVAL_MS = 10_000;
+
+interface WebsitePipelineProjectRef {
+  repoFullName: string;
+  owner: string;
+  repoName: string;
+  projectSlug: string;
+  projectName: string;
+  branch: string;
+  isExisting: boolean;
+  vercelProjectId?: string;
 }
+
+interface WebsitePipelineExecutionOptions {
+  repairContext?: string;
+  branchOverride?: string;
+  commitMessage?: string;
+  prTitle?: string;
+  prBody?: string;
+}
+
+let websitePipelineToolCache: Map<string, ToolDefinition> | null = null;
 
 interface WebBuildUpgradeParams {
   project_id: string;
   additional_context?: string;
-}
-
-function getWebBuildConfig(): WebBuildConfig {
-  const legacyPrefix = `FU${'SE'}`;
-  const apiUrl = process.env.WEB_BUILD_API_URL ?? process.env[`${legacyPrefix}_API_URL`];
-  const token = process.env.WEB_BUILD_SERVICE_TOKEN ?? process.env[`${legacyPrefix}_SERVICE_TOKEN`];
-  const serviceAccountId = process.env.GLYPHOR_SERVICE_ACCOUNT_ID ?? 'glyphor-service-account';
-
-  if (!apiUrl || !token) {
-    throw new Error('Web build engine is not configured. Set WEB_BUILD_API_URL and WEB_BUILD_SERVICE_TOKEN in the agent runtime environment.');
-  }
-
-  return {
-    apiUrl: apiUrl.replace(/\/$/, ''),
-    token,
-    serviceAccountId,
-  };
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -133,6 +156,27 @@ function normalizeBuildTiers(input?: WebBuildTier[]): WebBuildTier[] {
   return [...unique];
 }
 
+function extractErrorMessage(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+
+  const record = asRecord(value);
+  const direct = pickString(record, 'error', 'message', 'detail', 'reason');
+  if (direct) return direct;
+
+  const nestedError = asRecord(record.error);
+  const nested = pickString(nestedError, 'message', 'detail', 'reason');
+  if (nested) return nested;
+
+  return null;
+}
+
+function getWebsitePipelineOrgFromEnv(): string {
+  return process.env.GITHUB_CLIENT_REPOS_ORG?.trim()
+    || process.env.FUSE_GITHUB_CLIENT_REPOS_ORG?.trim()
+    || 'Glyphor-Fuse';
+}
+
 function buildAccountProfileOverride(brand: WebBrandContext): Record<string, unknown> {
   return {
     brand_colors: {
@@ -152,223 +196,506 @@ function buildAccountProfileOverride(brand: WebBrandContext): Record<string, unk
   };
 }
 
-function buildRequestPayload(params: WebBuildParams, serviceAccountId: string, brand: WebBrandContext): Record<string, unknown> {
+function slugifyProjectName(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+    .slice(0, 48);
+}
+
+function buildUniqueSuffix(): string {
+  return Date.now().toString(36).slice(-6);
+}
+
+function createBranchName(prefix: string): string {
+  return `${prefix}-${buildUniqueSuffix()}`;
+}
+
+function extractProjectNameCandidate(brief: string, brand: WebBrandContext): string {
+  if (brand.brand_name && brand.brand_name !== DEFAULT_BRAND_CONTEXT.brand_name) {
+    return brand.brand_name;
+  }
+
+  const labeled = extractAfterLabel(brief, ['brand', 'brand name', 'company', 'company name', 'client', 'client name', 'product', 'product name']);
+  if (labeled) {
+    return labeled;
+  }
+
+  const quoted = brief.match(/"([^"]{3,80})"/);
+  if (quoted?.[1]) {
+    return quoted[1].trim();
+  }
+
+  const words = brief
+    .replace(/[^a-zA-Z0-9\s-]/g, ' ')
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 3)
+    .slice(0, 4)
+    .join(' ');
+
+  return words || `website-${buildUniqueSuffix()}`;
+}
+
+function extractAfterLabel(text: string, labels: string[]): string | null {
+  for (const label of labels) {
+    const regex = new RegExp(`${label}\\s*[:\\-]\\s*([^\\n]+)`, 'i');
+    const match = text.match(regex);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
+}
+
+function mapWebProjectType(projectType?: WebProjectType): 'marketing_page' | 'web_application' | 'fullstack_application' | undefined {
+  switch (projectType) {
+    case 'nextjs_fullstack':
+    case 'fastapi_backend':
+    case 'dbt_pipeline':
+    case 'terraform_infra':
+      return 'fullstack_application';
+    case 'react_spa':
+    case 'legacy_refactor':
+      return 'web_application';
+    default:
+      return undefined;
+  }
+}
+
+function parseProjectReference(projectId: string, tier: WebBuildTier): WebsitePipelineProjectRef {
+  const trimmed = projectId.trim();
+  let record = asRecord({});
+
+  if (trimmed.startsWith('{')) {
+    try {
+      record = asRecord(JSON.parse(trimmed) as unknown);
+    } catch {
+      record = asRecord({});
+    }
+  }
+
+  const repoFullName = pickString(record, 'repo', 'repo_full_name', 'project_id') ?? (trimmed.includes('/') ? trimmed : undefined);
+  const owner = pickString(record, 'owner') ?? (repoFullName?.split('/')[0] || getWebsitePipelineOrgFromEnv());
+  const repoName = pickString(record, 'repo_name', 'project_slug', 'project_name')
+    ?? (repoFullName?.split('/')[1] || slugifyProjectName(trimmed));
+  const projectSlug = pickString(record, 'project_slug', 'repo_name', 'project_name') ?? repoName;
+  const projectName = pickString(record, 'project_name', 'repo_name') ?? repoName;
+
   return {
-    prompt: params.brief,
-    userId: serviceAccountId,
-    projectTypeHint: params.project_type,
-    projectId: params.project_id,
+    repoFullName: repoFullName ?? `${owner}/${repoName}`,
+    owner,
+    repoName,
+    projectSlug,
+    projectName,
+    branch: tier === 'iterate' ? createBranchName(ITERATION_BRANCH_PREFIX) : createBranchName(UPGRADE_BRANCH_PREFIX),
+    isExisting: true,
+  };
+}
+
+function shouldFallbackToDirectPipelineTool(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /not found|not available|no such tool|unknown tool/i.test(message);
+}
+
+function getWebsitePipelineTool(name: WebsitePipelineToolName): ToolDefinition {
+  if (!websitePipelineToolCache) {
+    websitePipelineToolCache = new Map<string, ToolDefinition>([
+      ...createDesignBriefTools(),
+      ...createBuildWebsiteFoundationTools(),
+      ...createGithubFromTemplateTools(),
+      ...createGithubPushFilesTools(),
+      ...createGithubPullRequestTools(),
+      ...createVercelProjectTools(),
+      ...createCloudflarePreviewTools(),
+    ].map((tool) => [tool.name, tool]));
+  }
+
+  const tool = websitePipelineToolCache.get(name);
+  if (!tool) {
+    throw new Error(`Website pipeline tool ${name} is not registered.`);
+  }
+  return tool;
+}
+
+async function executeWebsitePipelineTool<T>(
+  toolName: WebsitePipelineToolName,
+  params: Record<string, unknown>,
+  ctx: ToolContext,
+): Promise<T> {
+  if (ctx.executeChildTool) {
+    try {
+      return await ctx.executeChildTool(toolName, params) as T;
+    } catch (error) {
+      if (!shouldFallbackToDirectPipelineTool(error)) {
+        throw error;
+      }
+    }
+  }
+
+  const tool = getWebsitePipelineTool(toolName);
+  const result = await tool.execute(params, ctx);
+  if (!result.success) {
+    throw new Error(result.error ?? `Website pipeline tool ${toolName} failed.`);
+  }
+  return (result.data ?? null) as T;
+}
+
+function buildBrandSpec(
+  brief: string,
+  normalizedBrief: Record<string, unknown>,
+  brand: WebBrandContext,
+  projectSlug: string,
+  projectType?: WebProjectType,
+): Record<string, unknown> {
+  return {
+    brandName: brand.brand_name,
+    projectSlug,
+    projectType: projectType ?? normalizedBrief.product_type ?? 'marketing_page',
+    visualManifesto: normalizedBrief.aesthetic_direction ?? brief,
+    signatureFeature: normalizedBrief.one_sentence_memory ?? brief,
     brandContext: brand,
     accountProfileOverride: buildAccountProfileOverride(brand),
   };
 }
 
-function extractErrorMessage(value: unknown): string | null {
-  if (!value) return null;
-  if (typeof value === 'string') return value;
-
-  const record = asRecord(value);
-  const direct = pickString(record, 'error', 'message', 'detail', 'reason');
-  if (direct) return direct;
-
-  const nestedError = asRecord(record.error);
-  const nested = pickString(nestedError, 'message', 'detail', 'reason');
-  if (nested) return nested;
-
-  return null;
-}
-
-function normalizeBuildResult(payload: unknown, tier: WebBuildTier): WebBuildResult {
-  const record = asRecord(payload);
-  const data = asRecord(record.data);
-  const result = asRecord(record.result);
-  const merged = { ...record, ...data, ...result };
-
+function buildIntakeContext(
+  params: WebBuildParams,
+  brand: WebBrandContext,
+  project: WebsitePipelineProjectRef,
+): Record<string, unknown> {
   return {
-    project_id: pickString(merged, 'project_id', 'projectId', 'id'),
-    preview_url: pickString(merged, 'preview_url', 'previewUrl', 'preview'),
-    deploy_url: pickString(merged, 'deploy_url', 'deployUrl', 'deployment_url', 'deploymentUrl'),
-    github_pr_url: pickString(merged, 'github_pr_url', 'githubPrUrl', 'pull_request_url', 'pullRequestUrl'),
-    build_report: merged.build_report ?? merged.buildReport ?? merged.qa_report ?? merged.qa,
-    agent_trace: merged.agent_trace ?? merged.agentTrace ?? merged.trace,
-    tier_used: tier,
-    raw: payload,
+    raw_brief: params.brief,
+    requested_tier: params.tier,
+    requested_project_type: params.project_type ?? null,
+    existing_project_id: params.project_id ?? null,
+    repo: project.repoFullName,
+    branch: project.branch,
+    brand_context: brand,
   };
 }
 
-function mergeBuildResults(current: WebBuildResult | null, incoming: WebBuildResult): WebBuildResult {
-  if (!current) return incoming;
-  return {
-    project_id: incoming.project_id ?? current.project_id,
-    preview_url: incoming.preview_url ?? current.preview_url,
-    deploy_url: incoming.deploy_url ?? current.deploy_url,
-    github_pr_url: incoming.github_pr_url ?? current.github_pr_url,
-    build_report: incoming.build_report ?? current.build_report,
-    agent_trace: incoming.agent_trace ?? current.agent_trace,
-    tier_used: incoming.tier_used,
-    raw: incoming.raw ?? current.raw,
-  };
+function buildPullRequestTitle(project: WebsitePipelineProjectRef, tier: WebBuildTier): string {
+  return tier === 'full_build'
+    ? `feat: ship ${project.projectName}`
+    : `feat: update ${project.projectName}`;
 }
 
-function parseSseBlock(block: string): { eventName?: string; data?: string } {
-  const lines = block.split(/\r?\n/);
-  let eventName: string | undefined;
-  const dataLines: string[] = [];
-
-  for (const line of lines) {
-    if (line.startsWith('event:')) {
-      eventName = line.slice('event:'.length).trim();
-      continue;
-    }
-    if (line.startsWith('data:')) {
-      dataLines.push(line.slice('data:'.length).trim());
-    }
-  }
-
-  return {
-    eventName,
-    data: dataLines.length > 0 ? dataLines.join('\n') : undefined,
-  };
+function buildPullRequestBody(params: WebBuildParams, project: WebsitePipelineProjectRef): string {
+  return [
+    `Automated website pipeline build for ${project.projectName}.`,
+    '',
+    `Tier: ${params.tier}`,
+    `Repo: ${project.repoFullName}`,
+    '',
+    'Brief:',
+    params.brief,
+  ].join('\n');
 }
 
-async function parseSseResponse(response: Response, tier: WebBuildTier): Promise<WebBuildResult> {
-  if (!response.body) {
-    return { tier_used: tier };
-  }
+async function delay(ms: number, signal: AbortSignal): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let aggregated: WebBuildResult | null = null;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const blocks = buffer.split(/\r?\n\r?\n/);
-    buffer = blocks.pop() ?? '';
-
-    for (const block of blocks) {
-      const { eventName, data } = parseSseBlock(block);
-      if (!data) continue;
-      if (data === '[DONE]') {
-        return aggregated ?? { tier_used: tier };
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(data) as unknown;
-      } catch {
-        continue;
-      }
-
-      const eventError = extractErrorMessage(parsed);
-      if (eventName === 'error' || eventName === 'failed' || eventError) {
-        throw new Error(eventError ?? 'Web build stream emitted an error event.');
-      }
-
-      aggregated = mergeBuildResults(aggregated, normalizeBuildResult(parsed, tier));
+    function onAbort(): void {
+      clearTimeout(timeout);
+      reject(new Error('Agent aborted'));
     }
-  }
 
-  if (buffer.trim()) {
-    const { data } = parseSseBlock(buffer);
-    if (data && data !== '[DONE]') {
-      try {
-        aggregated = mergeBuildResults(aggregated, normalizeBuildResult(JSON.parse(data) as unknown, tier));
-      } catch {
-        // Ignore trailing non-JSON fragments.
-      }
+    if (signal.aborted) {
+      onAbort();
+      return;
     }
-  }
 
-  return aggregated ?? { tier_used: tier };
-}
-
-async function parseResponse(response: Response, tier: WebBuildTier): Promise<WebBuildResult> {
-  const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
-  if (contentType.includes('text/event-stream')) {
-    return parseSseResponse(response, tier);
-  }
-
-  const rawText = await response.text();
-  if (!rawText.trim()) {
-    return { tier_used: tier };
-  }
-
-  try {
-    const json = JSON.parse(rawText) as unknown;
-    return normalizeBuildResult(json, tier);
-  } catch {
-    return {
-      tier_used: tier,
-      build_report: rawText,
-    };
-  }
-}
-
-async function executeBuildRequest(path: string, body: Record<string, unknown>, tier: WebBuildTier, ctx: ToolContext): Promise<WebBuildResult> {
-  const config = getWebBuildConfig();
-
-  const response = await fetch(`${config.apiUrl}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.token}`,
-    },
-    body: JSON.stringify(body),
-    signal: ctx.abortSignal,
+    signal.addEventListener('abort', onAbort, { once: true });
   });
-
-  if (!response.ok) {
-    const rawText = await response.text().catch(() => '');
-    let parsedError: string | null = null;
-    try {
-      parsedError = extractErrorMessage(JSON.parse(rawText) as unknown);
-    } catch {
-      parsedError = rawText.trim() ? rawText.trim() : null;
-    }
-    throw new Error(`Web build API ${path} returned ${response.status}${parsedError ? `: ${parsedError}` : ''}`);
-  }
-
-  return parseResponse(response, tier);
 }
 
-async function executeWebBuild(params: WebBuildParams, ctx: ToolContext): Promise<WebBuildResult> {
-  const config = getWebBuildConfig();
-  const brand = normalizeBrandContext(params.brand_context);
-  const endpoint = params.tier === 'prototype'
-    ? '/prototype'
-    : params.tier === 'iterate'
-      ? '/iterate'
-      : '/create-and-build';
+async function waitForPreviewUrl(project: WebsitePipelineProjectRef, ctx: ToolContext): Promise<{ preview_url: string; state: string }> {
+  for (let attempt = 0; attempt < PREVIEW_POLL_ATTEMPTS; attempt += 1) {
+    const preview = await executeWebsitePipelineTool<Record<string, unknown>>(
+      'vercel_get_preview_url',
+      {
+        project_id: project.vercelProjectId,
+        project_name: project.projectName,
+        branch: project.branch,
+      },
+      ctx,
+    );
 
-  const payload = buildRequestPayload(params, config.serviceAccountId, brand);
-  const result = await executeBuildRequest(endpoint, payload, params.tier, ctx);
+    const previewUrl = pickString(preview, 'preview_url', 'deployment_url');
+    const state = pickString(preview, 'state') ?? 'UNKNOWN';
+    if (previewUrl && state === 'READY') {
+      return { preview_url: previewUrl, state };
+    }
+
+    if (attempt < PREVIEW_POLL_ATTEMPTS - 1) {
+      await delay(PREVIEW_POLL_INTERVAL_MS, ctx.abortSignal);
+    }
+  }
+
+  throw new Error(`Timed out waiting for Vercel preview deployment for ${project.projectName}.`);
+}
+
+async function waitForProductionUrl(project: WebsitePipelineProjectRef, ctx: ToolContext): Promise<{ production_url: string; state: string }> {
+  for (let attempt = 0; attempt < PRODUCTION_POLL_ATTEMPTS; attempt += 1) {
+    const production = await executeWebsitePipelineTool<Record<string, unknown>>(
+      'vercel_get_production_url',
+      {
+        project_id: project.vercelProjectId,
+        project_name: project.projectName,
+      },
+      ctx,
+    );
+
+    const productionUrl = pickString(production, 'production_url');
+    const state = pickString(production, 'state') ?? 'UNKNOWN';
+    if (productionUrl && state === 'READY') {
+      return { production_url: productionUrl, state };
+    }
+
+    if (attempt < PRODUCTION_POLL_ATTEMPTS - 1) {
+      await delay(PRODUCTION_POLL_INTERVAL_MS, ctx.abortSignal);
+    }
+  }
+
+  throw new Error(`Timed out waiting for Vercel production deployment for ${project.projectName}.`);
+}
+
+async function provisionWebsiteProject(
+  params: WebBuildParams,
+  brand: WebBrandContext,
+  ctx: ToolContext,
+): Promise<WebsitePipelineProjectRef> {
+  if (params.project_id?.trim()) {
+    return parseProjectReference(params.project_id, params.tier);
+  }
+
+  const projectBaseName = slugifyProjectName(extractProjectNameCandidate(params.brief, brand)) || `website-${buildUniqueSuffix()}`;
+  const repoCandidates = [projectBaseName, `${projectBaseName}-${buildUniqueSuffix()}`];
+  let lastError: Error | null = null;
+
+  for (const candidate of repoCandidates) {
+    try {
+      const repo = await executeWebsitePipelineTool<Record<string, unknown>>(
+        'github_create_from_template',
+        { repo_name: candidate },
+        ctx,
+      );
+      const repoFullName = pickString(repo, 'full_name') ?? `${getWebsitePipelineOrgFromEnv()}/${candidate}`;
+      const [owner, repoName] = repoFullName.split('/');
+      const vercel = await executeWebsitePipelineTool<Record<string, unknown>>(
+        'vercel_create_project',
+        {
+          repo_name: repoName,
+          project_name: repoName,
+          github_org: owner,
+        },
+        ctx,
+      );
+
+      return {
+        repoFullName,
+        owner,
+        repoName,
+        projectSlug: repoName,
+        projectName: pickString(vercel, 'project_name') ?? repoName,
+        branch: params.tier === 'prototype' ? DEFAULT_PROTOTYPE_BRANCH : DEFAULT_INITIAL_BRANCH,
+        isExisting: false,
+        vercelProjectId: pickString(vercel, 'project_id'),
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (!/already exists/i.test(lastError.message)) {
+        throw lastError;
+      }
+    }
+  }
+
+  throw lastError ?? new Error('Failed to provision website project.');
+}
+
+async function executeWebBuild(
+  params: WebBuildParams,
+  ctx: ToolContext,
+  options: WebsitePipelineExecutionOptions = {},
+): Promise<WebBuildResult> {
+  const brand = normalizeBrandContext(params.brand_context);
+  const normalizedBrief = await executeWebsitePipelineTool<Record<string, unknown>>(
+    'normalize_design_brief',
+    {
+      directive_text: params.brief,
+      ...(mapWebProjectType(params.project_type) ? { product_type: mapWebProjectType(params.project_type) } : {}),
+    },
+    ctx,
+  );
+  const project = await provisionWebsiteProject(params, brand, ctx);
+  if (options.branchOverride) {
+    project.branch = options.branchOverride;
+  }
+
+  const foundation = await executeWebsitePipelineTool<Record<string, unknown>>(
+    'build_website_foundation',
+    {
+      normalized_brief: normalizedBrief,
+      brand_spec: buildBrandSpec(params.brief, normalizedBrief, brand, project.projectSlug, params.project_type),
+      intake_context: buildIntakeContext(params, brand, project),
+      ...(options.repairContext ? { repair_context: options.repairContext } : {}),
+    },
+    ctx,
+  );
+
+  const files = asRecord(foundation.files) as Record<string, string>;
+  const push = await executeWebsitePipelineTool<Record<string, unknown>>(
+    'github_push_files',
+    {
+      repo: project.repoFullName,
+      branch: project.branch,
+      files,
+      commit_message: options.commitMessage
+        ?? (params.tier === 'iterate' ? 'feat: apply website iteration' : 'feat: website pipeline build'),
+    },
+    ctx,
+  );
+
+  const preview = await waitForPreviewUrl(project, ctx);
+  const previewRegistration = await executeWebsitePipelineTool<Record<string, unknown>>(
+    project.isExisting || params.tier === 'iterate' ? 'cloudflare_update_preview' : 'cloudflare_register_preview',
+    {
+      project_slug: project.projectSlug,
+      vercel_deployment_url: preview.preview_url,
+      github_repo_url: `https://github.com/${project.repoFullName}`,
+      project_name: project.projectName,
+    },
+    ctx,
+  );
+
+  let githubPrUrl: string | undefined;
+  let deployUrl = preview.preview_url;
+  let production: Record<string, unknown> | null = null;
+  let pullRequest: Record<string, unknown> | null = null;
+  let merge: Record<string, unknown> | null = null;
+  let checks: Record<string, unknown> | null = null;
+
+  if (params.tier === 'full_build') {
+    pullRequest = await executeWebsitePipelineTool<Record<string, unknown>>(
+      'github_create_pull_request',
+      {
+        repo: project.repoFullName,
+        head_branch: project.branch,
+        base_branch: 'main',
+        title: options.prTitle ?? buildPullRequestTitle(project, params.tier),
+        body: options.prBody ?? buildPullRequestBody(params, project),
+      },
+      ctx,
+    );
+    githubPrUrl = pickString(pullRequest, 'pr_url');
+
+    checks = await executeWebsitePipelineTool<Record<string, unknown>>(
+      'github_wait_for_pull_request_checks',
+      {
+        repo: project.repoFullName,
+        pr_number: Number(pullRequest.pr_number ?? 0),
+        timeout_seconds: 900,
+        poll_interval_seconds: 15,
+      },
+      ctx,
+    );
+
+    merge = await executeWebsitePipelineTool<Record<string, unknown>>(
+      'github_merge_pull_request',
+      {
+        repo: project.repoFullName,
+        pr_number: Number(pullRequest.pr_number ?? 0),
+        merge_method: 'squash',
+      },
+      ctx,
+    );
+
+    production = await waitForProductionUrl(project, ctx);
+    deployUrl = pickString(production, 'production_url') ?? deployUrl;
+  }
+
   return {
-    ...result,
+    project_id: project.repoFullName,
+    preview_url: pickString(previewRegistration, 'preview_url') ?? preview.preview_url,
+    deploy_url: deployUrl,
+    github_pr_url: githubPrUrl,
+    build_report: {
+      normalized_brief: normalizedBrief,
+      architectural_reasoning: foundation.architectural_reasoning ?? null,
+      design_plan: foundation.design_plan ?? null,
+      image_manifest: foundation.image_manifest ?? [],
+      github: {
+        repo: project.repoFullName,
+        branch: project.branch,
+        commit_sha: pickString(push, 'commit_sha'),
+        branch_url: pickString(push, 'branch_url'),
+        pull_request: pullRequest,
+        checks,
+        merge,
+      },
+      vercel: {
+        project_id: project.vercelProjectId ?? null,
+        project_name: project.projectName,
+        preview,
+        production,
+      },
+      cloudflare: previewRegistration,
+    },
+    agent_trace: {
+      pipeline: [
+        'normalize_design_brief',
+        project.isExisting ? 'reuse_existing_project' : 'github_create_from_template',
+        project.isExisting ? 'reuse_existing_vercel_project' : 'vercel_create_project',
+        'build_website_foundation',
+        'github_push_files',
+        'vercel_get_preview_url',
+        project.isExisting || params.tier === 'iterate' ? 'cloudflare_update_preview' : 'cloudflare_register_preview',
+        ...(params.tier === 'full_build'
+          ? ['github_create_pull_request', 'github_wait_for_pull_request_checks', 'github_merge_pull_request', 'vercel_get_production_url']
+          : []),
+      ],
+    },
     tier_used: params.tier,
+    raw: {
+      project,
+      foundation,
+      push,
+      preview,
+      previewRegistration,
+      pullRequest,
+      checks,
+      merge,
+      production,
+    },
   };
 }
 
 async function executeWebBuildUpgrade(params: WebBuildUpgradeParams, ctx: ToolContext): Promise<WebBuildResult> {
-  const config = getWebBuildConfig();
-  const payload: Record<string, unknown> = {
-    projectId: params.project_id,
-    additionalContext: params.additional_context,
-    userId: config.serviceAccountId,
-    brandContext: DEFAULT_BRAND_CONTEXT,
-    accountProfileOverride: buildAccountProfileOverride(DEFAULT_BRAND_CONTEXT),
-  };
+  const upgradeBrief = [
+    `Upgrade the existing website project ${params.project_id} into a production-ready build.`,
+    'Preserve the established product purpose and brand unless the new requirements explicitly change them.',
+    params.additional_context?.trim() || 'Harden the implementation, complete QA expectations, and ship the result to production.',
+  ].join(' ');
 
-  try {
-    return await executeBuildRequest('/upgrade-prototype', payload, 'full_build', ctx);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes('404')) throw error;
-    return executeBuildRequest('/upgrade', payload, 'full_build', ctx);
-  }
+  return executeWebBuild({
+    brief: upgradeBrief,
+    tier: 'full_build',
+    project_id: params.project_id,
+  }, ctx, {
+    branchOverride: createBranchName(UPGRADE_BRANCH_PREFIX),
+    commitMessage: 'feat: upgrade website build',
+    prTitle: `feat: upgrade ${params.project_id}`,
+    prBody: params.additional_context?.trim()
+      ? `Upgrade request:\n\n${params.additional_context.trim()}`
+      : `Upgrade ${params.project_id} to a production-ready website build.`,
+  });
 }
 
 function truncateSummary(input: string): string {
@@ -386,7 +713,7 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
   if (allowBuild) {
     tools.push({
       name: 'invoke_web_build',
-      description: 'Build a complete web application or page using the internal web build engine. Provide a detailed brief and tier; the system handles architecture, design, implementation, QA, and deployment.',
+      description: 'Build a complete web application or page using the Glyphor website pipeline. Provide a detailed brief and tier; the system provisions the repo, generates the site, deploys preview infrastructure, and optionally ships production.',
       parameters: {
         brief: {
           type: 'string',
@@ -445,7 +772,18 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
             project_type: params.project_type as WebProjectType | undefined,
             project_id: params.project_id as string | undefined,
             brand_context: params.brand_context as Partial<WebBrandContext> | undefined,
-          }, ctx);
+          }, ctx, tier === 'iterate'
+            ? {
+                repairContext: brief,
+                branchOverride: createBranchName(ITERATION_BRANCH_PREFIX),
+                commitMessage: 'feat: apply website iteration',
+              }
+            : (params.project_id && tier === 'full_build')
+                ? {
+                    branchOverride: createBranchName(UPGRADE_BRANCH_PREFIX),
+                    commitMessage: 'feat: refresh website build',
+                  }
+                : undefined);
 
           await memory.appendActivity({
             agentRole: ctx.agentRole,
@@ -469,7 +807,7 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
   if (allowIterate) {
     tools.push({
       name: 'invoke_web_iterate',
-      description: 'Modify an existing web project using targeted change instructions. The system applies changes, verifies the build, and redeploys.',
+      description: 'Modify an existing website project using the Glyphor website pipeline. The system regenerates the build on a fresh branch, redeploys preview, and returns the updated preview URL.',
       parameters: {
         project_id: {
           type: 'string',
@@ -490,10 +828,14 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
 
         try {
           const result = await executeWebBuild({
-            brief: changes,
+            brief: `Update the existing website project ${projectId}. Preserve the current product purpose and brand unless the requested changes explicitly replace them. Requested changes: ${changes}`,
             tier: 'iterate',
             project_id: projectId,
-          }, ctx);
+          }, ctx, {
+            repairContext: changes,
+            branchOverride: createBranchName(ITERATION_BRANCH_PREFIX),
+            commitMessage: 'feat: apply website iteration',
+          });
 
           await memory.appendActivity({
             agentRole: ctx.agentRole,
@@ -517,7 +859,7 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
   if (allowUpgrade) {
     tools.push({
       name: 'invoke_web_upgrade',
-      description: 'Upgrade a prototype to a full production build with QA, GitHub commit or PR metadata, and deployment artifacts.',
+      description: 'Upgrade an existing website project to a full production build using the Glyphor website pipeline, including PR promotion and production deployment verification.',
       parameters: {
         project_id: {
           type: 'string',
