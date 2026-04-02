@@ -194,6 +194,7 @@ const KNOWN_TOOLS = new Set([
   // webBuildTools
   'invoke_web_build',
   'invoke_web_iterate',
+  'invoke_web_coding_loop',
   'invoke_web_upgrade',
   'build_website_foundation',
   'github_create_from_template',

@@ -3,6 +3,7 @@ import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import { createCloudflarePreviewTools, createGithubFromTemplateTools, createGithubPullRequestTools, createGithubPushFilesTools, createVercelProjectTools } from '@glyphor/integrations';
 import { createDesignBriefTools } from './designBriefTools.js';
 import { runSandboxBuild } from './sandboxBuildValidator.js';
+import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
 
 type WebBuildTier = 'prototype' | 'full_build' | 'iterate';
 type WebProjectType = 'react_spa' | 'nextjs_fullstack' | 'fastapi_backend' | 'legacy_refactor' | 'dbt_pipeline' | 'terraform_infra';
@@ -43,6 +44,7 @@ interface WebBuildToolPolicy {
   allowBuild?: boolean;
   allowIterate?: boolean;
   allowUpgrade?: boolean;
+  allowAutonomousLoop?: boolean;
   allowedBuildTiers?: WebBuildTier[];
 }
 
@@ -106,6 +108,41 @@ let websitePipelineToolCache: Map<string, ToolDefinition> | null = null;
 interface WebBuildUpgradeParams {
   project_id: string;
   additional_context?: string;
+}
+
+type LighthouseStrategy = 'mobile' | 'desktop';
+
+interface AutonomousLoopParams {
+  project_id: string;
+  goal: string;
+  max_iterations?: number;
+  viewport?: 'desktop' | 'tablet' | 'mobile';
+  lighthouse_strategy?: LighthouseStrategy;
+  min_performance?: number;
+  min_accessibility?: number;
+  min_best_practices?: number;
+  min_seo?: number;
+  stop_on_no_improvement?: boolean;
+  include_screenshot?: boolean;
+}
+
+interface AutonomousLoopIteration {
+  iteration: number;
+  preview_url?: string;
+  deploy_url?: string;
+  github_pr_url?: string;
+  lighthouse?: {
+    strategy: LighthouseStrategy;
+    scores: Record<string, number>;
+    opportunities: Array<{ title: string; score: number; detail?: string }>;
+  };
+  screenshot?: {
+    width?: number;
+    height?: number;
+    image?: string;
+  };
+  composite_score?: number;
+  met_thresholds?: boolean;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -706,10 +743,110 @@ function truncateSummary(input: string): string {
   return clean.length > 90 ? `${clean.slice(0, 87)}...` : clean;
 }
 
+function clampIterations(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 3;
+  return Math.min(6, Math.max(1, Math.floor(parsed)));
+}
+
+function clampThreshold(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(100, Math.max(0, Math.floor(parsed)));
+}
+
+async function capturePreviewScreenshot(
+  url: string,
+  viewport: 'desktop' | 'tablet' | 'mobile',
+  includeImage: boolean,
+): Promise<{ width?: number; height?: number; image?: string }> {
+  const viewportMap: Record<'desktop' | 'tablet' | 'mobile', { width: number; height: number }> = {
+    desktop: { width: 1440, height: 900 },
+    tablet: { width: 768, height: 1024 },
+    mobile: { width: 375, height: 812 },
+  };
+  const res = await fetch(`${getPlaywrightServiceUrl()}/screenshot`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url,
+      viewport: viewportMap[viewport],
+      full_page: true,
+      wait_for: 'networkidle',
+    }),
+    signal: AbortSignal.timeout(90_000),
+  });
+  if (!res.ok) {
+    throw new Error(`Screenshot service returned ${res.status}: ${await res.text()}`);
+  }
+  const data = await res.json() as Record<string, unknown>;
+  return {
+    width: typeof data.width === 'number' ? data.width : undefined,
+    height: typeof data.height === 'number' ? data.height : undefined,
+    image: includeImage && typeof data.image === 'string' ? data.image : undefined,
+  };
+}
+
+async function runLighthouseAudit(url: string, strategy: LighthouseStrategy): Promise<{
+  strategy: LighthouseStrategy;
+  scores: Record<string, number>;
+  opportunities: Array<{ title: string; score: number; detail?: string }>;
+}> {
+  const encodedUrl = encodeURIComponent(url);
+  const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodedUrl}&strategy=${strategy}&category=performance&category=accessibility&category=best-practices&category=seo`;
+  const res = await fetch(apiUrl, { signal: AbortSignal.timeout(45_000) });
+  if (!res.ok) {
+    throw new Error(`PageSpeed API returned ${res.status}`);
+  }
+  const json = await res.json() as Record<string, unknown>;
+  const cats = (json.lighthouseResult as Record<string, unknown>)?.categories as Record<string, { score: number; title: string }> | undefined;
+  const audits = (json.lighthouseResult as Record<string, unknown>)?.audits as Record<string, { score: number | null; title: string; displayValue?: string }> | undefined;
+  if (!cats) {
+    throw new Error('Unexpected PageSpeed response format');
+  }
+  const scores = Object.fromEntries(
+    Object.entries(cats).map(([key, value]) => [key, Math.round((value.score ?? 0) * 100)]),
+  );
+  const opportunities = audits
+    ? Object.values(audits)
+      .filter((a) => a.score !== null && a.score < 0.9 && a.displayValue)
+      .sort((a, b) => (a.score ?? 1) - (b.score ?? 1))
+      .slice(0, 8)
+      .map((a) => ({ title: a.title, score: Math.round((a.score ?? 0) * 100), detail: a.displayValue }))
+    : [];
+  return { strategy, scores, opportunities };
+}
+
+function normalizeLighthouseScores(scores: Record<string, number>): Record<string, number> {
+  return {
+    performance: Number(scores.performance ?? 0),
+    accessibility: Number(scores.accessibility ?? 0),
+    best_practices: Number(scores['best-practices'] ?? scores.best_practices ?? 0),
+    seo: Number(scores.seo ?? 0),
+  };
+}
+
+function computeCompositeScore(scores: Record<string, number>): number {
+  const normalized = normalizeLighthouseScores(scores);
+  return Math.round((normalized.performance + normalized.accessibility + normalized.best_practices + normalized.seo) / 4);
+}
+
+function meetsLighthouseThresholds(
+  scores: Record<string, number>,
+  thresholds: { performance: number; accessibility: number; best_practices: number; seo: number },
+): boolean {
+  const normalized = normalizeLighthouseScores(scores);
+  return normalized.performance >= thresholds.performance
+    && normalized.accessibility >= thresholds.accessibility
+    && normalized.best_practices >= thresholds.best_practices
+    && normalized.seo >= thresholds.seo;
+}
+
 export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuildToolPolicy = {}): ToolDefinition[] {
   const allowBuild = policy.allowBuild !== false;
   const allowIterate = policy.allowIterate !== false;
   const allowUpgrade = policy.allowUpgrade !== false;
+  const allowAutonomousLoop = policy.allowAutonomousLoop !== false;
   const allowedBuildTiers = normalizeBuildTiers(policy.allowedBuildTiers);
   const tools: ToolDefinition[] = [];
 
@@ -854,6 +991,170 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
             success: false,
             error: error instanceof Error ? error.message : String(error),
           };
+        }
+      },
+    });
+  }
+
+  if (allowIterate && allowAutonomousLoop) {
+    tools.push({
+      name: 'invoke_web_coding_loop',
+      description: 'Run a Claude-style autonomous coding loop for an existing web project: iterate code, wait for preview, screenshot, run Lighthouse, and continue until thresholds are met or the iteration budget is exhausted.',
+      parameters: {
+        project_id: {
+          type: 'string',
+          description: 'Existing project ID to iterate on.',
+          required: true,
+        },
+        goal: {
+          type: 'string',
+          description: 'The concrete coding objective to accomplish over multiple iterations.',
+          required: true,
+        },
+        max_iterations: {
+          type: 'number',
+          description: 'Maximum iteration rounds (1-6). Defaults to 3.',
+        },
+        viewport: {
+          type: 'string',
+          enum: ['desktop', 'tablet', 'mobile'],
+          description: 'Viewport used for screenshot capture. Defaults to desktop.',
+        },
+        lighthouse_strategy: {
+          type: 'string',
+          enum: ['desktop', 'mobile'],
+          description: 'Lighthouse strategy. Defaults to desktop.',
+        },
+        min_performance: { type: 'number', description: 'Minimum Lighthouse performance score (0-100). Default 75.' },
+        min_accessibility: { type: 'number', description: 'Minimum Lighthouse accessibility score (0-100). Default 85.' },
+        min_best_practices: { type: 'number', description: 'Minimum Lighthouse best-practices score (0-100). Default 85.' },
+        min_seo: { type: 'number', description: 'Minimum Lighthouse SEO score (0-100). Default 85.' },
+        stop_on_no_improvement: {
+          type: 'boolean',
+          description: 'Stop early if composite Lighthouse score is flat or lower on a later round. Defaults to true.',
+        },
+        include_screenshot: {
+          type: 'boolean',
+          description: 'Include base64 screenshot image in each iteration result. Defaults to false to reduce payload size.',
+        },
+      },
+      async execute(params, ctx): Promise<ToolResult> {
+        const input: AutonomousLoopParams = {
+          project_id: String(params.project_id ?? '').trim(),
+          goal: String(params.goal ?? '').trim(),
+          max_iterations: params.max_iterations as number | undefined,
+          viewport: (params.viewport as 'desktop' | 'tablet' | 'mobile' | undefined) ?? 'desktop',
+          lighthouse_strategy: (params.lighthouse_strategy as LighthouseStrategy | undefined) ?? 'desktop',
+          min_performance: params.min_performance as number | undefined,
+          min_accessibility: params.min_accessibility as number | undefined,
+          min_best_practices: params.min_best_practices as number | undefined,
+          min_seo: params.min_seo as number | undefined,
+          stop_on_no_improvement: params.stop_on_no_improvement as boolean | undefined,
+          include_screenshot: params.include_screenshot as boolean | undefined,
+        };
+
+        if (!input.project_id) return { success: false, error: 'Parameter "project_id" is required.' };
+        if (!input.goal) return { success: false, error: 'Parameter "goal" is required.' };
+        const viewport = input.viewport ?? 'desktop';
+        const lighthouseStrategy = input.lighthouse_strategy ?? 'desktop';
+        if (!['desktop', 'tablet', 'mobile'].includes(viewport)) return { success: false, error: 'Parameter "viewport" must be desktop, tablet, or mobile.' };
+        if (!['desktop', 'mobile'].includes(lighthouseStrategy)) return { success: false, error: 'Parameter "lighthouse_strategy" must be desktop or mobile.' };
+
+        const maxIterations = clampIterations(input.max_iterations);
+        const stopOnNoImprovement = input.stop_on_no_improvement !== false;
+        const includeScreenshot = input.include_screenshot === true;
+        const thresholds = {
+          performance: clampThreshold(input.min_performance, 75),
+          accessibility: clampThreshold(input.min_accessibility, 85),
+          best_practices: clampThreshold(input.min_best_practices, 85),
+          seo: clampThreshold(input.min_seo, 85),
+        };
+
+        const iterations: AutonomousLoopIteration[] = [];
+        let converged = false;
+        let stopReason = 'iteration_budget_reached';
+        let previousComposite: number | null = null;
+        let lastResult: WebBuildResult | null = null;
+
+        try {
+          for (let index = 0; index < maxIterations; index += 1) {
+            const iterationNumber = index + 1;
+            const iterationPrompt = [
+              `Iteration ${iterationNumber}/${maxIterations} for project ${input.project_id}.`,
+              `Primary coding goal: ${input.goal}`,
+              'Return a materially improved implementation that remains brand-consistent and production-safe.',
+            ].join(' ');
+            const webResult = await executeWebBuild({
+              brief: `Update the existing website project ${input.project_id}. ${iterationPrompt}`,
+              tier: 'iterate',
+              project_id: input.project_id,
+            }, ctx, {
+              repairContext: `${input.goal}\nRound ${iterationNumber} of ${maxIterations}.`,
+              branchOverride: createBranchName(ITERATION_BRANCH_PREFIX),
+              commitMessage: `feat: autonomous web coding loop round ${iterationNumber}`,
+            });
+            lastResult = webResult;
+
+            const previewUrl = webResult.preview_url ?? webResult.deploy_url;
+            if (!previewUrl) {
+              throw new Error('Website pipeline returned no preview URL for iteration loop.');
+            }
+
+            const [screenshot, lighthouse] = await Promise.all([
+              capturePreviewScreenshot(previewUrl, viewport, includeScreenshot),
+              runLighthouseAudit(previewUrl, lighthouseStrategy),
+            ]);
+            const compositeScore = computeCompositeScore(lighthouse.scores);
+            const metThresholds = meetsLighthouseThresholds(lighthouse.scores, thresholds);
+
+            iterations.push({
+              iteration: iterationNumber,
+              preview_url: webResult.preview_url,
+              deploy_url: webResult.deploy_url,
+              github_pr_url: webResult.github_pr_url,
+              screenshot,
+              lighthouse,
+              composite_score: compositeScore,
+              met_thresholds: metThresholds,
+            });
+
+            if (metThresholds) {
+              converged = true;
+              stopReason = 'thresholds_met';
+              break;
+            }
+
+            if (stopOnNoImprovement && previousComposite !== null && compositeScore <= previousComposite) {
+              stopReason = 'no_improvement';
+              break;
+            }
+            previousComposite = compositeScore;
+          }
+
+          await memory.appendActivity({
+            agentRole: ctx.agentRole,
+            action: 'deploy',
+            product: 'company',
+            summary: `Web coding loop ${input.project_id}: ${converged ? 'converged' : stopReason}`,
+            createdAt: new Date().toISOString(),
+          });
+
+          return {
+            success: true,
+            data: {
+              project_id: input.project_id,
+              goal: input.goal,
+              converged,
+              stop_reason: stopReason,
+              thresholds,
+              iterations,
+              latest_preview_url: lastResult?.preview_url,
+              latest_deploy_url: lastResult?.deploy_url,
+              latest_github_pr_url: lastResult?.github_pr_url,
+            },
+          };
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       },
     });

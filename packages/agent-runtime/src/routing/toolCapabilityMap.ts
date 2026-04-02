@@ -37,6 +37,7 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   normalize_design_brief: ['creative_writing'],
   invoke_web_build: ['code_generation'],
   invoke_web_iterate: ['code_generation'],
+  invoke_web_coding_loop: ['code_generation', 'visual_analysis'],
   invoke_web_upgrade: ['code_generation'],
   build_website_foundation: ['code_generation'],
   github_create_from_template: ['code_generation'],

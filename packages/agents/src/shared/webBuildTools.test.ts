@@ -160,4 +160,95 @@ describe('webBuildTools website pipeline replacement', () => {
     expect(executeChildTool).toHaveBeenCalledWith('github_merge_pull_request', expect.objectContaining({ repo: 'Glyphor-Fuse/pilot-ops', pr_number: 42 }));
     expect(appendActivity).toHaveBeenCalledOnce();
   });
+
+  it('runs autonomous coding loop and exits when thresholds are met', async () => {
+    const appendActivity = vi.fn();
+    const executeChildTool = vi.fn(async (toolName: string) => {
+      switch (toolName) {
+        case 'normalize_design_brief':
+          return {
+            audience_persona: 'Operators',
+            primary_conversion_action: 'Start trial',
+            emotional_target: 'Urgency',
+            one_sentence_memory: 'Pilot turns prompts into operations.',
+            aesthetic_direction: 'Bold minimal',
+            product_type: 'web_application',
+          };
+        case 'build_website_foundation':
+          return {
+            files: { 'src/App.tsx': 'export default function App() { return null; }' },
+            architectural_reasoning: 'reasoning',
+            design_plan: { sections: [{ id: 'hero' }, { id: 'cta' }] },
+            image_manifest: [],
+          };
+        case 'github_push_files':
+          return { commit_sha: 'iter123', branch_url: 'https://github.com/Glyphor-Fuse/pilot-ops/tree/feature/web-iterate-123' };
+        case 'vercel_get_preview_url':
+          return { state: 'READY', preview_url: 'https://pilot-ops-git-iter.vercel.app' };
+        case 'cloudflare_update_preview':
+          return { preview_url: 'https://pilot-ops.preview.glyphor.ai' };
+        case 'github_create_pull_request':
+          return { pr_number: 101, pr_url: 'https://github.com/Glyphor-Fuse/pilot-ops/pull/101', draft: true };
+        default:
+          throw new Error(`Unexpected child tool: ${toolName}`);
+      }
+    });
+
+    const originalFetch = globalThis.fetch;
+    vi.stubEnv('PLAYWRIGHT_SERVICE_URL', 'https://playwright.internal');
+    vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
+      const url = String(input);
+      if (url.includes('/screenshot')) {
+        return {
+          ok: true,
+          json: async () => ({ image: 'base64-image', width: 1440, height: 900 }),
+        } as Response;
+      }
+      if (url.includes('pagespeedonline')) {
+        return {
+          ok: true,
+          json: async () => ({
+            lighthouseResult: {
+              categories: {
+                performance: { score: 0.92, title: 'Performance' },
+                accessibility: { score: 0.97, title: 'Accessibility' },
+                'best-practices': { score: 0.95, title: 'Best Practices' },
+                seo: { score: 0.94, title: 'SEO' },
+              },
+              audits: {},
+            },
+          }),
+        } as Response;
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }));
+
+    try {
+      const memory = { appendActivity } as unknown as Parameters<typeof createWebBuildTools>[0];
+      const tool = createWebBuildTools(memory, { allowBuild: false, allowIterate: true, allowUpgrade: false })
+        .find((entry) => entry.name === 'invoke_web_coding_loop');
+
+      expect(tool).toBeDefined();
+
+      const result = await tool!.execute({
+        project_id: 'Glyphor-Fuse/pilot-ops',
+        goal: 'Improve information hierarchy and CTA prominence on hero and pricing sections.',
+        max_iterations: 3,
+      }, createContext(executeChildTool));
+
+      expect(result.success).toBe(true);
+      expect(result.data).toMatchObject({
+        project_id: 'Glyphor-Fuse/pilot-ops',
+        converged: true,
+        stop_reason: 'thresholds_met',
+      });
+      expect((result.data as { iterations: Array<{ met_thresholds?: boolean }> }).iterations).toHaveLength(1);
+      expect((result.data as { iterations: Array<{ met_thresholds?: boolean }> }).iterations[0]?.met_thresholds).toBe(true);
+      expect(appendActivity).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

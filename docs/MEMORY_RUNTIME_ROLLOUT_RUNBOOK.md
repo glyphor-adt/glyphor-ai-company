@@ -43,6 +43,14 @@ This runbook covers safe rollout of session memory updates, summary-first compac
   - Default `5`.
 - `JIT_SELECTOR_MAX_PER_SOURCE`
   - Default `2`.
+- `JIT_SELECTOR_STALE_DAYS_THRESHOLD`
+  - Default `30`; begins stale-score penalty.
+- `JIT_SELECTOR_VERY_STALE_DAYS_THRESHOLD`
+  - Default `90`; applies stronger stale-score penalty.
+- `JIT_SELECTOR_STALE_PENALTY_MULTIPLIER`
+  - Default `0.9`; multiplies score for stale entries.
+- `JIT_SELECTOR_VERY_STALE_PENALTY_MULTIPLIER`
+  - Default `0.75`; multiplies score for very stale entries.
 
 ## Recommended Staging Rollout
 
