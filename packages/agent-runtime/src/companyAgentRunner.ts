@@ -46,6 +46,7 @@ import { readWorldState, writeWorldState, formatWorldStateForPrompt } from './wo
 import { AGENT_WORLD_STATE_KEYS, AGENT_WORLD_STATE_DOMAIN } from './worldStateKeys.js';
 import { resolveUpstreamContext } from './dependencyResolver.js';
 import { shouldUseClientSideHistoryCompression } from './compaction.js';
+import { resolvePlanningPolicy } from './planningPolicy.js';
 import type { RequestSource } from './providers/types.js';
 import type {
   SessionMemoryStore,
@@ -1637,10 +1638,16 @@ export class CompanyAgentRunner {
     const requestSource: RequestSource = task === 'on_demand' ? 'on_demand' : 'scheduled';
     let compactionCount = 0;
     let compactionSummary: string | undefined;
-    const planningMode = config.planningMode ?? (isTaskTier ? 'auto' : 'off');
-    const completionGateEnabled = config.completionGateEnabled ?? (planningMode !== 'off');
-    const planningMaxAttempts = Math.max(1, config.planningMaxAttempts ?? 2);
-    const completionGateMaxRetries = Math.max(0, config.completionGateMaxRetries ?? 2);
+    const planningPolicy = resolvePlanningPolicy({
+      role: config.role,
+      task,
+      config,
+      taskTierHint: isTaskTier,
+    });
+    const planningMode = planningPolicy.planningMode;
+    const completionGateEnabled = planningPolicy.completionGateEnabled;
+    const planningMaxAttempts = planningPolicy.planningMaxAttempts;
+    const completionGateMaxRetries = planningPolicy.completionGateMaxRetries;
     let runPhase: 'planning' | 'execution' = planningMode === 'off' ? 'execution' : 'planning';
     let planningAttempts = 0;
     let completionGateRetries = 0;

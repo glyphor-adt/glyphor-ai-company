@@ -23,6 +23,14 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
 - `AGENT_TRACING_ENABLED`
   - Enable trace span logs when truthy (`1`, `true`, `yes`, `on`).
   - Recommended: enable in staging first, then one production service canary.
+- `AGENT_PLANNING_POLICY_JSON`
+  - Optional JSON override for planner/executor and completion-gate policy.
+  - Built-in defaults:
+    - strict (`required`) for `frontend-engineer`, `vp-design`, `ui-ux-designer` on non-`on_demand` tasks,
+    - `auto` for most task-tier roles on non-`on_demand`,
+    - `off` for `on_demand` by default.
+  - Example:
+    - `{"default":{"planningMode":"auto","completionGateMaxRetries":2},"roles":{"frontend-engineer":{"planningMode":"required"}},"tasks":{"on_demand":{"planningMode":"off","completionGateEnabled":false}}}`
 
 ## Rollout Checklist
 

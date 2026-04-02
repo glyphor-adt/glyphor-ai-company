@@ -50,6 +50,7 @@ import { composeModelContext } from './context/contextComposer.js';
 import { microCompactHistory } from './context/microCompactor.js';
 import { startTraceSpan } from './telemetry/tracing.js';
 import { extractAcceptanceCriteriaFromMessage, parseExecutionPlan } from './executionPlanning.js';
+import { resolvePlanningPolicy } from './planningPolicy.js';
 import { runDeterministicPreCheck } from './routing/index.js';
 import { buildToolTaskContext, getToolRetriever, type ToolRetrieverTrace } from './routing/toolRetriever.js';
 import type { RoutingDecision } from './routing/index.js';
@@ -439,6 +440,7 @@ export abstract class BaseAgentRunner {
       { role: 'user', content: initialMessage, timestamp: Date.now(), ...(initialAttachments ? { attachments: initialAttachments } : {}) },
     ];
 
+    const taskForContext = extractTaskFromConfigId(config.id);
     let lastTextOutput: string | null = null;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
@@ -450,10 +452,16 @@ export abstract class BaseAgentRunner {
     let microCompactionOccurred = false;
     let latestMicroCompactionSummary: string | undefined;
     const actionReceipts: ActionReceipt[] = [];
-    const planningMode = config.planningMode ?? (this.archetype === 'task' ? 'auto' : 'off');
-    const completionGateEnabled = config.completionGateEnabled ?? (planningMode !== 'off');
-    const planningMaxAttempts = Math.max(1, config.planningMaxAttempts ?? 2);
-    const completionGateMaxRetries = Math.max(0, config.completionGateMaxRetries ?? 2);
+    const planningPolicy = resolvePlanningPolicy({
+      role: config.role,
+      task: taskForContext,
+      config,
+      taskTierHint: this.archetype === 'task',
+    });
+    const planningMode = planningPolicy.planningMode;
+    const completionGateEnabled = planningPolicy.completionGateEnabled;
+    const planningMaxAttempts = planningPolicy.planningMaxAttempts;
+    const completionGateMaxRetries = planningPolicy.completionGateMaxRetries;
     let runPhase: 'planning' | 'execution' = planningMode === 'off' ? 'execution' : 'planning';
     let planningAttempts = 0;
     let completionGateRetries = 0;
@@ -467,7 +475,6 @@ export abstract class BaseAgentRunner {
     const summaryFirstCompactionEnabled = isSummaryFirstCompactionEnabled();
 
     // ─── Load shared memory + JIT context in parallel ───────────
-    const taskForContext = extractTaskFromConfigId(config.id);
     void recordRunEvent({
       runId: config.dbRunId ?? config.id,
       eventType: 'run.started',
