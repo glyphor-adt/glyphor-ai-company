@@ -1517,6 +1517,15 @@ export class CompanyAgentRunner {
         }
         if (jitSections.length > 0) {
           if (jitResult.selectionMeta) {
+            emitEvent({
+              type: 'jit_selector_summary',
+              agentId: config.id,
+              turnNumber: 0,
+              candidateCount: jitResult.selectionMeta.candidateCount,
+              selectedCount: jitResult.selectionMeta.selectedCount,
+              selectedBySource: jitResult.selectionMeta.selectedBySource,
+              selectedFreshness: jitResult.selectionMeta.selectedFreshness,
+            });
             console.log(
               `[JITSelector] ${config.role}: candidates=${jitResult.selectionMeta.candidateCount}, selected=${jitResult.selectionMeta.selectedCount}, by_source=${JSON.stringify(jitResult.selectionMeta.selectedBySource)}, freshness=${JSON.stringify(jitResult.selectionMeta.selectedFreshness)}`,
             );

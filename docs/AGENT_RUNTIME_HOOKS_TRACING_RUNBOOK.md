@@ -81,6 +81,7 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
 ## Claude-Style Web Coding Loop Usage
 
 Use this section to standardize web build iteration behavior across design/engineering agents.
+For quick daily execution, use `docs/WEB_CODING_LOOP_PLAYBOOK.md`.
 
 ### Tool Selection
 

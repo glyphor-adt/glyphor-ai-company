@@ -678,6 +678,15 @@ ${memPrompt}`, timestamp: Date.now() });
       }
       if (jitSections.length > 0) {
         if (jitContext.selectionMeta) {
+          emitEvent({
+            type: 'jit_selector_summary',
+            agentId: config.id,
+            turnNumber: 0,
+            candidateCount: jitContext.selectionMeta.candidateCount,
+            selectedCount: jitContext.selectionMeta.selectedCount,
+            selectedBySource: jitContext.selectionMeta.selectedBySource,
+            selectedFreshness: jitContext.selectionMeta.selectedFreshness,
+          });
           console.log(
             `[JITSelector] ${config.role}: candidates=${jitContext.selectionMeta.candidateCount}, selected=${jitContext.selectionMeta.selectedCount}, by_source=${JSON.stringify(jitContext.selectionMeta.selectedBySource)}, freshness=${JSON.stringify(jitContext.selectionMeta.selectedFreshness)}`,
           );

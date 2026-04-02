@@ -308,6 +308,20 @@ export type AgentEvent =
   | { type: 'tool_call'; agentId: string; turnNumber: number; toolName: string; params: Record<string, unknown> }
   | { type: 'tool_result'; agentId: string; turnNumber: number; toolName: string; success: boolean; filesWritten: number; memoryKeysWritten: number }
   | { type: 'context_injected'; agentId: string; turnNumber: number; contextLength: number }
+  | {
+      type: 'jit_selector_summary';
+      agentId: string;
+      turnNumber: number;
+      candidateCount: number;
+      selectedCount: number;
+      selectedBySource: Record<string, number>;
+      selectedFreshness: {
+        fresh: number;
+        stale: number;
+        very_stale: number;
+        unknown: number;
+      };
+    }
   | { type: 'agent_completed'; agentId: string; totalTurns: number; totalFiles: number; totalMemoryKeys: number; elapsedMs: number }
   | { type: 'agent_aborted'; agentId: string; reason: string; totalTurns: number; elapsedMs: number }
   | { type: 'agent_error'; agentId: string; error: string; turnNumber: number };
