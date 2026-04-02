@@ -656,6 +656,8 @@ export type SecurityEventType =
   | 'TOOL_VERIFICATION_BLOCK'
   | 'BEHAVIORAL_ANOMALY'
   | 'ACTION_RISK_BLOCKED'
+  | 'HOOK_BLOCKED'
+  | 'HOOK_ERROR'
   | 'CAPACITY_TIER_BLOCKED';
 
 export interface SecurityEvent {

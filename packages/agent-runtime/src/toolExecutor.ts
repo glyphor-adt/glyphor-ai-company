@@ -56,6 +56,7 @@ import {
 } from './behavioralFingerprint.js';
 import { classifyActionRisk } from './actionRiskClassifier.js';
 import type { CommunicationType, RecipientType } from './types.js';
+import { createToolHookRunnerFromEnv, type ToolHookRunner } from './hooks/hookRunner.js';
 
 // ─── Tool Call Trace Persistence ───────────────────────────────
 // Fire-and-forget write of each tool call to tool_call_traces for
@@ -556,12 +557,14 @@ export class ToolExecutor {
   private modelClient: ModelClient | null = null;
   private redisCache: RedisCache | null = null;
   private verifierRunner: VerifierRunner | null = null;
+  private toolHookRunner: ToolHookRunner | null = null;
 
   constructor(tools: ToolDefinition[], dryRun = false, enforcement = true, formalVerifier?: FormalVerifier) {
     this.tools = new Map(tools.map((t) => [t.name, t]));
     this.dryRun = dryRun;
     this.enforcementEnabled = enforcement;
     this.formalVerifier = formalVerifier ?? null;
+    this.toolHookRunner = createToolHookRunnerFromEnv();
   }
 
   /** Attach constitutional pre-check dependencies. Call once after construction. */
@@ -574,6 +577,11 @@ export class ToolExecutor {
     this.modelClient = deps.modelClient ?? null;
     this.redisCache = deps.redisCache ?? null;
     this.verifierRunner = deps.modelClient ? new VerifierRunner(deps.modelClient) : null;
+  }
+
+  /** Inject a custom hook runner (primarily for tests). */
+  setToolHookRunner(runner: ToolHookRunner | null): void {
+    this.toolHookRunner = runner;
   }
 
   // ─── Cost Tracking ────────────────────────────────────────────
@@ -940,6 +948,51 @@ export class ToolExecutor {
       }
 
       return blockedResult;
+    }
+
+    if (this.toolHookRunner) {
+      try {
+        const hookDecision = await this.toolHookRunner.runPreToolUse({
+          agentId: context.agentId,
+          agentRole: context.agentRole,
+          toolName,
+          params,
+          runId: context.runId,
+          assignmentId: context.assignmentId,
+          turnNumber: context.turnNumber,
+          riskLevel: riskAssessment.level,
+        });
+
+        if (!hookDecision.allow) {
+          this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'HOOK_BLOCKED', {
+            reason: hookDecision.reason ?? 'Blocked by pre-tool hook',
+          });
+          return {
+            success: false,
+            error: hookDecision.reason ?? `Tool ${toolName} blocked by pre-tool hook.`,
+            filesWritten: 0,
+            memoryKeysWritten: 0,
+            riskLevel: riskAssessment.level,
+          };
+        }
+      } catch (hookError) {
+        const hookMessage = (hookError as Error).message;
+        this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'HOOK_ERROR', {
+          phase: 'pre_tool_use',
+          error: hookMessage,
+        });
+
+        // Fail closed for non-autonomous actions, fail open for autonomous.
+        if (riskAssessment.level !== 'AUTONOMOUS') {
+          return {
+            success: false,
+            error: `Pre-tool hook failed for ${toolName}: ${hookMessage}`,
+            filesWritten: 0,
+            memoryKeysWritten: 0,
+            riskLevel: riskAssessment.level,
+          };
+        }
+      }
     }
 
     // ─── Enforcement checks ────────────────────────────────────
@@ -1330,6 +1383,28 @@ export class ToolExecutor {
           context.turnNumber,
           context.retrievalMetadata?.get(toolName),
         );
+      }
+
+      if (this.toolHookRunner) {
+        try {
+          await this.toolHookRunner.runPostToolUse({
+            agentId: context.agentId,
+            agentRole: context.agentRole,
+            toolName,
+            params,
+            runId: context.runId,
+            assignmentId: context.assignmentId,
+            turnNumber: context.turnNumber,
+            riskLevel: riskAssessment.level,
+            result: finalResult,
+          });
+        } catch (hookError) {
+          const hookMessage = (hookError as Error).message;
+          this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'HOOK_ERROR', {
+            phase: 'post_tool_use',
+            error: hookMessage,
+          });
+        }
       }
 
       return finalResult;

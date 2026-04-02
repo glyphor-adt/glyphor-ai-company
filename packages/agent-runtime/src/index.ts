@@ -12,6 +12,19 @@ export { ProviderFactory, GeminiAdapter, OpenAIAdapter, AnthropicAdapter } from 
 export type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, UnifiedToolCall, UnifiedUsageMetadata, StructuredOutputSpec, ModelRoutingMetadata, UnifiedRequestMetadata } from './providers/types.js';
 export { AgentSupervisor } from './supervisor.js';
 export { ToolExecutor, isToolBlocked, invalidateBlockCache, isToolGranted, invalidateGrantCache, loadGrantedToolNames } from './toolExecutor.js';
+export { assertSafeOutboundUrl } from './security/ssrfGuard.js';
+export type { SsrfGuardOptions } from './security/ssrfGuard.js';
+export {
+  createToolHookRunner,
+  createToolHookRunnerFromEnv,
+  HookExecutionError,
+} from './hooks/hookRunner.js';
+export type {
+  ToolHookContext,
+  ToolHookPostContext,
+  ToolHookPreDecision,
+  ToolHookRunner,
+} from './hooks/hookRunner.js';
 export { EventBus } from './eventBus.js';
 export { GlyphorEventBus } from './glyphorEventBus.js';
 export type { GlyphorEventBusConfig } from './glyphorEventBus.js';

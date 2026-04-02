@@ -45,6 +45,7 @@ vi.mock('../behavioralFingerprint.js', () => ({
 
 import { ToolExecutor } from '../toolExecutor.js';
 import type { ToolContext, ToolDefinition } from '../types.js';
+import type { ToolHookRunner } from '../hooks/hookRunner.js';
 import { systemQuery } from '@glyphor/shared/db';
 
 function buildContext(overrides: Partial<ToolContext> = {}): ToolContext {
@@ -255,5 +256,97 @@ describe('ToolExecutor', () => {
 
     expect(declarations).toHaveLength(1);
     expect(declarations[0]).not.toHaveProperty('defer_loading');
+  });
+
+  it('blocks execution when pre-tool hook denies the call', async () => {
+    const tool: ToolDefinition = {
+      name: 'search_docs',
+      description: 'Search docs',
+      parameters: {
+        query: { type: 'string', description: 'Query', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: [] }),
+    };
+
+    const hookRunner: ToolHookRunner = {
+      runPreToolUse: vi.fn().mockResolvedValue({
+        allow: false,
+        reason: 'Blocked by compliance policy',
+      }),
+      runPostToolUse: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const executor = new ToolExecutor([tool]);
+    executor.setToolHookRunner(hookRunner);
+
+    const result = await executor.execute(
+      'search_docs',
+      { query: 'security playbook' },
+      buildContext(),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Blocked by compliance policy');
+    expect(tool.execute).not.toHaveBeenCalled();
+    expect(executor.getSecurityLog().some((event) => event.eventType === 'HOOK_BLOCKED')).toBe(true);
+  });
+
+  it('fails open on autonomous tools when pre-hook errors', async () => {
+    const tool: ToolDefinition = {
+      name: 'search_docs',
+      description: 'Search docs',
+      parameters: {
+        query: { type: 'string', description: 'Query', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: [] }),
+    };
+
+    const hookRunner: ToolHookRunner = {
+      runPreToolUse: vi.fn().mockRejectedValue(new Error('hook offline')),
+      runPostToolUse: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const executor = new ToolExecutor([tool]);
+    executor.setToolHookRunner(hookRunner);
+
+    const result = await executor.execute(
+      'search_docs',
+      { query: 'pricing docs' },
+      buildContext(),
+    );
+
+    expect(result.success).toBe(true);
+    expect(tool.execute).toHaveBeenCalledOnce();
+    expect(executor.getSecurityLog().some((event) => event.eventType === 'HOOK_ERROR')).toBe(true);
+  });
+
+  it('fails closed on non-autonomous tools when pre-hook errors', async () => {
+    const tool: ToolDefinition = {
+      name: 'post_to_slack',
+      description: 'Post to Slack',
+      parameters: {
+        channel: { type: 'string', description: 'Channel', required: true },
+        message: { type: 'string', description: 'Message', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: { sent: true } }),
+    };
+
+    const hookRunner: ToolHookRunner = {
+      runPreToolUse: vi.fn().mockRejectedValue(new Error('hook offline')),
+      runPostToolUse: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const executor = new ToolExecutor([tool]);
+    executor.setToolHookRunner(hookRunner);
+
+    const result = await executor.execute(
+      'post_to_slack',
+      { channel: '#ops', message: 'hi' },
+      buildContext(),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Pre-tool hook failed');
+    expect(tool.execute).not.toHaveBeenCalled();
   });
 });
