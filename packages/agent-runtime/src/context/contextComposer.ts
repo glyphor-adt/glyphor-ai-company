@@ -5,6 +5,7 @@ import {
   buildSystemFrameTurn,
   isSyntheticContextTurn,
   REASONING_STATE_PREFIX,
+  SESSION_SUMMARY_PREFIX,
 } from './systemFrame.js';
 
 export interface ContextComposerInput {
@@ -16,6 +17,7 @@ export interface ContextComposerInput {
   maxTokens?: number;
   includeReasoningState?: boolean;
   keepRecentGroups?: number;
+  sessionSummary?: string;
 }
 
 export interface ContextComposerResult {
@@ -79,6 +81,16 @@ function buildReasoningStateTurn(history: ConversationTurn[]): ConversationTurn 
   };
 }
 
+function buildSessionSummaryTurn(sessionSummary?: string): ConversationTurn | null {
+  const normalized = (sessionSummary ?? '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return null;
+  return {
+    role: 'user',
+    content: `${SESSION_SUMMARY_PREFIX}\nUse this summary for continuity. Prioritize this over stale tool chatter.\n\n${clip(normalized, 4800)}`,
+    timestamp: Date.now(),
+  };
+}
+
 export function composeModelContext(input: ContextComposerInput): ContextComposerResult {
   const sanitizedHistory = input.history.filter((turn) => !isSyntheticContextTurn(turn));
   const frameTurn = buildSystemFrameTurn({
@@ -91,9 +103,11 @@ export function composeModelContext(input: ContextComposerInput): ContextCompose
   const reasoningStateTurn = input.includeReasoningState === false
     ? null
     : buildReasoningStateTurn(sanitizedHistory);
+  const sessionSummaryTurn = buildSessionSummaryTurn(input.sessionSummary);
 
   const composedHistory: ConversationTurn[] = [
     frameTurn,
+    ...(sessionSummaryTurn ? [sessionSummaryTurn] : []),
     ...(reasoningStateTurn ? [reasoningStateTurn] : []),
     ...sanitizedHistory,
   ];

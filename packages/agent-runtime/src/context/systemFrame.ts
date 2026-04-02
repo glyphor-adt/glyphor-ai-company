@@ -2,6 +2,7 @@ import type { ConversationTurn } from '../types.js';
 
 export const SYSTEM_FRAME_PREFIX = '[SYSTEM FRAME]';
 export const REASONING_STATE_PREFIX = '[REASONING STATE]';
+export const SESSION_SUMMARY_PREFIX = '[SESSION SUMMARY]';
 
 export interface SystemFrameInput {
   role: string;
@@ -22,7 +23,11 @@ function oneLine(text: string): string {
 
 export function isSyntheticContextTurn(turn: ConversationTurn): boolean {
   const content = turn.content ?? '';
-  return content.startsWith(SYSTEM_FRAME_PREFIX) || content.startsWith(REASONING_STATE_PREFIX);
+  return (
+    content.startsWith(SYSTEM_FRAME_PREFIX) ||
+    content.startsWith(REASONING_STATE_PREFIX) ||
+    content.startsWith(SESSION_SUMMARY_PREFIX)
+  );
 }
 
 export function buildSystemFrameTurn(input: SystemFrameInput): ConversationTurn {

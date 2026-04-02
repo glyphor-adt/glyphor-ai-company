@@ -214,6 +214,93 @@ jobs:
           mappings="AGENT365_CFO_CLIENT_SECRET=agent365-cfo-client-secret:latest,AGENT365_SOCIAL_MEDIA_MANAGER_CLIENT_SECRET=agent365-social-media-manager-client-secret:latest"
           echo "mappings=$mappings" >> "$GITHUB_OUTPUT"
 
+      - name: Validate scheduler secrets exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_secrets=(
+            db-password
+            google-ai-api-key
+            azure-foundry-endpoint
+            azure-foundry-api
+            gcs-bucket
+            azure-tenant-id
+            azure-client-id
+            azure-client-secret
+            agent365-client-secret
+            agent365-client-id
+            agent365-cfo-client-secret
+            agent365-social-media-manager-client-secret
+            teams-team-id
+            teams-channel-briefings-id
+            teams-channel-decisions-id
+            teams-channel-general-id
+            teams-channel-engineering-id
+            teams-channel-growth-id
+            teams-channel-financials-id
+            teams-channel-alerts-id
+            teams-channel-deliverables-id
+            teams-founder-kristina-aad-id
+            teams-founder-andrew-aad-id
+            stripe-secret-key
+            mercury-api-token
+            sharepoint-site-id
+            sharepoint-drive-id
+            sharepoint-region
+            openai-admin-key-fuse
+            openai-admin-key-pulse
+            openai-admin-key-company
+            kling-access-key
+            kling-secret-key
+            canva-client-id
+            canva-client-secret
+            canva-refresh-token
+            anthropic-admin-key-fuse
+            anthropic-admin-key-pulse
+            anthropic-admin-key-company
+            github-token
+            fuse-github-service-pat
+            fuse-preview-vercel-token
+            fuse-preview-vercel-team-id
+            PREVIEWS_R2_ENDPOINT
+            PREVIEWS_R2_ACCESS_KEY_ID
+            PREVIEWS_R2_SECRET_ACCESS_KEY
+            gcp-project-id
+            pulse-service-role-key
+            pulse-mcp-endpoint
+            fuse-github-app-id
+            fuse-github-app-private-key
+            fuse-GLYPHOR_INSTALLATION_ID
+            facebook-app-id
+            facebook-app-secret
+            facebook-page-access-token
+            facebook-page-id
+            facebook-business-account-id
+            linkedin-client-id
+            linkedin-client-secret
+            linkedin-refresh-token
+            linkedin-organization-id
+            graph-delegated-refresh-token
+          )
+
+          if [[ -n "${{ env.TOOL_HOOKS_CONFIG_SECRET }}" ]]; then
+            required_secrets+=("${{ env.TOOL_HOOKS_CONFIG_SECRET }}")
+          fi
+
+          missing_secrets=()
+          for secret_name in "${required_secrets[@]}"; do
+            if ! gcloud secrets describe "$secret_name" --project="${{ env.GCP_PROJECT_ID }}" >/dev/null 2>&1; then
+              missing_secrets+=("$secret_name")
+            fi
+          done
+
+          if ((${#missing_secrets[@]} > 0)); then
+            echo "::error title=Missing Secret Manager secrets::Deploy prerequisites failed for glyphor-scheduler."
+            printf 'Missing secrets:\n'
+            printf '  - %s\n' "${missing_secrets[@]}"
+            exit 1
+          fi
+
       - name: Build & push scheduler image
         uses: docker/build-push-action@v6
         with:

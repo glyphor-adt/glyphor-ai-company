@@ -2,6 +2,7 @@ import type { ConversationTurn } from '../types.js';
 import { groupConversation, type ConversationGroup } from '../historyManager.js';
 import {
   REASONING_STATE_PREFIX,
+  SESSION_SUMMARY_PREFIX,
   SYSTEM_FRAME_PREFIX,
 } from './systemFrame.js';
 
@@ -59,6 +60,10 @@ function isReasoningStateTurn(turn: ConversationTurn): boolean {
   return turn.role === 'user' && (turn.content ?? '').startsWith(REASONING_STATE_PREFIX);
 }
 
+function isSessionSummaryTurn(turn: ConversationTurn): boolean {
+  return turn.role === 'user' && (turn.content ?? '').startsWith(SESSION_SUMMARY_PREFIX);
+}
+
 function isTaskAnchorTurn(turn: ConversationTurn, taskMessage?: string): boolean {
   if (turn.role !== 'user' || !taskMessage) return false;
   return (turn.content ?? '').trim() === taskMessage.trim();
@@ -68,6 +73,7 @@ function resolveMaxLength(turn: ConversationTurn, index: number, total: number):
   const age = total - index - 1;
   if (isFrameTurn(turn)) return 1800;
   if (isReasoningStateTurn(turn)) return 1400;
+  if (isSessionSummaryTurn(turn)) return 1800;
   if (isIdentityAnchor(turn)) return 1800;
 
   if (turn.role === 'user') return age <= 2 ? 2400 : 1200;
@@ -114,9 +120,10 @@ function scoreGroups(
     const hasIdentity = group.turns.some((turn) => isIdentityAnchor(turn));
     const hasTaskAnchor = taskAnchorIndex >= 0 && group.turns.some((turn) => history[taskAnchorIndex] === turn);
     const hasReasoningState = group.turns.some((turn) => isReasoningStateTurn(turn));
+    const hasSessionSummary = group.turns.some((turn) => isSessionSummaryTurn(turn));
     const hasFailedTool = group.turns.some((turn) => turn.role === 'tool_result' && !!turn.toolResult && !turn.toolResult.success);
 
-    const neverTrim = hasFrame || hasIdentity || hasTaskAnchor;
+    const neverTrim = hasFrame || hasIdentity || hasTaskAnchor || hasSessionSummary;
 
     let trimBand = 4;
     if (group.type === 'system') trimBand = 0;
@@ -133,6 +140,7 @@ function scoreGroups(
     if (group.type === 'tool_group') priorityScore += 20;
     if (group.type === 'reflection') priorityScore += 5;
     if (hasReasoningState) priorityScore += 45;
+    if (hasSessionSummary) priorityScore += 55;
     if (hasFailedTool) priorityScore -= 15;
 
     if (neverTrim) {
@@ -156,6 +164,7 @@ function aggressivelyCompact(turn: ConversationTurn): ConversationTurn {
   if (isFrameTurn(turn)) maxLength = 1400;
   else if (isIdentityAnchor(turn)) maxLength = 1000;
   else if (isReasoningStateTurn(turn)) maxLength = 900;
+  else if (isSessionSummaryTurn(turn)) maxLength = 1100;
   else if (turn.role === 'user') maxLength = 950;
   else if (turn.role === 'assistant') maxLength = 850;
   else if (turn.role === 'tool_result') maxLength = 650;

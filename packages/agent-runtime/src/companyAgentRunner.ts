@@ -46,6 +46,11 @@ import { AGENT_WORLD_STATE_KEYS, AGENT_WORLD_STATE_DOMAIN } from './worldStateKe
 import { resolveUpstreamContext } from './dependencyResolver.js';
 import { shouldUseClientSideHistoryCompression } from './compaction.js';
 import type { RequestSource } from './providers/types.js';
+import type {
+  SessionMemoryStore,
+  SessionMemoryUpdater,
+} from './memory/sessionMemoryUpdater.js';
+import { isSummaryFirstCompactionEnabled } from './memory/sessionMemoryUpdater.js';
 import {
   TOOL_CATEGORY_HINT,
   shouldUseAnthropicToolSearch,
@@ -945,6 +950,10 @@ export interface RunDependencies {
   initializeWorldModel?: (role: CompanyAgentRole) => Promise<void>;
   /** Optional trust scorer used for routing and post-run trust adjustments. */
   trustScorer?: TrustScorer;
+  /** Optional session summary persistence for cross-turn memory compaction. */
+  sessionMemoryStore?: SessionMemoryStore;
+  /** Optional post-turn session summary updater. */
+  sessionMemoryUpdater?: SessionMemoryUpdater;
 }
 
 /**
@@ -1588,10 +1597,12 @@ export class CompanyAgentRunner {
     const requestSource: RequestSource = task === 'on_demand' ? 'on_demand' : 'scheduled';
     let compactionCount = 0;
     let compactionSummary: string | undefined;
+    const summaryFirstCompactionEnabled = isSummaryFirstCompactionEnabled();
     const composeHistoryForModel = (
       model: string,
       currentHistory: ConversationTurn[],
       turnForContext: number,
+      sessionSummary?: string,
     ) => {
       const provider = detectProvider(model);
       const shouldUseClientCompression = shouldUseClientSideHistoryCompression(provider, requestSource);
@@ -1606,6 +1617,7 @@ export class CompanyAgentRunner {
           : CONTEXT_COMPOSER_MAX_TOKENS_PROVIDER,
         includeReasoningState: true,
         keepRecentGroups: shouldUseClientCompression ? 2 : 3,
+        sessionSummary,
       });
     };
 
@@ -1850,7 +1862,22 @@ export class CompanyAgentRunner {
             }
           }
 
-          const composedContext = composeHistoryForModel(modelForTurn, history, turnNumber);
+          let sessionSummaryForCompaction: string | undefined;
+          if (summaryFirstCompactionEnabled && deps?.sessionMemoryStore) {
+            try {
+              const conversationId = config.dbRunId ?? config.id;
+              const summary = await deps.sessionMemoryStore.getLatest(conversationId);
+              sessionSummaryForCompaction = summary?.summaryText;
+            } catch {
+              // fail-open: summary-first compaction is optional
+            }
+          }
+          const composedContext = composeHistoryForModel(
+            modelForTurn,
+            history,
+            turnNumber,
+            sessionSummaryForCompaction,
+          );
           const compressedHistory = composedContext.history;
 
           emitEvent({
@@ -2100,6 +2127,23 @@ export class CompanyAgentRunner {
             content: response.text,
             timestamp: Date.now(),
           });
+          if (deps?.sessionMemoryUpdater) {
+            try {
+              await deps.sessionMemoryUpdater.maybeUpdate({
+                config,
+                history,
+                turnNumber,
+                latestAssistantText: response.text,
+                conversationId: config.dbRunId ?? config.id,
+                sessionId: config.assignmentId,
+              });
+            } catch (err) {
+              console.warn(
+                `[CompanyAgentRunner] Session memory update failed for ${config.role}:`,
+                (err as Error).message,
+              );
+            }
+          }
         }
 
         if (response.finishReason === 'stop' || response.toolCalls.length === 0) {

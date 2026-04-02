@@ -56,6 +56,11 @@ import { determineVerificationTier } from './verificationPolicy.js';
 import { compareSubtaskComplexity, routeSubtask, type SubtaskComplexity } from './subtaskRouter.js';
 import { learnFromAgentRun } from './skillLearning.js';
 import {
+  isSummaryFirstCompactionEnabled,
+  type SessionMemoryStore,
+  type SessionMemoryUpdater,
+} from './memory/sessionMemoryUpdater.js';
+import {
   captureDecisionTrace,
   getTierModel,
   type AlternativeRejected,
@@ -118,6 +123,10 @@ export interface ClassifiedRunDependencies extends RunDependencies {
   trustScorer?: TrustScorer;
   /** Decision chain tracker factory — creates per-run chain trackers. */
   chainTrackerFactory?: () => DecisionChainTracker;
+  /** Optional session summary persistence for cross-turn memory compaction. */
+  sessionMemoryStore?: SessionMemoryStore;
+  /** Optional post-turn session summary updater. */
+  sessionMemoryUpdater?: SessionMemoryUpdater;
 }
 
 /** Future-tense planning patterns — agent describes intent but hasn't executed. */
@@ -387,6 +396,7 @@ export abstract class BaseAgentRunner {
     const traceAuditLogIds = new Set<string>();
     const traceTaskId = config.assignmentId ?? config.id;
     let reactIterationCounter = 0;
+    const summaryFirstCompactionEnabled = isSummaryFirstCompactionEnabled();
 
     // ─── Load shared memory + JIT context in parallel ───────────
     const taskForContext = extractTaskFromConfigId(config.id);
@@ -711,6 +721,16 @@ ${memPrompt}`, timestamp: Date.now() });
           task: taskForContext,
         });
         try {
+          let sessionSummaryForCompaction: string | undefined;
+          if (summaryFirstCompactionEnabled && safeDeps.sessionMemoryStore) {
+            try {
+              const conversationId = config.dbRunId ?? config.id;
+              const sessionSummary = await safeDeps.sessionMemoryStore.getLatest(conversationId);
+              sessionSummaryForCompaction = sessionSummary?.summaryText;
+            } catch {
+              // fail-open: summary compaction is optional
+            }
+          }
           const composedContext = composeModelContext({
             history: (() => {
               const microCompacted = microCompactHistory(history, {
@@ -732,6 +752,7 @@ ${memPrompt}`, timestamp: Date.now() });
             maxTokens: CONTEXT_COMPOSITION_MAX_TOKENS,
             includeReasoningState: true,
             keepRecentGroups: 2,
+            sessionSummary: sessionSummaryForCompaction,
           });
           const composedHistory = composedContext.history;
 
@@ -960,6 +981,23 @@ ${memPrompt}`, timestamp: Date.now() });
         if (response.text) {
           lastTextOutput = response.text;
           history.push({ role: 'assistant', content: response.text, timestamp: Date.now() });
+          if (safeDeps.sessionMemoryUpdater) {
+            try {
+              await safeDeps.sessionMemoryUpdater.maybeUpdate({
+                config,
+                history,
+                turnNumber,
+                latestAssistantText: response.text,
+                conversationId: config.dbRunId ?? config.id,
+                sessionId: config.assignmentId,
+              });
+            } catch (err) {
+              console.warn(
+                `[${this.archetype}Runner] Session memory update failed for ${config.role}:`,
+                (err as Error).message,
+              );
+            }
+          }
         }
 
         if (response.finishReason === 'stop' || response.toolCalls.length === 0) {

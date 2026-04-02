@@ -9,6 +9,12 @@ import type { GlyphorEventBus, RunDependencies, AgentProfileData, CompanyAgentRo
 import type { ClassifiedRunDependencies } from '@glyphor/agent-runtime';
 import { ORCHESTRATOR_ROLES, getRedisCache, ReasoningEngine, JitContextRetriever, ModelClient, ContextDistiller, RuntimeToolFactory, getActivePrompt } from '@glyphor/agent-runtime';
 import { ConstitutionalGovernor, TrustScorer } from '@glyphor/agent-runtime';
+import {
+  SessionMemoryUpdater,
+  getSessionMemoryConfigFromEnv,
+  type SessionMemoryStore,
+  type SessionMemorySummaryRecord,
+} from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
 import { SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
@@ -115,6 +121,101 @@ function rankSemanticSkill(keywords: string[], skill: { slug: string; name: stri
   return score;
 }
 
+class PostgresSessionMemoryStore implements SessionMemoryStore {
+  private warnedMissingTable = false;
+
+  async getLatest(conversationId: string): Promise<SessionMemorySummaryRecord | null> {
+    try {
+      const rows = await systemQuery<{
+        conversation_id: string;
+        session_id: string | null;
+        agent_role: string;
+        summary_text: string;
+        updated_at: string;
+        source_turn_count: number;
+        source_tool_count: number;
+        source_token_estimate: number;
+      }>(
+        `SELECT conversation_id, session_id, agent_role, summary_text, updated_at, source_turn_count, source_tool_count, source_token_estimate
+           FROM conversation_memory_summaries
+          WHERE conversation_id = $1
+          LIMIT 1`,
+        [conversationId],
+      );
+      const row = rows[0];
+      if (!row) return null;
+      return {
+        conversationId: row.conversation_id,
+        sessionId: row.session_id ?? undefined,
+        agentRole: row.agent_role,
+        summaryText: row.summary_text,
+        updatedAt: row.updated_at,
+        sourceTurnCount: row.source_turn_count,
+        sourceToolCount: row.source_tool_count,
+        sourceTokenEstimate: row.source_token_estimate,
+      };
+    } catch (err) {
+      this.logMissingTableOnce(err);
+      return null;
+    }
+  }
+
+  async upsert(record: SessionMemorySummaryRecord): Promise<void> {
+    try {
+      await systemQuery(
+        `INSERT INTO conversation_memory_summaries (
+           conversation_id,
+           session_id,
+           agent_role,
+           summary_text,
+           updated_at,
+           source_turn_count,
+           source_tool_count,
+           source_token_estimate
+         )
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ON CONFLICT (conversation_id) DO UPDATE
+           SET session_id = EXCLUDED.session_id,
+               agent_role = EXCLUDED.agent_role,
+               summary_text = EXCLUDED.summary_text,
+               updated_at = EXCLUDED.updated_at,
+               source_turn_count = EXCLUDED.source_turn_count,
+               source_tool_count = EXCLUDED.source_tool_count,
+               source_token_estimate = EXCLUDED.source_token_estimate`,
+        [
+          record.conversationId,
+          record.sessionId ?? null,
+          record.agentRole,
+          record.summaryText,
+          record.updatedAt,
+          record.sourceTurnCount,
+          record.sourceToolCount,
+          record.sourceTokenEstimate,
+        ],
+      );
+    } catch (err) {
+      this.logMissingTableOnce(err);
+      throw err;
+    }
+  }
+
+  private logMissingTableOnce(err: unknown): void {
+    const pgCode =
+      typeof err === 'object' &&
+      err !== null &&
+      'code' in err &&
+      typeof (err as { code?: unknown }).code === 'string'
+        ? (err as { code: string }).code
+        : undefined;
+    if (pgCode === '42P01' && !this.warnedMissingTable) {
+      this.warnedMissingTable = true;
+      console.warn(
+        '[createRunDeps] conversation_memory_summaries table is missing. Session memory updates are disabled until migration is applied.',
+      );
+    }
+  }
+}
+
 export function createRunDeps(
   glyphorEventBus: GlyphorEventBus,
   memory: CompanyMemoryStore,
@@ -149,6 +250,11 @@ export function createRunDeps(
 
   // Trust scorer — tracks agent trust and adjusts effective authority
   const trustScorer = new TrustScorer(cache);
+  const sessionMemoryStore = new PostgresSessionMemoryStore();
+  const sessionMemoryUpdater = new SessionMemoryUpdater(
+    sessionMemoryStore,
+    getSessionMemoryConfigFromEnv(),
+  );
 
   // Reasoning engine factory — creates per-agent reasoning engines
   const reasoningEngineFactory = async (agentRole: string) => {
@@ -171,6 +277,8 @@ export function createRunDeps(
     reasoningEngineFactory,
     constitutionalGovernor,
     trustScorer,
+    sessionMemoryStore,
+    sessionMemoryUpdater,
 
     agentProfileLoader: async (role: CompanyAgentRole): Promise<AgentProfileData | null> => {
       const [data] = await systemQuery<AgentProfileData>('SELECT personality_summary, backstory, communication_traits, quirks, tone_formality, emoji_usage, verbosity, voice_sample, signature, voice_examples, anti_patterns, working_voice FROM agent_profiles WHERE agent_id = $1', [role]);

@@ -165,6 +165,19 @@ export { ContextDistiller } from './contextDistiller.js';
 export type { DistilledContext } from './contextDistiller.js';
 export { RuntimeToolFactory } from './runtimeToolFactory.js';
 export type { RuntimeToolDefinition, RuntimeToolImpl } from './runtimeToolFactory.js';
+export {
+  SessionMemoryUpdater,
+  getSessionMemoryConfigFromEnv,
+  buildSessionSummary,
+  isSummaryFirstCompactionEnabled,
+} from './memory/sessionMemoryUpdater.js';
+export type {
+  SessionMemoryConfig,
+  SessionMemoryStore,
+  SessionMemorySummaryRecord,
+  SessionMemoryUpdateInput,
+  SessionMemoryUpdateResult,
+} from './memory/sessionMemoryUpdater.js';
 // Patentable Engine Enhancements
 export { ConstitutionalGovernor } from './constitutionalGovernor.js';
 export type { ConstitutionalPrinciple, ConstitutionalEvaluation, Constitution } from './constitutionalGovernor.js';
