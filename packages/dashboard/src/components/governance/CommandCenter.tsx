@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, GradientButton, SectionHeader, Skeleton } from '../ui';
+import { apiCall } from '../../lib/firebase';
 import {
   EmptyState,
   GovernanceAction,
@@ -27,6 +28,17 @@ interface CommandCenterProps {
   onOpenSurface: (surface: GovernanceSurface) => void;
   onResolveDecision?: (id: string, approve: boolean) => Promise<void>;
   busyDecisionId?: string | null;
+}
+
+interface PlanningGateSnapshot {
+  windowDays: number;
+  totals: {
+    runsObserved: number;
+    runsWithPlanning: number;
+    runsWithGatePass: number;
+    gateFailEvents: number;
+    passRate: number;
+  };
 }
 
 function labelForDay(value: string | null): string {
@@ -318,6 +330,69 @@ function SystemTrustMap({ entries }: { entries: TrustMapEntry[] }) {
   );
 }
 
+function PlanningGateCompactWidget() {
+  const [snapshot, setSnapshot] = useState<PlanningGateSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const next = await apiCall<PlanningGateSnapshot>('/admin/metrics/planning-gate?window=30');
+        if (!active) return;
+        setSnapshot(next);
+      } catch {
+        if (!active) return;
+        setSnapshot(null);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, []);
+
+  if (loading) {
+    return <Skeleton className="h-24 w-full" />;
+  }
+
+  return (
+    <Card>
+      <SectionHeader
+        title="Planning & Completion Gate"
+        subtitle="30-day runtime quality gate snapshot."
+      />
+      {!snapshot ? (
+        <p className="text-[13px] text-txt-muted">No planning/gate data available yet.</p>
+      ) : (
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-border/60 bg-surface px-3 py-2">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-txt-muted">Pass Rate</p>
+            <p className="mt-1 text-lg font-semibold text-txt-primary">{formatPercent(snapshot.totals.passRate)}</p>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-surface px-3 py-2">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-txt-muted">Planned Runs</p>
+            <p className="mt-1 text-lg font-semibold text-txt-primary">{formatMetricValue(snapshot.totals.runsWithPlanning)}</p>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-surface px-3 py-2">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-txt-muted">Gate Fails</p>
+            <p className="mt-1 text-lg font-semibold text-txt-primary">{formatMetricValue(snapshot.totals.gateFailEvents)}</p>
+          </div>
+        </div>
+      )}
+      <div className="mt-4">
+        <Link
+          to="/governance?tab=reliability"
+          className="text-[12px] font-medium text-prism-sky transition-colors hover:text-prism-teal"
+        >
+          Open Reliability details →
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
 export default function CommandCenter({
   loading,
   riskSummary,
@@ -346,6 +421,7 @@ export default function CommandCenter({
   return (
     <div className="space-y-6">
       <RiskSummaryStrip items={riskSummary} />
+      <PlanningGateCompactWidget />
       <ActionQueueSection
         items={actionQueue}
         onOpenSurface={onOpenSurface}

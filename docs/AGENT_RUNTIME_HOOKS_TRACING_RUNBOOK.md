@@ -31,6 +31,8 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
     - `off` for `on_demand` by default.
   - Example:
     - `{"default":{"planningMode":"auto","completionGateMaxRetries":2},"roles":{"frontend-engineer":{"planningMode":"required"}},"tasks":{"on_demand":{"planningMode":"off","completionGateEnabled":false}}}`
+  - Validate before deploy:
+    - `npm run planning:policy:validate -- --env-var AGENT_PLANNING_POLICY_JSON`
 
 ## Rollout Checklist
 

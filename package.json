@@ -50,6 +50,7 @@
     "ops:autonomy:slo": "tsx scripts/check-agent-autonomy-slo.ts",
     "trace:summary": "tsx scripts/trace-span-summary.ts",
     "trace:summary:cloudrun": "tsx scripts/trace-span-cloudrun-summary.ts",
+    "planning:policy:validate": "tsx scripts/planning-policy-validate.ts",
     "planning:summary": "tsx scripts/planning-gate-summary.ts",
     "planning:summary:cloudrun": "tsx scripts/planning-gate-cloudrun-summary.ts",
     "run:replay": "tsx scripts/run-replay.ts",

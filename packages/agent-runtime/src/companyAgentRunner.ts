@@ -58,6 +58,7 @@ import {
   shouldUseAnthropicToolSearch,
   shouldUseOpenAIToolSearch,
 } from './toolSearchConfig.js';
+import { recordRunEvent } from './telemetry/runLedger.js';
 import {
   CONVERSATION_MODE,
   CHAT_REASONING_PROTOCOL,
@@ -1814,6 +1815,17 @@ export class CompanyAgentRunner {
             turnNumber,
             mode: planningMode,
           });
+          void recordRunEvent({
+            runId: config.dbRunId ?? config.id,
+            eventType: 'planning_phase_started',
+            trigger: 'planner.phase',
+            component: 'companyAgentRunner',
+            payload: {
+              role: config.role,
+              turn_number: turnNumber,
+              mode: planningMode,
+            },
+          });
           const planningInstruction = `${PLANNING_REQUEST_MARKER}
 Before executing any tools, produce a concise execution plan in STRICT JSON:
 {
@@ -2342,6 +2354,16 @@ Return ONLY strict JSON with:
                 agentId: config.id,
                 turnNumber,
               });
+              void recordRunEvent({
+                runId: config.dbRunId ?? config.id,
+                eventType: 'completion_gate_passed',
+                trigger: 'completion.gate',
+                component: 'companyAgentRunner',
+                payload: {
+                  role: config.role,
+                  turn_number: turnNumber,
+                },
+              });
             }
             if (!completionGate.meets && completionGateRetries < completionGateMaxRetries) {
               emitEvent({
@@ -2351,6 +2373,19 @@ Return ONLY strict JSON with:
                 missingCriteria: completionGate.missingCriteria,
                 retryAttempt: completionGateRetries + 1,
                 maxRetries: completionGateMaxRetries,
+              });
+              void recordRunEvent({
+                runId: config.dbRunId ?? config.id,
+                eventType: 'completion_gate_failed',
+                trigger: 'completion.gate',
+                component: 'companyAgentRunner',
+                payload: {
+                  role: config.role,
+                  turn_number: turnNumber,
+                  retry_attempt: completionGateRetries + 1,
+                  max_retries: completionGateMaxRetries,
+                  missing_criteria: completionGate.missingCriteria,
+                },
               });
               completionGateRetries += 1;
               history.push({

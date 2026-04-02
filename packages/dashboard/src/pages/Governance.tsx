@@ -48,6 +48,22 @@ interface GovernanceData {
   pendingApprovals: PendingApproval[];
 }
 
+interface PlanningGateSnapshot {
+  windowDays: number;
+  totals: {
+    runsObserved: number;
+    runsWithPlanning: number;
+    runsWithGatePass: number;
+    runsWithGateFail: number;
+    planningEvents: number;
+    gatePassEvents: number;
+    gateFailEvents: number;
+    maxRetryAttempt: number;
+    avgMissingCriteriaMentions: number;
+    passRate: number;
+  };
+}
+
 const INITIAL_DATA: GovernanceData = {
   riskSummary: [],
   actionQueue: [],
@@ -467,6 +483,31 @@ function normalizeCommitments(raw: unknown): { page: number; pageSize: number; t
   };
 }
 
+function normalizePlanningGate(raw: unknown): PlanningGateSnapshot | null {
+  if (!isRecord(raw) || !isRecord(raw.totals)) return null;
+  const totals = raw.totals as UnknownRecord;
+  return {
+    windowDays: asNumber(raw.windowDays) ?? asNumber(raw.window_days) ?? 30,
+    totals: {
+      runsObserved: asNumber(totals.runsObserved) ?? asNumber(totals.runs_observed) ?? 0,
+      runsWithPlanning: asNumber(totals.runsWithPlanning) ?? asNumber(totals.runs_with_planning) ?? 0,
+      runsWithGatePass: asNumber(totals.runsWithGatePass) ?? asNumber(totals.runs_with_gate_pass) ?? 0,
+      runsWithGateFail: asNumber(totals.runsWithGateFail) ?? asNumber(totals.runs_with_gate_fail) ?? 0,
+      planningEvents: asNumber(totals.planningEvents) ?? asNumber(totals.planning_events) ?? 0,
+      gatePassEvents: asNumber(totals.gatePassEvents) ?? asNumber(totals.gate_pass_events) ?? 0,
+      gateFailEvents: asNumber(totals.gateFailEvents) ?? asNumber(totals.gate_fail_events) ?? 0,
+      maxRetryAttempt: asNumber(totals.maxRetryAttempt) ?? asNumber(totals.max_retry_attempt) ?? 0,
+      avgMissingCriteriaMentions: asNumber(totals.avgMissingCriteriaMentions) ?? asNumber(totals.avg_missing_criteria_mentions) ?? 0,
+      passRate: asNumber(totals.passRate) ?? asNumber(totals.pass_rate) ?? 0,
+    },
+  };
+}
+
+function formatPct(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${(value * 100).toFixed(1)}%`;
+}
+
 async function fetchWithFallback(paths: string[]): Promise<unknown> {
   let lastError: unknown = null;
   for (const path of paths) {
@@ -528,6 +569,7 @@ export default function Governance() {
   const [pendingCommitmentTotal, setPendingCommitmentTotal] = useState(0);
   const [agentCommitments, setAgentCommitments] = useState<CommitmentRegistryEntry[]>([]);
   const [agentCommitmentTotal, setAgentCommitmentTotal] = useState(0);
+  const [planningGate, setPlanningGate] = useState<PlanningGateSnapshot | null>(null);
 
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
 
@@ -561,6 +603,7 @@ export default function Governance() {
         grantsRaw,
         toolReputationRaw,
         approvalsRaw,
+        planningGateRaw,
       ] = await Promise.all([
         fetchWithFallback(['/api/governance/risk-summary']).catch(() => null),
         fetchWithFallback(['/api/governance/action-queue']).catch(() => null),
@@ -573,6 +616,7 @@ export default function Governance() {
         apiCallWithTimeout('/api/agent-tool-grants?order=agent_role.asc,tool_name.asc&limit=5000').catch(() => null),
         apiCallWithTimeout('/api/tool-reputation?order=updated_at.desc&limit=2000').catch(() => null),
         apiCallWithTimeout('/api/decisions?status=pending&order=created_at.desc&limit=20').catch(() => null),
+        apiCallWithTimeout('/admin/metrics/planning-gate?window=30').catch(() => null),
       ]);
 
       setData({
@@ -588,6 +632,7 @@ export default function Governance() {
         toolReputation: normalizeToolReputation(toolReputationRaw),
         pendingApprovals: normalizePendingApprovals(approvalsRaw),
       });
+      setPlanningGate(normalizePlanningGate(planningGateRaw));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -773,6 +818,34 @@ export default function Governance() {
               </Link>
               {' '}for audit logs, reliability traces, and scheduler health.
             </p>
+          </Card>
+          <Card className="mt-3 max-w-3xl border-border/70 bg-surface">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-txt-muted">
+                Planning & Completion Gate (30d)
+              </p>
+              <button
+                type="button"
+                onClick={() => handleTabChange('reliability')}
+                className="text-[12px] font-medium text-prism-sky transition-colors hover:text-prism-teal"
+              >
+                Open Reliability →
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div>
+                <p className="text-[11px] text-txt-muted">Pass Rate</p>
+                <p className="text-lg font-semibold text-txt-primary">{formatPct(planningGate?.totals.passRate)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-txt-muted">Planned Runs</p>
+                <p className="text-lg font-semibold text-txt-primary">{(planningGate?.totals.runsWithPlanning ?? 0).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-txt-muted">Gate Fails</p>
+                <p className="text-lg font-semibold text-txt-primary">{(planningGate?.totals.gateFailEvents ?? 0).toLocaleString()}</p>
+              </div>
+            </div>
           </Card>
         </div>
         <button

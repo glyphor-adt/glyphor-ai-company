@@ -50,6 +50,37 @@ interface ExceptionLogEntry {
   resolutionTimeMinutes: number | null;
 }
 
+interface PlanningGateRoleSummary {
+  role: string;
+  runsObserved: number;
+  runsWithPlanning: number;
+  runsWithGatePass: number;
+  runsWithGateFail: number;
+  planningEvents: number;
+  gatePassEvents: number;
+  gateFailEvents: number;
+  maxRetryAttempt: number;
+  avgMissingCriteriaMentions: number;
+  passRate: number;
+}
+
+interface PlanningGateSnapshot {
+  windowDays: number;
+  totals: {
+    runsObserved: number;
+    runsWithPlanning: number;
+    runsWithGatePass: number;
+    runsWithGateFail: number;
+    planningEvents: number;
+    gatePassEvents: number;
+    gateFailEvents: number;
+    maxRetryAttempt: number;
+    avgMissingCriteriaMentions: number;
+    passRate: number;
+  };
+  roles: PlanningGateRoleSummary[];
+}
+
 type SortKey = keyof Pick<AgentMetricsSnapshot,
   'agentName' |
   'department' |
@@ -106,6 +137,7 @@ export default function ReliabilityDashboard() {
   const [fleetMonth, setFleetMonth] = useState<FleetMetricsSnapshot | null>(null);
   const [agents, setAgents] = useState<AgentMetricsSnapshot[]>([]);
   const [exceptions, setExceptions] = useState<ExceptionLogEntry[]>([]);
+  const [planningGate, setPlanningGate] = useState<PlanningGateSnapshot | null>(null);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -114,11 +146,12 @@ export default function ReliabilityDashboard() {
     const load = async () => {
       setLoading(true);
       try {
-        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse] = await Promise.all([
+        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse] = await Promise.all([
           apiCall<FleetMetricsSnapshot>(`/admin/metrics/fleet?window=${windowDays}`),
           apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30'),
           apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`),
           apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12'),
+          apiCall<PlanningGateSnapshot>(`/admin/metrics/planning-gate?window=${windowDays}`),
         ]);
 
         if (!active) return;
@@ -126,6 +159,7 @@ export default function ReliabilityDashboard() {
         setFleetMonth(fleetThirty);
         setAgents(agentResponse?.agents ?? []);
         setExceptions(exceptionResponse?.items ?? []);
+        setPlanningGate(planningGateResponse);
       } finally {
         if (active) setLoading(false);
       }
@@ -138,16 +172,18 @@ export default function ReliabilityDashboard() {
   const refresh = async () => {
     setRefreshing(true);
     try {
-      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse] = await Promise.all([
+      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse] = await Promise.all([
         apiCall<FleetMetricsSnapshot>(`/admin/metrics/fleet?window=${windowDays}`),
         apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30'),
         apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`),
         apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12'),
+        apiCall<PlanningGateSnapshot>(`/admin/metrics/planning-gate?window=${windowDays}`),
       ]);
       setFleet(fleetCurrent);
       setFleetMonth(fleetThirty);
       setAgents(agentResponse?.agents ?? []);
       setExceptions(exceptionResponse?.items ?? []);
+      setPlanningGate(planningGateResponse);
     } finally {
       setRefreshing(false);
     }
@@ -238,6 +274,24 @@ export default function ReliabilityDashboard() {
         <MetricCard title={`Fleet Escalation Rate (${windowDays}d)`} value={formatPercent(fleet?.escalationRate)} subtitle={fleet?.mostEscalations ? `Most escalations: ${fleet.mostEscalations.agentName}` : 'No escalations recorded'} />
         <MetricCard title="Total Tasks This Month" value={formatNumber(fleetMonth?.tasksDispatched ?? 0, 0)} subtitle="30-day dispatched assignment volume" />
         <MetricCard title="Avg Autonomy Level" value={fleet?.avgAutonomyLevel != null ? `${formatNumber(fleet.avgAutonomyLevel)} · ${autonomyLabel(fleet.avgAutonomyLevel)}` : '—'} subtitle={fleet?.mostImproved ? `Most improved: ${fleet.mostImproved.agentName}` : 'No improvement delta yet'} />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard
+          title={`Completion Gate Pass Rate (${windowDays}d)`}
+          value={formatPercent(planningGate?.totals.passRate)}
+          subtitle={`${formatNumber(planningGate?.totals.runsWithGatePass ?? 0, 0)} passed / ${formatNumber(planningGate?.totals.runsWithPlanning ?? 0, 0)} planned runs`}
+        />
+        <MetricCard
+          title="Completion Gate Fails"
+          value={formatNumber(planningGate?.totals.gateFailEvents ?? 0, 0)}
+          subtitle={`${formatNumber(planningGate?.totals.runsWithGateFail ?? 0, 0)} runs had at least one failure`}
+        />
+        <MetricCard
+          title="Max Gate Retry Attempt"
+          value={formatNumber(planningGate?.totals.maxRetryAttempt ?? 0, 0)}
+          subtitle={`Avg missing criteria mentions: ${formatNumber(planningGate?.totals.avgMissingCriteriaMentions ?? 0)}`}
+        />
       </div>
 
       <Card>
@@ -339,6 +393,49 @@ export default function ReliabilityDashboard() {
               </div>
             );
           })}
+        </div>
+      </Card>
+
+      <Card>
+        <SectionHeader
+          title="Planning & Completion Gate"
+          subtitle="Run-level planning and completion-gate telemetry aggregated from runtime ledger events."
+        />
+        <div className="mt-5 overflow-x-auto">
+          <table className="min-w-full text-left text-[12px] text-txt-secondary">
+            <thead>
+              <tr className="border-b border-border/70 text-[11px] uppercase tracking-[0.16em] text-txt-muted">
+                <th className="px-3 py-3 font-medium">Role</th>
+                <th className="px-3 py-3 font-medium">Runs</th>
+                <th className="px-3 py-3 font-medium">With Planning</th>
+                <th className="px-3 py-3 font-medium">Gate Pass Rate</th>
+                <th className="px-3 py-3 font-medium">Gate Fails</th>
+                <th className="px-3 py-3 font-medium">Max Retry</th>
+                <th className="px-3 py-3 font-medium">Avg Missing Criteria</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(planningGate?.roles ?? []).length === 0 ? (
+                <tr>
+                  <td className="px-3 py-3 text-txt-muted" colSpan={7}>
+                    No planning/completion-gate events found for this window.
+                  </td>
+                </tr>
+              ) : (
+                (planningGate?.roles ?? []).map((role) => (
+                  <tr key={role.role} className="border-b border-border/50 align-top hover:bg-white/5">
+                    <td className="px-3 py-3 text-txt-primary">{role.role}</td>
+                    <td className="px-3 py-3">{formatNumber(role.runsObserved, 0)}</td>
+                    <td className="px-3 py-3">{formatNumber(role.runsWithPlanning, 0)}</td>
+                    <td className="px-3 py-3">{formatPercent(role.passRate)}</td>
+                    <td className="px-3 py-3">{formatNumber(role.gateFailEvents, 0)}</td>
+                    <td className="px-3 py-3">{formatNumber(role.maxRetryAttempt, 0)}</td>
+                    <td className="px-3 py-3">{formatNumber(role.avgMissingCriteriaMentions)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </Card>
     </div>
