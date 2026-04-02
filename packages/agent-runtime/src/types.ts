@@ -23,6 +23,12 @@ export interface AgentConfig {
   topP?: number;
   topK?: number;
   thinkingEnabled?: boolean;         // Enable extended thinking / reasoning mode
+  /** Enables deterministic pre-compression of older tool results before model calls. */
+  microCompactionEnabled?: boolean;
+  /** Number of most recent tool_result turns left untouched by micro-compaction. */
+  microCompactionKeepRecent?: number;
+  /** Max characters for older tool_result turns after micro-compaction clipping. */
+  microCompactionMaxChars?: number;
   contextInjector?: ContextInjector;
   dryRun?: boolean;                  // When true, mutative tools are intercepted and logged
   /** Prior conversation turns for multi-turn chat (on_demand). */
