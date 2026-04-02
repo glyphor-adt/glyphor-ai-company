@@ -1,15 +1,32 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { execFile as execFileCallback } from 'node:child_process';
+import { promisify } from 'node:util';
+import OpenAI from 'openai';
+
+const execFile = promisify(execFileCallback);
+
 /**
  * Sandbox Build Validator
  *
- * Runs generated website files through a real Node.js + Vite production build
- * inside an E2B microVM. Returns actionable TypeScript / bundler errors so the
- * generation model can self-repair before the files are committed to GitHub.
+ * Preferred path: OpenAI hosted shell containers. This uses the same vendor as
+ * the generation model and avoids a second sandbox provider.
  *
- * Required:  E2B_API_KEY         — E2B account API key
- * Optional:  E2B_TEMPLATE_ID     — pre-built sandbox snapshot with node_modules
- *                                   cached (dramatically faster). Defaults to
- *                                   the E2B base Node.js 20 sandbox.
- *            SANDBOX_BUILD_SKIP  — set to "true" to disable without removing key.
+ * Fallback path: E2B microVM if hosted shell is unavailable or blocked by org
+ * allowlist / network policy.
+ *
+ * OpenAI envs checked in order:
+ *   OPENAI_ADMIN_KEY_WEB_BUILD
+ *   OPENAI_ADMIN_KEY_COMPANY
+ *   OPENAI_API_KEY
+ *
+ * E2B envs:
+ *   E2B_API_KEY
+ *   E2B_TEMPLATE_ID
+ *
+ * Optional:
+ *   SANDBOX_BUILD_SKIP=true
  */
 
 export interface SandboxBuildResult {
@@ -128,6 +145,8 @@ export const SANDBOX_TEMPLATE_FILES: Record<string, string> = {
   'src/lib/utils.ts': TEMPLATE_LIB_UTILS,
 };
 
+const OPENAI_SHELL_ALLOWED_DOMAINS = ['registry.npmjs.org'];
+
 // ─── Error parsing ─────────────────────────────────────────────────────────────
 
 export function parseSandboxErrors(output: string): string[] {
@@ -178,18 +197,163 @@ export async function runSandboxBuild(
   generatedFiles: Record<string, string>,
   signal?: AbortSignal,
 ): Promise<SandboxBuildResult> {
-  const apiKey = process.env.E2B_API_KEY?.trim();
-  if (!apiKey || process.env.SANDBOX_BUILD_SKIP === 'true') {
+  if (process.env.SANDBOX_BUILD_SKIP === 'true') {
     return {
       ok: true,
       stdout: '',
       stderr: '',
       errors: [],
       skipped: true,
-      reason: apiKey
-        ? 'SANDBOX_BUILD_SKIP=true — skipping.'
-        : 'E2B_API_KEY not set — skipping sandbox build validation.',
+      reason: 'SANDBOX_BUILD_SKIP=true — skipping.',
     };
+  }
+
+  const openAiResult = await runOpenAIHostedShellBuild(generatedFiles, signal);
+  if (!openAiResult.skipped) {
+    return openAiResult;
+  }
+
+  const e2bResult = await runE2BBuild(generatedFiles, signal);
+  if (!e2bResult.skipped) {
+    return e2bResult;
+  }
+
+  return {
+    ok: true,
+    stdout: '',
+    stderr: '',
+    errors: [],
+    skipped: true,
+    reason: [openAiResult.reason, e2bResult.reason].filter(Boolean).join(' | ') || 'No sandbox backend configured.',
+  };
+}
+
+async function runOpenAIHostedShellBuild(
+  generatedFiles: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<SandboxBuildResult> {
+  const apiKey = getOpenAIKey();
+  if (!apiKey) {
+    return buildSkipped('No OpenAI API key available for hosted shell.');
+  }
+
+  const startMs = Date.now();
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'glyphor-shell-'));
+  const projectDir = path.join(tempRoot, 'project');
+  const tarPath = path.join(tempRoot, 'project.tgz');
+
+  try {
+    const allFiles = { ...SANDBOX_TEMPLATE_FILES, ...generatedFiles };
+    await materializeFiles(projectDir, allFiles);
+    await createTarball(projectDir, tarPath);
+
+    const client = new OpenAI({ apiKey });
+    const container = await client.containers.create({
+      name: 'glyphor-web-build',
+      expires_after: { anchor: 'last_active_at', minutes: 20 },
+    });
+
+    const uploaded = await client.containers.files.create(container.id, {
+      file: await OpenAI.fileFromPath(tarPath),
+    });
+
+    if (signal?.aborted) return buildSkipped('Aborted');
+
+    const response = await (client.responses.create as (body: any) => Promise<any>)({
+      model: 'gpt-5.4',
+      tools: [
+        {
+          type: 'shell',
+          environment: {
+            type: 'container_reference',
+            container_id: container.id,
+            network_policy: {
+              type: 'allowlist',
+              allowed_domains: OPENAI_SHELL_ALLOWED_DOMAINS,
+            },
+          },
+        },
+      ],
+      tool_choice: 'required',
+      max_output_tokens: 4096,
+      input: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: [
+                'In the hosted shell container, run these exact steps and do not do anything else:',
+                `1. mkdir -p /mnt/data/app`,
+                `2. tar -xzf ${uploaded.path} -C /mnt/data/app`,
+                '3. cd /mnt/data/app',
+                '4. npm install --prefer-offline --no-audit --no-fund',
+                '5. npm run build',
+                '',
+                'Return the shell output. Do not summarize or omit stderr.',
+              ].join('\n'),
+            },
+          ],
+        },
+      ],
+    });
+
+    const shellText = extractShellText(response);
+    const combined = [shellText.stdout, shellText.stderr, response.output_text ?? ''].filter(Boolean).join('\n').trim();
+
+    if (shellText.exitCode === 0) {
+      return {
+        ok: true,
+        stdout: shellText.stdout,
+        stderr: shellText.stderr,
+        errors: [],
+        skipped: false,
+        durationMs: Date.now() - startMs,
+      };
+    }
+
+    return {
+      ok: false,
+      stdout: shellText.stdout,
+      stderr: shellText.stderr || combined,
+      errors: parseSandboxErrors(combined),
+      skipped: false,
+      durationMs: Date.now() - startMs,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const lower = message.toLowerCase();
+    if (signal?.aborted || /aborted/.test(lower)) {
+      return buildSkipped('Aborted');
+    }
+
+    if (
+      /allowlist|allowed_domains|network_policy|hosted shell|container_auto|container_reference|not available|unsupported/i.test(message)
+    ) {
+      console.warn(`[SandboxBuild] OpenAI hosted shell unavailable, falling back: ${message}`);
+      return buildSkipped(`OpenAI hosted shell unavailable: ${message}`);
+    }
+
+    return {
+      ok: false,
+      stdout: '',
+      stderr: message,
+      errors: [`OpenAI hosted shell error: ${message}`],
+      skipped: false,
+      durationMs: Date.now() - startMs,
+    };
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function runE2BBuild(
+  generatedFiles: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<SandboxBuildResult> {
+  const apiKey = process.env.E2B_API_KEY?.trim();
+  if (!apiKey) {
+    return buildSkipped('E2B_API_KEY not set — skipping E2B sandbox build validation.');
   }
 
   // Dynamic import so missing E2B package doesn't break cold starts
@@ -281,6 +445,61 @@ export async function runSandboxBuild(
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+async function materializeFiles(rootDir: string, files: Record<string, string>): Promise<void> {
+  for (const [filePath, content] of Object.entries(files)) {
+    const fullPath = path.join(rootDir, filePath);
+    await mkdirp(path.dirname(fullPath));
+    await writeFile(fullPath, content, 'utf8');
+  }
+}
+
+async function mkdirp(dirPath: string): Promise<void> {
+  const { mkdir } = await import('node:fs/promises');
+  await mkdir(dirPath, { recursive: true });
+}
+
+async function createTarball(sourceDir: string, tarPath: string): Promise<void> {
+  await execFile('tar', ['-czf', tarPath, '-C', sourceDir, '.']);
+}
+
+function getOpenAIKey(): string | null {
+  return process.env.OPENAI_ADMIN_KEY_WEB_BUILD?.trim()
+    || process.env.OPENAI_ADMIN_KEY_COMPANY?.trim()
+    || process.env.OPENAI_API_KEY?.trim()
+    || null;
+}
+
+function extractShellText(response: unknown): { stdout: string; stderr: string; exitCode: number | null } {
+  const outputItems = Array.isArray((response as { output?: unknown[] })?.output)
+    ? ((response as { output: unknown[] }).output as Array<Record<string, unknown>>)
+    : [];
+
+  const stdoutChunks: string[] = [];
+  const stderrChunks: string[] = [];
+  let exitCode: number | null = null;
+
+  for (const item of outputItems) {
+    if (item.type !== 'shell_call_output') continue;
+    const outputs = Array.isArray(item.output) ? item.output as Array<Record<string, unknown>> : [];
+    for (const out of outputs) {
+      const stdout = typeof out.stdout === 'string' ? out.stdout : '';
+      const stderr = typeof out.stderr === 'string' ? out.stderr : '';
+      if (stdout) stdoutChunks.push(stdout);
+      if (stderr) stderrChunks.push(stderr);
+      const outcome = (out.outcome ?? {}) as Record<string, unknown>;
+      if (outcome.type === 'exit' && typeof outcome.exit_code === 'number') {
+        exitCode = outcome.exit_code;
+      }
+    }
+  }
+
+  return {
+    stdout: stdoutChunks.join('\n').trim(),
+    stderr: stderrChunks.join('\n').trim(),
+    exitCode,
+  };
+}
 
 interface SandboxInstance {
   commands: { run: (cmd: string, opts?: { timeoutMs?: number }) => Promise<{ stdout?: string; stderr?: string; exitCode?: number }> };
