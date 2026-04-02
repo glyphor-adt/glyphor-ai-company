@@ -50,6 +50,9 @@ export interface UnifiedRequestMetadata {
   modelConfig?: ModelRoutingMetadata;
   engineSource?: 'analysis' | 'simulation' | 'deep_dive' | 'strategy_lab' | 'cot';
   agentRole?: import('../types.js').CompanyAgentRole;
+  runId?: string;
+  assignmentId?: string;
+  turnNumber?: number;
 }
 
 // ─── Unified Request ─────────────────────────────────────────

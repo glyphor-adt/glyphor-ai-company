@@ -57,6 +57,7 @@ import {
 import { classifyActionRisk } from './actionRiskClassifier.js';
 import type { CommunicationType, RecipientType } from './types.js';
 import { createToolHookRunnerFromEnv, type ToolHookRunner } from './hooks/hookRunner.js';
+import { startTraceSpan } from './telemetry/tracing.js';
 
 // ─── Tool Call Trace Persistence ───────────────────────────────
 // Fire-and-forget write of each tool call to tool_call_traces for
@@ -1250,6 +1251,16 @@ export class ToolExecutor {
       : LONG_RUNNING_TOOLS.has(toolName)
         ? LONG_TOOL_TIMEOUT_MS
         : DEFAULT_TOOL_TIMEOUT_MS;
+    const executionSpan = startTraceSpan('tool.execute', {
+      run_id: context.runId ?? 'unknown',
+      assignment_id: context.assignmentId ?? 'none',
+      agent_role: context.agentRole,
+      agent_id: context.agentId,
+      turn_number: context.turnNumber,
+      tool_name: toolName,
+      risk_level: riskAssessment.level,
+      timeout_ms: timeoutMs,
+    });
     const toolSource = detectToolSource(toolName);
     const execStart = Date.now();
     const executionContext: ToolContext = {
@@ -1407,6 +1418,11 @@ export class ToolExecutor {
         }
       }
 
+      executionSpan.end({
+        success: finalResult.success,
+        files_written: finalResult.filesWritten ?? 0,
+        memory_keys_written: finalResult.memoryKeysWritten ?? 0,
+      });
       return finalResult;
     } catch (error) {
       const failResult: ToolResult = {
@@ -1448,6 +1464,7 @@ export class ToolExecutor {
         );
       }
 
+      executionSpan.fail(error, {});
       return failResult;
     }
   }

@@ -48,6 +48,7 @@ import type { ActionReceipt } from './types.js';
 import { extractTaskFromConfigId } from './taskIdentity.js';
 import { composeModelContext } from './context/contextComposer.js';
 import { microCompactHistory } from './context/microCompactor.js';
+import { startTraceSpan } from './telemetry/tracing.js';
 import { runDeterministicPreCheck } from './routing/index.js';
 import { buildToolTaskContext, getToolRetriever, type ToolRetrieverTrace } from './routing/toolRetriever.js';
 import type { RoutingDecision } from './routing/index.js';
@@ -703,6 +704,12 @@ ${memPrompt}`, timestamp: Date.now() });
 
         // ── Model call ──────────────────────────────────────────
         let response: Awaited<ReturnType<ModelClient['generate']>>;
+        const modelTurnSpan = startTraceSpan('runner.model_turn', {
+          run_id: config.dbRunId ?? config.id,
+          agent_role: config.role,
+          turn_number: turnNumber,
+          task: taskForContext,
+        });
         try {
           const composedContext = composeModelContext({
             history: (() => {
@@ -824,6 +831,9 @@ ${memPrompt}`, timestamp: Date.now() });
               previousResponseId,
               modelConfig: routedModel,
               agentRole: config.role,
+              runId: config.dbRunId ?? config.id,
+              assignmentId: config.assignmentId,
+              turnNumber,
             },
           });
           previousResponseId = response.responseId;
@@ -834,8 +844,17 @@ ${memPrompt}`, timestamp: Date.now() });
           totalCachedInputTokens += response.usageMetadata.cachedInputTokens ?? 0;
           actualModelUsed = response.actualModel ?? modelForTurn;
           actualProviderUsed = response.actualProvider;
+          modelTurnSpan.end({
+            model: modelForTurn,
+            actual_model: response.actualModel ?? modelForTurn,
+            actual_provider: response.actualProvider ?? 'unknown',
+            has_tool_calls: response.toolCalls.length > 0,
+            input_tokens: response.usageMetadata.inputTokens,
+            output_tokens: response.usageMetadata.outputTokens,
+          });
           emitEvent({ type: 'model_response', agentId: config.id, turnNumber, hasToolCalls: response.toolCalls.length > 0, thinkingText: response.thinkingText });
         } catch (error) {
+          modelTurnSpan.fail(error, {});
           if (supervisor.isAborted) {
             return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary());
           }
@@ -859,20 +878,39 @@ ${memPrompt}`, timestamp: Date.now() });
           }
 
           for (const call of response.toolCalls) {
-            const result = await toolExecutor.execute(call.name, call.args, {
-              agentId: config.id,
-              agentRole: config.role,
-              turnNumber,
-              abortSignal: supervisor.signal,
-              memoryBus,
-              emitEvent,
-              glyphorEventBus: safeDeps.glyphorEventBus,
-              runId: config.dbRunId ?? config.id,
-              assignmentId: config.assignmentId,
-              retrievalMetadata: lastRetrievalTrace
-                ? buildRetrievalMetadataMap(lastRetrievalTrace)
-                : undefined,
+            const toolTurnSpan = startTraceSpan('runner.tool_call', {
+              run_id: config.dbRunId ?? config.id,
+              agent_role: config.role,
+              turn_number: turnNumber,
+              tool_name: call.name,
             });
+            const result = await (async () => {
+              try {
+                const toolResult = await toolExecutor.execute(call.name, call.args, {
+                  agentId: config.id,
+                  agentRole: config.role,
+                  turnNumber,
+                  abortSignal: supervisor.signal,
+                  memoryBus,
+                  emitEvent,
+                  glyphorEventBus: safeDeps.glyphorEventBus,
+                  runId: config.dbRunId ?? config.id,
+                  assignmentId: config.assignmentId,
+                  retrievalMetadata: lastRetrievalTrace
+                    ? buildRetrievalMetadataMap(lastRetrievalTrace)
+                    : undefined,
+                });
+                toolTurnSpan.end({
+                  success: toolResult.success,
+                  files_written: toolResult.filesWritten ?? 0,
+                  memory_keys_written: toolResult.memoryKeysWritten ?? 0,
+                });
+                return toolResult;
+              } catch (toolError) {
+                toolTurnSpan.fail(toolError, {});
+                throw toolError;
+              }
+            })();
 
             const resultContent = result.data !== undefined ? JSON.stringify(result.data) : result.error ?? 'ok';
             history.push({ role: 'tool_result', content: resultContent, toolName: call.name, toolResult: result, timestamp: Date.now() });

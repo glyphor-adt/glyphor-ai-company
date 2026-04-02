@@ -137,6 +137,8 @@ export { compressComposedHistory } from './context/historyCompressor.js';
 export type { ContextCompressionOptions, ContextCompressionResult } from './context/historyCompressor.js';
 export { microCompactHistory } from './context/microCompactor.js';
 export type { MicroCompactionOptions, MicroCompactionResult } from './context/microCompactor.js';
+export { startTraceSpan } from './telemetry/tracing.js';
+export type { TraceSpan, TraceAttributes } from './telemetry/tracing.js';
 export {
   buildSystemFrameTurn,
   isSyntheticContextTurn,

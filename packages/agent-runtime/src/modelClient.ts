@@ -14,6 +14,7 @@ import { ProviderFactory, type ProviderFactoryConfig, type GeminiAdapter, type O
 import type { ModelProvider, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './providers/types.js';
 import { getFallbackChain, getProviderLocalFallbackChain } from '@glyphor/shared/models';
 import { getTierModel } from '@glyphor/shared';
+import { startTraceSpan } from './telemetry/tracing.js';
 
 // ─── Re-export types for backward compatibility ──────────────
 
@@ -76,8 +77,16 @@ export class ModelClient {
   }
 
   async generate(request: ModelRequest): Promise<ModelResponse> {
+    const requestSpan = startTraceSpan('model.generate', {
+      requested_model: request.model,
+      fallback_scope: request.fallbackScope ?? 'cross-provider',
+      agent_role: request.metadata?.agentRole ?? 'unknown',
+      run_id: request.metadata?.runId ?? 'unknown',
+      turn_number: request.metadata?.turnNumber ?? -1,
+    });
     if (request.signal?.aborted) {
       const reason = (request.signal.reason as Error)?.message || 'signal aborted';
+      requestSpan.fail(new Error(reason), { aborted: true });
       throw new Error(`Aborted: ${reason}`);
     }
 
@@ -94,7 +103,19 @@ export class ModelClient {
 
     const requestedModel = normalizedRequestedModel;
     if (requestedModel.startsWith('deep-research-')) {
-      return this.generateWithDeepResearch(requestedModel, request);
+      try {
+        const deepResearchResponse = await this.generateWithDeepResearch(requestedModel, request);
+        requestSpan.end({
+          actual_model: deepResearchResponse.actualModel ?? requestedModel,
+          actual_provider: deepResearchResponse.actualProvider ?? 'gemini',
+          fallback_used: false,
+          deep_research: true,
+        });
+        return deepResearchResponse;
+      } catch (error) {
+        requestSpan.fail(error, { deep_research: true });
+        throw error;
+      }
     }
 
     const isBlockedRequestedModel = ModelClient.BLOCKED_PROVIDER_PREFIXES.some((prefix) => requestedModel.startsWith(prefix));
@@ -128,102 +149,127 @@ export class ModelClient {
     }
     let lastFailureDetail = '';
 
-    for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
-      const currentModel = modelsToTry[modelIdx];
-      const provider = detectProvider(currentModel);
-      let adapter: import('./providers/types.js').ProviderAdapter;
-      try {
-        adapter = this.factory.get(provider);
-      } catch {
-        // Provider not configured (no API key) — skip to next fallback
-        if (modelIdx < modelsToTry.length - 1) {
-          console.warn(`[ModelClient] Provider ${provider} not configured, skipping ${currentModel}`);
-          continue;
-        }
-        throw new Error(`[${provider}] No API key configured (model: ${currentModel})`);
-      }
-
-      // Strip previousResponseId on fallback — it belongs to a different
-      // model's server-side state and would cause 400 errors.
-      if (modelIdx > 0 && request.metadata?.previousResponseId) {
-        request = { ...request, metadata: { ...request.metadata, previousResponseId: undefined } };
-      }
-
-      const MAX_RETRIES = 2;
-
-      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
+        const currentModel = modelsToTry[modelIdx];
+        const provider = detectProvider(currentModel);
+        let adapter: import('./providers/types.js').ProviderAdapter;
         try {
-          const sanitizedTools = sanitizeToolsForProvider(provider, request.tools);
-          const apiPromise = adapter.generate({
-            ...request,
-            model: currentModel,
-            ...(sanitizedTools ? { tools: sanitizedTools } : {}),
-          });
-          const response = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
-          if (modelIdx > 0) {
-            console.warn(`[ModelClient] Fallback success: ${request.model} → ${currentModel}`);
-          }
-          return {
-            ...response,
-            actualModel: currentModel,
-            actualProvider: provider,
-          };
-        } catch (err) {
-          const msg = (err as Error).message ?? '';
-          const cause = (err as { cause?: Error }).cause?.message;
-          const rawDetail = cause ? `${msg} (cause: ${cause})` : msg;
-          // Strip any API keys or tokens from error messages to prevent leaking secrets
-          const detail = rawDetail.replace(/sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]+/g, '[REDACTED]');
-          lastFailureDetail = `[${currentModel}] ${detail}`;
-          if (request.signal?.aborted) throw err;
-
-          // Auth errors (401/403) — non-retryable, affects all models in provider
-          if (/40[12]|403/.test(msg) && !isQuotaError(msg)) {
-            throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
-          }
-
-          // Model-level errors (400/404/422) — skip to next fallback model
-          if (/400|404|422/.test(msg) && !isQuotaError(msg)) {
-            if (modelIdx < modelsToTry.length - 1) {
-              console.warn(`[ModelClient] ${currentModel} returned ${msg.match(/40[04]|422/)?.[0] ?? 'client error'}, trying fallback ${modelsToTry[modelIdx + 1]}`);
-              break; // break retry loop → try next model
-            }
-            throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
-          }
-
-          // Quota/rate-limit error — skip retries on this model, move to fallback
-          if (isQuotaError(msg)) {
-            console.warn(`[ModelClient] Quota/rate-limit on ${currentModel}: ${detail}`);
-            if (modelIdx >= modelsToTry.length - 1) {
-              throw new Error(
-                `Exhausted model fallback chain after quota/rate-limit on final model. ${lastFailureDetail}`,
-              );
-            }
-            break; // break retry loop → try next model in fallback chain
-          }
-
-          if (attempt < MAX_RETRIES) {
-            const backoffMs = 2000 * (attempt + 1);
-            console.warn(`[ModelClient] Attempt ${attempt + 1} for ${currentModel} failed (${detail}), retrying in ${backoffMs}ms…`);
-            await new Promise(r => setTimeout(r, backoffMs));
+          adapter = this.factory.get(provider);
+        } catch {
+          // Provider not configured (no API key) — skip to next fallback
+          if (modelIdx < modelsToTry.length - 1) {
+            console.warn(`[ModelClient] Provider ${provider} not configured, skipping ${currentModel}`);
             continue;
           }
+          throw new Error(`[${provider}] No API key configured (model: ${currentModel})`);
+        }
 
-          // Exhausted retries on this model — try fallback if available
-          if (modelIdx < modelsToTry.length - 1) {
-            console.warn(`[ModelClient] ${currentModel} exhausted retries, falling back to ${modelsToTry[modelIdx + 1]}`);
-            break; // break retry loop → try next model
+        // Strip previousResponseId on fallback — it belongs to a different
+        // model's server-side state and would cause 400 errors.
+        if (modelIdx > 0 && request.metadata?.previousResponseId) {
+          request = { ...request, metadata: { ...request.metadata, previousResponseId: undefined } };
+        }
+
+        const MAX_RETRIES = 2;
+
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          const attemptSpan = startTraceSpan('model.provider_attempt', {
+            requested_model: request.model,
+            candidate_model: currentModel,
+            provider,
+            model_index: modelIdx,
+            retry_attempt: attempt,
+            run_id: request.metadata?.runId ?? 'unknown',
+          }, { traceId: requestSpan.traceId, parentSpanId: requestSpan.spanId });
+          try {
+            const sanitizedTools = sanitizeToolsForProvider(provider, request.tools);
+            const apiPromise = adapter.generate({
+              ...request,
+              model: currentModel,
+              ...(sanitizedTools ? { tools: sanitizedTools } : {}),
+            });
+            const response = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
+            if (modelIdx > 0) {
+              console.warn(`[ModelClient] Fallback success: ${request.model} → ${currentModel}`);
+            }
+            attemptSpan.end({
+              success: true,
+              input_tokens: response.usageMetadata.inputTokens,
+              output_tokens: response.usageMetadata.outputTokens,
+            });
+            requestSpan.end({
+              actual_model: currentModel,
+              actual_provider: provider,
+              fallback_used: modelIdx > 0,
+              retries_used: attempt,
+            });
+            return {
+              ...response,
+              actualModel: currentModel,
+              actualProvider: provider,
+            };
+          } catch (err) {
+            const msg = (err as Error).message ?? '';
+            const cause = (err as { cause?: Error }).cause?.message;
+            const rawDetail = cause ? `${msg} (cause: ${cause})` : msg;
+            // Strip any API keys or tokens from error messages to prevent leaking secrets
+            const detail = rawDetail.replace(/sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]+/g, '[REDACTED]');
+            lastFailureDetail = `[${currentModel}] ${detail}`;
+            attemptSpan.fail(err, { detail });
+            if (request.signal?.aborted) throw err;
+
+            // Auth errors (401/403) — non-retryable, affects all models in provider
+            if (/40[12]|403/.test(msg) && !isQuotaError(msg)) {
+              throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
+            }
+
+            // Model-level errors (400/404/422) — skip to next fallback model
+            if (/400|404|422/.test(msg) && !isQuotaError(msg)) {
+              if (modelIdx < modelsToTry.length - 1) {
+                console.warn(`[ModelClient] ${currentModel} returned ${msg.match(/40[04]|422/)?.[0] ?? 'client error'}, trying fallback ${modelsToTry[modelIdx + 1]}`);
+                break; // break retry loop → try next model
+              }
+              throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
+            }
+
+            // Quota/rate-limit error — skip retries on this model, move to fallback
+            if (isQuotaError(msg)) {
+              console.warn(`[ModelClient] Quota/rate-limit on ${currentModel}: ${detail}`);
+              if (modelIdx >= modelsToTry.length - 1) {
+                throw new Error(
+                  `Exhausted model fallback chain after quota/rate-limit on final model. ${lastFailureDetail}`,
+                );
+              }
+              break; // break retry loop → try next model in fallback chain
+            }
+
+            if (attempt < MAX_RETRIES) {
+              const backoffMs = 2000 * (attempt + 1);
+              console.warn(`[ModelClient] Attempt ${attempt + 1} for ${currentModel} failed (${detail}), retrying in ${backoffMs}ms…`);
+              await new Promise(r => setTimeout(r, backoffMs));
+              continue;
+            }
+
+            // Exhausted retries on this model — try fallback if available
+            if (modelIdx < modelsToTry.length - 1) {
+              console.warn(`[ModelClient] ${currentModel} exhausted retries, falling back to ${modelsToTry[modelIdx + 1]}`);
+              break; // break retry loop → try next model
+            }
+
+            throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
           }
-
-          throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
         }
       }
+      throw new Error(
+        lastFailureDetail
+          ? `Exhausted model fallback chain. Last error: ${lastFailureDetail}`
+          : 'Unexpected: exhausted all models in fallback chain',
+      );
+    } catch (error) {
+      requestSpan.fail(error, { last_failure: lastFailureDetail || undefined });
+      throw error;
     }
-    throw new Error(
-      lastFailureDetail
-        ? `Exhausted model fallback chain. Last error: ${lastFailureDetail}`
-        : 'Unexpected: exhausted all models in fallback chain',
-    );
   }
 
   /**
