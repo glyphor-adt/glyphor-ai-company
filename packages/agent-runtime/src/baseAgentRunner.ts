@@ -839,6 +839,12 @@ ${memPrompt}`, timestamp: Date.now() });
         }
 
         if (runPhase === 'planning') {
+          emitEvent({
+            type: 'planning_phase_started',
+            agentId: config.id,
+            turnNumber,
+            mode: planningMode,
+          });
           const planningInstruction = `${PLANNING_REQUEST_MARKER}
 Before executing any tools, produce a concise execution plan in STRICT JSON:
 {
@@ -1263,7 +1269,22 @@ Return ONLY strict JSON with:
             });
             completionGatePassed = completionGate.meets;
             completionGateMissing = completionGate.missingCriteria;
+            if (completionGate.meets) {
+              emitEvent({
+                type: 'completion_gate_passed',
+                agentId: config.id,
+                turnNumber,
+              });
+            }
             if (!completionGate.meets && completionGateRetries < completionGateMaxRetries) {
+              emitEvent({
+                type: 'completion_gate_failed',
+                agentId: config.id,
+                turnNumber,
+                missingCriteria: completionGate.missingCriteria,
+                retryAttempt: completionGateRetries + 1,
+                maxRetries: completionGateMaxRetries,
+              });
               completionGateRetries += 1;
               history.push({
                 role: 'user',

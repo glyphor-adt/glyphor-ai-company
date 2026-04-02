@@ -77,6 +77,10 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
   - `npm run trace:summary -- --file <path-to-log-file> --limit 20`
 - Summarize spans directly from Cloud Run:
   - `npm run trace:summary:cloudrun -- --project <project> --service glyphor-scheduler --minutes 60 --top 20`
+- Summarize planning/gate events from a local log file:
+  - `npm run planning:summary -- --file <path-to-log-file> --top 20`
+- Summarize planning/gate events directly from Cloud Run:
+  - `npm run planning:summary:cloudrun -- --project <project> --service glyphor-scheduler --minutes 60 --top 20`
 
 ## Claude-Style Web Coding Loop Usage
 
@@ -109,6 +113,19 @@ For quick daily execution, use `docs/WEB_CODING_LOOP_PLAYBOOK.md`.
   - `min_best_practices=85`
   - `min_seo=85`
 - Use `include_screenshot=true` only when visual evidence must be returned in the response payload (larger output).
+
+### Planning/Gate Observability
+
+- Runtime events emitted:
+  - `planning_phase_started`
+  - `completion_gate_failed`
+  - `completion_gate_passed`
+- For raw Cloud Logging query (manual inspection):
+  - `resource.type="cloud_run_revision" AND resource.labels.service_name="glyphor-scheduler" AND (textPayload:"planning_phase_started" OR textPayload:"completion_gate_failed" OR textPayload:"completion_gate_passed")`
+- Watch for:
+  - high `completion_gate_failed` volume without corresponding `completion_gate_passed`,
+  - repeated retries hitting max retry budget,
+  - role/run outliers with persistent missing-criteria patterns.
 
 ### Copy/Paste Prompt Templates
 

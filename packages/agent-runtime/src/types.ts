@@ -313,6 +313,25 @@ export type AgentEvent =
   | { type: 'turn_started'; agentId: string; turnNumber: number }
   | { type: 'model_request'; agentId: string; turnNumber: number; tokenEstimate: number }
   | { type: 'model_response'; agentId: string; turnNumber: number; hasToolCalls: boolean; thinkingText?: string }
+  | {
+      type: 'planning_phase_started';
+      agentId: string;
+      turnNumber: number;
+      mode: 'off' | 'auto' | 'required';
+    }
+  | {
+      type: 'completion_gate_failed';
+      agentId: string;
+      turnNumber: number;
+      missingCriteria: string[];
+      retryAttempt: number;
+      maxRetries: number;
+    }
+  | {
+      type: 'completion_gate_passed';
+      agentId: string;
+      turnNumber: number;
+    }
   | { type: 'tool_call'; agentId: string; turnNumber: number; toolName: string; params: Record<string, unknown> }
   | { type: 'tool_result'; agentId: string; turnNumber: number; toolName: string; success: boolean; filesWritten: number; memoryKeysWritten: number }
   | { type: 'context_injected'; agentId: string; turnNumber: number; contextLength: number }
