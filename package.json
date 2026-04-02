@@ -48,6 +48,7 @@
     "preview-worker:deploy": "npx wrangler deploy --config workers/preview/wrangler.toml",
     "preview-worker:typecheck": "npx tsc -p workers/preview/tsconfig.json --noEmit",
     "ops:autonomy:slo": "tsx scripts/check-agent-autonomy-slo.ts",
+    "trace:summary": "tsx scripts/trace-span-summary.ts",
     "db:agent-schedules-subset": "tsx scripts/query-agent-schedules-subset.ts",
     "smoke:all-agents": "tsx scripts/smoke-test-all-agents.ts"
   },
