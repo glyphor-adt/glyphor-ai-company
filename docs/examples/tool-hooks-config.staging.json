@@ -1,0 +1,22 @@
+{
+  "allowedHosts": [
+    "hooks-staging.glyphor.ai"
+  ],
+  "preToolUse": [
+    {
+      "name": "staging-observe-pretool",
+      "url": "https://hooks-staging.glyphor.ai/runtime/pre-tool",
+      "timeoutMs": 2500,
+      "headers": {
+        "x-hook-mode": "observe"
+      }
+    }
+  ],
+  "postToolUse": [
+    {
+      "name": "staging-audit-posttool",
+      "url": "https://hooks-staging.glyphor.ai/runtime/post-tool",
+      "timeoutMs": 2500
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "allowedHosts": [
+    "hooks.glyphor.ai"
+  ],
+  "preToolUse": [
+    {
+      "name": "prod-policy-pretool",
+      "url": "https://hooks.glyphor.ai/runtime/pre-tool",
+      "timeoutMs": 3000,
+      "headers": {
+        "x-hook-mode": "enforce"
+      }
+    }
+  ],
+  "postToolUse": [
+    {
+      "name": "prod-audit-posttool",
+      "url": "https://hooks.glyphor.ai/runtime/post-tool",
+      "timeoutMs": 3000
+    }
+  ]
+}
