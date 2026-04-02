@@ -17,6 +17,10 @@ export interface EmbeddingClient {
 }
 import { CACHE_KEYS, CACHE_TTL } from './redisCache.js';
 import { createHash } from 'node:crypto';
+import {
+  getJitSelectionConfigFromEnv,
+  selectJitItems,
+} from './memory/jitContextSelector.js';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -35,6 +39,11 @@ export interface JitContext {
   relevantKnowledge: JitContextItem[];
   tokenEstimate: number;
   fromCache: boolean;
+  selectionMeta?: {
+    candidateCount: number;
+    selectedCount: number;
+    selectedBySource: Partial<Record<JitContextItem['source'], number>>;
+  };
 }
 
 // ─── JitContextRetriever ────────────────────────────────────────
@@ -60,6 +69,24 @@ const TASK_STOP_WORDS = new Set([
   'will', 'about', 'after', 'before', 'within', 'without', 'need', 'needs',
   'should', 'could', 'would', 'task', 'tasks', 'agent', 'run', 'runs',
 ]);
+
+function extractFreshnessTimestamp(
+  row: Record<string, unknown>,
+): string | undefined {
+  const candidates = [
+    row.updated_at,
+    row.updatedAt,
+    row.created_at,
+    row.createdAt,
+    row.timestamp,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
 
 export class JitContextRetriever {
   constructor(
@@ -161,17 +188,35 @@ export class JitContextRetriever {
       ...relevantKnowledge,
     ];
 
-    const { items: trimmed, tokenCount } = this.trimItemsWithSourceBudgets(allItems, tokenBudget);
+    const { items: trimmed } = this.trimItemsWithSourceBudgets(allItems, tokenBudget);
+    const selectorConfig = getJitSelectionConfigFromEnv();
+    const selectedItems = selectJitItems(trimmed, selectorConfig);
+    const tokenCount = selectedItems.reduce(
+      (sum, item) => sum + this.estimateTokens(item.content),
+      0,
+    );
+    const selectedBySource = selectedItems.reduce<Partial<Record<JitContextItem['source'], number>>>(
+      (acc, item) => {
+        acc[item.source] = (acc[item.source] ?? 0) + 1;
+        return acc;
+      },
+      {},
+    );
 
     // Re-separate by source
     const result: JitContext = {
-      relevantMemories: trimmed.filter(i => i.source === 'memory'),
-      relevantGraphNodes: trimmed.filter(i => i.source === 'graph'),
-      relevantEpisodes: trimmed.filter(i => i.source === 'episode'),
-      relevantProcedures: trimmed.filter(i => i.source === 'procedure'),
-      relevantKnowledge: trimmed.filter(i => i.source === 'knowledge'),
+      relevantMemories: selectedItems.filter(i => i.source === 'memory'),
+      relevantGraphNodes: selectedItems.filter(i => i.source === 'graph'),
+      relevantEpisodes: selectedItems.filter(i => i.source === 'episode'),
+      relevantProcedures: selectedItems.filter(i => i.source === 'procedure'),
+      relevantKnowledge: selectedItems.filter(i => i.source === 'knowledge'),
       tokenEstimate: tokenCount,
       fromCache: false,
+      selectionMeta: {
+        candidateCount: allItems.length,
+        selectedCount: selectedItems.length,
+        selectedBySource,
+      },
     };
 
     return result;
@@ -189,7 +234,10 @@ export class JitContextRetriever {
         source: 'memory' as const,
         content: row.content,
         score: row.similarity * (row.importance ?? 1),
-        metadata: { importance: row.importance },
+        metadata: {
+          importance: row.importance,
+          updatedAt: extractFreshnessTimestamp(row as unknown as Record<string, unknown>),
+        },
       }));
     } catch {
       return [];
@@ -245,6 +293,9 @@ export class JitContextRetriever {
         source: 'graph' as const,
         content: `${row.name}: ${row.description}`,
         score: row.similarity,
+        metadata: {
+          updatedAt: extractFreshnessTimestamp(row as unknown as Record<string, unknown>),
+        },
       }));
     } catch {
       return [];
@@ -313,7 +364,10 @@ export class JitContextRetriever {
           source: 'episode' as const,
           content: row.outcome ? `${row.summary} → ${row.outcome}` : row.summary,
           score: row.similarity * (row.confidence ?? 1),
-          metadata: { confidence: row.confidence },
+          metadata: {
+            confidence: row.confidence,
+            updatedAt: extractFreshnessTimestamp(row as unknown as Record<string, unknown>),
+          },
         }));
       } catch {
         return [];
@@ -341,6 +395,9 @@ export class JitContextRetriever {
           source: 'procedure' as const,
           content: `${row.title}: ${row.description}${row.steps ? '\nSteps: ' + row.steps.join(' → ') : ''}`,
           score: row.confidence ?? 0.7,
+          metadata: {
+            updatedAt: extractFreshnessTimestamp(row as unknown as Record<string, unknown>),
+          },
         }));
       } catch {
         return [];
@@ -430,6 +487,7 @@ export class JitContextRetriever {
             : semanticSlugSet.has(row.slug)
               ? 'semantic'
               : 'keyword',
+          updatedAt: extractFreshnessTimestamp(row as unknown as Record<string, unknown>),
         },
       }));
     } catch {
@@ -450,6 +508,9 @@ export class JitContextRetriever {
           source: 'knowledge' as const,
           content: `[${row.section}] ${row.title}: ${row.content}`,
           score: row.similarity,
+          metadata: {
+            updatedAt: extractFreshnessTimestamp(row as unknown as Record<string, unknown>),
+          },
         }));
       } catch {
         return [];

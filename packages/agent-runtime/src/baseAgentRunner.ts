@@ -288,6 +288,25 @@ function buildRetrievalMetadataMap(trace: ToolRetrieverTrace): ToolRetrievalMeta
   return map;
 }
 
+function formatFreshnessTag(item: { metadata?: Record<string, unknown> }): string {
+  const metadata = item.metadata ?? {};
+  const rawCandidate = metadata.updatedAt
+    ?? metadata.updated_at
+    ?? metadata.createdAt
+    ?? metadata.created_at
+    ?? metadata.timestamp;
+  const hasTemporalFlag = metadata.temporal === true;
+  if (typeof rawCandidate !== 'string' || rawCandidate.trim().length === 0) {
+    return hasTemporalFlag ? ' (live graph context)' : '';
+  }
+  const parsed = Date.parse(rawCandidate);
+  if (!Number.isFinite(parsed)) return hasTemporalFlag ? ' (live graph context)' : '';
+  const days = Math.max(0, Math.floor((Date.now() - parsed) / 86_400_000));
+  if (days === 0) return ' (updated today)';
+  if (days === 1) return ' (updated 1d ago)';
+  return ` (updated ${days}d ago)`;
+}
+
 /**
  * Abstract base runner — provides shared execution infrastructure.
  * Subclasses implement `archetype`, `buildRunPrompt()`, and `postRun()`.
@@ -568,18 +587,26 @@ ${memPrompt}`, timestamp: Date.now() });
     if (jitContext && jitContext.tokenEstimate > 0) {
       const jitSections: string[] = [];
       if (jitContext.relevantMemories.length > 0) {
-        jitSections.push('## Relevant Memories\n' + jitContext.relevantMemories.map(m => `- ${m.content}`).join('\n'));
+        jitSections.push('## Relevant Memories\n' + jitContext.relevantMemories.map(m => `- ${m.content}${formatFreshnessTag(m)}`).join('\n'));
+      }
+      if (jitContext.relevantGraphNodes.length > 0) {
+        jitSections.push('## Relevant Graph Context\n' + jitContext.relevantGraphNodes.map(g => `- ${g.content}${formatFreshnessTag(g)}`).join('\n'));
       }
       if (jitContext.relevantKnowledge.length > 0) {
-        jitSections.push('## Relevant Knowledge\n' + jitContext.relevantKnowledge.map(k => `- ${k.content}`).join('\n'));
+        jitSections.push('## Relevant Knowledge\n' + jitContext.relevantKnowledge.map(k => `- ${k.content}${formatFreshnessTag(k)}`).join('\n'));
       }
       if (jitContext.relevantEpisodes.length > 0) {
-        jitSections.push('## Relevant Episodes\n' + jitContext.relevantEpisodes.map(e => `- ${e.content}`).join('\n'));
+        jitSections.push('## Relevant Episodes\n' + jitContext.relevantEpisodes.map(e => `- ${e.content}${formatFreshnessTag(e)}`).join('\n'));
       }
       if (jitContext.relevantProcedures.length > 0) {
-        jitSections.push('## Relevant Procedures\n' + jitContext.relevantProcedures.map(p => `- ${p.content}`).join('\n'));
+        jitSections.push('## Relevant Procedures\n' + jitContext.relevantProcedures.map(p => `- ${p.content}${formatFreshnessTag(p)}`).join('\n'));
       }
       if (jitSections.length > 0) {
+        if (jitContext.selectionMeta) {
+          console.log(
+            `[JITSelector] ${config.role}: candidates=${jitContext.selectionMeta.candidateCount}, selected=${jitContext.selectionMeta.selectedCount}, by_source=${JSON.stringify(jitContext.selectionMeta.selectedBySource)}`,
+          );
+        }
         history.push({
           role: 'user',
           content: `[CONTEXT — Background information for reference. Do NOT respond to this message; wait for your task instruction.]\n\n# Task-Relevant Context (JIT Retrieved)\n\n${jitSections.join('\n\n')}`,
@@ -727,6 +754,14 @@ ${memPrompt}`, timestamp: Date.now() });
               const conversationId = config.dbRunId ?? config.id;
               const sessionSummary = await safeDeps.sessionMemoryStore.getLatest(conversationId);
               sessionSummaryForCompaction = sessionSummary?.summaryText;
+              if (sessionSummaryForCompaction) {
+                emitEvent({
+                  type: 'context_injected',
+                  agentId: config.id,
+                  turnNumber,
+                  contextLength: sessionSummaryForCompaction.length,
+                });
+              }
             } catch {
               // fail-open: summary compaction is optional
             }

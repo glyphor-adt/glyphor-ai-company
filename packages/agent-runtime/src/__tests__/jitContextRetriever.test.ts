@@ -171,6 +171,27 @@ describe('JitContextRetriever', () => {
   });
 
   describe('item scoring', () => {
+    it('threads freshness metadata when store rows include timestamps', async () => {
+      vi.mocked(systemQuery).mockImplementation((sql: any) => {
+        const text = String(sql);
+        if (text.includes('match_memories')) {
+          return Promise.resolve([
+            {
+              content: 'Recent architecture decision',
+              importance: 1,
+              similarity: 0.9,
+              updated_at: '2026-04-01T00:00:00.000Z',
+            },
+          ] as any);
+        }
+        return Promise.resolve([] as any);
+      });
+
+      const retriever = new JitContextRetriever(embeddingClient, cache);
+      const result = await retriever.retrieve('cto', 'architecture decision', 10000);
+      expect(result.relevantMemories[0]?.metadata?.updatedAt).toBe('2026-04-01T00:00:00.000Z');
+    });
+
     it('multiplies similarity by importance for memories', async () => {
       vi.mocked(systemQuery).mockResolvedValueOnce([
         { content: 'High importance', importance: 1.0, similarity: 0.95 },

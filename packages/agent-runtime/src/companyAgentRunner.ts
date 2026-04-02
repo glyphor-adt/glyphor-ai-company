@@ -991,6 +991,25 @@ function buildCompanyRetrievalMetadataMap(trace: ToolRetrieverTrace): ToolRetrie
   return map;
 }
 
+function formatFreshnessTag(item: { metadata?: Record<string, unknown> }): string {
+  const metadata = item.metadata ?? {};
+  const rawCandidate = metadata.updatedAt
+    ?? metadata.updated_at
+    ?? metadata.createdAt
+    ?? metadata.created_at
+    ?? metadata.timestamp;
+  const hasTemporalFlag = metadata.temporal === true;
+  if (typeof rawCandidate !== 'string' || rawCandidate.trim().length === 0) {
+    return hasTemporalFlag ? ' (live graph context)' : '';
+  }
+  const parsed = Date.parse(rawCandidate);
+  if (!Number.isFinite(parsed)) return hasTemporalFlag ? ' (live graph context)' : '';
+  const days = Math.max(0, Math.floor((Date.now() - parsed) / 86_400_000));
+  if (days === 0) return ' (updated today)';
+  if (days === 1) return ' (updated 1d ago)';
+  return ` (updated ${days}d ago)`;
+}
+
 /** Regex patterns that match common action claims in agent text. */
 const ACTION_CLAIM_PATTERNS = [
   /I(?:'ve| have) (?:updated|corrected|set|changed|modified|adjusted)/gi,
@@ -1482,18 +1501,26 @@ export class CompanyAgentRunner {
       if (jitResult && jitResult.tokenEstimate > 0) {
         const jitSections: string[] = [];
         if (jitResult.relevantMemories.length > 0) {
-          jitSections.push('## Relevant Memories\n' + jitResult.relevantMemories.map((m: { content: string }) => `- ${m.content}`).join('\n'));
+          jitSections.push('## Relevant Memories\n' + jitResult.relevantMemories.map((m: { content: string; metadata?: Record<string, unknown> }) => `- ${m.content}${formatFreshnessTag(m)}`).join('\n'));
+        }
+        if (jitResult.relevantGraphNodes.length > 0) {
+          jitSections.push('## Relevant Graph Context\n' + jitResult.relevantGraphNodes.map((g: { content: string; metadata?: Record<string, unknown> }) => `- ${g.content}${formatFreshnessTag(g)}`).join('\n'));
         }
         if (jitResult.relevantKnowledge.length > 0) {
-          jitSections.push('## Relevant Knowledge\n' + jitResult.relevantKnowledge.map((k: { content: string }) => `- ${k.content}`).join('\n'));
+          jitSections.push('## Relevant Knowledge\n' + jitResult.relevantKnowledge.map((k: { content: string; metadata?: Record<string, unknown> }) => `- ${k.content}${formatFreshnessTag(k)}`).join('\n'));
         }
         if (jitResult.relevantEpisodes.length > 0) {
-          jitSections.push('## Relevant Episodes\n' + jitResult.relevantEpisodes.map((e: { content: string }) => `- ${e.content}`).join('\n'));
+          jitSections.push('## Relevant Episodes\n' + jitResult.relevantEpisodes.map((e: { content: string; metadata?: Record<string, unknown> }) => `- ${e.content}${formatFreshnessTag(e)}`).join('\n'));
         }
         if (jitResult.relevantProcedures.length > 0) {
-          jitSections.push('## Relevant Procedures\n' + jitResult.relevantProcedures.map((p: { content: string }) => `- ${p.content}`).join('\n'));
+          jitSections.push('## Relevant Procedures\n' + jitResult.relevantProcedures.map((p: { content: string; metadata?: Record<string, unknown> }) => `- ${p.content}${formatFreshnessTag(p)}`).join('\n'));
         }
         if (jitSections.length > 0) {
+          if (jitResult.selectionMeta) {
+            console.log(
+              `[JITSelector] ${config.role}: candidates=${jitResult.selectionMeta.candidateCount}, selected=${jitResult.selectionMeta.selectedCount}, by_source=${JSON.stringify(jitResult.selectionMeta.selectedBySource)}`,
+            );
+          }
           history.push({
             role: 'user',
             content: `[CONTEXT — Do NOT respond to this message; wait for the user's actual message.]\n\n# Task-Relevant Context (JIT Retrieved)\n\n${jitSections.join('\n\n')}`,
@@ -1868,6 +1895,14 @@ export class CompanyAgentRunner {
               const conversationId = config.dbRunId ?? config.id;
               const summary = await deps.sessionMemoryStore.getLatest(conversationId);
               sessionSummaryForCompaction = summary?.summaryText;
+              if (sessionSummaryForCompaction) {
+                emitEvent({
+                  type: 'context_injected',
+                  agentId: config.id,
+                  turnNumber,
+                  contextLength: sessionSummaryForCompaction.length,
+                });
+              }
             } catch {
               // fail-open: summary-first compaction is optional
             }

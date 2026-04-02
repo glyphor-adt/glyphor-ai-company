@@ -171,6 +171,10 @@ export {
   buildSessionSummary,
   isSummaryFirstCompactionEnabled,
 } from './memory/sessionMemoryUpdater.js';
+export {
+  getJitSelectionConfigFromEnv,
+  selectJitItems,
+} from './memory/jitContextSelector.js';
 export type {
   SessionMemoryConfig,
   SessionMemoryStore,
@@ -178,6 +182,7 @@ export type {
   SessionMemoryUpdateInput,
   SessionMemoryUpdateResult,
 } from './memory/sessionMemoryUpdater.js';
+export type { JitSelectionConfig } from './memory/jitContextSelector.js';
 // Patentable Engine Enhancements
 export { ConstitutionalGovernor } from './constitutionalGovernor.js';
 export type { ConstitutionalPrinciple, ConstitutionalEvaluation, Constitution } from './constitutionalGovernor.js';
