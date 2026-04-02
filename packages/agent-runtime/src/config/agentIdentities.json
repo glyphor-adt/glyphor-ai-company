@@ -393,5 +393,15 @@
     "blueprintSpId": "bacefc43-ef26-4bef-bbf8-ccd495ce0588",
     "entraUserId": "97607cc5-0f96-4550-bc17-91acbaba62ac",
     "upn": "adi@glyphor.ai"
+  },
+  "platform-intel": {
+    "displayName": "Glyphor Agent - Nexus (Platform Intel)",
+    "roles": [
+      "Glyphor.Ops.Read",
+      "Glyphor.Engineering.Read"
+    ],
+    "blueprintSpId": "1d4221f2-d58d-49b4-8aca-66f76c20ffcf",
+    "entraUserId": "a44db36e-6966-44d3-81cf-ddc61746f53b",
+    "upn": "nexus@glyphor.ai"
   }
 }

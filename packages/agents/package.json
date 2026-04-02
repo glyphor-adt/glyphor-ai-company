@@ -24,11 +24,12 @@
     "@glyphor/agent-runtime": "*",
     "@glyphor/company-memory": "*",
     "@glyphor/integrations": "*",
-    "@glyphor/shared": "*"
+    "@glyphor/shared": "*",
+    "e2b": "^2.18.0"
   },
   "devDependencies": {
-    "typescript": "^5.8.3",
     "@types/node": "^22.15.0",
-    "stripe": "^17.5.0"
+    "stripe": "^17.5.0",
+    "typescript": "^5.8.3"
   }
 }

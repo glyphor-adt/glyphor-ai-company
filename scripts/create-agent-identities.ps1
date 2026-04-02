@@ -14,7 +14,7 @@ $SponsorId = '88a731d1-3171-4279-aee1-34160898ab90'
 
 function Log { param([string]$m); Write-Host "$(Get-Date -Format 'HH:mm:ss') $m" }
 
-# 41 agents
+# 42 agents
 $agents = @(
     @{ key='chief-of-staff';               name='Sarah Chen' }
     @{ key='cto';                          name='Marcus Reeves' }
@@ -57,6 +57,7 @@ $agents = @(
     @{ key='lead-gen-specialist';          name='Derek Owens' }
     @{ key='marketing-intelligence-analyst'; name='Zara Petrov' }
     @{ key='adi-rose';                     name='Adi Rose' }
+    @{ key='platform-intel';               name='Nexus' }
 )
 
 # ─── Connect as Blueprint ───────────────────────────────────────

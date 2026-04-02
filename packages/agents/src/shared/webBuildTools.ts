@@ -2,6 +2,7 @@ import { ModelClient, type ConversationTurn, type ToolContext, type ToolDeclarat
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import { createCloudflarePreviewTools, createGithubFromTemplateTools, createGithubPullRequestTools, createGithubPushFilesTools, createVercelProjectTools } from '@glyphor/integrations';
 import { createDesignBriefTools } from './designBriefTools.js';
+import { runSandboxBuild } from './sandboxBuildValidator.js';
 
 type WebBuildTier = 'prototype' | 'full_build' | 'iterate';
 type WebProjectType = 'react_spa' | 'nextjs_fullstack' | 'fastapi_backend' | 'legacy_refactor' | 'dbt_pipeline' | 'terraform_infra';
@@ -906,10 +907,19 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
   return tools;
 }
 
-const DEFAULT_WEBSITE_FOUNDATION_MODEL = process.env.UX_ENGINEER_MODEL?.trim() || 'gemini-3.1-flash-lite-preview';
+const DEFAULT_WEBSITE_FOUNDATION_MODEL = process.env.UX_ENGINEER_MODEL?.trim() || 'gpt-5.4';
 const WEBSITE_FOUNDATION_REPAIR_MODEL = process.env.UX_ENGINEER_REPAIR_MODEL?.trim() || 'gpt-5.4-mini';
 const WEBSITE_FOUNDATION_MAX_TOKENS = 100000;
 const WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS = 4;
+const SANDBOX_MAX_REPAIR_ROUNDS = 3;
+const REQUIRED_FOUNDATION_FILES = new Set([
+  'index.html',
+  'src/App.tsx',
+  'src/styles/theme.css',
+  'src/styles/fonts.css',
+  'src/styles/index.css',
+  'src/styles/tailwind.css',
+]);
 
 const UX_ENGINEER_SYSTEM_PROMPT = `
 ROLE: You are a world-class design engineer. You receive a creative brief and build a complete,
@@ -1058,6 +1068,22 @@ const WEBSITE_FOUNDATION_LOOKUP_TOOLS = [
       required: ['component_name'],
     },
   },
+  {
+    name: 'install_item_from_registry',
+    description: 'Return the exact install command and import guidance for a registry component.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        item_name: { type: 'string', description: 'Registry item name.' },
+        registry: {
+          type: 'string',
+          description: 'Registry prefix.',
+          enum: ['@reactbits-pro', '@aceternity', '@reactbits-starter'],
+        },
+      },
+      required: ['item_name'],
+    },
+  },
 ];
 
 const WEBSITE_FOUNDATION_TOOL_DECLARATIONS: ToolDeclaration[] = WEBSITE_FOUNDATION_LOOKUP_TOOLS.map((tool) => ({
@@ -1069,6 +1095,84 @@ const WEBSITE_FOUNDATION_TOOL_DECLARATIONS: ToolDeclaration[] = WEBSITE_FOUNDATI
     required: tool.input_schema.required,
   },
 }));
+
+interface LocalComponentCatalogItem {
+  name: string;
+  registry: 'shadcn' | '@reactbits-pro' | '@aceternity' | '@reactbits-starter';
+  tags: string[];
+  description: string;
+  importPath?: string;
+}
+
+const LOCAL_COMPONENT_CATALOG: LocalComponentCatalogItem[] = [
+  { name: 'button', registry: 'shadcn', tags: ['cta', 'form', 'primitive'], description: 'Accessible button primitive.', importPath: '@/components/ui/button' },
+  { name: 'card', registry: 'shadcn', tags: ['layout', 'content'], description: 'Content container with header/body/footer slots.', importPath: '@/components/ui/card' },
+  { name: 'tabs', registry: 'shadcn', tags: ['navigation', 'interactive'], description: 'Accessible tabs with keyboard support.', importPath: '@/components/ui/tabs' },
+  { name: 'dialog', registry: 'shadcn', tags: ['modal', 'overlay'], description: 'Modal dialog primitives.', importPath: '@/components/ui/dialog' },
+  { name: 'split-text', registry: '@reactbits-pro', tags: ['motion', 'text', 'hero'], description: 'Animated headline text sequencing.' },
+  { name: 'gradient-text', registry: '@reactbits-pro', tags: ['text', 'hero', 'brand'], description: 'Gradient-driven headline treatment.' },
+  { name: 'particles', registry: '@reactbits-pro', tags: ['background', 'ambient', 'motion'], description: 'Particle background motion effect.' },
+  { name: 'spotlight', registry: '@aceternity', tags: ['hero', 'anchor', 'cinematic'], description: 'Cinematic spotlight structural anchor.' },
+  { name: 'parallax-scroll', registry: '@aceternity', tags: ['scroll', 'anchor', 'cinematic'], description: 'Parallax section anchor for storytelling.' },
+  { name: 'background-beams', registry: '@aceternity', tags: ['background', 'anchor', 'cinematic'], description: 'Beam-based backdrop anchor.' },
+];
+
+function localSearchComponents(input: Record<string, unknown>): Record<string, unknown> {
+  const query = String(input.query ?? '').trim().toLowerCase();
+  if (!query) {
+    return { items: LOCAL_COMPONENT_CATALOG.slice(0, 10) };
+  }
+  const items = LOCAL_COMPONENT_CATALOG.filter((item) => {
+    return item.name.includes(query)
+      || item.description.toLowerCase().includes(query)
+      || item.tags.some((tag) => tag.includes(query))
+      || item.registry.toLowerCase().includes(query);
+  });
+  return { items: items.slice(0, 20), query };
+}
+
+function localGetComponentInfo(input: Record<string, unknown>): Record<string, unknown> {
+  const componentName = String(input.component_name ?? '').trim().toLowerCase();
+  const match = LOCAL_COMPONENT_CATALOG.find((item) => item.name.toLowerCase() === componentName)
+    ?? LOCAL_COMPONENT_CATALOG.find((item) => item.name.toLowerCase().includes(componentName));
+  if (!match) {
+    return { error: `No local component metadata found for ${componentName}.` };
+  }
+  return {
+    component: match,
+    usage_guidance: match.registry === 'shadcn'
+      ? 'Use this for functional UI primitives.'
+      : 'Use this as a visual/motion enhancement, not for core UI primitives.',
+  };
+}
+
+function buildInstallCommand(itemName: string, registry: string): string {
+  if (registry === 'shadcn') {
+    return `npx shadcn@latest add ${itemName}`;
+  }
+  return `npx shadcn@latest add ${registry}/${itemName}`;
+}
+
+function localGetInstallationInfo(input: Record<string, unknown>): Record<string, unknown> {
+  const componentName = String(input.component_name ?? input.item_name ?? '').trim();
+  const registry = String(input.registry ?? '').trim() || '@reactbits-pro';
+  if (!componentName) {
+    return { error: 'component_name is required.' };
+  }
+  return {
+    component_name: componentName,
+    registry,
+    install_command: buildInstallCommand(componentName, registry),
+    notes: 'Install in the repo before importing. Keep functional primitives on shadcn/ui.',
+  };
+}
+
+const LOCAL_WEBSITE_LOOKUP_HANDLERS: Record<string, (input: Record<string, unknown>) => Record<string, unknown>> = {
+  search_components: localSearchComponents,
+  get_component_info: localGetComponentInfo,
+  get_installation_info: localGetInstallationInfo,
+  install_item_from_registry: localGetInstallationInfo,
+};
 
 interface WebsiteFoundationFileEntry {
   filePath: string;
@@ -1112,6 +1216,7 @@ async function executeWebsiteLookupTool(
   toolInput: Record<string, unknown>,
   ctx: ToolContext,
 ): Promise<Record<string, unknown>> {
+  const localHandler = LOCAL_WEBSITE_LOOKUP_HANDLERS[toolName];
   try {
     if (ctx.executeChildTool) {
       const result = await ctx.executeChildTool(toolName, toolInput);
@@ -1123,10 +1228,19 @@ async function executeWebsiteLookupTool(
       }
       return { value: result ?? null };
     }
+    if (localHandler) {
+      return localHandler(toolInput);
+    }
     return {
       note: `Tool ${toolName} lookup was requested but no child executor is available. Proceed with best-known API details.`,
     };
   } catch (err) {
+    if (localHandler) {
+      return {
+        ...localHandler(toolInput),
+        note: `Fell back to local ${toolName} metadata after child tool failure: ${(err as Error).message}`,
+      };
+    }
     return { error: `Tool ${toolName} failed: ${(err as Error).message}` };
   }
 }
@@ -1171,25 +1285,80 @@ function flattenWebsiteFoundationFiles(output: WebsiteFoundationOutput): Record<
   return files;
 }
 
+function validateWebsiteFoundationOutput(output: WebsiteFoundationOutput): { ok: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  const foundationFiles = new Set((output.foundation_files ?? []).map((entry) => entry.filePath));
+  for (const requiredFile of REQUIRED_FOUNDATION_FILES) {
+    if (!foundationFiles.has(requiredFile)) {
+      errors.push(`missing required foundation file: ${requiredFile}`);
+    }
+  }
+
+  const sections = ((output.design_plan as { sections?: Array<{ id?: unknown }> } | undefined)?.sections ?? []);
+  const sectionIds = new Set(
+    sections
+      .map((section) => String(section?.id ?? '').trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+  if (sections.length < 5) {
+    errors.push('design_plan must include at least 5 sections.');
+  }
+
+  for (const requiredSection of ['nav', 'hero', 'cta', 'footer']) {
+    if (!sectionIds.has(requiredSection)) {
+      errors.push(`design_plan is missing required section id: ${requiredSection}`);
+    }
+  }
+
+  if ((output.components ?? []).length < 4) {
+    errors.push('components must include at least 4 complete section component files.');
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+function buildSandboxRepairPrompt(errors: string[]): string {
+  return [
+    '<sandbox_build_errors>',
+    'Your generated code failed the real Vite + TypeScript sandbox build.',
+    '',
+    'Build errors (fix ALL of these):',
+    errors.slice(0, 40).join('\n'),
+    '</sandbox_build_errors>',
+    '',
+    'Regenerate the COMPLETE JSON build output with all files.',
+    'Fix only the files referenced in the errors above.',
+    'Do NOT change sections, layouts, or brand colors that were working.',
+    'Common fixes: correct import paths, add missing type annotations, resolve TS2345/TS2304/TS2305 errors.',
+  ].join('\n');
+}
+
 async function runWebsiteFoundationLoop(
   userPrompt: string,
   model: string,
   ctx: ToolContext,
-): Promise<{ output: WebsiteFoundationOutput; toolRounds: number }> {
+): Promise<{ output: WebsiteFoundationOutput; toolRounds: number; lookupCalls: number; lookupFailures: number; sandboxRounds: number }> {
   const modelClient = createWebsiteFoundationModelClient();
   const turns: ConversationTurn[] = [createConversationTurn({ role: 'user', content: userPrompt })];
   let toolRounds = 0;
   let output: WebsiteFoundationOutput | null = null;
+  let lookupCalls = 0;
+  let lookupFailures = 0;
+  let sandboxRounds = 0;
+  // Switch to repair model for sandbox error rounds (cheaper + faster for targeted fixes)
+  let effectiveModel = model;
 
   while (toolRounds <= WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS) {
     const response = await modelClient.generate({
-      model,
+      model: effectiveModel,
       systemInstruction: UX_ENGINEER_SYSTEM_PROMPT,
       contents: turns,
       tools: WEBSITE_FOUNDATION_TOOL_DECLARATIONS,
       maxTokens: WEBSITE_FOUNDATION_MAX_TOKENS,
-      thinkingEnabled: true,
-      reasoningLevel: 'deep',
+      thinkingEnabled: effectiveModel === model, // skip deep thinking on repair rounds
+      reasoningLevel: effectiveModel === model ? 'deep' : 'standard',
       signal: ctx.abortSignal,
       callTimeoutMs: 300_000,
       metadata: {
@@ -1203,7 +1372,46 @@ async function runWebsiteFoundationLoop(
     if (response.text?.includes('foundation_files')) {
       const parsed = parseWebsiteFoundationOutput(response.text);
       if (parsed) {
-        output = parsed;
+        const validation = validateWebsiteFoundationOutput(parsed);
+        if (validation.ok) {
+          // Schema contract passed — now run real sandbox build validation
+          const flatFiles = flattenWebsiteFoundationFiles(parsed);
+          const sandboxResult = await runSandboxBuild(flatFiles, ctx.abortSignal);
+
+          if (sandboxResult.skipped || sandboxResult.ok) {
+            if (!sandboxResult.skipped) {
+              console.log(`[WebBuild] Sandbox build ✅ in ${sandboxResult.durationMs ?? 0}ms`);
+            }
+            output = parsed;
+            break;
+          }
+
+          // Sandbox build failed
+          console.warn(`[WebBuild] Sandbox build ❌ (round ${sandboxRounds + 1}/${SANDBOX_MAX_REPAIR_ROUNDS}): ${sandboxResult.errors.length} errors`);
+          sandboxRounds += 1;
+
+          if (sandboxRounds > SANDBOX_MAX_REPAIR_ROUNDS) {
+            console.warn('[WebBuild] Sandbox repair limit reached; using last output.');
+            output = parsed;
+            break;
+          }
+
+          // Send real build errors back to model for self-repair
+          turns.push(createConversationTurn({
+            role: 'user',
+            content: buildSandboxRepairPrompt(sandboxResult.errors),
+          }));
+
+          // Use the cheaper repair model for targeted error fixes
+          effectiveModel = WEBSITE_FOUNDATION_REPAIR_MODEL;
+          toolRounds += 1;
+          continue;
+        } else {
+          turns.push(createConversationTurn({
+            role: 'user',
+            content: `Your output did not satisfy the UX engineer contract. Fix and regenerate the full JSON. Violations:\n- ${validation.errors.join('\n- ')}`,
+          }));
+        }
       }
     }
 
@@ -1222,6 +1430,7 @@ async function runWebsiteFoundationLoop(
     }
 
     for (const toolUse of response.toolCalls) {
+      lookupCalls += 1;
       turns.push(createConversationTurn({
         role: 'tool_call',
         toolName: String(toolUse.name),
@@ -1234,6 +1443,9 @@ async function runWebsiteFoundationLoop(
         (toolUse.args as Record<string, unknown>) ?? {},
         ctx,
       );
+      if (typeof toolResult.error === 'string' && toolResult.error.trim()) {
+        lookupFailures += 1;
+      }
       turns.push(createConversationTurn({
         role: 'tool_result',
         toolName: String(toolUse.name),
@@ -1247,7 +1459,7 @@ async function runWebsiteFoundationLoop(
     throw new Error('Website foundation build completed without a valid output payload.');
   }
 
-  return { output, toolRounds };
+  return { output, toolRounds, lookupCalls, lookupFailures, sandboxRounds };
 }
 
 export function createBuildWebsiteFoundationTools(): ToolDefinition[] {
@@ -1310,7 +1522,7 @@ export function createBuildWebsiteFoundationTools(): ToolDefinition[] {
         }
 
         try {
-          const { output, toolRounds } = await runWebsiteFoundationLoop(promptParts.join('\n\n'), selectedModel, ctx);
+          const { output, toolRounds, lookupCalls, lookupFailures, sandboxRounds } = await runWebsiteFoundationLoop(promptParts.join('\n\n'), selectedModel, ctx);
           return {
             success: true,
             data: {
@@ -1319,6 +1531,10 @@ export function createBuildWebsiteFoundationTools(): ToolDefinition[] {
               architectural_reasoning: output.architectural_reasoning,
               design_plan: output.design_plan,
               tool_rounds: toolRounds,
+              lookup_calls: lookupCalls,
+              lookup_failures: lookupFailures,
+              sandbox_rounds: sandboxRounds,
+              sandbox_enabled: Boolean(process.env.E2B_API_KEY?.trim()) && process.env.SANDBOX_BUILD_SKIP !== 'true',
               model: selectedModel,
             },
           };

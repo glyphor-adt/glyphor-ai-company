@@ -23,10 +23,19 @@ interface ManifestFile {
   mcpServers?: ManifestServer[];
 }
 
+interface UserExportFile {
+  value?: Array<{
+    id?: string;
+    displayName?: string;
+    userPrincipalName?: string;
+  }>;
+}
+
 const ROOT = process.cwd();
 const IDENTITIES_PATH = path.join(ROOT, 'packages', 'agent-runtime', 'src', 'config', 'agentIdentities.json');
 const EMAIL_MAP_PATH = path.join(ROOT, 'packages', 'agent-runtime', 'src', 'config', 'agentEmails.ts');
 const MANIFEST_PATH = path.join(ROOT, 'ToolingManifest.json');
+const ALL_USERS_EXPORT_PATH = path.join(ROOT, '_all_users.json');
 
 const REQUIRED_ENV = [
   'AGENT365_ENABLED',
@@ -62,6 +71,21 @@ function loadManifest(): ManifestFile {
   return JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as ManifestFile;
 }
 
+function loadAllUsersExport(): UserExportFile | null {
+  if (!existsSync(ALL_USERS_EXPORT_PATH)) {
+    return null;
+  }
+
+  const raw = readFileSync(ALL_USERS_EXPORT_PATH, 'utf8');
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1 || end < start) {
+    return null;
+  }
+
+  return JSON.parse(raw.slice(start, end + 1)) as UserExportFile;
+}
+
 function hasDuplicates(values: string[]): string[] {
   const counts = new Map<string, number>();
   for (const value of values) {
@@ -91,6 +115,7 @@ function runChecks(strictEnv: boolean): CheckResult[] {
   const identities = loadIdentities();
   const emailMap = loadAgentEmailMap();
   const manifest = loadManifest();
+  const allUsersExport = loadAllUsersExport();
 
   const identityRoles = Object.keys(identities);
   const emailRoles = Object.keys(emailMap);
@@ -156,6 +181,23 @@ function runChecks(strictEnv: boolean): CheckResult[] {
     results.push({ level: 'PASS', message: 'No duplicate entraUserId values.' });
   } else {
     results.push({ level: 'FAIL', message: `Duplicate entraUserId values found: ${duplicateEntraUsers.join(', ')}` });
+  }
+
+  if (allUsersExport?.value?.length) {
+    const exportedUpns = new Set(
+      allUsersExport.value
+        .map((entry) => entry.userPrincipalName?.toLowerCase())
+        .filter((value): value is string => !!value),
+    );
+    const missingExportUsers = emailRoles.filter((role) => !exportedUpns.has(emailMap[role].toLowerCase()));
+
+    if (missingExportUsers.length === 0) {
+      results.push({ level: 'PASS', message: `All AGENT_EMAIL_MAP users exist in _all_users.json (${exportedUpns.size} exported users).` });
+    } else {
+      results.push({ level: 'WARN', message: `Roles missing from _all_users.json export: ${missingExportUsers.join(', ')}` });
+    }
+  } else {
+    results.push({ level: 'WARN', message: '_all_users.json not found; skipped exported-user verification.' });
   }
 
   const mailToolsServer = (manifest.mcpServers ?? []).find((server) => server.mcpServerName === 'mcp_MailTools');
