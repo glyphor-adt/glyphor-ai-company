@@ -49,6 +49,7 @@ import { extractTaskFromConfigId } from './taskIdentity.js';
 import { composeModelContext } from './context/contextComposer.js';
 import { microCompactHistory } from './context/microCompactor.js';
 import { startTraceSpan } from './telemetry/tracing.js';
+import { extractAcceptanceCriteriaFromMessage, parseExecutionPlan } from './executionPlanning.js';
 import { runDeterministicPreCheck } from './routing/index.js';
 import { buildToolTaskContext, getToolRetriever, type ToolRetrieverTrace } from './routing/toolRetriever.js';
 import type { RoutingDecision } from './routing/index.js';
@@ -75,6 +76,9 @@ import {
 } from './telemetry/runLedger.js';
 
 const CONTEXT_COMPOSITION_MAX_TOKENS = 12_000;
+const PLANNING_REQUEST_MARKER = '__planning_request__';
+const PLANNING_REPAIR_MARKER = '__planning_repair__';
+const EXECUTION_GATE_NUDGE_MARKER = '__completion_gate_nudge__';
 
 // ─── Cost estimation (uses centralized model registry) ───────────────
 
@@ -446,6 +450,17 @@ export abstract class BaseAgentRunner {
     let microCompactionOccurred = false;
     let latestMicroCompactionSummary: string | undefined;
     const actionReceipts: ActionReceipt[] = [];
+    const planningMode = config.planningMode ?? (this.archetype === 'task' ? 'auto' : 'off');
+    const completionGateEnabled = config.completionGateEnabled ?? (planningMode !== 'off');
+    const planningMaxAttempts = Math.max(1, config.planningMaxAttempts ?? 2);
+    const completionGateMaxRetries = Math.max(0, config.completionGateMaxRetries ?? 2);
+    let runPhase: 'planning' | 'execution' = planningMode === 'off' ? 'execution' : 'planning';
+    let planningAttempts = 0;
+    let completionGateRetries = 0;
+    let completionGatePassed = false;
+    let completionGateMissing: string[] = [];
+    let executionPlanObjective: string | undefined;
+    let acceptanceCriteria = extractAcceptanceCriteriaFromMessage(initialMessage);
     const traceAuditLogIds = new Set<string>();
     const traceTaskId = config.assignmentId ?? config.id;
     let reactIterationCounter = 0;
@@ -823,6 +838,24 @@ ${memPrompt}`, timestamp: Date.now() });
           } catch { /* non-critical */ }
         }
 
+        if (runPhase === 'planning') {
+          const planningInstruction = `${PLANNING_REQUEST_MARKER}
+Before executing any tools, produce a concise execution plan in STRICT JSON:
+{
+  "objective": "string",
+  "acceptance_criteria": ["string"],
+  "execution_steps": ["string"],
+  "verification_steps": ["string"]
+}
+Rules:
+- Include 3-7 concrete acceptance criteria.
+- Criteria must be objectively verifiable.
+- Output JSON only (no markdown, no prose).`;
+          if (!history.some((turn) => turn.role === 'user' && turn.content.startsWith(PLANNING_REQUEST_MARKER))) {
+            history.push({ role: 'user', content: planningInstruction, timestamp: Date.now() });
+          }
+        }
+
         // ── Model call ──────────────────────────────────────────
         let response: Awaited<ReturnType<ModelClient['generate']>>;
         const modelTurnSpan = startTraceSpan('runner.model_turn', {
@@ -909,6 +942,7 @@ ${memPrompt}`, timestamp: Date.now() });
           // Strip tools on last turn to force text response
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
           if (turnNumber >= supervisor.config.maxTurns) effectiveTools = undefined;
+          if (runPhase === 'planning') effectiveTools = undefined;
           if (effectiveTools) {
               const modelForRetrieval = routedModel.model === '__deterministic__'
                 ? config.model
@@ -1114,8 +1148,70 @@ ${memPrompt}`, timestamp: Date.now() });
 
         // ── Text response — agent done ──────────────────────────
         if (response.text) {
-          lastTextOutput = response.text;
           history.push({ role: 'assistant', content: response.text, timestamp: Date.now() });
+          if (runPhase === 'planning') {
+            planningAttempts += 1;
+            const parsedPlan = parseExecutionPlan(response.text);
+            if (parsedPlan) {
+              executionPlanObjective = parsedPlan.objective;
+              acceptanceCriteria = Array.from(new Set([
+                ...acceptanceCriteria,
+                ...parsedPlan.acceptanceCriteria,
+              ]));
+              runPhase = 'execution';
+              completionGateRetries = 0;
+              completionGateMissing = [];
+              history.push({
+                role: 'user',
+                content: `Execution phase begins now. Complete the task using tools and satisfy all acceptance criteria before final response.
+Acceptance criteria:
+${acceptanceCriteria.map((criterion, idx) => `${idx + 1}. ${criterion}`).join('\n')}`,
+                timestamp: Date.now(),
+              });
+              continue;
+            }
+
+            if (planningAttempts < planningMaxAttempts) {
+              history.push({
+                role: 'user',
+                content: `${PLANNING_REPAIR_MARKER}
+Your plan was not valid JSON or missed acceptance criteria.
+Return ONLY strict JSON with:
+- objective
+- acceptance_criteria (3-7 concrete items)
+- execution_steps
+- verification_steps`,
+                timestamp: Date.now(),
+              });
+              continue;
+            }
+
+            if (planningMode === 'required') {
+              return this.buildResult(
+                config,
+                'aborted',
+                null,
+                history,
+                supervisor,
+                'planner_failed_to_produce_valid_plan',
+                totalInputTokens,
+                totalOutputTokens,
+                totalThinkingTokens,
+                totalCachedInputTokens,
+                buildRoutingSummary(),
+              );
+            }
+
+            runPhase = 'execution';
+            history.push({
+              role: 'user',
+              content: 'Planning output was invalid. Continue directly in execution mode and complete the task with tool-backed verification.',
+              timestamp: Date.now(),
+            });
+            continue;
+          }
+
+          lastTextOutput = response.text;
           if (safeDeps.sessionMemoryUpdater) {
             try {
               await safeDeps.sessionMemoryUpdater.maybeUpdate({
@@ -1154,6 +1250,33 @@ ${memPrompt}`, timestamp: Date.now() });
             console.warn(`[BaseAgentRunner] Planning-only response detected for ${config.role} on turn ${turnNumber} — nudging to execute.`);
             history.push({ role: 'user', content: PLANNING_NUDGE, timestamp: Date.now() });
             continue;
+          }
+
+          if (runPhase === 'execution' && completionGateEnabled && acceptanceCriteria.length > 0 && lastTextOutput) {
+            const completionGate = await this.evaluateCompletionGate({
+              role: config.role,
+              initialMessage,
+              acceptanceCriteria,
+              output: lastTextOutput,
+              actionReceipts,
+              signal: supervisor.signal,
+            });
+            completionGatePassed = completionGate.meets;
+            completionGateMissing = completionGate.missingCriteria;
+            if (!completionGate.meets && completionGateRetries < completionGateMaxRetries) {
+              completionGateRetries += 1;
+              history.push({
+                role: 'user',
+                content: `${EXECUTION_GATE_NUDGE_MARKER}
+Do not finalize yet. The output does not satisfy all acceptance criteria.
+Missing criteria:
+${completionGate.missingCriteria.map((criterion, idx) => `${idx + 1}. ${criterion}`).join('\n')}
+
+Continue execution, call tools as needed, and return only when all criteria are met.`,
+                timestamp: Date.now(),
+              });
+              continue;
+            }
           }
 
           break;
@@ -1426,6 +1549,16 @@ ${memPrompt}`, timestamp: Date.now() });
 
       const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary(), actualModelUsed, actualProviderUsed);
       result.actions = actionReceipts;
+      result.executionPlanMeta = {
+        mode: planningMode,
+        objective: executionPlanObjective,
+        acceptanceCriteria,
+        planned: planningAttempts > 0,
+        planningAttempts,
+        completionGateEnabled,
+        completionGatePassed: (completionGateEnabled && acceptanceCriteria.length > 0) ? completionGatePassed : undefined,
+        missingCriteria: completionGateMissing.length > 0 ? completionGateMissing : undefined,
+      };
       if (microCompactionOccurred) {
         result.compactionOccurred = true;
         result.compactionCount = microCompactionCount;
@@ -1553,6 +1686,16 @@ ${memPrompt}`, timestamp: Date.now() });
       emitEvent({ type: 'agent_error', agentId: config.id, error: (error as Error).message, turnNumber: supervisor.stats.turnCount });
       const errResult = this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary(), actualModelUsed, actualProviderUsed);
       errResult.actions = actionReceipts;
+      errResult.executionPlanMeta = {
+        mode: planningMode,
+        objective: executionPlanObjective,
+        acceptanceCriteria,
+        planned: planningAttempts > 0,
+        planningAttempts,
+        completionGateEnabled,
+        completionGatePassed: (completionGateEnabled && acceptanceCriteria.length > 0) ? completionGatePassed : undefined,
+        missingCriteria: completionGateMissing.length > 0 ? completionGateMissing : undefined,
+      };
       if (microCompactionOccurred) {
         errResult.compactionOccurred = true;
         errResult.compactionCount = microCompactionCount;
@@ -1633,5 +1776,64 @@ ${memPrompt}`, timestamp: Date.now() });
       modelRoutingReason: routing?.modelRoutingReason,
       subtaskComplexity: routing?.subtaskComplexity,
     };
+  }
+
+  private async evaluateCompletionGate(input: {
+    role: CompanyAgentRole;
+    initialMessage: string;
+    acceptanceCriteria: string[];
+    output: string;
+    actionReceipts: ActionReceipt[];
+    signal: AbortSignal;
+  }): Promise<{ meets: boolean; missingCriteria: string[] }> {
+    try {
+      const toolEvidence = input.actionReceipts
+        .map((receipt, idx) => `${idx + 1}. ${receipt.tool} (${receipt.result}): ${receipt.output}`)
+        .join('\n')
+        .slice(0, 12_000);
+      const prompt = `Evaluate whether the candidate output satisfies ALL acceptance criteria.
+Return STRICT JSON only:
+{
+  "meets": boolean,
+  "missing_criteria": ["string"]
+}
+
+Initial task:
+${input.initialMessage}
+
+Acceptance criteria:
+${input.acceptanceCriteria.map((criterion, idx) => `${idx + 1}. ${criterion}`).join('\n')}
+
+Tool evidence:
+${toolEvidence || 'No tool evidence recorded.'}
+
+Candidate output:
+${input.output}`;
+
+      const response = await this.modelClient.generate({
+        model: getTierModel('default'),
+        systemInstruction: 'You are a strict task verifier. Reply with JSON only.',
+        contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+        tools: undefined,
+        thinkingEnabled: false,
+        reasoningLevel: 'none',
+        signal: input.signal,
+        callTimeoutMs: 120_000,
+        metadata: {
+          agentRole: input.role,
+        },
+      });
+      const raw = (response.text ?? '').trim();
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      const parsed = JSON.parse(cleaned) as { meets?: unknown; missing_criteria?: unknown };
+      const meets = parsed.meets === true;
+      const missingCriteria = Array.isArray(parsed.missing_criteria)
+        ? parsed.missing_criteria.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
+        : [];
+      return { meets, missingCriteria };
+    } catch {
+      // Fail-open to avoid deadlocking runs if the verifier cannot parse or call a model.
+      return { meets: true, missingCriteria: [] };
+    }
   }
 }

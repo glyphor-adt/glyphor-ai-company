@@ -51,6 +51,8 @@
     "trace:summary": "tsx scripts/trace-span-summary.ts",
     "trace:summary:cloudrun": "tsx scripts/trace-span-cloudrun-summary.ts",
     "run:replay": "tsx scripts/run-replay.ts",
+    "canary:validate": "tsx scripts/reliability-canary-validate.ts",
+    "canary:run:ps": "powershell -ExecutionPolicy Bypass -File scripts/run-reliability-canary.ps1",
     "db:agent-schedules-subset": "tsx scripts/query-agent-schedules-subset.ts",
     "smoke:all-agents": "tsx scripts/smoke-test-all-agents.ts"
   },

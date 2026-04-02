@@ -40,6 +40,11 @@ This runbook operationalizes the 30-day reliability program for Glyphor runtime 
    - Roll out to all production scheduler instances.
    - Tune thresholds only after one full day of no false-positive spikes.
 
+Companion assets:
+
+- Checklist: `docs/RELIABILITY_CANARY_CHECKLIST.md`
+- SQL bundle: `scripts/sql/reliability_canary_validation.sql`
+
 ## Quick Validation Queries
 
 ```sql

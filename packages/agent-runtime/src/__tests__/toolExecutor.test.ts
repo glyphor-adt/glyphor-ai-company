@@ -53,6 +53,7 @@ function buildContext(overrides: Partial<ToolContext> = {}): ToolContext {
     agentId: 'run-1',
     agentRole: 'chief-of-staff',
     turnNumber: 1,
+    assignmentId: 'A-CTX-1',
     abortSignal: new AbortController().signal,
     memoryBus: {} as any,
     emitEvent: vi.fn(),
@@ -95,7 +96,7 @@ describe('ToolExecutor', () => {
 
     const result = await executor.execute(
       'submit_assignment_output',
-      { assignment_id: 'A-123', output: 'We guarantee 100% uptime forever.' },
+      { assignment_id: 'A-CTX-1', output: 'We guarantee 100% uptime forever.' },
       buildContext(),
     );
 
@@ -134,7 +135,7 @@ describe('ToolExecutor', () => {
 
     const result = await executor.execute(
       'submit_assignment_output',
-      { assignment_id: 'A-123', output: 'Here is the update you requested.' },
+      { assignment_id: 'A-CTX-1', output: 'Here is the update you requested.' },
       buildContext(),
     );
 

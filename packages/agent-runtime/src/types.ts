@@ -39,6 +39,14 @@ export interface AgentConfig {
   assignmentId?: string;
   /** Founder directive ID (threaded from dispatch for outcome linkage). */
   directiveId?: string;
+  /** Planner/executor loop mode. Auto enables planning for task agents. */
+  planningMode?: 'off' | 'auto' | 'required';
+  /** Max retries when plan extraction fails. Defaults to 2. */
+  planningMaxAttempts?: number;
+  /** Enforce acceptance-criteria completion gate before finalization. */
+  completionGateEnabled?: boolean;
+  /** Max retries when completion gate fails. Defaults to 2. */
+  completionGateMaxRetries?: number;
 }
 
 export type CompanyAgentRole =
@@ -377,6 +385,16 @@ export interface AgentExecutionResult {
     rubricScore?: number;
     escalated?: boolean;
     unsupportedClaims?: string[];
+  };
+  executionPlanMeta?: {
+    mode: 'off' | 'auto' | 'required';
+    objective?: string;
+    acceptanceCriteria: string[];
+    planned: boolean;
+    planningAttempts: number;
+    completionGateEnabled: boolean;
+    completionGatePassed?: boolean;
+    missingCriteria?: string[];
   };
   compactionOccurred?: boolean;
   compactionCount?: number;
@@ -758,6 +776,7 @@ export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   'deploy_to_staging',
   'invoke_web_build',
   'invoke_web_iterate',
+  'invoke_web_coding_loop',
   'invoke_web_upgrade',
   'build_website_foundation',
   'github_create_from_template',
