@@ -1077,6 +1077,9 @@ export class CompanyAgentRunner {
       }
       return true;
     });
+    if (dbRunId) {
+      config.dbRunId = config.dbRunId ?? dbRunId;
+    }
 
     // Pre-process Office documents (.docx, .pptx, .xlsx) — extract text content
     // so providers don't pass raw binary to the LLM.

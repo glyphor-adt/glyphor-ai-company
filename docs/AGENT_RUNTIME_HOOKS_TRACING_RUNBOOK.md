@@ -33,6 +33,84 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
     - `{"default":{"planningMode":"auto","completionGateMaxRetries":2},"roles":{"frontend-engineer":{"planningMode":"required"}},"tasks":{"on_demand":{"planningMode":"off","completionGateEnabled":false}}}`
   - Validate before deploy:
     - `npm run planning:policy:validate -- --env-var AGENT_PLANNING_POLICY_JSON`
+- `AGENT_RUN_LEDGER_ENABLED`
+  - Enables persistent run-event telemetry in `agent_run_events` (required for dashboard planning/gate monitoring).
+  - Set to truthy (`1`, `true`, `yes`, `on`) in environments where agent runtime and scheduler run.
+- Planning-gate monitor thresholds:
+  - `PLANNING_GATE_ALERT_WINDOW_DAYS` (default `30`)
+  - `PLANNING_GATE_ALERT_MIN_PLANNED_RUNS` (default `10`)
+  - `PLANNING_GATE_ALERT_PASS_RATE_MIN` (default `0.70`)
+  - `PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD` (default `2`)
+
+## Planning Gate Ops (Canary + Prod)
+
+Use this section for rollout and operation of planner/executor + completion-gate monitoring.
+
+### Copy/Paste Environment Blocks
+
+- Canary (recommended starting point):
+
+```bash
+AGENT_RUN_LEDGER_ENABLED=true
+AGENT_TRACING_ENABLED=true
+PLANNING_GATE_ALERT_WINDOW_DAYS=30
+PLANNING_GATE_ALERT_MIN_PLANNED_RUNS=10
+PLANNING_GATE_ALERT_PASS_RATE_MIN=0.70
+PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD=2
+```
+
+- Production baseline (after canary is stable):
+
+```bash
+AGENT_RUN_LEDGER_ENABLED=true
+AGENT_TRACING_ENABLED=false
+PLANNING_GATE_ALERT_WINDOW_DAYS=30
+PLANNING_GATE_ALERT_MIN_PLANNED_RUNS=20
+PLANNING_GATE_ALERT_PASS_RATE_MIN=0.75
+PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD=2
+```
+
+### Verification Checklist
+
+1. Confirm ledger ingestion is active:
+   - run a few planner/gate-enabled tasks (`frontend-engineer`, `vp-design`, `ui-ux-designer`).
+   - verify non-zero planning/gate metrics:
+     - `GET /admin/metrics/planning-gate?window=30`
+2. Confirm health evaluation endpoint:
+   - `GET /admin/metrics/planning-gate-health`
+   - expect `status` in `green|yellow|red`.
+3. Confirm Governance UI:
+   - Planning & Completion Gate card shows health badge and last-evaluated timestamp.
+4. Confirm Reliability UI:
+   - pass/fail/retry KPIs populate.
+   - 7d vs 30d trend section shows non-empty deltas.
+
+### Scheduled Monitor
+
+- Daily monitor job:
+  - cron id: `planning-gate-monitor`
+  - endpoint: `POST /planning-gate/monitor`
+  - behavior on alert:
+    - writes `activity_log` entry (`planning_gate.alert`),
+    - opens/highlights incident (`Planning gate quality regression`),
+    - sends founder notification through notifier path.
+
+### Red Badge Response Playbook
+
+If Governance badge turns red:
+
+1. Validate failing signal:
+   - check `GET /admin/metrics/planning-gate-health`.
+   - check Reliability role table for largest 7d regression.
+2. Scope blast radius:
+   - identify roles with lowest pass rate and highest retry spikes.
+   - inspect recent run outputs and missing-criteria patterns.
+3. Stabilize quickly:
+   - lower planner strictness for affected role/task temporarily OR reduce gate retries if loops are noisy.
+   - if needed, rollback to previous `AGENT_PLANNING_POLICY_JSON`.
+4. Re-check after change:
+   - run targeted canary tasks for affected roles.
+   - confirm pass-rate trend recovery before broader rollout.
 
 ## Rollout Checklist
 

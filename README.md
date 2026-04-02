@@ -122,6 +122,7 @@ See [docs/AUTHORITY_MODEL.md](docs/AUTHORITY_MODEL.md) for full details.
 - [Operating Manual](docs/OPERATING_MANUAL.md)
 - [Web Creation Operating System](docs/WEB_CREATION_OPERATING_SYSTEM.md)
 - [Agent Runtime Hooks + Tracing Runbook](docs/AGENT_RUNTIME_HOOKS_TRACING_RUNBOOK.md)
+- [Planning Gate Ops (within Runtime Runbook)](docs/AGENT_RUNTIME_HOOKS_TRACING_RUNBOOK.md#planning-gate-ops-canary--prod)
 - [Web Coding Loop Playbook](docs/WEB_CODING_LOOP_PLAYBOOK.md)
 - [Memory Schema](docs/MEMORY_SCHEMA.md)
 - [Authority Model](docs/AUTHORITY_MODEL.md)
