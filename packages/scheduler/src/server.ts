@@ -3245,6 +3245,9 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && url === '/run') {
       const body = JSON.parse(await readBody(req));
       const agentRole = body.agentRole ?? body.agent;
+      const requestRunId = typeof body.runId === 'string' && body.runId.trim().length > 0
+        ? body.runId.trim()
+        : crypto.randomUUID();
 
       // Build conversational message — pass clean message + proper multi-turn history
       let message = body.message as string | undefined;
@@ -3279,6 +3282,16 @@ const server = createServer(async (req, res) => {
             timestamp: Date.now(),
           });
         }
+      }
+      const hasDbRunCarrier = conversationHistory.some(
+        (turn) => typeof turn.content === 'string' && turn.content.startsWith(DB_RUN_ID_TURN_PREFIX),
+      );
+      if (!hasDbRunCarrier) {
+        conversationHistory.unshift({
+          role: 'user',
+          content: `${DB_RUN_ID_TURN_PREFIX}${requestRunId}`,
+          timestamp: Date.now(),
+        });
       }
 
       const result = await router.route({
