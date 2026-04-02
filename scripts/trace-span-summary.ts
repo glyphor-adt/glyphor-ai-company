@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 interface SpanEndEvent {
   event: string;
@@ -120,9 +121,7 @@ function printTable(title: string, groups: Map<string, GroupStats>, limit: numbe
   }
 }
 
-function main(): void {
-  const { file, limit } = parseArgs(process.argv.slice(2));
-  const raw = readFileSync(file, 'utf8');
+export function summarizeTraceSpanText(raw: string, limit: number): void {
   const lines = raw.split(/\r?\n/);
 
   const toolGroups = new Map<string, GroupStats>();
@@ -146,10 +145,18 @@ function main(): void {
   printTable('Model Candidate Latency Summary', modelCandidateGroups, limit);
 }
 
-try {
-  main();
-} catch (error) {
-  const msg = error instanceof Error ? error.message : String(error);
-  console.error(`[trace-span-summary] ${msg}`);
-  process.exitCode = 1;
+function main(): void {
+  const { file, limit } = parseArgs(process.argv.slice(2));
+  const raw = readFileSync(file, 'utf8');
+  summarizeTraceSpanText(raw, limit);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    main();
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[trace-span-summary] ${msg}`);
+    process.exitCode = 1;
+  }
 }
