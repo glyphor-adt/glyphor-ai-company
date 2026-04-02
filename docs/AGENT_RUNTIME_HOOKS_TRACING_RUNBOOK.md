@@ -32,7 +32,9 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
   - `AGENT_TRACING_ENABLED=true`
   - `TOOL_HOOKS_CONFIG` mounted from a staging secret (observe-only pre-hook).
 - For GitHub Actions deployment:
-  - set workflow env `TOOL_HOOKS_CONFIG_SECRET` to your secret name (for example: `tool-hooks-config-staging`).
+  - set repository secret `TOOL_HOOKS_CONFIG_SECRET_NAME` to your secret name (for example: `tool-hooks-config-staging`).
+  - set repository variable `AGENT_TRACING_ENABLED` to `true` (for canary), later `false` if needed.
+  - optional manual override: use `workflow_dispatch` inputs (`agent_tracing_enabled`, `tool_hooks_config_secret_name`) for one-off deploys without changing repository settings.
 - Verify no execution regressions:
   - existing runtime tests pass
   - no spike in tool timeout/verification failures

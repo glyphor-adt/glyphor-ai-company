@@ -4,6 +4,17 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      agent_tracing_enabled:
+        description: 'Override tracing toggle for this manual deploy (true/false). Leave empty to use repo variable.'
+        required: false
+        default: ''
+        type: string
+      tool_hooks_config_secret_name:
+        description: 'Override Secret Manager secret name for TOOL_HOOKS_CONFIG for this manual deploy.'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -14,8 +25,8 @@ env:
   GCP_REGION: us-central1
   AR_REPO: glyphor
   REGISTRY: us-central1-docker.pkg.dev/ai-glyphor-company/glyphor
-  AGENT_TRACING_ENABLED: "false"
-  TOOL_HOOKS_CONFIG_SECRET: ""
+  AGENT_TRACING_ENABLED: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.agent_tracing_enabled != '' && github.event.inputs.agent_tracing_enabled || vars.AGENT_TRACING_ENABLED || 'false' }}
+  TOOL_HOOKS_CONFIG_SECRET: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tool_hooks_config_secret_name != '' && github.event.inputs.tool_hooks_config_secret_name || secrets.TOOL_HOOKS_CONFIG_SECRET_NAME }}
 
 jobs:
   # ─── Typecheck gate — fail fast before Docker builds ──────
