@@ -64,6 +64,18 @@ interface PlanningGateSnapshot {
   };
 }
 
+interface PlanningGateHealthSnapshot {
+  status: 'green' | 'yellow' | 'red';
+  evaluatedAt: string;
+  report: PlanningGateSnapshot & {
+    minPlannedRuns: number;
+    passRateThreshold: number;
+    retrySpikeThreshold: number;
+    maxRetryAttempt: number;
+    alerts?: Array<{ message: string }>;
+  };
+}
+
 const INITIAL_DATA: GovernanceData = {
   riskSummary: [],
   actionQueue: [],
@@ -508,6 +520,13 @@ function formatPct(value: number | null | undefined): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString();
+}
+
 async function fetchWithFallback(paths: string[]): Promise<unknown> {
   let lastError: unknown = null;
   for (const path of paths) {
@@ -570,6 +589,7 @@ export default function Governance() {
   const [agentCommitments, setAgentCommitments] = useState<CommitmentRegistryEntry[]>([]);
   const [agentCommitmentTotal, setAgentCommitmentTotal] = useState(0);
   const [planningGate, setPlanningGate] = useState<PlanningGateSnapshot | null>(null);
+  const [planningGateHealth, setPlanningGateHealth] = useState<PlanningGateHealthSnapshot | null>(null);
 
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
 
@@ -604,6 +624,7 @@ export default function Governance() {
         toolReputationRaw,
         approvalsRaw,
         planningGateRaw,
+        planningGateHealthRaw,
       ] = await Promise.all([
         fetchWithFallback(['/api/governance/risk-summary']).catch(() => null),
         fetchWithFallback(['/api/governance/action-queue']).catch(() => null),
@@ -617,6 +638,7 @@ export default function Governance() {
         apiCallWithTimeout('/api/tool-reputation?order=updated_at.desc&limit=2000').catch(() => null),
         apiCallWithTimeout('/api/decisions?status=pending&order=created_at.desc&limit=20').catch(() => null),
         apiCallWithTimeout('/admin/metrics/planning-gate?window=30').catch(() => null),
+        apiCallWithTimeout('/admin/metrics/planning-gate-health').catch(() => null),
       ]);
 
       setData({
@@ -633,6 +655,7 @@ export default function Governance() {
         pendingApprovals: normalizePendingApprovals(approvalsRaw),
       });
       setPlanningGate(normalizePlanningGate(planningGateRaw));
+      setPlanningGateHealth((isRecord(planningGateHealthRaw) ? planningGateHealthRaw : null) as PlanningGateHealthSnapshot | null);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -801,6 +824,22 @@ export default function Governance() {
     );
   }
 
+  const healthTone = planningGateHealth?.status === 'red'
+    ? 'border-prism-critical/40 bg-prism-critical/10 text-prism-critical'
+    : planningGateHealth?.status === 'yellow'
+      ? 'border-prism-elevated/40 bg-prism-elevated/10 text-prism-elevated'
+      : 'border-prism-teal/40 bg-prism-teal/10 text-prism-teal';
+  const healthLabel = planningGateHealth?.status === 'red'
+    ? 'Alert'
+    : planningGateHealth?.status === 'yellow'
+      ? 'Watching'
+      : 'Healthy';
+  const healthDetail = planningGateHealth?.status === 'red'
+    ? (planningGateHealth?.report?.alerts?.[0]?.message ?? 'Threshold breached.')
+    : planningGateHealth?.status === 'yellow'
+      ? `Needs at least ${planningGateHealth?.report?.minPlannedRuns ?? 0} planned runs for stable signal.`
+      : 'Pass rate and retry behavior are within configured thresholds.';
+
   return (
     <div className="outer-cards-transparent space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -824,6 +863,14 @@ export default function Governance() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-txt-muted">
                 Planning & Completion Gate (30d)
               </p>
+              <div className="flex items-center gap-3">
+                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${healthTone}`}>
+                  {healthLabel}
+                </span>
+                <span className="text-[11px] text-txt-muted">
+                  Last evaluated: {formatDateTime(planningGateHealth?.evaluatedAt)}
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() => handleTabChange('reliability')}
@@ -846,6 +893,7 @@ export default function Governance() {
                 <p className="text-lg font-semibold text-txt-primary">{(planningGate?.totals.gateFailEvents ?? 0).toLocaleString()}</p>
               </div>
             </div>
+            <p className="mt-3 text-[12px] text-txt-muted">{healthDetail}</p>
           </Card>
         </div>
         <button

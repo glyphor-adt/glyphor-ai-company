@@ -11,6 +11,7 @@ import {
   type ReversalLogFilters,
 } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
+import { evaluatePlanningGateHealth } from './planningGateMonitor.js';
 
 function json(res: ServerResponse, status: number, data: unknown): void {
   res.statusCode = status;
@@ -321,6 +322,21 @@ export async function handleMetricsAdminApi(
     if (url === '/admin/metrics/planning-gate') {
       const windowDays = parseWindow(params.get('window'));
       json(res, 200, await getPlanningGateMetrics(windowDays));
+      return true;
+    }
+
+    if (url === '/admin/metrics/planning-gate-health') {
+      const report = await evaluatePlanningGateHealth();
+      const status = report.alerts.length > 0
+        ? 'red'
+        : report.runsWithPlanning < report.minPlannedRuns
+          ? 'yellow'
+          : 'green';
+      json(res, 200, {
+        status,
+        evaluatedAt: new Date().toISOString(),
+        report,
+      });
       return true;
     }
 

@@ -107,6 +107,13 @@ function formatNumber(value: number | null | undefined, digits = 1): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: digits > 0 ? Math.min(digits, 1) : 0 });
 }
 
+function formatSignedPercentDelta(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  const basisPoints = value * 100;
+  const sign = basisPoints > 0 ? '+' : '';
+  return `${sign}${basisPoints.toFixed(1)}pp`;
+}
+
 function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—';
   const date = new Date(value);
@@ -138,6 +145,8 @@ export default function ReliabilityDashboard() {
   const [agents, setAgents] = useState<AgentMetricsSnapshot[]>([]);
   const [exceptions, setExceptions] = useState<ExceptionLogEntry[]>([]);
   const [planningGate, setPlanningGate] = useState<PlanningGateSnapshot | null>(null);
+  const [planningGate7d, setPlanningGate7d] = useState<PlanningGateSnapshot | null>(null);
+  const [planningGate30d, setPlanningGate30d] = useState<PlanningGateSnapshot | null>(null);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -146,12 +155,14 @@ export default function ReliabilityDashboard() {
     const load = async () => {
       setLoading(true);
       try {
-        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse] = await Promise.all([
+        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth] = await Promise.all([
           apiCall<FleetMetricsSnapshot>(`/admin/metrics/fleet?window=${windowDays}`),
           apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30'),
           apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`),
           apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12'),
           apiCall<PlanningGateSnapshot>(`/admin/metrics/planning-gate?window=${windowDays}`),
+          apiCall<PlanningGateSnapshot>('/admin/metrics/planning-gate?window=7'),
+          apiCall<PlanningGateSnapshot>('/admin/metrics/planning-gate?window=30'),
         ]);
 
         if (!active) return;
@@ -160,6 +171,8 @@ export default function ReliabilityDashboard() {
         setAgents(agentResponse?.agents ?? []);
         setExceptions(exceptionResponse?.items ?? []);
         setPlanningGate(planningGateResponse);
+        setPlanningGate7d(planningGateWeek);
+        setPlanningGate30d(planningGateMonth);
       } finally {
         if (active) setLoading(false);
       }
@@ -172,22 +185,57 @@ export default function ReliabilityDashboard() {
   const refresh = async () => {
     setRefreshing(true);
     try {
-      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse] = await Promise.all([
+      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth] = await Promise.all([
         apiCall<FleetMetricsSnapshot>(`/admin/metrics/fleet?window=${windowDays}`),
         apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30'),
         apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`),
         apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12'),
         apiCall<PlanningGateSnapshot>(`/admin/metrics/planning-gate?window=${windowDays}`),
+        apiCall<PlanningGateSnapshot>('/admin/metrics/planning-gate?window=7'),
+        apiCall<PlanningGateSnapshot>('/admin/metrics/planning-gate?window=30'),
       ]);
       setFleet(fleetCurrent);
       setFleetMonth(fleetThirty);
       setAgents(agentResponse?.agents ?? []);
       setExceptions(exceptionResponse?.items ?? []);
       setPlanningGate(planningGateResponse);
+      setPlanningGate7d(planningGateWeek);
+      setPlanningGate30d(planningGateMonth);
     } finally {
       setRefreshing(false);
     }
   };
+
+  const passRateTrendDelta = useMemo(() => {
+    if (!planningGate7d || !planningGate30d) return null;
+    return planningGate7d.totals.passRate - planningGate30d.totals.passRate;
+  }, [planningGate7d, planningGate30d]);
+
+  const retryTrendDelta = useMemo(() => {
+    if (!planningGate7d || !planningGate30d) return null;
+    return planningGate7d.totals.maxRetryAttempt - planningGate30d.totals.maxRetryAttempt;
+  }, [planningGate7d, planningGate30d]);
+
+  const rolePassRateRegressions = useMemo(() => {
+    if (!planningGate7d || !planningGate30d) return [];
+    const monthByRole = new Map(planningGate30d.roles.map((role) => [role.role, role]));
+    return planningGate7d.roles
+      .map((weekRole) => {
+        const monthRole = monthByRole.get(weekRole.role);
+        const monthPass = monthRole?.passRate ?? 0;
+        return {
+          role: weekRole.role,
+          weekPassRate: weekRole.passRate,
+          monthPassRate: monthPass,
+          delta: weekRole.passRate - monthPass,
+          weekRuns: weekRole.runsWithPlanning,
+          weekMaxRetry: weekRole.maxRetryAttempt,
+        };
+      })
+      .filter((role) => role.weekRuns > 0)
+      .sort((a, b) => a.delta - b.delta || b.weekMaxRetry - a.weekMaxRetry)
+      .slice(0, 6);
+  }, [planningGate7d, planningGate30d]);
 
   const departmentOptions = useMemo(() => {
     const values = new Set<string>();
@@ -293,6 +341,69 @@ export default function ReliabilityDashboard() {
           subtitle={`Avg missing criteria mentions: ${formatNumber(planningGate?.totals.avgMissingCriteriaMentions ?? 0)}`}
         />
       </div>
+
+      <Card>
+        <SectionHeader
+          title="Planning Gate Trend"
+          subtitle="7-day behavior compared against 30-day baseline."
+        />
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Gate Pass Rate (7d)"
+            value={formatPercent(planningGate7d?.totals.passRate)}
+            subtitle={`30d baseline: ${formatPercent(planningGate30d?.totals.passRate)}`}
+          />
+          <MetricCard
+            title="Pass Rate Delta"
+            value={formatSignedPercentDelta(passRateTrendDelta)}
+            subtitle="7d minus 30d baseline"
+          />
+          <MetricCard
+            title="Max Retry (7d)"
+            value={formatNumber(planningGate7d?.totals.maxRetryAttempt ?? 0, 0)}
+            subtitle={`30d baseline: ${formatNumber(planningGate30d?.totals.maxRetryAttempt ?? 0, 0)}`}
+          />
+          <MetricCard
+            title="Retry Delta"
+            value={formatNumber(retryTrendDelta, 0)}
+            subtitle="7d minus 30d baseline"
+          />
+        </div>
+        <div className="mt-5 overflow-x-auto">
+          <table className="min-w-full text-left text-[12px] text-txt-secondary">
+            <thead>
+              <tr className="border-b border-border/70 text-[11px] uppercase tracking-[0.16em] text-txt-muted">
+                <th className="px-3 py-3 font-medium">Role</th>
+                <th className="px-3 py-3 font-medium">7d Pass Rate</th>
+                <th className="px-3 py-3 font-medium">30d Pass Rate</th>
+                <th className="px-3 py-3 font-medium">Delta</th>
+                <th className="px-3 py-3 font-medium">7d Planned Runs</th>
+                <th className="px-3 py-3 font-medium">7d Max Retry</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rolePassRateRegressions.length === 0 ? (
+                <tr>
+                  <td className="px-3 py-3 text-txt-muted" colSpan={6}>
+                    No role trend data found yet.
+                  </td>
+                </tr>
+              ) : (
+                rolePassRateRegressions.map((role) => (
+                  <tr key={role.role} className="border-b border-border/50 align-top hover:bg-white/5">
+                    <td className="px-3 py-3 text-txt-primary">{role.role}</td>
+                    <td className="px-3 py-3">{formatPercent(role.weekPassRate)}</td>
+                    <td className="px-3 py-3">{formatPercent(role.monthPassRate)}</td>
+                    <td className="px-3 py-3">{formatSignedPercentDelta(role.delta)}</td>
+                    <td className="px-3 py-3">{formatNumber(role.weekRuns, 0)}</td>
+                    <td className="px-3 py-3">{formatNumber(role.weekMaxRetry, 0)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       <Card>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

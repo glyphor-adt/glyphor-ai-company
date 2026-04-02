@@ -475,6 +475,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/canary/evaluate',
     enabled: true,
   },
+  // Planning-gate monitor — daily quality regression alert check
+  {
+    id: 'planning-gate-monitor',
+    schedule: '0 7 * * *',     // 7:00 AM UTC daily
+    timezone: 'UTC',
+    endpoint: '/planning-gate/monitor',
+    enabled: true,
+  },
   // Agent knowledge-gap evaluator — weekly judge-scored readiness sweep
   {
     id: 'agent-knowledge-evals',

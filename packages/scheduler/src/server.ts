@@ -91,6 +91,7 @@ import { expireTools } from './toolExpirationManager.js';
 import { evaluateCanary } from './canaryEvaluator.js';
 import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
 import { runGtmReadinessEval, persistGtmReport } from './gtmReadiness/index.js';
+import { evaluatePlanningGateHealth } from './planningGateMonitor.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
 import { enqueueDeepDiveExecution, isWorkerQueueConfigured } from './workerQueue.js';
 import { processDailyAutonomyAdjustments } from '@glyphor/shared';
@@ -2996,6 +2997,76 @@ const server = createServer(async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[CanaryEvaluator] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Planning-gate monitor endpoint — daily quality regression alert check
+    if (method === 'POST' && url === '/planning-gate/monitor') {
+      try {
+        const report = await evaluatePlanningGateHealth();
+        if (report.alerts.length > 0) {
+          const summary = report.alerts.map((alert) => alert.message).join(' | ');
+          await systemQuery(
+            `INSERT INTO activity_log (agent_role, action, summary, details, created_at)
+             VALUES ($1, $2, $3, $4, NOW())`,
+            [
+              'ops',
+              'planning_gate.alert',
+              summary,
+              JSON.stringify({
+                window_days: report.windowDays,
+                runs_with_planning: report.runsWithPlanning,
+                gate_pass_rate: report.gatePassRate,
+                max_retry_attempt: report.maxRetryAttempt,
+                alerts: report.alerts,
+                top_role_regressions: report.topRoleRegressions,
+              }),
+            ],
+          );
+
+          const incidentTitle = 'Planning gate quality regression';
+          const existing = await systemQuery<{ id: string }>(
+            `SELECT id
+               FROM incidents
+              WHERE title = $1
+                AND status = 'open'
+                AND created_at >= NOW() - INTERVAL '24 hours'
+              ORDER BY created_at DESC
+              LIMIT 1`,
+            [incidentTitle],
+          );
+          if (existing.length === 0) {
+            await systemQuery(
+              `INSERT INTO incidents (severity, title, description, affected_agents, status, created_by, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+              [
+                'high',
+                incidentTitle,
+                summary,
+                report.topRoleRegressions.map((entry) => entry.role),
+                'open',
+                'scheduler',
+              ],
+            );
+          }
+
+          const notifyBlock = [
+            `<notify type="blocker" to="both" title="Planning gate quality alert">`,
+            summary,
+            `Window: ${report.windowDays}d`,
+            `Planned runs: ${report.runsWithPlanning}`,
+            `Gate pass rate: ${Math.round(report.gatePassRate * 100)}%`,
+            `Max retry attempt: ${report.maxRetryAttempt}`,
+            `</notify>`,
+          ].join('\n');
+          await agentNotifier.processAgentOutput('ops', notifyBlock);
+        }
+        json(res, 200, { success: true, ...report, alerted: report.alerts.length > 0 });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[PlanningGateMonitor] Endpoint error:', message);
         json(res, 500, { success: false, error: message });
       }
       return;
