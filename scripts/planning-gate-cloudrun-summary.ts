@@ -7,11 +7,12 @@ interface Config {
   minutes: number;
   limit: number;
   top: number;
+  format: 'text' | 'csv';
 }
 
 function usage(exitCode = 1): never {
   console.error(
-    'Usage: tsx scripts/planning-gate-cloudrun-summary.ts --project <gcp-project> --service <cloud-run-service> [--minutes 30] [--limit 3000] [--top 20]',
+    'Usage: tsx scripts/planning-gate-cloudrun-summary.ts --project <gcp-project> --service <cloud-run-service> [--minutes 30] [--limit 3000] [--top 20] [--format text|csv]',
   );
   process.exit(exitCode);
 }
@@ -46,8 +47,11 @@ function parseArgs(argv: string[]): Config {
   if (!Number.isFinite(top) || top <= 0) {
     throw new Error(`Invalid --top value: ${topRaw}`);
   }
-
-  return { project, service, minutes, limit, top };
+  const formatRaw = (get('--format') ?? 'text').toLowerCase();
+  if (formatRaw !== 'text' && formatRaw !== 'csv') {
+    throw new Error(`Invalid --format value: ${formatRaw}`);
+  }
+  return { project, service, minutes, limit, top, format: formatRaw };
 }
 
 function resolveGcloudBinary(): string {
@@ -105,7 +109,7 @@ function main(): void {
   const config = parseArgs(process.argv.slice(2));
   const raw = fetchPlanningGateLogs(config);
   console.log(`Fetched planning/gate log lines from service=${config.service} project=${config.project} window=${config.minutes}m`);
-  summarizePlanningGateText(raw, config.top);
+  summarizePlanningGateText(raw, config.top, config.format);
 }
 
 try {

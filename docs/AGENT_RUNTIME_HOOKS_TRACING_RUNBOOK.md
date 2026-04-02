@@ -81,6 +81,9 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
   - `npm run planning:summary -- --file <path-to-log-file> --top 20`
 - Summarize planning/gate events directly from Cloud Run:
   - `npm run planning:summary:cloudrun -- --project <project> --service glyphor-scheduler --minutes 60 --top 20`
+- Export planning/gate summary as CSV:
+  - `npm run planning:summary -- --file <path-to-log-file> --top 20 --format csv`
+  - `npm run planning:summary:cloudrun -- --project <project> --service glyphor-scheduler --minutes 60 --top 20 --format csv`
 
 ## Claude-Style Web Coding Loop Usage
 

@@ -25,12 +25,14 @@ interface RunStats {
 
 function usage(exitCode = 1): never {
   console.error(
-    'Usage: tsx scripts/planning-gate-summary.ts --file <log-file> [--top 20]',
+    'Usage: tsx scripts/planning-gate-summary.ts --file <log-file> [--top 20] [--format text|csv]',
   );
   process.exit(exitCode);
 }
 
-function parseArgs(argv: string[]): { file: string; top: number } {
+type OutputFormat = 'text' | 'csv';
+
+function parseArgs(argv: string[]): { file: string; top: number; format: OutputFormat } {
   if (argv.includes('--help') || argv.includes('-h')) usage(0);
 
   const get = (flag: string): string | undefined => {
@@ -49,8 +51,12 @@ function parseArgs(argv: string[]): { file: string; top: number } {
   if (!Number.isFinite(top) || top <= 0) {
     throw new Error(`Invalid --top value: ${topRaw}`);
   }
+  const formatRaw = (get('--format') ?? 'text').toLowerCase();
+  if (formatRaw !== 'text' && formatRaw !== 'csv') {
+    throw new Error(`Invalid --format value: ${formatRaw}`);
+  }
 
-  return { file, top };
+  return { file, top, format: formatRaw };
 }
 
 function safeJsonParse(input: string): Record<string, unknown> | null {
@@ -129,7 +135,7 @@ function printRoleTable(statsByRole: Map<string, RunStats>, top: number): void {
   }
 }
 
-function summarizePlanningGateText(raw: string, top: number): void {
+function summarizePlanningGateText(raw: string, top: number, format: OutputFormat = 'text'): void {
   const lines = raw.split(/\r?\n/);
   const statsByRun = new Map<string, RunStats>();
   const statsByRole = new Map<string, RunStats>();
@@ -180,26 +186,46 @@ function summarizePlanningGateText(raw: string, top: number): void {
     if (event.type === 'completion_gate_failed') gateFailed += 1;
   }
 
+  const runsWithPlanning = Array.from(statsByRun.values()).filter((stats) => stats.planningEvents > 0).length;
+  const runsWithPass = Array.from(statsByRun.values()).filter((stats) => stats.gatePassEvents > 0).length;
+  const runsWithFail = Array.from(statsByRun.values()).filter((stats) => stats.gateFailEvents > 0).length;
+
+  if (format === 'csv') {
+    console.log('table,key,planning_events,gate_fail_events,gate_pass_events,max_retry_seen,max_retries_config,missing_criteria_mentions');
+    console.log(`totals,all,${planningStarted},${gateFailed},${gatePassed},0,0,0`);
+    console.log(`totals,runs_with_planning,${runsWithPlanning},0,0,0,0,0`);
+    console.log(`totals,runs_with_gate_fail,${runsWithFail},0,0,0,0,0`);
+    console.log(`totals,runs_with_gate_pass,${runsWithPass},0,0,0,0,0`);
+    const roleRows = Array.from(statsByRole.entries())
+      .sort(([, a], [, b]) => b.gateFailEvents - a.gateFailEvents || b.planningEvents - a.planningEvents)
+      .slice(0, top);
+    for (const [role, stats] of roleRows) {
+      console.log(`role,${role},${stats.planningEvents},${stats.gateFailEvents},${stats.gatePassEvents},${stats.maxRetryAttemptSeen},${stats.maxRetriesConfigured},${stats.missingCriteriaMentions}`);
+    }
+    const runRows = Array.from(statsByRun.entries())
+      .sort(([, a], [, b]) => b.gateFailEvents - a.gateFailEvents || b.planningEvents - a.planningEvents)
+      .slice(0, top);
+    for (const [runId, stats] of runRows) {
+      console.log(`run,${runId},${stats.planningEvents},${stats.gateFailEvents},${stats.gatePassEvents},${stats.maxRetryAttemptSeen},${stats.maxRetriesConfigured},${stats.missingCriteriaMentions}`);
+    }
+    return;
+  }
+
   console.log(`Parsed planning/gate events: ${parsedEvents}`);
   console.log(`planning_phase_started: ${planningStarted}`);
   console.log(`completion_gate_passed: ${gatePassed}`);
   console.log(`completion_gate_failed: ${gateFailed}`);
-
-  const runsWithPlanning = Array.from(statsByRun.values()).filter((stats) => stats.planningEvents > 0).length;
-  const runsWithPass = Array.from(statsByRun.values()).filter((stats) => stats.gatePassEvents > 0).length;
-  const runsWithFail = Array.from(statsByRun.values()).filter((stats) => stats.gateFailEvents > 0).length;
   console.log(`runs_with_planning: ${runsWithPlanning}`);
   console.log(`runs_with_gate_pass: ${runsWithPass}`);
   console.log(`runs_with_gate_fail: ${runsWithFail}`);
-
   printRoleTable(statsByRole, top);
   printRunTable(statsByRun, top);
 }
 
 function main(): void {
-  const { file, top } = parseArgs(process.argv.slice(2));
+  const { file, top, format } = parseArgs(process.argv.slice(2));
   const raw = readFileSync(file, 'utf8');
-  summarizePlanningGateText(raw, top);
+  summarizePlanningGateText(raw, top, format);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
