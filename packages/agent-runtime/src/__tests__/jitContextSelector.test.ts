@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getJitSelectionConfigFromEnv,
+  summarizeFreshnessBuckets,
   selectJitItems,
   type JitSelectionConfig,
 } from '../memory/jitContextSelector.js';
@@ -91,6 +92,23 @@ describe('jitContextSelector', () => {
 
     expect(selected).toHaveLength(1);
     expect(selected[0].content).toContain('recent slightly lower raw score');
+  });
+
+  it('summarizes freshness buckets for selected items', () => {
+    const nowIso = new Date().toISOString();
+    const staleIso = new Date(Date.now() - 40 * 86_400_000).toISOString();
+    const veryStaleIso = new Date(Date.now() - 120 * 86_400_000).toISOString();
+    const items: JitContextItem[] = [
+      { source: 'memory', content: 'fresh', score: 0.8, metadata: { updatedAt: nowIso } },
+      { source: 'knowledge', content: 'stale', score: 0.8, metadata: { updatedAt: staleIso } },
+      { source: 'graph', content: 'very stale', score: 0.8, metadata: { updatedAt: veryStaleIso } },
+      { source: 'procedure', content: 'unknown', score: 0.8 },
+    ];
+    const summary = summarizeFreshnessBuckets(items, ENABLED_CONFIG);
+    expect(summary.fresh).toBe(1);
+    expect(summary.stale).toBe(1);
+    expect(summary.very_stale).toBe(1);
+    expect(summary.unknown).toBe(1);
   });
 });
 

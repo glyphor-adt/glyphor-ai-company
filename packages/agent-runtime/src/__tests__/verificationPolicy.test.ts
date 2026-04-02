@@ -14,10 +14,11 @@ describe('determineVerificationTier', () => {
       output: 'No meaningful work found.',
     });
 
-    expect(decision).toEqual({
+    expect(decision).toMatchObject({
       tier: 'none',
       passes: [],
       reason: 'no-op run',
+      rubricId: 'noop',
     });
   });
 
@@ -33,7 +34,7 @@ describe('determineVerificationTier', () => {
     });
 
     expect(decision.tier).toBe('cross_model');
-    expect(decision.passes).toEqual(['self_critique', 'cross_model']);
+    expect(decision.passes).toEqual(['self_critique', 'cross_model', 'contradiction_scan']);
     expect(decision.reason).toBe('external-facing output');
   });
 
@@ -49,7 +50,7 @@ describe('determineVerificationTier', () => {
     });
 
     expect(decision.tier).toBe('cross_model');
-    expect(decision.passes).toEqual(['self_critique', 'cross_model', 'factual_verification']);
+    expect(decision.passes).toEqual(['self_critique', 'cross_model', 'factual_verification', 'contradiction_scan']);
   });
 
   it('returns conditional verification for trusted orchestration runs', () => {

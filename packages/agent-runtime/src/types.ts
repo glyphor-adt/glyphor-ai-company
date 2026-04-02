@@ -196,6 +196,8 @@ export interface ToolContext {
   runId?: string;
   /** Assignment ID for trace linkage (from AgentConfig.assignmentId). */
   assignmentId?: string;
+  /** Directive ID for scoped policy checks (from AgentConfig.directiveId). */
+  directiveId?: string;
   /** Per-tool retrieval metadata from ToolRetriever, keyed by tool name. */
   retrievalMetadata?: ToolRetrievalMetadataMap;
 }
@@ -233,6 +235,8 @@ export interface ToolResult {
     violations: number;
     blocked: boolean;
   };
+  /** Evidence records emitted for this result. */
+  evidenceIds?: string[];
 }
 
 export type PredictionJournalStatus = 'pending' | 'resolved' | 'failed';
@@ -355,6 +359,10 @@ export interface AgentExecutionResult {
     tier: 'none' | 'self_critique' | 'cross_model' | 'conditional';
     reason: string;
     passes: string[];
+    rubricId?: string;
+    rubricScore?: number;
+    escalated?: boolean;
+    unsupportedClaims?: string[];
   };
   compactionOccurred?: boolean;
   compactionCount?: number;
@@ -649,6 +657,8 @@ export interface ActionReceipt {
     violations: number;
     blocked: boolean;
   };
+  /** Evidence IDs produced by this tool call. */
+  evidenceIds?: string[];
 }
 
 export type SecurityEventType =

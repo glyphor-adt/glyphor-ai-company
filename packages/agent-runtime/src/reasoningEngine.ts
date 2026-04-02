@@ -18,6 +18,7 @@ import { CACHE_KEYS, CACHE_TTL } from './redisCache.js';
 export type PassType =
   | 'self_critique'
   | 'consistency_check'
+  | 'contradiction_scan'
   | 'factual_verification'
   | 'goal_alignment'
   | 'cross_model'
@@ -274,6 +275,7 @@ Respond ONLY with valid JSON (no markdown):
     const promptMap: Record<PassType, string> = {
       self_critique: `Critically evaluate this output for logical errors, unsupported claims, and gaps.`,
       consistency_check: `Check this output for internal contradictions, inconsistencies with the provided context, and conflicting statements.`,
+      contradiction_scan: `Scan for contradictions between output claims and provided context/evidence. Identify direct claim clashes and unsupported assertions that conflict with known facts.`,
       factual_verification: `Verify the factual accuracy of claims in this output. Flag any statements that appear incorrect or unverifiable.`,
       goal_alignment: `Assess how well this output aligns with the stated task goals and the agent's role.`,
       cross_model: `Provide an independent assessment of this output's quality and accuracy.`,

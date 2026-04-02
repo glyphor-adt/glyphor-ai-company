@@ -28,7 +28,7 @@ import type {
   SecurityEventType,
   ToolRetrievalMeta,
 } from './types.js';
-import { AGENT_BUDGETS } from './types.js';
+import { AGENT_BUDGETS, WRITE_TOOLS as WRITE_TOOL_SET } from './types.js';
 import { systemQuery } from '@glyphor/shared/db';
 import { buildSearchableToolDescription } from './toolRegistry.js';
 import type { FormalVerifier } from './formalVerifier.js';
@@ -58,6 +58,12 @@ import { classifyActionRisk } from './actionRiskClassifier.js';
 import type { CommunicationType, RecipientType } from './types.js';
 import { createToolHookRunnerFromEnv, type ToolHookRunner } from './hooks/hookRunner.js';
 import { startTraceSpan } from './telemetry/tracing.js';
+import {
+  recordEvidence,
+  recordRunEvent,
+  linkClaimToEvidence,
+  createEvidenceSourceRef,
+} from './telemetry/runLedger.js';
 
 // ─── Tool Call Trace Persistence ───────────────────────────────
 // Fire-and-forget write of each tool call to tool_call_traces for
@@ -540,6 +546,74 @@ function estimateToolCost(toolName: string): number {
   return 0.003;
 }
 
+const VALUE_GATE_RATIO_THRESHOLD = Number(process.env.TOOL_VALUE_GATE_RATIO_THRESHOLD ?? '2.5');
+const VALUE_GATE_CONFIDENCE_THRESHOLD = Number(process.env.TOOL_VALUE_GATE_CONFIDENCE_THRESHOLD ?? '0.6');
+const TOOL_RETRY_CAP = Math.max(1, Number(process.env.TOOL_RETRY_CAP ?? '3'));
+
+function estimateTPlus1Impact(toolName: string): number {
+  if (toolName.startsWith('send_') || toolName.startsWith('publish_')) return 0.9;
+  if (toolName.startsWith('create_') || toolName.startsWith('update_') || toolName.startsWith('delete_')) return 0.75;
+  if (toolName.startsWith('request_') || toolName.startsWith('dispatch_')) return 0.6;
+  return 0.4;
+}
+
+function estimateFunctionScore(toolName: string, params: Record<string, unknown>): number {
+  const objective = typeof params.objective === 'string' ? params.objective.trim() : '';
+  const hasRichObjective = objective.length >= 20;
+  const hasIds = typeof params.assignment_id === 'string' || typeof params.directive_id === 'string';
+  const writeBoost = WRITE_TOOL_SET.has(toolName) ? 0.25 : 0.1;
+  const objectiveBoost = hasRichObjective ? 0.25 : 0;
+  const idBoost = hasIds ? 0.2 : 0;
+  return Math.min(1, 0.3 + writeBoost + objectiveBoost + idBoost);
+}
+
+function estimateConfidence(params: Record<string, unknown>, context: ToolContext): number {
+  let confidence = 0.4;
+  if (context.assignmentId) confidence += 0.2;
+  if (context.directiveId) confidence += 0.15;
+  if (typeof params.reason === 'string' && params.reason.trim().length > 10) confidence += 0.15;
+  if (typeof params.evidence === 'string' && params.evidence.trim().length > 10) confidence += 0.1;
+  return Math.min(1, confidence);
+}
+
+function evaluateActionValue(
+  toolName: string,
+  params: Record<string, unknown>,
+  estimatedCost: number,
+  context: ToolContext,
+): {
+  functionScore: number;
+  confidence: number;
+  tPlus1Impact: number;
+  valueRatio: number;
+  allow: boolean;
+} {
+  const functionScore = estimateFunctionScore(toolName, params);
+  const confidence = estimateConfidence(params, context);
+  const tPlus1Impact = estimateTPlus1Impact(toolName);
+  const valueRatio = ((functionScore * 0.5) + (confidence * 0.25) + (tPlus1Impact * 0.25)) / Math.max(estimatedCost, 0.0001);
+  const allow = valueRatio >= VALUE_GATE_RATIO_THRESHOLD && confidence >= VALUE_GATE_CONFIDENCE_THRESHOLD;
+  return { functionScore, confidence, tPlus1Impact, valueRatio, allow };
+}
+
+function hasContextScopeMismatch(params: Record<string, unknown>, context: ToolContext): string | null {
+  if (typeof params.assignment_id === 'string' && context.assignmentId && params.assignment_id !== context.assignmentId) {
+    return `assignment_id mismatch: expected ${context.assignmentId}, got ${params.assignment_id}`;
+  }
+  if (typeof params.directive_id === 'string' && context.directiveId && params.directive_id !== context.directiveId) {
+    return `directive_id mismatch: expected ${context.directiveId}, got ${params.directive_id}`;
+  }
+  return null;
+}
+
+function hasSubstantiveData(data: unknown): boolean {
+  if (data == null) return false;
+  if (typeof data === 'string') return data.trim().length > 0;
+  if (Array.isArray(data)) return data.length > 0;
+  if (typeof data === 'object') return Object.keys(data as Record<string, unknown>).length > 0;
+  return true;
+}
+
 export class ToolExecutor {
   private tools: Map<string, ToolDefinition>;
   private dryRun: boolean;
@@ -550,6 +624,7 @@ export class ToolExecutor {
   private rateCounts: Map<string, number[]> = new Map(); // "role:tool" → timestamps
   private runCosts: Map<string, number> = new Map();     // agentId → cumulative cost this run
   private runToolCounts: Map<string, Map<string, number>> = new Map(); // agentId → per-tool counts this run
+  private runToolFailures: Map<string, Map<string, number>> = new Map(); // agentId → per-tool failures this run
   private dailyCosts: Map<string, number> = new Map();   // role → cumulative cost today
   private monthlyCosts: Map<string, number> = new Map(); // role → cumulative cost this month
   private enforcementEnabled: boolean;
@@ -740,6 +815,17 @@ export class ToolExecutor {
     }
 
     const riskAssessment = classifyActionRisk(toolName);
+    void recordRunEvent({
+      runId: context.runId,
+      eventType: 'tool.requested',
+      trigger: 'tool.execute',
+      component: 'toolExecutor',
+      payload: {
+        tool_name: toolName,
+        turn_number: context.turnNumber,
+        risk_level: riskAssessment.level,
+      },
+    });
 
     const tool = this.tools.get(toolName) ?? getVirtualTool(toolName);
     if (!tool) {
@@ -852,6 +938,17 @@ export class ToolExecutor {
           context.retrievalMetadata?.get(toolName),
         );
       }
+      void recordRunEvent({
+        runId: context.runId,
+        eventType: 'tool.blocked',
+        trigger: 'action_risk',
+        component: 'toolExecutor',
+        approvalState: 'required',
+        payload: {
+          tool_name: toolName,
+          reason: riskAssessment.reason,
+        },
+      });
 
       return blockedResult;
     }
@@ -867,6 +964,29 @@ export class ToolExecutor {
       };
     }
     params = preflight.params;
+
+    const scopeMismatch = hasContextScopeMismatch(params, context);
+    if (scopeMismatch) {
+      this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'SCOPE_VIOLATION', { scopeMismatch });
+      void recordRunEvent({
+        runId: context.runId,
+        eventType: 'tool.blocked',
+        trigger: 'scope_violation',
+        component: 'toolExecutor',
+        approvalState: 'blocked',
+        payload: {
+          tool_name: toolName,
+          reason: scopeMismatch,
+        },
+      });
+      return {
+        success: false,
+        error: `Scoped execution blocked: ${scopeMismatch}`,
+        filesWritten: 0,
+        memoryKeysWritten: 0,
+        riskLevel: riskAssessment.level,
+      };
+    }
 
     const disclosureTarget = classifyDisclosureTarget(toolName, params);
     if (disclosureTarget) {
@@ -1041,6 +1161,22 @@ export class ToolExecutor {
       this.addDailyCost(role, estimatedCost);
       this.addMonthlyCost(role, estimatedCost);
 
+      const failureCounts = this.runToolFailures.get(agentId) ?? new Map<string, number>();
+      const priorFailures = failureCounts.get(toolName) ?? 0;
+      if (priorFailures >= TOOL_RETRY_CAP) {
+        this.logSecurityEvent(agentId, role, toolName, 'RATE_LIMITED', {
+          reason: 'tool_retry_cap_exceeded',
+          retryCap: TOOL_RETRY_CAP,
+        });
+        return {
+          success: false,
+          error: `${toolName} blocked: retry cap (${TOOL_RETRY_CAP}) exceeded for this run.`,
+          filesWritten: 0,
+          memoryKeysWritten: 0,
+          riskLevel: riskAssessment.level,
+        };
+      }
+
       const runToolCounts = this.runToolCounts.get(agentId) ?? new Map<string, number>();
       const behaviorCheck = {
         agentId,
@@ -1091,6 +1227,40 @@ export class ToolExecutor {
               memoryKeysWritten: 0,
             };
           }
+        }
+      }
+
+      if (WRITE_TOOL_SET.has(toolName) || riskAssessment.level !== 'AUTONOMOUS') {
+        const gate = evaluateActionValue(toolName, params, estimatedCost, context);
+        if (!gate.allow) {
+          this.logSecurityEvent(agentId, role, toolName, 'ACTION_RISK_BLOCKED', {
+            reason: 'pre_execution_value_gate',
+            value_ratio: gate.valueRatio,
+            confidence: gate.confidence,
+          });
+          void recordRunEvent({
+            runId: context.runId,
+            eventType: 'tool.blocked',
+            trigger: 'pre_execution_value_gate',
+            component: 'toolExecutor',
+            approvalState: 'required',
+            payload: {
+              tool_name: toolName,
+              value_ratio: gate.valueRatio,
+              confidence: gate.confidence,
+              function_score: gate.functionScore,
+              t_plus_1_impact: gate.tPlus1Impact,
+            },
+          });
+          return {
+            success: false,
+            error: `Pre-execution value gate blocked ${toolName}. value_ratio=${gate.valueRatio.toFixed(2)}, confidence=${gate.confidence.toFixed(2)}.`,
+            filesWritten: 0,
+            memoryKeysWritten: 0,
+            riskLevel: riskAssessment.level,
+            approvalRequired: true,
+            approvalReason: 'Value ratio/confidence below threshold. Explicit approval required.',
+          };
         }
       }
     }
@@ -1341,6 +1511,35 @@ export class ToolExecutor {
         }
       }
 
+      if (finalResult.success && hasSubstantiveData(finalResult.data)) {
+        const evidenceUid = await recordEvidence({
+          runId: context.runId,
+          sourceType: 'tool_result',
+          sourceTool: toolName,
+          sourceRef: createEvidenceSourceRef(toolName, context.turnNumber, executionSpan.traceId),
+          content: finalResult.data,
+          metadata: {
+            agent_role: context.agentRole,
+            turn_number: context.turnNumber,
+            assignment_id: context.assignmentId ?? null,
+            directive_id: context.directiveId ?? null,
+          },
+        });
+        if (evidenceUid) {
+          finalResult.evidenceIds = [evidenceUid];
+          const claimSource =
+            typeof params.claim === 'string' && params.claim.trim().length > 0
+              ? params.claim.trim()
+              : `${toolName} output on turn ${context.turnNumber}`;
+          await linkClaimToEvidence({
+            runId: context.runId,
+            claimText: claimSource,
+            evidenceUid,
+            verificationState: 'supported',
+          });
+        }
+      }
+
       // Auto-verify mutations by reading back the written data
       if (isMutation(toolName) && finalResult.success) {
         const verifySpec = VERIFICATION_MAP[toolName];
@@ -1362,6 +1561,13 @@ export class ToolExecutor {
       const runToolCounts = this.runToolCounts.get(context.agentId) ?? new Map<string, number>();
       runToolCounts.set(toolName, (runToolCounts.get(toolName) ?? 0) + 1);
       this.runToolCounts.set(context.agentId, runToolCounts);
+      const runFailureCounts = this.runToolFailures.get(context.agentId) ?? new Map<string, number>();
+      if (finalResult.success) {
+        runFailureCounts.set(toolName, 0);
+      } else {
+        runFailureCounts.set(toolName, (runFailureCounts.get(toolName) ?? 0) + 1);
+      }
+      this.runToolFailures.set(context.agentId, runFailureCounts);
 
       // Log the tool call
       this.logToolCall(
@@ -1423,6 +1629,21 @@ export class ToolExecutor {
         files_written: finalResult.filesWritten ?? 0,
         memory_keys_written: finalResult.memoryKeysWritten ?? 0,
       });
+      void recordRunEvent({
+        runId: context.runId,
+        eventType: 'tool.completed',
+        trigger: 'tool.execute',
+        component: 'toolExecutor',
+        approvalState: finalResult.approvalRequired ? 'required' : 'approved',
+        traceId: executionSpan.traceId,
+        payload: {
+          tool_name: toolName,
+          success: finalResult.success,
+          risk_level: riskAssessment.level,
+          evidence_ids: finalResult.evidenceIds ?? [],
+          error: finalResult.error ?? null,
+        },
+      });
       return finalResult;
     } catch (error) {
       const failResult: ToolResult = {
@@ -1443,6 +1664,9 @@ export class ToolExecutor {
         estimateToolCost(toolName),
         riskAssessment.level,
       );
+      const runFailureCounts = this.runToolFailures.get(context.agentId) ?? new Map<string, number>();
+      runFailureCounts.set(toolName, (runFailureCounts.get(toolName) ?? 0) + 1);
+      this.runToolFailures.set(context.agentId, runFailureCounts);
 
       trackToolFailure(context.agentRole, toolName, (error as Error).message, context.glyphorEventBus);
 
@@ -1465,6 +1689,18 @@ export class ToolExecutor {
       }
 
       executionSpan.fail(error, {});
+      void recordRunEvent({
+        runId: context.runId,
+        eventType: 'tool.failed',
+        trigger: 'tool.execute',
+        component: 'toolExecutor',
+        traceId: executionSpan.traceId,
+        payload: {
+          tool_name: toolName,
+          error: (error as Error).message,
+          risk_level: riskAssessment.level,
+        },
+      });
       return failResult;
     }
   }

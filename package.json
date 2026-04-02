@@ -50,6 +50,7 @@
     "ops:autonomy:slo": "tsx scripts/check-agent-autonomy-slo.ts",
     "trace:summary": "tsx scripts/trace-span-summary.ts",
     "trace:summary:cloudrun": "tsx scripts/trace-span-cloudrun-summary.ts",
+    "run:replay": "tsx scripts/run-replay.ts",
     "db:agent-schedules-subset": "tsx scripts/query-agent-schedules-subset.ts",
     "smoke:all-agents": "tsx scripts/smoke-test-all-agents.ts"
   },

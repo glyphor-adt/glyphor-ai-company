@@ -53,7 +53,8 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createAssetTools(glyphorEventBus),
     ...createWebBuildTools(memory, {
       allowBuild: true,
-      allowIterate: false,
+      allowIterate: true,
+      allowAutonomousLoop: true,
       allowUpgrade: false,
       allowedBuildTiers: ['prototype'],
     }),

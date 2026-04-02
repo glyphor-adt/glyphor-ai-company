@@ -9,6 +9,7 @@ export interface SystemFrameInput {
   task: string;
   initialMessage: string;
   turnNumber: number;
+  bundleKind?: 'planning' | 'execution' | 'verification';
   timestamp?: number;
 }
 
@@ -39,6 +40,7 @@ export function buildSystemFrameTurn(input: SystemFrameInput): ConversationTurn 
     `Role identity: ${input.role}`,
     `Current task: ${input.task}`,
     `Current turn: ${input.turnNumber}`,
+    `Context bundle: ${input.bundleKind ?? 'execution'}`,
     `Task objective: ${objective}`,
     '',
     'Retention policy: never drop role identity, task objective, and high-signal evidence.',

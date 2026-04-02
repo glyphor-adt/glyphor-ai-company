@@ -78,6 +78,67 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
 - Summarize spans directly from Cloud Run:
   - `npm run trace:summary:cloudrun -- --project <project> --service glyphor-scheduler --minutes 60 --top 20`
 
+## Claude-Style Web Coding Loop Usage
+
+Use this section to standardize web build iteration behavior across design/engineering agents.
+
+### Tool Selection
+
+- Use `invoke_web_coding_loop` when:
+  - the project already exists (`project_id` known),
+  - the request needs multiple quality passes (visual polish, hierarchy, CTA clarity, accessibility, performance),
+  - completion should be based on measurable convergence (Lighthouse thresholds + screenshot validation).
+- Use `invoke_web_iterate` when:
+  - the change is narrow and one-pass (single section tweak, targeted content/component update),
+  - you do not need iterative convergence checks.
+
+### Agent Defaults
+
+- `frontend-engineer`: default to `invoke_web_coding_loop` for refinement tasks; use `invoke_web_iterate` for one-shot edits.
+- `vp-design`: default to `invoke_web_coding_loop` for quality-led improvement cycles.
+- `ui-ux-designer`: default to `invoke_web_coding_loop` for iterative design polish and validation.
+
+### Recommended Loop Inputs
+
+- Start with:
+  - `max_iterations=3`
+  - `lighthouse_strategy=desktop`
+  - `min_performance=75`
+  - `min_accessibility=85`
+  - `min_best_practices=85`
+  - `min_seo=85`
+- Use `include_screenshot=true` only when visual evidence must be returned in the response payload (larger output).
+
+### Copy/Paste Prompt Templates
+
+- Hero polish + CTA clarity:
+  - `Run invoke_web_coding_loop on <project_id>. Goal: improve hero information hierarchy, above-the-fold readability, and CTA prominence without changing brand palette or voice. Keep changes production-safe and responsive.`
+- Conversion-oriented pass:
+  - `Run invoke_web_coding_loop on <project_id>. Goal: increase conversion intent on landing and pricing sections by clarifying value props, tightening CTA copy, and reducing visual noise. Preserve current product narrative.`
+- Accessibility hardening:
+  - `Run invoke_web_coding_loop on <project_id>. Goal: improve accessibility across navigation, forms, and interactive controls (labels, focus visibility, keyboard flow, contrast) while preserving layout intent.`
+- Performance + UX smoothness:
+  - `Run invoke_web_coding_loop on <project_id>. Goal: improve perceived performance and interaction smoothness (layout stability, animation restraint, rendering cost) with no regressions to core content and CTA flows.`
+
+### One-Shot Iterate Template
+
+- Small targeted tweak:
+  - `Run invoke_web_iterate on <project_id> with changes: update only <section/component> to <specific change>. Do not alter other sections or global design tokens.`
+
+### Expected Output Checklist
+
+- Confirm `converged=true` when using `invoke_web_coding_loop` (or verify `stop_reason` is acceptable for manual review).
+- Confirm `iterations` contains at least one round with:
+  - valid `preview_url`,
+  - Lighthouse scores (`performance`, `accessibility`, `best-practices`, `seo`),
+  - `met_thresholds=true` for automated signoff.
+- Confirm final links are present and usable:
+  - `latest_preview_url`,
+  - `latest_deploy_url` (if returned),
+  - `latest_github_pr_url`.
+- If visual evidence is required, rerun with `include_screenshot=true` and verify screenshot dimensions are present.
+- For one-shot `invoke_web_iterate` requests, verify the returned `preview_url` and check no unintended sections changed.
+
 ## Rollback Plan
 
 - Immediate tracing rollback:

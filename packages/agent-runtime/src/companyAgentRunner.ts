@@ -1518,7 +1518,7 @@ export class CompanyAgentRunner {
         if (jitSections.length > 0) {
           if (jitResult.selectionMeta) {
             console.log(
-              `[JITSelector] ${config.role}: candidates=${jitResult.selectionMeta.candidateCount}, selected=${jitResult.selectionMeta.selectedCount}, by_source=${JSON.stringify(jitResult.selectionMeta.selectedBySource)}`,
+              `[JITSelector] ${config.role}: candidates=${jitResult.selectionMeta.candidateCount}, selected=${jitResult.selectionMeta.selectedCount}, by_source=${JSON.stringify(jitResult.selectionMeta.selectedBySource)}, freshness=${JSON.stringify(jitResult.selectionMeta.selectedFreshness)}`,
             );
           }
           history.push({
@@ -2253,6 +2253,8 @@ export class CompanyAgentRunner {
         tier: 'none',
         passes: [] as import('./reasoningEngine.js').PassType[],
         reason: 'on-demand chat bypassed verification',
+        rubricId: 'on_demand_bypass',
+        minimumRubricScore: 0,
       };
       let verificationMeta: NonNullable<AgentExecutionResult['verificationMeta']> = {
         tier: 'none',

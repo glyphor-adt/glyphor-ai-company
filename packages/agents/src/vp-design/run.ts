@@ -90,6 +90,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createWebBuildTools(memory, {
       allowBuild: true,
       allowIterate: true,
+      allowAutonomousLoop: true,
       allowUpgrade: true,
       allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
     }),

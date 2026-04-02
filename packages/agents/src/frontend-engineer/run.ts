@@ -65,6 +65,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createWebBuildTools(memory, {
       allowBuild: true,
       allowIterate: true,
+      allowAutonomousLoop: true,
       allowUpgrade: false,
       allowedBuildTiers: ['prototype', 'full_build'],
     }),

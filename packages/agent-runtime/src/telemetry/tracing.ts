@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { recordRunEvent } from './runLedger.js';
 
 type TracePrimitive = string | number | boolean | null | undefined;
 export type TraceAttributes = Record<string, TracePrimitive>;
@@ -22,6 +23,20 @@ function serializeError(error: unknown): string {
 function emitTrace(event: Record<string, unknown>): void {
   if (!isTracingEnabled()) return;
   console.log(`[TraceSpan] ${JSON.stringify(event)}`);
+  const runId =
+    typeof event?.['attributes'] === 'object' &&
+    event['attributes'] &&
+    typeof (event['attributes'] as Record<string, unknown>)['run_id'] === 'string'
+      ? String((event['attributes'] as Record<string, unknown>)['run_id'])
+      : null;
+  if (!runId) return;
+  void recordRunEvent({
+    runId,
+    eventType: `trace.${String(event.event ?? 'event')}`,
+    component: 'telemetry.tracing',
+    traceId: typeof event['trace_id'] === 'string' ? event['trace_id'] : undefined,
+    payload: event,
+  });
 }
 
 export interface TraceSpan {

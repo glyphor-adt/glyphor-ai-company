@@ -14,6 +14,7 @@ export interface ContextComposerInput {
   task: string;
   initialMessage: string;
   turnNumber: number;
+  bundleKind?: 'planning' | 'execution' | 'verification';
   maxTokens?: number;
   includeReasoningState?: boolean;
   keepRecentGroups?: number;
@@ -98,6 +99,7 @@ export function composeModelContext(input: ContextComposerInput): ContextCompose
     task: input.task,
     initialMessage: input.initialMessage,
     turnNumber: input.turnNumber,
+    bundleKind: input.bundleKind,
   });
 
   const reasoningStateTurn = input.includeReasoningState === false

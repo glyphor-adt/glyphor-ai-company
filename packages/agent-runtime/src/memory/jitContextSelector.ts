@@ -10,6 +10,8 @@ export interface JitSelectionConfig {
   veryStalePenaltyMultiplier: number;
 }
 
+export type JitFreshnessBucket = 'fresh' | 'stale' | 'very_stale' | 'unknown';
+
 const DEFAULT_MAX_SELECTED_ITEMS = 5;
 const DEFAULT_MAX_PER_SOURCE = 2;
 const DEFAULT_STALE_DAYS_THRESHOLD = 30;
@@ -45,21 +47,31 @@ function resolveUpdatedTimestamp(item: JitContextItem): string | null {
   return typeof raw === 'string' && raw.trim().length > 0 ? raw : null;
 }
 
+function resolveFreshnessBucket(
+  item: JitContextItem,
+  config: JitSelectionConfig,
+): JitFreshnessBucket {
+  const timestamp = resolveUpdatedTimestamp(item);
+  if (!timestamp) return 'unknown';
+  const parsed = Date.parse(timestamp);
+  if (!Number.isFinite(parsed)) return 'unknown';
+  const ageDays = Math.max(0, Math.floor((Date.now() - parsed) / 86_400_000));
+  if (ageDays >= config.veryStaleDaysThreshold) {
+    return 'very_stale';
+  }
+  if (ageDays >= config.staleDaysThreshold) {
+    return 'stale';
+  }
+  return 'fresh';
+}
+
 function resolveFreshnessMultiplier(
   item: JitContextItem,
   config: JitSelectionConfig,
 ): number {
-  const timestamp = resolveUpdatedTimestamp(item);
-  if (!timestamp) return 1;
-  const parsed = Date.parse(timestamp);
-  if (!Number.isFinite(parsed)) return 1;
-  const ageDays = Math.max(0, Math.floor((Date.now() - parsed) / 86_400_000));
-  if (ageDays >= config.veryStaleDaysThreshold) {
-    return config.veryStalePenaltyMultiplier;
-  }
-  if (ageDays >= config.staleDaysThreshold) {
-    return config.stalePenaltyMultiplier;
-  }
+  const bucket = resolveFreshnessBucket(item, config);
+  if (bucket === 'very_stale') return config.veryStalePenaltyMultiplier;
+  if (bucket === 'stale') return config.stalePenaltyMultiplier;
   return 1;
 }
 
@@ -131,5 +143,21 @@ export function selectJitItems(
   }
 
   return selected;
+}
+
+export function summarizeFreshnessBuckets(
+  items: JitContextItem[],
+  config: JitSelectionConfig,
+): Record<JitFreshnessBucket, number> {
+  const summary: Record<JitFreshnessBucket, number> = {
+    fresh: 0,
+    stale: 0,
+    very_stale: 0,
+    unknown: 0,
+  };
+  for (const item of items) {
+    summary[resolveFreshnessBucket(item, config)] += 1;
+  }
+  return summary;
 }
 

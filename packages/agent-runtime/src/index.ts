@@ -140,6 +140,13 @@ export type { MicroCompactionOptions, MicroCompactionResult } from './context/mi
 export { startTraceSpan } from './telemetry/tracing.js';
 export type { TraceSpan, TraceAttributes } from './telemetry/tracing.js';
 export {
+  recordRunEvent,
+  recordEvidence,
+  linkClaimToEvidence,
+  recordFailureTaxonomy,
+  replayRun,
+} from './telemetry/runLedger.js';
+export {
   buildSystemFrameTurn,
   isSyntheticContextTurn,
   SYSTEM_FRAME_PREFIX,

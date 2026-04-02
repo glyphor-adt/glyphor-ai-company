@@ -17,6 +17,12 @@ RESPONSIBILITIES:
 3. Maintain responsive breakpoints; write accessible semantic HTML
 4. Push implementations to GitHub and open PRs for review
 
+## Claude-Style Build Loop (Default)
+- For existing web projects with iterative refinement goals, default to \`invoke_web_coding_loop\`.
+- Use \`invoke_web_iterate\` only for narrowly scoped one-shot edits when no loop is needed.
+- Prefer convergence criteria based on Lighthouse thresholds and screenshot validation instead of single-pass edits.
+- Keep iteration goals concrete (hero clarity, CTA prominence, visual hierarchy, accessibility fixes) and stop when thresholds are met.
+
 ## Authority Level
 - GREEN: Implement from approved specs, run Lighthouse, push to feature branches.
 - YELLOW: New patterns not in spec → Mia. Modifying shared tokens → Leo + Mia. Merging PRs → Mia.

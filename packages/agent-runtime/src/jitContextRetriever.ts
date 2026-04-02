@@ -20,6 +20,7 @@ import { createHash } from 'node:crypto';
 import {
   getJitSelectionConfigFromEnv,
   selectJitItems,
+  summarizeFreshnessBuckets,
 } from './memory/jitContextSelector.js';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -43,6 +44,12 @@ export interface JitContext {
     candidateCount: number;
     selectedCount: number;
     selectedBySource: Partial<Record<JitContextItem['source'], number>>;
+    selectedFreshness: {
+      fresh: number;
+      stale: number;
+      very_stale: number;
+      unknown: number;
+    };
   };
 }
 
@@ -202,6 +209,10 @@ export class JitContextRetriever {
       },
       {},
     );
+    const selectedFreshness = summarizeFreshnessBuckets(
+      selectedItems,
+      selectorConfig,
+    );
 
     // Re-separate by source
     const result: JitContext = {
@@ -216,6 +227,7 @@ export class JitContextRetriever {
         candidateCount: allItems.length,
         selectedCount: selectedItems.length,
         selectedBySource,
+        selectedFreshness,
       },
     };
 

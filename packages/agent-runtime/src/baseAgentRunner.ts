@@ -67,6 +67,12 @@ import {
   type SelfCritiqueOutput,
   type ValueAnalysisResult,
 } from '@glyphor/shared';
+import {
+  recordRunEvent,
+  recordFailureTaxonomy,
+  linkClaimToEvidence,
+  createContentDigest,
+} from './telemetry/runLedger.js';
 
 const CONTEXT_COMPOSITION_MAX_TOKENS = 12_000;
 
@@ -148,6 +154,34 @@ function summarizeDecisionText(output: string | null): string | null {
   if (normalized.length === 0) return null;
   const sentence = normalized.split(/(?<=[.!?])\s+/)[0] ?? normalized;
   return sentence.slice(0, 600);
+}
+
+function inferBundleKind(turnNumber: number): 'planning' | 'execution' | 'verification' {
+  if (turnNumber === 1) return 'planning';
+  if (turnNumber >= 2) return 'execution';
+  return 'verification';
+}
+
+function extractPotentialClaims(output: string): string[] {
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => /\b\d+(\.\d+)?%?\b/.test(line) || /\b(according to|based on|source|evidence)\b/i.test(line))
+    .slice(0, 12);
+}
+
+function findUnsupportedClaims(
+  output: string,
+  actionReceipts: ActionReceipt[],
+): string[] {
+  const availableEvidence = new Set(
+    actionReceipts.flatMap((receipt) => receipt.evidenceIds ?? []),
+  );
+  const claims = extractPotentialClaims(output);
+  if (claims.length === 0) return [];
+  if (availableEvidence.size === 0) return claims;
+  return claims.filter((claim) => !/\bevidence[:#]/i.test(claim));
 }
 
 function buildValueAnalysisTrace(valueAssessment: import('./reasoningEngine.js').ValueScore | null): ValueAnalysisResult | null {
@@ -419,6 +453,18 @@ export abstract class BaseAgentRunner {
 
     // ─── Load shared memory + JIT context in parallel ───────────
     const taskForContext = extractTaskFromConfigId(config.id);
+    void recordRunEvent({
+      runId: config.dbRunId ?? config.id,
+      eventType: 'run.started',
+      trigger: 'runner.start',
+      component: 'baseAgentRunner',
+      payload: {
+        role: config.role,
+        task: taskForContext,
+        assignment_id: config.assignmentId ?? null,
+        directive_id: config.directiveId ?? null,
+      },
+    });
     const initialToolNames = toolExecutor.getToolNames();
 
     // Sync statically loaded tools to agent_tool_grants so that
@@ -484,6 +530,35 @@ export abstract class BaseAgentRunner {
       } catch (err) {
         console.warn(`[${this.archetype}Runner] Trust load failed for ${config.role}:`, (err as Error).message);
       }
+    }
+    try {
+      const [strengthRow] = await systemQuery<{ verified_strength: number }>(
+        `SELECT
+           COALESCE(AVG(
+             CASE
+               WHEN verification_tier IS NOT NULL AND status = 'completed' THEN 0.7
+               WHEN status = 'completed' THEN 0.5
+               ELSE 0.2
+             END
+           ), 0.5) AS verified_strength
+         FROM (
+           SELECT status, verification_tier
+             FROM agent_runs
+            WHERE agent_id = $1
+              AND task = $2
+              AND completed_at IS NOT NULL
+            ORDER BY completed_at DESC
+            LIMIT 40
+         ) recent_runs`,
+        [config.role, taskForContext],
+      );
+      if (typeof strengthRow?.verified_strength === 'number') {
+        trustScore = trustScore == null
+          ? strengthRow.verified_strength
+          : ((trustScore * 0.7) + (strengthRow.verified_strength * 0.3));
+      }
+    } catch {
+      // Non-critical: routing falls back to trust scorer.
     }
     let routingAudit = await routeSubtask({
       role: config.role,
@@ -604,7 +679,7 @@ ${memPrompt}`, timestamp: Date.now() });
       if (jitSections.length > 0) {
         if (jitContext.selectionMeta) {
           console.log(
-            `[JITSelector] ${config.role}: candidates=${jitContext.selectionMeta.candidateCount}, selected=${jitContext.selectionMeta.selectedCount}, by_source=${JSON.stringify(jitContext.selectionMeta.selectedBySource)}`,
+            `[JITSelector] ${config.role}: candidates=${jitContext.selectionMeta.candidateCount}, selected=${jitContext.selectionMeta.selectedCount}, by_source=${JSON.stringify(jitContext.selectionMeta.selectedBySource)}, freshness=${JSON.stringify(jitContext.selectionMeta.selectedFreshness)}`,
           );
         }
         history.push({
@@ -784,10 +859,24 @@ ${memPrompt}`, timestamp: Date.now() });
             task: taskForContext,
             initialMessage,
             turnNumber,
+            bundleKind: inferBundleKind(turnNumber),
             maxTokens: CONTEXT_COMPOSITION_MAX_TOKENS,
             includeReasoningState: true,
             keepRecentGroups: 2,
             sessionSummary: sessionSummaryForCompaction,
+          });
+          void recordRunEvent({
+            runId: config.dbRunId ?? config.id,
+            eventType: 'context.bundle_composed',
+            trigger: 'model.turn',
+            component: 'baseAgentRunner',
+            payload: {
+              bundle_kind: inferBundleKind(turnNumber),
+              token_estimate: composedContext.tokenEstimate,
+              dropped_turns: composedContext.droppedTurns,
+              dropped_groups: composedContext.droppedGroups,
+              clipped_turns: composedContext.clippedTurns,
+            },
           });
           const composedHistory = composedContext.history;
 
@@ -952,6 +1041,7 @@ ${memPrompt}`, timestamp: Date.now() });
                   glyphorEventBus: safeDeps.glyphorEventBus,
                   runId: config.dbRunId ?? config.id,
                   assignmentId: config.assignmentId,
+                  directiveId: config.directiveId,
                   retrievalMetadata: lastRetrievalTrace
                     ? buildRetrievalMetadataMap(lastRetrievalTrace)
                     : undefined,
@@ -997,6 +1087,7 @@ ${memPrompt}`, timestamp: Date.now() });
               output: (resultContent ?? '').slice(0, 500),
               timestamp: new Date().toISOString(),
               constitutional_check: result.constitutional_check,
+              evidenceIds: result.evidenceIds,
             });
 
             // Apply trust penalty for constitutional gate blocks
@@ -1081,42 +1172,78 @@ ${memPrompt}`, timestamp: Date.now() });
         tier: verificationDecision.tier,
         reason: verificationDecision.reason,
         passes: [],
+        rubricId: verificationDecision.rubricId,
       };
+      const evidenceIds = actionReceipts.flatMap((receipt) => receipt.evidenceIds ?? []);
+      const unsupportedClaims = findUnsupportedClaims(lastTextOutput, actionReceipts);
+      if (unsupportedClaims.length > 0) {
+        verificationMeta.unsupportedClaims = unsupportedClaims;
+        verificationMeta.reason = `${verificationMeta.reason}; unsupported claims detected`;
+      }
 
       if (reasoningEngine && verificationDecision.tier !== 'none') {
         try {
           const contextForVerification = jitContext
             ? jitContext.relevantKnowledge.map(k => k.content).join('\n').slice(0, 2000)
             : '';
-
-          reasoningResult = await reasoningEngine.verifyWithOverride(
-            {
-              passTypes: verificationDecision.passes,
-              crossModelEnabled: verificationDecision.passes.includes('cross_model'),
-            },
-            config.role,
-            initialMessage,
-            lastTextOutput,
-            contextForVerification,
-          );
-
-          if (
-            verificationDecision.tier === 'conditional' &&
-            verificationDecision.conditionalEscalationThreshold !== undefined &&
-            reasoningResult.overallConfidence < verificationDecision.conditionalEscalationThreshold
-          ) {
-            const escalationInput = reasoningResult.revisedOutput ?? lastTextOutput;
+          let repairAttempt = 0;
+          let workingOutput = lastTextOutput;
+          const repairPasses: import('./reasoningEngine.js').PassType[] = [
+            'self_critique',
+            'cross_model',
+            'contradiction_scan',
+          ];
+          while (repairAttempt < 2) {
+            repairAttempt += 1;
             reasoningResult = await reasoningEngine.verifyWithOverride(
               {
-                passTypes: ['self_critique', 'cross_model'],
+                passTypes: verificationDecision.passes.length > 0 ? verificationDecision.passes : repairPasses,
+                crossModelEnabled: true,
+              },
+              config.role,
+              initialMessage,
+              workingOutput,
+              contextForVerification,
+              'repair_loop',
+            );
+            void recordRunEvent({
+              runId: config.dbRunId ?? config.id,
+              eventType: 'verification.repair_cycle',
+              trigger: 'verification_pipeline',
+              component: 'baseAgentRunner',
+              payload: {
+                attempt: repairAttempt,
+                confidence: reasoningResult.overallConfidence,
+                revised: reasoningResult.revised,
+                passes: reasoningResult.passes.map((pass) => pass.passType),
+              },
+            });
+            if (!reasoningResult.revised || !reasoningResult.revisedOutput) break;
+            workingOutput = reasoningResult.revisedOutput;
+            if (reasoningResult.overallConfidence >= verificationDecision.minimumRubricScore) break;
+          }
+
+          if (reasoningResult && verificationDecision.tier === 'conditional' &&
+            verificationDecision.conditionalEscalationThreshold !== undefined &&
+            reasoningResult.overallConfidence < verificationDecision.conditionalEscalationThreshold) {
+            const escalationInput = reasoningResult.revisedOutput ?? workingOutput;
+            reasoningResult = await reasoningEngine.verifyWithOverride(
+              {
+                passTypes: ['self_critique', 'cross_model', 'contradiction_scan'],
                 crossModelEnabled: true,
               },
               config.role,
               initialMessage,
               escalationInput,
               contextForVerification,
+              'conditional_escalation',
             );
+            verificationMeta.escalated = true;
             verificationMeta.reason = `${verificationDecision.reason} (escalated after low confidence)`;
+          }
+
+          if (!reasoningResult) {
+            throw new Error('Verification produced no result.');
           }
 
           if (reasoningResult.revised && reasoningResult.revisedOutput) {
@@ -1124,6 +1251,14 @@ ${memPrompt}`, timestamp: Date.now() });
           }
 
           verificationMeta.passes = Array.from(new Set(reasoningResult.passes.map((pass) => pass.passType)));
+          verificationMeta.rubricScore = reasoningResult.overallConfidence;
+          if (
+            verificationDecision.minimumRubricScore > 0 &&
+            reasoningResult.overallConfidence < verificationDecision.minimumRubricScore
+          ) {
+            verificationMeta.escalated = true;
+            verificationMeta.reason = `${verificationMeta.reason}; rubric threshold not met`;
+          }
 
           console.log(
             `[${this.archetype}Runner] Reasoning for ${config.role}: ` +
@@ -1137,6 +1272,17 @@ ${memPrompt}`, timestamp: Date.now() });
         }
       } else if (!reasoningEngine && verificationDecision.tier !== 'none') {
         console.warn(`[${this.archetype}Runner] Verification unavailable for ${config.id}: reasoning engine not configured`);
+      }
+
+      if (unsupportedClaims.length > 0 && evidenceIds.length > 0) {
+        await Promise.all(
+          unsupportedClaims.map((claim) => linkClaimToEvidence({
+            runId: config.dbRunId ?? config.id,
+            claimText: claim,
+            evidenceUid: evidenceIds[0]!,
+            verificationState: 'unsupported',
+          })),
+        );
       }
 
       // ─── Constitutional evaluation ────────────────────────────
@@ -1201,7 +1347,12 @@ ${memPrompt}`, timestamp: Date.now() });
       // world models populate continuously, not just when CoS grades.
       // For task-tier agents, batch outcomes are the primary quality signal,
       // so self-assessment is down-weighted to 0.3x (vs 1.0x for orchestrators).
-      if (safeDeps.worldModelUpdater && safeDeps.sharedMemoryLoader) {
+      const verifiedOutcomeEligible =
+        verificationMeta?.tier !== 'none' &&
+        !verificationMeta?.escalated &&
+        (verificationMeta?.unsupportedClaims?.length ?? 0) === 0 &&
+        (reasoningResult?.overallConfidence ?? 0) >= Math.max(0.6, verificationDecision.minimumRubricScore);
+      if (safeDeps.worldModelUpdater && safeDeps.sharedMemoryLoader && verifiedOutcomeEligible) {
         try {
           const taskType = config.id.replace(/-\d{4}-\d{2}-\d{2}$/, '').split('-').pop() ?? 'general';
           const turnsUsed = supervisor.stats.turnCount;
@@ -1227,6 +1378,8 @@ ${memPrompt}`, timestamp: Date.now() });
         } catch (err) {
           console.warn(`[${this.archetype}Runner] Self-assessment world model update failed for ${config.id}:`, (err as Error).message);
         }
+      } else if (safeDeps.worldModelUpdater && !verifiedOutcomeEligible) {
+        console.log(`[${this.archetype}Runner] Skipping world-model self-update for ${config.role}: outcome did not pass verified threshold.`);
       }
 
       // ─── Emit completion ──────────────────────────────────────
@@ -1351,6 +1504,41 @@ ${memPrompt}`, timestamp: Date.now() });
         directiveId: config.directiveId ?? undefined,
       }).catch(() => {});
 
+      void recordRunEvent({
+        runId: config.dbRunId ?? config.id,
+        eventType: 'run.completed',
+        trigger: 'runner.complete',
+        component: 'baseAgentRunner',
+        payload: {
+          status: result.status,
+          verification_tier: verificationMeta?.tier ?? 'none',
+          verification_score: verificationMeta?.rubricScore ?? null,
+          unsupported_claims: verificationMeta?.unsupportedClaims ?? [],
+          output_digest: createContentDigest(lastTextOutput),
+        },
+      });
+      if ((verificationMeta?.unsupportedClaims?.length ?? 0) > 0) {
+        void recordFailureTaxonomy({
+          runId: config.dbRunId ?? config.id,
+          agentRole: config.role,
+          taskClass: taskForContext,
+          failureCode: 'evidence_missing',
+          severity: 'high',
+          detail: 'Final output contained unsupported claim(s).',
+          metadata: { unsupported_claims: verificationMeta?.unsupportedClaims ?? [] },
+        });
+      }
+      if (verificationMeta?.escalated) {
+        void recordFailureTaxonomy({
+          runId: config.dbRunId ?? config.id,
+          agentRole: config.role,
+          taskClass: taskForContext,
+          failureCode: 'unresolved_low_confidence',
+          severity: 'medium',
+          detail: verificationMeta.reason,
+        });
+      }
+
       return result;
     } catch (error) {
       emitEvent({ type: 'agent_error', agentId: config.id, error: (error as Error).message, turnNumber: supervisor.stats.turnCount });
@@ -1367,6 +1555,24 @@ ${memPrompt}`, timestamp: Date.now() });
         assignmentId: config.assignmentId ?? undefined,
         directiveId: config.directiveId ?? undefined,
       }).catch(() => {});
+      void recordRunEvent({
+        runId: config.dbRunId ?? config.id,
+        eventType: 'run.failed',
+        trigger: 'runner.error',
+        component: 'baseAgentRunner',
+        payload: {
+          status: errResult.status,
+          error: (error as Error).message,
+        },
+      });
+      void recordFailureTaxonomy({
+        runId: config.dbRunId ?? config.id,
+        agentRole: config.role,
+        taskClass: taskForContext,
+        failureCode: errResult.status === 'aborted' ? 'policy_deny' : 'tool_timeout',
+        severity: errResult.status === 'aborted' ? 'medium' : 'high',
+        detail: (error as Error).message,
+      });
       return errResult;
     }
   }
