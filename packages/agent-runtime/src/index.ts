@@ -135,6 +135,8 @@ export { composeModelContext } from './context/contextComposer.js';
 export type { ContextComposerInput, ContextComposerResult } from './context/contextComposer.js';
 export { compressComposedHistory } from './context/historyCompressor.js';
 export type { ContextCompressionOptions, ContextCompressionResult } from './context/historyCompressor.js';
+export { microCompactHistory } from './context/microCompactor.js';
+export type { MicroCompactionOptions, MicroCompactionResult } from './context/microCompactor.js';
 export {
   buildSystemFrameTurn,
   isSyntheticContextTurn,

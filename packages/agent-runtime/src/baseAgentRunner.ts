@@ -47,6 +47,7 @@ import { harvestTaskOutcome } from './taskOutcomeHarvester.js';
 import type { ActionReceipt } from './types.js';
 import { extractTaskFromConfigId } from './taskIdentity.js';
 import { composeModelContext } from './context/contextComposer.js';
+import { microCompactHistory } from './context/microCompactor.js';
 import { runDeterministicPreCheck } from './routing/index.js';
 import { buildToolTaskContext, getToolRetriever, type ToolRetrieverTrace } from './routing/toolRetriever.js';
 import type { RoutingDecision } from './routing/index.js';
@@ -378,6 +379,9 @@ export abstract class BaseAgentRunner {
     let totalCachedInputTokens = 0;
     let actualModelUsed: string | undefined;
     let actualProviderUsed: 'gemini' | 'openai' | 'anthropic' | undefined;
+    let microCompactionCount = 0;
+    let microCompactionOccurred = false;
+    let latestMicroCompactionSummary: string | undefined;
     const actionReceipts: ActionReceipt[] = [];
     const traceAuditLogIds = new Set<string>();
     const traceTaskId = config.assignmentId ?? config.id;
@@ -701,7 +705,19 @@ ${memPrompt}`, timestamp: Date.now() });
         let response: Awaited<ReturnType<ModelClient['generate']>>;
         try {
           const composedContext = composeModelContext({
-            history,
+            history: (() => {
+              const microCompacted = microCompactHistory(history, {
+                enabled: config.microCompactionEnabled ?? true,
+                keepRecentToolResults: config.microCompactionKeepRecent ?? 3,
+                maxToolResultChars: config.microCompactionMaxChars ?? 900,
+              });
+              if (microCompacted.compactedTurns > 0) {
+                microCompactionOccurred = true;
+                microCompactionCount += microCompacted.compactedTurns;
+                latestMicroCompactionSummary = microCompacted.summary;
+              }
+              return microCompacted.history;
+            })(),
             role: config.role,
             task: taskForContext,
             initialMessage,
@@ -1137,6 +1153,11 @@ ${memPrompt}`, timestamp: Date.now() });
 
       const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary(), actualModelUsed, actualProviderUsed);
       result.actions = actionReceipts;
+      if (microCompactionOccurred) {
+        result.compactionOccurred = true;
+        result.compactionCount = microCompactionCount;
+        result.compactionSummary = latestMicroCompactionSummary ?? `Micro-compacted ${microCompactionCount} turn(s)`;
+      }
       if (reasoningResult) {
         result.reasoningMeta = {
           passes: reasoningResult.passes.length,
@@ -1224,6 +1245,11 @@ ${memPrompt}`, timestamp: Date.now() });
       emitEvent({ type: 'agent_error', agentId: config.id, error: (error as Error).message, turnNumber: supervisor.stats.turnCount });
       const errResult = this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary(), actualModelUsed, actualProviderUsed);
       errResult.actions = actionReceipts;
+      if (microCompactionOccurred) {
+        errResult.compactionOccurred = true;
+        errResult.compactionCount = microCompactionCount;
+        errResult.compactionSummary = latestMicroCompactionSummary ?? `Micro-compacted ${microCompactionCount} turn(s)`;
+      }
       void harvestTaskOutcome(errResult, {
         runId: config.id,
         agentRole: config.role,
