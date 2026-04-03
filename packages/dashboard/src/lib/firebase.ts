@@ -32,6 +32,7 @@ export async function getAuthToken(): Promise<string | null> {
 
 const LEGACY_SCHEDULER_HOST = 'glyphor-scheduler-v55622rp6q-uc.a.run.app';
 const CANONICAL_SCHEDULER_URL = 'https://glyphor-scheduler-610179349713.us-central1.run.app';
+const PROD_DASHBOARD_HOST = 'glyphor-dashboard-610179349713.us-central1.run.app';
 
 function normalizeSchedulerUrl(rawValue: string | undefined): string {
   const value = (rawValue ?? '').trim();
@@ -40,7 +41,13 @@ function normalizeSchedulerUrl(rawValue: string | undefined): string {
   return value;
 }
 
-const API_URL = normalizeSchedulerUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_SCHEDULER_URL);
+const isProdDashboardHost =
+  typeof window !== 'undefined'
+  && window.location.hostname === PROD_DASHBOARD_HOST;
+
+const API_URL = isProdDashboardHost
+  ? CANONICAL_SCHEDULER_URL
+  : normalizeSchedulerUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_SCHEDULER_URL);
 
 export async function apiCall<T = any>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await getAuthToken();
