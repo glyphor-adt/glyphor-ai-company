@@ -63,6 +63,7 @@ import { WakeRouter } from './wakeRouter.js';
 import { DataSyncScheduler } from './dataSyncScheduler.js';
 import { HeartbeatManager } from './heartbeat.js';
 import { AgentNotifier } from './agentNotifier.js';
+import { runEconomicsGuardrailNotify } from './economicsGuardrailNotify.js';
 import { handleDashboardApi } from './dashboardApi.js';
 import { handleAbacAdminApi } from './abacAdminApi.js';
 import { handleAutonomyAdminApi } from './autonomyAdminApi.js';
@@ -3080,6 +3081,20 @@ const server = createServer(async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[PlanningGateMonitor] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Economics guardrails — optional Teams webhook or AgentNotifier (Cloud Scheduler)
+    if (method === 'POST' && url === '/economics/guardrail-notify') {
+      try {
+        const result = await runEconomicsGuardrailNotify(agentNotifier);
+        const { success, ...rest } = result;
+        json(res, success ? 200 : 500, { success, ...rest });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[EconomicsGuardrailNotify] Endpoint error:', message);
         json(res, 500, { success: false, error: message });
       }
       return;

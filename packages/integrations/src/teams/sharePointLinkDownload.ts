@@ -29,7 +29,7 @@ export function extractSharePointUrlsFromTeamsBody(body: string): string[] {
   const re =
     /https?:\/\/[a-z0-9A-Z.-]+\.sharepoint(?:-df)?\.com[^"'<>\s\)]*/gi;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
+  while ((m = re.exec(body)) !== null) {
     let u = m[0].replace(/&amp;/g, '&').replace(/&quot;/g, '"');
     while (/[.,);]$/.test(u)) u = u.slice(0, -1);
     try {

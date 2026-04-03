@@ -483,6 +483,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/planning-gate/monitor',
     enabled: true,
   },
+  // Economics guardrails — daily Teams notify when ECONOMICS_ALERT_* thresholds breach
+  {
+    id: 'economics-guardrail-notify',
+    schedule: '30 7 * * *',    // 7:30 AM UTC daily (after planning-gate rollup)
+    timezone: 'UTC',
+    endpoint: '/economics/guardrail-notify',
+    enabled: true,
+  },
   // Agent knowledge-gap evaluator — weekly judge-scored readiness sweep
   {
     id: 'agent-knowledge-evals',

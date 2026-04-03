@@ -309,7 +309,7 @@ function buildEconomicsGuardrailAlerts(
   return alerts;
 }
 
-async function getEconomicsQualityOverview(windowDays: 7 | 30 | 90): Promise<{
+export async function getEconomicsQualityOverview(windowDays: 7 | 30 | 90): Promise<{
   windowDays: number;
   generatedAt: string;
   economicsGeneratedAt: string;

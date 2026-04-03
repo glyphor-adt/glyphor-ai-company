@@ -413,7 +413,19 @@ Stage 5 closes the loop on the Stage 4 ladder line about **cost / latency / qual
 | `ECONOMICS_ALERT_MIN_RUN_COMPLETION_RATE` | Fleet ratio completed / terminal `agent_runs` (0–1) |
 | `ECONOMICS_ALERT_MIN_GATE_PASS_RATE` | Fleet completion-gate pass rate (0–1), same denominator as planning-gate totals |
 
-Alerts are **advisory** (returned in JSON); wire your own paging or cron if you want incidents.
+Alerts are **advisory** in the GET payload. To **post to Microsoft Teams** when any guardrail fires:
+
+- **Dedicated channel (recommended):** set `TEAMS_ECONOMICS_ALERT_WEBHOOK_URL` to an [Incoming Webhook](https://learn.microsoft.com/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook) URL for the target channel. The scheduler sends an **Adaptive Card** (same shape as other Glyphor Teams webhooks).
+- **Power Automate / secured URL:** if the webhook requires a bearer token, set `TEAMS_ECONOMICS_WEBHOOK_BEARER_TOKEN` (passed through to `sendTeamsWebhook`).
+- **Legacy Office 365 connector card:** set `TEAMS_ECONOMICS_USE_LEGACY_MESSAGE_CARD=true` to POST a **MessageCard** JSON body instead (for older connector URLs).
+- **No webhook URL:** the daily job falls back to **`AgentNotifier`** — same delivery as planning-gate alerts (#briefings channel / founder DM path).
+
+**Cron / manual trigger**
+
+- Cloud Scheduler job `economics-guardrail-notify` → `POST /economics/guardrail-notify` daily **7:30 UTC** (after planning-gate at 7:00 UTC). Disable the job in Cloud Scheduler if you do not want automatic posts.
+- Optional: `ECONOMICS_GUARD_ALERT_WINDOW_DAYS` = `7`, `30`, or `90` (default `30`) — window passed into `getEconomicsQualityOverview`.
+
+Successful notifications also write `activity_log` (`economics_guardrail.alert`); delivery failures log `economics_guardrail.notify_failed`.
 
 **Dashboard:** Governance → **Reliability** → **Stage 5 — Cost, latency, and quality** card.
 

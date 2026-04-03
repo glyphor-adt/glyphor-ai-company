@@ -138,7 +138,7 @@ function mergeConversationAttachments(
   primary: ConversationAttachment[],
   secondary: ConversationAttachment[],
 ): ConversationAttachment[] {
-  const key = (x: ConversationAttachment) => ;
+  const key = (x: ConversationAttachment) => `${x.name}\0${x.mimeType}\0${x.data}`;
   const seen = new Set(primary.map(key));
   const out = [...primary];
   for (const x of secondary) {
