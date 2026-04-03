@@ -334,21 +334,21 @@ async function resolveAgentIdentity(agentId: string): Promise<AgentIdentity> {
 
 async function listAgentIdentities(): Promise<AgentIdentity[]> {
   const rows = await systemQuery<AgentIdentityRow>(
-    `WITH roles AS (
-       SELECT role AS agent_id FROM company_agents WHERE role IS NOT NULL AND role <> 'system'
-       UNION
-       SELECT assigned_to AS agent_id FROM work_assignments WHERE assigned_to IS NOT NULL AND assigned_to <> 'system'
-       UNION
-       SELECT agent_role AS agent_id FROM activity_log WHERE agent_role IS NOT NULL AND agent_role <> 'system'
-     )
-     SELECT
-       r.agent_id,
-       COALESCE(NULLIF(TRIM(c.display_name), ''), NULLIF(TRIM(c.name), ''), r.agent_id) AS agent_name,
+    `SELECT
+       c.role AS agent_id,
+       COALESCE(NULLIF(TRIM(c.display_name), ''), NULLIF(TRIM(c.name), ''), c.role) AS agent_name,
        c.department,
        COALESCE(ac.metadata->>'role_category', c.department, 'Other') AS role_category
-     FROM roles r
-     LEFT JOIN company_agents c ON c.role = r.agent_id OR c.id::text = r.agent_id
-     LEFT JOIN agent_capacity_config ac ON ac.agent_id = r.agent_id
+     FROM company_agents c
+     LEFT JOIN agent_capacity_config ac ON ac.agent_id = c.role OR ac.agent_id = c.id::text
+     WHERE c.role IS NOT NULL
+       AND c.role <> 'system'
+       AND COALESCE(c.status, 'active') NOT IN ('retired', 'inactive')
+       AND (
+         COALESCE(c.is_temporary, false) = false
+         OR c.expires_at IS NULL
+         OR c.expires_at > NOW()
+       )
      ORDER BY agent_name ASC`,
     [],
   );

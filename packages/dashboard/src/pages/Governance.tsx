@@ -48,6 +48,20 @@ interface GovernanceData {
   pendingApprovals: PendingApproval[];
 }
 
+interface PlanningGateRoleSummary {
+  role: string;
+  runsObserved: number;
+  runsWithPlanning: number;
+  runsWithGatePass: number;
+  runsWithGateFail: number;
+  planningEvents: number;
+  gatePassEvents: number;
+  gateFailEvents: number;
+  maxRetryAttempt: number;
+  avgMissingCriteriaMentions: number;
+  passRate: number;
+}
+
 interface PlanningGateSnapshot {
   windowDays: number;
   totals: {
@@ -62,6 +76,7 @@ interface PlanningGateSnapshot {
     avgMissingCriteriaMentions: number;
     passRate: number;
   };
+  roles: PlanningGateRoleSummary[];
 }
 
 interface PlanningGateHealthSnapshot {
@@ -534,6 +549,20 @@ function normalizeCommitments(raw: unknown): { page: number; pageSize: number; t
 function normalizePlanningGate(raw: unknown): PlanningGateSnapshot | null {
   if (!isRecord(raw) || !isRecord(raw.totals)) return null;
   const totals = raw.totals as UnknownRecord;
+  const roles = Array.isArray(raw.roles) ? raw.roles.filter((item) => isRecord(item)).map((item) => ({
+    role: asString(item.role) ?? 'unknown',
+    runsObserved: asNumber(item.runsObserved) ?? asNumber(item.runs_observed) ?? 0,
+    runsWithPlanning: asNumber(item.runsWithPlanning) ?? asNumber(item.runs_with_planning) ?? 0,
+    runsWithGatePass: asNumber(item.runsWithGatePass) ?? asNumber(item.runs_with_gate_pass) ?? 0,
+    runsWithGateFail: asNumber(item.runsWithGateFail) ?? asNumber(item.runs_with_gate_fail) ?? 0,
+    planningEvents: asNumber(item.planningEvents) ?? asNumber(item.planning_events) ?? 0,
+    gatePassEvents: asNumber(item.gatePassEvents) ?? asNumber(item.gate_pass_events) ?? 0,
+    gateFailEvents: asNumber(item.gateFailEvents) ?? asNumber(item.gate_fail_events) ?? 0,
+    maxRetryAttempt: asNumber(item.maxRetryAttempt) ?? asNumber(item.max_retry_attempt) ?? 0,
+    avgMissingCriteriaMentions: asNumber(item.avgMissingCriteriaMentions) ?? asNumber(item.avg_missing_criteria_mentions) ?? 0,
+    passRate: asNumber(item.passRate) ?? asNumber(item.pass_rate) ?? 0,
+  })) : [];
+
   return {
     windowDays: asNumber(raw.windowDays) ?? asNumber(raw.window_days) ?? 30,
     totals: {
@@ -548,6 +577,7 @@ function normalizePlanningGate(raw: unknown): PlanningGateSnapshot | null {
       avgMissingCriteriaMentions: asNumber(totals.avgMissingCriteriaMentions) ?? asNumber(totals.avg_missing_criteria_mentions) ?? 0,
       passRate: asNumber(totals.passRate) ?? asNumber(totals.pass_rate) ?? 0,
     },
+    roles,
   };
 }
 
