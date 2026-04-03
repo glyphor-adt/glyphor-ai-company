@@ -50,7 +50,7 @@ import { composeModelContext } from './context/contextComposer.js';
 import { microCompactHistory } from './context/microCompactor.js';
 import { startTraceSpan } from './telemetry/tracing.js';
 import { extractAcceptanceCriteriaFromMessage, parseExecutionPlan } from './executionPlanning.js';
-import { resolvePlanningPolicy } from './planningPolicy.js';
+import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.js';
 import { runDeterministicPreCheck } from './routing/index.js';
 import { buildToolTaskContext, getToolRetriever, type ToolRetrieverTrace } from './routing/toolRetriever.js';
 import type { RoutingDecision } from './routing/index.js';
@@ -1028,9 +1028,13 @@ Rules:
           const modelForTurn = routedModel.model === '__deterministic__'
             ? config.model
             : routedModel.model;
+          let modelForGenerate = modelForTurn;
+          if (runPhase === 'planning' && planningPolicy.planningModelTier) {
+            modelForGenerate = getTierModel(planningPolicy.planningModelTier);
+          }
 
           response = await this.modelClient.generate({
-            model: modelForTurn,
+            model: modelForGenerate,
             systemInstruction: systemPrompt,
             contents: composedHistory,
             tools: effectiveTools,
@@ -1287,6 +1291,7 @@ Return ONLY strict JSON with:
               output: lastTextOutput,
               actionReceipts,
               signal: supervisor.signal,
+              verifyModelTier: planningPolicy.completionGateVerifyModelTier,
             });
             completionGatePassed = completionGate.meets;
             completionGateMissing = completionGate.missingCriteria;
@@ -1903,6 +1908,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
     output: string;
     actionReceipts: ActionReceipt[];
     signal: AbortSignal;
+    verifyModelTier?: PlanningModelTier;
   }): Promise<{ meets: boolean; missingCriteria: string[] }> {
     try {
       const toolEvidence = input.actionReceipts
@@ -1928,8 +1934,9 @@ ${toolEvidence || 'No tool evidence recorded.'}
 Candidate output:
 ${input.output}`;
 
+      const verifyTier = input.verifyModelTier ?? 'default';
       const response = await this.modelClient.generate({
-        model: getTierModel('default'),
+        model: getTierModel(verifyTier),
         systemInstruction: 'You are a strict task verifier. Reply with JSON only.',
         contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
         tools: undefined,

@@ -1,11 +1,17 @@
 import type { AgentConfig, CompanyAgentRole } from './types.js';
 
+export type PlanningModelTier = 'fast' | 'default' | 'high';
+
 export interface EffectivePlanningPolicy {
   planningMode: 'off' | 'auto' | 'required';
   completionGateEnabled: boolean;
   planningMaxAttempts: number;
   completionGateMaxRetries: number;
   completionGateAutoRepairEnabled: boolean;
+  /** Stronger model during planning JSON phase (undefined = follow subtask routing). */
+  planningModelTier?: PlanningModelTier;
+  /** Tier for completion-gate JSON verifier (undefined = default tier). */
+  completionGateVerifyModelTier?: PlanningModelTier;
 }
 
 interface PlanningPolicyOverrides {
@@ -14,6 +20,8 @@ interface PlanningPolicyOverrides {
   planningMaxAttempts?: number;
   completionGateMaxRetries?: number;
   completionGateAutoRepairEnabled?: boolean;
+  planningModelTier?: PlanningModelTier;
+  completionGateVerifyModelTier?: PlanningModelTier;
 }
 
 interface PlanningPolicyConfig {
@@ -77,6 +85,12 @@ function mergeOverrides(
     completionGateMaxRetries: clampInt(overrides.completionGateMaxRetries, base.completionGateMaxRetries, 0, 8),
     completionGateAutoRepairEnabled:
       overrides.completionGateAutoRepairEnabled ?? base.completionGateAutoRepairEnabled,
+    planningModelTier: overrides.planningModelTier !== undefined
+      ? overrides.planningModelTier
+      : base.planningModelTier,
+    completionGateVerifyModelTier: overrides.completionGateVerifyModelTier !== undefined
+      ? overrides.completionGateVerifyModelTier
+      : base.completionGateVerifyModelTier,
   };
 }
 
@@ -102,6 +116,8 @@ export function resolvePlanningPolicy(input: {
       planningMaxAttempts: 2,
       completionGateMaxRetries: 2,
       completionGateAutoRepairEnabled: false,
+      planningModelTier: 'high',
+      completionGateVerifyModelTier: 'high',
     };
   } else if (TASK_ROLE_DEFAULTS.has(input.role) || input.taskTierHint === true) {
     policy = {
@@ -132,6 +148,8 @@ export function resolvePlanningPolicy(input: {
     planningMaxAttempts: input.config.planningMaxAttempts,
     completionGateMaxRetries: input.config.completionGateMaxRetries,
     completionGateAutoRepairEnabled: input.config.completionGateAutoRepairEnabled,
+    planningModelTier: input.config.planningModelTier,
+    completionGateVerifyModelTier: input.config.completionGateVerifyModelTier,
   });
 
   if (policy.planningMode === 'off') {

@@ -54,8 +54,10 @@ Use this when debugging unexpected **approval required** or **blocked** tool cal
     - `off` for `on_demand` by default.
   - Example:
     - `{"default":{"planningMode":"auto","completionGateMaxRetries":2,"completionGateAutoRepairEnabled":false},"roles":{"frontend-engineer":{"planningMode":"required"}},"tasks":{"on_demand":{"planningMode":"off","completionGateEnabled":false}}}`
-  - Optional field:
+  - Optional fields:
     - `completionGateAutoRepairEnabled` (boolean) enables one corrective pass on completion-gate failure before normal retry nudges.
+    - `planningModelTier` (`fast` \| `default` \| `high`) — planning-phase model (Stage 3).
+    - `completionGateVerifyModelTier` (`fast` \| `default` \| `high`) — JSON gate verifier model (Stage 3).
   - Validate before deploy:
     - `npm run planning:policy:validate -- --env-var AGENT_PLANNING_POLICY_JSON`
 - `AGENT_RUN_LEDGER_ENABLED`
@@ -199,6 +201,35 @@ Use when pass rate drops, retries spike, or a role shows **Below SLO (7d)** / **
 5. **Verify recovery**
    - Run 2–3 representative tasks for the role; watch `agent_run_events` for `completion_gate_passed` vs `completion_gate_failed`.
    - Re-check `planning-gate-health` after 24–48h of volume.
+
+## Stage 3 — Continuous quality optimization
+
+Built-in behaviors for the maturity ladder “Stage 3” slice: golden eval as a scheduled contract, gate-miss → eval drafts (existing), auto-repair telemetry, and **phase-aware model tiers** in policy.
+
+### Golden eval loop
+
+| Item | Detail |
+| --- | --- |
+| **Cron** | `golden-eval-suite` → `POST /agent-evals/run-golden` (Wednesday 10:30 UTC). Scenarios must be named `golden:%`. |
+| **Manual** | Reliability → **Run golden suite now**, or `POST /agent-evals/run-golden` with optional `agentRoles` / `agentIds`. |
+| **Full sweep** | Monday job `agent-knowledge-evals` still runs `POST /agent-evals/run` (all scenarios). |
+
+### Auto-repair (`completionGateAutoRepairEnabled`)
+
+- One corrective user turn after a gate failure (`completion_gate_auto_repair_triggered` in `agent_run_events`).
+- **Governance** Stage 3 scorecard shows auto-repair **conversion rate** vs 30d (`GET /admin/metrics/planning-gate-stage3`).
+- Enable per role in `AGENT_PLANNING_POLICY_JSON` when you accept extra latency for a second execution pass.
+
+### Phase model tiers (policy JSON)
+
+Optional override fields (validated by `npm run planning:policy:validate`):
+
+- `planningModelTier`: `fast` \| `default` \| `high` — used for the **planning JSON** phase model call (execution still follows normal subtask routing in `CompanyAgentRunner` / `BaseAgentRunner`).
+- `completionGateVerifyModelTier`: same enum — used for the **JSON completion-gate verifier** (criteria satisfied or not).
+
+**Built-in:** `frontend-engineer`, `vp-design`, and `ui-ux-designer` default to **high** for both tiers on non-`on_demand` tasks (strict design/engineering path).
+
+Example: `docs/examples/planning-policy-canary.json`.
 
 ## Rollout Checklist
 

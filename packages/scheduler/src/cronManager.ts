@@ -491,6 +491,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/agent-evals/run',
     enabled: true,
   },
+  // Golden-task suite — weekly contract eval (scenario_name golden:%)
+  {
+    id: 'golden-eval-suite',
+    schedule: '30 10 * * 3',   // Wednesday 10:30 AM UTC — Stage 3 quality loop
+    timezone: 'UTC',
+    endpoint: '/agent-evals/run-golden',
+    enabled: true,
+  },
   // Memory archival — weekly TTL-based archival of expired raw traces
   {
     id: 'memory-archival',

@@ -313,6 +313,8 @@ export default function ReliabilityDashboard() {
   const [evalApplyBusy, setEvalApplyBusy] = useState(false);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({});
   const [planningGateHealth, setPlanningGateHealth] = useState<PlanningGateHealthPayload | null>(null);
+  const [goldenRunBusy, setGoldenRunBusy] = useState(false);
+  const [goldenRunHint, setGoldenRunHint] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -476,6 +478,33 @@ export default function ReliabilityDashboard() {
     () => evalSuggestions?.suggestions.filter((s) => !s.scenarioAlreadyExists).length ?? 0,
     [evalSuggestions],
   );
+
+  const runGoldenSuiteNow = async () => {
+    setGoldenRunBusy(true);
+    setGoldenRunHint(null);
+    try {
+      const result = await apiCall<{
+        evaluated?: number;
+        pass?: number;
+        softFail?: number;
+        hardFail?: number;
+      }>('/agent-evals/run-golden', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      setGoldenRunHint(
+        `Golden run: ${result.evaluated ?? 0} scenarios — PASS ${result.pass ?? 0}, SOFT_FAIL ${result.softFail ?? 0}, HARD_FAIL ${result.hardFail ?? 0}`,
+      );
+      await refresh();
+      window.setTimeout(() => setGoldenRunHint(null), 12_000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Golden eval request failed';
+      setGoldenRunHint(message);
+      window.setTimeout(() => setGoldenRunHint(null), 10_000);
+    } finally {
+      setGoldenRunBusy(false);
+    }
+  };
 
   const applyEvalSuiteFromGateMisses = async () => {
     if (newEvalSuggestionCount === 0) return;
@@ -775,6 +804,26 @@ export default function ReliabilityDashboard() {
               )}
             </tbody>
           </table>
+        </div>
+      </Card>
+
+      <Card>
+        <SectionHeader
+          title="Stage 3 — Golden eval loop"
+          subtitle="Cron job golden-eval-suite calls POST /agent-evals/run-golden every Wednesday 10:30 UTC. Policy JSON can set planningModelTier and completionGateVerifyModelTier for stronger planning / gate verification; completionGateAutoRepairEnabled adds one corrective pass after a gate miss (see conversion on the Governance scorecard)."
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={goldenRunBusy || refreshing}
+            onClick={() => void runGoldenSuiteNow()}
+            className="rounded-lg border border-prism-teal/50 bg-prism-teal/10 px-4 py-2 text-[13px] font-semibold text-prism-teal transition-colors hover:bg-prism-teal/20 disabled:opacity-50"
+          >
+            {goldenRunBusy ? 'Running golden suite…' : 'Run golden suite now'}
+          </button>
+          {goldenRunHint ? (
+            <span className="max-w-xl text-[11px] text-txt-muted">{goldenRunHint}</span>
+          ) : null}
         </div>
       </Card>
 

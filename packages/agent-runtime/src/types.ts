@@ -53,6 +53,10 @@ export interface AgentConfig {
   completionGateMaxRetries?: number;
   /** Enables one corrective execution attempt after a gate failure. */
   completionGateAutoRepairEnabled?: boolean;
+  /** When set (or via AGENT_PLANNING_POLICY_JSON), planning-phase model calls use this tier instead of subtask routing. */
+  planningModelTier?: 'fast' | 'default' | 'high';
+  /** Model tier for the JSON completion-gate verifier (criteria satisfaction check). */
+  completionGateVerifyModelTier?: 'fast' | 'default' | 'high';
 }
 
 export type CompanyAgentRole =

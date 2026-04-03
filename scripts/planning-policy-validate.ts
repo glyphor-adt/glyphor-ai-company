@@ -101,6 +101,8 @@ function validateOverrides(value: unknown, path: string, errors: string[]): void
     'planningMaxAttempts',
     'completionGateMaxRetries',
     'completionGateAutoRepairEnabled',
+    'planningModelTier',
+    'completionGateVerifyModelTier',
   ]);
 
   for (const key of Object.keys(value)) {
@@ -126,6 +128,19 @@ function validateOverrides(value: unknown, path: string, errors: string[]): void
   }
   if ('completionGateAutoRepairEnabled' in value && typeof value.completionGateAutoRepairEnabled !== 'boolean') {
     errors.push(`${path}.completionGateAutoRepairEnabled must be boolean.`);
+  }
+  const modelTiers = new Set(['fast', 'default', 'high']);
+  if ('planningModelTier' in value) {
+    const t = value.planningModelTier;
+    if (typeof t !== 'string' || !modelTiers.has(t)) {
+      errors.push(`${path}.planningModelTier must be one of: fast, default, high.`);
+    }
+  }
+  if ('completionGateVerifyModelTier' in value) {
+    const t = value.completionGateVerifyModelTier;
+    if (typeof t !== 'string' || !modelTiers.has(t)) {
+      errors.push(`${path}.completionGateVerifyModelTier must be one of: fast, default, high.`);
+    }
   }
 }
 

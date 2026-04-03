@@ -128,6 +128,43 @@ const DEDUP_CLEANUP_INTERVAL = 60 * 1000;
 /** Max decoded size per Teams file attachment forwarded to the model */
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
+/** Teams / Graph sometimes returns generic MIME or names without extension; OOXML zips embed path hints. */
+function refineOoxmlFromZipBuffer(
+  name: string,
+  mimeType: string,
+  buf: ArrayBuffer,
+): { name: string; mimeType: string } {
+  const b = Buffer.from(buf);
+  if (b.length < 4 || b[0] !== 0x50 || b[1] !== 0x4b) {
+    return { name, mimeType };
+  }
+  let kind: 'pptx' | 'docx' | 'xlsx' | null = null;
+  if (b.includes(Buffer.from('ppt/slides/slide')) || b.includes(Buffer.from('ppt/presentation.xml'))) {
+    kind = 'pptx';
+  } else if (b.includes(Buffer.from('word/document.xml'))) {
+    kind = 'docx';
+  } else if (b.includes(Buffer.from('xl/workbook.xml'))) {
+    kind = 'xlsx';
+  }
+  if (!kind) return { name, mimeType };
+
+  const mimeByKind: Record<'pptx' | 'docx' | 'xlsx', string> = {
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  };
+  const ext = `.${kind}`;
+  const hasOfficeExt = /\.(pptx|docx|xlsx|ppt|doc|xls)$/i.test(name);
+  const nextName = hasOfficeExt ? name : `${name}${ext}`;
+  const vagueMime =
+    mimeType === 'application/octet-stream' ||
+    mimeType === 'binary/octet-stream' ||
+    mimeType === '' ||
+    mimeType === 'reference';
+  const nextMime = vagueMime ? mimeByKind[kind] : mimeType;
+  return { name: nextName, mimeType: nextMime };
+}
+
 export class GraphChatHandler {
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private a365TeamsClient: A365TeamsChatClient | null = null;
@@ -591,9 +628,15 @@ export class GraphChatHandler {
             console.warn(`[GraphChat] Attachment too large, skipping: ${name}`);
             continue;
           }
+          const refined = refineOoxmlFromZipBuffer(name, mimeType, buf);
+          if (refined.name !== name || refined.mimeType !== mimeType) {
+            console.log(
+              `[GraphChat] Refined attachment "${name}" → "${refined.name}" (${mimeType} → ${refined.mimeType})`,
+            );
+          }
           out.push({
-            name,
-            mimeType,
+            name: refined.name,
+            mimeType: refined.mimeType,
             data: Buffer.from(buf).toString('base64'),
           });
           continue;

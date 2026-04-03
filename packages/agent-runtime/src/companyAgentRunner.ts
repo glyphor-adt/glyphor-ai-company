@@ -46,7 +46,7 @@ import { readWorldState, writeWorldState, formatWorldStateForPrompt } from './wo
 import { AGENT_WORLD_STATE_KEYS, AGENT_WORLD_STATE_DOMAIN } from './worldStateKeys.js';
 import { resolveUpstreamContext } from './dependencyResolver.js';
 import { shouldUseClientSideHistoryCompression } from './compaction.js';
-import { resolvePlanningPolicy } from './planningPolicy.js';
+import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.js';
 import type { RequestSource } from './providers/types.js';
 import type {
   SessionMemoryStore,
@@ -2025,6 +2025,13 @@ Rules:
             highestSubtaskComplexity = routingAudit.classification.complexity;
           }
 
+          let modelForGenerate = routedModel.model === '__deterministic__'
+            ? config.model
+            : routedModel.model;
+          if (runPhase === 'planning' && planningPolicy.planningModelTier) {
+            modelForGenerate = getTierModel(planningPolicy.planningModelTier);
+          }
+
           // Select system prompt based on context tier
           const systemPrompt = isTaskTier
             ? buildTaskTierSystemPrompt(agentProfile, doctrineContext)
@@ -2039,7 +2046,7 @@ Rules:
                 isOnDemand,
                 orchestrationConfig,
                 hasDelegatedDirective,
-                routedModel.model === '__deterministic__' ? config.model : routedModel.model,
+                modelForGenerate,
                 doctrineContext,
               );
           let effectiveThinking = routedModel.reasoningEffort === 'minimal' ? false : config.thinkingEnabled;
@@ -2059,7 +2066,7 @@ Rules:
           }
 
           response = await this.modelClient.generate({
-            model: modelForTurn,
+            model: modelForGenerate,
             systemInstruction: systemPrompt,
             contents: compressedHistory,
             source: requestSource,
@@ -2351,6 +2358,7 @@ Return ONLY strict JSON with:
               output: lastTextOutput,
               actionReceipts,
               signal: supervisor.signal,
+              verifyModelTier: planningPolicy.completionGateVerifyModelTier,
             });
             completionGatePassed = completionGate.meets;
             completionGateMissing = completionGate.missingCriteria;
@@ -2768,6 +2776,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
     output: string;
     actionReceipts: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }>;
     signal: AbortSignal;
+    verifyModelTier?: PlanningModelTier;
   }): Promise<{ meets: boolean; missingCriteria: string[] }> {
     try {
       const toolEvidence = input.actionReceipts
@@ -2793,8 +2802,9 @@ ${toolEvidence || 'No tool evidence recorded.'}
 Candidate output:
 ${input.output}`;
 
+      const verifyTier = input.verifyModelTier ?? 'default';
       const response = await this.modelClient.generate({
-        model: getTierModel('default'),
+        model: getTierModel(verifyTier),
         systemInstruction: 'You are a strict task verifier. Reply with JSON only.',
         contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
         source: 'scheduled',

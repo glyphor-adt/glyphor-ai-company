@@ -9,7 +9,10 @@
     "frontend-engineer": {
       "planningMode": "required",
       "completionGateEnabled": true,
-      "completionGateMaxRetries": 2
+      "completionGateMaxRetries": 2,
+      "planningModelTier": "high",
+      "completionGateVerifyModelTier": "high",
+      "completionGateAutoRepairEnabled": true
     }
   },
   "tasks": {

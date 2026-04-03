@@ -27,6 +27,8 @@ describe('planningPolicy', () => {
     expect(policy.planningMode).toBe('required');
     expect(policy.completionGateEnabled).toBe(true);
     expect(policy.completionGateAutoRepairEnabled).toBe(false);
+    expect(policy.planningModelTier).toBe('high');
+    expect(policy.completionGateVerifyModelTier).toBe('high');
   });
 
   it('defaults on_demand to off mode', () => {
