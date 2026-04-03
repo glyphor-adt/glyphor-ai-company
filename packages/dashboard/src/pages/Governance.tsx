@@ -76,6 +76,42 @@ interface PlanningGateHealthSnapshot {
   };
 }
 
+interface PlanningGateStage3Snapshot {
+  windowDays: number;
+  generatedAt: string;
+  goldenEval: {
+    current: {
+      windowDays: number;
+      total: number;
+      passed: number;
+      rate: number;
+    };
+    baseline30d: {
+      windowDays: number;
+      total: number;
+      passed: number;
+      rate: number;
+    };
+    deltaVs30d: number;
+  };
+  autoRepair: {
+    current: {
+      windowDays: number;
+      triggered: number;
+      convertedToPass: number;
+      conversionRate: number;
+    };
+    baseline30d: {
+      windowDays: number;
+      triggered: number;
+      convertedToPass: number;
+      conversionRate: number;
+    };
+    deltaVs30d: number;
+  };
+  topMissingCriteria: Array<{ criterion: string; count: number }>;
+}
+
 const INITIAL_DATA: GovernanceData = {
   riskSummary: [],
   actionQueue: [],
@@ -515,6 +551,58 @@ function normalizePlanningGate(raw: unknown): PlanningGateSnapshot | null {
   };
 }
 
+function normalizePlanningGateStage3(raw: unknown): PlanningGateStage3Snapshot | null {
+  if (!isRecord(raw) || !isRecord(raw.goldenEval) || !isRecord(raw.autoRepair)) return null;
+  const goldenEval = raw.goldenEval as UnknownRecord;
+  const autoRepair = raw.autoRepair as UnknownRecord;
+  const goldenCurrent = isRecord(goldenEval.current) ? goldenEval.current : {};
+  const goldenBaseline = isRecord(goldenEval.baseline30d) ? goldenEval.baseline30d : {};
+  const autoCurrent = isRecord(autoRepair.current) ? autoRepair.current : {};
+  const autoBaseline = isRecord(autoRepair.baseline30d) ? autoRepair.baseline30d : {};
+  const criteriaList = Array.isArray(raw.topMissingCriteria)
+    ? raw.topMissingCriteria.filter((item) => isRecord(item)).map((item) => ({
+      criterion: asString(item.criterion) ?? 'Unknown criterion',
+      count: asNumber(item.count) ?? 0,
+    }))
+    : [];
+
+  return {
+    windowDays: asNumber(raw.windowDays) ?? 30,
+    generatedAt: asString(raw.generatedAt) ?? '',
+    goldenEval: {
+      current: {
+        windowDays: asNumber(goldenCurrent.windowDays) ?? 30,
+        total: asNumber(goldenCurrent.total) ?? 0,
+        passed: asNumber(goldenCurrent.passed) ?? 0,
+        rate: asNumber(goldenCurrent.rate) ?? 0,
+      },
+      baseline30d: {
+        windowDays: asNumber(goldenBaseline.windowDays) ?? 30,
+        total: asNumber(goldenBaseline.total) ?? 0,
+        passed: asNumber(goldenBaseline.passed) ?? 0,
+        rate: asNumber(goldenBaseline.rate) ?? 0,
+      },
+      deltaVs30d: asNumber(goldenEval.deltaVs30d) ?? 0,
+    },
+    autoRepair: {
+      current: {
+        windowDays: asNumber(autoCurrent.windowDays) ?? 30,
+        triggered: asNumber(autoCurrent.triggered) ?? 0,
+        convertedToPass: asNumber(autoCurrent.convertedToPass) ?? 0,
+        conversionRate: asNumber(autoCurrent.conversionRate) ?? 0,
+      },
+      baseline30d: {
+        windowDays: asNumber(autoBaseline.windowDays) ?? 30,
+        triggered: asNumber(autoBaseline.triggered) ?? 0,
+        convertedToPass: asNumber(autoBaseline.convertedToPass) ?? 0,
+        conversionRate: asNumber(autoBaseline.conversionRate) ?? 0,
+      },
+      deltaVs30d: asNumber(autoRepair.deltaVs30d) ?? 0,
+    },
+    topMissingCriteria: criteriaList,
+  };
+}
+
 function formatPct(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
   return `${(value * 100).toFixed(1)}%`;
@@ -590,6 +678,7 @@ export default function Governance() {
   const [agentCommitmentTotal, setAgentCommitmentTotal] = useState(0);
   const [planningGate, setPlanningGate] = useState<PlanningGateSnapshot | null>(null);
   const [planningGateHealth, setPlanningGateHealth] = useState<PlanningGateHealthSnapshot | null>(null);
+  const [planningGateStage3, setPlanningGateStage3] = useState<PlanningGateStage3Snapshot | null>(null);
 
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
 
@@ -625,6 +714,7 @@ export default function Governance() {
         approvalsRaw,
         planningGateRaw,
         planningGateHealthRaw,
+        planningGateStage3Raw,
       ] = await Promise.all([
         fetchWithFallback(['/api/governance/risk-summary']).catch(() => null),
         fetchWithFallback(['/api/governance/action-queue']).catch(() => null),
@@ -639,6 +729,7 @@ export default function Governance() {
         apiCallWithTimeout('/api/decisions?status=pending&order=created_at.desc&limit=20').catch(() => null),
         apiCallWithTimeout('/admin/metrics/planning-gate?window=30').catch(() => null),
         apiCallWithTimeout('/admin/metrics/planning-gate-health').catch(() => null),
+        apiCallWithTimeout('/admin/metrics/planning-gate-stage3?window=30').catch(() => null),
       ]);
 
       setData({
@@ -656,6 +747,7 @@ export default function Governance() {
       });
       setPlanningGate(normalizePlanningGate(planningGateRaw));
       setPlanningGateHealth((isRecord(planningGateHealthRaw) ? planningGateHealthRaw : null) as PlanningGateHealthSnapshot | null);
+      setPlanningGateStage3(normalizePlanningGateStage3(planningGateStage3Raw));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -892,6 +984,49 @@ export default function Governance() {
                 <p className="text-[11px] text-txt-muted">Gate Fails</p>
                 <p className="text-lg font-semibold text-txt-primary">{(planningGate?.totals.gateFailEvents ?? 0).toLocaleString()}</p>
               </div>
+            </div>
+            <div className="mt-4 rounded-lg border border-border/60 bg-bg-elevated/30 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-txt-muted">
+                  Stage 3 Scorecard
+                </p>
+                <span className="text-[11px] text-txt-muted">
+                  Updated: {formatDateTime(planningGateStage3?.generatedAt)}
+                </span>
+              </div>
+              <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                <div>
+                  <p className="text-[11px] text-txt-muted">Golden Eval Pass</p>
+                  <p className="text-lg font-semibold text-txt-primary">{formatPct(planningGateStage3?.goldenEval.current.rate)}</p>
+                  <p className="text-[11px] text-txt-muted">
+                    {planningGateStage3?.goldenEval.current.passed ?? 0}/{planningGateStage3?.goldenEval.current.total ?? 0}
+                    {' '}({planningGateStage3?.windowDays ?? 30}d)
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-txt-muted">Auto-Repair Conversion</p>
+                  <p className="text-lg font-semibold text-txt-primary">{formatPct(planningGateStage3?.autoRepair.current.conversionRate)}</p>
+                  <p className="text-[11px] text-txt-muted">
+                    {planningGateStage3?.autoRepair.current.convertedToPass ?? 0}/{planningGateStage3?.autoRepair.current.triggered ?? 0} converted
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-txt-muted">30d Delta (Golden / Repair)</p>
+                  <p className="text-lg font-semibold text-txt-primary">
+                    {formatPct(planningGateStage3?.goldenEval.deltaVs30d)} / {formatPct(planningGateStage3?.autoRepair.deltaVs30d)}
+                  </p>
+                  <p className="text-[11px] text-txt-muted">Positive values indicate improvement</p>
+                </div>
+              </div>
+              <p className="mt-3 text-[11px] text-txt-muted">
+                Top missing criteria:{' '}
+                {planningGateStage3?.topMissingCriteria?.length
+                  ? planningGateStage3.topMissingCriteria
+                    .slice(0, 3)
+                    .map((item) => `${item.criterion} (${item.count})`)
+                    .join(' • ')
+                  : 'No missing-criteria failures in selected window.'}
+              </p>
             </div>
             <p className="mt-3 text-[12px] text-txt-muted">{healthDetail}</p>
           </Card>

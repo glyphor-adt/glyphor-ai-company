@@ -65,6 +65,13 @@ type PlanningGateRoleSummary = {
   passRate: number;
 };
 
+type WindowedRate = {
+  windowDays: number;
+  total: number;
+  passed: number;
+  rate: number;
+};
+
 function asObject(value: unknown): Record<string, unknown> {
   if (!value) return {};
   if (typeof value === 'string') {
@@ -244,6 +251,137 @@ async function getPlanningGateMetrics(windowDays: 7 | 30 | 90): Promise<{
   };
 }
 
+async function getGoldenEvalRate(windowDays: 7 | 30 | 90): Promise<WindowedRate> {
+  const rows = await systemQuery<{ total: number; passed: number }>(
+    `SELECT
+       COUNT(*)::int AS total,
+       COUNT(*) FILTER (WHERE r.score = 'PASS')::int AS passed
+     FROM agent_eval_results r
+     JOIN agent_eval_scenarios s ON s.id = r.scenario_id
+     WHERE r.run_date >= NOW() - ($1::int * INTERVAL '1 day')
+       AND s.scenario_name ILIKE 'golden:%'`,
+    [windowDays],
+  );
+
+  const total = Number(rows[0]?.total ?? 0);
+  const passed = Number(rows[0]?.passed ?? 0);
+  return {
+    windowDays,
+    total,
+    passed,
+    rate: total > 0 ? Number((passed / total).toFixed(4)) : 0,
+  };
+}
+
+async function getAutoRepairConversion(windowDays: 7 | 30 | 90): Promise<{
+  windowDays: number;
+  triggered: number;
+  convertedToPass: number;
+  conversionRate: number;
+}> {
+  const rows = await systemQuery<{ triggered: number; converted_to_pass: number }>(
+    `WITH triggered AS (
+       SELECT run_id, MIN(event_seq) AS trigger_seq
+       FROM agent_run_events
+       WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+         AND event_type = 'completion_gate_auto_repair_triggered'
+       GROUP BY run_id
+     ),
+     converted AS (
+       SELECT t.run_id
+       FROM triggered t
+       JOIN agent_run_events e
+         ON e.run_id = t.run_id
+        AND e.event_type = 'completion_gate_passed'
+        AND e.event_seq > t.trigger_seq
+       GROUP BY t.run_id
+     )
+     SELECT
+       COUNT(*)::int AS triggered,
+       COUNT(c.run_id)::int AS converted_to_pass
+     FROM triggered t
+     LEFT JOIN converted c ON c.run_id = t.run_id`,
+    [windowDays],
+  );
+
+  const triggered = Number(rows[0]?.triggered ?? 0);
+  const convertedToPass = Number(rows[0]?.converted_to_pass ?? 0);
+  return {
+    windowDays,
+    triggered,
+    convertedToPass,
+    conversionRate: triggered > 0 ? Number((convertedToPass / triggered).toFixed(4)) : 0,
+  };
+}
+
+async function getTopMissingCriteria(windowDays: 7 | 30 | 90, limit = 5): Promise<Array<{ criterion: string; count: number }>> {
+  const rows = await systemQuery<{ criterion: string; count: number }>(
+    `SELECT
+       TRIM(criteria.value) AS criterion,
+       COUNT(*)::int AS count
+     FROM agent_run_events e
+     CROSS JOIN LATERAL jsonb_array_elements_text(
+       CASE
+         WHEN jsonb_typeof((e.payload)::jsonb -> 'missing_criteria') = 'array'
+           THEN (e.payload)::jsonb -> 'missing_criteria'
+         ELSE '[]'::jsonb
+       END
+     ) AS criteria(value)
+     WHERE e.created_at >= NOW() - ($1::int * INTERVAL '1 day')
+       AND e.event_type = 'completion_gate_failed'
+     GROUP BY TRIM(criteria.value)
+     HAVING TRIM(criteria.value) <> ''
+     ORDER BY count DESC, criterion ASC
+     LIMIT $2`,
+    [windowDays, limit],
+  );
+
+  return rows.map((row) => ({
+    criterion: row.criterion,
+    count: Number(row.count ?? 0),
+  }));
+}
+
+async function getPlanningGateStage3Metrics(windowDays: 7 | 30 | 90): Promise<{
+  windowDays: number;
+  generatedAt: string;
+  goldenEval: {
+    current: WindowedRate;
+    baseline30d: WindowedRate;
+    deltaVs30d: number;
+  };
+  autoRepair: {
+    current: { windowDays: number; triggered: number; convertedToPass: number; conversionRate: number };
+    baseline30d: { windowDays: number; triggered: number; convertedToPass: number; conversionRate: number };
+    deltaVs30d: number;
+  };
+  topMissingCriteria: Array<{ criterion: string; count: number }>;
+}> {
+  const [goldenCurrent, golden30d, autoRepairCurrent, autoRepair30d, topMissingCriteria] = await Promise.all([
+    getGoldenEvalRate(windowDays),
+    getGoldenEvalRate(30),
+    getAutoRepairConversion(windowDays),
+    getAutoRepairConversion(30),
+    getTopMissingCriteria(windowDays, 5),
+  ]);
+
+  return {
+    windowDays,
+    generatedAt: new Date().toISOString(),
+    goldenEval: {
+      current: goldenCurrent,
+      baseline30d: golden30d,
+      deltaVs30d: Number((goldenCurrent.rate - golden30d.rate).toFixed(4)),
+    },
+    autoRepair: {
+      current: autoRepairCurrent,
+      baseline30d: autoRepair30d,
+      deltaVs30d: Number((autoRepairCurrent.conversionRate - autoRepair30d.conversionRate).toFixed(4)),
+    },
+    topMissingCriteria,
+  };
+}
+
 export async function handleMetricsAdminApi(
   _req: IncomingMessage,
   res: ServerResponse,
@@ -337,6 +475,12 @@ export async function handleMetricsAdminApi(
         evaluatedAt: new Date().toISOString(),
         report,
       });
+      return true;
+    }
+
+    if (url === '/admin/metrics/planning-gate-stage3') {
+      const windowDays = parseWindow(params.get('window'));
+      json(res, 200, await getPlanningGateStage3Metrics(windowDays));
       return true;
     }
 
