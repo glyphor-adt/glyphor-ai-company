@@ -60,7 +60,7 @@ async function notifyAutonomyChanges(
       `<notify type="update" to="both" title="Autonomy ${direction}: ${change.agentId}">`,
       `${change.agentId} moved from level ${change.fromLevel} to level ${change.toLevel}.`,
       `Reason: ${change.reason}`,
-      `Metrics: completion=${(metrics.avgCompletionRate * 100).toFixed(1)}%, confidence=${(metrics.avgConfidenceScore * 100).toFixed(1)}%, escalation=${(metrics.escalationRate * 100).toFixed(1)}%, contradictions=${(metrics.contradictionRate * 100).toFixed(1)}%, sla_breach=${(metrics.slaBreachRate * 100).toFixed(1)}%.`,
+      `Metrics: completion=${(metrics.avgCompletionRate * 100).toFixed(1)}%, composite=${(metrics.autonomyCompositeScore * 100).toFixed(1)}%, gate_pass=${(metrics.gatePassRate30d * 100).toFixed(1)}%, golden=${(metrics.goldenEvalPassRate30d * 100).toFixed(1)}%, confidence=${(metrics.avgConfidenceScore * 100).toFixed(1)}%, escalation=${(metrics.escalationRate * 100).toFixed(1)}%, contradictions=${(metrics.contradictionRate * 100).toFixed(1)}%, sla_breach=${(metrics.slaBreachRate * 100).toFixed(1)}%.`,
       `</notify>`,
     ].join('\n');
 

@@ -367,6 +367,28 @@ For quick daily execution, use `docs/WEB_CODING_LOOP_PLAYBOOK.md`.
 - If visual evidence is required, rerun with `include_screenshot=true` and verify screenshot dimensions are present.
 - For one-shot `invoke_web_iterate` requests, verify the returned `preview_url` and check no unintended sections changed.
 
+## Stage 4 — Autonomy quality composite and contracts
+
+Autonomy promotion/demotion uses a **composite score** (shared: `computeAutonomyCompositeScore`) that blends, with renormalized weights when data is thin:
+
+- **Trust** (always): `agent_trust_scores.trust_score`
+- **Completion gate** (30d): pass rate from `agent_run_events` + `agent_runs`, same semantics as `GET /admin/metrics/planning-gate` (requires ≥3 planned runs in the window before this term counts)
+- **Golden eval** (30d): PASS share on `agent_eval_results` joined to `agent_eval_scenarios` where `scenario_name ILIKE 'golden:%'` (requires ≥2 results before this term counts)
+
+**Composite ceiling:** `compositeCeilingAutonomyLevel` maps the composite to a maximum autonomy level (0–4). The autonomy **suggested level** is `min(thresholdSuggestedLevel, compositeCeilingLevel)`.
+
+**Per-level quality contracts (optional):** In `autonomy_level_thresholds.metadata` (JSON), you may set:
+
+- `min_gate_pass_rate` — minimum 30d completion-gate pass rate (0–1) for that level’s threshold row
+- `min_golden_eval_pass_rate` — minimum 30d golden eval pass rate (0–1)
+
+These appear as extra requirement rows in the Governance **Autonomy** detail panel (`thresholdProgress`).
+
+**Admin metrics APIs (scheduler):**
+
+- `GET /admin/metrics/quality-overview?window=30` — planning-gate rollup plus `goldenEvalByRole` for fleet quality visibility
+- `GET /admin/metrics/planning-strictness-sim?window=30&passRateMin=0.85` — lists roles whose gate pass rate would fall below a hypothetical minimum (what-if for stricter policies)
+
 ## Rollback Plan
 
 - Immediate tracing rollback:

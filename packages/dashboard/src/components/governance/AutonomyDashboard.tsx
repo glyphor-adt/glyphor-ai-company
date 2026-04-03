@@ -17,7 +17,7 @@ import {
   toHumanWords,
 } from './shared';
 
-type SortMode = 'level_desc' | 'trajectory_desc' | 'trust_desc' | 'risk_desc' | 'name_asc';
+type SortMode = 'level_desc' | 'trajectory_desc' | 'trust_desc' | 'composite_desc' | 'risk_desc' | 'name_asc';
 
 interface AutonomyDashboardProps {
   isAdmin: boolean;
@@ -43,6 +43,10 @@ function sortItems(items: AutonomyOverviewItem[], sortMode: SortMode): AutonomyO
     if (sortMode === 'trust_desc') {
       return right.metrics.currentTrustScore - left.metrics.currentTrustScore;
     }
+    if (sortMode === 'composite_desc') {
+      return right.metrics.autonomyCompositeScore - left.metrics.autonomyCompositeScore
+        || right.metrics.currentTrustScore - left.metrics.currentTrustScore;
+    }
     if (sortMode === 'risk_desc') {
       const leftRisk = left.metrics.escalationRate + left.metrics.contradictionRate + left.metrics.slaBreachRate;
       const rightRisk = right.metrics.escalationRate + right.metrics.contradictionRate + right.metrics.slaBreachRate;
@@ -51,6 +55,14 @@ function sortItems(items: AutonomyOverviewItem[], sortMode: SortMode): AutonomyO
     return left.displayName.localeCompare(right.displayName);
   });
   return next;
+}
+
+function gateGoldenLabel(metrics: AutonomyOverviewItem['metrics']): string {
+  const gateOk = metrics.gatePassDenominator30d > 0;
+  const goldenOk = metrics.goldenEvalCount30d > 0;
+  const gate = gateOk ? formatPercent(metrics.gatePassRate30d, 1) : '—';
+  const golden = goldenOk ? formatPercent(metrics.goldenEvalPassRate30d, 1) : '—';
+  return `Gate ${gate} · Golden ${golden}`;
 }
 
 function metricTone(value: number, inverse = false): string {
@@ -316,6 +328,13 @@ export default function AutonomyDashboard({ isAdmin, currentUserEmail }: Autonom
                       </div>
                     </div>
 
+                    <div className="mt-3 text-[11px] text-txt-muted">
+                      <span className="font-semibold text-txt-secondary">Composite </span>
+                      {formatPercent(item.metrics.autonomyCompositeScore, 1)}
+                      <span className="mx-2 text-border">·</span>
+                      {gateGoldenLabel(item.metrics)}
+                    </div>
+
                     <div className="mt-4 flex items-center justify-between gap-3">
                       <div>
                         <p className="text-[11px] uppercase tracking-[0.18em] text-txt-muted">Trust trajectory</p>
@@ -385,6 +404,31 @@ export default function AutonomyDashboard({ isAdmin, currentUserEmail }: Autonom
                 </div>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="rounded-xl theme-glass-panel p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-txt-muted">Composite quality</p>
+                    <p className={`mt-1 text-sm font-semibold ${metricTone(detail.evaluation.metrics.autonomyCompositeScore)}`}>{formatPercent(detail.evaluation.metrics.autonomyCompositeScore, 1)}</p>
+                    <p className="mt-1 text-[11px] text-txt-muted">Trust + gate + golden (when enough samples)</p>
+                  </div>
+                  <div className="rounded-xl theme-glass-panel p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-txt-muted">Gate pass (30d)</p>
+                    <p className={`mt-1 text-sm font-semibold ${detail.evaluation.metrics.gatePassDenominator30d > 0 ? metricTone(detail.evaluation.metrics.gatePassRate30d) : 'text-txt-muted'}`}>
+                      {detail.evaluation.metrics.gatePassDenominator30d > 0
+                        ? formatPercent(detail.evaluation.metrics.gatePassRate30d, 1)
+                        : '—'}
+                    </p>
+                    <p className="mt-1 text-[11px] text-txt-muted">
+                      n={detail.evaluation.metrics.gatePassDenominator30d} runs (30d, gate denominator)
+                    </p>
+                  </div>
+                  <div className="rounded-xl theme-glass-panel p-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-txt-muted">Golden eval (30d)</p>
+                    <p className={`mt-1 text-sm font-semibold ${detail.evaluation.metrics.goldenEvalCount30d > 0 ? metricTone(detail.evaluation.metrics.goldenEvalPassRate30d) : 'text-txt-muted'}`}>
+                      {detail.evaluation.metrics.goldenEvalCount30d > 0
+                        ? formatPercent(detail.evaluation.metrics.goldenEvalPassRate30d, 1)
+                        : '—'}
+                    </p>
+                    <p className="mt-1 text-[11px] text-txt-muted">n={detail.evaluation.metrics.goldenEvalCount30d} results</p>
+                  </div>
                   <div className="rounded-xl theme-glass-panel p-3">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-txt-muted">Completion</p>
                     <p className={`mt-1 text-sm font-semibold ${metricTone(detail.evaluation.metrics.avgCompletionRate)}`}>{formatPercent(detail.evaluation.metrics.avgCompletionRate, 1)}</p>

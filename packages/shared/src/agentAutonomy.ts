@@ -1,4 +1,10 @@
 import { systemQuery, systemTransaction } from './db.js';
+import {
+  compositeCeilingAutonomyLevel,
+  computeAutonomyCompositeScore,
+  loadRoleGoldenEvalPassRate,
+  loadRolePlanningQuality,
+} from './planningQualitySignals.js';
 
 const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000000';
 const LOOKBACK_DAYS = 30;
@@ -49,6 +55,15 @@ export interface AutonomyEvaluationMetrics {
   currentTrustScore: number;
   sparkline30d: number[];
   trustTrend30d: number;
+  /** Completion-gate pass rate (30d), aligned with planning-gate dashboard semantics. */
+  gatePassRate30d: number;
+  /** Runs used as denominator for `gatePassRate30d`. */
+  gatePassDenominator30d: number;
+  /** Share of golden eval results scoring PASS (30d), scenarios named `golden:%`. */
+  goldenEvalPassRate30d: number;
+  goldenEvalCount30d: number;
+  /** Weighted blend of trust, gate, and golden (see `planningQualitySignals`). */
+  autonomyCompositeScore: number;
 }
 
 export interface AutonomyRequirementProgress {
@@ -71,7 +86,12 @@ export interface AutonomyThresholdProgress {
 export interface AutonomyEvaluationResult {
   agentId: string;
   currentLevel: number;
+  /** Final recommendation: min(threshold fit, composite ceiling). */
   suggestedLevel: number;
+  /** Highest level whose static thresholds are met (before composite cap). */
+  thresholdSuggestedLevel: number;
+  /** Max level allowed by composite trust/gate/golden score. */
+  compositeCeilingLevel: number;
   metrics: AutonomyEvaluationMetrics;
   meetsThresholdFor: number[];
   thresholdProgress: AutonomyThresholdProgress[];
@@ -275,6 +295,43 @@ function toArray(value: unknown): unknown[] {
 
 function round(value: number, digits = 4): number {
   return Number(value.toFixed(digits));
+}
+
+function metadataNumber(meta: Record<string, unknown>, key: string): number | null {
+  const value = meta[key];
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+async function safeLoadPlanningSnapshot(agentRole: string): Promise<{
+  gatePassRate30d: number;
+  gatePassDenominator30d: number;
+  goldenEvalPassRate30d: number;
+  goldenEvalCount30d: number;
+}> {
+  try {
+    const [gate, golden] = await Promise.all([
+      loadRolePlanningQuality(agentRole, LOOKBACK_DAYS),
+      loadRoleGoldenEvalPassRate(agentRole, LOOKBACK_DAYS),
+    ]);
+    return {
+      gatePassRate30d: gate.gatePassRate,
+      gatePassDenominator30d: gate.gatePassDenominator,
+      goldenEvalPassRate30d: golden.passRate,
+      goldenEvalCount30d: golden.total,
+    };
+  } catch {
+    return {
+      gatePassRate30d: 0,
+      gatePassDenominator30d: 0,
+      goldenEvalPassRate30d: 0,
+      goldenEvalCount30d: 0,
+    };
+  }
 }
 
 function mapLevelRow(row: LevelRow): AutonomyLevelDefinition {
@@ -529,7 +586,7 @@ async function safeCount(sql: string, params: unknown[]): Promise<number> {
 async function loadMetrics(agentRole: string): Promise<AutonomyEvaluationMetrics> {
   const since = new Date(Date.now() - LOOKBACK_DAYS * MS_PER_DAY).toISOString();
 
-  const [trustRows, runMetrics, outcomeMetrics, contradictionCount, slaRows, lifetimeRunsRows] = await Promise.all([
+  const [trustRows, runMetrics, outcomeMetrics, contradictionCount, slaRows, lifetimeRunsRows, planningSnap] = await Promise.all([
     systemQuery<TrustRow>(
       'SELECT trust_score, score_history FROM agent_trust_scores WHERE agent_role = $1 LIMIT 1',
       [agentRole],
@@ -558,6 +615,7 @@ async function loadMetrics(agentRole: string): Promise<AutonomyEvaluationMetrics
        WHERE agent_id = $1`,
       [agentRole],
     ),
+    safeLoadPlanningSnapshot(agentRole),
   ]);
 
   const trustRow = trustRows[0] ?? { trust_score: 0.5, score_history: [] };
@@ -573,6 +631,13 @@ async function loadMetrics(agentRole: string): Promise<AutonomyEvaluationMetrics
   const breachedContracts = slaRows[0]?.breached_contracts ?? 0;
   const slaBreachRate = breachedContracts / Math.max(1, totalContracts || 1);
   const sparkline = buildSparkline(trustRow.score_history, trustRow.trust_score);
+  const autonomyCompositeScore = computeAutonomyCompositeScore({
+    trustScore: trustRow.trust_score,
+    gateRate: planningSnap.gatePassRate30d,
+    gateDenominator: planningSnap.gatePassDenominator30d,
+    goldenRate: planningSnap.goldenEvalPassRate30d,
+    goldenTotal: planningSnap.goldenEvalCount30d,
+  });
 
   return {
     avgCompletionRate: round(completionRate),
@@ -586,6 +651,11 @@ async function loadMetrics(agentRole: string): Promise<AutonomyEvaluationMetrics
     currentTrustScore: round(trustRow.trust_score),
     sparkline30d: sparkline.sparkline30d,
     trustTrend30d: sparkline.trustTrend30d,
+    gatePassRate30d: round(planningSnap.gatePassRate30d),
+    gatePassDenominator30d: planningSnap.gatePassDenominator30d,
+    goldenEvalPassRate30d: round(planningSnap.goldenEvalPassRate30d),
+    goldenEvalCount30d: planningSnap.goldenEvalCount30d,
+    autonomyCompositeScore,
   };
 }
 
@@ -626,10 +696,16 @@ export async function evaluateAutonomyLevel(agentId: string): Promise<AutonomyEv
   ]);
 
   const progress = buildThresholdProgress(levels, thresholds, metrics);
+  const compositeCeiling = compositeCeilingAutonomyLevel(metrics.autonomyCompositeScore);
+  const thresholdSuggested = progress.suggestedLevel;
+  const suggestedLevel = Math.min(thresholdSuggested, compositeCeiling);
+
   return {
     agentId: agent.role,
     currentLevel: config.current_level,
-    suggestedLevel: progress.suggestedLevel,
+    suggestedLevel,
+    thresholdSuggestedLevel: thresholdSuggested,
+    compositeCeilingLevel: compositeCeiling,
     metrics,
     meetsThresholdFor: progress.meetsThresholdFor,
     thresholdProgress: progress.thresholdProgress,
@@ -940,7 +1016,7 @@ export async function processDailyAutonomyAdjustments(): Promise<DailyAutonomyAd
 
     if (row.auto_promote && suggestedLevel > row.current_level && suggestedLevel <= row.max_allowed_level) {
       const toLevel = Math.min(suggestedLevel, row.max_allowed_level);
-      const reason = `Daily autonomy job promoted ${row.agent_id} from ${row.current_level} to ${toLevel} based on 30-day trust metrics.`;
+      const reason = `Daily autonomy job promoted ${row.agent_id} from ${row.current_level} to ${toLevel} based on threshold fit, composite quality score, and 30-day trust.`;
       await writeLevelChange(row.agent_id, row.current_level, toLevel, 'auto_promote', 'system', reason, evaluation.metrics);
       changes.push({
         agentId: row.agent_id,
@@ -954,7 +1030,7 @@ export async function processDailyAutonomyAdjustments(): Promise<DailyAutonomyAd
     }
 
     if (row.auto_demote && suggestedLevel < row.current_level) {
-      const reason = `Daily autonomy job demoted ${row.agent_id} from ${row.current_level} to ${suggestedLevel} based on 30-day trust metrics.`;
+      const reason = `Daily autonomy job demoted ${row.agent_id} from ${row.current_level} to ${suggestedLevel} based on threshold fit, composite quality score, and 30-day trust.`;
       await writeLevelChange(row.agent_id, row.current_level, suggestedLevel, 'auto_demote', 'system', reason, evaluation.metrics);
       changes.push({
         agentId: row.agent_id,

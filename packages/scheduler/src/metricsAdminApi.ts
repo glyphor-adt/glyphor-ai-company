@@ -8,6 +8,7 @@ import {
   getReversalStats,
   listActionReversals,
   listAgentMetrics,
+  listGoldenEvalPassRatesByRole,
   type ExceptionLogFilters,
   type ReversalLogFilters,
 } from '@glyphor/shared';
@@ -798,6 +799,48 @@ export async function handleMetricsAdminApi(
       const windowDays = parseWindow(params.get('window'));
       const limit = parsePositiveInteger(params.get('limit'), 12, 30);
       json(res, 200, await getPlanningGateEvalSuggestions(windowDays, limit));
+      return true;
+    }
+
+    if (url === '/admin/metrics/quality-overview') {
+      const windowDays = parseWindow(params.get('window'));
+      const [planningGate, goldenEvalByRole] = await Promise.all([
+        getPlanningGateMetrics(windowDays),
+        listGoldenEvalPassRatesByRole(windowDays).catch(() => []),
+      ]);
+      json(res, 200, {
+        windowDays,
+        planningGate,
+        goldenEvalByRole,
+        generatedAt: new Date().toISOString(),
+      });
+      return true;
+    }
+
+    if (url === '/admin/metrics/planning-strictness-sim') {
+      const windowDays = parseWindow(params.get('window'));
+      const minRaw = Number(params.get('passRateMin') ?? params.get('pass_rate_min') ?? '0.85');
+      const passRateMin = Number.isFinite(minRaw) ? Math.min(1, Math.max(0, minRaw)) : 0.85;
+      const planningGate = await getPlanningGateMetrics(windowDays);
+      const rolesFailing = planningGate.roles
+        .map((role) => {
+          const denominator = role.runsWithPlanning > 0 ? role.runsWithPlanning : role.runsObserved;
+          return { role: role.role, passRate: role.passRate, denominator };
+        })
+        .filter((row) => row.denominator > 0 && row.passRate < passRateMin);
+      const rolesEvaluated = planningGate.roles.filter((role) => {
+        const denominator = role.runsWithPlanning > 0 ? role.runsWithPlanning : role.runsObserved;
+        return denominator > 0;
+      });
+      json(res, 200, {
+        windowDays,
+        passRateMin,
+        fleetPassRate: planningGate.totals.passRate,
+        rolesEvaluated: rolesEvaluated.length,
+        rolesFailingCount: rolesFailing.length,
+        rolesFailing,
+        generatedAt: new Date().toISOString(),
+      });
       return true;
     }
 

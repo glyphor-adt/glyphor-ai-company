@@ -51,6 +51,16 @@ export {
   getAutonomyCohortBenchmarks,
   processDailyAutonomyAdjustments,
 } from './agentAutonomy.js';
+export {
+  AUTONOMY_GATE_MIN_RUNS,
+  AUTONOMY_GOLDEN_MIN_RESULTS,
+  computeAutonomyCompositeScore,
+  compositeCeilingAutonomyLevel,
+  listGoldenEvalPassRatesByRole,
+  loadRoleGoldenEvalPassRate,
+  loadRolePlanningQuality,
+} from './planningQualitySignals.js';
+export type { GoldenEvalRoleRate, RolePlanningQualitySnapshot } from './planningQualitySignals.js';
 export type {
   AutonomyChangeType,
   AutonomyLevelDefinition,

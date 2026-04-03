@@ -159,10 +159,23 @@ export interface AutonomyEvaluationMetrics {
   currentTrustScore: number;
   sparkline30d: number[];
   trustTrend30d: number;
+  gatePassRate30d: number;
+  gatePassDenominator30d: number;
+  goldenEvalPassRate30d: number;
+  goldenEvalCount30d: number;
+  autonomyCompositeScore: number;
 }
 
 export interface AutonomyRequirementProgress {
-  key: 'completion_rate' | 'confidence_score' | 'escalation_rate' | 'contradiction_rate' | 'sla_breach_rate' | 'min_tasks_completed';
+  key:
+    | 'completion_rate'
+    | 'confidence_score'
+    | 'escalation_rate'
+    | 'contradiction_rate'
+    | 'sla_breach_rate'
+    | 'min_tasks_completed'
+    | 'gate_pass_rate'
+    | 'golden_eval_pass_rate';
   label: string;
   operator: '>=' | '<=';
   target: number;
@@ -193,6 +206,8 @@ export interface AutonomyOverviewItem {
   agentId: string;
   currentLevel: number;
   suggestedLevel: number;
+  thresholdSuggestedLevel: number;
+  compositeCeilingLevel: number;
   metrics: AutonomyEvaluationMetrics;
   meetsThresholdFor: number[];
   thresholdProgress: AutonomyThresholdProgress[];
@@ -255,6 +270,8 @@ export interface AutonomyAgentDetail {
     agentId: string;
     currentLevel: number;
     suggestedLevel: number;
+    thresholdSuggestedLevel: number;
+    compositeCeilingLevel: number;
     metrics: AutonomyEvaluationMetrics;
     meetsThresholdFor: number[];
     thresholdProgress: AutonomyThresholdProgress[];
