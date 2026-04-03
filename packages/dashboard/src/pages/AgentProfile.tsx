@@ -342,7 +342,11 @@ export default function AgentProfile() {
           <GradientButton variant="primary" size="md" onClick={() => { setShowQuickAssign(true); setQaResult(null); }}>
             Quick Assign
           </GradientButton>
-          <GradientButton as={Link} to={`/chat/${agent.role}`} variant="neutral" size="md">
+          <GradientButton
+            variant="neutral"
+            size="md"
+            onClick={() => navigate(`/app/internal/chat/${encodeURIComponent(agent.role)}`)}
+          >
             Chat
           </GradientButton>
           {agent.status === 'active' ? (

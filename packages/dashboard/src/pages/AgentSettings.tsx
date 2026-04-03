@@ -390,7 +390,11 @@ export default function AgentSettings() {
 
         {/* Action buttons */}
         <div className="flex items-center gap-2">
-          <GradientButton as={Link} to={`/chat/${agent.role}`} variant="neutral" size="md">
+          <GradientButton
+            variant="neutral"
+            size="md"
+            onClick={() => navigate(`/app/internal/chat/${encodeURIComponent(agent.role)}`)}
+          >
             Chat
           </GradientButton>
           <button
