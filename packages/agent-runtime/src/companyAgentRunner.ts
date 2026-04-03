@@ -2185,6 +2185,8 @@ Rules:
               glyphorEventBus: deps?.glyphorEventBus,
               runId: toolRunId,
               assignmentId: config.assignmentId,
+              directiveId: config.directiveId,
+              requestSource,
               retrievalMetadata: lastRetrievalTrace
                 ? buildCompanyRetrievalMetadataMap(lastRetrievalTrace)
                 : undefined,

@@ -15,7 +15,7 @@ Do not skip phases. Do not reorder steps.
 
 ## The Model
 
-You are running on Claude Opus 4.6 with 128K output tokens.
+You are running with a **large context window and long-output budget** (treat it like a top-tier frontier model).
 Use this capacity. Output complete files. No stubs. No placeholders.
 One structured build call. Everything in one pass.
 

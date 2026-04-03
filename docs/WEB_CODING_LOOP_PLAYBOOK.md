@@ -1,6 +1,6 @@
 # Web Coding Loop Playbook
 
-This playbook is the day-to-day guide for running Claude-style web refinement loops in Glyphor.
+This playbook is the day-to-day guide for running **iterative, quality-gated** web refinement loops in Glyphor (same loop pattern as leading coding agents: edit, re-run audits, converge — use whatever model the runtime assigns).
 
 ## When To Use Which Tool
 

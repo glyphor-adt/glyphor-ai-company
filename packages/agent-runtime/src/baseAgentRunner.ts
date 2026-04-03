@@ -1116,6 +1116,7 @@ Rules:
                   runId: config.dbRunId ?? config.id,
                   assignmentId: config.assignmentId,
                   directiveId: config.directiveId,
+                  requestSource: taskForContext === 'on_demand' ? 'on_demand' : 'scheduled',
                   retrievalMetadata: lastRetrievalTrace
                     ? buildRetrievalMetadataMap(lastRetrievalTrace)
                     : undefined,

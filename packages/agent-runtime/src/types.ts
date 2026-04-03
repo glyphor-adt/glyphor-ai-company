@@ -216,6 +216,11 @@ export interface ToolContext {
   assignmentId?: string;
   /** Directive ID for scoped policy checks (from AgentConfig.directiveId). */
   directiveId?: string;
+  /**
+   * How the run was triggered. `on_demand` is interactive chat (user messaged the agent);
+   * the tool pre-execution value gate uses this to treat user-directed runs as higher-confidence.
+   */
+  requestSource?: 'on_demand' | 'scheduled' | 'heartbeat' | 'wake' | 'a2a';
   /** Per-tool retrieval metadata from ToolRetriever, keyed by tool name. */
   retrievalMetadata?: ToolRetrievalMetadataMap;
 }

@@ -292,9 +292,10 @@ Example: `docs/examples/planning-policy-canary.json`.
   - `npm run planning:summary -- --file <path-to-log-file> --top 20 --format csv`
   - `npm run planning:summary:cloudrun -- --project <project> --service glyphor-scheduler --minutes 60 --top 20 --format csv`
 
-## Claude-Style Web Coding Loop Usage
+## Iterative web coding loop usage
 
-Use this section to standardize web build iteration behavior across design/engineering agents.
+This section standardizes the same **measure → edit → re-verify** loop that popular coding agents use: Lighthouse thresholds, screenshots when needed, and explicit convergence — without tying the workflow to any single model vendor. Glyphor agents run it through `invoke_web_coding_loop` / `invoke_web_iterate` regardless of which provider backs the role.
+
 For quick daily execution, use `docs/WEB_CODING_LOOP_PLAYBOOK.md`.
 
 ### Tool Selection
