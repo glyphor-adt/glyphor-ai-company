@@ -81,6 +81,32 @@ interface PlanningGateSnapshot {
   roles: PlanningGateRoleSummary[];
 }
 
+interface PlanningGateEvalSuggestion {
+  agentRole: string;
+  scenarioName: string;
+  criterion: string;
+  gateFailureCount: number;
+  inputPrompt: string;
+  passCriteria: string;
+  failIndicators: string;
+  knowledgeTags: string[];
+  seedRow: {
+    agent_role: string;
+    scenario_name: string;
+    input_prompt: string;
+    pass_criteria: string;
+    fail_indicators: string;
+    knowledge_tags: string[];
+    tenant_id: string;
+  };
+}
+
+interface PlanningGateEvalSuggestionsResponse {
+  windowDays: number;
+  generatedAt: string;
+  suggestions: PlanningGateEvalSuggestion[];
+}
+
 const CANONICAL_SCHEDULER_BASE = 'https://glyphor-scheduler-610179349713.us-central1.run.app';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -97,6 +123,13 @@ function isPlanningGateSnapshot(value: unknown): value is PlanningGateSnapshot {
     && typeof totals === 'object'
     && Array.isArray(record.roles),
   );
+}
+
+function isPlanningGateEvalSuggestionsResponse(value: unknown): value is PlanningGateEvalSuggestionsResponse {
+  if (!isRecord(value)) return false;
+  if (typeof value.windowDays !== 'number' || typeof value.generatedAt !== 'string') return false;
+  if (!Array.isArray(value.suggestions)) return false;
+  return true;
 }
 
 async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<PlanningGateSnapshot> {
@@ -231,6 +264,8 @@ export default function ReliabilityDashboard() {
   const [planningGate, setPlanningGate] = useState<PlanningGateSnapshot | null>(null);
   const [planningGate7d, setPlanningGate7d] = useState<PlanningGateSnapshot | null>(null);
   const [planningGate30d, setPlanningGate30d] = useState<PlanningGateSnapshot | null>(null);
+  const [evalSuggestions, setEvalSuggestions] = useState<PlanningGateEvalSuggestionsResponse | null>(null);
+  const [evalSuggestionsCopyHint, setEvalSuggestionsCopyHint] = useState<string | null>(null);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -255,7 +290,7 @@ export default function ReliabilityDashboard() {
           },
           roles: [],
         };
-        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth] = await Promise.all([
+        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug] = await Promise.all([
           fetchMetricWithFallback<FleetMetricsSnapshot>(
             `/admin/metrics/fleet?window=${windowDays}`,
             (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
@@ -275,6 +310,10 @@ export default function ReliabilityDashboard() {
           fetchPlanningGateSnapshot(windowDays).catch(() => null),
           fetchPlanningGateSnapshot(7).catch(() => null),
           fetchPlanningGateSnapshot(30).catch(() => null),
+          fetchMetricWithFallback<PlanningGateEvalSuggestionsResponse>(
+            `/admin/metrics/planning-gate-eval-suggestions?window=${windowDays}&limit=12`,
+            isPlanningGateEvalSuggestionsResponse,
+          ).catch(() => null),
         ]);
 
         if (!active) return;
@@ -285,6 +324,7 @@ export default function ReliabilityDashboard() {
         setPlanningGate(planningGateResponse ?? emptyPlanningGate);
         setPlanningGate7d(planningGateWeek ?? { ...emptyPlanningGate, windowDays: 7 });
         setPlanningGate30d(planningGateMonth ?? { ...emptyPlanningGate, windowDays: 30 });
+        setEvalSuggestions(evalSug);
       } catch (error) {
         if (!active) return;
         setPlanningGate({
@@ -305,6 +345,7 @@ export default function ReliabilityDashboard() {
         });
         setPlanningGate7d(null);
         setPlanningGate30d(null);
+        setEvalSuggestions(null);
         console.warn('[ReliabilityDashboard] Failed to load metrics:', error);
       } finally {
         if (active) setLoading(false);
@@ -334,7 +375,7 @@ export default function ReliabilityDashboard() {
         },
         roles: [],
       };
-      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth] = await Promise.all([
+      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug] = await Promise.all([
         fetchMetricWithFallback<FleetMetricsSnapshot>(
           `/admin/metrics/fleet?window=${windowDays}`,
           (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
@@ -354,6 +395,10 @@ export default function ReliabilityDashboard() {
         fetchPlanningGateSnapshot(windowDays).catch(() => null),
         fetchPlanningGateSnapshot(7).catch(() => null),
         fetchPlanningGateSnapshot(30).catch(() => null),
+        fetchMetricWithFallback<PlanningGateEvalSuggestionsResponse>(
+          `/admin/metrics/planning-gate-eval-suggestions?window=${windowDays}&limit=12`,
+          isPlanningGateEvalSuggestionsResponse,
+        ).catch(() => null),
       ]);
       setFleet(fleetCurrent);
       setFleetMonth(fleetThirty);
@@ -362,6 +407,7 @@ export default function ReliabilityDashboard() {
       setPlanningGate(planningGateResponse ?? emptyPlanningGate);
       setPlanningGate7d(planningGateWeek ?? { ...emptyPlanningGate, windowDays: 7 });
       setPlanningGate30d(planningGateMonth ?? { ...emptyPlanningGate, windowDays: 30 });
+      setEvalSuggestions(evalSug);
     } catch (error) {
       console.warn('[ReliabilityDashboard] Refresh failed:', error);
     } finally {
@@ -560,6 +606,73 @@ export default function ReliabilityDashboard() {
                     <td className="px-3 py-3">{formatSignedPercentDelta(role.delta)}</td>
                     <td className="px-3 py-3">{formatNumber(role.weekRuns, 0)}</td>
                     <td className="px-3 py-3">{formatNumber(role.weekMaxRetry, 0)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <SectionHeader
+            title="Golden eval drafts from gate misses"
+            subtitle="Turns recurring missing criteria (by role) into suggested `agent_eval_scenarios` rows prefixed with golden:from-gate:*. Review and paste into a migration or seed file — not auto-inserted."
+          />
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+            {evalSuggestionsCopyHint ? (
+              <span className="text-[11px] text-txt-muted">{evalSuggestionsCopyHint}</span>
+            ) : null}
+            <button
+              type="button"
+              disabled={!evalSuggestions?.suggestions.length}
+              onClick={() => {
+                if (!evalSuggestions?.suggestions.length) return;
+                const payload = evalSuggestions.suggestions.map((s) => s.seedRow);
+                void navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
+                  .then(() => {
+                    setEvalSuggestionsCopyHint('Copied seed JSON');
+                    window.setTimeout(() => setEvalSuggestionsCopyHint(null), 2500);
+                  })
+                  .catch(() => {
+                    setEvalSuggestionsCopyHint('Copy failed — check browser permissions');
+                    window.setTimeout(() => setEvalSuggestionsCopyHint(null), 4000);
+                  });
+              }}
+              className="rounded-lg theme-glass-panel-soft px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary disabled:opacity-50"
+            >
+              Copy seed JSON
+            </button>
+          </div>
+        </div>
+        <p className="mt-2 text-[11px] text-txt-muted">
+          Generated {formatDateTime(evalSuggestions?.generatedAt)} · window {evalSuggestions?.windowDays ?? windowDays}d · top {evalSuggestions?.suggestions.length ?? 0} role×criterion pairs
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-left text-[12px] text-txt-secondary">
+            <thead>
+              <tr className="border-b border-border/70 text-[11px] uppercase tracking-[0.16em] text-txt-muted">
+                <th className="px-3 py-3 font-medium">Role</th>
+                <th className="px-3 py-3 font-medium">Gate fails</th>
+                <th className="px-3 py-3 font-medium">Missing criterion</th>
+                <th className="px-3 py-3 font-medium">Scenario name</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!evalSuggestions?.suggestions.length ? (
+                <tr>
+                  <td className="px-3 py-3 text-txt-muted" colSpan={4}>
+                    No completion-gate failures with structured missing criteria in this window.
+                  </td>
+                </tr>
+              ) : (
+                evalSuggestions.suggestions.map((row) => (
+                  <tr key={`${row.agentRole}-${row.scenarioName}`} className="border-b border-border/50 align-top hover:bg-white/5">
+                    <td className="px-3 py-3 text-txt-primary">{row.agentRole}</td>
+                    <td className="px-3 py-3">{formatNumber(row.gateFailureCount, 0)}</td>
+                    <td className="max-w-md px-3 py-3 text-txt-secondary">{row.criterion}</td>
+                    <td className="px-3 py-3 font-mono text-[11px] text-txt-muted">{row.scenarioName}</td>
                   </tr>
                 ))
               )}

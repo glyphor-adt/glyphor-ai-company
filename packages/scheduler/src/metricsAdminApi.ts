@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   computeFleetMetrics,
@@ -342,6 +343,101 @@ async function getTopMissingCriteria(windowDays: 7 | 30 | 90, limit = 5): Promis
   }));
 }
 
+export interface PlanningGateEvalSuggestion {
+  agentRole: string;
+  scenarioName: string;
+  criterion: string;
+  gateFailureCount: number;
+  inputPrompt: string;
+  passCriteria: string;
+  failIndicators: string;
+  knowledgeTags: string[];
+  /** Ready-to-paste row for `agent_eval_scenarios` migrations (system tenant). */
+  seedRow: {
+    agent_role: string;
+    scenario_name: string;
+    input_prompt: string;
+    pass_criteria: string;
+    fail_indicators: string;
+    knowledge_tags: string[];
+    tenant_id: string;
+  };
+}
+
+function scenarioNameFromGateMiss(agentRole: string, criterion: string): string {
+  const basis = `${agentRole}\n${criterion}`;
+  const hash = createHash('sha256').update(basis).digest('hex').slice(0, 12);
+  return `golden:from-gate:${hash}`;
+}
+
+async function getPlanningGateEvalSuggestions(
+  windowDays: 7 | 30 | 90,
+  limit: number,
+): Promise<{
+  windowDays: number;
+  generatedAt: string;
+  suggestions: PlanningGateEvalSuggestion[];
+}> {
+  const rows = await systemQuery<{ agent_role: string; criterion: string; fail_count: number }>(
+    `SELECT
+       COALESCE(ar.agent_id, 'unknown') AS agent_role,
+       TRIM(criteria.value) AS criterion,
+       COUNT(*)::int AS fail_count
+     FROM agent_run_events e
+     LEFT JOIN agent_runs ar ON ar.id = e.run_id
+     CROSS JOIN LATERAL jsonb_array_elements_text(
+       CASE
+         WHEN jsonb_typeof((e.payload)::jsonb -> 'missing_criteria') = 'array'
+           THEN (e.payload)::jsonb -> 'missing_criteria'
+         ELSE '[]'::jsonb
+       END
+     ) AS criteria(value)
+     WHERE e.created_at >= NOW() - ($1::int * INTERVAL '1 day')
+       AND e.event_type = 'completion_gate_failed'
+       AND TRIM(criteria.value) <> ''
+     GROUP BY COALESCE(ar.agent_id, 'unknown'), TRIM(criteria.value)
+     ORDER BY fail_count DESC, agent_role ASC, criterion ASC
+     LIMIT $2`,
+    [windowDays, limit],
+  );
+
+  const suggestions: PlanningGateEvalSuggestion[] = rows.map((row) => {
+    const agentRole = row.agent_role || 'unknown';
+    const criterion = row.criterion || '';
+    const scenarioName = scenarioNameFromGateMiss(agentRole, criterion);
+    const failCount = Number(row.fail_count ?? 0);
+    const inputPrompt = `You are the "${agentRole}" agent. Produce a concrete deliverable for a realistic internal task where the output must clearly satisfy this acceptance requirement: "${criterion}". Avoid placeholders; include checkable specifics a reviewer can verify.`;
+    const passCriteria = `The response explicitly and correctly satisfies: ${criterion}. Details are specific enough that compliance is objectively verifiable (not generic boilerplate).`;
+    const failIndicators = `Vague or missing treatment of: ${criterion}. Generic filler, hand-waving, or internal contradictions that would fail a completion gate.`;
+    const knowledgeTags = ['completion_gate', 'from_gate_telemetry', agentRole];
+    return {
+      agentRole,
+      scenarioName,
+      criterion,
+      gateFailureCount: failCount,
+      inputPrompt,
+      passCriteria,
+      failIndicators,
+      knowledgeTags,
+      seedRow: {
+        agent_role: agentRole,
+        scenario_name: scenarioName,
+        input_prompt: inputPrompt,
+        pass_criteria: passCriteria,
+        fail_indicators: failIndicators,
+        knowledge_tags: knowledgeTags,
+        tenant_id: '00000000-0000-0000-0000-000000000000',
+      },
+    };
+  });
+
+  return {
+    windowDays,
+    generatedAt: new Date().toISOString(),
+    suggestions,
+  };
+}
+
 async function getPlanningGateStage3Metrics(windowDays: 7 | 30 | 90): Promise<{
   windowDays: number;
   generatedAt: string;
@@ -481,6 +577,13 @@ export async function handleMetricsAdminApi(
     if (url === '/admin/metrics/planning-gate-stage3') {
       const windowDays = parseWindow(params.get('window'));
       json(res, 200, await getPlanningGateStage3Metrics(windowDays));
+      return true;
+    }
+
+    if (url === '/admin/metrics/planning-gate-eval-suggestions') {
+      const windowDays = parseWindow(params.get('window'));
+      const limit = parsePositiveInteger(params.get('limit'), 12, 30);
+      json(res, 200, await getPlanningGateEvalSuggestions(windowDays, limit));
       return true;
     }
 
