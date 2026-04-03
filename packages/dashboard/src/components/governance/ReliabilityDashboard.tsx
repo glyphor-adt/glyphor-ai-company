@@ -110,6 +110,34 @@ interface PlanningGateEvalSuggestionsResponse {
   insertSql: string;
 }
 
+interface PlanningGateRoleAnomaly {
+  kind: 'below_slo_7d' | 'regression_7d_vs_30d';
+  role: string;
+  message: string;
+  passRate7d: number;
+  passRate30d: number | null;
+  runsWithPlanning7d: number;
+  dropPp: number | null;
+}
+
+interface PlanningGateHealthPayload {
+  status: 'green' | 'yellow' | 'red';
+  evaluatedAt: string;
+  report: {
+    windowDays: number;
+    minPlannedRuns: number;
+    minRolePlannedRuns: number;
+    anomalyDropPp: number;
+    passRateThreshold: number;
+    retrySpikeThreshold: number;
+    runsWithPlanning: number;
+    gatePassRate: number;
+    maxRetryAttempt: number;
+    alerts: Array<{ type?: string; message: string }>;
+    roleAnomalies: PlanningGateRoleAnomaly[];
+  };
+}
+
 const CANONICAL_SCHEDULER_BASE = 'https://glyphor-scheduler-610179349713.us-central1.run.app';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -133,6 +161,18 @@ function isPlanningGateEvalSuggestionsResponse(value: unknown): value is Plannin
   if (typeof value.windowDays !== 'number' || typeof value.generatedAt !== 'string') return false;
   if (typeof value.insertSql !== 'string') return false;
   if (!Array.isArray(value.suggestions)) return false;
+  return true;
+}
+
+function isPlanningGateHealthPayload(value: unknown): value is PlanningGateHealthPayload {
+  if (!isRecord(value)) return false;
+  if (value.status !== 'green' && value.status !== 'yellow' && value.status !== 'red') return false;
+  if (typeof value.evaluatedAt !== 'string') return false;
+  const report = value.report;
+  if (!isRecord(report)) return false;
+  if (typeof report.gatePassRate !== 'number') return false;
+  if (!Array.isArray(report.alerts)) return false;
+  if (!Array.isArray(report.roleAnomalies)) return false;
   return true;
 }
 
@@ -272,6 +312,7 @@ export default function ReliabilityDashboard() {
   const [evalSuggestionsCopyHint, setEvalSuggestionsCopyHint] = useState<string | null>(null);
   const [evalApplyBusy, setEvalApplyBusy] = useState(false);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({});
+  const [planningGateHealth, setPlanningGateHealth] = useState<PlanningGateHealthPayload | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -295,7 +336,7 @@ export default function ReliabilityDashboard() {
           },
           roles: [],
         };
-        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug] = await Promise.all([
+        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug, gateHealth] = await Promise.all([
           fetchMetricWithFallback<FleetMetricsSnapshot>(
             `/admin/metrics/fleet?window=${windowDays}`,
             (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
@@ -319,6 +360,10 @@ export default function ReliabilityDashboard() {
             `/admin/metrics/planning-gate-eval-suggestions?window=${windowDays}&limit=12`,
             isPlanningGateEvalSuggestionsResponse,
           ).catch(() => null),
+          fetchMetricWithFallback<PlanningGateHealthPayload>(
+            '/admin/metrics/planning-gate-health',
+            isPlanningGateHealthPayload,
+          ).catch(() => null),
         ]);
 
         if (!active) return;
@@ -330,6 +375,7 @@ export default function ReliabilityDashboard() {
         setPlanningGate7d(planningGateWeek ?? { ...emptyPlanningGate, windowDays: 7 });
         setPlanningGate30d(planningGateMonth ?? { ...emptyPlanningGate, windowDays: 30 });
         setEvalSuggestions(evalSug);
+        setPlanningGateHealth(gateHealth);
       } catch (error) {
         if (!active) return;
         setPlanningGate({
@@ -351,6 +397,7 @@ export default function ReliabilityDashboard() {
         setPlanningGate7d(null);
         setPlanningGate30d(null);
         setEvalSuggestions(null);
+        setPlanningGateHealth(null);
         console.warn('[ReliabilityDashboard] Failed to load metrics:', error);
       } finally {
         if (active) setLoading(false);
@@ -380,7 +427,7 @@ export default function ReliabilityDashboard() {
         },
         roles: [],
       };
-      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug] = await Promise.all([
+      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug, gateHealth] = await Promise.all([
         fetchMetricWithFallback<FleetMetricsSnapshot>(
           `/admin/metrics/fleet?window=${windowDays}`,
           (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
@@ -404,6 +451,10 @@ export default function ReliabilityDashboard() {
           `/admin/metrics/planning-gate-eval-suggestions?window=${windowDays}&limit=12`,
           isPlanningGateEvalSuggestionsResponse,
         ).catch(() => null),
+        fetchMetricWithFallback<PlanningGateHealthPayload>(
+          '/admin/metrics/planning-gate-health',
+          isPlanningGateHealthPayload,
+        ).catch(() => null),
       ]);
       setFleet(fleetCurrent);
       setFleetMonth(fleetThirty);
@@ -413,6 +464,7 @@ export default function ReliabilityDashboard() {
       setPlanningGate7d(planningGateWeek ?? { ...emptyPlanningGate, windowDays: 7 });
       setPlanningGate30d(planningGateMonth ?? { ...emptyPlanningGate, windowDays: 30 });
       setEvalSuggestions(evalSug);
+      setPlanningGateHealth(gateHealth);
     } catch (error) {
       console.warn('[ReliabilityDashboard] Refresh failed:', error);
     } finally {
@@ -487,6 +539,22 @@ export default function ReliabilityDashboard() {
       .sort((a, b) => a.delta - b.delta || b.weekMaxRetry - a.weekMaxRetry)
       .slice(0, 6);
   }, [planningGate7d, planningGate30d]);
+
+  const roleAnomalyLabelByRole = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const anomaly of planningGateHealth?.report.roleAnomalies ?? []) {
+      const prev = map.get(anomaly.role) ?? '';
+      const tag = anomaly.kind === 'below_slo_7d' ? 'Below SLO (7d)' : 'Regression vs 30d';
+      map.set(anomaly.role, prev ? `${prev}; ${tag}` : tag);
+    }
+    return map;
+  }, [planningGateHealth]);
+
+  const sloStatusClass = planningGateHealth?.status === 'red'
+    ? 'border-prism-critical/50 bg-prism-critical/10 text-prism-critical'
+    : planningGateHealth?.status === 'yellow'
+      ? 'border-prism-elevated/50 bg-prism-elevated/10 text-prism-elevated'
+      : 'border-prism-teal/50 bg-prism-teal/10 text-prism-teal';
 
   const departmentOptions = useMemo(() => {
     const values = new Set<string>();
@@ -593,6 +661,56 @@ export default function ReliabilityDashboard() {
         />
       </div>
 
+      {planningGateHealth ? (
+        <Card>
+          <SectionHeader
+            title="Gate SLO posture"
+            subtitle="Same evaluation as POST /planning-gate/monitor: global thresholds drive incidents; per-role 7d vs 30d anomalies surface here as warnings."
+          />
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${sloStatusClass}`}>
+              {planningGateHealth.status === 'red' ? 'Critical' : planningGateHealth.status === 'yellow' ? 'Watch' : 'Healthy'}
+            </span>
+            <span className="text-[11px] text-txt-muted">
+              Evaluated {formatDateTime(planningGateHealth.evaluatedAt)}
+              {' · '}
+              {planningGateHealth.report.windowDays}d window pass rate{' '}
+              {formatPercent(planningGateHealth.report.gatePassRate)} ({planningGateHealth.report.runsWithPlanning} planned runs)
+            </span>
+          </div>
+          <p className="mt-2 text-[11px] text-txt-muted">
+            Thresholds: pass ≥ {formatPercent(planningGateHealth.report.passRateThreshold)}
+            {' · '}
+            min planned runs {planningGateHealth.report.minPlannedRuns}
+            {' · '}
+            role min {planningGateHealth.report.minRolePlannedRuns} @ 7d
+            {' · '}
+            regression if 7d is ≥ {(planningGateHealth.report.anomalyDropPp * 100).toFixed(0)}pp below 30d
+            {' · '}
+            max retry ≤ {planningGateHealth.report.retrySpikeThreshold}
+          </p>
+          {planningGateHealth.report.alerts.length > 0 ? (
+            <ul className="mt-3 list-inside list-disc space-y-1 text-[12px] text-prism-critical">
+              {planningGateHealth.report.alerts.map((alert: { message: string }) => (
+                <li key={alert.message}>{alert.message}</li>
+              ))}
+            </ul>
+          ) : null}
+          {planningGateHealth.report.roleAnomalies.length > 0 ? (
+            <div className="mt-3 rounded-lg border border-border/60 bg-bg-elevated/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-txt-muted">Role anomalies (7d)</p>
+              <ul className="mt-2 list-inside list-disc space-y-1.5 text-[12px] text-txt-secondary">
+                {planningGateHealth.report.roleAnomalies.slice(0, 12).map((anomaly: PlanningGateRoleAnomaly, index: number) => (
+                  <li key={`${anomaly.kind}-${anomaly.role}-${index}`}>{anomaly.message}</li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="mt-3 text-[12px] text-txt-muted">No per-role SLO or 7d-vs-30d regression flags at current thresholds.</p>
+          )}
+        </Card>
+      ) : null}
+
       <Card>
         <SectionHeader
           title="Planning Gate Trend"
@@ -630,12 +748,13 @@ export default function ReliabilityDashboard() {
                 <th className="px-3 py-3 font-medium">Delta</th>
                 <th className="px-3 py-3 font-medium">7d Planned Runs</th>
                 <th className="px-3 py-3 font-medium">7d Max Retry</th>
+                <th className="px-3 py-3 font-medium">SLO signals</th>
               </tr>
             </thead>
             <tbody>
               {rolePassRateRegressions.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-3 text-txt-muted" colSpan={6}>
+                  <td className="px-3 py-3 text-txt-muted" colSpan={7}>
                     No role trend data found yet.
                   </td>
                 </tr>
@@ -648,6 +767,9 @@ export default function ReliabilityDashboard() {
                     <td className="px-3 py-3">{formatSignedPercentDelta(role.delta)}</td>
                     <td className="px-3 py-3">{formatNumber(role.weekRuns, 0)}</td>
                     <td className="px-3 py-3">{formatNumber(role.weekMaxRetry, 0)}</td>
+                    <td className="max-w-[200px] px-3 py-3 text-[11px] text-txt-muted">
+                      {roleAnomalyLabelByRole.get(role.role) ?? '—'}
+                    </td>
                   </tr>
                 ))
               )}

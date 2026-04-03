@@ -79,15 +79,32 @@ interface PlanningGateSnapshot {
   roles: PlanningGateRoleSummary[];
 }
 
+interface PlanningGateRoleAnomaly {
+  kind: 'below_slo_7d' | 'regression_7d_vs_30d';
+  role: string;
+  message: string;
+  passRate7d: number;
+  passRate30d: number | null;
+  runsWithPlanning7d: number;
+  dropPp: number | null;
+}
+
 interface PlanningGateHealthSnapshot {
   status: 'green' | 'yellow' | 'red';
   evaluatedAt: string;
-  report: PlanningGateSnapshot & {
+  report: {
+    windowDays: number;
     minPlannedRuns: number;
+    minRolePlannedRuns?: number;
+    anomalyDropPp?: number;
     passRateThreshold: number;
     retrySpikeThreshold: number;
+    runsWithPlanning: number;
+    gatePassRate: number;
     maxRetryAttempt: number;
-    alerts?: Array<{ message: string }>;
+    alerts?: Array<{ type?: string; message: string }>;
+    roleAnomalies?: PlanningGateRoleAnomaly[];
+    topRoleRegressions?: unknown[];
   };
 }
 
@@ -958,10 +975,14 @@ export default function Governance() {
     : planningGateHealth?.status === 'yellow'
       ? 'Watching'
       : 'Healthy';
+  const firstRoleAnomaly = planningGateHealth?.report?.roleAnomalies?.[0];
   const healthDetail = planningGateHealth?.status === 'red'
     ? (planningGateHealth?.report?.alerts?.[0]?.message ?? 'Threshold breached.')
     : planningGateHealth?.status === 'yellow'
-      ? `Needs at least ${planningGateHealth?.report?.minPlannedRuns ?? 0} planned runs for stable signal.`
+      ? (
+          firstRoleAnomaly?.message
+          ?? `Needs at least ${planningGateHealth?.report?.minPlannedRuns ?? 0} planned runs for stable signal.`
+        )
       : 'Pass rate and retry behavior are within configured thresholds.';
 
   return (

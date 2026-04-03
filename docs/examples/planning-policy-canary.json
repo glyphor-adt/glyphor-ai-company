@@ -1,0 +1,21 @@
+{
+  "default": {
+    "planningMode": "auto",
+    "completionGateEnabled": true,
+    "completionGateMaxRetries": 2,
+    "completionGateAutoRepairEnabled": false
+  },
+  "roles": {
+    "frontend-engineer": {
+      "planningMode": "required",
+      "completionGateEnabled": true,
+      "completionGateMaxRetries": 2
+    }
+  },
+  "tasks": {
+    "on_demand": {
+      "planningMode": "off",
+      "completionGateEnabled": false
+    }
+  }
+}

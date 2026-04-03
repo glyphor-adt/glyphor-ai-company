@@ -775,9 +775,11 @@ export async function handleMetricsAdminApi(
       const report = await evaluatePlanningGateHealth();
       const status = report.alerts.length > 0
         ? 'red'
-        : report.runsWithPlanning < report.minPlannedRuns
+        : report.roleAnomalies.length > 0
           ? 'yellow'
-          : 'green';
+          : report.runsWithPlanning < report.minPlannedRuns
+            ? 'yellow'
+            : 'green';
       json(res, 200, {
         status,
         evaluatedAt: new Date().toISOString(),

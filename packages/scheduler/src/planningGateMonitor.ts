@@ -30,15 +30,33 @@ export interface PlanningGateMonitorAlert {
   observed: number;
 }
 
+export type PlanningGateRoleAnomalyKind = 'below_slo_7d' | 'regression_7d_vs_30d';
+
+/** Stage 2: per-role signals (7d vs 30d). Not escalated to incidents unless promoted to critical alerts later. */
+export interface PlanningGateRoleAnomaly {
+  kind: PlanningGateRoleAnomalyKind;
+  role: string;
+  message: string;
+  passRate7d: number;
+  passRate30d: number | null;
+  runsWithPlanning7d: number;
+  /** Positive when 7d is worse than 30d (30d pass − 7d pass), as a fraction (e.g. 0.15 = 15pp). */
+  dropPp: number | null;
+}
+
 export interface PlanningGateMonitorReport {
   windowDays: number;
   minPlannedRuns: number;
+  minRolePlannedRuns: number;
+  anomalyDropPp: number;
   passRateThreshold: number;
   retrySpikeThreshold: number;
   runsWithPlanning: number;
   gatePassRate: number;
   maxRetryAttempt: number;
   alerts: PlanningGateMonitorAlert[];
+  /** Roles with 7d pass below SLO or sharp drop vs 30d baseline (min sample on each side). */
+  roleAnomalies: PlanningGateRoleAnomaly[];
   topRoleRegressions: Array<{
     role: string;
     passRate: number;
@@ -156,13 +174,68 @@ async function getPlanningGateRoleSummary(windowDays: number): Promise<PlanningG
     .sort((a, b) => b.runsWithPlanning - a.runsWithPlanning || a.role.localeCompare(b.role));
 }
 
+function buildRoleAnomalies(params: {
+  roles7d: PlanningGateRoleSummary[];
+  roles30d: PlanningGateRoleSummary[];
+  passRateThreshold: number;
+  minRolePlannedRuns: number;
+  anomalyDropPp: number;
+}): PlanningGateRoleAnomaly[] {
+  const { roles7d, roles30d, passRateThreshold, minRolePlannedRuns, anomalyDropPp } = params;
+  const by30 = new Map(roles30d.map((role) => [role.role, role]));
+  const out: PlanningGateRoleAnomaly[] = [];
+
+  for (const week of roles7d) {
+    if (week.runsWithPlanning < minRolePlannedRuns) continue;
+
+    if (week.passRate < passRateThreshold) {
+      out.push({
+        kind: 'below_slo_7d',
+        role: week.role,
+        message: `Role ${week.role}: 7d gate pass ${Math.round(week.passRate * 100)}% is below SLO ${Math.round(passRateThreshold * 100)}% (${week.runsWithPlanning} planned runs).`,
+        passRate7d: week.passRate,
+        passRate30d: null,
+        runsWithPlanning7d: week.runsWithPlanning,
+        dropPp: null,
+      });
+    }
+
+    const month = by30.get(week.role);
+    if (
+      month
+      && month.runsWithPlanning >= minRolePlannedRuns
+      && (month.passRate - week.passRate) >= anomalyDropPp
+    ) {
+      const drop = Number((month.passRate - week.passRate).toFixed(4));
+      out.push({
+        kind: 'regression_7d_vs_30d',
+        role: week.role,
+        message: `Role ${week.role}: 7d pass ${Math.round(week.passRate * 100)}% is ${Math.round(drop * 100)}pp below 30d baseline ${Math.round(month.passRate * 100)}%.`,
+        passRate7d: week.passRate,
+        passRate30d: month.passRate,
+        runsWithPlanning7d: week.runsWithPlanning,
+        dropPp: drop,
+      });
+    }
+  }
+
+  return out.sort((a, b) => (b.dropPp ?? 0) - (a.dropPp ?? 0) || a.role.localeCompare(b.role));
+}
+
 export async function evaluatePlanningGateHealth(): Promise<PlanningGateMonitorReport> {
   const windowDays = parseThreshold('PLANNING_GATE_ALERT_WINDOW_DAYS', 30, 1, 90);
   const minPlannedRuns = parseThreshold('PLANNING_GATE_ALERT_MIN_PLANNED_RUNS', 10, 1, 1000);
+  const minRolePlannedRuns = parseThreshold('PLANNING_GATE_ALERT_MIN_ROLE_PLANNED_RUNS', 5, 1, 500);
+  const anomalyDropPp = parseThreshold('PLANNING_GATE_ALERT_ANOMALY_DROP_PP', 0.15, 0.05, 0.9);
   const passRateThreshold = parseThreshold('PLANNING_GATE_ALERT_PASS_RATE_MIN', 0.7, 0, 1);
   const retrySpikeThreshold = parseThreshold('PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD', 2, 1, 20);
 
-  const roles = await getPlanningGateRoleSummary(windowDays);
+  const [roles, roles7d, roles30d] = await Promise.all([
+    getPlanningGateRoleSummary(windowDays),
+    getPlanningGateRoleSummary(7),
+    getPlanningGateRoleSummary(30),
+  ]);
+
   const totals = roles.reduce((acc, role) => {
     acc.runsWithPlanning += role.runsWithPlanning;
     acc.runsWithGatePass += role.runsWithGatePass;
@@ -192,15 +265,26 @@ export async function evaluatePlanningGateHealth(): Promise<PlanningGateMonitorR
     });
   }
 
+  const roleAnomalies = buildRoleAnomalies({
+    roles7d,
+    roles30d,
+    passRateThreshold,
+    minRolePlannedRuns,
+    anomalyDropPp,
+  });
+
   return {
     windowDays,
     minPlannedRuns,
+    minRolePlannedRuns,
+    anomalyDropPp,
     passRateThreshold,
     retrySpikeThreshold,
     runsWithPlanning: totals.runsWithPlanning,
     gatePassRate: passRate,
     maxRetryAttempt: totals.maxRetryAttempt,
     alerts,
+    roleAnomalies,
     topRoleRegressions: roles
       .filter((role) => role.runsWithPlanning > 0)
       .sort((a, b) => a.passRate - b.passRate || b.maxRetryAttempt - a.maxRetryAttempt)

@@ -13,6 +13,29 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
 - Trace spans:
   - Structured `[TraceSpan]` logs for model attempts and tool execution.
   - Cloud Run summary command for p50/p95/avg reporting.
+- Capacity tier × tool risk (graded autonomy):
+  - Shared classifier `classifyActionRisk` (`AUTONOMOUS` | `SOFT_GATE` | `HARD_GATE`) aligns capacity checks with runtime risk labels.
+  - **Observe** tier allows only **autonomous-risk** tools, then still enforces read-only trait heuristics.
+  - **Execute** tier optional **strict soft-gate**: metadata flag requires human approval for every soft-gate-classified tool.
+
+## Capacity tiers and action risk (ops)
+
+Use this when debugging unexpected **approval required** or **blocked** tool calls alongside hooks and tracing.
+
+| Layer | Behavior |
+| --- | --- |
+| **HARD_GATE** (runtime) | Blocked in the tool executor before capacity, unless the flow is approval-gated and cleared. |
+| **`enforceCapacityTier`** (shared DB policy) | Applies per-agent `agent_capacity_config` (tier, lists, metadata). |
+| **Observe** | Tool must be **`AUTONOMOUS`** under `classifyActionRisk` *and* pass read-only trait rules. |
+| **Draft / Execute / Commit** | Existing trait and list rules unchanged; Execute adds optional strict soft-gate (below). |
+
+**Strict soft-gate (Execute tier only):** When `agent_capacity_config.metadata.strict_soft_gate_approval` is true (camelCase `strictSoftGateApproval` is also accepted), every tool classified **`SOFT_GATE`** requires human approval even if it is not listed under `requires_human_approval_for`.
+
+**Where to configure:** Dashboard → Governance → **Authority Profile** (save sends `metadata` merged via `PUT /admin/agents/:id/capacity`).
+
+**Commitment records:** New commitments may include `derivedTraits.actionRiskLevel` for audit alignment with the classifier.
+
+**Code references:** `packages/shared/src/actionRiskClassifier.ts`, `packages/shared/src/agentCapacity.ts` (`enforceCapacityTier`), `packages/agent-runtime/src/toolExecutor.ts` (ordering vs hooks).
 
 ## Environment Variables
 
@@ -43,6 +66,8 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
   - `PLANNING_GATE_ALERT_MIN_PLANNED_RUNS` (default `10`)
   - `PLANNING_GATE_ALERT_PASS_RATE_MIN` (default `0.70`)
   - `PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD` (default `2`)
+  - `PLANNING_GATE_ALERT_MIN_ROLE_PLANNED_RUNS` (default `5`) — minimum 7d planned runs before a role is evaluated for per-role SLO/regression flags.
+  - `PLANNING_GATE_ALERT_ANOMALY_DROP_PP` (default `0.15`) — flag a role when 7d gate pass rate is at least this many percentage points below its 30d baseline (e.g. `0.15` = 15pp).
 - `PLANNING_GATE_EVAL_APPLY_ENABLED` (scheduler only)
   - When **not** `false`, allows `POST /admin/metrics/planning-gate-eval-suggestions/apply` and the dashboard **Add … to eval suite** button to insert new `golden:from-gate:*` rows into `agent_eval_scenarios`. Set to `false` to block automated inserts.
 
@@ -61,6 +86,8 @@ PLANNING_GATE_ALERT_WINDOW_DAYS=30
 PLANNING_GATE_ALERT_MIN_PLANNED_RUNS=10
 PLANNING_GATE_ALERT_PASS_RATE_MIN=0.70
 PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD=2
+PLANNING_GATE_ALERT_MIN_ROLE_PLANNED_RUNS=5
+PLANNING_GATE_ALERT_ANOMALY_DROP_PP=0.15
 PLANNING_GATE_EVAL_APPLY_ENABLED=true
 ```
 
@@ -73,6 +100,8 @@ PLANNING_GATE_ALERT_WINDOW_DAYS=30
 PLANNING_GATE_ALERT_MIN_PLANNED_RUNS=20
 PLANNING_GATE_ALERT_PASS_RATE_MIN=0.75
 PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD=2
+PLANNING_GATE_ALERT_MIN_ROLE_PLANNED_RUNS=5
+PLANNING_GATE_ALERT_ANOMALY_DROP_PP=0.15
 PLANNING_GATE_EVAL_APPLY_ENABLED=true
 ```
 
@@ -90,6 +119,7 @@ PLANNING_GATE_EVAL_APPLY_ENABLED=true
 4. Confirm Reliability UI:
    - pass/fail/retry KPIs populate.
    - 7d vs 30d trend section shows non-empty deltas.
+   - **Gate SLO posture** card loads from `GET /admin/metrics/planning-gate-health` (thresholds + role anomalies).
 
 ### Golden Eval Harness (Stage 3 On-Ramp)
 
@@ -105,10 +135,11 @@ PLANNING_GATE_EVAL_APPLY_ENABLED=true
 - Daily monitor job:
   - cron id: `planning-gate-monitor`
   - endpoint: `POST /planning-gate/monitor`
-  - behavior on alert:
+  - behavior on **critical** conditions only (global pass rate below `PLANNING_GATE_ALERT_PASS_RATE_MIN` with enough planned runs, or max retry above `PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD`):
     - writes `activity_log` entry (`planning_gate.alert`),
     - opens/highlights incident (`Planning gate quality regression`),
     - sends founder notification through notifier path.
+  - **Per-role** 7d SLO misses and 7d-vs-30d regressions are included in `GET /admin/metrics/planning-gate-health` (`roleAnomalies`) and the Reliability **Gate SLO posture** card; they set health to **yellow** but do **not** open incidents by themselves (reduces noise while you tune thresholds).
 
 ### Red Badge Response Playbook
 
@@ -126,6 +157,48 @@ If Governance badge turns red:
 4. Re-check after change:
    - run targeted canary tasks for affected roles.
    - confirm pass-rate trend recovery before broader rollout.
+
+## Stage 2 — Planning gate hardening
+
+This section matches the **maturity ladder** “Stage 2” investment: SLO-style signals, trend deltas, triage checklist, and canary-by-role policy.
+
+### What ships in the product
+
+| Capability | Where |
+| --- | --- |
+| Global SLO breach + retry spike | `POST /planning-gate/monitor` → activity log, incident, notify (unchanged). |
+| Health API with per-role anomalies | `GET /admin/metrics/planning-gate-health` → `report.roleAnomalies`, `status` yellow when only role-level flags fire. |
+| 7d vs 30d trends | Reliability → **Planning Gate Trend** table + **SLO signals** column. |
+| SLO summary card | Reliability → **Gate SLO posture** (thresholds + anomaly list + critical alerts). |
+
+### Policy canary by role (`AGENT_PLANNING_POLICY_JSON`)
+
+1. Start from a small **roles** map (one or two roles) with stricter `planningMode` / gate settings; keep **default** looser for everyone else.
+2. Validate JSON before setting the repo/org variable or Cloud Run env:
+   - `npm run planning:policy:validate -- --file docs/examples/planning-policy-canary.json` (from repo root)
+3. Example file in-repo: `docs/examples/planning-policy-canary.json` (frontend-engineer canary with `required` planning; `on_demand` tasks stay off).
+4. After the cohort is green on Reliability (7d pass, no regressions), merge those **roles** entries into your main policy JSON and widen the cohort.
+
+### Gate failure diagnostics (copy/paste checklist)
+
+Use when pass rate drops, retries spike, or a role shows **Below SLO (7d)** / **Regression vs 30d**.
+
+1. **Confirm signal**
+   - `GET /admin/metrics/planning-gate-health` — note `status`, `report.alerts`, `report.roleAnomalies`.
+   - `GET /admin/metrics/planning-gate?window=7` and `window=30` — compare `totals` and per-`roles`.
+2. **Scope**
+   - Reliability → Planning Gate Trend: sort mentally by worst **Delta** and **SLO signals**.
+   - Governance → Stage 3 scorecard: golden eval pass + top missing criteria (if gate failures cluster on one criterion).
+3. **Recent change blast radius**
+   - Deploys touching `AGENT_PLANNING_POLICY_JSON`, model routing, or prompts for the affected **role**.
+   - New tools or stricter acceptance criteria without updated planner output.
+4. **Safe mitigations (pick one, smallest first)**
+   - Raise `completionGateMaxRetries` slightly for the canary role only (policy JSON).
+   - Temporarily set `planningMode` to `auto` for that role while investigating (narrower than turning gate off globally).
+   - Roll back last policy JSON revision if regression aligns with deploy time.
+5. **Verify recovery**
+   - Run 2–3 representative tasks for the role; watch `agent_run_events` for `completion_gate_passed` vs `completion_gate_failed`.
+   - Re-check `planning-gate-health` after 24–48h of volume.
 
 ## Rollout Checklist
 
