@@ -26,6 +26,7 @@ describe('planningPolicy', () => {
     });
     expect(policy.planningMode).toBe('required');
     expect(policy.completionGateEnabled).toBe(true);
+    expect(policy.completionGateAutoRepairEnabled).toBe(false);
   });
 
   it('defaults on_demand to off mode', () => {
@@ -38,19 +39,21 @@ describe('planningPolicy', () => {
     });
     expect(policy.planningMode).toBe('off');
     expect(policy.completionGateEnabled).toBe(false);
+    expect(policy.completionGateAutoRepairEnabled).toBe(false);
   });
 
   it('allows env overrides and respects explicit config overrides', () => {
     vi.stubEnv('AGENT_PLANNING_POLICY_JSON', JSON.stringify({
       default: { planningMode: 'auto', completionGateMaxRetries: 1 },
       roles: { 'content-creator': { planningMode: 'required' } },
-      tasks: { on_demand: { planningMode: 'auto' } },
+      tasks: { on_demand: { planningMode: 'auto', completionGateAutoRepairEnabled: true } },
     }));
 
     const config = createConfig('content-creator');
     config.planningMode = 'off';
     config.completionGateEnabled = false;
     config.completionGateMaxRetries = 0;
+    config.completionGateAutoRepairEnabled = false;
 
     const policy = resolvePlanningPolicy({
       role: 'content-creator',
@@ -61,6 +64,25 @@ describe('planningPolicy', () => {
     expect(policy.planningMode).toBe('off');
     expect(policy.completionGateEnabled).toBe(false);
     expect(policy.completionGateMaxRetries).toBe(0);
+    expect(policy.completionGateAutoRepairEnabled).toBe(false);
+
+    vi.unstubAllEnvs();
+  });
+
+  it('supports enabling auto-repair by role via env policy', () => {
+    vi.stubEnv('AGENT_PLANNING_POLICY_JSON', JSON.stringify({
+      roles: { 'platform-intel': { completionGateAutoRepairEnabled: true } },
+    }));
+
+    const config = createConfig('platform-intel');
+    const policy = resolvePlanningPolicy({
+      role: 'platform-intel',
+      task: 'watch_tool_gaps',
+      config,
+      taskTierHint: true,
+    });
+    expect(policy.completionGateEnabled).toBe(true);
+    expect(policy.completionGateAutoRepairEnabled).toBe(true);
 
     vi.unstubAllEnvs();
   });

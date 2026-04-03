@@ -47,6 +47,8 @@ export interface AgentConfig {
   completionGateEnabled?: boolean;
   /** Max retries when completion gate fails. Defaults to 2. */
   completionGateMaxRetries?: number;
+  /** Enables one corrective execution attempt after a gate failure. */
+  completionGateAutoRepairEnabled?: boolean;
 }
 
 export type CompanyAgentRole =
@@ -412,6 +414,8 @@ export interface AgentExecutionResult {
     planned: boolean;
     planningAttempts: number;
     completionGateEnabled: boolean;
+    completionGateAutoRepairEnabled?: boolean;
+    completionGateAutoRepairAttempts?: number;
     completionGatePassed?: boolean;
     missingCriteria?: string[];
   };

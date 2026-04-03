@@ -80,6 +80,7 @@ const CONTEXT_COMPOSITION_MAX_TOKENS = 12_000;
 const PLANNING_REQUEST_MARKER = '__planning_request__';
 const PLANNING_REPAIR_MARKER = '__planning_repair__';
 const EXECUTION_GATE_NUDGE_MARKER = '__completion_gate_nudge__';
+const EXECUTION_GATE_AUTO_REPAIR_MARKER = '__completion_gate_auto_repair__';
 
 // ─── Cost estimation (uses centralized model registry) ───────────────
 
@@ -462,9 +463,11 @@ export abstract class BaseAgentRunner {
     const completionGateEnabled = planningPolicy.completionGateEnabled;
     const planningMaxAttempts = planningPolicy.planningMaxAttempts;
     const completionGateMaxRetries = planningPolicy.completionGateMaxRetries;
+    const completionGateAutoRepairEnabled = planningPolicy.completionGateAutoRepairEnabled;
     let runPhase: 'planning' | 'execution' = planningMode === 'off' ? 'execution' : 'planning';
     let planningAttempts = 0;
     let completionGateRetries = 0;
+    let completionGateAutoRepairAttempts = 0;
     let completionGatePassed = false;
     let completionGateMissing: string[] = [];
     let executionPlanObjective: string | undefined;
@@ -1304,6 +1307,55 @@ Return ONLY strict JSON with:
                 },
               });
             }
+            if (!completionGate.meets && completionGateAutoRepairEnabled && completionGateAutoRepairAttempts < 1) {
+              emitEvent({
+                type: 'completion_gate_failed',
+                agentId: config.id,
+                turnNumber,
+                missingCriteria: completionGate.missingCriteria,
+                retryAttempt: completionGateRetries,
+                maxRetries: completionGateMaxRetries,
+              });
+              void recordRunEvent({
+                runId: config.dbRunId ?? config.id,
+                eventType: 'completion_gate_failed',
+                trigger: 'completion.gate',
+                component: 'baseAgentRunner',
+                payload: {
+                  role: config.role,
+                  turn_number: turnNumber,
+                  retry_attempt: completionGateRetries,
+                  max_retries: completionGateMaxRetries,
+                  missing_criteria: completionGate.missingCriteria,
+                  auto_repair_path: true,
+                },
+              });
+              completionGateAutoRepairAttempts += 1;
+              void recordRunEvent({
+                runId: config.dbRunId ?? config.id,
+                eventType: 'completion_gate_auto_repair_triggered',
+                trigger: 'completion.gate',
+                component: 'baseAgentRunner',
+                payload: {
+                  role: config.role,
+                  turn_number: turnNumber,
+                  auto_repair_attempt: completionGateAutoRepairAttempts,
+                  missing_criteria: completionGate.missingCriteria,
+                },
+              });
+              history.push({
+                role: 'user',
+                content: `${EXECUTION_GATE_AUTO_REPAIR_MARKER}
+Perform exactly one corrective repair pass before finalizing.
+Target only the missing acceptance criteria below, and keep already-satisfied criteria intact.
+Missing criteria:
+${completionGate.missingCriteria.map((criterion, idx) => `${idx + 1}. ${criterion}`).join('\n')}
+
+Use tools if needed to gather evidence, then return a revised final output that explicitly satisfies every missing criterion.`,
+                timestamp: Date.now(),
+              });
+              continue;
+            }
             if (!completionGate.meets && completionGateRetries < completionGateMaxRetries) {
               emitEvent({
                 type: 'completion_gate_failed',
@@ -1618,6 +1670,8 @@ Continue execution, call tools as needed, and return only when all criteria are 
         planned: planningAttempts > 0,
         planningAttempts,
         completionGateEnabled,
+        completionGateAutoRepairEnabled,
+        completionGateAutoRepairAttempts,
         completionGatePassed: (completionGateEnabled && acceptanceCriteria.length > 0) ? completionGatePassed : undefined,
         missingCriteria: completionGateMissing.length > 0 ? completionGateMissing : undefined,
       };
@@ -1755,6 +1809,8 @@ Continue execution, call tools as needed, and return only when all criteria are 
         planned: planningAttempts > 0,
         planningAttempts,
         completionGateEnabled,
+        completionGateAutoRepairEnabled,
+        completionGateAutoRepairAttempts,
         completionGatePassed: (completionGateEnabled && acceptanceCriteria.length > 0) ? completionGatePassed : undefined,
         missingCriteria: completionGateMissing.length > 0 ? completionGateMissing : undefined,
       };

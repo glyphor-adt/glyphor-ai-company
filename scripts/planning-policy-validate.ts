@@ -7,6 +7,7 @@ interface PlanningPolicyOverrides {
   completionGateEnabled?: boolean;
   planningMaxAttempts?: number;
   completionGateMaxRetries?: number;
+  completionGateAutoRepairEnabled?: boolean;
 }
 
 interface PlanningPolicyConfig {
@@ -99,6 +100,7 @@ function validateOverrides(value: unknown, path: string, errors: string[]): void
     'completionGateEnabled',
     'planningMaxAttempts',
     'completionGateMaxRetries',
+    'completionGateAutoRepairEnabled',
   ]);
 
   for (const key of Object.keys(value)) {
@@ -121,6 +123,9 @@ function validateOverrides(value: unknown, path: string, errors: string[]): void
   }
   if ('completionGateMaxRetries' in value) {
     validateIntRange(value.completionGateMaxRetries, `${path}.completionGateMaxRetries`, 0, 8, errors);
+  }
+  if ('completionGateAutoRepairEnabled' in value && typeof value.completionGateAutoRepairEnabled !== 'boolean') {
+    errors.push(`${path}.completionGateAutoRepairEnabled must be boolean.`);
   }
 }
 

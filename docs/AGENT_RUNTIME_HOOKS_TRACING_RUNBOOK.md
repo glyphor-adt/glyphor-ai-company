@@ -30,7 +30,9 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
     - `auto` for most task-tier roles on non-`on_demand`,
     - `off` for `on_demand` by default.
   - Example:
-    - `{"default":{"planningMode":"auto","completionGateMaxRetries":2},"roles":{"frontend-engineer":{"planningMode":"required"}},"tasks":{"on_demand":{"planningMode":"off","completionGateEnabled":false}}}`
+    - `{"default":{"planningMode":"auto","completionGateMaxRetries":2,"completionGateAutoRepairEnabled":false},"roles":{"frontend-engineer":{"planningMode":"required"}},"tasks":{"on_demand":{"planningMode":"off","completionGateEnabled":false}}}`
+  - Optional field:
+    - `completionGateAutoRepairEnabled` (boolean) enables one corrective pass on completion-gate failure before normal retry nudges.
   - Validate before deploy:
     - `npm run planning:policy:validate -- --env-var AGENT_PLANNING_POLICY_JSON`
 - `AGENT_RUN_LEDGER_ENABLED`
@@ -84,6 +86,15 @@ PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD=2
 4. Confirm Reliability UI:
    - pass/fail/retry KPIs populate.
    - 7d vs 30d trend section shows non-empty deltas.
+
+### Golden Eval Harness (Stage 3 On-Ramp)
+
+- Use golden suite filter (scenario names prefixed with `golden:`):
+  - `POST /agent-evals/run-golden`
+- Or run normal endpoint with explicit filter:
+  - `POST /agent-evals/run` body: `{"goldenOnly":true}`
+- Optional role-scoped run:
+  - `POST /agent-evals/run-golden` body: `{"agentRoles":["platform-intel","chief-of-staff"]}`
 
 ### Scheduled Monitor
 

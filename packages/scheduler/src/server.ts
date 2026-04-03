@@ -3080,6 +3080,7 @@ const server = createServer(async (req, res) => {
           agentRole?: string;
           agentRoles?: unknown;
           agentIds?: unknown;
+          goldenOnly?: unknown;
         };
         const fromArrays: string[] = [];
         if (Array.isArray(body.agentIds)) {
@@ -3095,13 +3096,51 @@ const server = createServer(async (req, res) => {
         const uniqueFromArrays = [...new Set(fromArrays)];
         const report = await evaluateAgentKnowledgeGaps(
           uniqueFromArrays.length > 0
-            ? { agentRoles: uniqueFromArrays }
-            : { agentRole: typeof body.agentRole === 'string' ? body.agentRole : undefined },
+            ? { agentRoles: uniqueFromArrays, goldenOnly: body.goldenOnly === true }
+            : {
+              agentRole: typeof body.agentRole === 'string' ? body.agentRole : undefined,
+              goldenOnly: body.goldenOnly === true,
+            },
         );
         json(res, 200, { success: true, ...report });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[AgentKnowledgeEvaluator] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Golden-task evaluation endpoint — focused quality suite for canary hardening
+    if (method === 'POST' && url === '/agent-evals/run-golden') {
+      try {
+        const rawBody = await readBody(req).catch(() => '{}');
+        const body = (rawBody.trim() ? JSON.parse(rawBody) : {}) as {
+          agentRole?: string;
+          agentRoles?: unknown;
+          agentIds?: unknown;
+        };
+        const fromArrays: string[] = [];
+        if (Array.isArray(body.agentIds)) {
+          for (const id of body.agentIds) {
+            if (typeof id === 'string' && id.trim()) fromArrays.push(id.trim());
+          }
+        }
+        if (Array.isArray(body.agentRoles)) {
+          for (const role of body.agentRoles) {
+            if (typeof role === 'string' && role.trim()) fromArrays.push(role.trim());
+          }
+        }
+        const uniqueFromArrays = [...new Set(fromArrays)];
+        const report = await evaluateAgentKnowledgeGaps(
+          uniqueFromArrays.length > 0
+            ? { agentRoles: uniqueFromArrays, goldenOnly: true }
+            : { agentRole: typeof body.agentRole === 'string' ? body.agentRole : undefined, goldenOnly: true },
+        );
+        json(res, 200, { success: true, suite: 'golden', ...report });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[AgentKnowledgeEvaluator] Golden endpoint error:', message);
         json(res, 500, { success: false, error: message });
       }
       return;

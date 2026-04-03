@@ -42,6 +42,8 @@ interface EvalOptions {
   agentRole?: string;
   /** One or more agent role slugs (e.g. from POST body `agentIds`). */
   agentRoles?: string[];
+  /** Restrict scenarios to golden-task suite entries (scenario_name prefixed with "golden:"). */
+  goldenOnly?: boolean;
 }
 
 const LOCK_KEY = 'agent-knowledge-eval-lock';
@@ -49,6 +51,7 @@ const LOCK_TTL_SECONDS = 60 * 60;
 const JUDGE_MODEL = getTierModel('fast');
 const LOG_PREFIX = '[AgentKnowledgeEvaluator]';
 const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000000';
+const GOLDEN_SCENARIO_PREFIX = 'golden:%';
 
 const RUNNERS: Record<string, (prompt: string) => Promise<AgentExecutionResult>> = {
   cmo: (prompt) => runCMO({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
@@ -83,6 +86,7 @@ export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Pro
 
   try {
     const params: unknown[] = [];
+    const whereClauses: string[] = [];
     let sql = `
       SELECT id, agent_role, scenario_name, input_prompt, pass_criteria, fail_indicators, knowledge_tags, tenant_id
       FROM agent_eval_scenarios
@@ -95,14 +99,21 @@ export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Pro
     }
     const uniqueRoles = [...new Set(roleFilter.map((r) => r.trim()).filter(Boolean))];
     if (uniqueRoles.length > 0) {
-      sql += ' WHERE agent_role = ANY($1::text[])';
+      whereClauses.push(`agent_role = ANY($${params.length + 1}::text[])`);
       params.push(uniqueRoles);
+    }
+    if (options.goldenOnly) {
+      whereClauses.push(`scenario_name ILIKE $${params.length + 1}`);
+      params.push(GOLDEN_SCENARIO_PREFIX);
+    }
+    if (whereClauses.length > 0) {
+      sql += ` WHERE ${whereClauses.join(' AND ')}`;
     }
     sql += ' ORDER BY agent_role, scenario_name';
 
     const scenarios = await systemQuery<EvalScenarioRow>(sql, params);
     if (scenarios.length === 0) {
-      console.log(`${LOG_PREFIX} No scenarios found`);
+      console.log(`${LOG_PREFIX} No ${options.goldenOnly ? 'golden ' : ''}scenarios found`);
       return report;
     }
 
@@ -172,7 +183,9 @@ export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Pro
     }
 
     report.agents = Array.from(agentSummaries.values());
-    await logActivity(`Knowledge eval complete: ${report.evaluated} scenarios — PASS ${report.pass}, SOFT_FAIL ${report.softFail}, HARD_FAIL ${report.hardFail}`);
+    await logActivity(
+      `Knowledge eval complete${options.goldenOnly ? ' (golden)' : ''}: ${report.evaluated} scenarios — PASS ${report.pass}, SOFT_FAIL ${report.softFail}, HARD_FAIL ${report.hardFail}`,
+    );
     console.log(`${LOG_PREFIX} Complete: ${JSON.stringify(report)}`);
     return report;
   } finally {

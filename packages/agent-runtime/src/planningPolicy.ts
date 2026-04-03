@@ -5,6 +5,7 @@ export interface EffectivePlanningPolicy {
   completionGateEnabled: boolean;
   planningMaxAttempts: number;
   completionGateMaxRetries: number;
+  completionGateAutoRepairEnabled: boolean;
 }
 
 interface PlanningPolicyOverrides {
@@ -12,6 +13,7 @@ interface PlanningPolicyOverrides {
   completionGateEnabled?: boolean;
   planningMaxAttempts?: number;
   completionGateMaxRetries?: number;
+  completionGateAutoRepairEnabled?: boolean;
 }
 
 interface PlanningPolicyConfig {
@@ -73,6 +75,8 @@ function mergeOverrides(
     completionGateEnabled: overrides.completionGateEnabled ?? base.completionGateEnabled,
     planningMaxAttempts: clampInt(overrides.planningMaxAttempts, base.planningMaxAttempts, 1, 8),
     completionGateMaxRetries: clampInt(overrides.completionGateMaxRetries, base.completionGateMaxRetries, 0, 8),
+    completionGateAutoRepairEnabled:
+      overrides.completionGateAutoRepairEnabled ?? base.completionGateAutoRepairEnabled,
   };
 }
 
@@ -89,6 +93,7 @@ export function resolvePlanningPolicy(input: {
       completionGateEnabled: false,
       planningMaxAttempts: 1,
       completionGateMaxRetries: 0,
+      completionGateAutoRepairEnabled: false,
     };
   } else if (STRICT_ROLE_DEFAULTS.has(input.role)) {
     policy = {
@@ -96,6 +101,7 @@ export function resolvePlanningPolicy(input: {
       completionGateEnabled: true,
       planningMaxAttempts: 2,
       completionGateMaxRetries: 2,
+      completionGateAutoRepairEnabled: false,
     };
   } else if (TASK_ROLE_DEFAULTS.has(input.role) || input.taskTierHint === true) {
     policy = {
@@ -103,6 +109,7 @@ export function resolvePlanningPolicy(input: {
       completionGateEnabled: true,
       planningMaxAttempts: 2,
       completionGateMaxRetries: 2,
+      completionGateAutoRepairEnabled: false,
     };
   } else {
     policy = {
@@ -110,6 +117,7 @@ export function resolvePlanningPolicy(input: {
       completionGateEnabled: false,
       planningMaxAttempts: 1,
       completionGateMaxRetries: 0,
+      completionGateAutoRepairEnabled: false,
     };
   }
 
@@ -123,6 +131,7 @@ export function resolvePlanningPolicy(input: {
     completionGateEnabled: input.config.completionGateEnabled,
     planningMaxAttempts: input.config.planningMaxAttempts,
     completionGateMaxRetries: input.config.completionGateMaxRetries,
+    completionGateAutoRepairEnabled: input.config.completionGateAutoRepairEnabled,
   });
 
   if (policy.planningMode === 'off') {
