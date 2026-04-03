@@ -352,6 +352,10 @@ export interface PlanningGateEvalSuggestion {
   passCriteria: string;
   failIndicators: string;
   knowledgeTags: string[];
+  /** Whether this exact (tenant, role, scenario_name) already exists in `agent_eval_scenarios`. */
+  scenarioAlreadyExists: boolean;
+  /** Present when `scenarioAlreadyExists` is true. */
+  existingScenarioId: string | null;
   /** Ready-to-paste row for `agent_eval_scenarios` migrations (system tenant). */
   seedRow: {
     agent_role: string;
@@ -362,6 +366,63 @@ export interface PlanningGateEvalSuggestion {
     knowledge_tags: string[];
     tenant_id: string;
   };
+}
+
+const SYSTEM_EVAL_TENANT_ID = '00000000-0000-0000-0000-000000000000';
+
+function escapeSqlString(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+function formatKnowledgeTagsSql(tags: string[]): string {
+  if (tags.length === 0) return `ARRAY[]::text[]`;
+  return `ARRAY[${tags.map((tag) => `'${escapeSqlString(tag)}'`).join(', ')}]::text[]`;
+}
+
+function buildEvalSuggestionsInsertSql(suggestions: PlanningGateEvalSuggestion[]): string {
+  const header = [
+    '-- Draft INSERT for agent_eval_scenarios (system tenant)',
+    '-- Generated from completion-gate telemetry; review prompts before apply',
+    '',
+  ];
+  if (suggestions.length === 0) {
+    return [...header, '-- No gate-miss suggestions in this window', ''].join('\n');
+  }
+  const pending = suggestions.filter((row) => !row.scenarioAlreadyExists);
+  if (pending.length === 0) {
+    return [...header, '-- All suggested scenarios already exist (nothing to insert)', ''].join('\n');
+  }
+
+  const valueLines = pending.map((row) => {
+    const r = row.seedRow;
+    return [
+      '  (',
+      `    '${escapeSqlString(r.agent_role)}',`,
+      `    '${escapeSqlString(r.scenario_name)}',`,
+      `    '${escapeSqlString(r.input_prompt)}',`,
+      `    '${escapeSqlString(r.pass_criteria)}',`,
+      `    '${escapeSqlString(r.fail_indicators)}',`,
+      `    ${formatKnowledgeTagsSql(r.knowledge_tags)},`,
+      `    '${SYSTEM_EVAL_TENANT_ID}'::uuid`,
+      '  )',
+    ].join('\n');
+  });
+
+  return [
+    ...header,
+    'INSERT INTO agent_eval_scenarios (',
+    '  agent_role,',
+    '  scenario_name,',
+    '  input_prompt,',
+    '  pass_criteria,',
+    '  fail_indicators,',
+    '  knowledge_tags,',
+    '  tenant_id',
+    ') VALUES',
+    valueLines.join(',\n'),
+    'ON CONFLICT (tenant_id, agent_role, scenario_name) DO NOTHING;',
+    '',
+  ].join('\n');
 }
 
 function scenarioNameFromGateMiss(agentRole: string, criterion: string): string {
@@ -377,6 +438,7 @@ async function getPlanningGateEvalSuggestions(
   windowDays: number;
   generatedAt: string;
   suggestions: PlanningGateEvalSuggestion[];
+  insertSql: string;
 }> {
   const rows = await systemQuery<{ agent_role: string; criterion: string; fail_count: number }>(
     `SELECT
@@ -401,7 +463,7 @@ async function getPlanningGateEvalSuggestions(
     [windowDays, limit],
   );
 
-  const suggestions: PlanningGateEvalSuggestion[] = rows.map((row) => {
+  const baseSuggestions: PlanningGateEvalSuggestion[] = rows.map((row) => {
     const agentRole = row.agent_role || 'unknown';
     const criterion = row.criterion || '';
     const scenarioName = scenarioNameFromGateMiss(agentRole, criterion);
@@ -419,6 +481,8 @@ async function getPlanningGateEvalSuggestions(
       passCriteria,
       failIndicators,
       knowledgeTags,
+      scenarioAlreadyExists: false,
+      existingScenarioId: null,
       seedRow: {
         agent_role: agentRole,
         scenario_name: scenarioName,
@@ -426,15 +490,44 @@ async function getPlanningGateEvalSuggestions(
         pass_criteria: passCriteria,
         fail_indicators: failIndicators,
         knowledge_tags: knowledgeTags,
-        tenant_id: '00000000-0000-0000-0000-000000000000',
+        tenant_id: SYSTEM_EVAL_TENANT_ID,
       },
     };
   });
+
+  let suggestions = baseSuggestions;
+  if (baseSuggestions.length > 0) {
+    const pairPayload = JSON.stringify(
+      baseSuggestions.map((s) => ({ agent_role: s.agentRole, scenario_name: s.scenarioName })),
+    );
+    const existingRows = await systemQuery<{ agent_role: string; scenario_name: string; scenario_id: string }>(
+      `SELECT s.agent_role, s.scenario_name, s.id::text AS scenario_id
+       FROM agent_eval_scenarios s
+       INNER JOIN jsonb_to_recordset($2::jsonb) AS x(agent_role text, scenario_name text)
+         ON s.agent_role = x.agent_role AND s.scenario_name = x.scenario_name
+       WHERE s.tenant_id = $1::uuid`,
+      [SYSTEM_EVAL_TENANT_ID, pairPayload],
+    );
+    const idByPair = new Map<string, string>();
+    for (const ex of existingRows) {
+      idByPair.set(`${ex.agent_role}\0${ex.scenario_name}`, ex.scenario_id);
+    }
+    suggestions = baseSuggestions.map((s) => {
+      const key = `${s.agentRole}\0${s.scenarioName}`;
+      const existingScenarioId = idByPair.get(key) ?? null;
+      return {
+        ...s,
+        scenarioAlreadyExists: existingScenarioId != null,
+        existingScenarioId,
+      };
+    });
+  }
 
   return {
     windowDays,
     generatedAt: new Date().toISOString(),
     suggestions,
+    insertSql: buildEvalSuggestionsInsertSql(suggestions),
   };
 }
 

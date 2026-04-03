@@ -90,6 +90,8 @@ interface PlanningGateEvalSuggestion {
   passCriteria: string;
   failIndicators: string;
   knowledgeTags: string[];
+  scenarioAlreadyExists: boolean;
+  existingScenarioId: string | null;
   seedRow: {
     agent_role: string;
     scenario_name: string;
@@ -105,6 +107,7 @@ interface PlanningGateEvalSuggestionsResponse {
   windowDays: number;
   generatedAt: string;
   suggestions: PlanningGateEvalSuggestion[];
+  insertSql: string;
 }
 
 const CANONICAL_SCHEDULER_BASE = 'https://glyphor-scheduler-610179349713.us-central1.run.app';
@@ -128,6 +131,7 @@ function isPlanningGateSnapshot(value: unknown): value is PlanningGateSnapshot {
 function isPlanningGateEvalSuggestionsResponse(value: unknown): value is PlanningGateEvalSuggestionsResponse {
   if (!isRecord(value)) return false;
   if (typeof value.windowDays !== 'number' || typeof value.generatedAt !== 'string') return false;
+  if (typeof value.insertSql !== 'string') return false;
   if (!Array.isArray(value.suggestions)) return false;
   return true;
 }
@@ -620,7 +624,7 @@ export default function ReliabilityDashboard() {
             title="Golden eval drafts from gate misses"
             subtitle="Turns recurring missing criteria (by role) into suggested `agent_eval_scenarios` rows prefixed with golden:from-gate:*. Review and paste into a migration or seed file — not auto-inserted."
           />
-          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:flex-wrap">
             {evalSuggestionsCopyHint ? (
               <span className="text-[11px] text-txt-muted">{evalSuggestionsCopyHint}</span>
             ) : null}
@@ -644,16 +648,39 @@ export default function ReliabilityDashboard() {
             >
               Copy seed JSON
             </button>
+            <button
+              type="button"
+              disabled={!evalSuggestions?.insertSql?.includes('INSERT INTO')}
+              onClick={() => {
+                if (!evalSuggestions?.insertSql?.includes('INSERT INTO')) return;
+                void navigator.clipboard.writeText(evalSuggestions.insertSql)
+                  .then(() => {
+                    setEvalSuggestionsCopyHint('Copied INSERT SQL (new scenarios only)');
+                    window.setTimeout(() => setEvalSuggestionsCopyHint(null), 2500);
+                  })
+                  .catch(() => {
+                    setEvalSuggestionsCopyHint('Copy failed — check browser permissions');
+                    window.setTimeout(() => setEvalSuggestionsCopyHint(null), 4000);
+                  });
+              }}
+              className="rounded-lg theme-glass-panel-soft px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary disabled:opacity-50"
+            >
+              Copy INSERT SQL
+            </button>
           </div>
         </div>
         <p className="mt-2 text-[11px] text-txt-muted">
           Generated {formatDateTime(evalSuggestions?.generatedAt)} · window {evalSuggestions?.windowDays ?? windowDays}d · top {evalSuggestions?.suggestions.length ?? 0} role×criterion pairs
+          {evalSuggestions?.suggestions.length
+            ? ` · ${evalSuggestions.suggestions.filter((s) => !s.scenarioAlreadyExists).length} new · ${evalSuggestions.suggestions.filter((s) => s.scenarioAlreadyExists).length} already in suite`
+            : ''}
         </p>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-[12px] text-txt-secondary">
             <thead>
               <tr className="border-b border-border/70 text-[11px] uppercase tracking-[0.16em] text-txt-muted">
                 <th className="px-3 py-3 font-medium">Role</th>
+                <th className="px-3 py-3 font-medium">Suite</th>
                 <th className="px-3 py-3 font-medium">Gate fails</th>
                 <th className="px-3 py-3 font-medium">Missing criterion</th>
                 <th className="px-3 py-3 font-medium">Scenario name</th>
@@ -662,7 +689,7 @@ export default function ReliabilityDashboard() {
             <tbody>
               {!evalSuggestions?.suggestions.length ? (
                 <tr>
-                  <td className="px-3 py-3 text-txt-muted" colSpan={4}>
+                  <td className="px-3 py-3 text-txt-muted" colSpan={5}>
                     No completion-gate failures with structured missing criteria in this window.
                   </td>
                 </tr>
@@ -670,6 +697,17 @@ export default function ReliabilityDashboard() {
                 evalSuggestions.suggestions.map((row) => (
                   <tr key={`${row.agentRole}-${row.scenarioName}`} className="border-b border-border/50 align-top hover:bg-white/5">
                     <td className="px-3 py-3 text-txt-primary">{row.agentRole}</td>
+                    <td className="px-3 py-3">
+                      {row.scenarioAlreadyExists ? (
+                        <span className="rounded border border-border/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-txt-muted" title={row.existingScenarioId ?? undefined}>
+                          In suite
+                        </span>
+                      ) : (
+                        <span className="rounded border border-prism-sky/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-prism-sky">
+                          New
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-3">{formatNumber(row.gateFailureCount, 0)}</td>
                     <td className="max-w-md px-3 py-3 text-txt-secondary">{row.criterion}</td>
                     <td className="px-3 py-3 font-mono text-[11px] text-txt-muted">{row.scenarioName}</td>
