@@ -622,7 +622,7 @@ export default function ReliabilityDashboard() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <SectionHeader
             title="Golden eval drafts from gate misses"
-            subtitle="Turns recurring missing criteria (by role) into suggested `agent_eval_scenarios` rows prefixed with golden:from-gate:*. Review and paste into a migration or seed file — not auto-inserted."
+            subtitle="When agents often fail the completion gate for the same reason, this lists draft “practice tasks” you can promote into your official quality checks—so improvements are measurable, not guessed."
           />
           <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:flex-wrap">
             {evalSuggestionsCopyHint ? (
@@ -644,6 +644,7 @@ export default function ReliabilityDashboard() {
                     window.setTimeout(() => setEvalSuggestionsCopyHint(null), 4000);
                   });
               }}
+              title="Structured list of every row in the table—for spreadsheets, tickets, or custom tools."
               className="rounded-lg theme-glass-panel-soft px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary disabled:opacity-50"
             >
               Copy seed JSON
@@ -651,6 +652,7 @@ export default function ReliabilityDashboard() {
             <button
               type="button"
               disabled={!evalSuggestions?.insertSql?.includes('INSERT INTO')}
+              title="Database-ready text for rows marked New only. Usually handed to whoever adds official practice tasks to the system."
               onClick={() => {
                 if (!evalSuggestions?.insertSql?.includes('INSERT INTO')) return;
                 void navigator.clipboard.writeText(evalSuggestions.insertSql)
@@ -668,6 +670,31 @@ export default function ReliabilityDashboard() {
               Copy INSERT SQL
             </button>
           </div>
+        </div>
+        <div className="mt-3 rounded-lg border border-border/60 bg-bg-elevated/40 p-3 text-[12px] leading-relaxed text-txt-secondary">
+          <p className="font-semibold text-txt-primary">When do I use this?</p>
+          <ul className="mt-2 list-inside list-disc space-y-1.5 text-[12px]">
+            <li>
+              <span className="font-medium text-txt-primary">Same problem, many times:</span>
+              {' '}
+              a requirement keeps showing up as “missing”—good signal you want a standing check, not a one-off fix.
+            </li>
+            <li>
+              <span className="font-medium text-txt-primary">Before or after a big change:</span>
+              {' '}
+              you adjusted prompts, tools, or models and want a clear before/after quality signal (golden evals).
+            </li>
+            <li>
+              <span className="font-medium text-txt-primary">What the buttons do:</span>
+              {' '}
+              they do not change production by themselves. They package drafts for review; <strong className="text-txt-primary">New</strong> vs <strong className="text-txt-primary">In suite</strong> shows whether that practice task already exists.
+            </li>
+          </ul>
+          <p className="mt-2 text-[11px] text-txt-muted">
+            Technical note: drafts use names like <code className="rounded bg-white/5 px-1 font-mono text-[10px]">golden:from-gate:…</code>
+            {' '}
+            so they stay grouped with other golden tasks. Nothing is saved until someone applies the copied text in your normal release process.
+          </p>
         </div>
         <p className="mt-2 text-[11px] text-txt-muted">
           Generated {formatDateTime(evalSuggestions?.generatedAt)} · window {evalSuggestions?.windowDays ?? windowDays}d · top {evalSuggestions?.suggestions.length ?? 0} role×criterion pairs
