@@ -20,6 +20,20 @@ function json(res: ServerResponse, status: number, data: unknown): void {
   res.end(JSON.stringify(data));
 }
 
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (chunk: string) => { body += chunk; });
+    req.on('end', () => resolve(body || '{}'));
+    req.on('error', reject);
+  });
+}
+
+/** When `false`, POST apply is rejected. Default: allowed (unset or any other value). */
+function isPlanningGateEvalApplyEnabled(): boolean {
+  return process.env.PLANNING_GATE_EVAL_APPLY_ENABLED?.trim().toLowerCase() !== 'false';
+}
+
 function parseWindow(value: string | null, fallback = 30): 7 | 30 | 90 {
   const parsed = Number(value ?? fallback);
   if (parsed === 7 || parsed === 30 || parsed === 90) return parsed;
@@ -531,6 +545,83 @@ async function getPlanningGateEvalSuggestions(
   };
 }
 
+export async function applyPlanningGateEvalScenariosFromTelemetry(options: {
+  windowDays: 7 | 30 | 90;
+  limit: number;
+  dryRun: boolean;
+}): Promise<{
+  dryRun: boolean;
+  windowDays: number;
+  generatedAt: string;
+  candidateNewCount: number;
+  alreadyInSuiteCount: number;
+  insertedCount: number;
+  noOpConflictCount: number;
+  insertedScenarios: Array<{ id: string; agentRole: string; scenarioName: string }>;
+  suggestions: PlanningGateEvalSuggestion[];
+  insertSql: string;
+}> {
+  const snapshot = await getPlanningGateEvalSuggestions(options.windowDays, options.limit);
+  const pending = snapshot.suggestions.filter((s) => !s.scenarioAlreadyExists);
+  const alreadyInSuiteCount = snapshot.suggestions.filter((s) => s.scenarioAlreadyExists).length;
+
+  if (options.dryRun) {
+    return {
+      dryRun: true,
+      windowDays: snapshot.windowDays,
+      generatedAt: new Date().toISOString(),
+      candidateNewCount: pending.length,
+      alreadyInSuiteCount,
+      insertedCount: 0,
+      noOpConflictCount: 0,
+      insertedScenarios: [],
+      suggestions: snapshot.suggestions,
+      insertSql: snapshot.insertSql,
+    };
+  }
+
+  const insertedScenarios: Array<{ id: string; agentRole: string; scenarioName: string }> = [];
+  let insertedCount = 0;
+  for (const s of pending) {
+    const rows = await systemQuery<{ id: string }>(
+      `INSERT INTO agent_eval_scenarios (
+         agent_role, scenario_name, input_prompt, pass_criteria, fail_indicators, knowledge_tags, tenant_id
+       ) VALUES ($1, $2, $3, $4, $5, $6::text[], $7::uuid)
+       ON CONFLICT (tenant_id, agent_role, scenario_name) DO NOTHING
+       RETURNING id::text AS id`,
+      [
+        s.seedRow.agent_role,
+        s.seedRow.scenario_name,
+        s.seedRow.input_prompt,
+        s.seedRow.pass_criteria,
+        s.seedRow.fail_indicators,
+        s.seedRow.knowledge_tags,
+        SYSTEM_EVAL_TENANT_ID,
+      ],
+    );
+    const id = rows[0]?.id;
+    if (id) {
+      insertedCount += 1;
+      insertedScenarios.push({ id, agentRole: s.agentRole, scenarioName: s.scenarioName });
+    }
+  }
+
+  const noOpConflictCount = pending.length - insertedCount;
+
+  return {
+    dryRun: false,
+    windowDays: snapshot.windowDays,
+    generatedAt: new Date().toISOString(),
+    candidateNewCount: pending.length,
+    alreadyInSuiteCount,
+    insertedCount,
+    noOpConflictCount,
+    insertedScenarios,
+    suggestions: snapshot.suggestions,
+    insertSql: snapshot.insertSql,
+  };
+}
+
 async function getPlanningGateStage3Metrics(windowDays: 7 | 30 | 90): Promise<{
   windowDays: number;
   generatedAt: string;
@@ -572,14 +663,42 @@ async function getPlanningGateStage3Metrics(windowDays: 7 | 30 | 90): Promise<{
 }
 
 export async function handleMetricsAdminApi(
-  _req: IncomingMessage,
+  req: IncomingMessage,
   res: ServerResponse,
   url: string,
   queryString: string,
   method: string,
 ): Promise<boolean> {
-  if (method !== 'GET') return false;
   if (!url.startsWith('/admin/metrics')) return false;
+
+  if (method === 'POST' && url === '/admin/metrics/planning-gate-eval-suggestions/apply') {
+    if (!isPlanningGateEvalApplyEnabled()) {
+      json(res, 403, {
+        error: 'Planning gate eval apply is disabled (PLANNING_GATE_EVAL_APPLY_ENABLED=false). Unset that variable or set it to true to allow POST apply.',
+      });
+      return true;
+    }
+    try {
+      const raw = await readBody(req);
+      const body = (raw ? JSON.parse(raw) : {}) as Record<string, unknown>;
+      const windowRaw = body.window ?? body.windowDays ?? body.window_days;
+      const windowDays = parseWindow(
+        windowRaw === null || windowRaw === undefined ? null : String(windowRaw),
+      );
+      const limit = typeof body.limit === 'number' && Number.isFinite(body.limit)
+        ? Math.min(30, Math.max(1, Math.trunc(body.limit)))
+        : 12;
+      const dryRun = body.dryRun === true || body.dry_run === true;
+      const result = await applyPlanningGateEvalScenariosFromTelemetry({ windowDays, limit, dryRun });
+      json(res, 200, { ok: true, ...result });
+      return true;
+    } catch (err) {
+      json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) });
+      return true;
+    }
+  }
+
+  if (method !== 'GET') return false;
 
   const params = new URLSearchParams(queryString);
 

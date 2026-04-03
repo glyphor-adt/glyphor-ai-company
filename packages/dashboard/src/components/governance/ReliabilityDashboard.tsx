@@ -270,6 +270,7 @@ export default function ReliabilityDashboard() {
   const [planningGate30d, setPlanningGate30d] = useState<PlanningGateSnapshot | null>(null);
   const [evalSuggestions, setEvalSuggestions] = useState<PlanningGateEvalSuggestionsResponse | null>(null);
   const [evalSuggestionsCopyHint, setEvalSuggestionsCopyHint] = useState<string | null>(null);
+  const [evalApplyBusy, setEvalApplyBusy] = useState(false);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -416,6 +417,43 @@ export default function ReliabilityDashboard() {
       console.warn('[ReliabilityDashboard] Refresh failed:', error);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const newEvalSuggestionCount = useMemo(
+    () => evalSuggestions?.suggestions.filter((s) => !s.scenarioAlreadyExists).length ?? 0,
+    [evalSuggestions],
+  );
+
+  const applyEvalSuiteFromGateMisses = async () => {
+    if (newEvalSuggestionCount === 0) return;
+    const confirmed = window.confirm(
+      `Add ${newEvalSuggestionCount} new practice scenario(s) to the official eval suite? They are stored as golden-task candidates (names start with golden:from-gate:).`,
+    );
+    if (!confirmed) return;
+    setEvalApplyBusy(true);
+    setEvalSuggestionsCopyHint(null);
+    try {
+      const result = await apiCall<{
+        ok: boolean;
+        insertedCount?: number;
+        noOpConflictCount?: number;
+      }>('/admin/metrics/planning-gate-eval-suggestions/apply', {
+        method: 'POST',
+        body: JSON.stringify({ window: windowDays, limit: 12, dryRun: false }),
+      });
+      const raceNote = (result.noOpConflictCount ?? 0) > 0
+        ? ` (${result.noOpConflictCount} skipped — already in DB)`
+        : '';
+      setEvalSuggestionsCopyHint(`Added ${result.insertedCount ?? 0} scenario(s)${raceNote}.`);
+      await refresh();
+      window.setTimeout(() => setEvalSuggestionsCopyHint(null), 6000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Apply failed';
+      setEvalSuggestionsCopyHint(message);
+      window.setTimeout(() => setEvalSuggestionsCopyHint(null), 8000);
+    } finally {
+      setEvalApplyBusy(false);
     }
   };
 
@@ -622,12 +660,25 @@ export default function ReliabilityDashboard() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <SectionHeader
             title="Golden eval drafts from gate misses"
-            subtitle="When agents often fail the completion gate for the same reason, this lists draft “practice tasks” you can promote into your official quality checks—so improvements are measurable, not guessed."
+            subtitle="When agents often fail the completion gate for the same reason, this lists draft practice tasks. Use Add to eval suite to save New rows automatically, or copy JSON/SQL if you prefer a manual review path."
           />
           <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:flex-wrap">
             {evalSuggestionsCopyHint ? (
               <span className="text-[11px] text-txt-muted">{evalSuggestionsCopyHint}</span>
             ) : null}
+            <button
+              type="button"
+              disabled={newEvalSuggestionCount === 0 || evalApplyBusy || refreshing}
+              title="Inserts every row marked New into agent_eval_scenarios (no manual SQL). Disable with scheduler env PLANNING_GATE_EVAL_APPLY_ENABLED=false."
+              onClick={() => void applyEvalSuiteFromGateMisses()}
+              className="rounded-lg border border-prism-sky/50 bg-prism-sky/10 px-4 py-2 text-[13px] font-semibold text-prism-sky transition-colors hover:bg-prism-sky/20 disabled:opacity-50"
+            >
+              {evalApplyBusy
+                ? 'Adding…'
+                : newEvalSuggestionCount > 0
+                  ? `Add ${newEvalSuggestionCount} to eval suite`
+                  : 'Add to eval suite'}
+            </button>
             <button
               type="button"
               disabled={!evalSuggestions?.suggestions.length}
@@ -687,13 +738,19 @@ export default function ReliabilityDashboard() {
             <li>
               <span className="font-medium text-txt-primary">What the buttons do:</span>
               {' '}
-              they do not change production by themselves. They package drafts for review; <strong className="text-txt-primary">New</strong> vs <strong className="text-txt-primary">In suite</strong> shows whether that practice task already exists.
+              <strong className="text-txt-primary">Add … to eval suite</strong>
+              {' '}
+              saves every <strong className="text-txt-primary">New</strong> row into the database for you (no SQL paste). Copy buttons are optional exports for audits or tickets.
+              {' '}
+              <strong className="text-txt-primary">In suite</strong> means that practice task is already stored.
             </li>
           </ul>
           <p className="mt-2 text-[11px] text-txt-muted">
             Technical note: drafts use names like <code className="rounded bg-white/5 px-1 font-mono text-[10px]">golden:from-gate:…</code>
             {' '}
-            so they stay grouped with other golden tasks. Nothing is saved until someone applies the copied text in your normal release process.
+            so they stay grouped with other golden tasks. Ops can turn off automated apply on the scheduler with env{' '}
+            <code className="rounded bg-white/5 px-1 font-mono text-[10px]">PLANNING_GATE_EVAL_APPLY_ENABLED=false</code>
+            .
           </p>
         </div>
         <p className="mt-2 text-[11px] text-txt-muted">
