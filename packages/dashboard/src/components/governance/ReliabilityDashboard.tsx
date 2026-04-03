@@ -197,14 +197,30 @@ export default function ReliabilityDashboard() {
     const load = async () => {
       setLoading(true);
       try {
+        const emptyPlanningGate: PlanningGateSnapshot = {
+          windowDays,
+          totals: {
+            runsObserved: 0,
+            runsWithPlanning: 0,
+            runsWithGatePass: 0,
+            runsWithGateFail: 0,
+            planningEvents: 0,
+            gatePassEvents: 0,
+            gateFailEvents: 0,
+            maxRetryAttempt: 0,
+            avgMissingCriteriaMentions: 0,
+            passRate: 0,
+          },
+          roles: [],
+        };
         const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth] = await Promise.all([
-          apiCall<FleetMetricsSnapshot>(`/admin/metrics/fleet?window=${windowDays}`),
-          apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30'),
-          apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`),
-          apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12'),
-          fetchPlanningGateSnapshot(windowDays),
-          fetchPlanningGateSnapshot(7),
-          fetchPlanningGateSnapshot(30),
+          apiCall<FleetMetricsSnapshot>(`/admin/metrics/fleet?window=${windowDays}`).catch(() => null),
+          apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30').catch(() => null),
+          apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`).catch(() => ({ windowDays, agents: [] })),
+          apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12').catch(() => ({ items: [] })),
+          fetchPlanningGateSnapshot(windowDays).catch(() => null),
+          fetchPlanningGateSnapshot(7).catch(() => null),
+          fetchPlanningGateSnapshot(30).catch(() => null),
         ]);
 
         if (!active) return;
@@ -212,9 +228,30 @@ export default function ReliabilityDashboard() {
         setFleetMonth(fleetThirty);
         setAgents(agentResponse?.agents ?? []);
         setExceptions(exceptionResponse?.items ?? []);
-        setPlanningGate(planningGateResponse);
-        setPlanningGate7d(planningGateWeek);
-        setPlanningGate30d(planningGateMonth);
+        setPlanningGate(planningGateResponse ?? emptyPlanningGate);
+        setPlanningGate7d(planningGateWeek ?? { ...emptyPlanningGate, windowDays: 7 });
+        setPlanningGate30d(planningGateMonth ?? { ...emptyPlanningGate, windowDays: 30 });
+      } catch (error) {
+        if (!active) return;
+        setPlanningGate({
+          windowDays,
+          totals: {
+            runsObserved: 0,
+            runsWithPlanning: 0,
+            runsWithGatePass: 0,
+            runsWithGateFail: 0,
+            planningEvents: 0,
+            gatePassEvents: 0,
+            gateFailEvents: 0,
+            maxRetryAttempt: 0,
+            avgMissingCriteriaMentions: 0,
+            passRate: 0,
+          },
+          roles: [],
+        });
+        setPlanningGate7d(null);
+        setPlanningGate30d(null);
+        console.warn('[ReliabilityDashboard] Failed to load metrics:', error);
       } finally {
         if (active) setLoading(false);
       }
@@ -227,22 +264,40 @@ export default function ReliabilityDashboard() {
   const refresh = async () => {
     setRefreshing(true);
     try {
+      const emptyPlanningGate: PlanningGateSnapshot = {
+        windowDays,
+        totals: {
+          runsObserved: 0,
+          runsWithPlanning: 0,
+          runsWithGatePass: 0,
+          runsWithGateFail: 0,
+          planningEvents: 0,
+          gatePassEvents: 0,
+          gateFailEvents: 0,
+          maxRetryAttempt: 0,
+          avgMissingCriteriaMentions: 0,
+          passRate: 0,
+        },
+        roles: [],
+      };
       const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth] = await Promise.all([
-        apiCall<FleetMetricsSnapshot>(`/admin/metrics/fleet?window=${windowDays}`),
-        apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30'),
-        apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`),
-        apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12'),
-        fetchPlanningGateSnapshot(windowDays),
-        fetchPlanningGateSnapshot(7),
-        fetchPlanningGateSnapshot(30),
+        apiCall<FleetMetricsSnapshot>(`/admin/metrics/fleet?window=${windowDays}`).catch(() => null),
+        apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30').catch(() => null),
+        apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`).catch(() => ({ windowDays, agents: [] })),
+        apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12').catch(() => ({ items: [] })),
+        fetchPlanningGateSnapshot(windowDays).catch(() => null),
+        fetchPlanningGateSnapshot(7).catch(() => null),
+        fetchPlanningGateSnapshot(30).catch(() => null),
       ]);
       setFleet(fleetCurrent);
       setFleetMonth(fleetThirty);
       setAgents(agentResponse?.agents ?? []);
       setExceptions(exceptionResponse?.items ?? []);
-      setPlanningGate(planningGateResponse);
-      setPlanningGate7d(planningGateWeek);
-      setPlanningGate30d(planningGateMonth);
+      setPlanningGate(planningGateResponse ?? emptyPlanningGate);
+      setPlanningGate7d(planningGateWeek ?? { ...emptyPlanningGate, windowDays: 7 });
+      setPlanningGate30d(planningGateMonth ?? { ...emptyPlanningGate, windowDays: 30 });
+    } catch (error) {
+      console.warn('[ReliabilityDashboard] Refresh failed:', error);
     } finally {
       setRefreshing(false);
     }
