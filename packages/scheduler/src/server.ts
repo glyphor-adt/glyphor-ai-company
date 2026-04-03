@@ -1934,6 +1934,9 @@ const trackedAgentExecutor = async (
 ): Promise<AgentExecutionResult | void> => {
   const inputMsg = typeof payload?.message === 'string' ? payload.message : null;
   const startMs = Date.now();
+  const requestedRunId = typeof payload?.runId === 'string' && UUID_RE.test(payload.runId.trim())
+    ? payload.runId.trim()
+    : null;
 
   // Insert a "running" row in parallel with agent execution to avoid blocking
   const runIdPromise = (async () => {
@@ -1955,16 +1958,26 @@ const trackedAgentExecutor = async (
     const clientId = agentMeta?.created_by_client_id ?? null;
 
     try {
-      const [row] = await systemQuery<{ id: string }>(
-        'INSERT INTO agent_runs (agent_id, task, status, input, tenant_id, source, client_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
-        [agentRole, task, 'running', inputMsg, tenantId, source, clientId],
-      );
+      const [row] = requestedRunId
+        ? await systemQuery<{ id: string }>(
+          'INSERT INTO agent_runs (id, agent_id, task, status, input, tenant_id, source, client_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
+          [requestedRunId, agentRole, task, 'running', inputMsg, tenantId, source, clientId],
+        )
+        : await systemQuery<{ id: string }>(
+          'INSERT INTO agent_runs (agent_id, task, status, input, tenant_id, source, client_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+          [agentRole, task, 'running', inputMsg, tenantId, source, clientId],
+        );
       return row?.id as string | undefined;
     } catch {
-      const [row] = await systemQuery<{ id: string }>(
-        'INSERT INTO agent_runs (agent_id, task, status, input, tenant_id) VALUES ($1,$2,$3,$4,$5) RETURNING id',
-        [agentRole, task, 'running', inputMsg, tenantId],
-      );
+      const [row] = requestedRunId
+        ? await systemQuery<{ id: string }>(
+          'INSERT INTO agent_runs (id, agent_id, task, status, input, tenant_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
+          [requestedRunId, agentRole, task, 'running', inputMsg, tenantId],
+        )
+        : await systemQuery<{ id: string }>(
+          'INSERT INTO agent_runs (agent_id, task, status, input, tenant_id) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+          [agentRole, task, 'running', inputMsg, tenantId],
+        );
       return row?.id as string | undefined;
     }
   })().catch(() => undefined);
@@ -3339,6 +3352,7 @@ const server = createServer(async (req, res) => {
         task: body.task,
         payload: {
           ...(body.payload ?? {}),
+          runId: requestRunId,
           message,
           ...(attachments ? { attachments } : {}),
           ...(conversationHistory.length > 0 ? { conversationHistory } : {}),

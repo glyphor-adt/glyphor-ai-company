@@ -1,0 +1,12 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - docker/Dockerfile.scheduler
+      - -t
+      - us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:manual-runid-fix
+      - .
+
+images:
+  - us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:manual-runid-fix
