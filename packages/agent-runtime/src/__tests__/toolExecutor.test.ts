@@ -350,4 +350,32 @@ describe('ToolExecutor', () => {
     expect(result.error).toContain('Pre-tool hook failed');
     expect(tool.execute).not.toHaveBeenCalled();
   });
+
+  it('skips pre-exec value gate for on_demand chat (dashboard trust model)', async () => {
+    vi.stubEnv('TOOL_VALUE_GATE_CONFIDENCE_THRESHOLD', '0.99');
+    const webBuildTool: ToolDefinition = {
+      name: 'invoke_web_build',
+      description: 'Build a web app',
+      parameters: {
+        brief: { type: 'string', description: 'Build brief', required: true },
+        tier: { type: 'string', description: 'Build tier', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: { ok: true } }),
+    };
+
+    const executor = new ToolExecutor([webBuildTool]);
+    const result = await executor.execute(
+      'invoke_web_build',
+      { brief: 'Weather app', tier: 'prototype' },
+      buildContext({
+        assignmentId: undefined,
+        directiveId: undefined,
+        requestSource: 'on_demand',
+      }),
+    );
+
+    vi.unstubAllEnvs();
+    expect(result.success).toBe(true);
+    expect(webBuildTool.execute).toHaveBeenCalledOnce();
+  });
 });

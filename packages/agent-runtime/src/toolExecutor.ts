@@ -549,6 +549,8 @@ function estimateToolCost(toolName: string): number {
 
 const VALUE_GATE_RATIO_THRESHOLD = Number(process.env.TOOL_VALUE_GATE_RATIO_THRESHOLD ?? '2.5');
 const VALUE_GATE_CONFIDENCE_THRESHOLD = Number(process.env.TOOL_VALUE_GATE_CONFIDENCE_THRESHOLD ?? '0.6');
+/** When `enforce`, apply the pre-execution value gate to dashboard/chat (`on_demand`) too. Default: skip gate for chat — user opened the session, same trust model as interactive coding agents. */
+const VALUE_GATE_ENFORCE_ON_DEMAND = process.env.TOOL_VALUE_GATE_ON_DEMAND === 'enforce';
 const TOOL_RETRY_CAP = Math.max(1, Number(process.env.TOOL_RETRY_CAP ?? '3'));
 
 function estimateTPlus1Impact(toolName: string): number {
@@ -1234,7 +1236,13 @@ export class ToolExecutor {
         }
       }
 
-      if (WRITE_TOOL_SET.has(toolName) || riskAssessment.level !== 'AUTONOMOUS') {
+      const skipPreExecValueGateForChat =
+        context.requestSource === 'on_demand' && !VALUE_GATE_ENFORCE_ON_DEMAND;
+
+      if (
+        !skipPreExecValueGateForChat
+        && (WRITE_TOOL_SET.has(toolName) || riskAssessment.level !== 'AUTONOMOUS')
+      ) {
         const gate = evaluateActionValue(toolName, params, estimatedCost, context);
         if (!gate.allow) {
           this.logSecurityEvent(agentId, role, toolName, 'ACTION_RISK_BLOCKED', {
