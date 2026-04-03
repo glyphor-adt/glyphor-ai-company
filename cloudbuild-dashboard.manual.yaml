@@ -11,6 +11,26 @@ steps:
       - '--build-arg'
       - 'VITE_VOICE_GATEWAY_URL=https://glyphor-voice-gateway-610179349713.us-central1.run.app'
       - '-t'
+      - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:same-origin-proxy-fix'
+      - '.'
+images:
+  - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:same-origin-proxy-fix'
+options:
+  logging: GCS_ONLY
+  logStreamingOption: STREAM_ON
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'docker/Dockerfile.dashboard'
+      - '--build-arg'
+      - 'VITE_SCHEDULER_URL=https://glyphor-scheduler-610179349713.us-central1.run.app'
+      - '--build-arg'
+      - 'VITE_GOOGLE_CLIENT_ID=610179349713-hsb5cloabe445k72uk4nv79d8jcaag67.apps.googleusercontent.com'
+      - '--build-arg'
+      - 'VITE_VOICE_GATEWAY_URL=https://glyphor-voice-gateway-610179349713.us-central1.run.app'
+      - '-t'
       - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/dashboard:prod-api-canonical-hardfix'
       - '.'
 images:

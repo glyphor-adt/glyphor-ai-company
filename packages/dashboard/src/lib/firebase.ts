@@ -46,7 +46,7 @@ const isProdDashboardHost =
   && window.location.hostname === PROD_DASHBOARD_HOST;
 
 const API_URL = isProdDashboardHost
-  ? CANONICAL_SCHEDULER_URL
+  ? ''
   : normalizeSchedulerUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_SCHEDULER_URL);
 
 export async function apiCall<T = any>(path: string, options: RequestInit = {}): Promise<T> {
