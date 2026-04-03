@@ -564,7 +564,7 @@ export default function Governance() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as GovernanceSurface | null;
   const [activeTab, setActiveTab] = useState<GovernanceSurface>(
-    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'tool-view'
+    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'reliability'
   );
 
   const handleTabChange = useCallback((tab: GovernanceSurface) => {
