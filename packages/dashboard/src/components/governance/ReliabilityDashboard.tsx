@@ -81,6 +81,12 @@ interface PlanningGateSnapshot {
   roles: PlanningGateRoleSummary[];
 }
 
+const CANONICAL_SCHEDULER_BASE = 'https://glyphor-scheduler-610179349713.us-central1.run.app';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function isPlanningGateSnapshot(value: unknown): value is PlanningGateSnapshot {
   if (!value || typeof value !== 'object') return false;
   const record = value as Record<string, unknown>;
@@ -106,21 +112,57 @@ async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<Plann
 
   // Fallback path: direct scheduler origin to bypass miswired API base/proxy.
   const schedulerBase = (SCHEDULER_URL ?? '').trim();
-  if (!schedulerBase) {
-    throw new Error('Planning gate metrics unavailable: scheduler URL not configured');
+  const fallbackBases = [schedulerBase, window.location.origin, CANONICAL_SCHEDULER_BASE]
+    .map((base) => base.trim())
+    .filter(Boolean);
+
+  for (const base of fallbackBases) {
+    try {
+      const response = await fetch(`${base}${path}`, {
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      });
+      if (!response.ok) continue;
+      const data = await response.json();
+      if (isPlanningGateSnapshot(data)) return data;
+    } catch {
+      // Continue trying additional fallback bases.
+    }
   }
-  const response = await fetch(`${schedulerBase}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    cache: 'no-store',
-  });
-  if (!response.ok) {
-    throw new Error(`Planning gate metrics unavailable: ${response.status} ${response.statusText}`);
+
+  throw new Error('Planning gate metrics unavailable: scheduler URL not configured');
+}
+
+async function fetchMetricWithFallback<T>(
+  path: string,
+  guard: (value: unknown) => value is T,
+): Promise<T> {
+  try {
+    const response = await apiCall<T>(path);
+    if (guard(response)) return response;
+  } catch {
+    // fall through to direct fetch
   }
-  const data = await response.json();
-  if (!isPlanningGateSnapshot(data)) {
-    throw new Error('Planning gate metrics unavailable: invalid response payload');
+
+  const fallbackBases = [window.location.origin, (SCHEDULER_URL ?? '').trim(), CANONICAL_SCHEDULER_BASE]
+    .map((base) => base.trim())
+    .filter(Boolean);
+
+  for (const base of fallbackBases) {
+    try {
+      const response = await fetch(`${base}${path}`, {
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      });
+      if (!response.ok) continue;
+      const data = await response.json();
+      if (guard(data)) return data;
+    } catch {
+      // Continue trying additional fallback bases.
+    }
   }
-  return data;
+
+  throw new Error(`Metric unavailable for ${path}`);
 }
 
 type SortKey = keyof Pick<AgentMetricsSnapshot,
@@ -214,10 +256,22 @@ export default function ReliabilityDashboard() {
           roles: [],
         };
         const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth] = await Promise.all([
-          apiCall<FleetMetricsSnapshot>(`/admin/metrics/fleet?window=${windowDays}`).catch(() => null),
-          apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30').catch(() => null),
-          apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`).catch(() => ({ windowDays, agents: [] })),
-          apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12').catch(() => ({ items: [] })),
+          fetchMetricWithFallback<FleetMetricsSnapshot>(
+            `/admin/metrics/fleet?window=${windowDays}`,
+            (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
+          ).catch(() => null),
+          fetchMetricWithFallback<FleetMetricsSnapshot>(
+            '/admin/metrics/fleet?window=30',
+            (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
+          ).catch(() => null),
+          fetchMetricWithFallback<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(
+            `/admin/metrics/agents?window=${windowDays}`,
+            (value): value is { windowDays: number; agents: AgentMetricsSnapshot[] } => isRecord(value) && Array.isArray(value.agents),
+          ).catch(() => ({ windowDays, agents: [] })),
+          fetchMetricWithFallback<{ items: ExceptionLogEntry[] }>(
+            '/admin/metrics/exceptions?pageSize=12',
+            (value): value is { items: ExceptionLogEntry[] } => isRecord(value) && Array.isArray(value.items),
+          ).catch(() => ({ items: [] })),
           fetchPlanningGateSnapshot(windowDays).catch(() => null),
           fetchPlanningGateSnapshot(7).catch(() => null),
           fetchPlanningGateSnapshot(30).catch(() => null),
@@ -281,10 +335,22 @@ export default function ReliabilityDashboard() {
         roles: [],
       };
       const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth] = await Promise.all([
-        apiCall<FleetMetricsSnapshot>(`/admin/metrics/fleet?window=${windowDays}`).catch(() => null),
-        apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30').catch(() => null),
-        apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`).catch(() => ({ windowDays, agents: [] })),
-        apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12').catch(() => ({ items: [] })),
+        fetchMetricWithFallback<FleetMetricsSnapshot>(
+          `/admin/metrics/fleet?window=${windowDays}`,
+          (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
+        ).catch(() => null),
+        fetchMetricWithFallback<FleetMetricsSnapshot>(
+          '/admin/metrics/fleet?window=30',
+          (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
+        ).catch(() => null),
+        fetchMetricWithFallback<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(
+          `/admin/metrics/agents?window=${windowDays}`,
+          (value): value is { windowDays: number; agents: AgentMetricsSnapshot[] } => isRecord(value) && Array.isArray(value.agents),
+        ).catch(() => ({ windowDays, agents: [] })),
+        fetchMetricWithFallback<{ items: ExceptionLogEntry[] }>(
+          '/admin/metrics/exceptions?pageSize=12',
+          (value): value is { items: ExceptionLogEntry[] } => isRecord(value) && Array.isArray(value.items),
+        ).catch(() => ({ items: [] })),
         fetchPlanningGateSnapshot(windowDays).catch(() => null),
         fetchPlanningGateSnapshot(7).catch(() => null),
         fetchPlanningGateSnapshot(30).catch(() => null),
