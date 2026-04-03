@@ -107,7 +107,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     console.log(`[VP-Design] ${event.type}`, JSON.stringify(event));
   });
 
-  const task = params.task || 'design_audit';
+  const task = params.task || 'on_demand';
   const today = new Date().toISOString().split('T')[0];
 
   let initialMessage: string;
