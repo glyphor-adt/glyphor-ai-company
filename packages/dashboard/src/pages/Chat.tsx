@@ -817,12 +817,14 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           ? `You were @mentioned in a conversation with ${DISPLAY_NAME_MAP[targetRole] ?? targetRole}. The user said: ${text}`
           : (text || 'Please review the attached file(s).');
 
-        // Send attachments as structured data for native multimodal processing
-        const apiAttachments = (!isMentioned && attachments) ? attachments.map((a) => ({
-          name: a.name,
-          mimeType: a.type,
-          data: a.data,
-        })) : undefined;
+        // Send attachments as structured data for native multimodal processing (all invoked agents, including @mentions)
+        const apiAttachments = attachments?.length
+          ? attachments.map((a) => ({
+              name: a.name,
+              mimeType: a.type,
+              data: a.data,
+            }))
+          : undefined;
 
         const res = await fetch(`${SCHEDULER_URL}/run`, {
           method: 'POST',

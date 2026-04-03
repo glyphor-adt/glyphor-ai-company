@@ -20,7 +20,12 @@
  *   https://learn.microsoft.com/en-us/graph/api/chat-post-messages
  */
 
-import { AGENT_EMAIL_MAP, FOUNDER_EMAILS, type AgentEmailEntry } from '@glyphor/agent-runtime';
+import {
+  AGENT_EMAIL_MAP,
+  FOUNDER_EMAILS,
+  type AgentEmailEntry,
+  type ConversationAttachment,
+} from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { GraphTeamsClient } from './graphClient.js';
 import type { A365TeamsChatClient } from '../agent365/teamsChatClient.js';
@@ -49,6 +54,15 @@ export interface ChatChangePayload {
   value: ChatChangeNotification[];
 }
 
+/** Raw attachment shape from Graph `chatMessage` / list attachments API */
+export interface GraphChatMessageAttachment {
+  id?: string;
+  name?: string;
+  contentType?: string;
+  contentUrl?: string;
+  content?: string;
+}
+
 export interface ChatMessage {
   id: string;
   chatId: string;
@@ -59,6 +73,7 @@ export interface ChatMessage {
     application?: { id: string; displayName: string };
   };
   createdDateTime: string;
+  attachments?: GraphChatMessageAttachment[];
 }
 
 export interface ChatMember {
@@ -79,7 +94,12 @@ export interface ConversationTurn {
 export type AgentRunner = (
   agentRole: string,
   task: string,
-  payload: { message: string; conversationHistory?: ConversationTurn[] },
+  payload: {
+    message: string;
+    conversationHistory?: ConversationTurn[];
+    /** File bytes for multimodal review (images, PDFs, etc.) */
+    attachments?: ConversationAttachment[];
+  },
 ) => Promise<{ output?: string | null; error?: string | null } | undefined>;
 
 // ─── REVERSE LOOKUP ─────────────────────────────────────────────
@@ -105,6 +125,8 @@ const CLIENT_STATE = 'glyphor-chat-webhook';
 const processedMessages = new Map<string, number>();
 const DEDUP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const DEDUP_CLEANUP_INTERVAL = 60 * 1000;
+/** Max decoded size per Teams file attachment forwarded to the model */
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
 export class GraphChatHandler {
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
@@ -227,7 +249,9 @@ export class GraphChatHandler {
 
     const senderName = message.from?.user?.displayName ?? 'Unknown';
     const messageText = this.extractText(message);
-    if (!messageText) return;
+    const graphAtt = await this.resolveMessageAttachments(token, chatId, messageId, message);
+    const attachments = await this.buildConversationAttachments(token, graphAtt);
+    if (!messageText.trim() && attachments.length === 0) return;
 
     // Resolve sender email from Graph to identify founders
     let senderEmail: string | undefined;
@@ -258,9 +282,10 @@ export class GraphChatHandler {
       AGENT_EMAIL_MAP[agentRole]?.email?.toLowerCase() ?? '',
     ) ?? agentRole;
 
-    console.log(
-      `[GraphChat] ${senderName} → ${displayName} (${agentRole}): "${messageText.substring(0, 100)}"`,
-    );
+    const preview =
+      messageText.trim().slice(0, 100) ||
+      (attachments.length ? `[${attachments.length} attachment(s)]` : '');
+    console.log(`[GraphChat] ${senderName} → ${displayName} (${agentRole}): "${preview}"`);
 
     // Fetch recent chat history for conversation continuity
     const conversationHistory = await this.fetchChatHistory(token, chatId, messageId);
@@ -268,9 +293,11 @@ export class GraphChatHandler {
     // Run the agent
     let responseText: string;
     try {
+      const bodyText = messageText.trim() || 'Please review the attached file(s).';
       const result = await this.agentRunner(agentRole, 'on_demand', {
-        message: `${identity}\n${messageText}`,
+        message: `${identity}\n${bodyText}`,
         conversationHistory,
+        ...(attachments.length ? { attachments } : {}),
       });
 
       if (result?.output) {
@@ -478,6 +505,116 @@ export class GraphChatHandler {
       console.warn(`[GraphChat] Failed to fetch chat history: ${(err as Error).message}`);
       return [];
     }
+  }
+
+  /**
+   * Graph sometimes omits `attachments` on GET message; list the attachment collection explicitly.
+   */
+  private async resolveMessageAttachments(
+    token: string,
+    chatId: string,
+    messageId: string,
+    message: ChatMessage,
+  ): Promise<GraphChatMessageAttachment[]> {
+    if (message.attachments && message.attachments.length > 0) {
+      return message.attachments;
+    }
+    const url = `https://graph.microsoft.com/v1.0/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}/attachments`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      console.warn(`[GraphChat] List attachments failed: ${res.status} ${text.substring(0, 120)}`);
+      return [];
+    }
+    const data = (await res.json()) as { value?: GraphChatMessageAttachment[] };
+    return data.value ?? [];
+  }
+
+  private normalizeMimeFromAttachment(contentType: string | undefined, filename: string): string {
+    const ct = contentType?.split(';')[0]?.trim() ?? '';
+    if (
+      ct
+      && ct !== 'reference'
+      && !ct.startsWith('application/vnd.microsoft.')
+      && !ct.startsWith('message/')
+    ) {
+      return ct;
+    }
+    const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+    const map: Record<string, string> = {
+      pdf: 'application/pdf',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      txt: 'text/plain',
+      csv: 'text/csv',
+      md: 'text/markdown',
+      json: 'application/json',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    };
+    return map[ext] ?? 'application/octet-stream';
+  }
+
+  /**
+   * Download Teams chat attachments to base64 for the multimodal agent pipeline.
+   * Requires that `contentUrl` is readable with the same token (SharePoint-backed files may need Files.Read.All / Sites.Read.All).
+   */
+  private async buildConversationAttachments(
+    token: string,
+    raw: GraphChatMessageAttachment[],
+  ): Promise<ConversationAttachment[]> {
+    const out: ConversationAttachment[] = [];
+    for (const att of raw) {
+      const name = (att.name?.trim() || 'attachment').replace(/[/\\]/g, '_');
+      const ct = att.contentType ?? '';
+      if (ct.includes('vnd.microsoft.card') || ct === 'forwardedMessageReference') continue;
+
+      const mimeType = this.normalizeMimeFromAttachment(att.contentType, name);
+
+      try {
+        if (att.contentUrl) {
+          const res = await fetch(att.contentUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) {
+            console.warn(`[GraphChat] Could not download attachment "${name}" (${res.status})`);
+            continue;
+          }
+          const buf = await res.arrayBuffer();
+          if (buf.byteLength > MAX_ATTACHMENT_BYTES) {
+            console.warn(`[GraphChat] Attachment too large, skipping: ${name}`);
+            continue;
+          }
+          out.push({
+            name,
+            mimeType,
+            data: Buffer.from(buf).toString('base64'),
+          });
+          continue;
+        }
+
+        if (
+          att.content
+          && att.content.length > 200
+          && /^[A-Za-z0-9+/=\r\n]+$/.test(att.content.slice(0, 500))
+        ) {
+          const data = att.content.replace(/\s/g, '');
+          const estBytes = (data.length * 3) / 4;
+          if (estBytes <= MAX_ATTACHMENT_BYTES) {
+            out.push({ name, mimeType, data });
+          }
+        }
+      } catch (e) {
+        console.warn(`[GraphChat] Attachment error for ${name}: ${(e as Error).message}`);
+      }
+    }
+    return out;
   }
 
   /**

@@ -408,12 +408,24 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
     agentRole: string,
     message: string,
     history: { role: 'user' | 'agent'; content: string }[],
+    fileAttachments?: Attachment[],
   ): Promise<{ agentRole: string; content: string; actions?: ActionReceipt[] }> => {
     try {
+      const apiAttachments = fileAttachments?.length
+        ? fileAttachments.map((a) => ({ name: a.name, mimeType: a.type, data: a.data }))
+        : undefined;
       const res = await fetch(`${SCHEDULER_URL}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentRole, task: 'on_demand', message, history, userName: user?.name, userEmail: (user?.email ?? '').toLowerCase() }),
+        body: JSON.stringify({
+          agentRole,
+          task: 'on_demand',
+          message,
+          history,
+          userName: user?.name,
+          userEmail: (user?.email ?? '').toLowerCase(),
+          ...(apiAttachments ? { attachments: apiAttachments } : {}),
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -523,22 +535,8 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
     for (const role of mentionedRoles) effectiveRoles.add(role);
     const roles = Array.from(effectiveRoles);
 
-    // Build full message with file contents
-    let fullMessage = text;
-    if (attachments?.length) {
-      const parts = attachments.map((a) => {
-        if (a.type.startsWith('image/')) return `[Attached image: ${a.name}]`;
-        if (['text/plain', 'text/csv', 'text/markdown', 'application/json'].includes(a.type)) {
-          try {
-            const decoded = atob(a.data);
-            const content = decoded.length > 8000 ? decoded.slice(0, 8000) + '\n...(truncated)' : decoded;
-            return `[File: ${a.name}]\n\`\`\`\n${content}\n\`\`\``;
-          } catch { return `[Attached file: ${a.name} (${a.type})]`; }
-        }
-        return `[Attached file: ${a.name} (${a.type})]`;
-      });
-      fullMessage = `${text}\n\n${parts.join('\n\n')}`;
-    }
+    // User-visible text; binary/docs go via multimodal `attachments` on /run (same as 1:1 Chat)
+    const userLine = text.trim() || (attachments?.length ? 'Please review the attached file(s).' : '');
 
     // Sequential round: each agent sees previous agents' responses
     const groupContext = buildGroupContext(roles);
@@ -547,7 +545,12 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
     for (const agentRole of roles) {
       setRespondingAgents(new Set([agentRole]));
       const history = buildHistory(runningMessages);
-      const result = await callAgent(agentRole, `${groupContext}\n\n${fullMessage}`, history);
+      const result = await callAgent(
+        agentRole,
+        `${groupContext}\n\n${userLine}`,
+        history,
+        attachments,
+      );
       const agentMsg: GroupMessage = {
         role: 'agent',
         agentRole: result.agentRole,
