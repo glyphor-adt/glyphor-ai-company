@@ -389,6 +389,8 @@ These appear as extra requirement rows in the Governance **Autonomy** detail pan
 - `GET /admin/metrics/quality-overview?window=30` — planning-gate rollup plus `goldenEvalByRole` for fleet quality visibility
 - `GET /admin/metrics/planning-strictness-sim?window=30&passRateMin=0.85` — lists roles whose gate pass rate would fall below a hypothetical minimum (what-if for stricter policies)
 
+**Dashboard:** Governance → **Reliability** includes a **Stage 4 — Fleet quality** card that calls these endpoints (joined role table + strictness control).
+
 ## Rollback Plan
 
 - Immediate tracing rollback:

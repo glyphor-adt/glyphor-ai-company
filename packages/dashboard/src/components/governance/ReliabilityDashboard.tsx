@@ -120,6 +120,30 @@ interface PlanningGateRoleAnomaly {
   dropPp: number | null;
 }
 
+interface GoldenEvalRoleRateRow {
+  agentRole: string;
+  total: number;
+  passed: number;
+  passRate: number;
+}
+
+interface QualityOverviewPayload {
+  windowDays: number;
+  planningGate: PlanningGateSnapshot;
+  goldenEvalByRole: GoldenEvalRoleRateRow[];
+  generatedAt: string;
+}
+
+interface StrictnessSimPayload {
+  windowDays: number;
+  passRateMin: number;
+  fleetPassRate: number;
+  rolesEvaluated: number;
+  rolesFailingCount: number;
+  rolesFailing: Array<{ role: string; passRate: number; denominator: number }>;
+  generatedAt: string;
+}
+
 interface PlanningGateHealthPayload {
   status: 'green' | 'yellow' | 'red';
   evaluatedAt: string;
@@ -174,6 +198,36 @@ function isPlanningGateHealthPayload(value: unknown): value is PlanningGateHealt
   if (!Array.isArray(report.alerts)) return false;
   if (!Array.isArray(report.roleAnomalies)) return false;
   return true;
+}
+
+function isGoldenEvalRoleRateRow(value: unknown): value is GoldenEvalRoleRateRow {
+  if (!isRecord(value)) return false;
+  return typeof value.agentRole === 'string'
+    && typeof value.total === 'number'
+    && typeof value.passed === 'number'
+    && typeof value.passRate === 'number';
+}
+
+function isQualityOverviewPayload(value: unknown): value is QualityOverviewPayload {
+  if (!isRecord(value)) return false;
+  if (typeof value.windowDays !== 'number' || typeof value.generatedAt !== 'string') return false;
+  if (!isPlanningGateSnapshot(value.planningGate as unknown)) return false;
+  if (!Array.isArray(value.goldenEvalByRole)) return false;
+  return value.goldenEvalByRole.every(isGoldenEvalRoleRateRow);
+}
+
+function isStrictnessSimPayload(value: unknown): value is StrictnessSimPayload {
+  if (!isRecord(value)) return false;
+  if (typeof value.windowDays !== 'number' || typeof value.passRateMin !== 'number') return false;
+  if (typeof value.fleetPassRate !== 'number' || typeof value.rolesEvaluated !== 'number') return false;
+  if (typeof value.rolesFailingCount !== 'number' || typeof value.generatedAt !== 'string') return false;
+  if (!Array.isArray(value.rolesFailing)) return false;
+  return value.rolesFailing.every(
+    (row) => isRecord(row)
+      && typeof row.role === 'string'
+      && typeof row.passRate === 'number'
+      && typeof row.denominator === 'number',
+  );
 }
 
 async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<PlanningGateSnapshot> {
@@ -315,6 +369,9 @@ export default function ReliabilityDashboard() {
   const [planningGateHealth, setPlanningGateHealth] = useState<PlanningGateHealthPayload | null>(null);
   const [goldenRunBusy, setGoldenRunBusy] = useState(false);
   const [goldenRunHint, setGoldenRunHint] = useState<string | null>(null);
+  const [qualityOverview, setQualityOverview] = useState<QualityOverviewPayload | null>(null);
+  const [strictnessSim, setStrictnessSim] = useState<StrictnessSimPayload | null>(null);
+  const [strictnessPassRateMin, setStrictnessPassRateMin] = useState(0.85);
 
   useEffect(() => {
     let active = true;
@@ -338,7 +395,7 @@ export default function ReliabilityDashboard() {
           },
           roles: [],
         };
-        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug, gateHealth] = await Promise.all([
+        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug, gateHealth, qualityOv] = await Promise.all([
           fetchMetricWithFallback<FleetMetricsSnapshot>(
             `/admin/metrics/fleet?window=${windowDays}`,
             (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
@@ -366,6 +423,10 @@ export default function ReliabilityDashboard() {
             '/admin/metrics/planning-gate-health',
             isPlanningGateHealthPayload,
           ).catch(() => null),
+          fetchMetricWithFallback<QualityOverviewPayload>(
+            `/admin/metrics/quality-overview?window=${windowDays}`,
+            isQualityOverviewPayload,
+          ).catch(() => null),
         ]);
 
         if (!active) return;
@@ -378,6 +439,7 @@ export default function ReliabilityDashboard() {
         setPlanningGate30d(planningGateMonth ?? { ...emptyPlanningGate, windowDays: 30 });
         setEvalSuggestions(evalSug);
         setPlanningGateHealth(gateHealth);
+        setQualityOverview(qualityOv);
       } catch (error) {
         if (!active) return;
         setPlanningGate({
@@ -400,6 +462,7 @@ export default function ReliabilityDashboard() {
         setPlanningGate30d(null);
         setEvalSuggestions(null);
         setPlanningGateHealth(null);
+        setQualityOverview(null);
         console.warn('[ReliabilityDashboard] Failed to load metrics:', error);
       } finally {
         if (active) setLoading(false);
@@ -429,7 +492,7 @@ export default function ReliabilityDashboard() {
         },
         roles: [],
       };
-      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug, gateHealth] = await Promise.all([
+      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug, gateHealth, qualityOv, strictness] = await Promise.all([
         fetchMetricWithFallback<FleetMetricsSnapshot>(
           `/admin/metrics/fleet?window=${windowDays}`,
           (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
@@ -457,6 +520,14 @@ export default function ReliabilityDashboard() {
           '/admin/metrics/planning-gate-health',
           isPlanningGateHealthPayload,
         ).catch(() => null),
+        fetchMetricWithFallback<QualityOverviewPayload>(
+          `/admin/metrics/quality-overview?window=${windowDays}`,
+          isQualityOverviewPayload,
+        ).catch(() => null),
+        fetchMetricWithFallback<StrictnessSimPayload>(
+          `/admin/metrics/planning-strictness-sim?window=${windowDays}&passRateMin=${strictnessPassRateMin}`,
+          isStrictnessSimPayload,
+        ).catch(() => null),
       ]);
       setFleet(fleetCurrent);
       setFleetMonth(fleetThirty);
@@ -467,6 +538,8 @@ export default function ReliabilityDashboard() {
       setPlanningGate30d(planningGateMonth ?? { ...emptyPlanningGate, windowDays: 30 });
       setEvalSuggestions(evalSug);
       setPlanningGateHealth(gateHealth);
+      setQualityOverview(qualityOv);
+      setStrictnessSim(strictness);
     } catch (error) {
       console.warn('[ReliabilityDashboard] Refresh failed:', error);
     } finally {
@@ -474,10 +547,55 @@ export default function ReliabilityDashboard() {
     }
   };
 
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await fetchMetricWithFallback<StrictnessSimPayload>(
+          `/admin/metrics/planning-strictness-sim?window=${windowDays}&passRateMin=${strictnessPassRateMin}`,
+          isStrictnessSimPayload,
+        );
+        if (!cancelled) setStrictnessSim(data);
+      } catch {
+        if (!cancelled) setStrictnessSim(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [windowDays, strictnessPassRateMin]);
+
   const newEvalSuggestionCount = useMemo(
     () => evalSuggestions?.suggestions.filter((s) => !s.scenarioAlreadyExists).length ?? 0,
     [evalSuggestions],
   );
+
+  const stage4GoldenFleetTotals = useMemo(() => {
+    const rows = qualityOverview?.goldenEvalByRole ?? [];
+    const total = rows.reduce((sum, row) => sum + row.total, 0);
+    const passed = rows.reduce((sum, row) => sum + row.passed, 0);
+    return { total, passed, rate: total > 0 ? passed / total : null };
+  }, [qualityOverview]);
+
+  const stage4QualityJoinRows = useMemo(() => {
+    if (!qualityOverview) return [];
+    const gateByRole = new Map(qualityOverview.planningGate.roles.map((r) => [r.role, r]));
+    const goldenByRole = new Map(qualityOverview.goldenEvalByRole.map((g) => [g.agentRole, g]));
+    const roles = new Set([...gateByRole.keys(), ...goldenByRole.keys()]);
+    return Array.from(roles)
+      .map((role) => {
+        const g = gateByRole.get(role);
+        const gold = goldenByRole.get(role);
+        const gateDenom = g ? (g.runsWithPlanning > 0 ? g.runsWithPlanning : g.runsObserved) : 0;
+        return {
+          role,
+          gatePass: g?.passRate ?? null,
+          gateDenom,
+          goldenPass: gold ? gold.passRate : null,
+          goldenTotal: gold?.total ?? 0,
+        };
+      })
+      .filter((row) => row.gateDenom > 0 || row.goldenTotal > 0)
+      .sort((a, b) => a.role.localeCompare(b.role));
+  }, [qualityOverview]);
 
   const runGoldenSuiteNow = async () => {
     setGoldenRunBusy(true);
@@ -824,6 +942,125 @@ export default function ReliabilityDashboard() {
           {goldenRunHint ? (
             <span className="max-w-xl text-[11px] text-txt-muted">{goldenRunHint}</span>
           ) : null}
+        </div>
+      </Card>
+
+      <Card>
+        <SectionHeader
+          title="Stage 4 — Fleet quality (autonomy signals)"
+          subtitle="GET /admin/metrics/quality-overview joins planning-gate telemetry with golden eval PASS rates by role (same signals as the Governance Autonomy composite). Per-agent ceilings and optional threshold metadata live under Governance → Autonomy."
+        />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl theme-glass-panel-soft p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-txt-muted">Fleet gate pass</p>
+            <p className="mt-1 text-lg font-semibold text-txt-primary">
+              {qualityOverview ? formatPercent(qualityOverview.planningGate.totals.passRate) : '—'}
+            </p>
+            <p className="mt-1 text-[11px] text-txt-muted">From quality-overview snapshot</p>
+          </div>
+          <div className="rounded-xl theme-glass-panel-soft p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-txt-muted">Golden eval (fleet)</p>
+            <p className="mt-1 text-lg font-semibold text-txt-primary">
+              {stage4GoldenFleetTotals.rate != null ? formatPercent(stage4GoldenFleetTotals.rate) : '—'}
+            </p>
+            <p className="mt-1 text-[11px] text-txt-muted">
+              {stage4GoldenFleetTotals.total > 0
+                ? `${stage4GoldenFleetTotals.passed} / ${stage4GoldenFleetTotals.total} PASS (golden:%)`
+                : 'No golden results in window'}
+            </p>
+          </div>
+          <div className="rounded-xl theme-glass-panel-soft p-3 sm:col-span-2">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-txt-muted">Strictness simulation</p>
+            <p className="mt-1 text-[12px] text-txt-secondary">
+              Roles below a hypothetical minimum gate pass rate (planning-weighted denominator).
+            </p>
+            <label className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-txt-secondary">
+              <span className="whitespace-nowrap">Min pass rate</span>
+              <input
+                type="number"
+                min={0.5}
+                max={0.99}
+                step={0.01}
+                value={strictnessPassRateMin}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  if (Number.isFinite(next)) {
+                    setStrictnessPassRateMin(Math.min(0.99, Math.max(0.5, next)));
+                  }
+                }}
+                className="w-24 rounded-lg border border-border bg-transparent px-2 py-1 text-txt-primary outline-none focus:border-prism-sky/50"
+              />
+              <span className="text-txt-muted">
+                → failing roles:{' '}
+                <strong className="text-txt-primary">{strictnessSim?.rolesFailingCount ?? '—'}</strong>
+                {' / '}
+                {strictnessSim?.rolesEvaluated ?? '—'} evaluated
+              </span>
+            </label>
+            <p className="mt-1 text-[11px] text-txt-muted">
+              {strictnessSim
+                ? `Fleet pass ${formatPercent(strictnessSim.fleetPassRate)} · sim at ${formatDateTime(strictnessSim.generatedAt)}`
+                : 'Loading simulation…'}
+            </p>
+          </div>
+        </div>
+        {strictnessSim && strictnessSim.rolesFailing.length > 0 ? (
+          <div className="mt-4 overflow-x-auto">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-txt-muted">Roles under simulated bar</p>
+            <table className="min-w-full text-left text-[12px] text-txt-secondary">
+              <thead>
+                <tr className="border-b border-border/70 text-[11px] uppercase tracking-[0.16em] text-txt-muted">
+                  <th className="px-3 py-2 font-medium">Role</th>
+                  <th className="px-3 py-2 font-medium">Pass rate</th>
+                  <th className="px-3 py-2 font-medium">Denominator</th>
+                </tr>
+              </thead>
+              <tbody>
+                {strictnessSim.rolesFailing.map((row) => (
+                  <tr key={row.role} className="border-b border-border/50">
+                    <td className="px-3 py-2 text-txt-primary">{row.role}</td>
+                    <td className="px-3 py-2">{formatPercent(row.passRate)}</td>
+                    <td className="px-3 py-2">{formatNumber(row.denominator, 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+        <p className="mt-3 text-[11px] text-txt-muted">
+          Quality overview generated {qualityOverview ? formatDateTime(qualityOverview.generatedAt) : '—'} · window {qualityOverview?.windowDays ?? windowDays}d
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-left text-[12px] text-txt-secondary">
+            <thead>
+              <tr className="border-b border-border/70 text-[11px] uppercase tracking-[0.16em] text-txt-muted">
+                <th className="px-3 py-3 font-medium">Role</th>
+                <th className="px-3 py-3 font-medium">Gate pass</th>
+                <th className="px-3 py-3 font-medium">Gate n</th>
+                <th className="px-3 py-3 font-medium">Golden pass</th>
+                <th className="px-3 py-3 font-medium">Golden n</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!stage4QualityJoinRows.length ? (
+                <tr>
+                  <td className="px-3 py-3 text-txt-muted" colSpan={5}>
+                    {qualityOverview ? 'No overlapping gate or golden data in this window.' : 'Load metrics to populate Stage 4 quality overview.'}
+                  </td>
+                </tr>
+              ) : (
+                stage4QualityJoinRows.map((row) => (
+                  <tr key={row.role} className="border-b border-border/50 align-top hover:bg-white/5">
+                    <td className="px-3 py-3 text-txt-primary">{row.role}</td>
+                    <td className="px-3 py-3">{row.gatePass != null ? formatPercent(row.gatePass) : '—'}</td>
+                    <td className="px-3 py-3">{row.gateDenom > 0 ? formatNumber(row.gateDenom, 0) : '—'}</td>
+                    <td className="px-3 py-3">{row.goldenTotal > 0 && row.goldenPass != null ? formatPercent(row.goldenPass) : '—'}</td>
+                    <td className="px-3 py-3">{row.goldenTotal > 0 ? formatNumber(row.goldenTotal, 0) : '—'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </Card>
 
