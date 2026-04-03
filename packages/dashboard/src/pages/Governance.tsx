@@ -875,6 +875,7 @@ export default function Governance() {
     capacityTier: AgentCapacityConfig['capacityTier'];
     requiresHumanApprovalFor: string[];
     overrideByRoles: string[];
+    metadata: Record<string, unknown>;
   }) => {
     if (!selectedAgentId) return;
     setSavingCapacity(true);
@@ -885,6 +886,7 @@ export default function Governance() {
           capacityTier: input.capacityTier,
           requiresHumanApprovalFor: input.requiresHumanApprovalFor,
           overrideByRoles: input.overrideByRoles,
+          metadata: input.metadata,
           updatedBy: user?.email ?? 'dashboard',
         }),
       });

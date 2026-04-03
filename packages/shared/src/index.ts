@@ -34,6 +34,9 @@ export type {
   UpsertAgentCapacityInput,
 } from './agentCapacity.js';
 
+export { classifyActionRisk } from './actionRiskClassifier.js';
+export type { ActionRiskLevel, ActionRiskAssessment } from './actionRiskClassifier.js';
+
 export {
   getAutonomyLevels,
   getAutonomyThresholds,

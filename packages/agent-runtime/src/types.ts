@@ -6,6 +6,10 @@
  * Added: company memory contract, decision tiers, briefing types
  */
 
+import type { ActionRiskLevel } from '@glyphor/shared';
+
+export type { ActionRiskLevel };
+
 // ═══════════════════════════════════════════════════════════════════
 // AGENT DEFINITION
 // ═══════════════════════════════════════════════════════════════════
@@ -264,8 +268,6 @@ export interface PredictionJournalRecord {
   created_at?: string;
   resolved_at?: string | null;
 }
-
-export type ActionRiskLevel = 'AUTONOMOUS' | 'SOFT_GATE' | 'HARD_GATE';
 
 // ═══════════════════════════════════════════════════════════════════
 // CONVERSATION

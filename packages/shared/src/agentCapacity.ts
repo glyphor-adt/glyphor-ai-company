@@ -1,4 +1,5 @@
 import { systemQuery, systemTransaction } from './db.js';
+import { classifyActionRisk } from './actionRiskClassifier.js';
 
 export type CapacityTier = 'observe' | 'draft' | 'execute' | 'commit';
 export type CommitmentRegistryStatus = 'pending_approval' | 'approved' | 'rejected' | 'executed' | 'reversed';
@@ -190,6 +191,12 @@ function normalizeCommitmentEntry(row: CommitmentRegistryRecord): CommitmentRegi
 
 function matchesPrefix(value: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => value.startsWith(prefix));
+}
+
+/** When true, execute tier requires approval for every SOFT_GATE-classified tool (not only the explicit list). */
+function metadataStrictSoftGateApproval(meta: Record<string, unknown>): boolean {
+  const v = meta.strict_soft_gate_approval ?? meta.strictSoftGateApproval;
+  return v === true || v === 'true' || v === 1;
 }
 
 function extractToolName(action: CapacityEnforcementAction): string {
@@ -587,6 +594,7 @@ export async function enforceCapacityTier(agentId: string, action: CapacityEnfor
   }
 
   const traits = deriveActionTraits(action);
+  const risk = classifyActionRisk(traits.toolName);
   const metadata = config.metadata ?? {};
   const thresholdRaw = Number(metadata.commit_value_threshold ?? DEFAULT_COMMIT_THRESHOLD_USD);
   const threshold = Number.isFinite(thresholdRaw) ? thresholdRaw : DEFAULT_COMMIT_THRESHOLD_USD;
@@ -601,6 +609,12 @@ export async function enforceCapacityTier(agentId: string, action: CapacityEnfor
 
   switch (config.capacityTier) {
     case 'observe':
+      if (risk.level !== 'AUTONOMOUS') {
+        proceed = false;
+        requiresApproval = true;
+        reason = `Observe tier permits only autonomous-risk tools. ${traits.toolName} is classified ${risk.level}.`;
+        break;
+      }
       if (!traits.readOnly) {
         proceed = false;
         requiresApproval = true;
@@ -619,6 +633,10 @@ export async function enforceCapacityTier(agentId: string, action: CapacityEnfor
         proceed = false;
         requiresApproval = true;
         reason = `Execute tier requires human approval for action ${action.type} under this agent's policy.`;
+      } else if (metadataStrictSoftGateApproval(metadata) && risk.level === 'SOFT_GATE') {
+        proceed = false;
+        requiresApproval = true;
+        reason = `Execute tier policy requires human approval for soft-gate tools (${traits.toolName}).`;
       }
       break;
     case 'commit':
@@ -653,6 +671,7 @@ export async function enforceCapacityTier(agentId: string, action: CapacityEnfor
           apiCommit: traits.apiCommit,
           paymentCall: traits.paymentCall,
           externalCommitment: traits.externalCommitment,
+          actionRiskLevel: risk.level,
         },
       },
     });

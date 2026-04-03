@@ -30,6 +30,8 @@ interface AuthorityControlProps {
     capacityTier: CapacityTier;
     requiresHumanApprovalFor: string[];
     overrideByRoles: string[];
+    /** Merged capacity metadata (preserves role defaults; include strict_soft_gate_approval when saving). */
+    metadata: Record<string, unknown>;
   }) => Promise<void>;
   onApproveCommitment: (id: string) => Promise<void>;
   onRejectCommitment: (id: string, reason: string) => Promise<void>;
@@ -165,6 +167,7 @@ export default function AuthorityControl({
   const [capacityTier, setCapacityTier] = useState<CapacityTier>('execute');
   const [requiresApprovalText, setRequiresApprovalText] = useState('');
   const [overrideRolesText, setOverrideRolesText] = useState('');
+  const [strictSoftGateApproval, setStrictSoftGateApproval] = useState(false);
   const [actionReasons, setActionReasons] = useState<Record<string, string>>({});
 
   const sortedAgents = useMemo(
@@ -186,6 +189,9 @@ export default function AuthorityControl({
     setCapacityTier(capacityConfig.capacityTier);
     setRequiresApprovalText(listToMultiline(capacityConfig.requiresHumanApprovalFor));
     setOverrideRolesText(listToMultiline(capacityConfig.overrideByRoles));
+    const m = capacityConfig.metadata ?? {};
+    const flag = m.strict_soft_gate_approval ?? m.strictSoftGateApproval;
+    setStrictSoftGateApproval(flag === true || flag === 'true' || flag === 1);
   }, [capacityConfig]);
 
   if (!sortedAgents.length) {
@@ -294,7 +300,23 @@ export default function AuthorityControl({
                 />
               </label>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 bg-transparent p-3 text-[12px] text-txt-secondary">
+                <input
+                  type="checkbox"
+                  checked={strictSoftGateApproval}
+                  onChange={(event) => setStrictSoftGateApproval(event.target.checked)}
+                  disabled={!isAdmin || savingCapacity}
+                  className="mt-0.5 h-4 w-4 rounded border-border text-prism-sky focus:ring-prism-sky/40 disabled:opacity-60"
+                />
+                <span>
+                  <span className="font-medium text-txt-primary">Strict soft-gate approval</span>
+                  <span className="mt-1 block text-txt-muted">
+                    When the agent is on the Execute tier, require human approval for every tool classified as soft-gate risk (not only the explicit list above).
+                  </span>
+                </span>
+              </label>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
                 <div className="rounded-xl theme-glass-panel p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-txt-muted">Role Category</p>
                   <p className="mt-2 text-sm font-semibold text-txt-primary">{formatMetadataValue(selectedMetadata.role_category)}</p>
@@ -306,6 +328,12 @@ export default function AuthorityControl({
                 <div className="rounded-xl theme-glass-panel p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-txt-muted">Dual Approval</p>
                   <p className="mt-2 text-sm font-semibold text-txt-primary">{formatMetadataValue(selectedMetadata.commit_requires_dual_approval)}</p>
+                </div>
+                <div className="rounded-xl theme-glass-panel p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-txt-muted">Strict Soft-Gate</p>
+                  <p className="mt-2 text-sm font-semibold text-txt-primary">
+                    {formatMetadataValue(selectedMetadata.strict_soft_gate_approval ?? selectedMetadata.strictSoftGateApproval)}
+                  </p>
                 </div>
                 <div className="rounded-xl theme-glass-panel p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-txt-muted">Updated</p>
@@ -320,6 +348,10 @@ export default function AuthorityControl({
                     capacityTier,
                     requiresHumanApprovalFor: splitListInput(requiresApprovalText),
                     overrideByRoles: splitListInput(overrideRolesText),
+                    metadata: {
+                      ...selectedMetadata,
+                      strict_soft_gate_approval: strictSoftGateApproval,
+                    },
                   })}
                   disabled={!isAdmin || savingCapacity}
                   size="md"
@@ -332,6 +364,9 @@ export default function AuthorityControl({
                     setCapacityTier(capacityConfig.capacityTier);
                     setRequiresApprovalText(listToMultiline(capacityConfig.requiresHumanApprovalFor));
                     setOverrideRolesText(listToMultiline(capacityConfig.overrideByRoles));
+                    const m = capacityConfig.metadata ?? {};
+                    const flag = m.strict_soft_gate_approval ?? m.strictSoftGateApproval;
+                    setStrictSoftGateApproval(flag === true || flag === 'true' || flag === 1);
                   }}
                   disabled={savingCapacity}
                 >
