@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, SectionHeader, Skeleton } from '../ui';
-import { apiCall } from '../../lib/firebase';
+import { apiCall, SCHEDULER_URL } from '../../lib/firebase';
 
 interface FleetLeaderMetric {
   agentId: string;
@@ -79,6 +79,48 @@ interface PlanningGateSnapshot {
     passRate: number;
   };
   roles: PlanningGateRoleSummary[];
+}
+
+function isPlanningGateSnapshot(value: unknown): value is PlanningGateSnapshot {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  const totals = record.totals;
+  return Boolean(
+    typeof record.windowDays === 'number'
+    && totals
+    && typeof totals === 'object'
+    && Array.isArray(record.roles),
+  );
+}
+
+async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<PlanningGateSnapshot> {
+  const path = `/admin/metrics/planning-gate?window=${windowDays}`;
+
+  // Primary path: existing API client (keeps auth/header behavior).
+  try {
+    const response = await apiCall<PlanningGateSnapshot>(path);
+    if (isPlanningGateSnapshot(response)) return response;
+  } catch {
+    // Fall through to direct scheduler fetch.
+  }
+
+  // Fallback path: direct scheduler origin to bypass miswired API base/proxy.
+  const schedulerBase = (SCHEDULER_URL ?? '').trim();
+  if (!schedulerBase) {
+    throw new Error('Planning gate metrics unavailable: scheduler URL not configured');
+  }
+  const response = await fetch(`${schedulerBase}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    throw new Error(`Planning gate metrics unavailable: ${response.status} ${response.statusText}`);
+  }
+  const data = await response.json();
+  if (!isPlanningGateSnapshot(data)) {
+    throw new Error('Planning gate metrics unavailable: invalid response payload');
+  }
+  return data;
 }
 
 type SortKey = keyof Pick<AgentMetricsSnapshot,
@@ -160,9 +202,9 @@ export default function ReliabilityDashboard() {
           apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30'),
           apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`),
           apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12'),
-          apiCall<PlanningGateSnapshot>(`/admin/metrics/planning-gate?window=${windowDays}`),
-          apiCall<PlanningGateSnapshot>('/admin/metrics/planning-gate?window=7'),
-          apiCall<PlanningGateSnapshot>('/admin/metrics/planning-gate?window=30'),
+          fetchPlanningGateSnapshot(windowDays),
+          fetchPlanningGateSnapshot(7),
+          fetchPlanningGateSnapshot(30),
         ]);
 
         if (!active) return;
@@ -190,9 +232,9 @@ export default function ReliabilityDashboard() {
         apiCall<FleetMetricsSnapshot>('/admin/metrics/fleet?window=30'),
         apiCall<{ windowDays: number; agents: AgentMetricsSnapshot[] }>(`/admin/metrics/agents?window=${windowDays}`),
         apiCall<{ items: ExceptionLogEntry[] }>('/admin/metrics/exceptions?pageSize=12'),
-        apiCall<PlanningGateSnapshot>(`/admin/metrics/planning-gate?window=${windowDays}`),
-        apiCall<PlanningGateSnapshot>('/admin/metrics/planning-gate?window=7'),
-        apiCall<PlanningGateSnapshot>('/admin/metrics/planning-gate?window=30'),
+        fetchPlanningGateSnapshot(windowDays),
+        fetchPlanningGateSnapshot(7),
+        fetchPlanningGateSnapshot(30),
       ]);
       setFleet(fleetCurrent);
       setFleetMonth(fleetThirty);
