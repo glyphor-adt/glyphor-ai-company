@@ -43,6 +43,8 @@ This runbook covers safe rollout of the new runtime hook framework and trace spa
   - `PLANNING_GATE_ALERT_MIN_PLANNED_RUNS` (default `10`)
   - `PLANNING_GATE_ALERT_PASS_RATE_MIN` (default `0.70`)
   - `PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD` (default `2`)
+- `PLANNING_GATE_EVAL_APPLY_ENABLED` (scheduler only)
+  - When **not** `false`, allows `POST /admin/metrics/planning-gate-eval-suggestions/apply` and the dashboard **Add … to eval suite** button to insert new `golden:from-gate:*` rows into `agent_eval_scenarios`. Set to `false` to block automated inserts.
 
 ## Planning Gate Ops (Canary + Prod)
 
@@ -59,6 +61,7 @@ PLANNING_GATE_ALERT_WINDOW_DAYS=30
 PLANNING_GATE_ALERT_MIN_PLANNED_RUNS=10
 PLANNING_GATE_ALERT_PASS_RATE_MIN=0.70
 PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD=2
+PLANNING_GATE_EVAL_APPLY_ENABLED=true
 ```
 
 - Production baseline (after canary is stable):
@@ -70,6 +73,7 @@ PLANNING_GATE_ALERT_WINDOW_DAYS=30
 PLANNING_GATE_ALERT_MIN_PLANNED_RUNS=20
 PLANNING_GATE_ALERT_PASS_RATE_MIN=0.75
 PLANNING_GATE_ALERT_MAX_RETRY_THRESHOLD=2
+PLANNING_GATE_EVAL_APPLY_ENABLED=true
 ```
 
 ### Verification Checklist
