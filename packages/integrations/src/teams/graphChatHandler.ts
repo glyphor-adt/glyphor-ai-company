@@ -14,6 +14,8 @@
  *
  * Required Entra ID permissions (Application):
  *   - Chat.ReadWrite.All: Read/write all chats
+ *   - Files.Read.All, Sites.Read.All: download chat attachment contentUrl
+ *   - Files.ReadWrite.All: recommended for GET /shares/{token}/driveItem on links pasted in the message body
  *
  * References:
  *   https://learn.microsoft.com/en-us/graph/api/subscription-post-subscriptions
@@ -30,6 +32,8 @@ import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import type { GraphTeamsClient } from './graphClient.js';
 import type { A365TeamsChatClient } from '../agent365/teamsChatClient.js';
 import { formatTeamsMessage, markdownToTeamsHtml } from './messageFormatter.js';
+import { refineOoxmlFromZipBuffer } from './ooxmlRefine.js';
+import { downloadAttachmentsFromSharePointLinksInBody } from './sharePointLinkDownload.js';
 
 // ─── TYPES ──────────────────────────────────────────────────────
 
@@ -128,41 +132,23 @@ const DEDUP_CLEANUP_INTERVAL = 60 * 1000;
 /** Max decoded size per Teams file attachment forwarded to the model */
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
-/** Teams / Graph sometimes returns generic MIME or names without extension; OOXML zips embed path hints. */
-function refineOoxmlFromZipBuffer(
-  name: string,
-  mimeType: string,
-  buf: ArrayBuffer,
-): { name: string; mimeType: string } {
-  const b = Buffer.from(buf);
-  if (b.length < 4 || b[0] !== 0x50 || b[1] !== 0x4b) {
-    return { name, mimeType };
-  }
-  let kind: 'pptx' | 'docx' | 'xlsx' | null = null;
-  if (b.includes(Buffer.from('ppt/slides/slide')) || b.includes(Buffer.from('ppt/presentation.xml'))) {
-    kind = 'pptx';
-  } else if (b.includes(Buffer.from('word/document.xml'))) {
-    kind = 'docx';
-  } else if (b.includes(Buffer.from('xl/workbook.xml'))) {
-    kind = 'xlsx';
-  }
-  if (!kind) return { name, mimeType };
+const MAX_SHAREPOINT_LINK_DOWNLOADS = 2;
 
-  const mimeByKind: Record<'pptx' | 'docx' | 'xlsx', string> = {
-    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  };
-  const ext = `.${kind}`;
-  const hasOfficeExt = /\.(pptx|docx|xlsx|ppt|doc|xls)$/i.test(name);
-  const nextName = hasOfficeExt ? name : `${name}${ext}`;
-  const vagueMime =
-    mimeType === 'application/octet-stream' ||
-    mimeType === 'binary/octet-stream' ||
-    mimeType === '' ||
-    mimeType === 'reference';
-  const nextMime = vagueMime ? mimeByKind[kind] : mimeType;
-  return { name: nextName, mimeType: nextMime };
+function mergeConversationAttachments(
+  primary: ConversationAttachment[],
+  secondary: ConversationAttachment[],
+): ConversationAttachment[] {
+  const key = (x: ConversationAttachment) => ;
+  const seen = new Set(primary.map(key));
+  const out = [...primary];
+  for (const x of secondary) {
+    const k = key(x);
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(x);
+    }
+  }
+  return out;
 }
 
 export class GraphChatHandler {
@@ -287,7 +273,17 @@ export class GraphChatHandler {
     const senderName = message.from?.user?.displayName ?? 'Unknown';
     const messageText = this.extractText(message);
     const graphAtt = await this.resolveMessageAttachments(token, chatId, messageId, message);
-    const attachments = await this.buildConversationAttachments(token, graphAtt);
+    let attachments = await this.buildConversationAttachments(token, graphAtt);
+    const linkSource = `${message.body.content}\n${messageText}`;
+    if (linkSource.includes('sharepoint.com')) {
+      const fromLinks = await downloadAttachmentsFromSharePointLinksInBody(
+        token,
+        linkSource,
+        MAX_ATTACHMENT_BYTES,
+        MAX_SHAREPOINT_LINK_DOWNLOADS,
+      );
+      attachments = mergeConversationAttachments(attachments, fromLinks);
+    }
     if (!messageText.trim() && attachments.length === 0) return;
 
     // Resolve sender email from Graph to identify founders

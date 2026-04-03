@@ -391,6 +391,34 @@ These appear as extra requirement rows in the Governance **Autonomy** detail pan
 
 **Dashboard:** Governance → **Reliability** includes a **Stage 4 — Fleet quality** card that calls these endpoints (joined role table + strictness control).
 
+## Stage 5 — Cost, latency, and quality (joint optimization view)
+
+Stage 5 closes the loop on the Stage 4 ladder line about **cost / latency / quality** with **decision-grade aggregates** (not new runtime hooks).
+
+**Data sources**
+
+- **Economics:** `agent_runs` — `total_cost_usd` / legacy `cost`, `duration_ms` or `completed_at - started_at` for latency percentiles.
+- **Quality:** same planning-gate and golden eval rollups as Stage 4 (merged per role in one payload).
+
+**API (scheduler)**
+
+- `GET /admin/metrics/economics-quality-overview?window=30` — fleet summary + per-role table + optional **guardrail alerts** (see env vars below).
+
+**Optional guardrails (scheduler env)** — when set to a finite number, the API adds human-readable strings to `alerts` if breached:
+
+| Variable | Meaning |
+| --- | --- |
+| `ECONOMICS_ALERT_MAX_AVG_COST_USD_PER_COMPLETED_RUN` | Fleet weighted avg USD per completed run |
+| `ECONOMICS_ALERT_P95_LATENCY_MINUTES` | Fleet P95 completed-run latency (minutes) |
+| `ECONOMICS_ALERT_MIN_RUN_COMPLETION_RATE` | Fleet ratio completed / terminal `agent_runs` (0–1) |
+| `ECONOMICS_ALERT_MIN_GATE_PASS_RATE` | Fleet completion-gate pass rate (0–1), same denominator as planning-gate totals |
+
+Alerts are **advisory** (returned in JSON); wire your own paging or cron if you want incidents.
+
+**Dashboard:** Governance → **Reliability** → **Stage 5 — Cost, latency, and quality** card.
+
+**Shared code:** `getAgentEconomicsOverview` in `@glyphor/shared` (`agentEconomicsOverview.ts`).
+
 ## Rollback Plan
 
 - Immediate tracing rollback:

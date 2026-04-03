@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   computeFleetMetrics,
+  getAgentEconomicsOverview,
   getAgentMetricsWindows,
   getBenchmarkReport,
   getExceptionLog,
@@ -10,6 +11,7 @@ import {
   listAgentMetrics,
   listGoldenEvalPassRatesByRole,
   type ExceptionLogFilters,
+  type FleetEconomicsSummary,
   type ReversalLogFilters,
 } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
@@ -264,6 +266,126 @@ async function getPlanningGateMetrics(windowDays: 7 | 30 | 90): Promise<{
         : 0,
     },
     roles,
+  };
+}
+
+function buildEconomicsGuardrailAlerts(
+  fleetEconomics: FleetEconomicsSummary,
+  planningTotals: { passRate: number },
+): string[] {
+  const alerts: string[] = [];
+  const maxCost = Number(process.env.ECONOMICS_ALERT_MAX_AVG_COST_USD_PER_COMPLETED_RUN?.trim());
+  if (
+    Number.isFinite(maxCost)
+    && fleetEconomics.avgCostUsdPerCompleted != null
+    && fleetEconomics.avgCostUsdPerCompleted > maxCost
+  ) {
+    alerts.push(
+      `Fleet avg cost per completed run (${fleetEconomics.avgCostUsdPerCompleted.toFixed(4)} USD) exceeds ECONOMICS_ALERT_MAX_AVG_COST_USD_PER_COMPLETED_RUN (${maxCost}).`,
+    );
+  }
+  const maxP95Min = Number(process.env.ECONOMICS_ALERT_P95_LATENCY_MINUTES?.trim());
+  if (
+    Number.isFinite(maxP95Min)
+    && fleetEconomics.p95LatencyMinutes != null
+    && fleetEconomics.p95LatencyMinutes > maxP95Min
+  ) {
+    alerts.push(
+      `Fleet P95 run latency (${fleetEconomics.p95LatencyMinutes.toFixed(1)} min) exceeds ECONOMICS_ALERT_P95_LATENCY_MINUTES (${maxP95Min}).`,
+    );
+  }
+  const minRunDone = Number(process.env.ECONOMICS_ALERT_MIN_RUN_COMPLETION_RATE?.trim());
+  if (Number.isFinite(minRunDone) && fleetEconomics.runCompletionRate < minRunDone) {
+    alerts.push(
+      `Fleet agent_runs completion ratio (${(fleetEconomics.runCompletionRate * 100).toFixed(1)}%) is below ECONOMICS_ALERT_MIN_RUN_COMPLETION_RATE (${(minRunDone * 100).toFixed(1)}%).`,
+    );
+  }
+  const minGate = Number(process.env.ECONOMICS_ALERT_MIN_GATE_PASS_RATE?.trim());
+  if (Number.isFinite(minGate) && planningTotals.passRate < minGate) {
+    alerts.push(
+      `Fleet completion-gate pass rate (${(planningTotals.passRate * 100).toFixed(1)}%) is below ECONOMICS_ALERT_MIN_GATE_PASS_RATE (${(minGate * 100).toFixed(1)}%).`,
+    );
+  }
+  return alerts;
+}
+
+async function getEconomicsQualityOverview(windowDays: 7 | 30 | 90): Promise<{
+  windowDays: number;
+  generatedAt: string;
+  economicsGeneratedAt: string;
+  fleet: FleetEconomicsSummary & {
+    gatePassRate: number;
+    planningRunsDenominator: number;
+  };
+  roles: Array<{
+    agentId: string;
+    runsTerminal: number;
+    runsCompleted: number;
+    runCompletionRate: number;
+    avgCostUsdPerCompleted: number | null;
+    p50LatencyMinutes: number | null;
+    p95LatencyMinutes: number | null;
+    sumCostUsdRecorded: number;
+    gatePassRate: number | null;
+    gateDenominator: number;
+    goldenEvalPassRate: number | null;
+    goldenEvalTotal: number;
+  }>;
+  alerts: string[];
+}> {
+  const [economics, planning, golden] = await Promise.all([
+    getAgentEconomicsOverview(windowDays),
+    getPlanningGateMetrics(windowDays),
+    listGoldenEvalPassRatesByRole(windowDays).catch(() => []),
+  ]);
+
+  const gateMap = new Map(planning.roles.map((r) => [r.role, r]));
+  const goldenMap = new Map(golden.map((g) => [g.agentRole, g]));
+  const roleIds = new Set<string>([
+    ...economics.roles.map((r) => r.agentId),
+    ...planning.roles.map((r) => r.role),
+    ...golden.map((g) => g.agentRole),
+  ]);
+
+  const merged = Array.from(roleIds)
+    .sort((a, b) => a.localeCompare(b))
+    .map((agentId) => {
+      const econ = economics.roles.find((r) => r.agentId === agentId);
+      const gate = gateMap.get(agentId);
+      const gold = goldenMap.get(agentId);
+      const gateDenom = gate ? (gate.runsWithPlanning > 0 ? gate.runsWithPlanning : gate.runsObserved) : 0;
+      return {
+        agentId,
+        runsTerminal: econ?.runsTerminal ?? 0,
+        runsCompleted: econ?.runsCompleted ?? 0,
+        runCompletionRate: econ?.runCompletionRate ?? 0,
+        avgCostUsdPerCompleted: econ?.avgCostUsdPerCompleted ?? null,
+        p50LatencyMinutes: econ?.p50LatencyMinutes ?? null,
+        p95LatencyMinutes: econ?.p95LatencyMinutes ?? null,
+        sumCostUsdRecorded: econ?.sumCostUsdRecorded ?? 0,
+        gatePassRate: gate && gateDenom > 0 ? gate.passRate : null,
+        gateDenominator: gateDenom,
+        goldenEvalPassRate: gold && gold.total > 0 ? gold.passRate : null,
+        goldenEvalTotal: gold?.total ?? 0,
+      };
+    })
+    .filter((row) => row.runsTerminal > 0 || row.gateDenominator > 0 || row.goldenEvalTotal > 0);
+
+  const planningDenom = planning.totals.runsWithPlanning > 0
+    ? planning.totals.runsWithPlanning
+    : planning.totals.runsObserved;
+
+  return {
+    windowDays,
+    generatedAt: new Date().toISOString(),
+    economicsGeneratedAt: economics.generatedAt,
+    fleet: {
+      ...economics.fleet,
+      gatePassRate: planning.totals.passRate,
+      planningRunsDenominator: planningDenom,
+    },
+    roles: merged,
+    alerts: buildEconomicsGuardrailAlerts(economics.fleet, planning.totals),
   };
 }
 
@@ -841,6 +963,12 @@ export async function handleMetricsAdminApi(
         rolesFailing,
         generatedAt: new Date().toISOString(),
       });
+      return true;
+    }
+
+    if (url === '/admin/metrics/economics-quality-overview') {
+      const windowDays = parseWindow(params.get('window'));
+      json(res, 200, await getEconomicsQualityOverview(windowDays));
       return true;
     }
 

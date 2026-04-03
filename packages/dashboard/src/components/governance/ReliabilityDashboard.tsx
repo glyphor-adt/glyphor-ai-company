@@ -144,6 +144,38 @@ interface StrictnessSimPayload {
   generatedAt: string;
 }
 
+interface EconomicsQualityOverviewPayload {
+  windowDays: number;
+  generatedAt: string;
+  economicsGeneratedAt: string;
+  fleet: {
+    runsTerminal: number;
+    runsCompleted: number;
+    runCompletionRate: number;
+    avgCostUsdPerCompleted: number | null;
+    sumCostUsdRecorded: number;
+    p50LatencyMinutes: number | null;
+    p95LatencyMinutes: number | null;
+    gatePassRate: number;
+    planningRunsDenominator: number;
+  };
+  roles: Array<{
+    agentId: string;
+    runsTerminal: number;
+    runsCompleted: number;
+    runCompletionRate: number;
+    avgCostUsdPerCompleted: number | null;
+    p50LatencyMinutes: number | null;
+    p95LatencyMinutes: number | null;
+    sumCostUsdRecorded: number;
+    gatePassRate: number | null;
+    gateDenominator: number;
+    goldenEvalPassRate: number | null;
+    goldenEvalTotal: number;
+  }>;
+  alerts: string[];
+}
+
 interface PlanningGateHealthPayload {
   status: 'green' | 'yellow' | 'red';
   evaluatedAt: string;
@@ -228,6 +260,18 @@ function isStrictnessSimPayload(value: unknown): value is StrictnessSimPayload {
       && typeof row.passRate === 'number'
       && typeof row.denominator === 'number',
   );
+}
+
+function isEconomicsQualityOverviewPayload(value: unknown): value is EconomicsQualityOverviewPayload {
+  if (!isRecord(value)) return false;
+  if (typeof value.windowDays !== 'number' || typeof value.generatedAt !== 'string') return false;
+  if (typeof value.economicsGeneratedAt !== 'string') return false;
+  if (!isRecord(value.fleet)) return false;
+  const fleet = value.fleet;
+  if (typeof fleet.runsTerminal !== 'number' || typeof fleet.gatePassRate !== 'number') return false;
+  if (typeof fleet.planningRunsDenominator !== 'number') return false;
+  if (!Array.isArray(value.roles) || !Array.isArray(value.alerts)) return false;
+  return value.alerts.every((a) => typeof a === 'string');
 }
 
 async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<PlanningGateSnapshot> {
@@ -329,6 +373,12 @@ function formatSignedPercentDelta(value: number | null | undefined): string {
   return `${sign}${basisPoints.toFixed(1)}pp`;
 }
 
+function formatUsd(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  if (value < 0.01) return `$${value.toFixed(4)}`;
+  return `$${value.toFixed(3)}`;
+}
+
 function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—';
   const date = new Date(value);
@@ -372,6 +422,7 @@ export default function ReliabilityDashboard() {
   const [qualityOverview, setQualityOverview] = useState<QualityOverviewPayload | null>(null);
   const [strictnessSim, setStrictnessSim] = useState<StrictnessSimPayload | null>(null);
   const [strictnessPassRateMin, setStrictnessPassRateMin] = useState(0.85);
+  const [economicsQuality, setEconomicsQuality] = useState<EconomicsQualityOverviewPayload | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -395,7 +446,7 @@ export default function ReliabilityDashboard() {
           },
           roles: [],
         };
-        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug, gateHealth, qualityOv] = await Promise.all([
+        const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug, gateHealth, qualityOv, economicsOv] = await Promise.all([
           fetchMetricWithFallback<FleetMetricsSnapshot>(
             `/admin/metrics/fleet?window=${windowDays}`,
             (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
@@ -427,6 +478,10 @@ export default function ReliabilityDashboard() {
             `/admin/metrics/quality-overview?window=${windowDays}`,
             isQualityOverviewPayload,
           ).catch(() => null),
+          fetchMetricWithFallback<EconomicsQualityOverviewPayload>(
+            `/admin/metrics/economics-quality-overview?window=${windowDays}`,
+            isEconomicsQualityOverviewPayload,
+          ).catch(() => null),
         ]);
 
         if (!active) return;
@@ -440,6 +495,7 @@ export default function ReliabilityDashboard() {
         setEvalSuggestions(evalSug);
         setPlanningGateHealth(gateHealth);
         setQualityOverview(qualityOv);
+        setEconomicsQuality(economicsOv);
       } catch (error) {
         if (!active) return;
         setPlanningGate({
@@ -463,6 +519,7 @@ export default function ReliabilityDashboard() {
         setEvalSuggestions(null);
         setPlanningGateHealth(null);
         setQualityOverview(null);
+        setEconomicsQuality(null);
         console.warn('[ReliabilityDashboard] Failed to load metrics:', error);
       } finally {
         if (active) setLoading(false);
@@ -492,7 +549,7 @@ export default function ReliabilityDashboard() {
         },
         roles: [],
       };
-      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug, gateHealth, qualityOv, strictness] = await Promise.all([
+      const [fleetCurrent, fleetThirty, agentResponse, exceptionResponse, planningGateResponse, planningGateWeek, planningGateMonth, evalSug, gateHealth, qualityOv, strictness, economicsOv] = await Promise.all([
         fetchMetricWithFallback<FleetMetricsSnapshot>(
           `/admin/metrics/fleet?window=${windowDays}`,
           (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
@@ -528,6 +585,10 @@ export default function ReliabilityDashboard() {
           `/admin/metrics/planning-strictness-sim?window=${windowDays}&passRateMin=${strictnessPassRateMin}`,
           isStrictnessSimPayload,
         ).catch(() => null),
+        fetchMetricWithFallback<EconomicsQualityOverviewPayload>(
+          `/admin/metrics/economics-quality-overview?window=${windowDays}`,
+          isEconomicsQualityOverviewPayload,
+        ).catch(() => null),
       ]);
       setFleet(fleetCurrent);
       setFleetMonth(fleetThirty);
@@ -540,6 +601,7 @@ export default function ReliabilityDashboard() {
       setPlanningGateHealth(gateHealth);
       setQualityOverview(qualityOv);
       setStrictnessSim(strictness);
+      setEconomicsQuality(economicsOv);
     } catch (error) {
       console.warn('[ReliabilityDashboard] Refresh failed:', error);
     } finally {
@@ -1056,6 +1118,104 @@ export default function ReliabilityDashboard() {
                     <td className="px-3 py-3">{row.gateDenom > 0 ? formatNumber(row.gateDenom, 0) : '—'}</td>
                     <td className="px-3 py-3">{row.goldenTotal > 0 && row.goldenPass != null ? formatPercent(row.goldenPass) : '—'}</td>
                     <td className="px-3 py-3">{row.goldenTotal > 0 ? formatNumber(row.goldenTotal, 0) : '—'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card>
+        <SectionHeader
+          title="Stage 5 — Cost, latency, and quality (joint view)"
+          subtitle="GET /admin/metrics/economics-quality-overview merges agent_runs cost/latency with completion-gate and golden evals. Optional scheduler env guardrails: ECONOMICS_ALERT_MAX_AVG_COST_USD_PER_COMPLETED_RUN, ECONOMICS_ALERT_P95_LATENCY_MINUTES, ECONOMICS_ALERT_MIN_RUN_COMPLETION_RATE, ECONOMICS_ALERT_MIN_GATE_PASS_RATE."
+        />
+        {economicsQuality && economicsQuality.alerts.length > 0 ? (
+          <div className="mt-4 space-y-2 rounded-xl border border-prism-elevated/40 bg-prism-elevated/10 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-prism-elevated">Economics guardrails</p>
+            <ul className="list-inside list-disc space-y-1 text-[12px] text-txt-secondary">
+              {economicsQuality.alerts.map((alert) => (
+                <li key={alert}>{alert}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl theme-glass-panel-soft p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-txt-muted">Fleet avg $ / completed run</p>
+            <p className="mt-1 text-lg font-semibold text-txt-primary">
+              {economicsQuality ? formatUsd(economicsQuality.fleet.avgCostUsdPerCompleted) : '—'}
+            </p>
+            <p className="mt-1 text-[11px] text-txt-muted">
+              Σ cost recorded {economicsQuality ? formatUsd(economicsQuality.fleet.sumCostUsdRecorded) : '—'}
+            </p>
+          </div>
+          <div className="rounded-xl theme-glass-panel-soft p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-txt-muted">P50 / P95 latency</p>
+            <p className="mt-1 text-lg font-semibold text-txt-primary">
+              {economicsQuality
+                ? `${economicsQuality.fleet.p50LatencyMinutes != null ? `${economicsQuality.fleet.p50LatencyMinutes.toFixed(1)}m` : '—'} / ${economicsQuality.fleet.p95LatencyMinutes != null ? `${economicsQuality.fleet.p95LatencyMinutes.toFixed(1)}m` : '—'}`
+                : '—'}
+            </p>
+            <p className="mt-1 text-[11px] text-txt-muted">Completed runs, agent_runs duration</p>
+          </div>
+          <div className="rounded-xl theme-glass-panel-soft p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-txt-muted">Run completion (agent_runs)</p>
+            <p className="mt-1 text-lg font-semibold text-txt-primary">
+              {economicsQuality ? formatPercent(economicsQuality.fleet.runCompletionRate) : '—'}
+            </p>
+            <p className="mt-1 text-[11px] text-txt-muted">
+              {economicsQuality
+                ? `${formatNumber(economicsQuality.fleet.runsCompleted, 0)} / ${formatNumber(economicsQuality.fleet.runsTerminal, 0)} terminal`
+                : ''}
+            </p>
+          </div>
+          <div className="rounded-xl theme-glass-panel-soft p-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-txt-muted">Gate pass (fleet)</p>
+            <p className="mt-1 text-lg font-semibold text-txt-primary">
+              {economicsQuality ? formatPercent(economicsQuality.fleet.gatePassRate) : '—'}
+            </p>
+            <p className="mt-1 text-[11px] text-txt-muted">
+              n={economicsQuality ? formatNumber(economicsQuality.fleet.planningRunsDenominator, 0) : '—'} planning-weighted
+            </p>
+          </div>
+        </div>
+        <p className="mt-3 text-[11px] text-txt-muted">
+          Economics rollup {economicsQuality ? formatDateTime(economicsQuality.economicsGeneratedAt) : '—'} · merged {economicsQuality ? formatDateTime(economicsQuality.generatedAt) : '—'} · window {economicsQuality?.windowDays ?? windowDays}d
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-left text-[12px] text-txt-secondary">
+            <thead>
+              <tr className="border-b border-border/70 text-[11px] uppercase tracking-[0.16em] text-txt-muted">
+                <th className="px-3 py-3 font-medium">Role</th>
+                <th className="px-3 py-3 font-medium">Run done %</th>
+                <th className="px-3 py-3 font-medium">Avg $ / done</th>
+                <th className="px-3 py-3 font-medium">P95 lat</th>
+                <th className="px-3 py-3 font-medium">Gate pass</th>
+                <th className="px-3 py-3 font-medium">Golden pass</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!economicsQuality?.roles.length ? (
+                <tr>
+                  <td className="px-3 py-3 text-txt-muted" colSpan={6}>
+                    {economicsQuality ? 'No economics rows in this window.' : 'Load metrics to populate Stage 5 overview.'}
+                  </td>
+                </tr>
+              ) : (
+                economicsQuality.roles.map((row) => (
+                  <tr key={row.agentId} className="border-b border-border/50 align-top hover:bg-white/5">
+                    <td className="px-3 py-3 text-txt-primary">{row.agentId}</td>
+                    <td className="px-3 py-3">{formatPercent(row.runCompletionRate)}</td>
+                    <td className="px-3 py-3">{formatUsd(row.avgCostUsdPerCompleted)}</td>
+                    <td className="px-3 py-3">{row.p95LatencyMinutes != null ? `${row.p95LatencyMinutes.toFixed(1)}m` : '—'}</td>
+                    <td className="px-3 py-3">{row.gatePassRate != null ? formatPercent(row.gatePassRate) : '—'}</td>
+                    <td className="px-3 py-3">
+                      {row.goldenEvalTotal > 0 && row.goldenEvalPassRate != null
+                        ? formatPercent(row.goldenEvalPassRate)
+                        : '—'}
+                    </td>
                   </tr>
                 ))
               )}

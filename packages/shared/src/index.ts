@@ -124,6 +124,14 @@ export type {
   CaptureDecisionTraceInput,
 } from './decisionTraces.js';
 
+export { getAgentEconomicsOverview } from './agentEconomicsOverview.js';
+export type {
+  AgentEconomicsOverview,
+  AgentEconomicsRollupRow,
+  EconomicsWindowDays,
+  FleetEconomicsSummary,
+} from './agentEconomicsOverview.js';
+
 export {
   computeAgentMetrics,
   computeFleetMetrics,
