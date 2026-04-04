@@ -238,10 +238,12 @@ export {
   TASK_AGENT_ROLES,
   getAgentArchetype,
 } from './types.js';
+export { extractDashboardChatEmbedsFromHistory } from './dashboardChatEmbeds.js';
 export type {
   AgentConfig,
   AgentEvent,
   AgentExecutionResult,
+  DashboardChatEmbed,
   CompanyAgentRole,
   ConversationAttachment,
   ConversationTurn,

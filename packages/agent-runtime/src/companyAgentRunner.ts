@@ -45,6 +45,7 @@ import { learnFromAgentRun } from './skillLearning.js';
 import { readWorldState, writeWorldState, formatWorldStateForPrompt } from './worldStateClient.js';
 import { AGENT_WORLD_STATE_KEYS, AGENT_WORLD_STATE_DOMAIN } from './worldStateKeys.js';
 import { resolveUpstreamContext } from './dependencyResolver.js';
+import { extractDashboardChatEmbedsFromHistory } from './dashboardChatEmbeds.js';
 import { shouldUseClientSideHistoryCompression } from './compaction.js';
 import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.js';
 import type { RequestSource } from './providers/types.js';
@@ -2902,6 +2903,7 @@ ${input.output}`;
   ): AgentExecutionResult {
     const stats = supervisor.stats;
     const estimatedCost = estimateCost(routing?.model ?? config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens);
+    const dashboardChatEmbeds = extractDashboardChatEmbedsFromHistory(history);
     return {
       agentId: config.id,
       role: config.role,
@@ -2927,6 +2929,7 @@ ${input.output}`;
       reasoning: output ? extractReasoning(output) : undefined,
       conversationHistory: history,
       actions: actions && actions.length > 0 ? actions : undefined,
+      dashboardChatEmbeds: dashboardChatEmbeds.length > 0 ? dashboardChatEmbeds : undefined,
       routingRule: routing?.routingRule,
       routingCapabilities: routing?.capabilities,
       routingModel: routing?.model,

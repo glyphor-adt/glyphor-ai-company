@@ -366,6 +366,14 @@ export type AgentEvent =
   | { type: 'agent_aborted'; agentId: string; reason: string; totalTurns: number; elapsedMs: number }
   | { type: 'agent_error'; agentId: string; error: string; turnNumber: number };
 
+/** Dashboard-only rich UI (e.g. iframe preview). Not used in Teams/Slack — those channels only get text + links. */
+export interface DashboardChatEmbed {
+  kind: 'iframe_preview';
+  /** HTTPS URL allowlisted for embedding (Vercel preview, Glyphor preview domain, etc.). */
+  url: string;
+  label?: string;
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // EXECUTION RESULT
 // ═══════════════════════════════════════════════════════════════════
@@ -398,6 +406,8 @@ export interface AgentExecutionResult {
   conversationHistory: ConversationTurn[];
   /** Structured action receipts for tool calls made during this run. */
   actions?: ActionReceipt[];
+  /** Optional embeds for dashboard chat only (e.g. live site iframe). */
+  dashboardChatEmbeds?: DashboardChatEmbed[];
   routingRule?: string;
   routingCapabilities?: string[];
   routingModel?: string;

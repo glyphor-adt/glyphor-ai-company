@@ -23,6 +23,7 @@ import { HiMiniSignal, HiStop, HiMicrophone } from 'react-icons/hi2';
 import { useVoiceChat } from '../lib/useVoiceChat';
 import VoiceOverlay from '../components/VoiceOverlay';
 import OrgChartPicker from '../components/OrgChartPicker';
+import DashboardChatIframe, { type DashboardChatEmbed } from '../components/DashboardChatIframe';
 
 interface Attachment {
   name: string;
@@ -37,6 +38,8 @@ interface ChatMessageMetadata {
   compactionOccurred?: boolean;
   compactionCount?: number;
   compactionSummary?: string;
+  /** Dashboard chat only — live preview iframe (Teams/Slack get links in text only). */
+  dashboardChatEmbeds?: DashboardChatEmbed[];
 }
 
 interface Message {
@@ -50,6 +53,7 @@ interface Message {
   compactionOccurred?: boolean;
   compactionCount?: number;
   compactionSummary?: string;
+  dashboardChatEmbeds?: DashboardChatEmbed[];
 }
 
 function escapeRegExp(value: string): string {
@@ -195,13 +199,37 @@ async function saveMessage(
   }
 }
 
+function parseDashboardChatEmbeds(raw: unknown): DashboardChatEmbed[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const out: DashboardChatEmbed[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    if (o.kind !== 'iframe_preview') continue;
+    const url = typeof o.url === 'string' ? o.url.trim() : '';
+    if (!url.startsWith('https://')) continue;
+    out.push({
+      kind: 'iframe_preview',
+      url,
+      label: typeof o.label === 'string' ? o.label : undefined,
+    });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 function extractChatMessageMetadata(row: Record<string, unknown>): ChatMessageMetadata | undefined {
-  const metadata = row.metadata;
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
-    return row.compacted === true ? { compactionOccurred: true } : undefined;
+  const rawMeta = row.metadata;
+  const embeds =
+    rawMeta && typeof rawMeta === 'object' && !Array.isArray(rawMeta)
+      ? parseDashboardChatEmbeds((rawMeta as Record<string, unknown>).dashboardChatEmbeds)
+      : undefined;
+
+  if (!rawMeta || typeof rawMeta !== 'object' || Array.isArray(rawMeta)) {
+    if (row.compacted === true) return { compactionOccurred: true, ...(embeds ? { dashboardChatEmbeds: embeds } : {}) };
+    return embeds ? { dashboardChatEmbeds: embeds } : undefined;
   }
 
-  const typedMetadata = metadata as Record<string, unknown>;
+  const typedMetadata = rawMeta as Record<string, unknown>;
   const compactionOccurred = typedMetadata.compactionOccurred === true || row.compacted === true;
   const compactionCount = typeof typedMetadata.compactionCount === 'number'
     ? typedMetadata.compactionCount
@@ -210,7 +238,7 @@ function extractChatMessageMetadata(row: Record<string, unknown>): ChatMessageMe
     ? typedMetadata.compactionSummary
     : undefined;
 
-  if (!compactionOccurred && compactionCount === undefined && !compactionSummary) {
+  if (!compactionOccurred && compactionCount === undefined && !compactionSummary && !embeds?.length) {
     return undefined;
   }
 
@@ -218,6 +246,7 @@ function extractChatMessageMetadata(row: Record<string, unknown>): ChatMessageMe
     compactionOccurred: compactionOccurred || undefined,
     compactionCount,
     compactionSummary,
+    ...(embeds?.length ? { dashboardChatEmbeds: embeds } : {}),
   };
 }
 
@@ -595,6 +624,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                 compactionOccurred: metadata?.compactionOccurred,
                 compactionCount: metadata?.compactionCount,
                 compactionSummary: metadata?.compactionSummary,
+                dashboardChatEmbeds: metadata?.dashboardChatEmbeds,
               };
             }),
           );
@@ -846,13 +876,20 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const responseMetadata: ChatMessageMetadata | undefined = data.compactionOccurred
-          ? {
-              compactionOccurred: true,
-              compactionCount: typeof data.compactionCount === 'number' ? data.compactionCount : undefined,
-              compactionSummary: typeof data.compactionSummary === 'string' ? data.compactionSummary : undefined,
-            }
-          : undefined;
+        const apiEmbeds = parseDashboardChatEmbeds(data.dashboardChatEmbeds);
+        const responseMetadata: ChatMessageMetadata | undefined =
+          data.compactionOccurred || (apiEmbeds && apiEmbeds.length > 0)
+            ? {
+                ...(data.compactionOccurred
+                  ? {
+                      compactionOccurred: true,
+                      compactionCount: typeof data.compactionCount === 'number' ? data.compactionCount : undefined,
+                      compactionSummary: typeof data.compactionSummary === 'string' ? data.compactionSummary : undefined,
+                    }
+                  : {}),
+                ...(apiEmbeds && apiEmbeds.length > 0 ? { dashboardChatEmbeds: apiEmbeds } : {}),
+              }
+            : undefined;
 
         let content: string;
         if (data.output) content = formatDashboardContent(data.output, { hideReasoning: true });
@@ -878,6 +915,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             compactionOccurred: responseMetadata?.compactionOccurred,
             compactionCount: responseMetadata?.compactionCount,
             compactionSummary: responseMetadata?.compactionSummary,
+            dashboardChatEmbeds: responseMetadata?.dashboardChatEmbeds,
           }]);
         }
         saveMessage(
@@ -1146,6 +1184,13 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   <ChatMarkdown>{msg.content}</ChatMarkdown>
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
+                )}
+                {msg.role === 'agent' && msg.dashboardChatEmbeds && msg.dashboardChatEmbeds.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {msg.dashboardChatEmbeds.map((embed, ei) => (
+                      <DashboardChatIframe key={`${embed.url}-${ei}`} embed={embed} />
+                    ))}
+                  </div>
                 )}
                 {msg.role === 'agent' && msg.compactionOccurred && (
                   <div

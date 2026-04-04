@@ -34,6 +34,8 @@ export interface RouteResult {
   error?: string;
   /** Structured action receipts from the agent run (tool calls + results). */
   actions?: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }>;
+  /** Dashboard chat only — iframe preview URLs from web pipeline tools. */
+  dashboardChatEmbeds?: Array<{ kind: 'iframe_preview'; url: string; label?: string }>;
 }
 
 export interface CascadePreview {
@@ -101,6 +103,7 @@ export class EventRouter {
           status: result?.status,
           error: result?.error ?? result?.abortReason,
           actions: result?.actions,
+          dashboardChatEmbeds: result?.dashboardChatEmbeds,
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
