@@ -22,20 +22,20 @@ INSERT INTO company_knowledge_base (
 VALUES (
   'budget_baseline',
   'Economics & spend baseline (pre-launch)',
-  E'STATUS: PRE-REVENUE / PRE-LAUNCH — baseline for ops and Nexus fleet briefings.
+  $kb$STATUS: PRE-REVENUE / PRE-LAUNCH — baseline for ops and Nexus fleet briefings.
 
 **Explicit baseline (company-approved framing)**
 - MRR: $0 (expected until launch).
 - Revenue / subscriptions: none — founders fund operations.
-- **Infrastructure + AI compute:** treat GCP billing + model API usage as the primary variable cost bucket. Use live tools (`get_financials`, GCP billing sync, scheduler economics metrics) for current-month spend — do not invent dollars.
+- **Infrastructure + AI compute:** treat GCP billing + model API usage as the primary variable cost bucket. Use live tools (get_financials, GCP billing sync, scheduler economics metrics) for current-month spend — do not invent dollars.
 - **Target guardrail (planning only, not a contractual cap):** internal discussion target ~USD 150/mo compute for steady-state dev/staging when idle; real spend must come from billing tools.
-- **Agent run economics:** use `agent_runs` / scheduler economics-overview metrics for average cost per completed run when gate or CFO tasks ask for “unit economics snapshot”.
+- **Agent run economics:** use agent_runs / scheduler economics-overview metrics for average cost per completed run when gate or CFO tasks ask for a unit economics snapshot.
 
 **How to use this section**
-- Nexus / platform-intel: cite this section as the **organizational baseline** after calling `read_company_knowledge` with `section_key: budget_baseline`, then reconcile with the latest tool pull (e.g. `get_financials` or economics API) when the task requires **current** numbers.
+- Nexus / platform-intel: cite this section as the **organizational baseline** after calling read_company_knowledge with section_key budget_baseline, then reconcile with the latest tool pull (e.g. get_financials or economics API) when the task requires **current** numbers.
 - If tools return no rows or errors: state **Blocker:** name the tool + error; do not fabricate totals.
 
-**Owner:** CFO — update when launch pricing, budgets, or founder-approved targets change.',
+**Owner:** CFO — update when launch pricing, budgets, or founder-approved targets change.$kb$,
   3,
   'executive,finance,operations',
   'cfo',
