@@ -173,15 +173,13 @@ async function persistRunMetricsAuditLog(entry: {
   }
 }
 
-/** Overall supervisor limits for on_demand (chat) — keep well within the
- *  dashboard's 180 s fetch-abort so users actually see the response.
- *  Turn budget: up to 6 tool turns + 1 forced-text turn.
- *  Timeout leaves 30 s headroom before the dashboard's 180 s abort.
- *  When thinking is dynamically enabled, use a higher supervisor timeout.
+/** Overall supervisor limits for on_demand (chat).
+ *  Must exceed TOOL_VERY_LONG_TIMEOUT_MS (default 900s) so invoke_web_build / coding_loop can finish.
+ *  Dashboard/client may need a matching HTTP timeout for long builds. Override: ON_DEMAND_SUPERVISOR_TIMEOUT_MS.
  */
 const ON_DEMAND_MAX_TURNS = 12;
-const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = 600_000;
-const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = 600_000;
+const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = Math.max(120_000, Number(process.env.ON_DEMAND_SUPERVISOR_TIMEOUT_MS ?? '960000'));
+const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = Math.max(120_000, Number(process.env.ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS ?? '960000'));
 
 const CHIEF_OF_STAFF_REFLECTION_PROMPT = `
 You are reflecting on your recent orchestration performance as Chief of Staff.

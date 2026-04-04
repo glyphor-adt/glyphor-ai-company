@@ -802,7 +802,8 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
     /** Helper to invoke a single agent and append its response */
     const invokeAgent = async (role: string, isMentioned: boolean) => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 600_000);
+      // Must outlive invoke_web_build (server default ~900s) + supervisor (~960s) + final model turn
+      const timeoutId = setTimeout(() => controller.abort(), 1_200_000);
       const agentName = DISPLAY_NAME_MAP[role] ?? role;
 
       try {

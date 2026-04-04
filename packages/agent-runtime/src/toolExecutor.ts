@@ -255,7 +255,8 @@ export async function loadGrantedToolNames(
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const LONG_TOOL_TIMEOUT_MS = 120_000;
-const VERY_LONG_TOOL_TIMEOUT_MS = 420_000;
+/** Web pipeline can spend ~5m polling Vercel preview alone; plus foundation LLM + GitHub. Override via TOOL_VERY_LONG_TIMEOUT_MS. */
+const VERY_LONG_TOOL_TIMEOUT_MS = Math.max(60_000, Number(process.env.TOOL_VERY_LONG_TIMEOUT_MS ?? '900000'));
 
 // Company tools that legitimately take longer (API calls, report generation)
 const LONG_RUNNING_TOOLS = new Set([
