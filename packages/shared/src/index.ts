@@ -224,6 +224,7 @@ export {
   normalizeReasoningLevel,
   optimizeModel,
   costPer1KOutput,
+  getContextWindow,
 } from './models.js';
 export type { ModelDef, ModelProvider, ModelTier, CostTier, ReasoningLevel, ReasoningSupport } from './models.js';
 

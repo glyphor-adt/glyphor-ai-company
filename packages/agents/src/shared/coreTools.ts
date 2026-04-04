@@ -22,6 +22,7 @@ import { createToolRequestTools } from './toolRequestTools.js';
 import { createEventTools } from './eventTools.js';
 import { createDmTools } from './dmTools.js';
 import { createDeliverableTools } from './deliverableTools.js';
+import { createPdfTools, createWordTools } from './documentTools.js';
 import { createExternalA2aTools } from './externalA2aTools.js';
 import { createKnowledgeRetrievalTools } from './knowledgeRetrievalTools.js';
 import { createChannelNotifyTools } from './channelNotifyTools.js';
@@ -59,6 +60,10 @@ export const CORE_TOOL_NAMES: Set<string> = new Set([
   // Shared artifacts
   'publish_deliverable',
   'get_deliverables',
+  // PDF generation
+  'generate_pdf',
+  // Word document generation
+  'generate_word_doc',
   // External discovery
   'discover_external_agents',
   // Knowledge retrieval
@@ -83,6 +88,8 @@ export function createCoreTools(deps: CoreToolDeps): ToolDefinition[] {
     ...createChannelNotifyTools(),
     ...createSlackOutputTools(),
     ...createDeliverableTools(deps.glyphorEventBus),
+    ...createPdfTools(),
+    ...createWordTools(),
     ...createExternalA2aTools(deps.externalA2aRegistryUrl ?? process.env.A2A_REGISTRY_URL),
     ...createKnowledgeRetrievalTools(),
   ];

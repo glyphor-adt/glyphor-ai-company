@@ -49,6 +49,8 @@ export interface ModelDef {
   thinkingPer1M?: number;
   /** Discount multiplier for cached input tokens (e.g. 0.25 = 75% off). Defaults to 1.0 (no discount). */
   cachedInputDiscount?: number;
+  /** Maximum input context window in tokens. Null/undefined = use provider default. */
+  contextWindowTokens?: number;
   /** If true, this model is available in agent assignment dropdowns */
   selectable: boolean;
   /** If true, this model can be used as a cross-model verifier */
@@ -63,53 +65,53 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // Prices are for prompts ≤200K tokens. >200K prompts cost 2× input and 1.5× output for Pro/Flash models.
   // Rates calibrated against actual GCP billing (Mar 25 2026): 126 runs, $76.39 actual vs $14.97 prior estimate → 5x correction.
   // RETIRED (Mar 26 2026): gemini-3.1-pro-preview, gemini-3-flash-preview, gemini-2.5-flash — cost prohibitive. Kept for pricing lookups only.
-  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (retired)',  provider: 'gemini',    tier: 'flagship',  inputPer1M: 10.00, outputPer1M: 60.0,  thinkingPer1M: 60.0,  cachedInputDiscount: 0.10, selectable: false, verifier: false },
-  { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', tier: 'economy', inputPer1M: 1.25, outputPer1M: 7.50, thinkingPer1M: 7.50, cachedInputDiscount: 0.10, selectable: true, verifier: true  },
-  { id: 'gemini-3-flash-preview',  label: 'Gemini 3 Flash (retired)', provider: 'gemini',    tier: 'standard',  inputPer1M: 2.50,  outputPer1M: 15.00, thinkingPer1M: 15.00, cachedInputDiscount: 0.10, selectable: false, verifier: false },
-  { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash (retired)', provider: 'gemini', tier: 'standard',  inputPer1M: 1.50,  outputPer1M: 12.50, thinkingPer1M: 12.50, cachedInputDiscount: 0.10, selectable: false, verifier: false },
-  { id: 'gemini-2.5-flash-lite',   label: 'Gemini 2.5 Flash Lite', provider: 'gemini',    tier: 'economy',   inputPer1M: 0.50,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (retired)',  provider: 'gemini',    tier: 'flagship',  inputPer1M: 10.00, outputPer1M: 60.0,  thinkingPer1M: 60.0,  cachedInputDiscount: 0.10, contextWindowTokens: 2_000_000, selectable: false, verifier: false },
+  { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', tier: 'economy', inputPer1M: 1.25, outputPer1M: 7.50, thinkingPer1M: 7.50, cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: true, verifier: true  },
+  { id: 'gemini-3-flash-preview',  label: 'Gemini 3 Flash (retired)', provider: 'gemini',    tier: 'standard',  inputPer1M: 2.50,  outputPer1M: 15.00, thinkingPer1M: 15.00, cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: false, verifier: false },
+  { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash (retired)', provider: 'gemini', tier: 'standard',  inputPer1M: 1.50,  outputPer1M: 12.50, thinkingPer1M: 12.50, cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: false, verifier: false },
+  { id: 'gemini-2.5-flash-lite',   label: 'Gemini 2.5 Flash Lite', provider: 'gemini',    tier: 'economy',   inputPer1M: 0.50,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: true,  verifier: false },
 
   // ── OpenAI ─────────────────────────────────────────────────
   // GPT-5.x cached input = 10% of input price. o-series cached = 25% of input price.
   // Reasoning tokens (o-series) billed at output rate.
   // Source: https://developers.openai.com/api/docs/pricing (verified 2026-02-26)
   // Azure Foundry catalog: https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure
-  { id: 'gpt-5.4',                label: 'GPT-5.4',                provider: 'openai',    tier: 'flagship',  inputPer1M: 2.50,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
-  { id: 'gpt-5.4-pro',            label: 'GPT-5.4 Pro',            provider: 'openai',    tier: 'flagship',  inputPer1M: 30.0,  outputPer1M: 180.0, selectable: true,  verifier: false },
-  { id: 'gpt-5.3-codex',          label: 'GPT-5.3 Codex',          provider: 'openai',    tier: 'specialized', inputPer1M: 1.75, outputPer1M: 14.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5.2',                label: 'GPT-5.2',                provider: 'openai',    tier: 'flagship',  inputPer1M: 1.75,  outputPer1M: 14.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5.2-pro',            label: 'GPT-5.2 Pro',            provider: 'openai',    tier: 'flagship',  inputPer1M: 21.0,  outputPer1M: 168.0, selectable: true,  verifier: false },
-  { id: 'gpt-5.2-codex',          label: 'GPT-5.2 Codex',          provider: 'openai',    tier: 'specialized', inputPer1M: 1.75, outputPer1M: 14.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5.1',                label: 'GPT-5.1',                provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5.1-codex',          label: 'GPT-5.1 Codex',          provider: 'openai',    tier: 'specialized', inputPer1M: 1.25, outputPer1M: 10.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5.1-codex-mini',     label: 'GPT-5.1 Codex Mini',     provider: 'openai',    tier: 'specialized', inputPer1M: 0.75, outputPer1M: 6.00, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5.1-codex-max',      label: 'GPT-5.1 Codex Max',      provider: 'openai',    tier: 'specialized', inputPer1M: 2.50, outputPer1M: 15.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5',                  label: 'GPT-5',                  provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5-pro',              label: 'GPT-5 Pro',              provider: 'openai',    tier: 'flagship',  inputPer1M: 15.0,  outputPer1M: 120.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5-codex',            label: 'GPT-5 Codex',            provider: 'openai',    tier: 'specialized', inputPer1M: 1.25, outputPer1M: 10.0, cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5-mini',             label: 'GPT-5 Mini',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
-  { id: 'gpt-5-mini-2025-08-07',   label: 'GPT-5 Mini (Aug 2025)',  provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
-  { id: 'gpt-5-nano',             label: 'GPT-5 Nano',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.05,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5.4-mini',            label: 'GPT-5.4 Mini',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.75,  outputPer1M: 4.50,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'gpt-5.4-nano',            label: 'GPT-5.4 Nano',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.20,  outputPer1M: 1.25,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'gpt-5.4',                label: 'GPT-5.4',                provider: 'openai',    tier: 'flagship',  inputPer1M: 2.50,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: true  },
+  { id: 'gpt-5.4-pro',            label: 'GPT-5.4 Pro',            provider: 'openai',    tier: 'flagship',  inputPer1M: 30.0,  outputPer1M: 180.0, contextWindowTokens: 256_000, selectable: true,  verifier: false },
+  { id: 'gpt-5.3-codex',          label: 'GPT-5.3 Codex',          provider: 'openai',    tier: 'specialized', inputPer1M: 1.75, outputPer1M: 14.0, cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
+  { id: 'gpt-5.2',                label: 'GPT-5.2',                provider: 'openai',    tier: 'flagship',  inputPer1M: 1.75,  outputPer1M: 14.0,  cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
+  { id: 'gpt-5.2-pro',            label: 'GPT-5.2 Pro',            provider: 'openai',    tier: 'flagship',  inputPer1M: 21.0,  outputPer1M: 168.0, contextWindowTokens: 256_000, selectable: true,  verifier: false },
+  { id: 'gpt-5.2-codex',          label: 'GPT-5.2 Codex',          provider: 'openai',    tier: 'specialized', inputPer1M: 1.75, outputPer1M: 14.0, cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
+  { id: 'gpt-5.1',                label: 'GPT-5.1',                provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
+  { id: 'gpt-5.1-codex',          label: 'GPT-5.1 Codex',          provider: 'openai',    tier: 'specialized', inputPer1M: 1.25, outputPer1M: 10.0, cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
+  { id: 'gpt-5.1-codex-mini',     label: 'GPT-5.1 Codex Mini',     provider: 'openai',    tier: 'specialized', inputPer1M: 0.75, outputPer1M: 6.00, cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
+  { id: 'gpt-5.1-codex-max',      label: 'GPT-5.1 Codex Max',      provider: 'openai',    tier: 'specialized', inputPer1M: 2.50, outputPer1M: 15.0, cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
+  { id: 'gpt-5',                  label: 'GPT-5',                  provider: 'openai',    tier: 'standard',  inputPer1M: 1.25,  outputPer1M: 10.0,  cachedInputDiscount: 0.10, contextWindowTokens: 128_000, selectable: true,  verifier: false },
+  { id: 'gpt-5-pro',              label: 'GPT-5 Pro',              provider: 'openai',    tier: 'flagship',  inputPer1M: 15.0,  outputPer1M: 120.0, cachedInputDiscount: 0.10, contextWindowTokens: 128_000, selectable: true,  verifier: false },
+  { id: 'gpt-5-codex',            label: 'GPT-5 Codex',            provider: 'openai',    tier: 'specialized', inputPer1M: 1.25, outputPer1M: 10.0, cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
+  { id: 'gpt-5-mini',             label: 'GPT-5 Mini',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, contextWindowTokens: 128_000, selectable: true,  verifier: true  },
+  { id: 'gpt-5-mini-2025-08-07',   label: 'GPT-5 Mini (Aug 2025)',  provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, contextWindowTokens: 128_000, selectable: true,  verifier: true  },
+  { id: 'gpt-5-nano',             label: 'GPT-5 Nano',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.05,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, contextWindowTokens: 128_000, selectable: true,  verifier: false },
+  { id: 'gpt-5.4-mini',            label: 'GPT-5.4 Mini',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.75,  outputPer1M: 4.50,  cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
+  { id: 'gpt-5.4-nano',            label: 'GPT-5.4 Nano',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.20,  outputPer1M: 1.25,  cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
   // Azure AI Foundry model-router (2025-11-18): Chat Completions only; billing = underlying model picked.
   // https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/model-router
   { id: 'model-router',           label: 'Model Router (Foundry)', provider: 'openai',    tier: 'standard',  inputPer1M: 0.75,  outputPer1M: 4.50,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
 
-  { id: 'o3',                     label: 'o3',                     provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
-  { id: 'o3-pro',                 label: 'o3 Pro',                 provider: 'openai',    tier: 'reasoning', inputPer1M: 3.00,  outputPer1M: 15.0, thinkingPer1M: 15.0, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
-  { id: 'o4-mini',                label: 'o4-mini',                provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: true,  verifier: false },
-  { id: 'o3-deep-research',       label: 'o3 Deep Research',       provider: 'openai',    tier: 'specialized', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, selectable: false, verifier: false },
-  { id: 'o4-mini-deep-research',  label: 'o4-mini Deep Research',  provider: 'openai',    tier: 'specialized', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, selectable: false, verifier: false },
+  { id: 'o3',                     label: 'o3',                     provider: 'openai',    tier: 'reasoning', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, contextWindowTokens: 200_000, selectable: true,  verifier: false },
+  { id: 'o3-pro',                 label: 'o3 Pro',                 provider: 'openai',    tier: 'reasoning', inputPer1M: 3.00,  outputPer1M: 15.0, thinkingPer1M: 15.0, cachedInputDiscount: 0.25, contextWindowTokens: 200_000, selectable: true,  verifier: false },
+  { id: 'o4-mini',                label: 'o4-mini',                provider: 'openai',    tier: 'reasoning', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, contextWindowTokens: 200_000, selectable: true,  verifier: false },
+  { id: 'o3-deep-research',       label: 'o3 Deep Research',       provider: 'openai',    tier: 'specialized', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, contextWindowTokens: 200_000, selectable: false, verifier: false },
+  { id: 'o4-mini-deep-research',  label: 'o4-mini Deep Research',  provider: 'openai',    tier: 'specialized', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, contextWindowTokens: 200_000, selectable: false, verifier: false },
 
   // ── Anthropic ──────────────────────────────────────────────
   // Anthropic cache read = 10% of input price. Cache creation = 125% of input price (amortized, treated as full price).
   // Source: https://platform.claude.com/docs/en/docs/about-claude/pricing (verified 2026-02-26)
   // RETIRED (Mar 26 2026): claude-opus-4-6 — cost prohibitive ($5/$25 per MTok). Kept for pricing lookups.
-  { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6 (retired)', provider: 'anthropic', tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, selectable: false, verifier: false },
-  { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: true  },
-  { id: 'claude-sonnet-4-5',      label: 'Claude Sonnet 4.5',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
-  { id: 'claude-haiku-4-5',        label: 'Claude Haiku 4.5',       provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
+  { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6 (retired)', provider: 'anthropic', tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: false, verifier: false },
+  { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: true  },
+  { id: 'claude-sonnet-4-5',      label: 'Claude Sonnet 4.5',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: false },
+  { id: 'claude-haiku-4-5',        label: 'Claude Haiku 4.5',       provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: false },
 
   // ── Specialized (not selectable for general agent assignment) ─
   { id: 'gemini-embedding-001',       label: 'Gemini Embedding',       provider: 'gemini',    tier: 'specialized', inputPer1M: 0.15, outputPer1M: 0,    selectable: false, verifier: false },
@@ -513,6 +515,29 @@ export function estimateModelCost(
  */
 export function isDeprecated(modelId: string): boolean {
   return modelId in DEPRECATED_MODELS;
+}
+
+/** Provider-level default context windows (tokens). */
+const PROVIDER_DEFAULT_CONTEXT_WINDOWS: Record<ModelProvider, number> = {
+  gemini:    1_000_000,
+  openai:    128_000,
+  anthropic: 200_000,
+};
+
+/**
+ * Get the context window size (in tokens) for a model.
+ * Falls back to provider defaults if the model entry doesn't specify one.
+ */
+export function getContextWindow(modelId: string): number {
+  const resolved = resolveModel(modelId);
+  const def = getModel(resolved);
+  if (def?.contextWindowTokens) return def.contextWindowTokens;
+  try {
+    const provider = detectProvider(resolved);
+    return PROVIDER_DEFAULT_CONTEXT_WINDOWS[provider];
+  } catch {
+    return 128_000; // Safe fallback
+  }
 }
 
 /**

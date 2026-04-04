@@ -70,6 +70,19 @@ export {
   redactFields,
   capResultSize,
 } from './hooks/builtinHooks.js';
+// Context compaction pipeline
+export { calculateContextBudget, calculateReactiveBudget } from './context/contextBudget.js';
+export type { ContextBudget } from './context/contextBudget.js';
+export {
+  isContextOverflowError,
+  reactiveRecompose,
+  createReactiveState,
+  resetReactiveState,
+  recordReactiveAttempt,
+} from './context/reactiveCompaction.js';
+export type { ReactiveCompactionState, ReactiveRecomposeInput, ReactiveRecomposeResult } from './context/reactiveCompaction.js';
+export { injectPostCompactContext, extractRecentToolSummaries } from './context/postCompactInjector.js';
+export type { PostCompactContext, PostCompactInjectionResult } from './context/postCompactInjector.js';
 export { EventBus } from './eventBus.js';
 export { GlyphorEventBus } from './glyphorEventBus.js';
 export type { GlyphorEventBusConfig } from './glyphorEventBus.js';

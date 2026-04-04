@@ -307,6 +307,42 @@ app.post('/compare', async (req, res) => {
   }
 });
 
+app.post('/pdf', async (req, res) => {
+  try {
+    const { html, url, viewport: rawViewport, format = 'A4', landscape = false, margin } = req.body ?? {};
+
+    if (!html && !url) {
+      return res.status(400).json({ error: 'Either html or url is required' });
+    }
+
+    const viewport = normalizeViewport(rawViewport);
+    const pdfBuffer = await withBrowserPage(viewport, async (page) => {
+      if (html) {
+        await page.setContent(html, { waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      } else {
+        if (!isHttpUrl(url)) throw new Error('A valid http(s) url is required');
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
+      }
+
+      return page.pdf({
+        format,
+        landscape: Boolean(landscape),
+        margin: margin ?? { top: '0.5in', right: '0.5in', bottom: '0.5in', left: '0.5in' },
+        printBackground: true,
+      });
+    });
+
+    return res.status(200).json({
+      pdf: pdfBuffer.toString('base64'),
+      size_bytes: pdfBuffer.length,
+    });
+  } catch (error) {
+    return res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
 app.post('/audit', async (req, res) => {
   try {
     const url = req.body?.url;

@@ -52,6 +52,18 @@ import {
 } from './orchestrationDecompositionGuard.js';
 import { composeModelContext } from './context/contextComposer.js';
 import { microCompactHistory } from './context/microCompactor.js';
+import { calculateContextBudget, type ContextBudget } from './context/contextBudget.js';
+import {
+  isContextOverflowError,
+  reactiveRecompose,
+  createReactiveState,
+  resetReactiveState,
+  type ReactiveCompactionState,
+} from './context/reactiveCompaction.js';
+import {
+  injectPostCompactContext,
+  extractRecentToolSummaries,
+} from './context/postCompactInjector.js';
 import { startTraceSpan } from './telemetry/tracing.js';
 import { extractAcceptanceCriteriaFromMessage, parseExecutionPlan } from './executionPlanning.js';
 import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.js';
@@ -80,7 +92,7 @@ import {
   createContentDigest,
 } from './telemetry/runLedger.js';
 
-const CONTEXT_COMPOSITION_MAX_TOKENS = 12_000;
+const CONTEXT_COMPOSITION_MAX_TOKENS = 12_000; // Legacy fallback — overridden by model-aware budget
 const PLANNING_REQUEST_MARKER = '__planning_request__';
 const PLANNING_REPAIR_MARKER = '__planning_repair__';
 const EXECUTION_GATE_NUDGE_MARKER = '__completion_gate_nudge__';
@@ -470,6 +482,11 @@ export abstract class BaseAgentRunner {
     let microCompactionCount = 0;
     let microCompactionOccurred = false;
     let latestMicroCompactionSummary: string | undefined;
+
+    // ── Model-aware context budget ──────────────────────────────
+    const contextBudget = calculateContextBudget(config.model);
+    const compositionMaxTokens = contextBudget.compositionBudget;
+    const reactiveState = createReactiveState();
     const actionReceipts: ActionReceipt[] = [];
     const planningPolicy = resolvePlanningPolicy({
       role: config.role,
@@ -930,6 +947,9 @@ Rules:
               // fail-open: summary compaction is optional
             }
           }
+          // ── Capture recent tool summaries before compaction (for re-injection) ──
+          const preCompactToolSummaries = extractRecentToolSummaries(history);
+
           const composedContext = composeModelContext({
             history: (() => {
               const microCompacted = microCompactHistory(history, {
@@ -949,11 +969,21 @@ Rules:
             initialMessage,
             turnNumber,
             bundleKind: inferBundleKind(turnNumber),
-            maxTokens: CONTEXT_COMPOSITION_MAX_TOKENS,
+            maxTokens: compositionMaxTokens,
             includeReasoningState: true,
             keepRecentGroups: 2,
             sessionSummary: sessionSummaryForCompaction,
           });
+
+          // ── Post-compact context re-injection ──
+          const postCompact = injectPostCompactContext(
+            composedContext.history,
+            {
+              taskDescription: initialMessage,
+              recentToolSummaries: preCompactToolSummaries,
+            },
+            composedContext.droppedGroups,
+          );
           void recordRunEvent({
             runId: config.dbRunId ?? config.id,
             eventType: 'context.bundle_composed',
@@ -965,9 +995,13 @@ Rules:
               dropped_turns: composedContext.droppedTurns,
               dropped_groups: composedContext.droppedGroups,
               clipped_turns: composedContext.clippedTurns,
+              post_compact_injected: postCompact.injectedTurns,
+              post_compact_tokens: postCompact.injectedTokenEstimate,
+              composition_budget: compositionMaxTokens,
+              context_window: contextBudget.contextWindow,
             },
           });
-          const composedHistory = composedContext.history;
+          const composedHistory = postCompact.history;
 
           emitEvent({
             type: 'model_request',
@@ -1092,11 +1126,44 @@ Rules:
             output_tokens: response.usageMetadata.outputTokens,
           });
           emitEvent({ type: 'model_response', agentId: config.id, turnNumber, hasToolCalls: response.toolCalls.length > 0, thinkingText: response.thinkingText });
+
+          // Successful model call — reset reactive compaction state
+          resetReactiveState(reactiveState);
         } catch (error) {
           modelTurnSpan.fail(error, {});
           if (supervisor.isAborted) {
             return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary());
           }
+
+          // ── Reactive compaction: retry with tighter budget on context overflow ──
+          if (isContextOverflowError(error) && !reactiveState.circuitBroken) {
+            const recomposed = reactiveRecompose({
+              history,
+              role: config.role,
+              task: taskForContext,
+              initialMessage,
+              turnNumber,
+              normalBudget: contextBudget,
+              state: reactiveState,
+            });
+            if (recomposed) {
+              void recordRunEvent({
+                runId: config.dbRunId ?? config.id,
+                eventType: 'context.reactive_compaction',
+                trigger: 'model.context_overflow',
+                component: 'baseAgentRunner',
+                payload: {
+                  attempt: reactiveState.consecutiveCount,
+                  budget: recomposed.budgetUsed.compositionBudget,
+                  dropped: recomposed.dropped,
+                  token_estimate: recomposed.tokenEstimate,
+                },
+              });
+              // Retry the model call with the tighter history — continue loop
+              continue;
+            }
+          }
+
           throw error;
         }
 

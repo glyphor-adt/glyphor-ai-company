@@ -25,6 +25,7 @@
     "@glyphor/company-memory": "*",
     "@glyphor/integrations": "*",
     "@glyphor/shared": "*",
+    "docx": "^9.6.1",
     "e2b": "^2.18.0",
     "openai": "^4.78.0"
   },
