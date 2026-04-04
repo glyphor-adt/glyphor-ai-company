@@ -69,6 +69,15 @@ function isTaskAnchorTurn(turn: ConversationTurn, taskMessage?: string): boolean
   return (turn.content ?? '').trim() === taskMessage.trim();
 }
 
+/** Single-file HTML from Codex — was clipped to ~1.8k chars so the model hallucinated "done" with no link. */
+function isLargeInlineHtmlToolResult(turn: ConversationTurn): boolean {
+  return (
+    turn.role === 'tool_result'
+    && turn.toolName === 'quick_demo_web_app'
+    && turn.toolResult?.success === true
+  );
+}
+
 function resolveMaxLength(turn: ConversationTurn, index: number, total: number): number {
   const age = total - index - 1;
   if (isFrameTurn(turn)) return 1800;
@@ -78,7 +87,12 @@ function resolveMaxLength(turn: ConversationTurn, index: number, total: number):
 
   if (turn.role === 'user') return age <= 2 ? 2400 : 1200;
   if (turn.role === 'assistant') return age <= 2 ? 2200 : 1000;
-  if (turn.role === 'tool_result') return age <= 1 ? 1800 : 700;
+  if (turn.role === 'tool_result') {
+    if (isLargeInlineHtmlToolResult(turn) && age <= 2) {
+      return 240_000;
+    }
+    return age <= 1 ? 1800 : 700;
+  }
   return 450; // tool_call
 }
 
@@ -122,8 +136,9 @@ function scoreGroups(
     const hasReasoningState = group.turns.some((turn) => isReasoningStateTurn(turn));
     const hasSessionSummary = group.turns.some((turn) => isSessionSummaryTurn(turn));
     const hasFailedTool = group.turns.some((turn) => turn.role === 'tool_result' && !!turn.toolResult && !turn.toolResult.success);
+    const hasQuickDemoHtml = group.turns.some((turn) => isLargeInlineHtmlToolResult(turn));
 
-    const neverTrim = hasFrame || hasIdentity || hasTaskAnchor || hasSessionSummary;
+    const neverTrim = hasFrame || hasIdentity || hasTaskAnchor || hasSessionSummary || hasQuickDemoHtml;
 
     let trimBand = 4;
     if (group.type === 'system') trimBand = 0;
@@ -167,6 +182,7 @@ function aggressivelyCompact(turn: ConversationTurn): ConversationTurn {
   else if (isSessionSummaryTurn(turn)) maxLength = 1100;
   else if (turn.role === 'user') maxLength = 950;
   else if (turn.role === 'assistant') maxLength = 850;
+  else if (turn.role === 'tool_result' && isLargeInlineHtmlToolResult(turn)) maxLength = 240_000;
   else if (turn.role === 'tool_result') maxLength = 650;
   else maxLength = 300;
 

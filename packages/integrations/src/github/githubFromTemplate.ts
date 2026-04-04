@@ -40,7 +40,7 @@ export function createGithubFromTemplateTools(): ToolDefinition[] {
     {
       name: 'github_create_from_template',
       description:
-        'Create a new client GitHub repository from the Glyphor Fuse website template.',
+        'Create a new GitHub repository from the Glyphor Fuse **Vite + React + TS scaffold** (package.json, bundler, baseline entry — not the final app UX). Generated source from the website pipeline overwrites the demo app before deploy.',
       parameters: {
         repo_name: {
           type: 'string',

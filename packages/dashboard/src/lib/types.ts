@@ -849,7 +849,7 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
   'vp-design': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir,
     ..._teamOrch, ..._peer, ..._init,
     ..._frontendCode, ..._screenshot, ..._designSys, ..._auditDsgn, ..._designBrief,
-    ..._asset, ..._scaffold, ..._deployPrev, ..._webBuild, ..._quickDemoWeb, ..._figma, ..._storybook, ..._canva, ..._logo,
+    ..._asset, ..._scaffold, ..._deployPrev, ..._webBuild, ..._figma, ..._storybook, ..._canva, ..._logo,
     'run_lighthouse', 'run_lighthouse_batch', 'get_design_quality_summary', 'get_component_library', 'get_template_registry', 'write_design_audit', 'get_recent_activity', 'read_company_memory', 'log_activity', 'create_decision'],
   'vp-research': [..._core, ..._toolGrant, ..._graph, ..._sp,
     ..._teamOrch, ..._peer, ..._init, ..._researchRepo, ..._researchMon,

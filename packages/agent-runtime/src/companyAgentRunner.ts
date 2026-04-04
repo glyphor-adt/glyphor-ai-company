@@ -265,6 +265,17 @@ const SCHEDULED_THINKING_TIMEOUT_MS = 900_000;
 const SCHEDULED_CALL_TIMEOUT_MS = 300_000;
 const CONTEXT_COMPOSER_MAX_TOKENS = 12_000;
 const CONTEXT_COMPOSER_MAX_TOKENS_PROVIDER = 24_000;
+/** Extra compose budget when `quick_demo_web_app` returned — full HTML JSON was clipped and the model had no artifact to show. */
+const CONTEXT_COMPOSER_QUICK_DEMO_EXTRA = 30_000;
+
+function historyHasSuccessfulQuickDemoWebApp(history: ConversationTurn[]): boolean {
+  return history.some(
+    (t) =>
+      t.role === 'tool_result'
+      && t.toolName === 'quick_demo_web_app'
+      && t.toolResult?.success === true,
+  );
+}
 
 // ─── TIERED CONTEXT LOADING ───────────────────────────────────
 // light  → on_demand/chat: profile + pending messages + working memory only
@@ -1669,15 +1680,17 @@ export class CompanyAgentRunner {
     ) => {
       const provider = detectProvider(model);
       const shouldUseClientCompression = shouldUseClientSideHistoryCompression(provider, requestSource);
+      const baseComposerMax = shouldUseClientCompression
+        ? CONTEXT_COMPOSER_MAX_TOKENS
+        : CONTEXT_COMPOSER_MAX_TOKENS_PROVIDER;
+      const needsQuickDemoBudget = historyHasSuccessfulQuickDemoWebApp(currentHistory);
       return composeModelContext({
         history: currentHistory,
         role: config.role,
         task,
         initialMessage,
         turnNumber: turnForContext,
-        maxTokens: shouldUseClientCompression
-          ? CONTEXT_COMPOSER_MAX_TOKENS
-          : CONTEXT_COMPOSER_MAX_TOKENS_PROVIDER,
+        maxTokens: needsQuickDemoBudget ? baseComposerMax + CONTEXT_COMPOSER_QUICK_DEMO_EXTRA : baseComposerMax,
         includeReasoningState: true,
         keepRecentGroups: shouldUseClientCompression ? 2 : 3,
         sessionSummary,

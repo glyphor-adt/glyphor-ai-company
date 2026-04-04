@@ -49,9 +49,9 @@ export function createQuickDemoWebAppTools(): ToolDefinition[] {
     {
       name: 'quick_demo_web_app',
       description:
-        'Best for dashboard chat: generate a working mini-app as ONE HTML file (no GitHub/Vercel, no deploy wait). '
-        + 'Use when the user asks for a simple app, prototype, or UI demo. '
-        + 'For a real client site with repo + preview/production URLs, use normalize_design_brief + invoke_web_build instead.',
+        'Offline / emergency only: generate ONE self-contained HTML file (no GitHub, no Vercel, **no live URL**). '
+        + '**Do not use for dashboard users who expect a preview link** — they should get `normalize_design_brief` + `invoke_web_build` with `tier: prototype` (`preview_url`). '
+        + 'If this tool is used, explain that it is a local file preview, not a hosted deployment.',
       parameters: {
         description: {
           type: 'string',

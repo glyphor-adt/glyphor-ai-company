@@ -1037,9 +1037,11 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
     tools.push({
       name: 'invoke_web_build',
       description:
-        'Build a complete web application or page using the Glyphor website pipeline. Provide a detailed brief and tier; the system normalizes the brief, runs an internal UX-engineer pass to **generate source files**, **validates the file map**, then **creates the GitHub repo + Vercel** and pushes (so you should not see an empty template-only repo before generation completes). '
+        '**Primary way to ship a runnable web app or page with a live preview URL** (Vercel deployment + optional Cloudflare preview alias). Do not paste huge HTML in chat — users expect **`preview_url`** here. Provide a detailed brief and tier; the system normalizes the brief, runs an internal UX-engineer pass to **generate app source**, **validates the file map**, then **creates the GitHub repo + Vercel** and pushes. '
+        + 'New repos start from an internal **Vite/React template** that only carries standard build tooling; generated **foundation_files / components** replace the demo app — this is scaffolding, not the shipped UX. '
+        + 'Use **`tier: prototype`** for fast interactive apps (weather, tools, dashboards); **`full_build`** for stricter QA. '
         + '**POC / client repos:** commits go to **`main`** with **no pull request**. **glyphor.ai site repo** (`glyphor-adt/glyphor-site` by default) uses feature branches + PRs — **`main` stays the template until the PR merges**; use `github_pr_url`, `github_branch_url`, and `source_branch` from the result. Override with `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` (comma-separated `owner/repo`) or set it to empty to disable. '
-        + 'After success, **your first reply to the user must include the exact `user_next_steps` text** (and preview URLs) so they open the PR/branch instead of only `main`.',
+        + 'After success, **your first reply must include `user_next_steps` (when present) and both `preview_url` and `deploy_url` when present** so the user opens the live site and the right Git branch/PR.',
       parameters: {
         brief: {
           type: 'string',
@@ -1523,7 +1525,7 @@ OUTPUT JSON SCHEMA:
  */
 const UX_ENGINEER_UTILITY_PROMPT = `
 ROLE: You are a senior product engineer. You ship a **small, working web application** from the brief
-(utility, dashboard, weather, calculator, etc.). The result must run in the template without manual fixes.
+(utility, dashboard, weather, calculator, etc.). The repo already has a standard Vite/React toolchain from a scaffold; your files must **compile and run** with that stack — do not rely on users editing config you were told not to touch.
 
 OUTPUT RULE:
 Respond ONLY with a valid JSON object matching the schema at the end of this prompt.
