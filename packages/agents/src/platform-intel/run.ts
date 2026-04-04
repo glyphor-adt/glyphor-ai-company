@@ -27,7 +27,7 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { PLATFORM_INTEL_CONFIG } from './config.js';
 
 export interface PlatformIntelRunParams {
-  task?: 'daily_analysis' | 'on_demand' | 'watch_tool_gaps';
+  task?: 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation';
   message?: string;
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
@@ -47,6 +47,7 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
   });
 
   const task = params.task ?? 'on_demand';
+  const consolidationMode = task === 'memory_consolidation';
   const runner = createRunner(modelClient, 'platform-intel', task);
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({});
@@ -77,6 +78,11 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
       initialMessage = params.message ?? 'Run watch_tool_gaps now. Focus only on unresolved fleet_findings where finding_type=\'tool_gap\'. Auto-resolve what is safe, escalate the rest, and return a concise status summary.';
       break;
 
+    case 'memory_consolidation':
+      initialMessage = params.message
+        ?? 'Run memory consolidation: recall existing memories, merge duplicates, save only durable consolidated facts. Summarize changes.';
+      break;
+
     case 'on_demand':
     default:
       initialMessage = params.message ?? 'Provide a current fleet health summary.';
@@ -85,7 +91,7 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
 
   const agentCfg = await loadAgentConfig('platform-intel', {
     temperature: 1.0,
-    maxTurns: PLATFORM_INTEL_CONFIG.maxTurns,
+    maxTurns: consolidationMode ? Math.min(22, PLATFORM_INTEL_CONFIG.maxTurns) : PLATFORM_INTEL_CONFIG.maxTurns,
   }, task);
 
   const config: AgentConfig = {
@@ -96,7 +102,7 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
     tools,
     maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3,
-    timeoutMs: 600_000, // 10 min — fleet analysis is thorough
+    timeoutMs: consolidationMode ? 420_000 : 600_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,

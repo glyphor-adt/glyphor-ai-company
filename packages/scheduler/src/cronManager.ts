@@ -428,7 +428,8 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/heartbeat',
     enabled: true,
   },
-  // Memory consolidation — daily raw→distilled memory promotion
+  // Memory consolidation — daily raw→distilled promotion (memoryConsolidator) +
+  // optional Nexus fleet-memory pass (AUTO_MEMORY_AGENT_CONSOLIDATION, gated).
   {
     id: 'memory-consolidation',
     schedule: '0 3 * * *',     // 3:00 UTC daily

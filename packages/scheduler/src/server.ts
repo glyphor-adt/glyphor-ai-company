@@ -81,6 +81,13 @@ import { HandoffContractMonitor } from './handoffContractMonitor.js';
 import { handleEvalApi } from './evalDashboard.js';
 import { verifyPlan } from './planVerifier.js';
 import { consolidateMemory } from './memoryConsolidator.js';
+import {
+  buildMemoryConsolidationPromptMessage,
+  evaluateMemoryConsolidationGates,
+  markMemoryConsolidationSuccess,
+  releaseMemoryConsolidationLease,
+  tryAcquireMemoryConsolidationLease,
+} from './memoryConsolidationGates.js';
 import { archiveExpiredMemory } from './memoryArchiver.js';
 import { evaluateBatch } from './batchOutcomeEvaluator.js';
 import { runShadow, getPendingShadowTasks, evaluatePromotion, getPendingChallengerVersions, getWorldStateHealth } from '@glyphor/agent-runtime';
@@ -750,7 +757,11 @@ const agentExecutor = async (
   }
   // Platform Intelligence
   else if (agentRole === 'platform-intel') {
-    return runPlatformIntel({ task: (task as 'daily_analysis' | 'on_demand' | 'watch_tool_gaps'), message, conversationHistory });
+    return runPlatformIntel({
+      task: (task as 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation'),
+      message,
+      conversationHistory,
+    });
   }
   // Strategy Lab v2 — Research Analysts
   else if (agentRole === 'vp-research') {
@@ -2858,7 +2869,58 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && url === '/memory/consolidate') {
       try {
         const report = await consolidateMemory();
-        json(res, 200, { success: true, ...report });
+
+        // Auto-dream v1 — after raw→distilled promotion, optionally run Nexus with
+        // recall_memories/save_memory (gates + PG lease; see memoryConsolidationGates.ts).
+        let fleetMemoryDream: {
+          status: string;
+          detail?: string;
+          output?: string | null;
+        } | null = null;
+
+        if (process.env.AUTO_MEMORY_AGENT_CONSOLIDATION !== 'false') {
+          const gate = await evaluateMemoryConsolidationGates();
+          if (!gate.ok) {
+            fleetMemoryDream = { status: 'skipped', detail: gate.reason };
+          } else {
+            const holder = `mem-${crypto.randomUUID().slice(0, 12)}`;
+            const leased = await tryAcquireMemoryConsolidationLease(holder);
+            if (!leased) {
+              fleetMemoryDream = { status: 'skipped', detail: 'lease_held' };
+            } else {
+              let completed = false;
+              try {
+                const dreamMessage = buildMemoryConsolidationPromptMessage({
+                  completedRunCount: gate.completedRunCount,
+                  lastConsolidatedAt: gate.lastConsolidatedAt,
+                  minHours: gate.minHours,
+                });
+                const dreamResult = await trackedAgentExecutor('platform-intel', 'memory_consolidation', {
+                  message: dreamMessage,
+                });
+                completed = dreamResult?.status === 'completed';
+                fleetMemoryDream = {
+                  status: dreamResult?.status ?? 'unknown',
+                  detail: dreamResult?.resultSummary ?? dreamResult?.error ?? dreamResult?.abortReason ?? undefined,
+                  output: dreamResult?.output ?? null,
+                };
+                if (completed) {
+                  await markMemoryConsolidationSuccess();
+                }
+              } catch (dreamErr) {
+                const msg = dreamErr instanceof Error ? dreamErr.message : String(dreamErr);
+                fleetMemoryDream = { status: 'error', detail: msg };
+                console.error('[MemoryConsolidator] Fleet memory dream error:', msg);
+              } finally {
+                if (!completed) {
+                  await releaseMemoryConsolidationLease();
+                }
+              }
+            }
+          }
+        }
+
+        json(res, 200, { success: true, ...report, fleet_memory_dream: fleetMemoryDream });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[MemoryConsolidator] Endpoint error:', message);

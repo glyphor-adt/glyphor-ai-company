@@ -29,6 +29,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const DIRECT_PERMISSION_APPROVERS = new Set(['kristina', 'system']);
 
+/** May enter self-service auto-build even when justification triggers paid/admin policy gates — only if full API + parameter schema are present (see autoBuildEligible). */
+const AUTO_BUILD_POLICY_BYPASS_ROLES = new Set(['platform-intel']);
+
 export function createToolRequestTools(): ToolDefinition[] {
   return [
     {
@@ -394,9 +397,13 @@ export function createToolRequestTools(): ToolDefinition[] {
         const suggestedApiConfig = params.suggested_api_config;
         const suggestedParameters = params.suggested_parameters;
         const autoBuildEligible = autoBuildEnabled
-          && (!permissionPolicy.requiresApproval || requesterCanBypassApproval)
           && isRecord(suggestedApiConfig)
-          && isRecord(suggestedParameters);
+          && isRecord(suggestedParameters)
+          && (
+            !permissionPolicy.requiresApproval
+            || requesterCanBypassApproval
+            || AUTO_BUILD_POLICY_BYPASS_ROLES.has(ctx.agentRole)
+          );
 
         if (autoBuildEligible) {
           try {
