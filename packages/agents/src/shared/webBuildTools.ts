@@ -34,6 +34,10 @@ interface WebBuildResult {
   preview_url?: string;
   deploy_url?: string;
   github_pr_url?: string;
+  /** Branch that received the generated commit (not necessarily default/main). */
+  source_branch?: string;
+  /** Tell the user where to look on GitHub — avoids "no code" confusion when only `main` was opened. */
+  repository_hint?: string;
   build_report?: unknown;
   agent_trace?: unknown;
   tier_used: WebBuildTier;
@@ -215,6 +219,21 @@ function getWebsitePipelineOrgFromEnv(): string {
     || 'Glyphor-Fuse';
 }
 
+/**
+ * POC / client template repos commit straight to `main` with no PR.
+ * Set `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` to a comma-separated list of `owner/repo`
+ * (e.g. your glyphor.ai marketing repo) to restore feature-branch + PR flow for those repos only.
+ */
+function shouldUseFeatureBranchWorkflow(repoFullName: string): boolean {
+  const raw = process.env.WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS?.trim();
+  if (!raw) return false;
+  const key = repoFullName.trim().toLowerCase();
+  return raw.split(',').some((part) => {
+    const entry = part.trim().toLowerCase();
+    return entry.length > 0 && entry === key;
+  });
+}
+
 function buildAccountProfileOverride(brand: WebBrandContext): Record<string, unknown> {
   return {
     brand_colors: {
@@ -321,14 +340,18 @@ function parseProjectReference(projectId: string, tier: WebBuildTier): WebsitePi
     ?? (repoFullName?.split('/')[1] || slugifyProjectName(trimmed));
   const projectSlug = pickString(record, 'project_slug', 'repo_name', 'project_name') ?? repoName;
   const projectName = pickString(record, 'project_name', 'repo_name') ?? repoName;
+  const resolvedFullName = repoFullName ?? `${owner}/${repoName}`;
+  const useFeatureBranch = shouldUseFeatureBranchWorkflow(resolvedFullName);
 
   return {
-    repoFullName: repoFullName ?? `${owner}/${repoName}`,
+    repoFullName: resolvedFullName,
     owner,
     repoName,
     projectSlug,
     projectName,
-    branch: tier === 'iterate' ? createBranchName(ITERATION_BRANCH_PREFIX) : createBranchName(UPGRADE_BRANCH_PREFIX),
+    branch: useFeatureBranch
+      ? (tier === 'iterate' ? createBranchName(ITERATION_BRANCH_PREFIX) : createBranchName(UPGRADE_BRANCH_PREFIX))
+      : 'main',
     isExisting: true,
   };
 }
@@ -536,6 +559,7 @@ async function provisionWebsiteProject(
         },
         ctx,
       );
+      const useFeatureBranch = shouldUseFeatureBranchWorkflow(repoFullName);
 
       return {
         repoFullName,
@@ -543,7 +567,9 @@ async function provisionWebsiteProject(
         repoName,
         projectSlug: repoName,
         projectName: pickString(vercel, 'project_name') ?? repoName,
-        branch: params.tier === 'prototype' ? DEFAULT_PROTOTYPE_BRANCH : DEFAULT_INITIAL_BRANCH,
+        branch: useFeatureBranch
+          ? (params.tier === 'prototype' ? DEFAULT_PROTOTYPE_BRANCH : DEFAULT_INITIAL_BRANCH)
+          : 'main',
         isExisting: false,
         vercelProjectId: pickString(vercel, 'project_id'),
       };
@@ -573,8 +599,12 @@ async function executeWebBuild(
     ctx,
   );
   const project = await provisionWebsiteProject(params, brand, ctx);
-  if (options.branchOverride) {
+  const useFeatureBranch = shouldUseFeatureBranchWorkflow(project.repoFullName);
+  if (useFeatureBranch && options.branchOverride) {
     project.branch = options.branchOverride;
+  }
+  if (!useFeatureBranch) {
+    project.branch = 'main';
   }
 
   const foundation = await executeWebsitePipelineTool<Record<string, unknown>>(
@@ -620,51 +650,71 @@ async function executeWebBuild(
   let merge: Record<string, unknown> | null = null;
   let checks: Record<string, unknown> | null = null;
 
-  pullRequest = await executeWebsitePipelineTool<Record<string, unknown>>(
-    'github_create_pull_request',
-    {
-      repo: project.repoFullName,
-      head_branch: project.branch,
-      base_branch: 'main',
-      title: options.prTitle ?? buildPullRequestTitle(project, params.tier),
-      body: options.prBody ?? buildPullRequestBody(params, project),
-      draft: params.tier !== 'full_build',
-    },
-    ctx,
-  );
-  githubPrUrl = pickString(pullRequest, 'pr_url');
+  if (useFeatureBranch) {
+    pullRequest = await executeWebsitePipelineTool<Record<string, unknown>>(
+      'github_create_pull_request',
+      {
+        repo: project.repoFullName,
+        head_branch: project.branch,
+        base_branch: 'main',
+        title: options.prTitle ?? buildPullRequestTitle(project, params.tier),
+        body: options.prBody ?? buildPullRequestBody(params, project),
+        draft: params.tier !== 'full_build',
+      },
+      ctx,
+    );
+    githubPrUrl = pickString(pullRequest, 'pr_url');
+  }
 
   if (params.tier === 'full_build') {
-    checks = await executeWebsitePipelineTool<Record<string, unknown>>(
-      'github_wait_for_pull_request_checks',
-      {
-        repo: project.repoFullName,
-        pr_number: Number(pullRequest.pr_number ?? 0),
-        timeout_seconds: 900,
-        poll_interval_seconds: 15,
-      },
-      ctx,
-    );
+    const prNumber = Number(pullRequest?.pr_number ?? 0);
+    if (useFeatureBranch && prNumber > 0) {
+      checks = await executeWebsitePipelineTool<Record<string, unknown>>(
+        'github_wait_for_pull_request_checks',
+        {
+          repo: project.repoFullName,
+          pr_number: prNumber,
+          timeout_seconds: 900,
+          poll_interval_seconds: 15,
+        },
+        ctx,
+      );
 
-    merge = await executeWebsitePipelineTool<Record<string, unknown>>(
-      'github_merge_pull_request',
-      {
-        repo: project.repoFullName,
-        pr_number: Number(pullRequest.pr_number ?? 0),
-        merge_method: 'squash',
-      },
-      ctx,
-    );
+      merge = await executeWebsitePipelineTool<Record<string, unknown>>(
+        'github_merge_pull_request',
+        {
+          repo: project.repoFullName,
+          pr_number: prNumber,
+          merge_method: 'squash',
+        },
+        ctx,
+      );
+    }
 
     production = await waitForProductionUrl(project, ctx);
     deployUrl = pickString(production, 'production_url') ?? deployUrl;
   }
+
+  const repositoryHint = useFeatureBranch
+    ? [
+        `Generated website code was pushed to branch "${project.branch}" in ${project.repoFullName}.`,
+        githubPrUrl
+          ? `Open this pull request to review and merge into main: ${githubPrUrl}`
+          : 'A pull request was created toward main — open it from the GitHub repo if you do not see new files on the default branch.',
+        'If you only viewed the default branch (usually main), you may still see the original template until the PR is merged.',
+      ].join(' ')
+    : [
+        `Generated website code was committed on "${project.branch}" in ${project.repoFullName}.`,
+        'No feature branch or pull request was opened (standard POC flow). Open the repo default branch to see the generated app.',
+      ].join(' ');
 
   return {
     project_id: project.repoFullName,
     preview_url: pickString(previewRegistration, 'preview_url') ?? preview.preview_url,
     deploy_url: deployUrl,
     github_pr_url: githubPrUrl,
+    source_branch: project.branch,
+    repository_hint: repositoryHint,
     build_report: {
       normalized_brief: normalizedBrief,
       architectural_reasoning: foundation.architectural_reasoning ?? null,
@@ -696,10 +746,12 @@ async function executeWebBuild(
         'github_push_files',
         'vercel_get_preview_url',
         project.isExisting || params.tier === 'iterate' ? 'cloudflare_update_preview' : 'cloudflare_register_preview',
-        'github_create_pull_request',
-        ...(params.tier === 'full_build'
+        ...(useFeatureBranch ? ['github_create_pull_request'] : []),
+        ...(params.tier === 'full_build' && useFeatureBranch
           ? ['github_wait_for_pull_request_checks', 'github_merge_pull_request', 'vercel_get_production_url']
-          : []),
+          : params.tier === 'full_build'
+            ? ['vercel_get_production_url']
+            : []),
       ],
     },
     tier_used: params.tier,
@@ -853,7 +905,9 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
   if (allowBuild) {
     tools.push({
       name: 'invoke_web_build',
-      description: 'Build a complete web application or page using the Glyphor website pipeline. Provide a detailed brief and tier; the system provisions the repo, generates the site, deploys preview infrastructure, and optionally ships production.',
+      description:
+        'Build a complete web application or page using the Glyphor website pipeline. Provide a detailed brief and tier; the system normalizes the brief, provisions the repo + Vercel, runs an internal UX-engineer pass to **generate and push real source files**, waits for preview, and optionally ships production. '
+        + '**POC / client repos (default):** commits go to **`main`** with **no pull request**. **glyphor.ai (or other in-repo marketing sites):** set env `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` to that repo `owner/name` to use feature branches + PRs instead. Check `source_branch` and `repository_hint` in the result.',
       parameters: {
         brief: {
           type: 'string',
