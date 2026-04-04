@@ -1859,12 +1859,9 @@ function mergeFlatFilesIntoWebsiteOutput(
   output: WebsiteFoundationOutput,
   flat: Record<string, string>,
 ): WebsiteFoundationOutput {
-  const next: WebsiteFoundationOutput = {
-    ...output,
-    foundation_files: [...(output.foundation_files ?? [])],
-    components: [...(output.components ?? [])],
-    utility_files: [...(output.utility_files ?? [])],
-  };
+  const foundationFiles: WebsiteFoundationFileEntry[] = [...(output.foundation_files ?? [])];
+  const components: WebsiteFoundationFileEntry[] = [...(output.components ?? [])];
+  const utilityFiles: WebsiteFoundationFileEntry[] = [...(output.utility_files ?? [])];
 
   const updateList = (arr: WebsiteFoundationFileEntry[], filePath: string, content: string): boolean => {
     const i = arr.findIndex((e) => e.filePath === filePath);
@@ -1876,15 +1873,20 @@ function mergeFlatFilesIntoWebsiteOutput(
   for (const [filePath, content] of Object.entries(flat)) {
     if (!isIncrementalPatchPathAllowed(filePath)) continue;
     if (
-      !updateList(next.foundation_files, filePath, content)
-      && !updateList(next.components, filePath, content)
-      && !updateList(next.utility_files, filePath, content)
+      !updateList(foundationFiles, filePath, content)
+      && !updateList(components, filePath, content)
+      && !updateList(utilityFiles, filePath, content)
     ) {
-      next.utility_files.push({ filePath, content });
+      utilityFiles.push({ filePath, content });
     }
   }
 
-  return next;
+  return {
+    ...output,
+    foundation_files: foundationFiles,
+    components,
+    utility_files: utilityFiles,
+  };
 }
 
 const INCREMENTAL_PATCH_SYSTEM_PROMPT = `
