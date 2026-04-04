@@ -46,6 +46,10 @@ import type { DecisionChainTracker } from './decisionChainTracker.js';
 import { harvestTaskOutcome } from './taskOutcomeHarvester.js';
 import type { ActionReceipt } from './types.js';
 import { extractTaskFromConfigId } from './taskIdentity.js';
+import {
+  fetchUndecomposedDelegatedDirectives,
+  filterBaselineStillUnresolved,
+} from './orchestrationDecompositionGuard.js';
 import { composeModelContext } from './context/contextComposer.js';
 import { microCompactHistory } from './context/microCompactor.js';
 import { startTraceSpan } from './telemetry/tracing.js';
@@ -442,6 +446,20 @@ export abstract class BaseAgentRunner {
     ];
 
     const taskForContext = extractTaskFromConfigId(config.id);
+    let orchestrateDecompositionBaseline: { id: string; title: string }[] | null = null;
+    if (taskForContext === 'orchestrate' || taskForContext === 'strategic_planning') {
+      try {
+        const undecomposed = await fetchUndecomposedDelegatedDirectives(config.role);
+        if (undecomposed.length > 0) {
+          orchestrateDecompositionBaseline = undecomposed;
+          console.log(
+            `[OrchestrationGuard] ${config.role} ${config.id}: undecomposed delegated directives at run start=${undecomposed.length} (${undecomposed.map((d) => d.id).join(', ')})`,
+          );
+        }
+      } catch (err) {
+        console.warn(`[OrchestrationGuard] Baseline query failed for ${config.role}:`, (err as Error).message);
+      }
+    }
     let lastTextOutput: string | null = null;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
@@ -1584,6 +1602,46 @@ Continue execution, call tools as needed, and return only when all criteria are 
       if (safeDeps.trustScorer && reasoningResult) {
         const confidenceDelta = (reasoningResult.overallConfidence - 0.7) * 0.02;
         void safeDeps.trustScorer.applyDelta(config.role, { delta: confidenceDelta, source: 'reasoning_verification', reason: 'Reasoning confidence delta' });
+      }
+
+      // ─── ORCHESTRATION: fail-closed decomposition ───────────────
+      if (orchestrateDecompositionBaseline && orchestrateDecompositionBaseline.length > 0) {
+        try {
+          const currentUndecomposed = await fetchUndecomposedDelegatedDirectives(config.role);
+          const unresolved = filterBaselineStillUnresolved(orchestrateDecompositionBaseline, currentUndecomposed);
+          if (unresolved.length > 0) {
+            const guardMsg =
+              `orchestrate_decomposition_incomplete: ${unresolved.length} delegated directive(s) still have no work_assignments: ` +
+              unresolved.map((d) => `"${d.title}" (${d.id})`).join('; ');
+            console.warn(`[${this.archetype}Runner] ${config.role}: ${guardMsg}`);
+            emitEvent({
+              type: 'agent_aborted',
+              agentId: config.id,
+              reason: guardMsg,
+              totalTurns: supervisor.stats.turnCount,
+              elapsedMs: supervisor.stats.elapsedMs,
+            });
+            const guardResult = this.buildResult(
+              config,
+              'aborted',
+              lastTextOutput,
+              history,
+              supervisor,
+              guardMsg,
+              totalInputTokens,
+              totalOutputTokens,
+              totalThinkingTokens,
+              totalCachedInputTokens,
+              buildRoutingSummary(),
+              actualModelUsed,
+              actualProviderUsed,
+            );
+            guardResult.actions = actionReceipts;
+            return guardResult;
+          }
+        } catch (err) {
+          console.warn(`[OrchestrationGuard] Post-run check failed for ${config.role}:`, (err as Error).message);
+        }
       }
 
       // ─── Post-run hook (archetype-specific) ───────────────────

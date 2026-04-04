@@ -91,7 +91,7 @@ async function persistToolCallTrace(
         result_success, result_data, result_error, files_written, memory_keys_written,
         constitutional_check, estimated_cost_usd, risk_level, turn_number,
         retrieval_method, retrieval_score, tools_available, model_cap)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
       [
         safeRunId,
         assignmentId ?? null,

@@ -216,6 +216,11 @@ export { inferDomainRouting } from './routing/index.js';
 export type { Capability, RoutingContext, RoutingDecision, DeterministicPreCheckContext, DeterministicPreCheckResult, DeterministicPreCheck, RoutingDomain, DomainRoutingContext, DomainRoutingResult, DomainSignal } from './routing/index.js';
 export { classifySubtask, selectSubtaskModel, routeSubtask, compareSubtaskComplexity } from './subtaskRouter.js';
 export type { SubtaskClassification, SubtaskComplexity, SubtaskRoutingContext, SubtaskRoutingDecision } from './subtaskRouter.js';
+export {
+  fetchUndecomposedDelegatedDirectives,
+  filterBaselineStillUnresolved,
+} from './orchestrationDecompositionGuard.js';
+export type { UndecomposedDirective } from './orchestrationDecompositionGuard.js';
 // Structured output schemas
 export { REFLECTION_SCHEMA } from './schemas/reflectionSchema.js';
 export { ASSIGNMENT_OUTPUT_SCHEMA } from './schemas/assignmentOutputSchema.js';

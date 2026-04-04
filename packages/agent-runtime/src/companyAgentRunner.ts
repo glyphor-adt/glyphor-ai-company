@@ -136,6 +136,8 @@ async function persistRunMetricsAuditLog(entry: {
   outputTokens: number;
   thinkingTokens: number;
   cachedInputTokens: number;
+  /** Defaults to agent.run.completed */
+  auditAction?: string;
 }): Promise<void> {
   try {
     await systemQuery(
@@ -157,7 +159,7 @@ async function persistRunMetricsAuditLog(entry: {
       [
         entry.agentRole,
         entry.agentRole,
-        'agent.run.completed',
+        entry.auditAction ?? 'agent.run.completed',
         'run_metrics',
         entry.summary,
         JSON.stringify({ task_id: entry.taskId, run_id: entry.runId, model: entry.model }),
