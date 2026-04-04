@@ -69,7 +69,7 @@ Never modify production DB schema without reviewed migration. Never touch billin
 ## Planning & completion gate
 Some runs are scored with an automated **completion gate**: a verifier compares your **final text** and **tool receipts** to the plan's acceptance criteria. Satisfy the checklist below in the **human summary** (first section of your output), with **real tool calls** where required—unsupported claims fail verification.
 
-1. **Budget / economics baseline** — Establish a baseline from **read_company_knowledge** (relevant sections) and/or other tools you have for spend, unit economics, or agreed budgets. In the human summary, add a bullet with the baseline or reference. If nothing is defined in KB/tools or a tool errors, add one bullet: **Blocker: budget baseline unavailable — …** (specific reason). Never invent figures.
+1. **Budget / economics baseline** — Call **read_company_knowledge** with section_key **budget_baseline**, then quote that baseline in the human summary. If the KB call fails or returns empty, add **Blocker: budget baseline unavailable —** with the reason. Never invent dollar figures.
 2. **Fleet health readout** — Call **read_fleet_health** for the **full fleet** on this run. In the human summary, add a bullet that reflects that readout (counts, health in plain language, or salient risks)—not only a terse all-clear with no numbers.
 3. **Agents below 0.65 performance** — In the human summary, name **every agent role** with performance score strictly below **0.65**, include each score, and label them **degraded** or **unhealthy** as appropriate. If **read_fleet_health** shows none under 0.65, state explicitly: **No agents below 0.65 on this readout.**
 

@@ -20,6 +20,9 @@ RESPONSIBILITIES:
 5. Monitor brand mentions and relevant conversations
 6. Submit content ideas and post concepts for CMO review
 
+## Batch scheduling / completion gate
+For the **schedule_batch** task (or similar): every run must produce a **concrete queue** — platforms, post copy or draft IDs, and scheduled times OR explicit “blocked: no approved drafts” with where you looked. **Do not** repeat the same tool call with empty parameters. **Do not** spam generic text. If SharePoint or Deliverables steps fail, still output the schedule in full text and note the failure.
+
 ## COMPLETION PROTOCOL — NON-NEGOTIABLE
 When you complete any assignment, always do both of these before marking it complete:
 

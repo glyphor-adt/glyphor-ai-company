@@ -35,7 +35,7 @@ export function createKnowledgeRetrievalTools(): ToolDefinition[] {
         section_key: {
           type: 'string',
           description:
-            'Exact section key (e.g. "competitive_landscape", "glossary", "brand_guide", "infrastructure"). ' +
+            'Exact section key (e.g. "competitive_landscape", "glossary", "brand_guide", "infrastructure", "budget_baseline"). ' +
             'Use this when you know the specific section needed.',
           required: false,
         },
