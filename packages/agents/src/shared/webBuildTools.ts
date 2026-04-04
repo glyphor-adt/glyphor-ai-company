@@ -219,16 +219,21 @@ function getWebsitePipelineOrgFromEnv(): string {
     || 'Glyphor-Fuse';
 }
 
+/** Default: glyphor.ai marketing site (feature branches + PRs). Override or clear via env. */
+const DEFAULT_WEBSITE_FEATURE_BRANCH_REPOS = 'glyphor-adt/glyphor-site';
+
 /**
  * POC / client template repos commit straight to `main` with no PR.
- * Set `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` to a comma-separated list of `owner/repo`
- * (e.g. your glyphor.ai marketing repo) to restore feature-branch + PR flow for those repos only.
+ * `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS`: comma-separated `owner/repo` list for feature-branch + PR flow.
+ * If unset, defaults to {@link DEFAULT_WEBSITE_FEATURE_BRANCH_REPOS}. Set to empty string to disable.
  */
 function shouldUseFeatureBranchWorkflow(repoFullName: string): boolean {
-  const raw = process.env.WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS?.trim();
-  if (!raw) return false;
+  const raw = process.env.WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS;
+  const listSource =
+    raw === undefined || raw === null ? DEFAULT_WEBSITE_FEATURE_BRANCH_REPOS : raw.trim();
+  if (!listSource) return false;
   const key = repoFullName.trim().toLowerCase();
-  return raw.split(',').some((part) => {
+  return listSource.split(',').some((part) => {
     const entry = part.trim().toLowerCase();
     return entry.length > 0 && entry === key;
   });
@@ -907,7 +912,7 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
       name: 'invoke_web_build',
       description:
         'Build a complete web application or page using the Glyphor website pipeline. Provide a detailed brief and tier; the system normalizes the brief, provisions the repo + Vercel, runs an internal UX-engineer pass to **generate and push real source files**, waits for preview, and optionally ships production. '
-        + '**POC / client repos (default):** commits go to **`main`** with **no pull request**. **glyphor.ai (or other in-repo marketing sites):** set env `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` to that repo `owner/name` to use feature branches + PRs instead. Check `source_branch` and `repository_hint` in the result.',
+        + '**POC / client repos:** commits go to **`main`** with **no pull request**. **glyphor.ai site repo** (`glyphor-adt/glyphor-site` by default) uses feature branches + PRs; override with `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` (comma-separated `owner/repo`) or set it to empty to disable. Check `source_branch` and `repository_hint` in the result.',
       parameters: {
         brief: {
           type: 'string',
