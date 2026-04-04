@@ -851,7 +851,7 @@ ${memPrompt}`, timestamp: Date.now() });
         emitEvent({ type: 'turn_started', agentId: config.id, turnNumber });
 
         // ── Supervisor check ────────────────────────────────────
-        const check = supervisor.checkBeforeModelCall();
+        const check = await supervisor.checkBeforeModelCall();
         if (!check.ok) {
           return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary());
         }

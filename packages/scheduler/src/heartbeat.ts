@@ -15,6 +15,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 import { EXECUTIVE_ROLES, getRedisCache, CACHE_KEYS, CACHE_TTL } from '@glyphor/agent-runtime';
+import { shouldBlockHeartbeat, checkFleetCostCeiling } from '@glyphor/agent-runtime';
 import { executeWorkLoop, WorkflowOrchestrator } from '@glyphor/agent-runtime';
 import type { WakeRouter } from './wakeRouter.js';
 import { buildWaves, dispatchWaves } from './parallelDispatch.js';
@@ -184,6 +185,15 @@ export class HeartbeatManager {
   async runHeartbeat(): Promise<HeartbeatResult> {
     this.cycle++;
 
+    // ── Fleet-wide circuit breaker check ──
+    // If the fleet is halted at any level, skip the entire heartbeat cycle.
+    // Auto-trip if fleet daily cost exceeds the configured ceiling.
+    try {
+      await checkFleetCostCeiling();
+    } catch (err) {
+      console.warn('[Heartbeat] Fleet cost ceiling check failed:', (err as Error).message);
+    }
+
     // ── Phase 0: REAP — mark stale "running" rows as failed ──
     await this.reapStaleRuns();
 
@@ -242,6 +252,13 @@ export class HeartbeatManager {
     for (const agentRole of agentsToCheck) {
       // Skip if agent was already added by directive detection above
       if (agentRole === 'chief-of-staff' && directiveWake) continue;
+
+      // Circuit breaker: skip this agent if fleet halt blocks it
+      const haltBlock = await shouldBlockHeartbeat(agentRole);
+      if (haltBlock.blocked) {
+        console.log(`[Heartbeat] ${agentRole} blocked by circuit breaker: ${haltBlock.reason}`);
+        continue;
+      }
 
       const hasQueuedWake = queuedWakeAgents.includes(agentRole);
 

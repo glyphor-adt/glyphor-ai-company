@@ -7,6 +7,12 @@
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import {
+  tripCircuitBreaker,
+  clearCircuitBreaker,
+  getHaltStatus,
+  getFleetCostSummary,
+} from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { systemQuery } from '@glyphor/shared/db';
 import {
@@ -815,6 +821,62 @@ export function createOpsTools(memory: CompanyMemoryStore): ToolDefinition[] {
         );
 
         return { success: true, data: { sent: true, recipient } };
+      },
+    },
+
+    // ─── CIRCUIT BREAKER TOOLS ──────────────────────────────────
+
+    {
+      name: 'get_circuit_breaker_status',
+      description: 'Check whether the fleet-wide circuit breaker is currently active. Returns halt level, reason, who triggered it, and when it expires.',
+      parameters: {},
+      execute: async (): Promise<ToolResult> => {
+        const status = await getHaltStatus();
+        const costSummary = await getFleetCostSummary();
+        return { success: true, data: { ...status, fleetCost: costSummary } };
+      },
+    },
+
+    {
+      name: 'set_global_halt',
+      description: 'Trip the fleet-wide circuit breaker. Level 1 = block writes only, level 2 = block all tools, level 3 = block all + abort running agents. Only use after confirming a genuine emergency (cost spike, behavioral cascade, or explicit founder request).',
+      parameters: {
+        level: { type: 'number', description: 'Halt level: 1 (CAUTION), 2 (HALT), or 3 (EMERGENCY)', required: true },
+        reason: { type: 'string', description: 'Detailed reason for the halt', required: true },
+        duration_hours: { type: 'number', description: 'Auto-clear after N hours. Omit for manual clear only.', required: false },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const level = params.level as number;
+        if (level < 1 || level > 3) {
+          return { success: false, error: 'Invalid halt level. Must be 1, 2, or 3.' };
+        }
+        const reason = params.reason as string;
+        if (!reason || reason.length < 10) {
+          return { success: false, error: 'Reason must be at least 10 characters.' };
+        }
+        const status = await tripCircuitBreaker({
+          level: level as 1 | 2 | 3,
+          reason,
+          triggeredBy: 'ops',
+          durationHours: (params.duration_hours as number) || null,
+        });
+        return { success: true, data: status };
+      },
+    },
+
+    {
+      name: 'clear_global_halt',
+      description: 'Clear the fleet-wide circuit breaker and resume normal operations. Only use after the root cause of the halt has been resolved.',
+      parameters: {
+        reason: { type: 'string', description: 'Why it is safe to resume (what was fixed)', required: true },
+      },
+      execute: async (params): Promise<ToolResult> => {
+        const reason = params.reason as string;
+        if (!reason || reason.length < 10) {
+          return { success: false, error: 'Reason must be at least 10 characters.' };
+        }
+        const result = await clearCircuitBreaker('ops', reason);
+        return { success: true, data: result };
       },
     },
   ];

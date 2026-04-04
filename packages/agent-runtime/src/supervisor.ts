@@ -7,6 +7,7 @@
  */
 
 import type { SupervisorConfig, ToolResult, AgentEvent } from './types.js';
+import { getHaltStatus } from './circuitBreaker.js';
 
 export class AgentSupervisor {
   readonly config: SupervisorConfig;
@@ -49,7 +50,7 @@ export class AgentSupervisor {
     };
   }
 
-  checkBeforeModelCall(): { ok: boolean; reason?: string } {
+  async checkBeforeModelCall(): Promise<{ ok: boolean; reason?: string }> {
     // Evaluate stall status for the previous turn (turns > 1).
     // A turn with no progress across ALL its tool results counts as one stall.
     if (this.turnCount > 0 && !this.turnHadProgress) {
@@ -64,6 +65,17 @@ export class AgentSupervisor {
     if (this.isAborted) {
       const reason = (this.controller.signal.reason as Error)?.message || 'aborted';
       return { ok: false, reason };
+    }
+
+    // ─── Circuit breaker: Level 3 (EMERGENCY) aborts running agents ───
+    try {
+      const haltStatus = await getHaltStatus();
+      if (haltStatus.halted && haltStatus.level === 3) {
+        this.abort(`[CIRCUIT BREAKER] EMERGENCY halt: ${haltStatus.reason ?? 'unknown'}`);
+        return { ok: false, reason: 'circuit_breaker_emergency' };
+      }
+    } catch {
+      // Fail-open: DB errors should not stop a running agent
     }
 
     if (this.turnCount > this.config.maxTurns) {

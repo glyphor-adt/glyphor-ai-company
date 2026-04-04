@@ -57,6 +57,7 @@ import {
 import { classifyActionRisk } from './actionRiskClassifier.js';
 import type { CommunicationType, RecipientType } from './types.js';
 import { createToolHookRunnerFromEnv, type ToolHookRunner } from './hooks/hookRunner.js';
+import { shouldBlockToolCall } from './circuitBreaker.js';
 import {
   type DenialTrackingState,
   type DenialSource,
@@ -937,6 +938,24 @@ export class ToolExecutor {
       return {
         success: false,
         error: 'Agent aborted before tool execution',
+        filesWritten: 0,
+        memoryKeysWritten: 0,
+        riskLevel: riskAssessment.level,
+      };
+    }
+
+    // ─── Circuit breaker: global fleet halt gate ─────────
+    // Check if the fleet-wide circuit breaker is tripped.
+    // This runs before all other gates — if the fleet is halted, nothing runs.
+    const haltCheck = await shouldBlockToolCall(toolName, context.agentRole);
+    if (haltCheck.blocked) {
+      this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'RATE_LIMITED', {
+        reason: 'global_circuit_breaker',
+        message: haltCheck.message,
+      });
+      return {
+        success: false,
+        error: haltCheck.message,
         filesWritten: 0,
         memoryKeysWritten: 0,
         riskLevel: riskAssessment.level,

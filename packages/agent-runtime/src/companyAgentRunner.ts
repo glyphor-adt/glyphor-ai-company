@@ -1754,7 +1754,7 @@ export class CompanyAgentRunner {
         emitEvent({ type: 'turn_started', agentId: config.id, turnNumber });
 
         // 1. SUPERVISOR CHECK
-        const check = supervisor.checkBeforeModelCall();
+        const check = await supervisor.checkBeforeModelCall();
         if (!check.ok) {
           // For on_demand chat: if we collected tool data but never got text,
           // make one final no-tools model call to synthesize the data into

@@ -30,6 +30,19 @@ export {
   DENIAL_THRESHOLDS,
 } from './denialTracking.js';
 export type { DenialTrackingState, DenialTracker, DenialRecord, DenialSource, EscalationDecision, EscalationAction } from './denialTracking.js';
+// Global circuit breaker — fleet-wide emergency halt
+export {
+  getHaltStatus,
+  shouldBlockToolCall,
+  shouldBlockHeartbeat,
+  tripCircuitBreaker,
+  clearCircuitBreaker,
+  checkFleetCostCeiling,
+  getFleetCostSummary,
+  invalidateHaltCache,
+  HALT_LEVEL_NAMES,
+} from './circuitBreaker.js';
+export type { HaltStatus, HaltLevel, TripOptions, ClearResult, FleetCostSummary } from './circuitBreaker.js';
 export { assertSafeOutboundUrl } from './security/ssrfGuard.js';
 export type { SsrfGuardOptions } from './security/ssrfGuard.js';
 export {
