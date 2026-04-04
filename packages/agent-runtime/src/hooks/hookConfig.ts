@@ -3,6 +3,8 @@ export interface HttpHookEndpoint {
   url: string;
   timeoutMs?: number;
   headers?: Record<string, string>;
+  /** If set, this hook only fires for the listed tool names. Empty/undefined = all tools. */
+  toolNames?: string[];
 }
 
 export interface ToolHookConfig {

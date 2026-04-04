@@ -56,7 +56,7 @@ import {
 } from './behavioralFingerprint.js';
 import { classifyActionRisk } from './actionRiskClassifier.js';
 import type { CommunicationType, RecipientType } from './types.js';
-import { createToolHookRunnerFromEnv, type ToolHookRunner } from './hooks/hookRunner.js';
+import { createToolHookRunnerFromEnv, type ToolHookRunner, CompositeHookRunner, createCompositeHookRunner } from './hooks/hookRunner.js';
 import { shouldBlockToolCall } from './circuitBreaker.js';
 import {
   type DenialTrackingState,
@@ -659,7 +659,7 @@ export class ToolExecutor {
   private modelClient: ModelClient | null = null;
   private redisCache: RedisCache | null = null;
   private verifierRunner: VerifierRunner | null = null;
-  private toolHookRunner: ToolHookRunner | null = null;
+  private compositeHookRunner: CompositeHookRunner;
   private denialState: DenialTrackingState = createDenialState();
 
   constructor(tools: ToolDefinition[], dryRun = false, enforcement = true, formalVerifier?: FormalVerifier) {
@@ -667,7 +667,7 @@ export class ToolExecutor {
     this.dryRun = dryRun;
     this.enforcementEnabled = enforcement;
     this.formalVerifier = formalVerifier ?? null;
-    this.toolHookRunner = createToolHookRunnerFromEnv();
+    this.compositeHookRunner = createCompositeHookRunner(createToolHookRunnerFromEnv());
   }
 
   /** Attach constitutional pre-check dependencies. Call once after construction. */
@@ -684,7 +684,7 @@ export class ToolExecutor {
 
   /** Inject a custom hook runner (primarily for tests). */
   setToolHookRunner(runner: ToolHookRunner | null): void {
-    this.toolHookRunner = runner;
+    this.compositeHookRunner = createCompositeHookRunner(runner);
   }
 
   // ─── Cost Tracking ────────────────────────────────────────────
@@ -1179,18 +1179,26 @@ export class ToolExecutor {
       return blockedResult;
     }
 
-    if (this.toolHookRunner) {
+    // ─── Hook lifecycle: pre-tool hooks ───────────────────────
+    // Composite runner: per-tool in-process hooks first, then global HTTP hooks.
+    // First deny from either source blocks the tool.
+    {
+      const toolMeta = getToolMeta(tool);
+      const hookContext = {
+        agentId: context.agentId,
+        agentRole: context.agentRole,
+        toolName,
+        params,
+        runId: context.runId,
+        assignmentId: context.assignmentId,
+        turnNumber: context.turnNumber,
+        riskLevel: riskAssessment.level,
+      };
       try {
-        const hookDecision = await this.toolHookRunner.runPreToolUse({
-          agentId: context.agentId,
-          agentRole: context.agentRole,
-          toolName,
-          params,
-          runId: context.runId,
-          assignmentId: context.assignmentId,
-          turnNumber: context.turnNumber,
-          riskLevel: riskAssessment.level,
-        });
+        const hookDecision = await this.compositeHookRunner.runPreToolUse(
+          hookContext,
+          toolMeta.preHooks?.length ? toolMeta.preHooks : undefined,
+        );
 
         if (!hookDecision.allow) {
           this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'HOOK_BLOCKED', {
@@ -1732,19 +1740,31 @@ export class ToolExecutor {
         );
       }
 
-      if (this.toolHookRunner) {
+      // ─── Hook lifecycle: post-tool hooks ──────────────────────
+      // Composite runner: global HTTP hooks first, then per-tool in-process.
+      // Per-tool post-hooks may enrich the result.
+      {
+        const postToolMeta = getToolMeta(tool);
+        const postHookContext = {
+          agentId: context.agentId,
+          agentRole: context.agentRole,
+          toolName,
+          params,
+          runId: context.runId,
+          assignmentId: context.assignmentId,
+          turnNumber: context.turnNumber,
+          riskLevel: riskAssessment.level,
+          result: finalResult,
+        };
         try {
-          await this.toolHookRunner.runPostToolUse({
-            agentId: context.agentId,
-            agentRole: context.agentRole,
-            toolName,
-            params,
-            runId: context.runId,
-            assignmentId: context.assignmentId,
-            turnNumber: context.turnNumber,
-            riskLevel: riskAssessment.level,
-            result: finalResult,
-          });
+          const enrichment = await this.compositeHookRunner.runPostToolUse(
+            postHookContext,
+            postToolMeta.postHooks?.length ? postToolMeta.postHooks : undefined,
+          );
+          if (enrichment && typeof enrichment === 'object') {
+            // Merge enrichment into finalResult (post-hooks can add metadata)
+            Object.assign(finalResult, enrichment);
+          }
         } catch (hookError) {
           const hookMessage = (hookError as Error).message;
           this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'HOOK_ERROR', {

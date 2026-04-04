@@ -232,7 +232,7 @@ describe('evaluateEscalation()', () => {
     state = markEscalated(state, 'previous escalation');
     const decision = evaluateEscalation(state, 'any_tool');
     expect(decision.action).toBe('abort_tool');
-    expect(decision.agentMessage).toContain('Previously escalated');
+    expect(decision.agentMessage).toContain('previous escalation');
   });
 });
 

@@ -46,6 +46,8 @@ describe('buildTool()', () => {
       requiresPreCheck: false,
       allowedRoles: [],
       deniedRoles: [],
+      preHooks: [],
+      postHooks: [],
     });
   });
 

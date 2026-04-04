@@ -35,6 +35,28 @@ import type {
   AbacToolMetadata,
   ActionRiskLevel,
 } from './types.js';
+import type { ToolHookContext, ToolHookPostContext, ToolHookPreDecision } from './hooks/hookRunner.js';
+
+// ═══════════════════════════════════════════════════════════════════
+// IN-PROCESS HOOK TYPES
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * A pre-tool hook that runs in-process (no HTTP overhead).
+ * Return `{ allow: false, reason }` to block execution.
+ */
+export type PreToolHookFn = (
+  context: ToolHookContext,
+) => Promise<ToolHookPreDecision> | ToolHookPreDecision;
+
+/**
+ * A post-tool hook that runs in-process after tool execution.
+ * Can observe but cannot block. May return a partial ToolResult
+ * to merge (enrich) into the final result.
+ */
+export type PostToolHookFn = (
+  context: ToolHookPostContext,
+) => Promise<Partial<ToolResult> | void> | Partial<ToolResult> | void;
 
 // ═══════════════════════════════════════════════════════════════════
 // EXTENDED TOOL DEFINITION
@@ -64,6 +86,10 @@ export interface ToolMetadata {
   allowedRoles: string[];
   /** Blocked agent roles. Takes precedence over allowedRoles. */
   deniedRoles: string[];
+  /** In-process pre-tool hooks. Run before global HTTP hooks. First deny wins. */
+  preHooks: PreToolHookFn[];
+  /** In-process post-tool hooks. Run after global HTTP hooks. May enrich result. */
+  postHooks: PostToolHookFn[];
 }
 
 /**
@@ -96,6 +122,10 @@ export interface BuildToolInput {
   requiresPreCheck?: boolean;
   allowedRoles?: string[];
   deniedRoles?: string[];
+  /** In-process pre-tool hooks (run before global HTTP hooks). */
+  preHooks?: PreToolHookFn[];
+  /** In-process post-tool hooks (run after global HTTP hooks). */
+  postHooks?: PostToolHookFn[];
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -111,6 +141,8 @@ const TOOL_DEFAULTS: ToolMetadata = {
   requiresPreCheck: false,
   allowedRoles: [],
   deniedRoles: [],
+  preHooks: [],
+  postHooks: [],
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -135,6 +167,8 @@ export function buildTool(input: BuildToolInput): SafeToolDefinition {
     ...(input.requiresPreCheck !== undefined && { requiresPreCheck: input.requiresPreCheck }),
     ...(input.allowedRoles !== undefined && { allowedRoles: input.allowedRoles }),
     ...(input.deniedRoles !== undefined && { deniedRoles: input.deniedRoles }),
+    ...(input.preHooks !== undefined && { preHooks: input.preHooks }),
+    ...(input.postHooks !== undefined && { postHooks: input.postHooks }),
   };
 
   return {

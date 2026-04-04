@@ -14,7 +14,7 @@ export { AgentSupervisor } from './supervisor.js';
 export { ToolExecutor, isToolBlocked, invalidateBlockCache, isToolGranted, invalidateGrantCache, loadGrantedToolNames } from './toolExecutor.js';
 // buildTool factory — fail-closed tool definitions
 export { buildTool, isSafeTool, getToolMeta, isToolPermittedForRole, getToolTimeout, getToolRateLimit } from './buildTool.js';
-export type { SafeToolDefinition, ToolMetadata, BuildToolInput } from './buildTool.js';
+export type { SafeToolDefinition, ToolMetadata, BuildToolInput, PreToolHookFn, PostToolHookFn } from './buildTool.js';
 // Denial tracking — circuit breaker for permission loops
 export {
   createDenialTracker,
@@ -48,6 +48,8 @@ export type { SsrfGuardOptions } from './security/ssrfGuard.js';
 export {
   createToolHookRunner,
   createToolHookRunnerFromEnv,
+  createCompositeHookRunner,
+  CompositeHookRunner,
   HookExecutionError,
 } from './hooks/hookRunner.js';
 export type {
@@ -56,6 +58,18 @@ export type {
   ToolHookPreDecision,
   ToolHookRunner,
 } from './hooks/hookRunner.js';
+// Built-in hook implementations
+export {
+  requireParams,
+  denyRoles,
+  rateWindow,
+  allowedHoursUtc,
+  validateParams,
+  executionTiming,
+  auditLog,
+  redactFields,
+  capResultSize,
+} from './hooks/builtinHooks.js';
 export { EventBus } from './eventBus.js';
 export { GlyphorEventBus } from './glyphorEventBus.js';
 export type { GlyphorEventBusConfig } from './glyphorEventBus.js';
