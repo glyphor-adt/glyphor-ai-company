@@ -14,8 +14,9 @@
  *
  * Required Entra ID permissions (Application):
  *   - Chat.ReadWrite.All: Read/write all chats
- *   - Files.Read.All, Sites.Read.All: download chat attachment contentUrl
- *   - Files.ReadWrite.All: recommended for GET /shares/{token}/driveItem on links pasted in the message body
+ *   - Files.Read.All, Sites.Read.All: direct GET on attachment contentUrl (when Graph returns a Graph URL)
+ *   - Files.ReadWrite.All (application): required for GET /shares/{token}/driveItem — used when contentUrl
+ *     points at SharePoint/OneDrive web hosts (401 on raw URL) and for links in the message body
  *
  * References:
  *   https://learn.microsoft.com/en-us/graph/api/subscription-post-subscriptions
@@ -33,7 +34,10 @@ import type { GraphTeamsClient } from './graphClient.js';
 import type { A365TeamsChatClient } from '../agent365/teamsChatClient.js';
 import { formatTeamsMessage, markdownToTeamsHtml } from './messageFormatter.js';
 import { refineOoxmlFromZipBuffer } from './ooxmlRefine.js';
-import { downloadAttachmentsFromSharePointLinksInBody } from './sharePointLinkDownload.js';
+import {
+  downloadAttachmentsFromSharePointLinksInBody,
+  downloadDriveItemViaSharingUrl,
+} from './sharePointLinkDownload.js';
 
 // ─── TYPES ──────────────────────────────────────────────────────
 
@@ -273,7 +277,7 @@ export class GraphChatHandler {
     const senderName = message.from?.user?.displayName ?? 'Unknown';
     const messageText = this.extractText(message);
     const graphAtt = await this.resolveMessageAttachments(token, chatId, messageId, message);
-    let attachments = await this.buildConversationAttachments(token, graphAtt);
+    let attachments = await this.buildConversationAttachments(token, graphAtt, chatId, messageId);
     const linkSource = `${message.body.content}\n${messageText}`;
     if (linkSource.includes('sharepoint.com')) {
       const fromLinks = await downloadAttachmentsFromSharePointLinksInBody(
@@ -541,7 +545,11 @@ export class GraphChatHandler {
   }
 
   /**
-   * Graph sometimes omits `attachments` on GET message; list the attachment collection explicitly.
+   * Graph sometimes omits `attachments` on GET message. Try, in order:
+   *   1) attachments already on the message object
+   *   2) GET .../attachments on v1.0
+   *   3) GET .../attachments on beta (v1.0 returns 404 "API not supported" for some tenants/chats)
+   *   4) GET message?$expand=attachments on v1.0, then beta
    */
   private async resolveMessageAttachments(
     token: string,
@@ -552,17 +560,138 @@ export class GraphChatHandler {
     if (message.attachments && message.attachments.length > 0) {
       return message.attachments;
     }
-    const url = `https://graph.microsoft.com/v1.0/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}/attachments`;
+
+    const fromListV1 = await this.listGraphChatMessageAttachments(token, 'v1.0', chatId, messageId);
+    if (fromListV1.length > 0) return fromListV1;
+
+    const fromListBeta = await this.listGraphChatMessageAttachments(token, 'beta', chatId, messageId);
+    if (fromListBeta.length > 0) return fromListBeta;
+
+    const fromExpandV1 = await this.fetchMessageWithAttachmentsExpanded(
+      token,
+      'v1.0',
+      chatId,
+      messageId,
+    );
+    if (fromExpandV1.length > 0) return fromExpandV1;
+
+    return this.fetchMessageWithAttachmentsExpanded(token, 'beta', chatId, messageId);
+  }
+
+  private async listGraphChatMessageAttachments(
+    token: string,
+    apiVersion: 'v1.0' | 'beta',
+    chatId: string,
+    messageId: string,
+  ): Promise<GraphChatMessageAttachment[]> {
+    const url =
+      `https://graph.microsoft.com/${apiVersion}/chats/${encodeURIComponent(chatId)}` +
+      `/messages/${encodeURIComponent(messageId)}/attachments`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
       const text = await res.text();
-      console.warn(`[GraphChat] List attachments failed: ${res.status} ${text.substring(0, 120)}`);
+      // 404 "not supported" is common when the chat has no files — avoid noisy warnings
+      if (res.status !== 404) {
+        console.warn(
+          `[GraphChat] List attachments (${apiVersion}) failed: ${res.status} ${text.substring(0, 120)}`,
+        );
+      }
       return [];
     }
     const data = (await res.json()) as { value?: GraphChatMessageAttachment[] };
     return data.value ?? [];
+  }
+
+  private async fetchMessageWithAttachmentsExpanded(
+    token: string,
+    apiVersion: 'v1.0' | 'beta',
+    chatId: string,
+    messageId: string,
+  ): Promise<GraphChatMessageAttachment[]> {
+    const url =
+      `https://graph.microsoft.com/${apiVersion}/chats/${encodeURIComponent(chatId)}` +
+      `/messages/${encodeURIComponent(messageId)}?$expand=attachments`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      if (res.status !== 404) {
+        console.warn(
+          `[GraphChat] $expand=attachments (${apiVersion}) failed: ${res.status} ${text.substring(0, 120)}`,
+        );
+      }
+      return [];
+    }
+    const data = (await res.json()) as ChatMessage;
+    return data.attachments ?? [];
+  }
+
+  /** SharePoint / OneDrive for Business web URLs (Bearer Graph token often cannot GET these directly). */
+  private isSharePointOrOneDriveHostUrl(urlString: string): boolean {
+    try {
+      const host = new URL(urlString).hostname.toLowerCase();
+      return host.includes('sharepoint.com');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Download raw bytes for one chat file attachment: direct contentUrl, then Graph /shares (SPO/ODFB),
+   * then .../attachments/{id}/$value on v1.0 and beta.
+   */
+  private async fetchChatAttachmentBuffer(
+    token: string,
+    chatId: string,
+    messageId: string,
+    att: GraphChatMessageAttachment,
+    displayName: string,
+  ): Promise<ArrayBuffer | null> {
+    if (att.contentUrl) {
+      const res = await fetch(att.contentUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        return res.arrayBuffer();
+      }
+      const st = res.status;
+      if (
+        (st === 401 || st === 403 || st === 404)
+        && this.isSharePointOrOneDriveHostUrl(att.contentUrl)
+      ) {
+        const viaShares = await downloadDriveItemViaSharingUrl(
+          token,
+          att.contentUrl,
+          MAX_ATTACHMENT_BYTES,
+        );
+        if (viaShares) {
+          const raw = Buffer.from(viaShares.data, 'base64');
+          return raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
+        }
+      }
+      if (st !== 401 && st !== 403 && st !== 404) {
+        console.warn(`[GraphChat] Could not download attachment "${displayName}" (${st})`);
+      }
+    }
+
+    if (att.id) {
+      for (const api of ['v1.0', 'beta'] as const) {
+        const url =
+          `https://graph.microsoft.com/${api}/chats/${encodeURIComponent(chatId)}` +
+          `/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(att.id)}/$value`;
+        const r2 = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (r2.ok) {
+          return r2.arrayBuffer();
+        }
+      }
+    }
+
+    return null;
   }
 
   private normalizeMimeFromAttachment(contentType: string | undefined, filename: string): string {
@@ -596,11 +725,13 @@ export class GraphChatHandler {
 
   /**
    * Download Teams chat attachments to base64 for the multimodal agent pipeline.
-   * Requires that `contentUrl` is readable with the same token (SharePoint-backed files may need Files.Read.All / Sites.Read.All).
+   * Uses {@link fetchChatAttachmentBuffer} (direct URL, Graph /shares for SPO/ODFB, then .../$value).
    */
   private async buildConversationAttachments(
     token: string,
     raw: GraphChatMessageAttachment[],
+    chatId: string,
+    messageId: string,
   ): Promise<ConversationAttachment[]> {
     const out: ConversationAttachment[] = [];
     for (const att of raw) {
@@ -611,31 +742,32 @@ export class GraphChatHandler {
       const mimeType = this.normalizeMimeFromAttachment(att.contentType, name);
 
       try {
-        if (att.contentUrl) {
-          const res = await fetch(att.contentUrl, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!res.ok) {
-            console.warn(`[GraphChat] Could not download attachment "${name}" (${res.status})`);
+        if (att.contentUrl || att.id) {
+          const buf = await this.fetchChatAttachmentBuffer(
+            token,
+            chatId,
+            messageId,
+            att,
+            name,
+          );
+          if (buf) {
+            if (buf.byteLength > MAX_ATTACHMENT_BYTES) {
+              console.warn(`[GraphChat] Attachment too large, skipping: ${name}`);
+              continue;
+            }
+            const refined = refineOoxmlFromZipBuffer(name, mimeType, buf);
+            if (refined.name !== name || refined.mimeType !== mimeType) {
+              console.log(
+                `[GraphChat] Refined attachment "${name}" → "${refined.name}" (${mimeType} → ${refined.mimeType})`,
+              );
+            }
+            out.push({
+              name: refined.name,
+              mimeType: refined.mimeType,
+              data: Buffer.from(buf).toString('base64'),
+            });
             continue;
           }
-          const buf = await res.arrayBuffer();
-          if (buf.byteLength > MAX_ATTACHMENT_BYTES) {
-            console.warn(`[GraphChat] Attachment too large, skipping: ${name}`);
-            continue;
-          }
-          const refined = refineOoxmlFromZipBuffer(name, mimeType, buf);
-          if (refined.name !== name || refined.mimeType !== mimeType) {
-            console.log(
-              `[GraphChat] Refined attachment "${name}" → "${refined.name}" (${mimeType} → ${refined.mimeType})`,
-            );
-          }
-          out.push({
-            name: refined.name,
-            mimeType: refined.mimeType,
-            data: Buffer.from(buf).toString('base64'),
-          });
-          continue;
         }
 
         if (
@@ -647,7 +779,16 @@ export class GraphChatHandler {
           const estBytes = (data.length * 3) / 4;
           if (estBytes <= MAX_ATTACHMENT_BYTES) {
             out.push({ name, mimeType, data });
+            continue;
           }
+        }
+
+        if (att.contentUrl || att.id) {
+          console.warn(
+            `[GraphChat] Could not download attachment "${name}" ` +
+              '(tried contentUrl, Graph /shares for SharePoint hosts, and .../attachments/{id}/$value). ' +
+              'Ensure the app has Files.ReadWrite.All (application) for /shares and Chat + file permissions.',
+          );
         }
       } catch (e) {
         console.warn(`[GraphChat] Attachment error for ${name}: ${(e as Error).message}`);

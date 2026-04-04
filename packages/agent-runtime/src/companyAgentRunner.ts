@@ -181,6 +181,9 @@ async function persistRunMetricsAuditLog(entry: {
 const ON_DEMAND_MAX_TURNS = 12;
 const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = Math.max(120_000, Number(process.env.ON_DEMAND_SUPERVISOR_TIMEOUT_MS ?? '960000'));
 const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = Math.max(120_000, Number(process.env.ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS ?? '960000'));
+/** When the model returns tool calls with no visible text, chat UIs show only a spinner until /run completes — inject this first. */
+const ON_DEMAND_TOOL_ONLY_ACK =
+  "Thanks — I'm on it. I'm working on this now. If I'm generating a live site or preview, that can take several minutes — I'll share the link here as soon as it's ready.";
 
 const CHIEF_OF_STAFF_REFLECTION_PROMPT = `
 You are reflecting on your recent orchestration performance as Chief of Staff.
@@ -1700,6 +1703,7 @@ export class CompanyAgentRunner {
 
     try {
       let turnNumber = 0;
+      let onDemandToolOnlyAckInjected = false;
       let previousResponseId: string | undefined;
       let lastRetrievalTrace: ToolRetrieverTrace | undefined;
 
@@ -2163,6 +2167,15 @@ Rules:
 
         // 4. TOOL CALLS
         if (response.toolCalls.length > 0) {
+          if (task === 'on_demand' && !response.text?.trim() && !onDemandToolOnlyAckInjected) {
+            onDemandToolOnlyAckInjected = true;
+            history.push({
+              role: 'assistant',
+              content: ON_DEMAND_TOOL_ONLY_ACK,
+              timestamp: Date.now(),
+            });
+            lastTextOutput = ON_DEMAND_TOOL_ONLY_ACK;
+          }
           // Push all tool_call turns first (batched for proper Gemini 3+ thought signature replay)
           for (let j = 0; j < response.toolCalls.length; j++) {
             const call = response.toolCalls[j];

@@ -1209,23 +1209,30 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             );
           })}
 
-          {Array.from(respondingAgents.entries()).filter(([_, targetChat]) => targetChat === selectedRole).map(([respondingRole]) => (
+          {Array.from(respondingAgents.entries()).filter(([_, targetChat]) => targetChat === selectedRole).map(([respondingRole]) => {
+            const pendingName = DISPLAY_NAME_MAP[respondingRole] ?? respondingRole;
+            return (
             <div key={respondingRole} className="flex gap-3">
               <AgentAvatar role={respondingRole} size={28} />
-              <div className="chat-bubble-agent rounded-xl border border-border px-4 py-3">
+              <div className="chat-bubble-agent rounded-xl border border-border px-4 py-3 max-w-[85%] md:max-w-[70%]">
+                {respondingRole !== selectedRole && (
+                  <p className="mb-1 text-[10px] font-semibold" style={{ color: AGENT_META[respondingRole]?.color ?? '#06b6d4' }}>
+                    {pendingName}
+                  </p>
+                )}
+                <p className="text-[13px] leading-relaxed text-txt-secondary mb-2">
+                  Got it — I'm on it. If this needs a live preview or repo setup, it can take a few minutes; I'll reply here when I have something to show.
+                </p>
                 <div className="flex items-center gap-1.5">
-                  {respondingRole !== selectedRole && (
-                    <span className="text-[10px] font-semibold mr-1" style={{ color: AGENT_META[respondingRole]?.color ?? '#06b6d4' }}>
-                      {DISPLAY_NAME_MAP[respondingRole] ?? respondingRole}
-                    </span>
-                  )}
+                  <span className="text-[11px] text-txt-faint mr-1">Still working</span>
                   <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-txt-muted" style={{ animationDelay: '0ms' }} />
                   <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-txt-muted" style={{ animationDelay: '200ms' }} />
                   <span className="animate-breathe h-1.5 w-1.5 rounded-full bg-txt-muted" style={{ animationDelay: '400ms' }} />
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
 
           {dragging && (
             <div className="flex h-24 items-center justify-center rounded-xl border-2 border-dashed border-border bg-surface/50">
