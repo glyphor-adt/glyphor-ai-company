@@ -33,6 +33,8 @@ export const MODEL_CONFIG = {
     transcription: 'gpt-4o-transcribe',                  // Azure Foundry - Teams audio bridge
     images:        'gpt-image-1.5',                      // OpenAI image generation
     reflection:    'gpt-5-mini',                         // lower-cost agent self-eval
+    /** Dashboard `quick_demo_web_app` — single-file HTML; Codex via Azure Foundry */
+    quick_demo_web: 'gpt-5.3-codex',
     shadow_eval:   'gemini-3.1-flash-lite-preview',      // Gemini API - shadow runner
     deep_research: 'deep-research-pro-preview-12-2025',  // Gemini API - strategy reports
   },
@@ -41,6 +43,7 @@ export const MODEL_CONFIG = {
   fallbacks: {
     'gemini-3.1-flash-lite-preview': 'gemini-2.5-flash-lite', // preview -> lite
     'gpt-5-nano':                    'gemini-2.5-flash-lite', // Azure down -> Google
+    'gpt-5.3-codex':                 'gemini-3.1-flash-lite-preview', // Codex unavailable -> Gemini
   },
 
   // -- Disabled models ---------------------------------------------------------

@@ -4,8 +4,10 @@
  */
 
 import { ModelClient, type ToolContext, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
+import { getSpecialized } from '@glyphor/shared';
 
-const QUICK_DEMO_MODEL = process.env.QUICK_DEMO_WEB_MODEL?.trim() || 'gemini-2.0-flash';
+/** Override with `QUICK_DEMO_WEB_MODEL`; default is centralized Codex (Azure Foundry). */
+const QUICK_DEMO_MODEL = process.env.QUICK_DEMO_WEB_MODEL?.trim() || getSpecialized('quick_demo_web');
 
 const QUICK_DEMO_SYSTEM = `You output ONE self-contained web demo as raw HTML only.
 
