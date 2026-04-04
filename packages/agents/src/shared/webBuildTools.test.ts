@@ -2,6 +2,18 @@ import { describe, expect, it, vi } from 'vitest';
 
 const { createWebBuildTools } = await import('./webBuildTools.js');
 
+/** Satisfies assertValidWebsiteFileMap + foundation shape used by invoke_web_build tests. */
+const MOCK_FOUNDATION_FILES: Record<string, string> = {
+  'index.html':
+    '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>t</title></head><body><div id="root"></div></body></html>',
+  'src/App.tsx':
+    'export default function App() { return <main className="bg-background min-h-screen p-8 text-foreground">Test app body with enough characters for pipeline validation to pass reliably here.</main>; }',
+  'src/styles/theme.css': '/* theme tokens placeholder for tests — padded to satisfy min length */',
+  'src/styles/fonts.css': '/* fonts placeholder for tests — padded to satisfy min length */',
+  'src/styles/index.css': '@import "./tailwind.css";\n/* index entry — min length for assertValidWebsiteFileMap */',
+  'src/styles/tailwind.css': '@import "tailwindcss";\n/* tailwind entry — min length for assertValidWebsiteFileMap */',
+};
+
 function createContext(executeChildTool: (toolName: string, params: Record<string, unknown>) => Promise<unknown>) {
   return {
     agentId: 'test-agent',
@@ -45,7 +57,7 @@ describe('webBuildTools website pipeline replacement', () => {
           return { project_id: 'vercel-123', project_name: 'acme-launch' };
         case 'build_website_foundation':
           return {
-            files: { 'src/App.tsx': 'export default function App() { return null; }' },
+            files: { ...MOCK_FOUNDATION_FILES },
             architectural_reasoning: 'reasoning',
             design_plan: { sections: [{ id: 'hero' }] },
             image_manifest: [],
@@ -87,9 +99,9 @@ describe('webBuildTools website pipeline replacement', () => {
     );
     expect(calls).toEqual([
       'normalize_design_brief',
+      'build_website_foundation',
       'github_create_from_template',
       'vercel_create_project',
-      'build_website_foundation',
       'github_push_files',
       'vercel_get_preview_url',
       'cloudflare_register_preview',
@@ -116,7 +128,7 @@ describe('webBuildTools website pipeline replacement', () => {
           return { project_id: 'vercel-999', project_name: 'pilot-ops' };
         case 'build_website_foundation':
           return {
-            files: { 'src/App.tsx': 'export default function App() { return null; }' },
+            files: { ...MOCK_FOUNDATION_FILES },
             architectural_reasoning: 'reasoning',
             design_plan: { sections: [{ id: 'hero' }, { id: 'cta' }] },
             image_manifest: [],
@@ -172,7 +184,7 @@ describe('webBuildTools website pipeline replacement', () => {
           };
         case 'build_website_foundation':
           return {
-            files: { 'src/App.tsx': 'export default function App() { return null; }' },
+            files: { ...MOCK_FOUNDATION_FILES },
             architectural_reasoning: 'reasoning',
             design_plan: { sections: [{ id: 'hero' }, { id: 'cta' }] },
             image_manifest: [],

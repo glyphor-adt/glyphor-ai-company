@@ -48,6 +48,10 @@ interface WebBuildResult {
   source_branch?: string;
   /** Tell the user where to look on GitHub — avoids "no code" confusion when only `main` was opened. */
   repository_hint?: string;
+  /** Direct link to the branch tree on GitHub (always use this + PR URL in chat). */
+  github_branch_url?: string;
+  /** Short numbered steps — agents should paste this first after a successful build. */
+  user_next_steps?: string;
   build_report?: unknown;
   agent_trace?: unknown;
   tier_used: WebBuildTier;
@@ -97,6 +101,41 @@ const PREVIEW_POLL_ATTEMPTS = 30;
 const PREVIEW_POLL_INTERVAL_MS = 10_000;
 const PRODUCTION_POLL_ATTEMPTS = 30;
 const PRODUCTION_POLL_INTERVAL_MS = 10_000;
+
+/** Paths that must exist in generated output before Git push (same set as UX foundation validation). */
+const REQUIRED_FOUNDATION_FILES = new Set([
+  'index.html',
+  'src/App.tsx',
+  'src/styles/theme.css',
+  'src/styles/fonts.css',
+  'src/styles/index.css',
+  'src/styles/tailwind.css',
+]);
+
+function assertValidWebsiteFileMap(files: Record<string, unknown>): void {
+  const map = files as Record<string, string>;
+  const nonEmptyKeys = Object.keys(map).filter(
+    (k) => typeof map[k] === 'string' && map[k].trim().length > 0,
+  );
+  if (nonEmptyKeys.length === 0) {
+    throw new Error(
+      'build_website_foundation returned an empty `files` map — no generated code to push. '
+        + 'Check GOOGLE_AI_API_KEY / GEMINI_API_KEY, UX_ENGINEER_MODEL, timeouts, and runtime logs.',
+    );
+  }
+  for (const req of REQUIRED_FOUNDATION_FILES) {
+    const c = map[req];
+    if (typeof c !== 'string' || c.trim().length < 30) {
+      throw new Error(
+        `build_website_foundation is missing usable content for required path "${req}". Refusing to push template-only repo.`,
+      );
+    }
+  }
+  const app = map['src/App.tsx'];
+  if (typeof app !== 'string' || app.trim().length < 80) {
+    throw new Error('build_website_foundation produced src/App.tsx that is too small — aborting push.');
+  }
+}
 
 interface WebsitePipelineProjectRef {
   repoFullName: string;
@@ -371,6 +410,26 @@ function parseProjectReference(projectId: string, tier: WebBuildTier): WebsitePi
   };
 }
 
+function buildSyntheticProjectRef(
+  candidateRepoName: string,
+  params: WebBuildParams,
+): WebsitePipelineProjectRef {
+  const org = getWebsitePipelineOrgFromEnv();
+  const repoFullName = `${org}/${candidateRepoName}`;
+  const useFeatureBranch = shouldUseFeatureBranchWorkflow(repoFullName);
+  return {
+    repoFullName,
+    owner: org,
+    repoName: candidateRepoName,
+    projectSlug: candidateRepoName,
+    projectName: candidateRepoName,
+    branch: useFeatureBranch
+      ? (params.tier === 'prototype' ? DEFAULT_PROTOTYPE_BRANCH : DEFAULT_INITIAL_BRANCH)
+      : 'main',
+    isExisting: false,
+  };
+}
+
 function shouldFallbackToDirectPipelineTool(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /not found|not available|no such tool|unknown tool|implemented in application code|dynamic http executor|tool bundle includes/i.test(message);
@@ -417,6 +476,41 @@ async function executeWebsitePipelineTool<T>(
     throw new Error(result.error ?? `Website pipeline tool ${toolName} failed.`);
   }
   return (result.data ?? null) as T;
+}
+
+async function provisionGithubAndVercel(
+  candidate: string,
+  ctx: ToolContext,
+): Promise<{
+  repoFullName: string;
+  owner: string;
+  repoName: string;
+  projectName: string;
+  vercelProjectId?: string;
+}> {
+  const repo = await executeWebsitePipelineTool<Record<string, unknown>>(
+    'github_create_from_template',
+    { repo_name: candidate },
+    ctx,
+  );
+  const repoFullName = pickString(repo, 'full_name') ?? `${getWebsitePipelineOrgFromEnv()}/${candidate}`;
+  const [owner, repoName] = repoFullName.split('/');
+  const vercel = await executeWebsitePipelineTool<Record<string, unknown>>(
+    'vercel_create_project',
+    {
+      repo_name: repoName,
+      project_name: repoName,
+      github_org: owner,
+    },
+    ctx,
+  );
+  return {
+    repoFullName,
+    owner,
+    repoName,
+    projectName: pickString(vercel, 'project_name') ?? repoName,
+    vercelProjectId: pickString(vercel, 'project_id'),
+  };
 }
 
 function buildBrandSpec(
@@ -543,62 +637,6 @@ async function waitForProductionUrl(project: WebsitePipelineProjectRef, ctx: Too
   throw new Error(`Timed out waiting for Vercel production deployment for ${project.projectName}.`);
 }
 
-async function provisionWebsiteProject(
-  params: WebBuildParams,
-  brand: WebBrandContext,
-  ctx: ToolContext,
-): Promise<WebsitePipelineProjectRef> {
-  if (params.project_id?.trim()) {
-    return parseProjectReference(params.project_id, params.tier);
-  }
-
-  const projectBaseName = slugifyProjectName(extractProjectNameCandidate(params.brief, brand)) || `website-${buildUniqueSuffix()}`;
-  const repoCandidates = [projectBaseName, `${projectBaseName}-${buildUniqueSuffix()}`];
-  let lastError: Error | null = null;
-
-  for (const candidate of repoCandidates) {
-    try {
-      const repo = await executeWebsitePipelineTool<Record<string, unknown>>(
-        'github_create_from_template',
-        { repo_name: candidate },
-        ctx,
-      );
-      const repoFullName = pickString(repo, 'full_name') ?? `${getWebsitePipelineOrgFromEnv()}/${candidate}`;
-      const [owner, repoName] = repoFullName.split('/');
-      const vercel = await executeWebsitePipelineTool<Record<string, unknown>>(
-        'vercel_create_project',
-        {
-          repo_name: repoName,
-          project_name: repoName,
-          github_org: owner,
-        },
-        ctx,
-      );
-      const useFeatureBranch = shouldUseFeatureBranchWorkflow(repoFullName);
-
-      return {
-        repoFullName,
-        owner,
-        repoName,
-        projectSlug: repoName,
-        projectName: pickString(vercel, 'project_name') ?? repoName,
-        branch: useFeatureBranch
-          ? (params.tier === 'prototype' ? DEFAULT_PROTOTYPE_BRANCH : DEFAULT_INITIAL_BRANCH)
-          : 'main',
-        isExisting: false,
-        vercelProjectId: pickString(vercel, 'project_id'),
-      };
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      if (!/already exists/i.test(lastError.message)) {
-        throw lastError;
-      }
-    }
-  }
-
-  throw lastError ?? new Error('Failed to provision website project.');
-}
-
 async function executeWebBuild(
   params: WebBuildParams,
   ctx: ToolContext,
@@ -613,27 +651,90 @@ async function executeWebBuild(
     },
     ctx,
   );
-  const project = await provisionWebsiteProject(params, brand, ctx);
-  const useFeatureBranch = shouldUseFeatureBranchWorkflow(project.repoFullName);
-  if (useFeatureBranch && options.branchOverride) {
-    project.branch = options.branchOverride;
-  }
-  if (!useFeatureBranch) {
-    project.branch = 'main';
+
+  let project!: WebsitePipelineProjectRef;
+  let foundation!: Record<string, unknown>;
+
+  if (params.project_id?.trim()) {
+    project = parseProjectReference(params.project_id.trim(), params.tier);
+    const useFeatureBranch = shouldUseFeatureBranchWorkflow(project.repoFullName);
+    if (useFeatureBranch && options.branchOverride?.trim()) {
+      project = { ...project, branch: options.branchOverride.trim() };
+    }
+    if (!useFeatureBranch) {
+      project = { ...project, branch: 'main' };
+    }
+    foundation = await executeWebsitePipelineTool<Record<string, unknown>>(
+      'build_website_foundation',
+      {
+        normalized_brief: normalizedBrief,
+        brand_spec: buildBrandSpec(params.brief, normalizedBrief, brand, project.projectSlug, params.project_type),
+        intake_context: buildIntakeContext(params, brand, project),
+        ...(options.repairContext ? { repair_context: options.repairContext } : {}),
+      },
+      ctx,
+    );
+  } else {
+    const projectBaseName = slugifyProjectName(extractProjectNameCandidate(params.brief, brand)) || `website-${buildUniqueSuffix()}`;
+    const repoCandidates = [projectBaseName, `${projectBaseName}-${buildUniqueSuffix()}`];
+    let lastError: Error | null = null;
+    let provisioned = false;
+
+    for (const candidate of repoCandidates) {
+      try {
+        let workProject = buildSyntheticProjectRef(candidate, params);
+        const useFeatureBranch = shouldUseFeatureBranchWorkflow(workProject.repoFullName);
+        if (useFeatureBranch && options.branchOverride?.trim()) {
+          workProject = { ...workProject, branch: options.branchOverride.trim() };
+        }
+        if (!useFeatureBranch) {
+          workProject = { ...workProject, branch: 'main' };
+        }
+
+        foundation = await executeWebsitePipelineTool<Record<string, unknown>>(
+          'build_website_foundation',
+          {
+            normalized_brief: normalizedBrief,
+            brand_spec: buildBrandSpec(params.brief, normalizedBrief, brand, workProject.projectSlug, params.project_type),
+            intake_context: buildIntakeContext(params, brand, workProject),
+            ...(options.repairContext ? { repair_context: options.repairContext } : {}),
+          },
+          ctx,
+        );
+
+        const prePushFiles = asRecord(foundation.files);
+        assertValidWebsiteFileMap(prePushFiles);
+
+        const pv = await provisionGithubAndVercel(candidate, ctx);
+        project = {
+          repoFullName: pv.repoFullName,
+          owner: pv.owner,
+          repoName: pv.repoName,
+          projectSlug: pv.repoName,
+          projectName: pv.projectName,
+          branch: workProject.branch,
+          isExisting: false,
+          vercelProjectId: pv.vercelProjectId,
+        };
+        provisioned = true;
+        break;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (!/already exists/i.test(lastError.message)) {
+          throw lastError;
+        }
+      }
+    }
+
+    if (!provisioned) {
+      throw lastError ?? new Error('Failed to provision website project.');
+    }
   }
 
-  const foundation = await executeWebsitePipelineTool<Record<string, unknown>>(
-    'build_website_foundation',
-    {
-      normalized_brief: normalizedBrief,
-      brand_spec: buildBrandSpec(params.brief, normalizedBrief, brand, project.projectSlug, params.project_type),
-      intake_context: buildIntakeContext(params, brand, project),
-      ...(options.repairContext ? { repair_context: options.repairContext } : {}),
-    },
-    ctx,
-  );
+  const useFeatureBranch = shouldUseFeatureBranchWorkflow(project.repoFullName);
 
   const files = asRecord(foundation.files) as Record<string, string>;
+  assertValidWebsiteFileMap(files);
   const push = await executeWebsitePipelineTool<Record<string, unknown>>(
     'github_push_files',
     {
@@ -723,6 +824,20 @@ async function executeWebBuild(
         'No feature branch or pull request was opened (standard POC flow). Open the repo default branch to see the generated app.',
       ].join(' ');
 
+  const githubBranchUrl = `https://github.com/${project.repoFullName}/tree/${encodeURIComponent(project.branch)}`;
+  const userNextSteps = useFeatureBranch
+    ? [
+        'Where to see the new code (feature-branch repo):',
+        githubPrUrl ? `1) Open the PR: ${githubPrUrl}` : `1) Open GitHub and create/find the PR from branch "${project.branch}" → main.`,
+        `2) Or browse the branch: ${githubBranchUrl}`,
+        '3) `main` may still show the template until you merge — that is expected.',
+      ].join('\n')
+    : [
+        'Where to see the new code:',
+        `1) Browse branch "${project.branch}": ${githubBranchUrl}`,
+        `2) Preview: ${pickString(previewRegistration, 'preview_url') ?? preview.preview_url ?? '(see preview_url in result)'}`,
+      ].join('\n');
+
   return {
     project_id: project.repoFullName,
     preview_url: pickString(previewRegistration, 'preview_url') ?? preview.preview_url,
@@ -730,6 +845,8 @@ async function executeWebBuild(
     github_pr_url: githubPrUrl,
     source_branch: project.branch,
     repository_hint: repositoryHint,
+    github_branch_url: githubBranchUrl,
+    user_next_steps: userNextSteps,
     build_report: {
       normalized_brief: normalizedBrief,
       architectural_reasoning: foundation.architectural_reasoning ?? null,
@@ -755,9 +872,8 @@ async function executeWebBuild(
     agent_trace: {
       pipeline: [
         'normalize_design_brief',
-        project.isExisting ? 'reuse_existing_project' : 'github_create_from_template',
-        project.isExisting ? 'reuse_existing_vercel_project' : 'vercel_create_project',
         'build_website_foundation',
+        ...(project.isExisting ? [] : ['github_create_from_template', 'vercel_create_project']),
         'github_push_files',
         'vercel_get_preview_url',
         project.isExisting || params.tier === 'iterate' ? 'cloudflare_update_preview' : 'cloudflare_register_preview',
@@ -921,8 +1037,9 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
     tools.push({
       name: 'invoke_web_build',
       description:
-        'Build a complete web application or page using the Glyphor website pipeline. Provide a detailed brief and tier; the system normalizes the brief, **provisions the GitHub repo + Vercel first** (so the template may be visible briefly), then runs an internal UX-engineer pass to **generate and push real source files**, waits for preview, and optionally ships production. '
-        + '**POC / client repos:** commits go to **`main`** with **no pull request**. **glyphor.ai site repo** (`glyphor-adt/glyphor-site` by default) uses feature branches + PRs — **`main` stays the template until the PR merges**; use `github_pr_url` and `source_branch` from the result. Override with `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` (comma-separated `owner/repo`) or set it to empty to disable.',
+        'Build a complete web application or page using the Glyphor website pipeline. Provide a detailed brief and tier; the system normalizes the brief, runs an internal UX-engineer pass to **generate source files**, **validates the file map**, then **creates the GitHub repo + Vercel** and pushes (so you should not see an empty template-only repo before generation completes). '
+        + '**POC / client repos:** commits go to **`main`** with **no pull request**. **glyphor.ai site repo** (`glyphor-adt/glyphor-site` by default) uses feature branches + PRs — **`main` stays the template until the PR merges**; use `github_pr_url`, `github_branch_url`, and `source_branch` from the result. Override with `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` (comma-separated `owner/repo`) or set it to empty to disable. '
+        + 'After success, **your first reply to the user must include the exact `user_next_steps` text** (and preview URLs) so they open the PR/branch instead of only `main`.',
       parameters: {
         brief: {
           type: 'string',
@@ -1291,15 +1408,6 @@ function incrementalPatchMaxRounds(): number {
   if (!Number.isFinite(n) || n < 0) return 3;
   return Math.min(8, Math.floor(n));
 }
-
-const REQUIRED_FOUNDATION_FILES = new Set([
-  'index.html',
-  'src/App.tsx',
-  'src/styles/theme.css',
-  'src/styles/fonts.css',
-  'src/styles/index.css',
-  'src/styles/tailwind.css',
-]);
 
 const UX_ENGINEER_SYSTEM_PROMPT = `
 ROLE: You are a world-class design engineer. You receive a creative brief and build a complete,
