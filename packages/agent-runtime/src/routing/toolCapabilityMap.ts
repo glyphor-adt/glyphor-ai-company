@@ -35,6 +35,7 @@ export const TOOL_CAPABILITY_MAP: Record<string, readonly Capability[]> = {
   codex: ['code_generation'],
   'codex-reply': ['code_generation'],
   normalize_design_brief: ['creative_writing'],
+  quick_demo_web_app: ['code_generation'],
   invoke_web_build: ['code_generation'],
   invoke_web_iterate: ['code_generation'],
   invoke_web_coding_loop: ['code_generation', 'visual_analysis'],

@@ -257,6 +257,9 @@ const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const LONG_TOOL_TIMEOUT_MS = 120_000;
 /** Web pipeline can spend ~5m polling Vercel preview alone; plus foundation LLM + GitHub. Override via TOOL_VERY_LONG_TIMEOUT_MS. */
 const VERY_LONG_TOOL_TIMEOUT_MS = Math.max(60_000, Number(process.env.TOOL_VERY_LONG_TIMEOUT_MS ?? '900000'));
+/** Single-shot HTML demo runs an LLM inside the tool; default 5m. Override via TOOL_QUICK_DEMO_TIMEOUT_MS. */
+const QUICK_DEMO_TOOL_TIMEOUT_MS = Math.max(60_000, Number(process.env.TOOL_QUICK_DEMO_TIMEOUT_MS ?? '300000'));
+const QUICK_DEMO_TOOLS = new Set(['quick_demo_web_app']);
 
 // Company tools that legitimately take longer (API calls, report generation)
 const LONG_RUNNING_TOOLS = new Set([
@@ -544,6 +547,7 @@ const VERIFICATION_MAP: Record<string, { name: string; paramKey: string }> = {
 function estimateToolCost(toolName: string): number {
   if (isReadOnlyTool(toolName)) return 0.001;
   if (VERY_LONG_RUNNING_TOOLS.has(toolName)) return 0.02;
+  if (QUICK_DEMO_TOOLS.has(toolName)) return 0.015;
   if (LONG_RUNNING_TOOLS.has(toolName)) return 0.01;
   return 0.003;
 }
@@ -1431,9 +1435,11 @@ export class ToolExecutor {
 
     const timeoutMs = VERY_LONG_RUNNING_TOOLS.has(toolName)
       ? VERY_LONG_TOOL_TIMEOUT_MS
-      : LONG_RUNNING_TOOLS.has(toolName)
-        ? LONG_TOOL_TIMEOUT_MS
-        : DEFAULT_TOOL_TIMEOUT_MS;
+      : QUICK_DEMO_TOOLS.has(toolName)
+        ? QUICK_DEMO_TOOL_TIMEOUT_MS
+        : LONG_RUNNING_TOOLS.has(toolName)
+          ? LONG_TOOL_TIMEOUT_MS
+          : DEFAULT_TOOL_TIMEOUT_MS;
     const executionSpan = startTraceSpan('tool.execute', {
       run_id: context.runId ?? 'unknown',
       assignment_id: context.assignmentId ?? 'none',

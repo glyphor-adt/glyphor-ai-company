@@ -218,6 +218,7 @@ const TOOL_PLATFORM_MAP: Record<string, ToolPlatform> = {
   grade_build: 'glyphor-design', query_build_grades: 'glyphor-design', query_build_grades_by_template: 'glyphor-design',
   save_template_variant: 'glyphor-design', query_template_variants: 'glyphor-design', update_template_status: 'glyphor-design',
   invoke_web_build: 'glyphor-design', invoke_web_iterate: 'glyphor-design', invoke_web_upgrade: 'glyphor-design',
+  quick_demo_web_app: 'glyphor-design',
   build_website_foundation: 'glyphor-design',
   github_create_from_template: 'glyphor-engineering', github_push_files: 'glyphor-engineering',
   github_create_pull_request: 'glyphor-engineering', github_get_pull_request_status: 'glyphor-engineering', github_wait_for_pull_request_checks: 'glyphor-engineering', github_merge_pull_request: 'glyphor-engineering',

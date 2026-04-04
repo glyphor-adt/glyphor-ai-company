@@ -209,6 +209,7 @@ const KNOWN_TOOLS = new Set([
   'cloudflare_register_preview',
   'cloudflare_update_preview',
   'normalize_design_brief',
+  'quick_demo_web_app',
   'codex',
   'codex-reply',
   // figmaTools

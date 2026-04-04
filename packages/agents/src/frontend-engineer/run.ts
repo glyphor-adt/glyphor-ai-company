@@ -27,6 +27,7 @@ import { createWebBuildTools } from '../shared/webBuildTools.js';
 import { createBuildWebsiteFoundationTools } from '../shared/webBuildTools.js';
 import { createCodexTools } from '../shared/codexTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
+import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
 import { createGithubFromTemplateTools, createGithubPushFilesTools, createGithubPullRequestTools, createVercelProjectTools, createCloudflarePreviewTools } from '@glyphor/integrations';
 
 export interface FrontendEngineerRunParams {
@@ -56,6 +57,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createDeployPreviewTools(),
     ...createCodexTools(),
     ...createDesignSystemTools(),
+    ...createQuickDemoWebAppTools(),
     ...createGithubFromTemplateTools(),
     ...createGithubPushFilesTools(),
     ...createGithubPullRequestTools(),
