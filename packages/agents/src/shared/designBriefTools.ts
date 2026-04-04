@@ -61,6 +61,34 @@ const DEFAULT_COMPONENTS: ComponentSpec[] = [
   },
 ];
 
+/** When the brief is an app (not a marketing page), avoid hero/CTA landing defaults. */
+const APP_DEFAULT_COMPONENTS: ComponentSpec[] = [
+  {
+    name: 'app_shell',
+    priority: 1,
+    interaction_intent: 'Global layout, navigation, and state relevant to the product',
+    motion_intent: 'Subtle transitions; no marketing-page theatrics unless the brief asks',
+  },
+  {
+    name: 'primary_feature_surface',
+    priority: 2,
+    interaction_intent: 'The main screen where users accomplish the core task from the brief',
+    motion_intent: 'Responsive feedback for data loading, input, and results',
+  },
+  {
+    name: 'supporting_controls',
+    priority: 3,
+    interaction_intent: 'Search, location, settings, or secondary actions implied by the brief',
+    motion_intent: 'Clear affordances and accessible controls',
+  },
+];
+
+function truncateDirectiveSummary(text: string, maxChars = 220): string {
+  const t = normalizeWhitespace(text);
+  if (t.length <= maxChars) return t;
+  return `${t.slice(0, maxChars).trim()}…`;
+}
+
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
@@ -97,6 +125,9 @@ function inferProductType(text: string, explicit?: string): NormalizedDesignBrie
   const lower = text.toLowerCase();
   if (/(database|auth|api|full-?stack|cloud sql|firebase|backend)/.test(lower)) {
     return 'fullstack_application';
+  }
+  if (/\b(weather|forecast|radar)\b/.test(lower)) {
+    return 'web_application';
   }
   if (/(dashboard|app|workspace|portal|console)/.test(lower)) {
     return 'web_application';
@@ -160,7 +191,9 @@ export function createDesignBriefTools(): ToolDefinition[] {
   return [
     {
       name: 'normalize_design_brief',
-      description: 'Normalize a raw web directive into a structured design brief with persona, conversion target, emotional target, memory anchor, component inventory, and asset manifest for downstream build/media pipelines.',
+      description:
+        'Normalize a raw web directive into a structured design brief (persona, conversion target, components, assets) for downstream `build_website_foundation`. '
+        + 'Uses **marketing-leaning defaults** for `marketing_page` and **app-leaning defaults** for `web_application` / `fullstack_application` when labeled fields are missing — so short requests like "build a weather app" are not forced into waitlist/hero landing patterns.',
       parameters: {
         directive_text: {
           type: 'string',
@@ -180,29 +213,42 @@ export function createDesignBriefTools(): ToolDefinition[] {
           return { success: false, error: 'directive_text is required.' };
         }
 
+        const productType = inferProductType(directiveText, params.product_type as string | undefined);
+        const isApp = productType === 'web_application' || productType === 'fullstack_application';
+
         const audiencePersona =
           extractAfterLabel(directiveText, ['target audience', 'audience', 'who this is for'])
-          ?? 'Decision maker evaluating whether to adopt AI-operated web execution at company scale.';
+          ?? (isApp
+            ? 'End users completing real tasks in this application.'
+            : 'Decision maker evaluating whether to adopt AI-operated web execution at company scale.');
 
         const primaryConversion =
           extractAfterLabel(directiveText, ['single cta', 'primary cta', 'conversion action', 'cta'])
-          ?? 'Join the waitlist';
+          ?? (isApp
+            ? 'Complete the core in-app task described in the brief (not a marketing signup unless the brief explicitly asks for one).'
+            : 'Join the waitlist');
 
         const emotionalTarget =
           extractAfterLabel(directiveText, ['tone', 'emotional target', 'what they should feel'])
-          ?? 'Quiet confidence with healthy urgency to act now.';
+          ?? (isApp
+            ? 'Clarity and confidence — the product feels straightforward and dependable.'
+            : 'Quiet confidence with healthy urgency to act now.');
 
         const oneSentenceMemory =
           extractAfterLabel(directiveText, ['one-sentence memory', 'one thing they should remember', 'memory'])
           ?? extractQuoted(directiveText)
-          ?? 'AI departments that operate the business, not tools humans babysit.';
+          ?? (isApp ? truncateDirectiveSummary(directiveText) : 'AI departments that operate the business, not tools humans babysit.');
 
         const aestheticDirection =
           extractAfterLabel(directiveText, ['visual direction', 'aesthetic direction'])
-          ?? 'Dark Glass with editorial authority and restrained accent usage.';
+          ?? (isApp
+            ? 'Clean, functional UI appropriate to the use case in the brief; strong readability and accessible contrast.'
+            : 'Dark Glass with editorial authority and restrained accent usage.');
 
         const sections = parseSectionList(directiveText);
-        const componentInventory = buildComponentInventory(sections);
+        const componentInventory = sections.length > 0
+          ? buildComponentInventory(sections)
+          : (isApp ? APP_DEFAULT_COMPONENTS : DEFAULT_COMPONENTS);
         const assetManifest = buildAssetManifest(componentInventory);
 
         const missingFields: string[] = [];
@@ -220,7 +266,7 @@ export function createDesignBriefTools(): ToolDefinition[] {
           emotional_target: emotionalTarget,
           one_sentence_memory: oneSentenceMemory,
           aesthetic_direction: aestheticDirection,
-          product_type: inferProductType(directiveText, params.product_type as string | undefined),
+          product_type: productType,
           component_inventory: componentInventory,
           asset_manifest: assetManifest,
           quality_contract: {

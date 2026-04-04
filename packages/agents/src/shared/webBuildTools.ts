@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { ModelClient, type ConversationTurn, type ToolContext, type ToolDeclaration, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import { createCloudflarePreviewTools, createGithubFromTemplateTools, createGithubPullRequestTools, createGithubPushFilesTools, createVercelProjectTools } from '@glyphor/integrations';
@@ -6,6 +7,15 @@ import { runSandboxBuild } from './sandboxBuildValidator.js';
 import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
 
 type WebBuildTier = 'prototype' | 'full_build' | 'iterate';
+
+/** Marketing sites use full landing-page contract; utility matches small apps (weather, tools, dashboards). */
+type FoundationBuildMode = 'marketing' | 'utility';
+
+function foundationModeFromNormalizedBrief(normalizedBrief: Record<string, unknown>): FoundationBuildMode {
+  const pt = String(normalizedBrief?.product_type ?? '').toLowerCase().trim();
+  if (pt === 'web_application' || pt === 'fullstack_application') return 'utility';
+  return 'marketing';
+}
 type WebProjectType = 'react_spa' | 'nextjs_fullstack' | 'fastapi_backend' | 'legacy_refactor' | 'dbt_pipeline' | 'terraform_infra';
 type WebVisualStyle = 'minimal' | 'bold' | 'editorial' | 'playful' | 'dark_glass';
 type WebAnimationPreference = 'none' | 'subtle' | 'rich';
@@ -219,7 +229,7 @@ function getWebsitePipelineOrgFromEnv(): string {
     || 'Glyphor-Fuse';
 }
 
-/** Default: glyphor.ai marketing site (feature branches + PRs). Override or clear via env. */
+/** Default: public glyphor site repo (feature branches + PRs). Override or clear via env. */
 const DEFAULT_WEBSITE_FEATURE_BRANCH_REPOS = 'glyphor-adt/glyphor-site';
 
 /**
@@ -911,8 +921,8 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
     tools.push({
       name: 'invoke_web_build',
       description:
-        'Build a complete web application or page using the Glyphor website pipeline. Provide a detailed brief and tier; the system normalizes the brief, provisions the repo + Vercel, runs an internal UX-engineer pass to **generate and push real source files**, waits for preview, and optionally ships production. '
-        + '**POC / client repos:** commits go to **`main`** with **no pull request**. **glyphor.ai site repo** (`glyphor-adt/glyphor-site` by default) uses feature branches + PRs; override with `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` (comma-separated `owner/repo`) or set it to empty to disable. Check `source_branch` and `repository_hint` in the result.',
+        'Build a complete web application or page using the Glyphor website pipeline. Provide a detailed brief and tier; the system normalizes the brief, **provisions the GitHub repo + Vercel first** (so the template may be visible briefly), then runs an internal UX-engineer pass to **generate and push real source files**, waits for preview, and optionally ships production. '
+        + '**POC / client repos:** commits go to **`main`** with **no pull request**. **glyphor.ai site repo** (`glyphor-adt/glyphor-site` by default) uses feature branches + PRs — **`main` stays the template until the PR merges**; use `github_pr_url` and `source_branch` from the result. Override with `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` (comma-separated `owner/repo`) or set it to empty to disable.',
       parameters: {
         brief: {
           type: 'string',
@@ -1272,6 +1282,16 @@ const WEBSITE_FOUNDATION_REPAIR_MODEL = process.env.UX_ENGINEER_REPAIR_MODEL?.tr
 const WEBSITE_FOUNDATION_MAX_TOKENS = 100000;
 const WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS = 4;
 const SANDBOX_MAX_REPAIR_ROUNDS = 3;
+
+/** After full-JSON sandbox repairs exhaust, try Claude Code–style targeted file patches (0 = off). */
+function incrementalPatchMaxRounds(): number {
+  const raw = process.env.WEB_BUILD_INCREMENTAL_PATCH_ROUNDS?.trim();
+  if (raw === '0' || raw === 'false') return 0;
+  const n = raw ? Number(raw) : 3;
+  if (!Number.isFinite(n) || n < 0) return 3;
+  return Math.min(8, Math.floor(n));
+}
+
 const REQUIRED_FOUNDATION_FILES = new Set([
   'index.html',
   'src/App.tsx',
@@ -1375,6 +1395,59 @@ OUTPUT JSON SCHEMA:
       "primary_cta_interactions_min": 2
     },
     "brief_alignment": ["string", "string", "string"],
+    "color_strategy": {
+      "surface_ladder": "string",
+      "accent_policy": "string",
+      "section_surface_map": {},
+      "cta_color_map": {}
+    }
+  },
+  "foundation_files": [{ "filePath": "string", "content": "string" }],
+  "components": [{ "filePath": "string", "content": "string" }],
+  "utility_files": [{ "filePath": "string", "content": "string" }],
+  "image_manifest": [{ "fileName": "string", "prompt": "string", "aspect_ratio": "string", "altText": "string" }]
+}
+`.trim();
+
+/**
+ * Same stack + JSON contract as the marketing prompt, but **no** mandatory hero/CTA/footer landing shape.
+ * Use when `product_type` is web_application / fullstack_application so "build a weather app" becomes an app, not a waitlist page.
+ */
+const UX_ENGINEER_UTILITY_PROMPT = `
+ROLE: You are a senior product engineer. You ship a **small, working web application** from the brief
+(utility, dashboard, weather, calculator, etc.). The result must run in the template without manual fixes.
+
+OUTPUT RULE:
+Respond ONLY with a valid JSON object matching the schema at the end of this prompt.
+Do not wrap in markdown code fences. Do not include any text before or after the JSON.
+You MAY call the provided MCP lookup tools before producing JSON.
+
+TEMPLATE STACK (Non-Negotiable):
+- React 18 + Vite + TypeScript, Tailwind CSS v4, shadcn/ui, lucide-react
+- Same constraints as production: token-first Tailwind colors (bg-background, text-foreground, etc.), no hardcoded palette in className
+- Implement the **functional behavior** the brief describes (API fetch, local state, forms, lists). No lorem-only shells.
+
+APPLICATION SHAPE (NOT a marketing landing page):
+- Primary experience lives in \`src/App.tsx\`. Add extra components under \`src/components/\` only when it improves clarity.
+- **Do not** fabricate nav/hero/CTA/footer sections unless the brief is explicitly a public marketing page.
+- \`design_plan.sections\`: 1–4 sections whose \`id\` values describe the app (e.g. \`main\`, \`search\`, \`results\`, \`settings\`) — not mandatory marketing ids.
+- Keep motion subtle (\`subtle\`); no scroll-jacking or cinematic landing tropes unless the brief demands them.
+
+DO NOT create or modify: vite.config.ts, src/main.tsx, tsconfig files, vercel.json, eslint.config.js.
+DO NOT create src/pages/.
+
+OUTPUT JSON SCHEMA:
+{
+  "architectural_reasoning": "string",
+  "design_plan": {
+    "summary": "string",
+    "sections": [{ "id": "string", "objective": "string", "interaction": "string", "surface": "string" }],
+    "interaction_budget": {
+      "motion_signals_min": 1,
+      "hover_focus_signals_min": 4,
+      "primary_cta_interactions_min": 0
+    },
+    "brief_alignment": ["string", "string"],
     "color_strategy": {
       "surface_ladder": "string",
       "accent_policy": "string",
@@ -1645,7 +1718,10 @@ function flattenWebsiteFoundationFiles(output: WebsiteFoundationOutput): Record<
   return files;
 }
 
-function validateWebsiteFoundationOutput(output: WebsiteFoundationOutput): { ok: boolean; errors: string[] } {
+function validateWebsiteFoundationOutput(
+  output: WebsiteFoundationOutput,
+  mode: FoundationBuildMode,
+): { ok: boolean; errors: string[] } {
   const errors: string[] = [];
 
   const foundationFiles = new Set((output.foundation_files ?? []).map((entry) => entry.filePath));
@@ -1656,27 +1732,221 @@ function validateWebsiteFoundationOutput(output: WebsiteFoundationOutput): { ok:
   }
 
   const sections = ((output.design_plan as { sections?: Array<{ id?: unknown }> } | undefined)?.sections ?? []);
-  const sectionIds = new Set(
-    sections
-      .map((section) => String(section?.id ?? '').trim().toLowerCase())
-      .filter(Boolean),
-  );
 
-  if (sections.length < 5) {
-    errors.push('design_plan must include at least 5 sections.');
-  }
+  if (mode === 'utility') {
+    if (sections.length < 1) {
+      errors.push('design_plan must include at least 1 section for utility apps.');
+    }
+    if ((output.components ?? []).length < 1) {
+      errors.push('components must include at least 1 component file (e.g. App.tsx or a split view).');
+    }
+  } else {
+    const sectionIds = new Set(
+      sections
+        .map((section) => String(section?.id ?? '').trim().toLowerCase())
+        .filter(Boolean),
+    );
 
-  for (const requiredSection of ['nav', 'hero', 'cta', 'footer']) {
-    if (!sectionIds.has(requiredSection)) {
-      errors.push(`design_plan is missing required section id: ${requiredSection}`);
+    if (sections.length < 5) {
+      errors.push('design_plan must include at least 5 sections.');
+    }
+
+    for (const requiredSection of ['nav', 'hero', 'cta', 'footer']) {
+      if (!sectionIds.has(requiredSection)) {
+        errors.push(`design_plan is missing required section id: ${requiredSection}`);
+      }
+    }
+
+    if ((output.components ?? []).length < 4) {
+      errors.push('components must include at least 4 complete section component files.');
     }
   }
 
-  if ((output.components ?? []).length < 4) {
-    errors.push('components must include at least 4 complete section component files.');
+  return { ok: errors.length === 0, errors };
+}
+
+/** Full-file replacements only; paths the model is allowed to change (template-owned files stay locked). */
+function isIncrementalPatchPathAllowed(filePath: string): boolean {
+  const p = filePath.replace(/\\/g, '/').trim();
+  if (!p || p.includes('..')) return false;
+  if (p === 'index.html') return true;
+  if (!p.startsWith('src/')) return false;
+  if (p === 'src/main.tsx') return false;
+  const base = path.basename(p);
+  if (/^vite\.config\./i.test(base) || /^tsconfig/i.test(base) || base === 'package.json') return false;
+  return true;
+}
+
+function extractPathsFromSandboxErrors(errors: string[]): string[] {
+  const out = new Set<string>();
+  const re = /\bsrc\/[A-Za-z0-9_./-]+\.(tsx|ts|css)\b/g;
+  for (const line of errors) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(line)) !== null) {
+      out.add(m[0]);
+    }
+  }
+  return [...out];
+}
+
+const INCREMENTAL_PATCH_PER_FILE_CAP = 48_000;
+const INCREMENTAL_PATCH_TOTAL_CAP = 120_000;
+
+function buildPatchRepairUserMessage(files: Record<string, string>, errors: string[]): string {
+  const fromErrors = extractPathsFromSandboxErrors(errors);
+  const keys = new Set<string>(['src/App.tsx']);
+  for (const k of fromErrors) keys.add(k);
+  for (const k of Object.keys(files)) {
+    if (k.startsWith('src/components/')) keys.add(k);
+  }
+  const payload: { build_errors: string[]; files: Record<string, string> } = {
+    build_errors: errors.slice(0, 50),
+    files: {},
+  };
+  let total = 0;
+  for (const filePath of keys) {
+    const content = files[filePath];
+    if (content === undefined) continue;
+    let slice = content;
+    if (slice.length > INCREMENTAL_PATCH_PER_FILE_CAP) {
+      slice = `${slice.slice(0, INCREMENTAL_PATCH_PER_FILE_CAP)}\n/* … truncated … */\n`;
+    }
+    if (total + slice.length > INCREMENTAL_PATCH_TOTAL_CAP) break;
+    payload.files[filePath] = slice;
+    total += slice.length;
+  }
+  return [
+    'Fix the Vite + TypeScript build using **surgical full-file replacements**.',
+    'Return ONLY valid JSON (no markdown fences): {"patches":[{"filePath":"src/App.tsx","content":"..."}]}',
+    'Each patch must be the **complete** new file contents. Only include files you changed.',
+    'Do not patch src/main.tsx, vite.config.ts, tsconfig, or package.json.',
+    '',
+    'CONTEXT:',
+    JSON.stringify(payload),
+  ].join('\n');
+}
+
+function parseIncrementalPatchOutput(text: string): Array<{ filePath: string; content: string }> | null {
+  const cleaned = text
+    .replace(/^```(?:json)?\s*/m, '')
+    .replace(/\s*```\s*$/m, '')
+    .trim();
+  const tryParse = (raw: string): Array<{ filePath: string; content: string }> | null => {
+    try {
+      const p = JSON.parse(raw) as { patches?: unknown };
+      if (!Array.isArray(p.patches)) return null;
+      const out: Array<{ filePath: string; content: string }> = [];
+      for (const x of p.patches) {
+        if (!x || typeof x !== 'object') continue;
+        const o = x as Record<string, unknown>;
+        const fp = typeof o.filePath === 'string' ? o.filePath.trim() : '';
+        const c = typeof o.content === 'string' ? o.content : '';
+        if (fp && c) out.push({ filePath: fp, content: c });
+      }
+      return out.length > 0 ? out : null;
+    } catch {
+      return null;
+    }
+  };
+  const direct = tryParse(cleaned);
+  if (direct) return direct;
+  const m = cleaned.match(/\{[\s\S]*"patches"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
+  return m ? tryParse(m[0]) : null;
+}
+
+function mergeFlatFilesIntoWebsiteOutput(
+  output: WebsiteFoundationOutput,
+  flat: Record<string, string>,
+): WebsiteFoundationOutput {
+  const next: WebsiteFoundationOutput = {
+    ...output,
+    foundation_files: [...(output.foundation_files ?? [])],
+    components: [...(output.components ?? [])],
+    utility_files: [...(output.utility_files ?? [])],
+  };
+
+  const updateList = (arr: WebsiteFoundationFileEntry[], filePath: string, content: string): boolean => {
+    const i = arr.findIndex((e) => e.filePath === filePath);
+    if (i < 0) return false;
+    arr[i] = { filePath, content };
+    return true;
+  };
+
+  for (const [filePath, content] of Object.entries(flat)) {
+    if (!isIncrementalPatchPathAllowed(filePath)) continue;
+    if (
+      !updateList(next.foundation_files, filePath, content)
+      && !updateList(next.components, filePath, content)
+      && !updateList(next.utility_files, filePath, content)
+    ) {
+      next.utility_files.push({ filePath, content });
+    }
   }
 
-  return { ok: errors.length === 0, errors };
+  return next;
+}
+
+const INCREMENTAL_PATCH_SYSTEM_PROMPT = `
+You are a senior TypeScript/React engineer fixing a broken Vite build.
+You receive build_errors and partial file contents. Output ONLY a JSON object:
+{"patches":[{"filePath":"…","content":"…"}]}
+Rules:
+- Full file contents only (replace entire file).
+- Preserve stack: React 18, TS, Tailwind token classes (bg-background, text-foreground, etc.).
+- Fix imports, types, and syntax so \`tsc --noEmit && vite build\` succeeds.
+- Do not include markdown, commentary, or keys other than "patches".
+`.trim();
+
+async function runIncrementalPatchRepair(
+  initialFlat: Record<string, string>,
+  initialErrors: string[],
+  ctx: ToolContext,
+  maxRounds: number,
+): Promise<Record<string, string> | null> {
+  if (maxRounds <= 0) return null;
+  let files = { ...initialFlat };
+  let errors = [...initialErrors];
+  const modelClient = createWebsiteFoundationModelClient();
+
+  for (let round = 0; round < maxRounds; round++) {
+    const response = await modelClient.generate({
+      model: WEBSITE_FOUNDATION_REPAIR_MODEL,
+      systemInstruction: INCREMENTAL_PATCH_SYSTEM_PROMPT,
+      contents: [createConversationTurn({ role: 'user', content: buildPatchRepairUserMessage(files, errors) })],
+      maxTokens: 65536,
+      thinkingEnabled: false,
+      reasoningLevel: 'standard',
+      signal: ctx.abortSignal,
+      callTimeoutMs: 180_000,
+      metadata: { agentRole: ctx.agentRole },
+    });
+
+    const patches = parseIncrementalPatchOutput(response.text ?? '');
+    if (!patches?.length) {
+      console.warn(`[WebBuild] Incremental patch round ${round + 1}: no valid patches in model output.`);
+      return null;
+    }
+
+    let applied = 0;
+    for (const p of patches) {
+      if (!isIncrementalPatchPathAllowed(p.filePath)) continue;
+      files[p.filePath] = p.content;
+      applied++;
+    }
+    if (applied === 0) {
+      console.warn(`[WebBuild] Incremental patch round ${round + 1}: patches had no allowed paths.`);
+      return null;
+    }
+
+    const sb = await runSandboxBuild(files, ctx.abortSignal);
+    if (sb.skipped || sb.ok) {
+      return files;
+    }
+    errors = sb.errors;
+  }
+
+  return null;
 }
 
 function buildSandboxRepairPrompt(errors: string[]): string {
@@ -1699,8 +1969,10 @@ async function runWebsiteFoundationLoop(
   userPrompt: string,
   model: string,
   ctx: ToolContext,
+  foundationMode: FoundationBuildMode = 'marketing',
 ): Promise<{ output: WebsiteFoundationOutput; toolRounds: number; lookupCalls: number; lookupFailures: number; sandboxRounds: number }> {
   const modelClient = createWebsiteFoundationModelClient();
+  const systemInstruction = foundationMode === 'utility' ? UX_ENGINEER_UTILITY_PROMPT : UX_ENGINEER_SYSTEM_PROMPT;
   const turns: ConversationTurn[] = [createConversationTurn({ role: 'user', content: userPrompt })];
   let toolRounds = 0;
   let output: WebsiteFoundationOutput | null = null;
@@ -1713,7 +1985,7 @@ async function runWebsiteFoundationLoop(
   while (toolRounds <= WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS) {
     const response = await modelClient.generate({
       model: effectiveModel,
-      systemInstruction: UX_ENGINEER_SYSTEM_PROMPT,
+      systemInstruction,
       contents: turns,
       tools: WEBSITE_FOUNDATION_TOOL_DECLARATIONS,
       maxTokens: WEBSITE_FOUNDATION_MAX_TOKENS,
@@ -1732,7 +2004,7 @@ async function runWebsiteFoundationLoop(
     if (response.text?.includes('foundation_files')) {
       const parsed = parseWebsiteFoundationOutput(response.text);
       if (parsed) {
-        const validation = validateWebsiteFoundationOutput(parsed);
+        const validation = validateWebsiteFoundationOutput(parsed, foundationMode);
         if (validation.ok) {
           // Schema contract passed — now run real sandbox build validation
           const flatFiles = flattenWebsiteFoundationFiles(parsed);
@@ -1751,8 +2023,26 @@ async function runWebsiteFoundationLoop(
           sandboxRounds += 1;
 
           if (sandboxRounds > SANDBOX_MAX_REPAIR_ROUNDS) {
-            console.warn('[WebBuild] Sandbox repair limit reached; using last output.');
-            output = parsed;
+            const incMax = incrementalPatchMaxRounds();
+            let merged: WebsiteFoundationOutput = parsed;
+            if (incMax > 0) {
+              console.warn('[WebBuild] Full-JSON sandbox repair limit reached; trying incremental file patches.');
+              const repairedFlat = await runIncrementalPatchRepair(
+                flatFiles,
+                sandboxResult.errors,
+                ctx,
+                incMax,
+              );
+              if (repairedFlat) {
+                merged = mergeFlatFilesIntoWebsiteOutput(parsed, repairedFlat);
+                console.log('[WebBuild] Incremental patch repair fixed sandbox build.');
+              } else {
+                console.warn('[WebBuild] Incremental patch repair did not fix build; shipping last full-JSON output.');
+              }
+            } else {
+              console.warn('[WebBuild] Sandbox repair limit reached; incremental patches disabled (WEB_BUILD_INCREMENTAL_PATCH_ROUNDS).');
+            }
+            output = merged;
             break;
           }
 
@@ -1881,8 +2171,15 @@ export function createBuildWebsiteFoundationTools(): ToolDefinition[] {
           promptParts.push(`repair_context:\n${params.repair_context.trim()}`);
         }
 
+        const foundationMode = foundationModeFromNormalizedBrief(normalizedBrief as Record<string, unknown>);
+
         try {
-          const { output, toolRounds, lookupCalls, lookupFailures, sandboxRounds } = await runWebsiteFoundationLoop(promptParts.join('\n\n'), selectedModel, ctx);
+          const { output, toolRounds, lookupCalls, lookupFailures, sandboxRounds } = await runWebsiteFoundationLoop(
+            promptParts.join('\n\n'),
+            selectedModel,
+            ctx,
+            foundationMode,
+          );
           return {
             success: true,
             data: {
@@ -1890,6 +2187,7 @@ export function createBuildWebsiteFoundationTools(): ToolDefinition[] {
               image_manifest: output.image_manifest,
               architectural_reasoning: output.architectural_reasoning,
               design_plan: output.design_plan,
+              foundation_mode: foundationMode,
               tool_rounds: toolRounds,
               lookup_calls: lookupCalls,
               lookup_failures: lookupFailures,
