@@ -1,6 +1,6 @@
 # Glyphor AI Company - Full Technical Architecture
 
-Last updated: 2026-03-29
+Last updated: 2026-04-04
 
 This document is the full technical architecture readout for the current monorepo.
 It combines a full subsystem walkthrough with current, filesystem-verified inventory counts.
@@ -15,20 +15,20 @@ At a high level:
 - Execution plane: agent-runtime + role runners + tool execution + provider abstraction.
 - Data plane: Cloud SQL-backed memory, operations, routing, and telemetry state.
 - Operator plane: dashboard, settings, approvals, directives, governance, and strategy surfaces.
-- Integration plane: Stripe, Mercury, GCP, Teams/Graph, OpenAI, Anthropic, Kling, SharePoint, GitHub, Vercel, Canva, DocuSign, and others.
+- Integration plane: Stripe, Mercury, GCP, Teams/Graph, OpenAI, Anthropic, Kling, SharePoint, GitHub, Vercel, Canva, DocuSign, Cloudflare, and others.
 
 ## 2. Current State Inventory
 
 Verified from repository state:
 
 - Workspace packages under packages: 25
-- Integration modules under packages/integrations/src: 21
+- Integration modules under packages/integrations/src: 22
 - File-based agent role directories under packages/agents/src: 29
-- Dashboard page modules under packages/dashboard/src/pages: 30
-- SQL migrations under db/migrations: 261
+- Dashboard page modules under packages/dashboard/src/pages: 36
+- SQL migrations under db/migrations: 284
 - Docker build files under docker (Dockerfile.*): 18
-- Dashboard route entries in packages/dashboard/src/App.tsx: 32 path routes (+ index route)
-- Dashboard TABLE_MAP aliases in packages/scheduler/src/dashboardApi.ts: 88 aliases mapped to 60 physical tables
+- Dashboard route architecture: dual-mode (app/internal + app/smb) with 27 internal path routes, 7 SMB path routes, legacy redirects, and entry gates
+- Dashboard TABLE_MAP aliases in packages/scheduler/src/dashboardApi.ts: 97 aliases mapped to 68 physical tables
 
 Top-level packages currently present:
 
@@ -139,6 +139,28 @@ Representative modules:
 - cotEngine.ts
 - dashboardApi.ts
 - governanceApi.ts
+- memoryConsolidator.ts
+- memoryConsolidationGates.ts
+- memoryArchiver.ts
+- abacAdminApi.ts
+- autonomyAdminApi.ts
+- capacityAdminApi.ts
+- contradictionAdminApi.ts
+- contradictionProcessor.ts
+- decisionTraceAdminApi.ts
+- departmentAdminApi.ts
+- disclosureAdminApi.ts
+- handoffContractAdminApi.ts
+- handoffContractMonitor.ts
+- handoffQualityEvaluator.ts
+- handoffTracer.ts
+- metricsAdminApi.ts
+- temporalKnowledgeGraphAdminApi.ts
+- predictionResolver.ts
+- planningGateMonitor.ts
+- economicsGuardrailNotify.ts
+- toolAccuracyEvaluator.ts
+- batchOutcomeEvaluator.ts
 
 ### 5.2 Agent Runtime (packages/agent-runtime)
 
@@ -161,6 +183,14 @@ Key architectural primitives:
 - ConversationTurn and attachment transport model.
 - AgentExecutionResult with cost and provider metadata.
 - Supervisor constraints (turn limits, stalling, timeout semantics).
+- ABAC (attribute-based access control) enforcement via abac.ts.
+- Disclosure management for agent identity transparency via disclosure.ts.
+- Temporal knowledge graph client via temporalKnowledgeGraph.ts.
+- Prediction journal for agent forecast tracking via predictionJournal.ts.
+- Handoff contracts for structured inter-agent delegation via handoffContracts.ts.
+- Shadow runner for parallel evaluation via shadowRunner.ts and shadowPromotion.ts.
+- Memory consolidation and episodic replay via memoryConsolidator integration.
+- Verification policy enforcement via verificationPolicy.ts.
 
 ### 5.3 Agent Implementations (packages/agents)
 
@@ -225,11 +255,12 @@ Primary role:
 
 - External system connectivity and domain-specific API clients.
 
-Current integration modules (21):
+Current integration modules (22):
 
 - agent365
 - anthropic
 - canva
+- cloudflare
 - credentials
 - docusign
 - facebook
@@ -257,6 +288,7 @@ Integration entrypoint exports include capabilities for:
 - Payment and billing ingestion
 - Cloud metrics and deployment telemetry
 - Document and creative workflows
+- Cloudflare preview site management
 
 ### 5.6 Dashboard (packages/dashboard)
 
@@ -277,6 +309,13 @@ Authentication modes (lib/auth.tsx):
 - Teams SSO flow when in Teams context.
 - Google OAuth flow in browser context.
 - Dev fallback mode when client ID is absent.
+
+Dashboard mode routing:
+
+- Dual-mode layout: `app/internal` (full operator surface) and `app/smb` (simplified SMB surface).
+- Entry gate (`DashboardEntryGate`) routes to internal or SMB dashboard based on effective mode.
+- Onboarding gate (`OnboardingEntryGate`) routes to mode-specific onboarding.
+- Legacy path redirects rewrite bare paths (e.g. `/workforce`) to `/app/internal/workforce`.
 
 ### 5.7 Worker (packages/worker)
 
@@ -771,6 +810,11 @@ The scheduler server in packages/scheduler/src/server.ts exposes the following r
 | GET | / | Root health alias | None in-server |
 | POST | /cache/invalidate | Prompt/cache invalidation trigger | None in-server |
 | POST | /webhook/stripe | Stripe webhook receiver | Stripe signature verification |
+| POST | /webhook/docusign | DocuSign webhook receiver | DocuSign HMAC verification |
+| POST | /tool-health/run | Tool health check run | Trusted caller (no bearer) |
+| GET | /tool-health/latest | Latest tool health results | None in-server |
+| POST | /internal/model-check | Model availability check | Trusted caller (no bearer) |
+| POST | /model-check/run | Model availability check (alias) | Trusted caller (no bearer) |
 | POST | /sync/stripe | Stripe sync job | Trusted caller (no bearer) |
 | POST | /sync/gcp-billing | GCP billing sync job | Trusted caller (no bearer) |
 | POST | /sync/mercury | Mercury banking sync job | Trusted caller (no bearer) |
@@ -786,12 +830,23 @@ The scheduler server in packages/scheduler/src/server.ts exposes the following r
 | POST | /memory/consolidate | Memory consolidation maintenance | Trusted caller (no bearer) |
 | POST | /memory/archive | Memory archival maintenance | Trusted caller (no bearer) |
 | POST | /batch-eval/run | Batch evaluation run | Trusted caller (no bearer) |
+| POST | /autonomy/evaluate-daily | Daily autonomy evaluation | Trusted caller (no bearer) |
+| POST | /shadow-eval/run | Shadow evaluation run | Trusted caller (no bearer) |
+| POST | /shadow-eval/run-pending | Shadow eval pending dispatch | Trusted caller (no bearer) |
+| GET | /world-state/health | World state health check | None in-server |
 | POST | /cascade/evaluate | Cascade evaluation run | Trusted caller (no bearer) |
+| POST | /predictions/resolve | Prediction resolution run | Trusted caller (no bearer) |
+| POST | /planning-gate/monitor | Planning gate monitor run | Trusted caller (no bearer) |
+| POST | /economics/guardrail-notify | Economics guardrail notification | Trusted caller (no bearer) |
 | POST | /policy/collect | Policy proposal collection | Trusted caller (no bearer) |
 | POST | /policy/evaluate | Policy replay evaluation | Trusted caller (no bearer) |
 | POST | /policy/canary-check | Canary lifecycle check | Trusted caller (no bearer) |
 | POST | /canary/evaluate | Canary rollout evaluation | Trusted caller (no bearer) |
 | POST | /agent-evals/run | Agent knowledge/readiness evaluation | Trusted caller (no bearer) |
+| POST | /agent-evals/run-golden | Golden evaluation run | Trusted caller (no bearer) |
+| POST | /gtm-readiness/run | GTM readiness evaluation | Trusted caller (no bearer) |
+| GET | /api/eval/gtm-readiness/latest | Latest GTM readiness result | None in-server |
+| GET | /api/eval/gtm-readiness/history | GTM readiness history | None in-server |
 | POST | /tools/expire | Tool expiration manager | Trusted caller (no bearer) |
 | POST | /tools/re-enable | Tool re-enable operation | Trusted caller (no bearer) |
 | OPTIONS | * | CORS preflight handler | Preflight only |
@@ -801,6 +856,9 @@ The scheduler server in packages/scheduler/src/server.ts exposes the following r
 | Method | Path | Purpose | Auth/Permission |
 | --- | --- | --- | --- |
 | POST | /run | Direct task invocation | None in-server |
+| POST | /quick-assign | Quick work assignment dispatch | None in-server |
+| POST | /api/messages | Agent365 activity message ingress | None in-server |
+| POST | /api/agent365/activity | Agent365 activity alias | None in-server |
 | GET | /sdk/agents | List SDK-scoped agents | SDK bearer token required |
 | POST | /sdk/agents | Create SDK-scoped agent | SDK bearer token required |
 | GET | /sdk/agents/:role | Get SDK agent | SDK bearer token required |
@@ -890,9 +948,13 @@ The scheduler server in packages/scheduler/src/server.ts exposes the following r
 
 ## 8. Dashboard Route Architecture
 
-Routes currently wired in dashboard App.tsx:
+The dashboard uses a dual-mode routing architecture with two top-level layout shells:
 
-- (index route) /
+### 8.1 Internal Mode (app/internal)
+
+Routes currently wired under the internal Layout:
+
+- (index route) dashboard
 - /directives
 - /workforce
 - /agents/new
@@ -910,35 +972,78 @@ Routes currently wired in dashboard App.tsx:
 - /chat/:agentId
 - /teams-config
 - /governance
-- /policy (redirect)
+- /policy (redirect to governance)
 - /ora
 - /change-requests
-- /models (redirect)
+- /models (redirect to governance?tab=models)
 - /fleet
 - /settings
-- * -> / (catch-all redirect)
+- /onboarding
+- * -> dashboard (catch-all redirect)
 
-Legacy redirects currently preserved:
+### 8.2 SMB Mode (app/smb)
 
-- /agents -> /workforce
-- /chat -> /comms
-- /activity -> /operations
-- /graph -> /knowledge
-- /capabilities -> /skills
-- /meetings -> /comms
-- /world-model -> /skills
-- /group-chat -> /comms
+Routes currently wired under the SmbLayout:
 
-Notable routing behavior:
+- dashboard (-> SmbTeam)
+- /team
+- /work
+- /approvals
+- /insights
+- /settings
+- /onboarding
+- * -> dashboard (catch-all redirect)
 
-- Agent settings path uses AgentProfile route with settings tab mode.
-- Models route redirects into the governance page model tab.
-- Fleet is a dedicated operational page route.
-- Catch-all wildcard path redirects unknown routes back to dashboard home.
+### 8.3 Entry Gates and Legacy Redirects
+
+Top-level entry routing:
+
+- / (index) -> DashboardEntryGate (routes to internal or SMB based on effective mode)
+- /onboarding -> OnboardingEntryGate
+- /app/onboarding -> OnboardingEntryGate
+- /agents/:agentId -> LegacyAgentRedirect (-> /app/internal/agents/:agentId)
+- /agents/:agentId/settings -> LegacyAgentSettingsRedirect
+- /chat/:agentId -> LegacyChatRedirect (-> /app/internal/chat/:agentId)
+- /skills/:slug -> /app/internal/skills
+- * -> DashboardEntryGate
+
+Legacy bare-path redirects rewrite old top-level paths to /app/internal/* equivalents:
+
+- /dashboard -> /app/internal/dashboard
+- /directives -> /app/internal/directives
+- /workforce -> /app/internal/workforce
+- /agents/new -> /app/internal/agents/new
+- /builder -> /app/internal/builder
+- /approvals -> /app/internal/approvals
+- /financials -> /app/internal/financials
+- /operations -> /app/internal/operations
+- /strategy -> /app/internal/strategy
+- /knowledge -> /app/internal/knowledge
+- /skills -> /app/internal/skills
+- /comms -> /app/internal/comms
+- /teams-config -> /app/internal/teams-config
+- /governance -> /app/internal/governance
+- /ora -> /app/internal/ora
+- /change-requests -> /app/internal/change-requests
+- /fleet -> /app/internal/fleet
+- /settings -> /app/internal/settings
+
+Semantic alias redirects (preserved):
+
+- /agents -> /app/internal/workforce
+- /chat -> /app/internal/comms
+- /activity -> /app/internal/operations
+- /graph -> /app/internal/knowledge
+- /capabilities -> /app/internal/skills
+- /meetings -> /app/internal/comms
+- /world-model -> /app/internal/skills
+- /group-chat -> /app/internal/comms
+- /policy -> /app/internal/governance
+- /models -> /app/internal/governance?tab=models
 
 ## 9. Dashboard Page Surface
 
-Current page module inventory under src/pages (30 files):
+Current page module inventory under src/pages (36 files):
 
 - Activity.tsx
 - AgentBuilder.tsx
@@ -947,6 +1052,7 @@ Current page module inventory under src/pages (30 files):
 - AgentsList.tsx
 - Approvals.tsx
 - Capabilities.tsx
+- ChangeRequests.tsx
 - Chat.tsx
 - Comms.tsx
 - Dashboard.tsx
@@ -959,25 +1065,29 @@ Current page module inventory under src/pages (30 files):
 - Knowledge.tsx
 - Meetings.tsx
 - ModelAdmin.tsx
+- Onboarding.tsx
 - Operations.tsx
 - OraChat.tsx
-- PolicyVersions.tsx
 - Settings.tsx
 - SkillDetail.tsx
 - Skills.tsx
+- SmbApprovals.tsx
+- SmbInsights.tsx
+- SmbSettings.tsx
+- SmbTeam.tsx
+- SmbWork.tsx
 - Strategy.tsx
 - TeamsConfig.tsx
 - Workforce.tsx
 - WorkforceBuilder.tsx
 - WorldModel.tsx
-- ChangeRequests.tsx
 
 ## 10. Data Architecture
 
 ### 10.1 Persistence Strategy
 
 - PostgreSQL is used as the primary persistent state store.
-- Migrations are managed as SQL files under db/migrations (261 files currently).
+- Migrations are managed as SQL files under db/migrations (284 files currently).
 - Runtime writes are concentrated in execution, assignment, decision, memory, and telemetry domains.
 
 ### 10.2 Data Domains
@@ -1018,7 +1128,7 @@ Representative data domains persisted in the platform include:
 
 ### 10.3 Dashboard API Table Map and Domain Coverage
 
-The dashboard CRUD layer currently maps 88 URL slugs to 60 physical PostgreSQL tables through TABLE_MAP in packages/scheduler/src/dashboardApi.ts.
+The dashboard CRUD layer currently maps 97 URL slugs to 68 physical PostgreSQL tables through TABLE_MAP in packages/scheduler/src/dashboardApi.ts.
 
 Primary domains and current table ownership anchors:
 
@@ -1076,6 +1186,34 @@ Recent migration trend highlights:
   - 20260312200000_phase4_a2a_gateway.sql
   - 20260312234500_phase7_agent_sdk.sql
   - 20260314000100_agent_knowledge_evals.sql
+
+- Agent autonomy, trust, and handoff governance (post-March 2026)
+  - 20260330090000_agent_prediction_journal.sql
+  - 20260330101500_abac_agent_execution.sql
+  - 20260330110000_agent_capacity_and_commitment_registry.sql
+  - 20260330113000_agent_disclosure_config.sql
+  - 20260330124500_agent_handoff_contracts.sql
+  - 20260330153000_decision_traces.sql
+  - 20260330160000_agent_autonomy_dashboard.sql
+  - 20260330170000_department_activation_catalog.sql
+  - 20260330171000_agent_reliability_metrics.sql
+
+- Temporal knowledge graph and contradiction tracking
+  - 20260330143000_temporal_knowledge_graph.sql
+  - 20260330150000_kg_contradictions_and_fact_provenance.sql
+
+- Memory, reliability, and evaluation
+  - 20260402100000_conversation_memory_summaries.sql
+  - 20260402103000_reliability_run_ledger.sql
+  - 20260403010000_seed_golden_v1_eval_scenarios.sql
+  - 20260403140000_memory_consolidation_state.sql
+  - 20260404180000_budget_baseline_knowledge.sql
+
+- Client delivery and multi-tenant
+  - 20260331120000_sync_client_website_pipeline.sql
+  - 20260331183000_sync_client_website_pipeline_cicd.sql
+  - 20260331193000_sync_client_website_pipeline_automation.sql
+  - 20260331120000_dashboard_user_tenant_link.sql
 
 ### 10.5 Complete TABLE_MAP Alias Matrix
 
@@ -1165,25 +1303,34 @@ Tool surface sources:
 The shared tool surface has expanded materially and now includes specialized modules across operations, design, growth, legal, finance, orchestration, and governance. Representative modules include:
 
 - Core orchestration and memory
-  - coreTools.ts, assignmentTools.ts, communicationTools.ts, memoryTools.ts, eventTools.ts, createRunDeps.ts
+  - coreTools.ts, assignmentTools.ts, communicationTools.ts, memoryTools.ts, eventTools.ts, createRunDeps.ts, createEvalRunDeps.ts, runDynamicAgent.ts, createRunner.ts
 
 - Tool governance and discovery
-  - toolGrantTools.ts, toolRegistryTools.ts, toolRequestTools.ts, accessAuditTools.ts
+  - toolGrantTools.ts, toolRegistryTools.ts, toolRequestTools.ts, accessAuditTools.ts, toolPermissionPolicy.ts, auditTools.ts
 
 - MCP and external execution bridges
   - glyphorMcpTools.ts, agent365Tools.ts, externalA2aTools.ts
 
+- Agent lifecycle and coordination
+  - agentCreationTools.ts, agentDirectoryTools.ts, assigneeRouting.ts, peerCoordinationTools.ts, teamOrchestrationTools.ts, executiveOrchestrationTools.ts, collectiveIntelligenceTools.ts, channelNotifyTools.ts, dmTools.ts
+
 - Engineering and design execution
-  - frontendCodeTools.ts, scaffoldTools.ts, screenshotTools.ts, designSystemTools.ts, storybookTools.ts, figmaTools.ts, patchHarness.ts, v4aDiff.ts
+  - frontendCodeTools.ts, scaffoldTools.ts, screenshotTools.ts, designSystemTools.ts, storybookTools.ts, figmaTools.ts, figmaAuth.ts, patchHarness.ts, v4aDiff.ts, designBriefTools.ts, webBuildTools.ts, sandboxBuildValidator.ts, quickDemoAppTools.ts, deployPreviewTools.ts, engineeringGapTools.ts, diagnosticTools.ts, codexTools.ts
 
 - Content and marketing execution
-  - contentTools.ts, socialMediaTools.ts, seoTools.ts, researchTools.ts, emailMarketingTools.ts, marketingIntelTools.ts
+  - contentTools.ts, socialMediaTools.ts, seoTools.ts, researchTools.ts, emailMarketingTools.ts, marketingIntelTools.ts, competitiveIntelTools.ts, facebookTools.ts, linkedinTools.ts, videoCreationTools.ts, websiteIngestionTools.ts, productAnalyticsTools.ts
 
 - Finance and legal execution
-  - revenueTools.ts, cashFlowTools.ts, costManagementTools.ts, legalTools.ts, docusignTools.ts
+  - revenueTools.ts, cashFlowTools.ts, costManagementTools.ts, legalTools.ts, legalDocumentTools.ts, docusignTools.ts, preRevenueGuard.ts
 
 - People and operations execution
-  - hrTools.ts, entraHRTools.ts, opsExtensionTools.ts, initiativeTools.ts, peerCoordinationTools.ts, teamOrchestrationTools.ts, executiveOrchestrationTools.ts
+  - hrTools.ts, entraHRTools.ts, opsExtensionTools.ts, initiativeTools.ts, roadmapTools.ts, userResearchTools.ts, researchMonitoringTools.ts, researchRepoTools.ts
+
+- Knowledge and output
+  - knowledgeRetrievalTools.ts, graphTools.ts, sharepointTools.ts, deliverableTools.ts, assetTools.ts, logoTools.ts, canvaTools.ts
+
+- Platform output channels
+  - teamsOutputTools.ts, slackOutputTools.ts
 
 ### 11.2 Runtime Skill and Tool Engines (packages/agent-runtime/src)
 
@@ -1197,6 +1344,15 @@ Recent runtime additions expanded capability governance, self-improvement, and e
 
 - Verification and constitutional controls
   - constitutionalGovernor.ts, constitutionalPreCheck.ts, formalVerifier.ts, verifierRunner.ts, trustScorer.ts
+
+- Governance, autonomy, and handoff controls
+  - abac.ts, disclosure.ts, handoffContracts.ts, predictionJournal.ts, verificationPolicy.ts, shadowRunner.ts, shadowPromotion.ts
+
+- Temporal and contextual intelligence
+  - temporalKnowledgeGraph.ts, contextDistiller.ts, episodicReplay.ts, worldStateClient.ts, worldStateKeys.ts
+
+- Planning and execution policy
+  - executionPlanning.ts, planningPolicy.ts, orchestrationDecompositionGuard.ts, activePromptResolver.ts, promptMutator.ts
 
 - Patch and workflow execution
   - patchHarness.ts, v4aDiff.ts, workflowOrchestrator.ts, workflowTypes.ts, decisionChainTracker.ts
@@ -1234,7 +1390,26 @@ This means skills are no longer only static prompt concepts; they are persisted,
 - Search Console and analytics modules
 - Canva and DocuSign integrations
 
-## 13. Deployment and Runtime Packaging
+### 12.5 Deployment and Preview
+
+- Cloudflare preview site management and deployment tooling
+
+## 13. Top-Level Support Directories
+
+Beyond the packages/ workspace, the repository includes several top-level directories that support operations, delivery, and configuration:
+
+- skills/: Department-organized skill playbook markdown files (design, engineering, executive, finance, legal, marketing, operations, research) with index files per department.
+- templates/: Client website creation templates, Cloudflare preview tooling, GitHub template scaffolding, and Vercel project tooling.
+- teams/: Teams app manifest and assets (glyphor-teams/ with manifest.json, icons, README).
+- manifest/: Agentic user template manifest and app icon assets.
+- services/: Supporting services (playwright-service for browser automation).
+- workers/: Background worker implementations (preview worker for site previews).
+- artifacts/: Build and deployment artifacts.
+- audit-reports/: Generated audit and compliance reports.
+- infra/: Infrastructure scripts and Terraform assets.
+- scripts/: Domain-specific sync, maintenance, and operational scripts.
+
+## 14. Deployment and Runtime Packaging
 
 Docker build assets currently present:
 
@@ -1250,7 +1425,10 @@ Docker build assets currently present:
 - Dockerfile.mcp-hr-server
 - Dockerfile.mcp-legal-server
 - Dockerfile.mcp-marketing-server
+- Dockerfile.mcp-sharepoint-sites
+- Dockerfile.playwright
 - Dockerfile.scheduler
+- Dockerfile.slack-app
 - Dockerfile.voice-gateway
 - Dockerfile.worker
 
@@ -1259,26 +1437,26 @@ Deployment shape (logical):
 - Cloud Run services for scheduler/dashboard/worker/voice and selected MCP servers.
 - Supporting infra via infra/ scripts and Terraform assets.
 
-## 14. Security, Access, and Governance
+## 15. Security, Access, and Governance
 
-### 14.1 Dashboard Access
+### 15.1 Dashboard Access
 
 - Teams SSO path in Teams context.
 - Google OAuth path in browser context.
 - Allowlist-backed gating with fallback controls in auth provider.
 
-### 14.2 Runtime Governance
+### 15.2 Runtime Governance
 
 - Authority tiering and approval pathways in scheduler.
 - Decision queue and human-in-the-loop escalation model.
 - Governance sync and policy/canary evaluation endpoints.
 
-### 14.3 Platform Controls
+### 15.3 Platform Controls
 
 - Audit and platform state logging integrations.
 - Tool and memory lifecycle maintenance routes.
 
-## 15. Build, Test, and Operations
+## 16. Build, Test, and Operations
 
 Root scripts include:
 
@@ -1296,7 +1474,7 @@ Operationally relevant characteristics:
 - Cross-package build graph via turbo.json.
 - Domain-specific sync and maintenance scripts in scripts/.
 
-## 16. Architecture Risks and Drift Controls
+## 17. Architecture Risks and Drift Controls
 
 This codebase evolves quickly, so route counts and endpoint inventories can drift.
 
@@ -1308,7 +1486,7 @@ Recommended drift controls:
 - Keep integration module inventory aligned with packages/integrations/src.
 - Keep docker image list aligned with docker/Dockerfile.* files.
 
-## 17. Maintenance Checklist
+## 18. Maintenance Checklist
 
 When updating architecture docs, re-verify:
 
@@ -1320,6 +1498,6 @@ When updating architecture docs, re-verify:
 - auth mode implementation
 - runner selection behavior
 
-## 18. Notes on Scope
+## 19. Notes on Scope
 
 This is a full technical architecture readout of the currently implemented platform surfaces and subsystem responsibilities. It is intentionally detailed and implementation-aligned, while avoiding brittle hardcoded per-endpoint totals that become stale as routes evolve.

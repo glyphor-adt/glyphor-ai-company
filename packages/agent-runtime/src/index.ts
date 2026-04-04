@@ -12,6 +12,24 @@ export { ProviderFactory, GeminiAdapter, OpenAIAdapter, AnthropicAdapter } from 
 export type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, UnifiedToolCall, UnifiedUsageMetadata, StructuredOutputSpec, ModelRoutingMetadata, UnifiedRequestMetadata } from './providers/types.js';
 export { AgentSupervisor } from './supervisor.js';
 export { ToolExecutor, isToolBlocked, invalidateBlockCache, isToolGranted, invalidateGrantCache, loadGrantedToolNames } from './toolExecutor.js';
+// buildTool factory — fail-closed tool definitions
+export { buildTool, isSafeTool, getToolMeta, isToolPermittedForRole, getToolTimeout, getToolRateLimit } from './buildTool.js';
+export type { SafeToolDefinition, ToolMetadata, BuildToolInput } from './buildTool.js';
+// Denial tracking — circuit breaker for permission loops
+export {
+  createDenialTracker,
+  createInitialState as createDenialState,
+  recordDenial,
+  recordSuccess,
+  markEscalated,
+  shouldEscalate,
+  evaluateEscalation,
+  isToolRunBlocked,
+  isToolInCooldown,
+  getDenialSummary,
+  DENIAL_THRESHOLDS,
+} from './denialTracking.js';
+export type { DenialTrackingState, DenialTracker, DenialRecord, DenialSource, EscalationDecision, EscalationAction } from './denialTracking.js';
 export { assertSafeOutboundUrl } from './security/ssrfGuard.js';
 export type { SsrfGuardOptions } from './security/ssrfGuard.js';
 export {

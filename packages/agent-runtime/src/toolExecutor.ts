@@ -57,6 +57,20 @@ import {
 import { classifyActionRisk } from './actionRiskClassifier.js';
 import type { CommunicationType, RecipientType } from './types.js';
 import { createToolHookRunnerFromEnv, type ToolHookRunner } from './hooks/hookRunner.js';
+import {
+  type DenialTrackingState,
+  type DenialSource,
+  type EscalationDecision,
+  createInitialState as createDenialState,
+  recordDenial,
+  recordSuccess,
+  markEscalated,
+  shouldEscalate,
+  evaluateEscalation,
+  isToolRunBlocked,
+  getDenialSummary,
+} from './denialTracking.js';
+import { isSafeTool, getToolMeta, isToolPermittedForRole, type SafeToolDefinition } from './buildTool.js';
 import { startTraceSpan } from './telemetry/tracing.js';
 import {
   recordEvidence,
@@ -645,6 +659,7 @@ export class ToolExecutor {
   private redisCache: RedisCache | null = null;
   private verifierRunner: VerifierRunner | null = null;
   private toolHookRunner: ToolHookRunner | null = null;
+  private denialState: DenialTrackingState = createDenialState();
 
   constructor(tools: ToolDefinition[], dryRun = false, enforcement = true, formalVerifier?: FormalVerifier) {
     this.tools = new Map(tools.map((t) => [t.name, t]));
@@ -697,6 +712,21 @@ export class ToolExecutor {
 
   getSecurityLog(): SecurityEvent[] {
     return this.securityLog;
+  }
+
+  /** Get the current denial tracking state for diagnostics. */
+  getDenialState(): DenialTrackingState {
+    return this.denialState;
+  }
+
+  /** Get a human-readable denial tracking summary. */
+  getDenialSummary(): string {
+    return getDenialSummary(this.denialState);
+  }
+
+  /** Reset denial tracking (e.g., between runs for the same executor instance). */
+  resetDenialTracking(): void {
+    this.denialState = createDenialState();
   }
 
   // ─── Enforcement Helpers ──────────────────────────────────────
@@ -907,6 +937,54 @@ export class ToolExecutor {
       return {
         success: false,
         error: 'Agent aborted before tool execution',
+        filesWritten: 0,
+        memoryKeysWritten: 0,
+        riskLevel: riskAssessment.level,
+      };
+    }
+
+    // ─── Circuit breaker: denial tracking gate ──────────────
+    // Check if this tool or the entire run is blocked by accumulated denials.
+    if (isToolRunBlocked(this.denialState, toolName)) {
+      const escalation = evaluateEscalation(this.denialState, toolName);
+      this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'RATE_LIMITED', {
+        reason: 'denial_circuit_breaker',
+        escalation_action: escalation.action,
+        denial_summary: getDenialSummary(this.denialState),
+      });
+      return {
+        success: false,
+        error: escalation.agentMessage,
+        filesWritten: 0,
+        memoryKeysWritten: 0,
+        riskLevel: riskAssessment.level,
+      };
+    }
+    if (shouldEscalate(this.denialState)) {
+      const escalation = evaluateEscalation(this.denialState, toolName);
+      if (escalation.action === 'abort_run' || escalation.action === 'abort_tool') {
+        this.denialState = markEscalated(this.denialState, escalation.reason);
+        this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'RATE_LIMITED', {
+          reason: 'denial_circuit_breaker_escalated',
+          escalation_action: escalation.action,
+          denial_summary: getDenialSummary(this.denialState),
+        });
+        return {
+          success: false,
+          error: escalation.agentMessage,
+          filesWritten: 0,
+          memoryKeysWritten: 0,
+          riskLevel: riskAssessment.level,
+        };
+      }
+    }
+
+    // ─── buildTool role-based filtering ─────────────────────
+    if (isSafeTool(tool) && !isToolPermittedForRole(tool, context.agentRole)) {
+      this.denialState = recordDenial(this.denialState, toolName, `Role ${context.agentRole} not permitted`, 'abac');
+      return {
+        success: false,
+        error: `Tool ${toolName} is not available for the ${context.agentRole} role.`,
         filesWritten: 0,
         memoryKeysWritten: 0,
         riskLevel: riskAssessment.level,
@@ -1144,8 +1222,10 @@ export class ToolExecutor {
         };
       }
 
-      // 2. Rate limit check (default: 60 calls/hr per tool per agent)
-      if (!this.checkRateLimit(role, toolName, 60)) {
+      // 2. Rate limit check — use buildTool metadata if available
+      const effectiveRateLimit = getToolMeta(tool).rateLimit;
+      if (!this.checkRateLimit(role, toolName, effectiveRateLimit)) {
+        this.denialState = recordDenial(this.denialState, toolName, 'Rate limit exceeded', 'rate_limit');
         this.logSecurityEvent(agentId, role, toolName, 'RATE_LIMITED');
         return {
           success: false,
@@ -1158,6 +1238,7 @@ export class ToolExecutor {
       // 3. Budget check
       const estimatedCost = estimateToolCost(toolName);
       if (this.wouldExceedBudget(agentId, role, estimatedCost)) {
+        this.denialState = recordDenial(this.denialState, toolName, 'Budget exceeded', 'budget');
         this.logSecurityEvent(agentId, role, toolName, 'BUDGET_EXCEEDED');
         return {
           success: false,
@@ -1433,13 +1514,17 @@ export class ToolExecutor {
       }
     }
 
-    const timeoutMs = VERY_LONG_RUNNING_TOOLS.has(toolName)
-      ? VERY_LONG_TOOL_TIMEOUT_MS
-      : QUICK_DEMO_TOOLS.has(toolName)
-        ? QUICK_DEMO_TOOL_TIMEOUT_MS
-        : LONG_RUNNING_TOOLS.has(toolName)
-          ? LONG_TOOL_TIMEOUT_MS
-          : DEFAULT_TOOL_TIMEOUT_MS;
+    // Use buildTool metadata timeout if available, otherwise fall back to legacy constants
+    const metaTimeout = getToolMeta(tool).timeoutMs;
+    const timeoutMs = metaTimeout !== 30_000  // non-default buildTool timeout takes precedence
+      ? metaTimeout
+      : VERY_LONG_RUNNING_TOOLS.has(toolName)
+        ? VERY_LONG_TOOL_TIMEOUT_MS
+        : QUICK_DEMO_TOOLS.has(toolName)
+          ? QUICK_DEMO_TOOL_TIMEOUT_MS
+          : LONG_RUNNING_TOOLS.has(toolName)
+            ? LONG_TOOL_TIMEOUT_MS
+            : DEFAULT_TOOL_TIMEOUT_MS;
     const executionSpan = startTraceSpan('tool.execute', {
       run_id: context.runId ?? 'unknown',
       assignment_id: context.assignmentId ?? 'none',
@@ -1507,6 +1592,13 @@ export class ToolExecutor {
       };
 
       finalResult.auditLogId = await persistToolActivityLog(toolName, params, finalResult, context) ?? undefined;
+
+      // Update denial tracking on success/failure
+      if (finalResult.success) {
+        this.denialState = recordSuccess(this.denialState);
+      } else {
+        this.denialState = recordDenial(this.denialState, toolName, finalResult.error ?? 'execution failed', 'unknown');
+      }
 
       if (finalResult.success) {
         if (capacityCheck.registryEntryId) {

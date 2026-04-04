@@ -1081,6 +1081,10 @@ export class CompanyAgentRunner {
     // Extract multimodal attachments from carrier turn (injected by scheduler)
     let initialAttachments: ConversationAttachment[] | undefined;
     let dbRunId: string | undefined;
+
+    // Reset denial tracking for each new run — prevents stale escalation
+    // state from a prior run leaking into a fresh execution.
+    toolExecutor.resetDenialTracking();
     const cleanHistory = (config.conversationHistory ?? []).filter((t) => {
       if (t.content.startsWith(DB_RUN_ID_TURN_PREFIX)) {
         const candidate = t.content.slice(DB_RUN_ID_TURN_PREFIX.length).trim();
