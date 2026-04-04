@@ -104,6 +104,26 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
       'pause_agent',
       'resume_agent',
     ],
+    'vp-design': [
+      // Pinned before CORE_PINNED_TOOLS: model tool-caps (e.g. 25–40) can fill with core pins only and
+      // skip retrieval entirely — then invoke_web_build never reaches the LLM and “build an app” stalls.
+      'normalize_design_brief',
+      'invoke_web_build',
+      'invoke_web_iterate',
+      'invoke_web_coding_loop',
+    ],
+    'frontend-engineer': [
+      'normalize_design_brief',
+      'invoke_web_build',
+      'invoke_web_iterate',
+      'invoke_web_coding_loop',
+    ],
+    'ui-ux-designer': [
+      'normalize_design_brief',
+      'invoke_web_build',
+      'invoke_web_iterate',
+      'invoke_web_coding_loop',
+    ],
     'platform-intel': [
       'read_gtm_report',
       'read_fleet_health',

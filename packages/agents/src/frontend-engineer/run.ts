@@ -100,7 +100,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
   const config: AgentConfig = {
     id: `ava-${task}-${today}`, role: 'frontend-engineer',
     systemPrompt: FRONTEND_ENGINEER_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
+    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 960_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
   };

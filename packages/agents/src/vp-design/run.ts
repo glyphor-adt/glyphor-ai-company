@@ -156,7 +156,8 @@ Steps:
     tools,
     maxTurns: agentCfg.maxTurns,
     maxStallTurns: 3,
-    timeoutMs: 300_000,
+    // Allow multi-minute invoke_web_build; companyAgentRunner uses min(config, ON_DEMAND_* timeout).
+    timeoutMs: 960_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,

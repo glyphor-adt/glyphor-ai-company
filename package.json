@@ -52,6 +52,7 @@
     "trace:summary:cloudrun": "tsx scripts/trace-span-cloudrun-summary.ts",
     "planning:policy:validate": "tsx scripts/planning-policy-validate.ts",
     "planning:summary": "tsx scripts/planning-gate-summary.ts",
+    "planning:gate:snapshot": "tsx scripts/planning-gate-db-snapshot.ts",
     "planning:summary:cloudrun": "tsx scripts/planning-gate-cloudrun-summary.ts",
     "run:replay": "tsx scripts/run-replay.ts",
     "canary:validate": "tsx scripts/reliability-canary-validate.ts",

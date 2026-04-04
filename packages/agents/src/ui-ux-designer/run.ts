@@ -90,7 +90,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
   const config: AgentConfig = {
     id: `leo-${task}-${today}`, role: 'ui-ux-designer',
     systemPrompt: UI_UX_DESIGNER_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
+    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 960_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
   };

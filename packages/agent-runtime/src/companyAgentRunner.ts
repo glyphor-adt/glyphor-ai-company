@@ -1860,7 +1860,9 @@ Before executing any tools, produce a concise execution plan in STRICT JSON:
 }
 Rules:
 - Include 3-7 concrete acceptance criteria.
-- Criteria must be objectively verifiable.
+- Criteria must be objectively verifiable from the agent's likely tool outputs and final text.
+- Prefer criteria tied to data returned by a primary read (e.g. "each agent under 0.65 **listed in read_fleet_health**") rather than unbounded "every agent in the fleet" unless enumeration is a named step.
+- When a step may fail (tool error, gate, missing data), allow a verifiable fallback: "document the blocker with tool name and error/summary."
 - Output JSON only (no markdown, no prose).`;
           if (!history.some((turn) => turn.role === 'user' && turn.content.startsWith(PLANNING_REQUEST_MARKER))) {
             history.push({ role: 'user', content: planningInstruction, timestamp: Date.now() });

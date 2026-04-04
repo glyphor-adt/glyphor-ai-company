@@ -12,6 +12,27 @@ const AUTONOMOUS_PREFIXES = [
 
 const AUTONOMOUS_EXACT = new Set([
   'github_wait_for_pull_request_checks',
+  // Nexus / platform-intel — internal fleet ops (DB grants, registry, gap sweeps).
+  // Default SOFT_GATE forced the pre-execution value gate on cron runs (low context confidence → blocked).
+  'watch_tool_gaps',
+  'grant_tool_to_agent',
+  'revoke_tool_from_agent',
+  'emergency_block_tool',
+  'register_dynamic_tool',
+  'update_dynamic_tool',
+  'deactivate_tool',
+  'trigger_reflection_cycle',
+  'write_fleet_finding',
+  'write_world_model_correction',
+  'create_tool_fix_proposal',
+  'list_tool_fix_proposals',
+  'create_approval_request',
+  'audit_channel_delivery_config',
+  'read_blocked_assignments',
+  'audit_knowledge_freshness',
+  'verify_knowledge_section',
+  'promote_prompt_version',
+  'discard_prompt_version',
 ]);
 
 const SOFT_GATE_EXACT = new Set([
