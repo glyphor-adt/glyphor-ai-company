@@ -39,6 +39,7 @@ export interface SubtaskRoutingDecision {
 const DEFAULT_MODEL = getTierModel('default');
 const FAST_MODEL = getTierModel('fast');
 const HIGH_MODEL = getTierModel('high');
+const CODE_MODEL = getSpecialized('code_generation');
 const WORKHORSE_FALLBACK_MODEL = getSpecialized('web_search');
 const COMPLEXITY_RANK: Record<SubtaskComplexity, number> = {
   trivial: 0,
@@ -196,7 +197,7 @@ export async function selectSubtaskModel(
   if (codeEditEscalationNeeded) {
     decision = {
       ...decision,
-      model: HIGH_MODEL,
+      model: CODE_MODEL,
       routingRule: 'code_edit_subtask',
       reasoningEffort: 'high',
       enableCompaction: true,

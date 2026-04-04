@@ -48,6 +48,7 @@ import { resolveUpstreamContext } from './dependencyResolver.js';
 import { extractDashboardChatEmbedsFromHistory } from './dashboardChatEmbeds.js';
 import { shouldUseClientSideHistoryCompression } from './compaction.js';
 import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.js';
+import { maybeConsolidate } from './memory/consolidationTrigger.js';
 import type { RequestSource } from './providers/types.js';
 import type {
   SessionMemoryStore,
@@ -2629,6 +2630,10 @@ Continue execution, call tools as needed, and return only when all criteria are 
         // that should never block the run response (saves 10–20s)
         this.reflectOnRun(config, history, lastTextOutput!, deps.agentMemoryStore!, dbRunId, deps?.knowledgeRouter, deps?.graphWriter, deps?.skillFeedbackWriter, skillContext)
           .catch(err => console.warn(`[CompanyAgentRunner] Reflection failed for ${config.id}:`, (err as Error).message));
+
+        // Fire-and-forget: check if memory consolidation is due
+        maybeConsolidate(config.role, deps.agentMemoryStore!, this.modelClient)
+          .catch(err => console.warn(`[CompanyAgentRunner] Consolidation trigger failed for ${config.id}:`, (err as Error).message));
       }
 
       // ─── WORLD STATE: Write last output for downstream agents ──

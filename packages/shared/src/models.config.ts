@@ -35,6 +35,8 @@ export const MODEL_CONFIG = {
     reflection:    'gpt-5-mini',                         // lower-cost agent self-eval
     /** Dashboard `quick_demo_web_app` — single-file HTML; Codex via Azure Foundry */
     quick_demo_web: 'gpt-5.3-codex',
+    /** Full web builds (build_website_foundation pipeline) — needs strong code generation */
+    code_generation: 'gpt-5.3-codex',
     shadow_eval:   'gemini-3.1-flash-lite-preview',      // Gemini API - shadow runner
     deep_research: 'deep-research-pro-preview-12-2025',  // Gemini API - strategy reports
   },

@@ -26,7 +26,7 @@ export interface ToolHookPreDecision {
 
 export interface ToolHookRunner {
   runPreToolUse(context: ToolHookContext): Promise<ToolHookPreDecision>;
-  runPostToolUse(context: ToolHookPostContext): Promise<void>;
+  runPostToolUse(context: ToolHookPostContext): Promise<void | Partial<ToolResult>>;
 }
 
 export class HookExecutionError extends Error {

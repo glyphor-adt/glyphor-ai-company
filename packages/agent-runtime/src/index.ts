@@ -248,6 +248,27 @@ export type {
   SessionMemoryUpdateResult,
 } from './memory/sessionMemoryUpdater.js';
 export type { JitSelectionConfig } from './memory/jitContextSelector.js';
+// Memory consolidation (auto-dream pipeline)
+export {
+  runConsolidation,
+} from './memory/memoryConsolidation.js';
+export type { ConsolidationConfig, ConsolidationResult, MemoryInventory } from './memory/memoryConsolidation.js';
+export {
+  tryAcquireConsolidationLock,
+  releaseConsolidationLock,
+  getLastConsolidatedAt,
+  getConsolidationLockInfo,
+  recordMemoryCountAtConsolidation,
+  getMemoryCountAtConsolidation,
+} from './memory/consolidationLock.js';
+export type { ConsolidationLockInfo } from './memory/consolidationLock.js';
+export {
+  maybeConsolidate,
+  forceConsolidate,
+  evaluateGates,
+  getConsolidationTriggerConfigFromEnv,
+} from './memory/consolidationTrigger.js';
+export type { ConsolidationTriggerConfig, GateResult } from './memory/consolidationTrigger.js';
 // Patentable Engine Enhancements
 export { ConstitutionalGovernor } from './constitutionalGovernor.js';
 export type { ConstitutionalPrinciple, ConstitutionalEvaluation, Constitution } from './constitutionalGovernor.js';
