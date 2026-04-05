@@ -1243,7 +1243,25 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   </p>
                 )}
                 {msg.role === 'agent' ? (
-                  <ChatMarkdown>{msg.content}</ChatMarkdown>
+                  (() => {
+                    // Detect HTML artifact in message content (from quick_demo_web_app)
+                    const content = msg.content ?? '';
+                    const htmlMatch = content.match(/<!DOCTYPE html>[\s\S]*<\/html>/i);
+                    if (htmlMatch) {
+                      // Extract any text before/after the HTML
+                      const htmlStart = content.indexOf(htmlMatch[0]);
+                      const textBefore = content.slice(0, htmlStart).trim();
+                      const textAfter = content.slice(htmlStart + htmlMatch[0].length).trim();
+                      return (
+                        <>
+                          {textBefore && <ChatMarkdown>{textBefore}</ChatMarkdown>}
+                          <HtmlArtifactPreview html={htmlMatch[0]} />
+                          {textAfter && <ChatMarkdown>{textAfter}</ChatMarkdown>}
+                        </>
+                      );
+                    }
+                    return <ChatMarkdown>{content}</ChatMarkdown>;
+                  })()
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 )}
