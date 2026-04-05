@@ -1542,7 +1542,7 @@ export class CompanyAgentRunner {
               conversationId: config.id,
             },
             this.modelClient,
-            deps.awaySummaryConfig,
+            deps?.awaySummaryConfig,
           );
           if (awayResult.summary) {
             history.push(formatAwaySummaryTurn(awayResult.summary));
