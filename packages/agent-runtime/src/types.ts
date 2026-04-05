@@ -364,7 +364,9 @@ export type AgentEvent =
     }
   | { type: 'agent_completed'; agentId: string; totalTurns: number; totalFiles: number; totalMemoryKeys: number; elapsedMs: number }
   | { type: 'agent_aborted'; agentId: string; reason: string; totalTurns: number; elapsedMs: number }
-  | { type: 'agent_error'; agentId: string; error: string; turnNumber: number };
+  | { type: 'agent_error'; agentId: string; error: string; turnNumber: number }
+  | { type: 'reactive_compaction'; agentId: string; turnNumber: number; tokenEstimate: number; droppedTurns: number }
+  | { type: 'auto_compact'; agentId: string; turnNumber: number; inputTokens: number; threshold: number; compactedTurns: number };
 
 /** Dashboard-only rich UI (e.g. iframe preview). Not used in Teams/Slack — those channels only get text + links. */
 export interface DashboardChatEmbed {

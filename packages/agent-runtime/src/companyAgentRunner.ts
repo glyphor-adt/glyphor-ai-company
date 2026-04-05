@@ -5,7 +5,7 @@
  * Loop: supervisor check → context injection → model call → tool dispatch → loop
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ModelClient, detectProvider } from './modelClient.js';
@@ -48,6 +48,16 @@ import { AGENT_WORLD_STATE_KEYS, AGENT_WORLD_STATE_DOMAIN } from './worldStateKe
 import { resolveUpstreamContext } from './dependencyResolver.js';
 import { extractDashboardChatEmbedsFromHistory } from './dashboardChatEmbeds.js';
 import { shouldUseClientSideHistoryCompression } from './compaction.js';
+import { microCompactHistory } from './context/microCompactor.js';
+import {
+  isContextOverflowError,
+  createReactiveState,
+  resetReactiveState,
+  reactiveRecompose,
+  type ReactiveCompactionState,
+} from './context/reactiveCompaction.js';
+import { calculateContextBudget, type ContextBudget } from './context/contextBudget.js';
+import { getContextWindow } from '@glyphor/shared';
 import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.js';
 import { maybeConsolidate } from './memory/consolidationTrigger.js';
 import { ConcurrentToolExecutor, shouldUseConcurrentExecution, type ToolCallEntry } from './concurrentToolExecutor.js';
@@ -280,12 +290,72 @@ const CONTEXT_COMPOSER_MAX_TOKENS_PROVIDER = 24_000;
 /** Extra compose budget when `quick_demo_web_app` returned — full HTML JSON was clipped and the model had no artifact to show. */
 const CONTEXT_COMPOSER_QUICK_DEMO_EXTRA = 30_000;
 
+// ─── MICROCOMPACT SETTINGS ────────────────────────────────────────
+/** After tool execution, older tool results beyond this threshold (chars) get truncated in history. */
+const MICROCOMPACT_MAX_TOOL_RESULT_CHARS = 2_000;
+/** Keep the N most recent tool results uncompacted. */
+const MICROCOMPACT_KEEP_RECENT = 3;
+
+// ─── MID-LOOP AUTO-COMPACT ────────────────────────────────────────
+/** Trigger proactive compaction when inputTokens exceed this fraction of the model's context window. */
+const AUTOCOMPACT_THRESHOLD_RATIO = 0.80;
+/** After auto-compact, target this fraction of the window. */
+const AUTOCOMPACT_TARGET_RATIO = 0.50;
+
+// ─── TOOL RESULT SIZE BUDGETING ───────────────────────────────────
+/** Tool results larger than this (chars) get persisted to disk and replaced with a summary reference. */
+const TOOL_RESULT_DISK_THRESHOLD = 8_000;
+/** Summary reference max length for oversized results. */
+const TOOL_RESULT_SUMMARY_MAX_CHARS = 600;
+
 function historyHasSuccessfulQuickDemoWebApp(history: ConversationTurn[]): boolean {
   return history.some(
     (t) =>
       t.role === 'tool_result'
       && t.toolName === 'quick_demo_web_app'
       && t.toolResult?.success === true,
+  );
+}
+
+// ─── TOOL RESULT DISK BUDGETING ───────────────────────────────
+// Oversized tool results are persisted to a temp file and replaced
+// in history with a compact summary + file path reference. The model
+// sees the summary; the full data is recoverable if needed.
+
+import { tmpdir } from 'os';
+const TOOL_RESULT_DISK_DIR = join(tmpdir(), 'glyphor-tool-results');
+let diskDirCreated = false;
+
+function budgetToolResult(
+  content: string,
+  toolName: string,
+  runId: string,
+  turnNumber: number,
+): string {
+  if (content.length <= TOOL_RESULT_DISK_THRESHOLD) return content;
+
+  // Ensure temp directory exists
+  if (!diskDirCreated) {
+    try { mkdirSync(TOOL_RESULT_DISK_DIR, { recursive: true }); } catch { /* ok */ }
+    diskDirCreated = true;
+  }
+
+  const fileName = `${runId}_t${turnNumber}_${toolName}_${Date.now()}.json`;
+  const filePath = join(TOOL_RESULT_DISK_DIR, fileName);
+  try {
+    writeFileSync(filePath, content, 'utf8');
+  } catch (err) {
+    console.warn(`[ToolResultBudget] Failed to persist oversized result: ${(err as Error).message}`);
+    // Fall back to inline truncation
+    return `[TRUNCATED ${content.length} chars] ${content.slice(0, TOOL_RESULT_SUMMARY_MAX_CHARS)}...`;
+  }
+
+  // Build a compact summary: first N chars + metadata
+  const preview = content.slice(0, TOOL_RESULT_SUMMARY_MAX_CHARS).replace(/\s+/g, ' ');
+  return (
+    `[BUDGETED tool_result:${toolName} — ${content.length} chars persisted to disk]\n` +
+    `Preview: ${preview}...\n` +
+    `Full result: ${filePath}`
   );
 }
 
@@ -1167,6 +1237,10 @@ export class CompanyAgentRunner {
     let totalCachedInputTokens = 0;
     let actualModelUsed: string | undefined;
     let actualProviderUsed: 'gemini' | 'openai' | 'anthropic' | undefined;
+
+    // ─── CONTEXT MANAGEMENT STATE ────────────────────────────────
+    const reactiveState: ReactiveCompactionState = createReactiveState();
+    let midLoopAutoCompactCount = 0;
 
     // ─── TOOL INVENTORY LOG ──────────────────────────────────────
     // Log static tools per agent on startup for pipeline diagnostics
@@ -2151,6 +2225,16 @@ Rules:
             effectiveTemp = 1.0;
           }
 
+          // ─── PROMPT CACHE STABILITY ─────────────────────────────────
+          // Sort tool declarations alphabetically so the tool block prefix
+          // is identical across turns, maximizing prompt cache hits on
+          // Anthropic and OpenAI.
+          if (effectiveTools && effectiveTools.length > 1) {
+            effectiveTools = [...effectiveTools].sort((a, b) =>
+              (a.name ?? '').localeCompare(b.name ?? ''),
+            );
+          }
+
           response = await this.modelClient.generate({
             model: modelForGenerate,
             systemInstruction: systemPrompt,
@@ -2204,6 +2288,51 @@ Rules:
             hasToolCalls: response.toolCalls.length > 0,
             thinkingText: response.thinkingText,
           });
+
+          // Successful call — reset reactive compaction circuit breaker
+          resetReactiveState(reactiveState);
+
+          // ─── MID-LOOP AUTO-COMPACT ────────────────────────────────
+          // If cumulative input tokens exceed 80% of the model's context
+          // window, proactively compact history to prevent future overflows.
+          if (response.usageMetadata.inputTokens > 0 && turnNumber > 1) {
+            const modelContextWindow = getContextWindow(routedModel.model);
+            const autoCompactThreshold = Math.round(modelContextWindow * AUTOCOMPACT_THRESHOLD_RATIO);
+            if (response.usageMetadata.inputTokens >= autoCompactThreshold && midLoopAutoCompactCount < 3) {
+              midLoopAutoCompactCount++;
+              const targetTokens = Math.round(modelContextWindow * AUTOCOMPACT_TARGET_RATIO);
+              console.warn(
+                `[AutoCompact] ${config.role} turn=${turnNumber}: ` +
+                `Input tokens (${response.usageMetadata.inputTokens}) >= ${AUTOCOMPACT_THRESHOLD_RATIO * 100}% of context window (${modelContextWindow}). ` +
+                `Running proactive compaction (target: ${targetTokens} tok, attempt ${midLoopAutoCompactCount}/3).`,
+              );
+
+              // Aggressive micro-compact: keep only 1 recent result, 500 char limit
+              const microResult = microCompactHistory(history, {
+                enabled: true,
+                keepRecentToolResults: 1,
+                maxToolResultChars: 500,
+              });
+              // Replace history in-place
+              history.length = 0;
+              history.push(...microResult.history);
+
+              if (microResult.compactedTurns > 0) {
+                console.log(
+                  `[AutoCompact] Micro-compacted ${microResult.compactedTurns} tool results in-place.`,
+                );
+              }
+
+              emitEvent({
+                type: 'auto_compact',
+                agentId: config.id,
+                turnNumber,
+                inputTokens: response.usageMetadata.inputTokens,
+                threshold: autoCompactThreshold,
+                compactedTurns: microResult.compactedTurns,
+              } as AgentEvent);
+            }
+          }
         } catch (error) {
           const errMsg = (error as Error).message ?? String(error);
           console.error(`[CompanyAgentRunner] Model call failed for ${config.id} (model=${routedModel.model}, turn=${turnNumber}): ${errMsg}`);
@@ -2215,7 +2344,76 @@ Rules:
               0, undefined, actualModelUsed, actualProviderUsed,
             );
           }
-          throw error;
+
+          // ─── REACTIVE COMPACTION ──────────────────────────────────
+          // On context overflow (413, context_length_exceeded, etc.),
+          // emergency-compact history and retry the generate call once.
+          if (isContextOverflowError(error)) {
+            const normalBudget = calculateContextBudget(routedModel.model);
+            const recomposeResult = reactiveRecompose({
+              history,
+              role: config.role,
+              task,
+              initialMessage,
+              turnNumber,
+              normalBudget,
+              state: reactiveState,
+            });
+
+            if (recomposeResult) {
+              console.warn(
+                `[ReactiveCompaction] ${config.role} turn=${turnNumber}: ` +
+                `Retrying with compacted history (${recomposeResult.tokenEstimate} tok est, dropped ${recomposeResult.dropped} turns)`,
+              );
+              emitEvent({
+                type: 'reactive_compaction',
+                agentId: config.id,
+                turnNumber,
+                tokenEstimate: recomposeResult.tokenEstimate,
+                droppedTurns: recomposeResult.dropped,
+              } as AgentEvent);
+
+              try {
+                response = await this.modelClient.generate({
+                  model: routedModel.model,
+                  systemInstruction: config.systemPrompt ?? '',
+                  contents: recomposeResult.history,
+                  source: requestSource,
+                  fallbackScope: 'same-provider',
+                  tools: toolExecutor.getDeclarations(),
+                  temperature: config.temperature,
+                  topP: config.topP,
+                  topK: config.topK,
+                  thinkingEnabled: false, // disable thinking on retry to save tokens
+                  signal: supervisor.signal,
+                  callTimeoutMs: task === 'on_demand' ? ON_DEMAND_CALL_TIMEOUT_MS : TASK_TIER_CALL_TIMEOUT_MS,
+                  metadata: {
+                    previousResponseId,
+                    modelConfig: routedModel,
+                    agentRole: config.role,
+                  },
+                });
+                previousResponseId = response.responseId;
+                totalInputTokens += response.usageMetadata.inputTokens;
+                totalOutputTokens += response.usageMetadata.outputTokens;
+                totalThinkingTokens += response.usageMetadata.thinkingTokens ?? 0;
+                totalCachedInputTokens += response.usageMetadata.cachedInputTokens ?? 0;
+                actualModelUsed = response.actualModel ?? routedModel.model;
+                actualProviderUsed = response.actualProvider;
+                resetReactiveState(reactiveState);
+                // Fall through to normal response processing
+              } catch (retryError) {
+                console.error(`[ReactiveCompaction] Retry also failed for ${config.role}: ${(retryError as Error).message}`);
+                throw retryError;
+              }
+            } else {
+              // Circuit breaker tripped — cannot recover
+              console.error(`[ReactiveCompaction] Circuit breaker tripped for ${config.role} — cannot recover from context overflow`);
+              throw error;
+            }
+          } else {
+            throw error;
+          }
         }
 
         if (response.providerEvents && response.providerEvents.length > 0) {
@@ -2312,9 +2510,11 @@ Rules:
             let iterResult = await iter.next();
             while (!iterResult.done) {
               const { call, result } = iterResult.value;
-              const resultContent = result.data !== undefined
+              const rawResultContent = result.data !== undefined
                 ? JSON.stringify(result.data)
                 : result.error ?? 'ok';
+              // Budget oversized tool results to disk
+              const resultContent = budgetToolResult(rawResultContent, call.name, toolRunId, turnNumber);
 
               history.push({
                 role: 'tool_result',
@@ -2362,9 +2562,11 @@ Rules:
           for (const call of response.toolCalls) {
             const result = await toolExecutor.execute(call.name, call.args, toolContext);
 
-            const resultContent = result.data !== undefined
+            const rawResultContent = result.data !== undefined
               ? JSON.stringify(result.data)
               : result.error ?? 'ok';
+            // Budget oversized tool results to disk
+            const resultContent = budgetToolResult(rawResultContent, call.name, toolRunId, turnNumber);
 
             history.push({
               role: 'tool_result',
@@ -2407,6 +2609,25 @@ Rules:
             }
           }
           } // end if/else concurrent
+
+          // ─── MICROCOMPACT ────────────────────────────────────────
+          // After tool execution, truncate older tool results in history
+          // to save context window space for subsequent turns.
+          const microResult = microCompactHistory(history, {
+            enabled: true,
+            keepRecentToolResults: MICROCOMPACT_KEEP_RECENT,
+            maxToolResultChars: MICROCOMPACT_MAX_TOOL_RESULT_CHARS,
+          });
+          if (microResult.compactedTurns > 0) {
+            // Replace history in-place with compacted version
+            history.length = 0;
+            history.push(...microResult.history);
+            console.log(
+              `[MicroCompact] ${config.role} turn=${turnNumber}: ` +
+              `Compacted ${microResult.compactedTurns} older tool result(s)`,
+            );
+          }
+
           continue;
         }
 
