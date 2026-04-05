@@ -58,6 +58,31 @@ export {
   formatAwaySummaryTurn,
 } from './awaySummary.js';
 export type { AwaySummaryConfig, AwaySummaryInput, AwaySummaryResult } from './awaySummary.js';
+// Error categorization & smart retry — Claude Code-inspired retry engine
+export {
+  categorizeError,
+  calculateRetryDelay,
+  getRetryPolicy,
+  withSmartRetry,
+  createRetryState,
+  ModelFallbackTriggeredError,
+  RetriesExhaustedError,
+  BASE_DELAY_MS,
+  DEFAULT_MAX_BACKOFF_MS,
+  PERSISTENT_MAX_BACKOFF_MS,
+  HEARTBEAT_INTERVAL_MS,
+  MAX_CONSECUTIVE_OVERLOADED,
+} from './errorRetry.js';
+export type {
+  ErrorCategory,
+  CategorizedError,
+  RetryTier,
+  RetryPolicy,
+  RetryState,
+  RetryEvent,
+  RetryEventHandler,
+  SmartRetryOptions,
+} from './errorRetry.js';
 // buildTool factory — fail-closed tool definitions
 export { buildTool, isSafeTool, getToolMeta, isToolPermittedForRole, getToolTimeout, getToolRateLimit } from './buildTool.js';
 export type { SafeToolDefinition, ToolMetadata, BuildToolInput, PreToolHookFn, PostToolHookFn } from './buildTool.js';

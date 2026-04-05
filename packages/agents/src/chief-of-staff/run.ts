@@ -453,7 +453,7 @@ You are in an interactive conversation with a founder. CRITICAL RULES:
       ? CHIEF_OF_STAFF_SYSTEM_PROMPT + ORCHESTRATION_PROMPT
       : task === 'strategic_planning'
         ? CHIEF_OF_STAFF_SYSTEM_PROMPT + STRATEGIC_PLANNING_PROMPT
-        : CHIEF_OF_STAFF_SYSTEM_PROMPT;
+        : CHIEF_OF_STAFF_SYSTEM_PROMPT + ORCHESTRATION_PROMPT;
 
   const config: AgentConfig = {
     id: `cos-${task}-${today}`,
@@ -461,8 +461,8 @@ You are in an interactive conversation with a founder. CRITICAL RULES:
     systemPrompt,
     model: agentCfg.model,
     tools,
-    maxTurns: task === 'orchestrate' || task === 'strategic_planning' ? 25 : agentCfg.maxTurns,
-    maxStallTurns: task === 'orchestrate' || task === 'strategic_planning' ? 10 : 3,
+    maxTurns: task === 'orchestrate' || task === 'strategic_planning' || task === 'on_demand' ? 25 : agentCfg.maxTurns,
+    maxStallTurns: task === 'orchestrate' || task === 'strategic_planning' || task === 'on_demand' ? 10 : 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,

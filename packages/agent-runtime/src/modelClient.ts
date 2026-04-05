@@ -15,6 +15,15 @@ import type { ModelProvider, UnifiedModelRequest, UnifiedModelResponse, ImageRes
 import { getFallbackChain, getProviderLocalFallbackChain } from '@glyphor/shared/models';
 import { getTierModel } from '@glyphor/shared';
 import { startTraceSpan } from './telemetry/tracing.js';
+import {
+  categorizeError,
+  withSmartRetry,
+  getRetryPolicy,
+  ModelFallbackTriggeredError,
+  RetriesExhaustedError,
+  type RetryTier,
+  type RetryEvent,
+} from './errorRetry.js';
 
 // ─── Re-export types for backward compatibility ──────────────
 
@@ -171,93 +180,108 @@ export class ModelClient {
           request = { ...request, metadata: { ...request.metadata, previousResponseId: undefined } };
         }
 
-        const MAX_RETRIES = 2;
+        const retryTier = resolveAgentTier(request);
+        const retryPolicy = getRetryPolicy(retryTier);
 
-        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-          const attemptSpan = startTraceSpan('model.provider_attempt', {
-            requested_model: request.model,
-            candidate_model: currentModel,
-            provider,
-            model_index: modelIdx,
-            retry_attempt: attempt,
-            run_id: request.metadata?.runId ?? 'unknown',
-          }, { traceId: requestSpan.traceId, parentSpanId: requestSpan.spanId });
-          try {
-            const sanitizedTools = sanitizeToolsForProvider(provider, request.tools);
-            const apiPromise = adapter.generate({
-              ...request,
+        try {
+          const response = await withSmartRetry(
+            {
+              policy: retryPolicy,
               model: currentModel,
-              ...(sanitizedTools ? { tools: sanitizedTools } : {}),
-            });
-            const response = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
-            if (modelIdx > 0) {
-              console.warn(`[ModelClient] Fallback success: ${request.model} → ${currentModel}`);
-            }
-            attemptSpan.end({
-              success: true,
-              input_tokens: response.usageMetadata.inputTokens,
-              output_tokens: response.usageMetadata.outputTokens,
-            });
-            requestSpan.end({
-              actual_model: currentModel,
-              actual_provider: provider,
-              fallback_used: modelIdx > 0,
-              retries_used: attempt,
-            });
-            return {
-              ...response,
-              actualModel: currentModel,
-              actualProvider: provider,
-            };
-          } catch (err) {
-            const msg = (err as Error).message ?? '';
-            const cause = (err as { cause?: Error }).cause?.message;
-            const rawDetail = cause ? `${msg} (cause: ${cause})` : msg;
-            // Strip any API keys or tokens from error messages to prevent leaking secrets
-            const detail = rawDetail.replace(/sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]+/g, '[REDACTED]');
-            lastFailureDetail = `[${currentModel}] ${detail}`;
-            attemptSpan.fail(err, { detail });
-            if (request.signal?.aborted) throw err;
-
-            // Auth errors (401/403) — non-retryable, affects all models in provider
-            if (/40[12]|403/.test(msg) && !isQuotaError(msg)) {
-              throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
-            }
-
-            // Model-level errors (400/404/422) — skip to next fallback model
-            if (/400|404|422/.test(msg) && !isQuotaError(msg)) {
-              if (modelIdx < modelsToTry.length - 1) {
-                console.warn(`[ModelClient] ${currentModel} returned ${msg.match(/40[04]|422/)?.[0] ?? 'client error'}, trying fallback ${modelsToTry[modelIdx + 1]}`);
-                break; // break retry loop → try next model
-              }
-              throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
-            }
-
-            // Quota/rate-limit error — skip retries on this model, move to fallback
-            if (isQuotaError(msg)) {
-              console.warn(`[ModelClient] Quota/rate-limit on ${currentModel}: ${detail}`);
-              if (modelIdx >= modelsToTry.length - 1) {
-                throw new Error(
-                  `Exhausted model fallback chain after quota/rate-limit on final model. ${lastFailureDetail}`,
+              signal: request.signal,
+              onRetryEvent: (event: RetryEvent) => {
+                const level = event.type === 'retry_exhausted' ? 'error' : 'warn';
+                console[level](
+                  `[ModelClient] ${event.type}: model=${currentModel} tier=${event.tier} ` +
+                  `attempt=${event.attempt} category=${event.category} delay=${event.delayMs}ms ` +
+                  `total_wait=${event.totalWaitMs}ms${event.message ? ` msg=${event.message}` : ''}`,
                 );
+              },
+            },
+            async (attempt: number) => {
+              const attemptSpan = startTraceSpan('model.provider_attempt', {
+                requested_model: request.model,
+                candidate_model: currentModel,
+                provider,
+                model_index: modelIdx,
+                retry_attempt: attempt - 1,
+                retry_tier: retryTier,
+                run_id: request.metadata?.runId ?? 'unknown',
+              }, { traceId: requestSpan.traceId, parentSpanId: requestSpan.spanId });
+              try {
+                const sanitizedTools = sanitizeToolsForProvider(provider, request.tools);
+                const apiPromise = adapter.generate({
+                  ...request,
+                  model: currentModel,
+                  ...(sanitizedTools ? { tools: sanitizedTools } : {}),
+                });
+                const result = await this.raceAbort(apiPromise, request.signal, request.callTimeoutMs);
+                attemptSpan.end({
+                  success: true,
+                  input_tokens: result.usageMetadata.inputTokens,
+                  output_tokens: result.usageMetadata.outputTokens,
+                });
+                return result;
+              } catch (err) {
+                attemptSpan.fail(err);
+                throw err;
               }
-              break; // break retry loop → try next model in fallback chain
-            }
+            },
+          );
 
-            if (attempt < MAX_RETRIES) {
-              const backoffMs = 2000 * (attempt + 1);
-              console.warn(`[ModelClient] Attempt ${attempt + 1} for ${currentModel} failed (${detail}), retrying in ${backoffMs}ms…`);
-              await new Promise(r => setTimeout(r, backoffMs));
+          if (modelIdx > 0) {
+            console.warn(`[ModelClient] Fallback success: ${request.model} → ${currentModel}`);
+          }
+          requestSpan.end({
+            actual_model: currentModel,
+            actual_provider: provider,
+            fallback_used: modelIdx > 0,
+            retry_tier: retryTier,
+          });
+          return {
+            ...response,
+            actualModel: currentModel,
+            actualProvider: provider,
+          };
+        } catch (err) {
+          // ModelFallbackTriggeredError → skip to next model in chain
+          if (err instanceof ModelFallbackTriggeredError) {
+            console.warn(`[ModelClient] Overload fallback on ${currentModel} after ${err.consecutiveOverloaded} consecutive 529s`);
+            if (modelIdx < modelsToTry.length - 1) continue;
+          }
+
+          const categorized = categorizeError(err);
+          const detail = categorized.message;
+          lastFailureDetail = `[${currentModel}] ${detail}`;
+          if (request.signal?.aborted) throw err;
+
+          // Auth errors — non-retryable, stop completely
+          if (categorized.category === 'auth_failed') {
+            throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
+          }
+
+          // Client errors (400/404/422), context overflow — skip to next model
+          if (categorized.category === 'client_error' || categorized.category === 'context_overflow') {
+            if (modelIdx < modelsToTry.length - 1) {
+              console.warn(`[ModelClient] ${currentModel} ${categorized.category}, trying fallback ${modelsToTry[modelIdx + 1]}`);
               continue;
             }
-
-            // Exhausted retries on this model — try fallback if available
-            if (modelIdx < modelsToTry.length - 1) {
-              console.warn(`[ModelClient] ${currentModel} exhausted retries, falling back to ${modelsToTry[modelIdx + 1]}`);
-              break; // break retry loop → try next model
-            }
-
             throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
+          }
+
+          // Rate limit / retries exhausted — try next model if available
+          if (err instanceof RetriesExhaustedError) {
+            if (modelIdx < modelsToTry.length - 1) {
+              console.warn(`[ModelClient] ${currentModel} exhausted retries (${categorized.category}), falling back to ${modelsToTry[modelIdx + 1]}`);
+              continue;
+            }
+          }
+
+          // Last model — nothing left to try
+          if (modelIdx >= modelsToTry.length - 1) {
+            throw new Error(
+              `Exhausted model fallback chain. Last error: ${lastFailureDetail}`,
+            );
           }
         }
       }
@@ -417,4 +441,37 @@ export class ModelClient {
 
     throw new Error('Deep Research interaction timed out before completion.');
   }
+}
+// ─── Agent tier resolution ───────────────────────────────────
+
+/** Executive roles get more aggressive retry behavior. */
+const EXECUTIVE_ROLES = new Set([
+  'cto', 'cfo', 'cpo', 'cmo', 'clo', 'chief-of-staff',
+  'vp-research', 'vp-design', 'vp-sales',
+]);
+
+/** Background sources don't warrant aggressive retries. */
+const BACKGROUND_SOURCES = new Set([
+  'summary', 'classifier', 'title', 'suggestion', 'embedding',
+]);
+
+/**
+ * Map a model request to an agent tier for retry policy selection.
+ * Uses metadata.agentRole and metadata.source to determine the tier.
+ */
+function resolveAgentTier(request: ModelRequest): RetryTier {
+  const role = request.metadata?.agentRole;
+  const source = (request as { source?: string }).source;
+
+  // Background tasks get minimal retries
+  if (source && BACKGROUND_SOURCES.has(source)) return 'background';
+
+  // On-demand interactive requests
+  if (source === 'on_demand' || source === 'chat') return 'on_demand';
+
+  // Executive agents get aggressive retries + persistent mode
+  if (role && EXECUTIVE_ROLES.has(role)) return 'executive';
+
+  // Default to task tier
+  return 'task';
 }
