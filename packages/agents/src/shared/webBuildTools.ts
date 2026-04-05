@@ -2,6 +2,7 @@ import path from 'node:path';
 import { ModelClient, type ConversationTurn, type ToolContext, type ToolDeclaration, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import { createCloudflarePreviewTools, createGithubFromTemplateTools, createGithubPullRequestTools, createGithubPushFilesTools, createVercelProjectTools } from '@glyphor/integrations';
+import { getTierModel, MODEL_CONFIG } from '@glyphor/shared';
 import { createDesignBriefTools } from './designBriefTools.js';
 import { runSandboxBuild } from './sandboxBuildValidator.js';
 import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
@@ -1532,8 +1533,8 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
   return tools;
 }
 
-const DEFAULT_WEBSITE_FOUNDATION_MODEL = process.env.UX_ENGINEER_MODEL?.trim() || 'gpt-5.4';
-const WEBSITE_FOUNDATION_REPAIR_MODEL = process.env.UX_ENGINEER_REPAIR_MODEL?.trim() || 'gpt-5.4-mini';
+const DEFAULT_WEBSITE_FOUNDATION_MODEL = process.env.UX_ENGINEER_MODEL?.trim() || MODEL_CONFIG.specialized.code_generation;
+const WEBSITE_FOUNDATION_REPAIR_MODEL = process.env.UX_ENGINEER_REPAIR_MODEL?.trim() || getTierModel('high');
 const WEBSITE_FOUNDATION_MAX_TOKENS = 100000;
 const WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS = 4;
 const SANDBOX_MAX_REPAIR_ROUNDS = 3;

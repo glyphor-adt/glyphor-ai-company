@@ -16,10 +16,11 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { ModelClient } from '@glyphor/agent-runtime';
+import { getTierModel } from '@glyphor/shared';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PLANNER_MODEL = process.env.PLANNER_MODEL?.trim() || 'gemini-3.1-flash-lite-preview';
+const PLANNER_MODEL = process.env.PLANNER_MODEL?.trim() || getTierModel('default');
 const MAX_IMAGE_MANIFEST_ITEMS = 7;
 const PLANNER_TIMEOUT_MS = 45_000;
 

@@ -24,6 +24,7 @@ import { writeFileSync, readFileSync } from 'fs';
 import type { ModelClient } from '../modelClient.js';
 import type { ConversationTurn } from '../types.js';
 import { buildPulseDocPrompt } from './prompts.js';
+import { getTierModel } from '@glyphor/shared';
 
 // ═══════════════════════════════════════════════════════════════════
 // DETECTION
@@ -109,7 +110,7 @@ const MAX_CONVERSATION_SUMMARY_CHARS = 8_000;
 /** Max doc size we'll attempt to update (skip huge files). */
 const MAX_DOC_SIZE_CHARS = 50_000;
 /** Model to use for updates — fast and cheap. */
-const PULSE_DOC_UPDATE_MODEL = 'gemini-2.0-flash';
+const PULSE_DOC_UPDATE_MODEL = getTierModel('default');
 
 /**
  * Build a conversation summary from history for the update prompt.
