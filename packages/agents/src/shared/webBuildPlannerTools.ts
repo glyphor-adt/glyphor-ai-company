@@ -19,7 +19,7 @@ import { ModelClient } from '@glyphor/agent-runtime';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PLANNER_MODEL = process.env.PLANNER_MODEL?.trim() || 'gemini-2.0-flash';
+const PLANNER_MODEL = process.env.PLANNER_MODEL?.trim() || 'gemini-3.1-flash-lite-preview';
 const MAX_IMAGE_MANIFEST_ITEMS = 7;
 const PLANNER_TIMEOUT_MS = 45_000;
 
