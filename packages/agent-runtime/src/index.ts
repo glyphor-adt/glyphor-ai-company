@@ -524,3 +524,13 @@ export { AGENT_WORLD_STATE_KEYS, AGENT_WORLD_STATE_DOMAIN } from './worldStateKe
 export { AGENT_DEPENDENCIES } from './agentDependencies.js';
 export { resolveUpstreamContext } from './dependencyResolver.js';
 export * from './testing/index.js';
+// PulseDocs — self-maintaining documentation
+export {
+  detectPulseDocHeader,
+  registerPulseDocFromContent,
+  runPulseDocUpdates,
+  clearTrackedPulseDocs,
+  getTrackedPulseDocCount,
+  getTrackedPulseDocs,
+} from './pulseDocs/index.js';
+export type { PulseDocInfo } from './pulseDocs/index.js';

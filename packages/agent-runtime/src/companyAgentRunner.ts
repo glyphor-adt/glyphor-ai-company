@@ -48,6 +48,7 @@ import { AGENT_WORLD_STATE_KEYS, AGENT_WORLD_STATE_DOMAIN } from './worldStateKe
 import { resolveUpstreamContext } from './dependencyResolver.js';
 import { extractDashboardChatEmbedsFromHistory } from './dashboardChatEmbeds.js';
 import { shouldUseClientSideHistoryCompression } from './compaction.js';
+import { registerPulseDocFromContent, runPulseDocUpdates, getTrackedPulseDocCount } from './pulseDocs/index.js';
 import { microCompactHistory } from './context/microCompactor.js';
 import {
   isContextOverflowError,
@@ -2628,6 +2629,37 @@ Rules:
             );
           }
 
+          // ─── PULSE DOC DETECTION ──────────────────────────────────
+          // Scan recent file-reading tool results for # PULSE DOC: headers.
+          // Registration is lightweight (just tracks the path); actual updates
+          // happen post-run via runPulseDocUpdates().
+          const FILE_READ_TOOLS = new Set(['read_frontend_file', 'read_sharepoint_document', 'read_company_knowledge', 'read_file', 'file_read']);
+          for (const turn of history) {
+            if (
+              turn.role === 'tool_result' &&
+              turn.toolName &&
+              FILE_READ_TOOLS.has(turn.toolName) &&
+              turn.toolResult?.success &&
+              turn.content
+            ) {
+              // Try to extract file path from tool params
+              const dataStr = typeof turn.toolResult.data === 'string'
+                ? turn.toolResult.data
+                : JSON.stringify(turn.toolResult.data ?? '');
+              // Check raw content for pulse doc header
+              if (/PULSE\s+DOC:/i.test(dataStr)) {
+                // Extract path — tool results often have the path in params stored on tool_call turns
+                const pathTurn = history.find(
+                  (t) => t.role === 'tool_call' && t.toolName === turn.toolName && t.toolParams?.path,
+                );
+                const filePath = (pathTurn?.toolParams?.path ?? pathTurn?.toolParams?.file_path) as string | undefined;
+                if (filePath) {
+                  registerPulseDocFromContent(filePath, dataStr);
+                }
+              }
+            }
+          }
+
           continue;
         }
 
@@ -3121,6 +3153,16 @@ Continue execution, call tools as needed, and return only when all criteria are 
         taskDescription: initialMessage,
         glyphorEventBus: deps?.glyphorEventBus,
       }).catch(() => {});
+
+      // ─── PULSE DOC UPDATES (fire-and-forget) ────────────────────
+      // After agent completes, update any tracked Pulse Docs with
+      // learnings from this conversation. Non-blocking.
+      if (getTrackedPulseDocCount() > 0) {
+        void runPulseDocUpdates(this.modelClient, history, config.role).catch((err) => {
+          console.warn(`[PulseDocs] Post-run update failed: ${(err as Error).message}`);
+        });
+      }
+
       return result;
 
     } catch (error) {
