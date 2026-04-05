@@ -181,6 +181,22 @@ export class ConcurrentToolExecutor {
         await Promise.race(executingPromises);
       }
 
+      // If abort was triggered mid-flight, override successful results from
+      // concurrently-executing tools that finished after the abort trigger.
+      if (this.aborted) {
+        for (const t of tracked) {
+          if (t.status === 'completed' && t.result?.success) {
+            t.result = {
+              success: false,
+              error: this.abortReason ?? 'Batch aborted',
+              filesWritten: 0,
+              memoryKeysWritten: 0,
+            };
+            abortedCount++;
+          }
+        }
+      }
+
       // Yield completed results in receipt order
       for (const t of tracked) {
         if (t.status === 'completed' && t.result) {
