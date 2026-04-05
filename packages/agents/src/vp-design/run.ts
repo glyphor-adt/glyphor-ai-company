@@ -41,6 +41,7 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createWebBuildTools } from '../shared/webBuildTools.js';
+import { createGithubFromTemplateTools, createGithubPushFilesTools } from '@glyphor/integrations';
 import { createWebBuildPlannerTools } from '../shared/webBuildPlannerTools.js';
 import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
 import { createDesignBriefTools } from '../shared/designBriefTools.js';
@@ -99,6 +100,9 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
         allowUpgrade: false,
         allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
       }),
+      // GitHub operations (push files, create repos from template)
+      ...createGithubFromTemplateTools(),
+      ...createGithubPushFilesTools(),
       // Minimal core (memory, messages, knowledge)
       ...createCoreTools(coreDeps, { chatOnly: true }),
       // Asset generation
