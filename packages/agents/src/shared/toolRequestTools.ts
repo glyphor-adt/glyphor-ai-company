@@ -206,7 +206,11 @@ export function createToolRequestTools(): ToolDefinition[] {
               accessible = 'yes';
               source = 'active_grant_fresh';
             } else if (grantRow && !isFresh) {
-              accessible = 'unknown';
+              // Active grant exists — the tool IS accessible at runtime.
+              // Staleness only means the sync metadata is old, not that the
+              // grant is invalid.  Reporting 'unknown' here caused agents to
+              // believe they couldn't call the tool.
+              accessible = 'yes';
               source = 'active_grant_stale';
             } else if (existsInSystem) {
               accessible = 'unknown';
@@ -226,11 +230,13 @@ export function createToolRequestTools(): ToolDefinition[] {
               granted_by: grantRow?.granted_by ?? null,
               exists_in_system: existsInSystem,
               recommendation:
-                accessible === 'unknown'
-                  ? 'Grant this tool preemptively before dispatching - use grant_tool_access. The grant is idempotent (no-op if the agent already has it).'
-                  : accessible === 'no'
-                    ? 'This tool does not exist. Check the tool name or request it via request_new_tool.'
-                    : 'Tool confirmed accessible.',
+                source === 'active_grant_stale'
+                  ? 'Tool is accessible (active grant exists). Grant metadata is stale — consider re-syncing with grant_tool_access.'
+                  : accessible === 'unknown'
+                    ? 'No active grant found but tool exists in the system. Grant access with grant_tool_access before dispatching.'
+                    : accessible === 'no'
+                      ? 'This tool does not exist. Check the tool name or request it via request_new_tool.'
+                      : 'Tool confirmed accessible.',
             };
           }),
         );

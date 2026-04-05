@@ -137,7 +137,7 @@ export function createToolGrantTools(
 
         try {
           await systemQuery(
-            'INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, directive_id, scope, is_active, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (agent_role, tool_name) DO UPDATE SET granted_by = EXCLUDED.granted_by, reason = EXCLUDED.reason, directive_id = EXCLUDED.directive_id, scope = EXCLUDED.scope, is_active = EXCLUDED.is_active, expires_at = EXCLUDED.expires_at',
+            'INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, directive_id, scope, is_active, expires_at, last_synced_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) ON CONFLICT (agent_role, tool_name) DO UPDATE SET granted_by = EXCLUDED.granted_by, reason = EXCLUDED.reason, directive_id = EXCLUDED.directive_id, scope = EXCLUDED.scope, is_active = EXCLUDED.is_active, expires_at = EXCLUDED.expires_at, last_synced_at = NOW()',
             [agentRole, toolName, grantedBy, reason, directiveId ?? null, 'full', true, expiresAt],
           );
         } catch (err) {

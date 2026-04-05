@@ -315,8 +315,8 @@ export class CompanyMemoryStore implements IMemoryBus {
     memory: Omit<AgentMemory, 'id' | 'createdAt'>,
   ): Promise<string> {
     const [row] = await systemQuery<{ id: string }>(
-      `INSERT INTO agent_memory (agent_role, memory_type, content, importance, source_run_id, tags, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      `INSERT INTO agent_memory (agent_role, memory_type, content, importance, source_run_id, tags, expires_at, tenant_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, '00000000-0000-0000-0000-000000000000') RETURNING id`,
       [memory.agentRole, memory.memoryType, memory.content, memory.importance, memory.sourceRunId ?? null, memory.tags ?? [], memory.expiresAt ?? null],
     );
     return row.id;
@@ -533,8 +533,8 @@ export class CompanyMemoryStore implements IMemoryBus {
     }
 
     const [row] = await systemQuery<{ id: string }>(
-      `INSERT INTO agent_memory (agent_role, memory_type, content, importance, source_run_id, tags, expires_at${embedding ? ', embedding' : ''})
-       VALUES ($1, $2, $3, $4, $5, $6, $7${embedding ? ', $8' : ''}) RETURNING id`,
+      `INSERT INTO agent_memory (agent_role, memory_type, content, importance, source_run_id, tags, expires_at, tenant_id${embedding ? ', embedding' : ''})
+       VALUES ($1, $2, $3, $4, $5, $6, $7, '00000000-0000-0000-0000-000000000000'${embedding ? ', $8' : ''}) RETURNING id`,
       [memory.agentRole, memory.memoryType, memory.content, memory.importance, memory.sourceRunId ?? null, memory.tags ?? [], memory.expiresAt ?? null, ...(embedding ? [JSON.stringify(embedding)] : [])],
     );
     return row.id;

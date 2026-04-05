@@ -89,6 +89,7 @@ const KNOWN_TOOLS = new Set([
   'deactivate_tool',
   'list_registered_tools',
   'propose_directive',
+  'delegate_directive',
   'propose_initiative',
   'publish_deliverable',
   'get_deliverables',
