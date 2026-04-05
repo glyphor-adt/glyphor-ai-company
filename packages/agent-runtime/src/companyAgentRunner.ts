@@ -190,7 +190,7 @@ const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = Math.max(120_000, Number(process.env.ON_
 const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = Math.max(120_000, Number(process.env.ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS ?? '960000'));
 /** When the model returns tool calls with no visible text, chat UIs show only a spinner until /run completes — inject this first. */
 const ON_DEMAND_TOOL_ONLY_ACK =
-  "Thanks — I'm on it. I'm working on this now. If I'm generating a live site or preview, that can take several minutes — I'll share the link here as soon as it's ready.";
+  'Working on it now.';
 
 const CHIEF_OF_STAFF_REFLECTION_PROMPT = `
 You are reflecting on your recent orchestration performance as Chief of Staff.
