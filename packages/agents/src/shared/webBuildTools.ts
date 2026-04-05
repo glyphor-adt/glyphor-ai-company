@@ -1452,6 +1452,7 @@ DESIGN PRIORITY (MANDATORY):
 - Glass morphism, gradients, and layered depth where appropriate
 - Never generic, never boring, never template-like
 - Icon discipline: lucide-react with explicit size classes, token-safe colors
+- Colors must match the BUSINESS (landscaping → earthy greens, bakery → warm tones, tech → clean blues). Do NOT default to dark mode for every project.
 
 LAYOUT AND COMPOSITION:
 - Avoid standard SaaS layouts, predictable grids, interchangeable card sections
@@ -1495,11 +1496,65 @@ COLOR COMPOSITION (70/20/10 — MANDATORY):
 - 10% accent/CTA: primary, accent — CTAs, active states, key highlights ONLY
 - Never use primary or accent as full-section backgrounds
 - At least 60% of sections must use neutral surface tokens
+- Use at least 3 distinct section surfaces for visual rhythm
+- Do not repeat the same dominant surface on 3+ adjacent sections
+
+IMAGE/VISUAL ASSETS (CRITICAL):
+- Reference images as /images/... (never public/images/...)
+- Every referenced /images/* path MUST have a matching entry in image_manifest
+- Maximum 7 unique /images/* paths across ALL files in a single build
+- Image prompts format: [Subject] [Context] [Lighting] [Materials] [Mood] [Style]
+- Images must be RELEVANT to the specific business — no generic stock
+- Reuse images across sections instead of creating new ones for every card/testimonial
+- Product/brand logo must remain text-based wordmark (no image asset)
+- Text over images requires overlay/gradient for readability
+- Plan the image budget BEFORE writing components: decide all paths first, then reuse
+
+IMAGE BUDGET CONTRACT (HARD):
+1. Decide the COMPLETE image budget before writing components
+2. Create image_manifest first, then reuse ONLY those fileName paths in components
+3. Do not invent extra image paths later in sections/cards
+4. Reuse assets across sections (gallery/testimonials) instead of adding new files
+5. If you need more visuals than budget allows, repeat existing paths intentionally
+
+VIDEO RULES:
+- NEVER include video_manifest unless the brief EXPLICITLY mentions video, animation, or motion background
+- If video is requested: max 2 videos, always add overlay for text readability
+- Reference videos as /videos/... (never public/videos/...)
 
 SCROLLBAR POLISH (Always Apply):
 In src/styles/tailwind.css @layer base:
   * { scrollbar-width: none; -ms-overflow-style: none; }
   *::-webkit-scrollbar { display: none; }
+
+FILE CONTRACT (MECHANICAL — FOLLOW EXACTLY):
+Create these files from scratch with COMPLETE content:
+1. index.html — HTML shell with meta/OG tags, <div id="root"></div>, <script type="module" src="/src/main.tsx"></script>
+   Load Google Fonts in <head> with preconnect + stylesheet link
+2. src/App.tsx — Root composition: QueryClient, Toaster, TooltipProvider. Import and render ALL section components.
+   Import: import { Toaster } from "@/components/ui/sonner";
+   DO NOT create src/pages/. Everything composes in App.tsx.
+3. src/styles/theme.css — :root and .dark blocks with CSS variable values ONLY.
+   REQUIRED vars: --background, --foreground, --card, --card-foreground, --popover, --popover-foreground,
+   --primary, --primary-foreground, --secondary, --secondary-foreground, --muted, --muted-foreground,
+   --accent, --accent-foreground, --destructive, --destructive-foreground, --border, --input, --ring, --radius.
+   Use explicit color syntax (hex, rgb(), hsl(), oklch()). No raw HSL tuples.
+   NO @theme inline, @layer base, or @import here.
+4. src/styles/fonts.css — Define font variables only (NO external @import). Keep family names unquoted.
+5. src/styles/index.css — Import hub: @import "./fonts.css"; @import "./tailwind.css"; @import "./theme.css";
+6. src/styles/tailwind.css — @import "tailwindcss"; then @source "../**/*.{js,ts,jsx,tsx}"; then @custom-variant dark; then @theme inline token bridge; then @layer base typography + body styles; then @layer utilities font helpers.
+7. src/components/*.tsx — All section components with COMPLETE implementations
+
+BEFORE PRODUCING OUTPUT, VERIFY:
+- All files have COMPLETE content (no stubs, no TODOs)
+- App.tsx imports and renders every section component
+- theme.css has all required CSS vars and reflects the brief's palette intent
+- Token classes used everywhere (no hardcoded hex/rgb in classNames)
+- No missing /images/* references outside image_manifest
+- Brand logo is text wordmark (no /images/logo*)
+- Text over media has overlay and is readable
+- Image manifest has <= 7 entries
+- No video manifest unless brief explicitly requested video
 
 OUTPUT JSON SCHEMA:
 {
@@ -1549,10 +1604,25 @@ APPLICATION SHAPE (NOT a marketing landing page):
 - Primary experience lives in \`src/App.tsx\`. Add extra components under \`src/components/\` only when it improves clarity.
 - **Do not** fabricate nav/hero/CTA/footer sections unless the brief is explicitly a public marketing page.
 - \`design_plan.sections\`: 1–4 sections whose \`id\` values describe the app (e.g. \`main\`, \`search\`, \`results\`, \`settings\`) — not mandatory marketing ids.
-- Keep motion subtle (\`subtle\`); no scroll-jacking or cinematic landing tropes unless the brief demands them.
+- Keep motion subtle; no scroll-jacking or cinematic landing tropes unless the brief demands them.
 
 DO NOT create or modify: vite.config.ts, src/main.tsx, tsconfig files, vercel.json, eslint.config.js.
 DO NOT create src/pages/.
+
+IMAGE RULES:
+- Reference images as /images/... (never public/images/...)
+- Maximum 3 images for utility apps (most need zero)
+- Only include image_manifest if the app genuinely needs visual assets
+- NEVER include video_manifest unless brief explicitly requests video
+
+FILE CONTRACT:
+1. index.html — HTML shell with meta tags, <div id="root"></div>, Vite entry
+2. src/App.tsx — Root composition with functional implementation
+3. src/styles/theme.css — :root CSS variables
+4. src/styles/fonts.css — Font variable definitions
+5. src/styles/index.css — Import hub
+6. src/styles/tailwind.css — Tailwind v4 setup with token bridge
+7. src/components/*.tsx — App components with complete implementations
 
 OUTPUT JSON SCHEMA:
 {
