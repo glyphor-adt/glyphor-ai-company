@@ -165,6 +165,8 @@ export function classifySubtask(context: SubtaskRoutingContext): SubtaskClassifi
   };
 }
 
+const MESSAGE_CODE_SIGNAL = /\b(code|typescript|javascript|tsconfig|bug|fix|build|compile|refactor|component|module|function|class|import|endpoint|route|handler|middleware|schema|migration|dockerfile|deploy|git|pr|merge|lint|syntax|variable|exception|debug)\b/i;
+
 export async function selectSubtaskModel(
   context: SubtaskRoutingContext,
   classification: SubtaskClassification,
@@ -181,13 +183,18 @@ export async function selectSubtaskModel(
     capabilities: classification.capabilities,
   });
 
+  // Build full user message text for code signal detection
+  const userMessageText = context.history.map(t => t.content ?? '').join(' ');
+  const messageHasCodeSignal = MESSAGE_CODE_SIGNAL.test(userMessageText);
+
   const workhorseForFrontierEscalation =
     decision.model === FAST_MODEL
     || decision.model === DEFAULT_MODEL
     || decision.model === DEFAULT_AGENT_MODEL
     || decision.model === WORKHORSE_FALLBACK_MODEL;
   const codeEditEscalationNeeded =
-    (classification.capabilities.includes('code_generation') || classification.capabilities.includes('needs_apply_patch'))
+    messageHasCodeSignal
+    && (classification.capabilities.includes('code_generation') || classification.capabilities.includes('needs_apply_patch'))
     && (
       decision.model === DEFAULT_MODEL
       || decision.model === DEFAULT_AGENT_MODEL

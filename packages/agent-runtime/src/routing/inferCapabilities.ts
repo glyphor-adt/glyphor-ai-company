@@ -57,11 +57,12 @@ function inferCapabilitiesFromToolName(toolName: string): Capability[] {
 
   const writeLike = /\b(create|update|write|deploy|patch|merge|commit|publish)\b/.test(normalized);
   const readLike = /\b(get|list|read|fetch|query|check|inspect|describe|status|health)\b/.test(normalized);
+  const codeSpecific = /\b(code|file|pr|branch|repo|git|module|package|dependency|config|dockerfile|migration|schema|endpoint|route|handler|middleware|component|api)\b/.test(normalized);
 
   if (writeLike) {
     if (inferred.has('creative_writing') || /\b(content|copy|campaign|social|blog|seo)\b/.test(normalized)) {
       inferred.add('creative_writing');
-    } else {
+    } else if (codeSpecific) {
       inferred.add('code_generation');
       inferred.add('needs_apply_patch');
     }
@@ -169,7 +170,7 @@ export function inferCapabilities(context: RoutingContext): Capability[] {
     capabilities.add('needs_compaction');
   }
 
-  if (/\b(engineering|frontend|platform)\b/.test(departmentSignal)) {
+  if (/\b(engineering|frontend|platform)\b/.test(departmentSignal) && CODE_HINT.test(taskAndMessage)) {
     capabilities.add('code_generation');
     capabilities.add('needs_apply_patch');
   }
