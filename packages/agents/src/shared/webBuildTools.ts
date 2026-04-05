@@ -188,8 +188,8 @@ async function generateImagesFromManifest(
         ),
       ]);
 
-      if (result.base64) {
-        imageFiles[filePath] = result.base64;
+      if (result.imageData) {
+        imageFiles[filePath] = result.imageData;
         console.log(`[WebBuild:Images] ✅ ${item.fileName} (Imagen 4)`);
         continue;
       }
@@ -206,8 +206,8 @@ async function generateImagesFromManifest(
         ),
       ]);
 
-      if (result.base64) {
-        imageFiles[filePath] = result.base64;
+      if (result.imageData) {
+        imageFiles[filePath] = result.imageData;
         console.log(`[WebBuild:Images] ✅ ${item.fileName} (DALL-E 3 fallback)`);
         continue;
       }
@@ -857,10 +857,11 @@ async function executeWebBuild(
   // After sandbox passes and preview is live, generate images from
   // the manifest and push them to the repo. This is fire-and-forget
   // safe — if image gen fails, the site still works with broken image refs.
-  if (foundation.image_manifest && foundation.image_manifest.length > 0) {
+  const imageManifest = foundation.image_manifest as ImageManifestItem[] | undefined;
+  if (imageManifest && imageManifest.length > 0) {
     try {
       const imageFiles = await generateImagesFromManifest(
-        foundation.image_manifest,
+        imageManifest,
         ctx,
       );
       if (Object.keys(imageFiles).length > 0) {
@@ -2356,8 +2357,8 @@ async function runWebsiteFoundationLoop(
               console.error('[WebBuild] ⚠️ Sandbox repair limit reached and incremental patches disabled. Shipping with errors.');
             }
             // Tag the output so downstream consumers know build quality
-            (merged as Record<string, unknown>).__buildStatus = repairSucceeded ? 'repaired' : 'errors_unresolved';
-            (merged as Record<string, unknown>).__unresolvedErrors = repairSucceeded ? [] : sandboxResult.errors.slice(0, 10);
+            (merged as unknown as Record<string, unknown>).__buildStatus = repairSucceeded ? 'repaired' : 'errors_unresolved';
+            (merged as unknown as Record<string, unknown>).__unresolvedErrors = repairSucceeded ? [] : sandboxResult.errors.slice(0, 10);
             output = merged;
             break;
           }
