@@ -137,6 +137,91 @@ function assertValidWebsiteFileMap(files: Record<string, unknown>): void {
   }
 }
 
+// ─── IMAGE GENERATION FROM MANIFEST ─────────────────────────────────────────
+
+const MAX_IMAGE_GEN_ITEMS = 7;
+const IMAGE_GEN_TIMEOUT_MS = 30_000;
+
+interface ImageManifestItem {
+  fileName: string;
+  prompt: string;
+  aspect_ratio?: string;
+  altText?: string;
+}
+
+/**
+ * Generate images from the build manifest using Imagen 4 (primary) with
+ * OpenAI DALL-E 3 fallback. Returns a map of filePath → base64 content
+ * ready for github_push_files.
+ */
+async function generateImagesFromManifest(
+  manifest: ImageManifestItem[],
+  ctx: ToolContext,
+): Promise<Record<string, string>> {
+  const { ModelClient: MC } = await import('@glyphor/agent-runtime');
+  const modelClient = new MC({
+    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    openaiApiKey: process.env.OPENAI_API_KEY,
+  });
+
+  const items = manifest.slice(0, MAX_IMAGE_GEN_ITEMS);
+  const imageFiles: Record<string, string> = {};
+
+  console.log(`[WebBuild:Images] Generating ${items.length} images from manifest`);
+
+  for (const item of items) {
+    if (!item.fileName || !item.prompt) continue;
+
+    // Normalize path: /images/hero.jpg → public/images/hero.jpg (Vite serves from public/)
+    const filePath = item.fileName.startsWith('/')
+      ? `public${item.fileName}`
+      : item.fileName.startsWith('public/')
+        ? item.fileName
+        : `public/images/${item.fileName}`;
+
+    try {
+      // Primary: Imagen 4 Ultra
+      const result = await Promise.race([
+        modelClient.generateImage(item.prompt),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Image gen timeout')), IMAGE_GEN_TIMEOUT_MS),
+        ),
+      ]);
+
+      if (result.base64) {
+        imageFiles[filePath] = result.base64;
+        console.log(`[WebBuild:Images] ✅ ${item.fileName} (Imagen 4)`);
+        continue;
+      }
+    } catch (err) {
+      console.warn(`[WebBuild:Images] Imagen 4 failed for ${item.fileName}: ${(err as Error).message}`);
+    }
+
+    // Fallback: OpenAI DALL-E 3
+    try {
+      const result = await Promise.race([
+        modelClient.generateImageOpenAI(item.prompt),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Image gen timeout')), IMAGE_GEN_TIMEOUT_MS),
+        ),
+      ]);
+
+      if (result.base64) {
+        imageFiles[filePath] = result.base64;
+        console.log(`[WebBuild:Images] ✅ ${item.fileName} (DALL-E 3 fallback)`);
+        continue;
+      }
+    } catch (err) {
+      console.warn(`[WebBuild:Images] DALL-E 3 also failed for ${item.fileName}: ${(err as Error).message}`);
+    }
+
+    console.warn(`[WebBuild:Images] ❌ Skipped ${item.fileName} — both providers failed`);
+  }
+
+  console.log(`[WebBuild:Images] Generated ${Object.keys(imageFiles).length}/${items.length} images`);
+  return imageFiles;
+}
+
 interface WebsitePipelineProjectRef {
   repoFullName: string;
   owner: string;
@@ -767,6 +852,34 @@ async function executeWebBuild(
     },
     ctx,
   );
+
+  // ─── IMAGE GENERATION FROM MANIFEST ─────────────────────────
+  // After sandbox passes and preview is live, generate images from
+  // the manifest and push them to the repo. This is fire-and-forget
+  // safe — if image gen fails, the site still works with broken image refs.
+  if (foundation.image_manifest && foundation.image_manifest.length > 0) {
+    try {
+      const imageFiles = await generateImagesFromManifest(
+        foundation.image_manifest,
+        ctx,
+      );
+      if (Object.keys(imageFiles).length > 0) {
+        await executeWebsitePipelineTool(
+          'github_push_files',
+          {
+            repo: project.repoFullName,
+            branch: project.branch,
+            files: imageFiles,
+            commit_message: `feat: add ${Object.keys(imageFiles).length} generated images`,
+          },
+          ctx,
+        );
+        console.log(`[WebBuild] Pushed ${Object.keys(imageFiles).length} generated images to ${project.branch}`);
+      }
+    } catch (imgErr) {
+      console.warn(`[WebBuild] Image generation failed (non-blocking): ${(imgErr as Error).message}`);
+    }
+  }
 
   let githubPrUrl: string | undefined;
   let deployUrl = preview.preview_url;
