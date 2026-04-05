@@ -52,6 +52,7 @@ import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.
 import { maybeConsolidate } from './memory/consolidationTrigger.js';
 import { ConcurrentToolExecutor, shouldUseConcurrentExecution, type ToolCallEntry } from './concurrentToolExecutor.js';
 import type { PolicyLimitsCache } from './policyLimits.js';
+import type { CoordinatorSession } from './coordinatorMode.js';
 import type { RequestSource } from './providers/types.js';
 import type {
   SessionMemoryStore,
@@ -978,6 +979,8 @@ export interface RunDependencies {
   trustScorer?: TrustScorer;
   /** Policy limits cache for per-agent feature toggles. */
   policyCache?: PolicyLimitsCache;
+  /** Coordinator session for multi-agent task orchestration. */
+  coordinatorSession?: CoordinatorSession;
   /** Optional session summary persistence for cross-turn memory compaction. */
   sessionMemoryStore?: SessionMemoryStore;
   /** Optional post-turn session summary updater. */

@@ -25,6 +25,7 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createWebBuildTools } from '../shared/webBuildTools.js';
 import { createBuildWebsiteFoundationTools } from '../shared/webBuildTools.js';
+import { createWebBuildPlannerTools } from '../shared/webBuildPlannerTools.js';
 import { createCodexTools } from '../shared/codexTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
 import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
@@ -64,6 +65,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createVercelProjectTools(),
     ...createCloudflarePreviewTools(),
     ...createBuildWebsiteFoundationTools(),
+    ...createWebBuildPlannerTools(),
     ...createWebBuildTools(memory, {
       allowBuild: true,
       allowIterate: true,

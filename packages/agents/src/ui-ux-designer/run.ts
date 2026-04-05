@@ -24,6 +24,7 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createWebBuildTools } from '../shared/webBuildTools.js';
+import { createWebBuildPlannerTools } from '../shared/webBuildPlannerTools.js';
 import { createDesignBriefTools } from '../shared/designBriefTools.js';
 import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
 
@@ -51,6 +52,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...createScreenshotTools(),
     ...createDesignSystemTools(),
     ...createDesignBriefTools(),
+    ...createWebBuildPlannerTools(),
     ...createQuickDemoWebAppTools(),
     ...createAssetTools(glyphorEventBus),
     ...createWebBuildTools(memory, {

@@ -26,6 +26,29 @@ export {
   KNOWN_POLICY_KEYS,
 } from './policyLimits.js';
 export type { PolicyRule, PolicyDecision, PolicyLimitsCacheStats, KnownPolicyKey } from './policyLimits.js';
+// Coordinator mode — multi-agent task orchestration with synthesis gates
+export {
+  CoordinatorSession,
+  createCoordinatorSession,
+  validateWorkerPrompt,
+  validateSynthesisSpec,
+  isCoordinatorEligible,
+  COORDINATOR_ELIGIBLE_ROLES,
+  COORDINATOR_PROMPT,
+  buildWorkerCapabilityContext,
+} from './coordinatorMode.js';
+export type {
+  CoordinatorPhase,
+  WorkerStatus,
+  WorkerType,
+  WorkerDescriptor,
+  WorkerUsage,
+  TaskNotification,
+  SynthesisSpec,
+  FileChangeSpec,
+  CoordinatorSessionConfig,
+  CoordinatorSessionStats,
+} from './coordinatorMode.js';
 // buildTool factory — fail-closed tool definitions
 export { buildTool, isSafeTool, getToolMeta, isToolPermittedForRole, getToolTimeout, getToolRateLimit } from './buildTool.js';
 export type { SafeToolDefinition, ToolMetadata, BuildToolInput, PreToolHookFn, PostToolHookFn } from './buildTool.js';

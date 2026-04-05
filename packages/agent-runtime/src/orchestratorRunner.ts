@@ -13,6 +13,11 @@
 
 import { BaseAgentRunner } from './baseAgentRunner.js';
 import type { ClassifiedRunDependencies } from './baseAgentRunner.js';
+import {
+  COORDINATOR_PROMPT,
+  buildWorkerCapabilityContext,
+  isCoordinatorEligible,
+} from './coordinatorMode.js';
 import type {
   AgentConfig,
   AgentArchetype,
@@ -157,6 +162,15 @@ export class OrchestratorRunner extends BaseAgentRunner {
 
     // 6. Founder notification capability
     parts.push(FOUNDER_NOTIFICATION);
+
+    // 6b. Coordinator mode prompt (for eligible orchestrators with active session)
+    if (isCoordinatorEligible(config.role) && deps.coordinatorSession) {
+      parts.push(COORDINATOR_PROMPT);
+      const workerTools = (config.tools ?? []).map(t => t.name);
+      if (workerTools.length > 0) {
+        parts.push(buildWorkerCapabilityContext(workerTools, []));
+      }
+    }
 
     // 7. Constitutional principles (if governor available)
     if (deps.constitutionalGovernor) {

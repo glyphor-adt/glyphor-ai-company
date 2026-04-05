@@ -299,6 +299,8 @@ const VERY_LONG_RUNNING_TOOLS = new Set([
   'invoke_web_iterate',
   'invoke_web_upgrade',
   'invoke_web_coding_loop',
+  'build_website_foundation',
+  'normalize_design_brief',
 ]);
 
 // Tools that are safe to execute in dry-run mode (read-only / computation)
