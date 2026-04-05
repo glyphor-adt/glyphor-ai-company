@@ -58,6 +58,7 @@ import { classifyActionRisk } from './actionRiskClassifier.js';
 import type { CommunicationType, RecipientType } from './types.js';
 import { createToolHookRunnerFromEnv, type ToolHookRunner, CompositeHookRunner, createCompositeHookRunner } from './hooks/hookRunner.js';
 import { shouldBlockToolCall } from './circuitBreaker.js';
+import { checkToolPolicy, type PolicyLimitsCache } from './policyLimits.js';
 import {
   type DenialTrackingState,
   type DenialSource,
@@ -661,6 +662,7 @@ export class ToolExecutor {
   private verifierRunner: VerifierRunner | null = null;
   private compositeHookRunner: CompositeHookRunner;
   private denialState: DenialTrackingState = createDenialState();
+  private policyCache: PolicyLimitsCache | null = null;
 
   constructor(tools: ToolDefinition[], dryRun = false, enforcement = true, formalVerifier?: FormalVerifier) {
     this.tools = new Map(tools.map((t) => [t.name, t]));
@@ -685,6 +687,11 @@ export class ToolExecutor {
   /** Inject a custom hook runner (primarily for tests). */
   setToolHookRunner(runner: ToolHookRunner | null): void {
     this.compositeHookRunner = createCompositeHookRunner(runner);
+  }
+
+  /** Attach the policy limits cache for per-agent feature gating. */
+  setPolicyCache(cache: PolicyLimitsCache | null): void {
+    this.policyCache = cache;
   }
 
   // ─── Cost Tracking ────────────────────────────────────────────
@@ -991,6 +998,30 @@ export class ToolExecutor {
         return {
           success: false,
           error: escalation.agentMessage,
+          filesWritten: 0,
+          memoryKeysWritten: 0,
+          riskLevel: riskAssessment.level,
+        };
+      }
+    }
+
+    // ─── Policy limits gate ──────────────────────────────────
+    // Check per-agent/fleet-wide feature toggles from the policy cache.
+    // Runs after circuit breaker + denial tracking, before role-based gates.
+    if (this.policyCache) {
+      const policyDecision = checkToolPolicy(this.policyCache, toolName, context.agentRole);
+      if (policyDecision && !policyDecision.allowed) {
+        const reason = policyDecision.matchedRule?.reason ?? 'Policy denied';
+        this.denialState = recordDenial(this.denialState, toolName, `Policy: ${reason}`, 'policy');
+        this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'BLOCKED', {
+          reason: 'policy_limits',
+          policy_key: policyDecision.policyKey,
+          set_by: policyDecision.matchedRule?.setBy ?? 'default',
+          policy_reason: reason,
+        });
+        return {
+          success: false,
+          error: `Tool ${toolName} is not allowed by policy: ${reason}`,
           filesWritten: 0,
           memoryKeysWritten: 0,
           riskLevel: riskAssessment.level,

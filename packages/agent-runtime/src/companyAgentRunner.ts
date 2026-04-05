@@ -51,6 +51,7 @@ import { shouldUseClientSideHistoryCompression } from './compaction.js';
 import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.js';
 import { maybeConsolidate } from './memory/consolidationTrigger.js';
 import { ConcurrentToolExecutor, shouldUseConcurrentExecution, type ToolCallEntry } from './concurrentToolExecutor.js';
+import type { PolicyLimitsCache } from './policyLimits.js';
 import type { RequestSource } from './providers/types.js';
 import type {
   SessionMemoryStore,
@@ -975,6 +976,8 @@ export interface RunDependencies {
   initializeWorldModel?: (role: CompanyAgentRole) => Promise<void>;
   /** Optional trust scorer used for routing and post-run trust adjustments. */
   trustScorer?: TrustScorer;
+  /** Policy limits cache for per-agent feature toggles. */
+  policyCache?: PolicyLimitsCache;
   /** Optional session summary persistence for cross-turn memory compaction. */
   sessionMemoryStore?: SessionMemoryStore;
   /** Optional post-turn session summary updater. */
@@ -1088,6 +1091,11 @@ export class CompanyAgentRunner {
     // Reset denial tracking for each new run — prevents stale escalation
     // state from a prior run leaking into a fresh execution.
     toolExecutor.resetDenialTracking();
+
+    // Attach policy cache if provided (per-agent feature toggles)
+    if (deps?.policyCache) {
+      toolExecutor.setPolicyCache(deps.policyCache);
+    }
     const cleanHistory = (config.conversationHistory ?? []).filter((t) => {
       if (t.content.startsWith(DB_RUN_ID_TURN_PREFIX)) {
         const candidate = t.content.slice(DB_RUN_ID_TURN_PREFIX.length).trim();

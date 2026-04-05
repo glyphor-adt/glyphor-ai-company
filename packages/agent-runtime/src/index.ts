@@ -15,6 +15,17 @@ export { ToolExecutor, isToolBlocked, invalidateBlockCache, isToolGranted, inval
 // Concurrent tool execution — parallel dispatch for safe tools
 export { ConcurrentToolExecutor, classifyToolConcurrency, shouldUseConcurrentExecution } from './concurrentToolExecutor.js';
 export type { ToolCallEntry, ConcurrentToolResult, ConcurrentBatchStats, TrackedToolStatus } from './concurrentToolExecutor.js';
+// Policy limits — per-agent feature toggles and compliance gates
+export {
+  PolicyLimitsCache,
+  setPolicy,
+  clearPolicy,
+  listPolicies,
+  checkToolPolicy,
+  FAIL_CLOSED_POLICIES,
+  KNOWN_POLICY_KEYS,
+} from './policyLimits.js';
+export type { PolicyRule, PolicyDecision, PolicyLimitsCacheStats, KnownPolicyKey } from './policyLimits.js';
 // buildTool factory — fail-closed tool definitions
 export { buildTool, isSafeTool, getToolMeta, isToolPermittedForRole, getToolTimeout, getToolRateLimit } from './buildTool.js';
 export type { SafeToolDefinition, ToolMetadata, BuildToolInput, PreToolHookFn, PostToolHookFn } from './buildTool.js';
