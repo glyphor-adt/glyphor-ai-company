@@ -68,43 +68,73 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
   const glyphorEventBus = new GlyphorEventBus({});
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
-  const tools = [
-    ...createVPDesignTools(memory),
-    ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
-    ...createToolGrantTools('vp-design'),
-    ...createCollectiveIntelligenceTools(memory),
-    ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-    ...createTeamOrchestrationTools(glyphorEventBus),
-    ...createPeerCoordinationTools(glyphorEventBus),
-    ...createInitiativeTools(glyphorEventBus),
-    ...createSharePointTools(),
-    ...createAgentCreationTools(),
-    ...createAgentDirectoryTools(),
-    ...createFrontendCodeTools(),
-    ...createScreenshotTools(),
-    ...createDesignSystemTools(),
-    ...createAuditTools(),
-    ...createDesignBriefTools(),
-    ...createWebBuildPlannerTools(),
-    ...createQuickDemoWebAppTools(),
-    ...createAssetTools(glyphorEventBus),
-    ...createScaffoldTools(),
-    ...createDeployPreviewTools(),
-    ...createWebBuildTools(memory, {
-      allowBuild: true,
-      allowIterate: true,
-      allowAutonomousLoop: true,
-      allowUpgrade: true,
-      allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
-    }),
-    ...createFigmaTools(),
-    ...createStorybookTools(),
-    ...createCanvaTools(),
-    ...createLogoTools(),
-    // MCP tools: skip for on_demand chat to reduce tool count and avoid startup latency
-    ...(params.task === 'on_demand' || !params.task ? [] : await createAgent365McpTools('vp-design')),
-    ...(params.task === 'on_demand' || !params.task ? [] : await createGlyphorMcpTools('vp-design')),
-  ];
+  const isChat = params.task === 'on_demand' || !params.task;
+
+  // ─── CHAT-OPTIMIZED TOOL SURFACE ────────────────────────────
+  // On-demand chat needs ~20 tools, not 180. Load only what's
+  // needed for interactive conversations (building, previewing,
+  // basic coordination). Full tool surface loads for scheduled tasks.
+  const tools = isChat
+    ? [
+        // Build & preview — the core chat workflow
+        ...createQuickDemoWebAppTools(),
+        ...createWebBuildPlannerTools(),
+        ...createDeployPreviewTools(),
+        ...createFrontendCodeTools(),
+        ...createScreenshotTools(),
+        // Subset of web build (iterate + coding loop for follow-ups)
+        ...createWebBuildTools(memory, {
+          allowBuild: true,
+          allowIterate: true,
+          allowAutonomousLoop: true,
+          allowUpgrade: false,
+          allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
+        }),
+        // Minimal core (memory, messages, knowledge — no assignments/events/slack)
+        ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }, { chatOnly: true }),
+        // Asset generation (logos, images)
+        ...createAssetTools(glyphorEventBus),
+        ...createLogoTools(),
+        // Minimal coordination
+        ...createAgentDirectoryTools(),
+      ]
+    : [
+        // Full tool surface for scheduled tasks
+        ...createVPDesignTools(memory),
+        ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
+        ...createToolGrantTools('vp-design'),
+        ...createCollectiveIntelligenceTools(memory),
+        ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+        ...createTeamOrchestrationTools(glyphorEventBus),
+        ...createPeerCoordinationTools(glyphorEventBus),
+        ...createInitiativeTools(glyphorEventBus),
+        ...createSharePointTools(),
+        ...createAgentCreationTools(),
+        ...createAgentDirectoryTools(),
+        ...createFrontendCodeTools(),
+        ...createScreenshotTools(),
+        ...createDesignSystemTools(),
+        ...createAuditTools(),
+        ...createDesignBriefTools(),
+        ...createWebBuildPlannerTools(),
+        ...createQuickDemoWebAppTools(),
+        ...createAssetTools(glyphorEventBus),
+        ...createScaffoldTools(),
+        ...createDeployPreviewTools(),
+        ...createWebBuildTools(memory, {
+          allowBuild: true,
+          allowIterate: true,
+          allowAutonomousLoop: true,
+          allowUpgrade: true,
+          allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
+        }),
+        ...createFigmaTools(),
+        ...createStorybookTools(),
+        ...createCanvaTools(),
+        ...createLogoTools(),
+        ...await createAgent365McpTools('vp-design'),
+        ...await createGlyphorMcpTools('vp-design'),
+      ];
   const toolExecutor = new ToolExecutor(tools);
 
   eventBus.on('*', (event) => {

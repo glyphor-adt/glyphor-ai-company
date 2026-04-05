@@ -77,7 +77,18 @@ export interface CoreToolDeps {
   externalA2aRegistryUrl?: string;
 }
 
-export function createCoreTools(deps: CoreToolDeps): ToolDefinition[] {
+/** Minimal tool set for on_demand/chat — just memory and communication. */
+export const CHAT_CORE_TOOL_NAMES: Set<string> = new Set([
+  'save_memory',
+  'recall_memories',
+  'send_agent_message',
+  'check_messages',
+  'read_company_knowledge',
+  'generate_pdf',
+  'generate_word_doc',
+]);
+
+export function createCoreTools(deps: CoreToolDeps, opts?: { chatOnly?: boolean }): ToolDefinition[] {
   const all: ToolDefinition[] = [
     ...createAssignmentTools(deps.glyphorEventBus),
     ...createCommunicationTools(deps.glyphorEventBus, deps.schedulerUrl),
@@ -94,5 +105,6 @@ export function createCoreTools(deps: CoreToolDeps): ToolDefinition[] {
     ...createKnowledgeRetrievalTools(),
   ];
 
-  return all.filter((t) => CORE_TOOL_NAMES.has(t.name));
+  const nameSet = opts?.chatOnly ? CHAT_CORE_TOOL_NAMES : CORE_TOOL_NAMES;
+  return all.filter((t) => nameSet.has(t.name));
 }
