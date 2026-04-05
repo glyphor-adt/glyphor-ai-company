@@ -37,6 +37,8 @@ import { createAssetTools } from '../shared/assetTools.js';
 import { createScaffoldTools } from '../shared/scaffoldTools.js';
 import { createDeployPreviewTools } from '../shared/deployPreviewTools.js';
 import { createLogoTools } from '../shared/logoTools.js';
+import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createWebBuildTools } from '../shared/webBuildTools.js';
 import { createWebBuildPlannerTools } from '../shared/webBuildPlannerTools.js';
@@ -115,6 +117,8 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
       ...createTeamOrchestrationTools(glyphorEventBus),
       ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
       ...createAgentDirectoryTools(),
+      ...await createAgent365McpTools('vp-design'),
+      ...await createGlyphorMcpTools('vp-design'),
     ];
   } else if (task === 'design_system_review') {
     tools = [
@@ -124,9 +128,11 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
       ...createCoreTools(coreDeps),
       ...createFrontendCodeTools(),
       ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+      ...await createAgent365McpTools('vp-design'),
+      ...await createGlyphorMcpTools('vp-design'),
     ];
   } else {
-    // Generic scheduled task — broad but still no Figma/Canva/Storybook/MCP
+    // Generic scheduled task — broad surface with MCP
     tools = [
       ...vpDesign,
       ...createCoreTools(coreDeps),
@@ -157,6 +163,8 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
         allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
       }),
       ...createLogoTools(),
+      ...await createAgent365McpTools('vp-design'),
+      ...await createGlyphorMcpTools('vp-design'),
     ];
   }
 
