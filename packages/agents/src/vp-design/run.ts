@@ -36,13 +36,8 @@ import { createAuditTools } from '../shared/auditTools.js';
 import { createAssetTools } from '../shared/assetTools.js';
 import { createScaffoldTools } from '../shared/scaffoldTools.js';
 import { createDeployPreviewTools } from '../shared/deployPreviewTools.js';
-import { createFigmaTools } from '../shared/figmaTools.js';
-import { createStorybookTools } from '../shared/storybookTools.js';
-import { createCanvaTools } from '../shared/canvaTools.js';
 import { createLogoTools } from '../shared/logoTools.js';
-import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
-import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createWebBuildTools } from '../shared/webBuildTools.js';
 import { createWebBuildPlannerTools } from '../shared/webBuildPlannerTools.js';
 import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
@@ -69,79 +64,109 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
   const graphReader = memory.getGraphReader();
   const graphWriter = memory.getGraphWriter();
   const isChat = params.task === 'on_demand' || !params.task;
+  const task = params.task || 'on_demand';
 
-  // ─── CHAT-OPTIMIZED TOOL SURFACE ────────────────────────────
-  // On-demand chat needs ~20 tools, not 180. Load only what's
-  // needed for interactive conversations (building, previewing,
-  // basic coordination). Full tool surface loads for scheduled tasks.
-  const tools = isChat
-    ? [
-        // Build & preview — the core chat workflow
-        ...createQuickDemoWebAppTools(),
-        ...createWebBuildPlannerTools(),
-        ...createDeployPreviewTools(),
-        ...createFrontendCodeTools(),
-        ...createScreenshotTools(),
-        // Subset of web build (iterate + coding loop for follow-ups)
-        ...createWebBuildTools(memory, {
-          allowBuild: true,
-          allowIterate: true,
-          allowAutonomousLoop: true,
-          allowUpgrade: false,
-          allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
-        }),
-        // Minimal core (memory, messages, knowledge — no assignments/events/slack)
-        ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }, { chatOnly: true }),
-        // Asset generation (logos, images)
-        ...createAssetTools(glyphorEventBus),
-        ...createLogoTools(),
-        // Minimal coordination
-        ...createAgentDirectoryTools(),
-      ]
-    : [
-        // Full tool surface for scheduled tasks
-        ...createVPDesignTools(memory),
-        ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
-        ...createToolGrantTools('vp-design'),
-        ...createCollectiveIntelligenceTools(memory),
-        ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
-        ...createTeamOrchestrationTools(glyphorEventBus),
-        ...createPeerCoordinationTools(glyphorEventBus),
-        ...createInitiativeTools(glyphorEventBus),
-        ...createSharePointTools(),
-        ...createAgentCreationTools(),
-        ...createAgentDirectoryTools(),
-        ...createFrontendCodeTools(),
-        ...createScreenshotTools(),
-        ...createDesignSystemTools(),
-        ...createAuditTools(),
-        ...createDesignBriefTools(),
-        ...createWebBuildPlannerTools(),
-        ...createQuickDemoWebAppTools(),
-        ...createAssetTools(glyphorEventBus),
-        ...createScaffoldTools(),
-        ...createDeployPreviewTools(),
-        ...createWebBuildTools(memory, {
-          allowBuild: true,
-          allowIterate: true,
-          allowAutonomousLoop: true,
-          allowUpgrade: true,
-          allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
-        }),
-        ...createFigmaTools(),
-        ...createStorybookTools(),
-        ...createCanvaTools(),
-        ...createLogoTools(),
-        ...await createAgent365McpTools('vp-design'),
-        ...await createGlyphorMcpTools('vp-design'),
-      ];
+  // ─── TASK-SPECIFIC TOOL SURFACES ────────────────────────────
+  // Each task gets only the tools it actually uses. Cuts prompt
+  // size, speeds up model responses, and reduces startup cost.
+  //
+  // on_demand (chat):     ~45 tools — build, preview, core essentials
+  // design_audit:         ~40 tools — quality tools, audit, design system
+  // design_system_review: ~30 tools — design tokens, components, templates
+  // default (generic):    ~60 tools — broad but no Figma/Canva/MCP
+
+  // Shared tool blocks used across multiple task profiles
+  const coreDeps = { glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL };
+  const vpDesign = createVPDesignTools(memory);
+  const designSystem = createDesignSystemTools();
+
+  let tools: ReturnType<typeof createCoreTools>;
+
+  if (isChat) {
+    tools = [
+      // Build & preview — the core chat workflow
+      ...createQuickDemoWebAppTools(),
+      ...createWebBuildPlannerTools(),
+      ...createDeployPreviewTools(),
+      ...createFrontendCodeTools(),
+      ...createScreenshotTools(),
+      ...createWebBuildTools(memory, {
+        allowBuild: true,
+        allowIterate: true,
+        allowAutonomousLoop: true,
+        allowUpgrade: false,
+        allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
+      }),
+      // Minimal core (memory, messages, knowledge)
+      ...createCoreTools(coreDeps, { chatOnly: true }),
+      // Asset generation
+      ...createAssetTools(glyphorEventBus),
+      ...createLogoTools(),
+      // Coordination
+      ...createAgentDirectoryTools(),
+    ];
+  } else if (task === 'design_audit') {
+    tools = [
+      ...vpDesign,
+      ...designSystem,
+      ...createAuditTools(),
+      ...createScreenshotTools(),
+      ...createCoreTools(coreDeps),
+      ...createTeamOrchestrationTools(glyphorEventBus),
+      ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+      ...createAgentDirectoryTools(),
+    ];
+  } else if (task === 'design_system_review') {
+    tools = [
+      ...vpDesign,
+      ...designSystem,
+      ...createScreenshotTools(),
+      ...createCoreTools(coreDeps),
+      ...createFrontendCodeTools(),
+      ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+    ];
+  } else {
+    // Generic scheduled task — broad but still no Figma/Canva/Storybook/MCP
+    tools = [
+      ...vpDesign,
+      ...createCoreTools(coreDeps),
+      ...createToolGrantTools('vp-design'),
+      ...createCollectiveIntelligenceTools(memory),
+      ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
+      ...createTeamOrchestrationTools(glyphorEventBus),
+      ...createPeerCoordinationTools(glyphorEventBus),
+      ...createInitiativeTools(glyphorEventBus),
+      ...createSharePointTools(),
+      ...createAgentCreationTools(),
+      ...createAgentDirectoryTools(),
+      ...createFrontendCodeTools(),
+      ...createScreenshotTools(),
+      ...createDesignSystemTools(),
+      ...createAuditTools(),
+      ...createDesignBriefTools(),
+      ...createWebBuildPlannerTools(),
+      ...createQuickDemoWebAppTools(),
+      ...createAssetTools(glyphorEventBus),
+      ...createScaffoldTools(),
+      ...createDeployPreviewTools(),
+      ...createWebBuildTools(memory, {
+        allowBuild: true,
+        allowIterate: true,
+        allowAutonomousLoop: true,
+        allowUpgrade: true,
+        allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
+      }),
+      ...createLogoTools(),
+    ];
+  }
+
+  console.log(`[VP-Design] Task=${task}: loaded ${tools.length} tools`);
   const toolExecutor = new ToolExecutor(tools);
 
   eventBus.on('*', (event) => {
     console.log(`[VP-Design] ${event.type}`, JSON.stringify(event));
   });
 
-  const task = params.task || 'on_demand';
   const today = new Date().toISOString().split('T')[0];
 
   let initialMessage: string;
