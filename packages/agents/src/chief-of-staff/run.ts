@@ -37,6 +37,7 @@ import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { createResearchTools } from '../shared/researchTools.js';
 import { createGithubFromTemplateTools, createGithubPushFilesTools, createGithubPullRequestTools, createVercelProjectTools, createCloudflarePreviewTools } from '@glyphor/integrations';
 
 export interface CoSRunParams {
@@ -198,6 +199,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
     ...orchestrationTools,
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
+    ...createResearchTools(),
     ...createGithubFromTemplateTools(),
     ...createGithubPushFilesTools(),
     ...createGithubPullRequestTools(),
