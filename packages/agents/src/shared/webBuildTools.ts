@@ -729,6 +729,10 @@ async function executeWebBuild(
     if (!provisioned) {
       throw lastError ?? new Error('Failed to provision website project.');
     }
+
+    // Wait for GitHub to initialize the template repo's default branch.
+    // Template repos can take 3-10s before the main branch is available.
+    await new Promise(resolve => setTimeout(resolve, 8_000));
   }
 
   const useFeatureBranch = shouldUseFeatureBranchWorkflow(project.repoFullName);
@@ -1037,11 +1041,10 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
     tools.push({
       name: 'invoke_web_build',
       description:
-        '**Primary way to ship a runnable web app or page with a live preview URL** (Vercel deployment + optional Cloudflare preview alias). Do not paste huge HTML in chat — users expect **`preview_url`** here. Provide a detailed brief and tier; the system normalizes the brief, runs an internal UX-engineer pass to **generate app source**, **validates the file map**, then **creates the GitHub repo + Vercel** and pushes. '
-        + 'New repos start from an internal **Vite/React template** that only carries standard build tooling; generated **foundation_files / components** replace the demo app — this is scaffolding, not the shipped UX. '
-        + 'Use **`tier: prototype`** for fast interactive apps (weather, tools, dashboards); **`full_build`** for stricter QA. '
-        + '**POC / client repos:** commits go to **`main`** with **no pull request**. **glyphor.ai site repo** (`glyphor-adt/glyphor-site` by default) uses feature branches + PRs — **`main` stays the template until the PR merges**; use `github_pr_url`, `github_branch_url`, and `source_branch` from the result. Override with `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` (comma-separated `owner/repo`) or set it to empty to disable. '
-        + 'After success, **your first reply must include `user_next_steps` (when present) and both `preview_url` and `deploy_url` when present** so the user opens the live site and the right Git branch/PR.',
+        'Full website pipeline with GitHub repo + Vercel deployment. **Use only for multi-file client projects that need a hosted preview URL.** '
+        + 'For simple dashboards, demos, tools, or data visualizations, use `quick_demo_web_app` instead (faster, no repo needed). '
+        + 'This tool normalizes the brief, generates all source files via UX-engineer pass, creates the GitHub repo + Vercel project, pushes code, and returns a preview URL. '
+        + 'Can take 5-15 minutes. Only appropriate for real project deliverables, not quick chat requests.',
       parameters: {
         brief: {
           type: 'string',
