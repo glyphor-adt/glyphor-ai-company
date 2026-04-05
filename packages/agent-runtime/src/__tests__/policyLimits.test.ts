@@ -10,6 +10,7 @@ import {
   type PolicyRule,
   type PolicyDecision,
 } from '../policyLimits.js';
+import type { CompanyAgentRole } from '../types.js';
 
 // ─── Mock systemQuery ────────────────────────────────────────────
 
@@ -21,7 +22,12 @@ vi.mock('@glyphor/shared/db', () => ({
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
-type AgentRole = string;
+// Use concrete role literals to satisfy the union type
+const DEVOPS: CompanyAgentRole = 'devops-engineer';
+const CTO: CompanyAgentRole = 'cto';
+const CMO: CompanyAgentRole = 'cmo';
+const FRONTEND: CompanyAgentRole = 'frontend-engineer';
+const CONTENT: CompanyAgentRole = 'content-creator';
 
 /** Build a raw DB row for agent_policy_limits. */
 function policyRow(overrides: Partial<{
@@ -132,7 +138,7 @@ describe('PolicyLimitsCache lifecycle', () => {
     await waitPromise;
 
     // Should resolve (not hang) — verify cache still works
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole);
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS);
     expect(decision.source).toBe('default'); // No rules loaded yet
     cache.destroy();
   });
@@ -151,7 +157,7 @@ describe('PolicyLimitsCache lifecycle', () => {
     );
 
     // Should fall through to defaults
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole);
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS);
     expect(decision.allowed).toBe(true);
     expect(decision.source).toBe('default');
 
@@ -190,7 +196,7 @@ describe('isPolicyAllowed() resolution', () => {
       policyRow({ policy_key: 'can_deploy', allowed: true, agent_role: null, tool_name: null }),
     ]);
 
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole, 'deploy_staging');
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS, 'deploy_staging');
     expect(decision.allowed).toBe(false); // Agent+tool wins
     expect(decision.matchedRule?.agentRole).toBe('devops-engineer');
     expect(decision.matchedRule?.toolName).toBe('deploy_staging');
@@ -204,7 +210,7 @@ describe('isPolicyAllowed() resolution', () => {
       policyRow({ policy_key: 'can_deploy', allowed: true, agent_role: null, tool_name: null }),
     ]);
 
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole, 'deploy_staging');
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS, 'deploy_staging');
     expect(decision.allowed).toBe(false);
     expect(decision.matchedRule?.agentRole).toBe('devops-engineer');
     expect(decision.matchedRule?.toolName).toBeNull();
@@ -217,7 +223,7 @@ describe('isPolicyAllowed() resolution', () => {
       policyRow({ policy_key: 'can_deploy', allowed: true, agent_role: null, tool_name: null }),
     ]);
 
-    const decision = cache.isPolicyAllowed('can_deploy', 'cto' as AgentRole, 'deploy_production');
+    const decision = cache.isPolicyAllowed('can_deploy', CTO, 'deploy_production');
     expect(decision.allowed).toBe(false);
     expect(decision.matchedRule?.agentRole).toBeNull();
     expect(decision.matchedRule?.toolName).toBe('deploy_production');
@@ -229,7 +235,7 @@ describe('isPolicyAllowed() resolution', () => {
       policyRow({ policy_key: 'can_deploy', allowed: false, agent_role: null, tool_name: null }),
     ]);
 
-    const decision = cache.isPolicyAllowed('can_deploy', 'frontend-engineer' as AgentRole, 'deploy_staging');
+    const decision = cache.isPolicyAllowed('can_deploy', FRONTEND, 'deploy_staging');
     expect(decision.allowed).toBe(false);
     expect(decision.matchedRule?.agentRole).toBeNull();
     expect(decision.matchedRule?.toolName).toBeNull();
@@ -239,7 +245,7 @@ describe('isPolicyAllowed() resolution', () => {
   it('returns fail-open default when no rules match a non-sensitive policy', async () => {
     const cache = await cacheWith([]);
 
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole);
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS);
     expect(decision.allowed).toBe(true);
     expect(decision.matchedRule).toBeNull();
     expect(decision.source).toBe('default');
@@ -251,7 +257,7 @@ describe('isPolicyAllowed() resolution', () => {
       policyRow({ policy_key: 'can_send_slack', allowed: false, agent_role: null, tool_name: null }),
     ]);
 
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole);
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS);
     expect(decision.allowed).toBe(true); // No matching rule → default
     expect(decision.matchedRule).toBeNull();
     cache.destroy();
@@ -263,7 +269,7 @@ describe('isPolicyAllowed() resolution', () => {
     ]);
 
     // No toolName → skip tiers 1 and 3
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole);
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS);
     expect(decision.allowed).toBe(true); // Falls to default (fail-open)
     expect(decision.matchedRule).toBeNull();
     cache.destroy();
@@ -279,7 +285,7 @@ describe('FAIL_CLOSED_POLICIES', () => {
     const cache = await cacheWith([]);
 
     for (const key of FAIL_CLOSED_POLICIES) {
-      const decision = cache.isPolicyAllowed(key, 'devops-engineer' as AgentRole);
+      const decision = cache.isPolicyAllowed(key, DEVOPS);
       expect(decision.allowed).toBe(false);
       expect(decision.source).toBe('default');
       expect(decision.matchedRule).toBeNull();
@@ -292,7 +298,7 @@ describe('FAIL_CLOSED_POLICIES', () => {
       policyRow({ policy_key: 'can_deploy_production', allowed: true, agent_role: 'devops-engineer' }),
     ]);
 
-    const decision = cache.isPolicyAllowed('can_deploy_production', 'devops-engineer' as AgentRole);
+    const decision = cache.isPolicyAllowed('can_deploy_production', DEVOPS);
     expect(decision.allowed).toBe(true);
     expect(decision.source).toBe('cache');
     cache.destroy();
@@ -318,7 +324,7 @@ describe('expired rules', () => {
       policyRow({ policy_key: 'can_deploy', allowed: false, agent_role: null, expires_at: PAST }),
     ]);
 
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole);
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS);
     expect(decision.allowed).toBe(true); // Expired → falls to default
     expect(decision.matchedRule).toBeNull();
     cache.destroy();
@@ -329,7 +335,7 @@ describe('expired rules', () => {
       policyRow({ policy_key: 'can_deploy', allowed: false, agent_role: null, expires_at: FUTURE }),
     ]);
 
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole);
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS);
     expect(decision.allowed).toBe(false);
     expect(decision.matchedRule).not.toBeNull();
     cache.destroy();
@@ -340,7 +346,7 @@ describe('expired rules', () => {
       policyRow({ policy_key: 'can_deploy', allowed: false, agent_role: null, expires_at: null }),
     ]);
 
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole);
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS);
     expect(decision.allowed).toBe(false);
     cache.destroy();
   });
@@ -359,7 +365,7 @@ describe('getActivePolicies()', () => {
       policyRow({ policy_key: 'can_access_secrets', agent_role: null, expires_at: PAST }),
     ]);
 
-    const policies = cache.getActivePolicies('devops-engineer' as AgentRole);
+    const policies = cache.getActivePolicies(DEVOPS);
     const keys = policies.map(p => p.policyKey);
 
     expect(keys).toContain('can_deploy');     // Agent-specific
@@ -371,7 +377,7 @@ describe('getActivePolicies()', () => {
 
   it('returns empty array when no rules match', async () => {
     const cache = await cacheWith([]);
-    const policies = cache.getActivePolicies('devops-engineer' as AgentRole);
+    const policies = cache.getActivePolicies(DEVOPS);
     expect(policies).toEqual([]);
     cache.destroy();
   });
@@ -424,7 +430,7 @@ describe('getStats()', () => {
 describe('checkToolPolicy()', () => {
   it('returns null for ungated tools (not in TOOL_POLICY_MAP)', async () => {
     const cache = await cacheWith([]);
-    const result = checkToolPolicy(cache, 'write_file', 'devops-engineer' as AgentRole);
+    const result = checkToolPolicy(cache, 'write_file', DEVOPS);
     expect(result).toBeNull();
     cache.destroy();
   });
@@ -434,7 +440,7 @@ describe('checkToolPolicy()', () => {
       policyRow({ policy_key: 'can_deploy_staging', allowed: false, agent_role: null }),
     ]);
 
-    const result = checkToolPolicy(cache, 'deploy_staging', 'devops-engineer' as AgentRole);
+    const result = checkToolPolicy(cache, 'deploy_staging', DEVOPS);
     expect(result).not.toBeNull();
     expect(result!.allowed).toBe(false);
     expect(result!.policyKey).toBe('can_deploy_staging');
@@ -444,7 +450,7 @@ describe('checkToolPolicy()', () => {
   it('maps deploy_production to can_deploy_production (fail-closed)', async () => {
     const cache = await cacheWith([]); // No rules
 
-    const result = checkToolPolicy(cache, 'deploy_production', 'devops-engineer' as AgentRole);
+    const result = checkToolPolicy(cache, 'deploy_production', DEVOPS);
     expect(result).not.toBeNull();
     expect(result!.allowed).toBe(false); // Fail-closed
     expect(result!.policyKey).toBe('can_deploy_production');
@@ -456,7 +462,7 @@ describe('checkToolPolicy()', () => {
       policyRow({ policy_key: 'can_send_external_email', allowed: true, agent_role: 'cmo' }),
     ]);
 
-    const result = checkToolPolicy(cache, 'send_email', 'cmo' as AgentRole);
+    const result = checkToolPolicy(cache, 'send_email', CMO);
     expect(result!.allowed).toBe(true);
     cache.destroy();
   });
@@ -466,7 +472,7 @@ describe('checkToolPolicy()', () => {
       policyRow({ policy_key: 'can_create_pr', allowed: true, agent_role: null }),
     ]);
 
-    const result = checkToolPolicy(cache, 'create_pull_request', 'frontend-engineer' as AgentRole);
+    const result = checkToolPolicy(cache, 'create_pull_request', FRONTEND);
     expect(result!.allowed).toBe(true);
     cache.destroy();
   });
@@ -474,8 +480,8 @@ describe('checkToolPolicy()', () => {
   it('maps read_secret and write_secret to can_access_secrets (fail-closed)', async () => {
     const cache = await cacheWith([]); // No rules
 
-    const readResult = checkToolPolicy(cache, 'read_secret', 'cto' as AgentRole);
-    const writeResult = checkToolPolicy(cache, 'write_secret', 'cto' as AgentRole);
+    const readResult = checkToolPolicy(cache, 'read_secret', CTO);
+    const writeResult = checkToolPolicy(cache, 'write_secret', CTO);
 
     expect(readResult!.allowed).toBe(false);
     expect(writeResult!.allowed).toBe(false);
@@ -511,7 +517,7 @@ describe('setPolicy()', () => {
     mockSystemQuery.mockResolvedValueOnce([]);
 
     await setPolicy(
-      'devops-engineer' as AgentRole,
+      DEVOPS,
       'can_deploy_staging',
       true,
       'ops-bot',
@@ -564,7 +570,7 @@ describe('clearPolicy()', () => {
   it('returns false when no row matched', async () => {
     mockSystemQuery.mockResolvedValueOnce([]);
 
-    const result = await clearPolicy('cto' as AgentRole, 'can_deploy', 'deploy_staging');
+    const result = await clearPolicy(CTO, 'can_deploy', 'deploy_staging');
     expect(result).toBe(false);
   });
 });
@@ -591,7 +597,7 @@ describe('listPolicies()', () => {
       policyRow({ agent_role: 'devops-engineer' }),
     ]);
 
-    await listPolicies({ agentRole: 'devops-engineer' as AgentRole });
+    await listPolicies({ agentRole: DEVOPS });
 
     const [sql, params] = mockSystemQuery.mock.calls[0];
     expect(sql).toContain('agent_role = $1');
@@ -611,7 +617,7 @@ describe('listPolicies()', () => {
   it('applies both filters simultaneously', async () => {
     mockSystemQuery.mockResolvedValueOnce([]);
 
-    await listPolicies({ agentRole: 'cto' as AgentRole, policyKey: 'can_deploy' });
+    await listPolicies({ agentRole: CTO, policyKey: 'can_deploy' });
 
     const [sql, params] = mockSystemQuery.mock.calls[0];
     expect(sql).toContain('agent_role = $1');
@@ -645,9 +651,9 @@ describe('edge cases', () => {
     const cache = await cacheWith([]);
 
     // Non-sensitive → allowed
-    expect(cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole).allowed).toBe(true);
+    expect(cache.isPolicyAllowed('can_deploy', DEVOPS).allowed).toBe(true);
     // Sensitive → denied
-    expect(cache.isPolicyAllowed('can_deploy_production', 'devops-engineer' as AgentRole).allowed).toBe(false);
+    expect(cache.isPolicyAllowed('can_deploy_production', DEVOPS).allowed).toBe(false);
     cache.destroy();
   });
 
@@ -657,8 +663,8 @@ describe('edge cases', () => {
       policyRow({ policy_key: 'can_deploy', allowed: false, agent_role: 'content-creator' }),
     ]);
 
-    expect(cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole).allowed).toBe(true);
-    expect(cache.isPolicyAllowed('can_deploy', 'content-creator' as AgentRole).allowed).toBe(false);
+    expect(cache.isPolicyAllowed('can_deploy', DEVOPS).allowed).toBe(true);
+    expect(cache.isPolicyAllowed('can_deploy', CONTENT).allowed).toBe(false);
     cache.destroy();
   });
 
@@ -675,7 +681,7 @@ describe('edge cases', () => {
     await cache.refresh();
 
     // Original rule should still be cached
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole);
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS);
     expect(decision.allowed).toBe(false);
     expect(decision.source).toBe('cache');
 
@@ -687,7 +693,7 @@ describe('edge cases', () => {
     const cache = new PolicyLimitsCache();
     // No initialize()
 
-    const decision = cache.isPolicyAllowed('can_deploy', 'devops-engineer' as AgentRole);
+    const decision = cache.isPolicyAllowed('can_deploy', DEVOPS);
     expect(decision.allowed).toBe(true);
     expect(decision.source).toBe('default');
   });
