@@ -27,6 +27,7 @@ import type {
   ConversationAttachment,
   ConversationTurn,
   IMemoryBus,
+  ToolContext,
   ToolRetrievalMetadataMap,
 } from './types.js';
 import { estimateModelCost } from '@glyphor/shared/models';
