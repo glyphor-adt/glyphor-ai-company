@@ -1,32 +1,36 @@
 /**
- * plan_website_build — Multi-Turn Website Build Planner
+ * plan_website_build — Architecture Planner with Brief Normalization
  *
- * Instead of generating an entire website in one massive 100K-token API call,
- * this tool produces a structured build plan that the agent then executes
- * file-by-file using its normal turn loop. Each file becomes a separate tool
- * call (write_frontend_file / github_push_files), giving the agent:
+ * Before any code is generated, this tool:
+ *   1. Normalizes the user brief (audience, CTA, palette, emotional target)
+ *   2. Produces a structured build plan (components, theme, layout, files)
+ *   3. Generates an image manifest with generation prompts (max 7 images)
+ *   4. Returns everything for agent/user review before executing
  *
- *   - Fast per-file feedback (no 15-minute timeout)
- *   - Ability to self-correct after each file
- *   - Normal supervisor turn budgeting
- *   - Model routing through the standard subtask router
+ * The agent then executes the plan file-by-file using write_frontend_file
+ * or passes it to invoke_web_build for single-shot execution.
  *
- * Flow:
- *   1. Agent calls plan_website_build with brief
- *   2. Tool returns: file list, component specs, theme tokens, brand config
- *   3. Agent writes each file using write_frontend_file (or github_push_files batch)
- *   4. Agent calls deploy_preview when done
- *
- * This replaces the monolithic build_website_foundation for on-demand chat.
- * The original single-shot tool remains available for scheduled/background builds.
+ * Images are generated AFTER the build passes sandbox validation.
+ * Videos are NEVER included unless the user explicitly requests them.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { getTierModel } from '@glyphor/shared';
+import { ModelClient } from '@glyphor/agent-runtime';
 
-const PLANNER_MODEL = getTierModel('default');
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const PLANNER_MODEL = process.env.PLANNER_MODEL?.trim() || 'gemini-2.0-flash';
+const MAX_IMAGE_MANIFEST_ITEMS = 7;
+const PLANNER_TIMEOUT_MS = 45_000;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ImageManifestEntry {
+  fileName: string;
+  prompt: string;
+  aspect_ratio: string;
+  altText: string;
+}
 
 interface ComponentSpec {
   filePath: string;
@@ -37,17 +41,40 @@ interface ComponentSpec {
   animations: string;
 }
 
+interface NormalizedBrief {
+  audience: string;
+  primaryCta: string;
+  emotionalTarget: string;
+  oneSentenceMemory: string;
+  aestheticDirection: string;
+  productType: 'marketing_page' | 'web_application';
+}
+
 interface BuildPlan {
   projectName: string;
+  normalizedBrief: NormalizedBrief;
   visualDirection: string;
   colorPalette: {
     background: string;
     foreground: string;
     primary: string;
+    primaryForeground: string;
     secondary: string;
+    secondaryForeground: string;
     accent: string;
+    accentForeground: string;
     muted: string;
+    mutedForeground: string;
     card: string;
+    cardForeground: string;
+    border: string;
+    ring: string;
+  };
+  colorStrategy: {
+    surfaceLadder: string;
+    accentPolicy: string;
+    sectionSurfaceMap: Record<string, string>;
+    ctaColorMap: Record<string, string>;
   };
   fonts: {
     heading: string;
@@ -58,84 +85,121 @@ interface BuildPlan {
     id: string;
     component: string;
     objective: string;
+    interaction: string;
     surface: string;
   }>;
   components: ComponentSpec[];
   themeTokens: string;
   layoutStructure: string;
-  imageNeeds: Array<{
-    path: string;
-    description: string;
-    aspectRatio: string;
-  }>;
+  imageManifest: ImageManifestEntry[];
 }
 
-// ─── System Prompt for the Planner ────────────────────────────────────────────
+// ─── Planner System Prompt ────────────────────────────────────────────────────
 
-const PLANNER_SYSTEM = `You are a website architecture planner. Given a project brief, you produce a structured build plan that a frontend engineer will execute file-by-file.
+const PLANNER_SYSTEM = `You are a world-class website architect. Given a project brief, you produce a comprehensive build plan that a design engineer will execute.
 
 OUTPUT: Respond ONLY with valid JSON matching the schema below. No markdown fences, no extra text.
 
-DESIGN PRIORITIES:
-- Stunning, premium, scroll-stopping designs — never generic
-- Bold typography: mix weights dramatically, oversized headlines
+STEP 1 — NORMALIZE THE BRIEF:
+Before planning, extract these from the brief (infer sensible defaults if not stated):
+- audience: Who is this for? Be specific (e.g. "homeowners in Haslet TX looking for landscaping services")
+- primaryCta: What action should visitors take? (e.g. "Request a free quote", "Book a consultation")
+- emotionalTarget: What should the visitor FEEL? (e.g. "trust and confidence in a local expert")
+- oneSentenceMemory: One sentence that captures the core value proposition
+- aestheticDirection: Visual direction derived from the business type and audience
+- productType: "marketing_page" (landing pages, business sites) or "web_application" (tools, dashboards)
+
+STEP 2 — DESIGN DECISIONS:
+- Choose colors that match the BUSINESS (landscaping → earthy greens, bakery → warm tones, tech → clean blues). NEVER use generic dark mode for every project.
+- Choose fonts that match the brand personality (professional service → clean serif/sans, creative → distinctive display font)
+- Plan 5-7 sections minimum for a landing page: nav, hero, services/features, about/story, testimonials, CTA, footer
+- Each section needs a distinct surface (use at least 3 different surfaces for visual rhythm)
+
+STEP 3 — IMAGE MANIFEST:
+- Plan up to ${MAX_IMAGE_MANIFEST_ITEMS} images maximum
+- Each image needs a generation prompt: [Subject] [Context] [Lighting] [Materials] [Mood] [Style]
+- Images must be RELEVANT to the specific business (landscaping → manicured lawns, not abstract gradients)
+- Use realistic photography style for business sites, illustration for creative projects
+- Plan the budget BEFORE listing — reuse images across sections when possible
+- NEVER include videos unless the brief explicitly mentions video, animation, or motion background
+
+DESIGN RULES:
+- Stunning, premium, scroll-stopping — never generic or template-like
+- Bold typography: mix weights dramatically (font-thin with font-black), oversized headlines (text-5xl to text-8xl)
 - Rich interactions: hover states, scroll reveals, transitions via Framer Motion
-- Token-safe colors only (CSS variables, not hardcoded hex in classNames)
+- 70/20/10 color composition: 70% neutral surfaces, 20% supporting contrast, 10% accent/CTA
+- Token-safe colors ONLY (CSS variables, never hardcoded hex/rgb in classNames)
+- Brand logo as TEXT WORDMARK only (never an image asset)
 
 STACK (non-negotiable):
 - React 18 + Vite + TypeScript
-- Tailwind CSS v4 (CSS-first, @theme inline token bridge)
+- Tailwind CSS v4 (CSS-first, @theme inline token bridge in tailwind.css)
 - shadcn/ui new-york style (imports from @/components/ui/<name>)
 - Framer Motion for animations
-- lucide-react for icons (never emoji)
-- Google Fonts in index.html <head>
+- lucide-react for icons (NEVER emoji as icons)
+- Google Fonts loaded in index.html <head>
+
+REQUIRED FILES (the template repo provides the build toolchain — you create these):
+1. index.html — HTML shell with meta/OG tags, Google Fonts, <div id="root"></div>, Vite entry
+2. src/App.tsx — Root composition importing ALL section components
+3. src/styles/theme.css — :root CSS variables for the full shadcn token set
+4. src/styles/fonts.css — Font variable definitions (no @import)
+5. src/styles/index.css — Import hub: fonts.css → tailwind.css → theme.css
+6. src/styles/tailwind.css — @import "tailwindcss"; @theme inline token bridge; base styles
+7. src/components/*.tsx — All section components with COMPLETE implementations
+
+DO NOT create/modify: vite.config.ts, src/main.tsx, tsconfig.json, vercel.json, eslint.config.js
 
 JSON SCHEMA:
 {
   "projectName": "string",
-  "visualDirection": "string — 2-3 sentence creative direction",
+  "normalizedBrief": {
+    "audience": "string",
+    "primaryCta": "string",
+    "emotionalTarget": "string",
+    "oneSentenceMemory": "string",
+    "aestheticDirection": "string",
+    "productType": "marketing_page | web_application"
+  },
+  "visualDirection": "2-3 sentence creative direction",
   "colorPalette": {
-    "background": "hsl value",
-    "foreground": "hsl value",
-    "primary": "hsl value",
-    "secondary": "hsl value",
-    "accent": "hsl value",
-    "muted": "hsl value",
-    "card": "hsl value"
+    "background": "hex", "foreground": "hex",
+    "primary": "hex", "primaryForeground": "hex",
+    "secondary": "hex", "secondaryForeground": "hex",
+    "accent": "hex", "accentForeground": "hex",
+    "muted": "hex", "mutedForeground": "hex",
+    "card": "hex", "cardForeground": "hex",
+    "border": "hex", "ring": "hex"
+  },
+  "colorStrategy": {
+    "surfaceLadder": "how background/card/muted are used across sections",
+    "accentPolicy": "where primary/accent are allowed vs forbidden",
+    "sectionSurfaceMap": { "hero": "bg-background", "features": "bg-card", ... },
+    "ctaColorMap": { "primaryCta": "bg-primary text-primary-foreground", ... }
   },
   "fonts": {
     "heading": "font family name",
     "body": "font family name",
-    "googleFontsUrl": "full Google Fonts <link> href URL"
+    "googleFontsUrl": "full Google Fonts CSS2 URL"
   },
   "sections": [
-    {
-      "id": "nav|hero|features|pricing|cta|footer|etc",
-      "component": "ComponentName",
-      "objective": "what this section achieves",
-      "surface": "bg-background|bg-muted|bg-card|etc"
-    }
+    { "id": "string", "component": "PascalCase", "objective": "string", "interaction": "string", "surface": "string" }
   ],
   "components": [
-    {
-      "filePath": "src/components/Hero.tsx",
-      "name": "Hero",
-      "purpose": "what it does and why",
-      "props": "interface definition sketch",
-      "keyElements": "key visual elements and layout approach",
-      "animations": "framer motion interactions"
-    }
+    { "filePath": "src/components/X.tsx", "name": "X", "purpose": "string", "props": "string", "keyElements": "string", "animations": "string" }
   ],
-  "themeTokens": "complete CSS variable block for :root in theme.css",
-  "layoutStructure": "how App.tsx should compose the sections",
-  "imageNeeds": [
-    {
-      "path": "/images/hero.png",
-      "description": "what the image should show",
-      "aspectRatio": "16:9"
-    }
+  "themeTokens": "complete :root block with ALL shadcn CSS variables",
+  "layoutStructure": "how App.tsx composes sections (import order + JSX)",
+  "imageManifest": [
+    { "fileName": "/images/hero.jpg", "prompt": "[Subject] [Context] [Lighting] [Mood] [Style]", "aspect_ratio": "16:9", "altText": "string" }
   ]
 }`;
+
+// ─── Helper: detect if user explicitly requested video ────────────────────────
+
+function briefRequestsVideo(brief: string): boolean {
+  return /\b(video|animation|motion\s+background|hero\s+video|video\s+hero|cinematic\s+loop|background\s+video)\b/i.test(brief);
+}
 
 // ─── Tool Definition ──────────────────────────────────────────────────────────
 
@@ -144,36 +208,29 @@ export function createWebBuildPlannerTools(): ToolDefinition[] {
     {
       name: 'plan_website_build',
       description:
-        'Plan a website build by producing a structured architecture spec: components, theme, ' +
-        'layout, and file list. After calling this, write each file using write_frontend_file ' +
-        'or github_push_files. This is faster and more reliable than invoke_web_build for ' +
-        'on-demand chat because each file is a separate turn with immediate feedback.\n\n' +
-        'WORKFLOW:\n' +
-        '1. Call plan_website_build with the brief\n' +
-        '2. Create the GitHub repo with github_create_from_template\n' +
-        '3. Write theme.css with the themeTokens from the plan\n' +
-        '4. Write tailwind.css, fonts.css, index.css\n' +
-        '5. Write each component from the components list\n' +
-        '6. Write App.tsx composing all components per layoutStructure\n' +
-        '7. Write index.html with Google Fonts\n' +
-        '8. Push all files with github_push_files\n' +
-        '9. Call deploy_preview or vercel_get_preview_url',
+        'Plan a website build: normalizes the brief (audience, CTA, palette), generates a ' +
+        'structured architecture spec (components, theme, layout, color strategy), and creates ' +
+        'an image manifest with generation prompts. Call this BEFORE building.\n\n' +
+        'Returns: normalized brief, component specs, theme tokens, image manifest, and ' +
+        'step-by-step execution instructions. The agent then either:\n' +
+        'A) Passes the plan to invoke_web_build for single-shot execution, or\n' +
+        'B) Writes files one-by-one via write_frontend_file for iterative control.',
       parameters: {
         brief: {
           type: 'string',
-          description: 'What to build: purpose, audience, features, visual direction, content requirements.',
+          description: 'What to build: business type, location, purpose, audience, features, visual direction.',
           required: true,
         },
         brand_name: {
           type: 'string',
-          description: 'Brand/project name. Defaults to inferred from brief.',
+          description: 'Brand or business name.',
           required: false,
         },
         visual_style: {
           type: 'string',
-          description: 'Visual style preference.',
+          description: 'Visual style preference. If omitted, inferred from business type.',
           required: false,
-          enum: ['minimal', 'bold', 'editorial', 'playful', 'dark_glass'],
+          enum: ['minimal', 'bold', 'editorial', 'playful', 'dark_glass', 'warm', 'earthy', 'clean', 'luxury'],
         },
       },
       async execute(params): Promise<ToolResult> {
@@ -184,46 +241,34 @@ export function createWebBuildPlannerTools(): ToolDefinition[] {
 
         const brandName = String(params.brand_name ?? '').trim();
         const visualStyle = String(params.visual_style ?? '').trim();
+        const wantsVideo = briefRequestsVideo(brief);
 
         const userPrompt = [
           `PROJECT BRIEF: ${brief}`,
           brandName ? `BRAND NAME: ${brandName}` : '',
           visualStyle ? `VISUAL STYLE: ${visualStyle}` : '',
+          `IMAGE BUDGET: Plan up to ${MAX_IMAGE_MANIFEST_ITEMS} images. Use realistic photography relevant to this specific business.`,
+          wantsVideo
+            ? 'VIDEO: User explicitly requested video. You may include up to 2 video_manifest entries.'
+            : 'VIDEO: Do NOT include any video manifest. User did not request video.',
           '',
           'Produce the complete JSON build plan.',
         ].filter(Boolean).join('\n');
 
         try {
-          // Use the default tier model — this is a planning call, not code generation.
-          // The plan is small (2-5K tokens), fast (<10s), and cheap.
-          const model = PLANNER_MODEL;
-
-          const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'x-api-key': process.env.ANTHROPIC_API_KEY?.trim() || '',
-              'anthropic-version': '2023-06-01',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'claude-sonnet-4-6',
-              max_tokens: 8000,
-              system: PLANNER_SYSTEM,
-              messages: [{ role: 'user', content: userPrompt }],
-            }),
-            signal: AbortSignal.timeout(30_000),
+          const modelClient = new ModelClient({
+            geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+            openaiApiKey: process.env.OPENAI_API_KEY,
           });
 
-          if (!response.ok) {
-            const err = await response.text();
-            return { success: false, error: `Planner API error (${response.status}): ${err.slice(0, 300)}` };
-          }
+          const response = await modelClient.generate({
+            model: PLANNER_MODEL,
+            systemInstruction: PLANNER_SYSTEM,
+            contents: [{ role: 'user', content: userPrompt, timestamp: Date.now() }],
+            callTimeoutMs: PLANNER_TIMEOUT_MS,
+          });
 
-          const result = await response.json() as {
-            content: Array<{ type: string; text?: string }>;
-          };
-
-          const text = result.content?.find(b => b.type === 'text')?.text ?? '';
+          const text = response.text ?? '';
           const cleaned = text
             .replace(/^```(?:json)?\s*/m, '')
             .replace(/\s*```\s*$/m, '')
@@ -233,37 +278,52 @@ export function createWebBuildPlannerTools(): ToolDefinition[] {
           try {
             plan = JSON.parse(cleaned) as BuildPlan;
           } catch {
-            return { success: false, error: `Failed to parse build plan JSON. Raw output: ${cleaned.slice(0, 500)}` };
+            // Fallback: extract JSON object from response
+            const jsonMatch = cleaned.match(/\{[\s\S]*"components"[\s\S]*\}/);
+            if (!jsonMatch) {
+              return { success: false, error: `Failed to parse build plan JSON. Raw: ${cleaned.slice(0, 500)}` };
+            }
+            plan = JSON.parse(jsonMatch[0]) as BuildPlan;
           }
 
           if (!plan.components?.length || !plan.sections?.length) {
             return { success: false, error: 'Build plan is missing components or sections.' };
           }
 
-          // Return the plan as structured data — the agent writes each file in subsequent turns
+          // Enforce image budget
+          if (plan.imageManifest && plan.imageManifest.length > MAX_IMAGE_MANIFEST_ITEMS) {
+            plan.imageManifest = plan.imageManifest.slice(0, MAX_IMAGE_MANIFEST_ITEMS);
+          }
+
+          const componentNames = plan.components.map(c => c.name).join(', ');
+          const imageCount = plan.imageManifest?.length ?? 0;
+
           return {
             success: true,
             data: {
               plan,
-              fileCount: plan.components.length + 6, // components + theme + tailwind + fonts + index.css + App.tsx + index.html
+              normalizedBrief: plan.normalizedBrief,
+              fileCount: plan.components.length + 6,
+              imageCount,
               instructions: [
-                `Build plan ready: ${plan.components.length} components, ${plan.sections.length} sections.`,
+                `## Build Plan: ${plan.projectName}`,
                 '',
-                'Execute the plan by writing files in this order:',
-                '1. github_create_from_template to create the repo',
-                '2. src/styles/theme.css — use themeTokens from plan',
-                '3. src/styles/tailwind.css — standard Tailwind v4 setup',
-                '4. src/styles/fonts.css — @font-face rules for plan.fonts',
-                '5. src/styles/index.css — global resets and base styles',
-                `6. Each component: ${plan.components.map(c => c.name).join(', ')}`,
-                '7. src/App.tsx — compose all components per layoutStructure',
-                '8. index.html — with Google Fonts link and Vite entry',
-                '9. github_push_files to commit everything',
-                '10. deploy_preview or vercel_get_preview_url for the live link',
+                `**Audience:** ${plan.normalizedBrief?.audience ?? 'Not specified'}`,
+                `**CTA:** ${plan.normalizedBrief?.primaryCta ?? 'Not specified'}`,
+                `**Visual direction:** ${plan.visualDirection}`,
+                `**Components:** ${componentNames}`,
+                `**Images to generate:** ${imageCount}`,
                 '',
-                'Write each component as COMPLETE, PRODUCTION-READY code. No stubs. No TODOs.',
-                'Use the component specs in plan.components for props, purpose, and animations.',
-                'Use token-safe colors only (CSS variables via theme.css, never hardcoded hex).',
+                '### Execution order:',
+                '1. `invoke_web_build` with tier `prototype` and the brief from this plan',
+                '   OR write files manually:',
+                '   a. `github_create_from_template` to create the repo',
+                '   b. Write style files: theme.css, tailwind.css, fonts.css, index.css',
+                `   c. Write components: ${componentNames}`,
+                '   d. Write App.tsx and index.html',
+                '   e. `github_push_files` to commit',
+                '2. After deploy succeeds, images will be generated from the manifest',
+                '3. Share the preview URL with the user',
               ].join('\n'),
             },
           };

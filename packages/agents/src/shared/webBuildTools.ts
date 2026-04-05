@@ -81,14 +81,14 @@ type WebsitePipelineToolName =
   | 'cloudflare_update_preview';
 
 const DEFAULT_BRAND_CONTEXT: WebBrandContext = {
-  brand_name: 'Glyphor',
-  primary_color: '#00E0FF',
-  secondary_color: '#00A3FF',
-  accent_color: '#6E77DF',
-  heading_font: 'Clash Display',
-  body_font: 'Satoshi',
-  visual_style: 'dark_glass',
-  animation_preference: 'rich',
+  brand_name: '',
+  primary_color: '',
+  secondary_color: '',
+  accent_color: '',
+  heading_font: '',
+  body_font: '',
+  visual_style: 'minimal',
+  animation_preference: 'subtle',
 };
 
 const ALL_BUILD_TIERS: WebBuildTier[] = ['prototype', 'full_build', 'iterate'];
@@ -289,21 +289,26 @@ function shouldUseFeatureBranchWorkflow(repoFullName: string): boolean {
 }
 
 function buildAccountProfileOverride(brand: WebBrandContext): Record<string, unknown> {
+  // Only include brand fields that have actual values — empty means
+  // "derive from the brief" so the UX engineer chooses appropriate
+  // colors/fonts for the specific project.
+  const colors: Record<string, string> = {};
+  if (brand.primary_color) colors.primary = brand.primary_color;
+  if (brand.secondary_color) colors.secondary = brand.secondary_color;
+  if (brand.accent_color) colors.accent = brand.accent_color;
+  colors.background = '#0A0A0B';
+  colors.foreground = '#FAFAFA';
+
+  const typography: Record<string, string> = { scale: 'modular_1.25' };
+  if (brand.heading_font) typography.headingFont = brand.heading_font;
+  if (brand.body_font) typography.bodyFont = brand.body_font;
+
   return {
-    brand_colors: {
-      primary: brand.primary_color,
-      secondary: brand.secondary_color,
-      accent: brand.accent_color,
-      background: '#0A0A0B',
-      foreground: '#FAFAFA',
-    },
-    typography: {
-      headingFont: brand.heading_font,
-      bodyFont: brand.body_font,
-      scale: 'modular_1.25',
-    },
+    ...(Object.keys(colors).length > 2 ? { brand_colors: colors } : {}),
+    ...(Object.keys(typography).length > 1 ? { typography } : {}),
     visual_style: brand.visual_style,
     animation_preference: brand.animation_preference,
+    ...(brand.brand_name ? { brand_name: brand.brand_name } : {}),
   };
 }
 
