@@ -275,7 +275,7 @@ function HtmlArtifactPreview({ html }: { html: string }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   return (
-    <div className="mt-3 rounded-xl border border-border overflow-hidden">
+    <div className="mt-3 rounded-xl border border-border overflow-hidden" style={{ minWidth: '480px' }}>
       <div className="flex items-center justify-between px-3 py-1.5 bg-surface border-b border-border">
         <span className="text-[11px] font-medium text-txt-muted">Live Preview</span>
         <div className="flex items-center gap-2">
@@ -304,7 +304,7 @@ function HtmlArtifactPreview({ html }: { html: string }) {
           srcDoc={html}
           sandbox="allow-scripts allow-same-origin"
           className="w-full bg-white"
-          style={{ height: '500px', border: 'none' }}
+          style={{ height: '600px', border: 'none' }}
           title="Web app preview"
         />
       )}
@@ -1213,8 +1213,16 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   {userInitials}
                 </div>
               )}
+              {(() => {
+                // Detect if message contains an HTML artifact so we can widen the bubble
+                const msgContent = msg.content ?? '';
+                const hasInlineHtml = /<!DOCTYPE html>[\s\S]*<\/html>/i.test(msgContent);
+                const hasActionHtml = msg.actions?.some(a => a.tool === 'quick_demo_web_app' && a.result === 'success') ?? false;
+                const hasArtifact = msg.role === 'agent' && (hasInlineHtml || hasActionHtml);
+                const widthClass = hasArtifact ? 'max-w-[95%] md:max-w-[90%]' : 'max-w-[85%] md:max-w-[70%]';
+                return (
               <div
-                className={`max-w-[85%] md:max-w-[70%] rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${
+                className={`${widthClass} rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${
                   msg.role === 'user'
                     ? 'chat-bubble-user glass-panel panel-nested border border-border text-txt-primary'
                     : 'chat-bubble-agent glass-panel panel-nested border border-border text-txt-secondary'
@@ -1299,6 +1307,8 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
+                );
+              })()}
             </div>
             );
           })}
