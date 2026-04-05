@@ -425,10 +425,10 @@ export function createToolRequestTools(): ToolDefinition[] {
             await refreshDynamicToolCache();
 
             await systemQuery(
-              `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
-               VALUES ($1, $2, $3, $4)
+              `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
+               VALUES ($1, $2, $3, $4, NOW())
                ON CONFLICT (agent_role, tool_name) DO UPDATE
-                 SET is_active = true, granted_by = EXCLUDED.granted_by, reason = EXCLUDED.reason, updated_at = NOW()`,
+                 SET is_active = true, granted_by = EXCLUDED.granted_by, reason = EXCLUDED.reason, last_synced_at = NOW(), updated_at = NOW()`,
               [ctx.agentRole, toolName, 'self-service-auto', `Auto-built via request_new_tool: ${justification}`],
             );
             invalidateGrantCache(ctx.agentRole);
@@ -750,9 +750,9 @@ export function createToolRequestTools(): ToolDefinition[] {
         // Auto-grant: insert the grant row
         try {
           await systemQuery(
-            `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (agent_role, tool_name) DO UPDATE SET is_active = true, reason = $4, updated_at = NOW()`,
+            `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
+             VALUES ($1, $2, $3, $4, NOW())
+             ON CONFLICT (agent_role, tool_name) DO UPDATE SET is_active = true, reason = $4, last_synced_at = NOW(), updated_at = NOW()`,
             [agentRole, toolName, 'self-service', `Self-requested: ${reason}`],
           );
           invalidateGrantCache(agentRole);
