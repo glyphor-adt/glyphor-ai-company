@@ -2100,13 +2100,17 @@ async function runIncrementalPatchRepair(
   const modelClient = createWebsiteFoundationModelClient();
 
   for (let round = 0; round < maxRounds; round++) {
+    // Last round: escalate to main model for harder fixes
+    const patchModel = round >= maxRounds - 1
+      ? DEFAULT_WEBSITE_FOUNDATION_MODEL
+      : WEBSITE_FOUNDATION_REPAIR_MODEL;
     const response = await modelClient.generate({
-      model: WEBSITE_FOUNDATION_REPAIR_MODEL,
+      model: patchModel,
       systemInstruction: INCREMENTAL_PATCH_SYSTEM_PROMPT,
       contents: [createConversationTurn({ role: 'user', content: buildPatchRepairUserMessage(files, errors) })],
       maxTokens: 65536,
-      thinkingEnabled: false,
-      reasoningLevel: 'standard',
+      thinkingEnabled: round >= maxRounds - 1, // enable thinking on final escalation
+      reasoningLevel: round >= maxRounds - 1 ? 'deep' : 'standard',
       signal: ctx.abortSignal,
       callTimeoutMs: 180_000,
       metadata: { agentRole: ctx.agentRole },
@@ -2114,8 +2118,8 @@ async function runIncrementalPatchRepair(
 
     const patches = parseIncrementalPatchOutput(response.text ?? '');
     if (!patches?.length) {
-      console.warn(`[WebBuild] Incremental patch round ${round + 1}: no valid patches in model output.`);
-      return null;
+      console.warn(`[WebBuild] Incremental patch round ${round + 1}: no valid patches — continuing to next round.`);
+      continue; // Don't give up, try next round (maybe with stronger model)
     }
 
     let applied = 0;
@@ -2125,8 +2129,8 @@ async function runIncrementalPatchRepair(
       applied++;
     }
     if (applied === 0) {
-      console.warn(`[WebBuild] Incremental patch round ${round + 1}: patches had no allowed paths.`);
-      return null;
+      console.warn(`[WebBuild] Incremental patch round ${round + 1}: no allowed paths — continuing.`);
+      continue; // Don't give up
     }
 
     const sb = await runSandboxBuild(files, ctx.abortSignal);
@@ -2173,14 +2177,17 @@ async function runWebsiteFoundationLoop(
   let effectiveModel = model;
 
   while (toolRounds <= WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS) {
+    // Claude Code pattern: same model retries with errors in context.
+    // On 3rd sandbox repair attempt, enable deeper reasoning for harder fixes.
+    const useDeepReasoning = sandboxRounds >= 2;
     const response = await modelClient.generate({
       model: effectiveModel,
       systemInstruction,
       contents: turns,
       tools: WEBSITE_FOUNDATION_TOOL_DECLARATIONS,
       maxTokens: WEBSITE_FOUNDATION_MAX_TOKENS,
-      thinkingEnabled: effectiveModel === model, // skip deep thinking on repair rounds
-      reasoningLevel: effectiveModel === model ? 'deep' : 'standard',
+      thinkingEnabled: true,
+      reasoningLevel: useDeepReasoning ? 'deep' : 'standard',
       signal: ctx.abortSignal,
       callTimeoutMs: 300_000,
       metadata: {
@@ -2215,6 +2222,7 @@ async function runWebsiteFoundationLoop(
           if (sandboxRounds > SANDBOX_MAX_REPAIR_ROUNDS) {
             const incMax = incrementalPatchMaxRounds();
             let merged: WebsiteFoundationOutput = parsed;
+            let repairSucceeded = false;
             if (incMax > 0) {
               console.warn('[WebBuild] Full-JSON sandbox repair limit reached; trying incremental file patches.');
               const repairedFlat = await runIncrementalPatchRepair(
@@ -2225,25 +2233,32 @@ async function runWebsiteFoundationLoop(
               );
               if (repairedFlat) {
                 merged = mergeFlatFilesIntoWebsiteOutput(parsed, repairedFlat);
+                repairSucceeded = true;
                 console.log('[WebBuild] Incremental patch repair fixed sandbox build.');
               } else {
-                console.warn('[WebBuild] Incremental patch repair did not fix build; shipping last full-JSON output.');
+                console.error('[WebBuild] ⚠️ ALL REPAIR ATTEMPTS EXHAUSTED. Shipping output with known build errors.');
+                console.error(`[WebBuild] Unresolved errors: ${sandboxResult.errors.slice(0, 5).join('; ')}`);
               }
             } else {
-              console.warn('[WebBuild] Sandbox repair limit reached; incremental patches disabled (WEB_BUILD_INCREMENTAL_PATCH_ROUNDS).');
+              console.error('[WebBuild] ⚠️ Sandbox repair limit reached and incremental patches disabled. Shipping with errors.');
             }
+            // Tag the output so downstream consumers know build quality
+            (merged as Record<string, unknown>).__buildStatus = repairSucceeded ? 'repaired' : 'errors_unresolved';
+            (merged as Record<string, unknown>).__unresolvedErrors = repairSucceeded ? [] : sandboxResult.errors.slice(0, 10);
             output = merged;
             break;
           }
 
-          // Send real build errors back to model for self-repair
+          // Send real build errors back to model for self-repair (Claude pattern:
+          // same model, errors in conversation context, model self-corrects)
           turns.push(createConversationTurn({
             role: 'user',
             content: buildSandboxRepairPrompt(sandboxResult.errors),
           }));
 
-          // Use the cheaper repair model for targeted error fixes
-          effectiveModel = WEBSITE_FOUNDATION_REPAIR_MODEL;
+          // Keep the SAME model — do NOT downgrade to repair model.
+          // Harder errors need the same (or better) capability, not less.
+          // effectiveModel stays unchanged.
           toolRounds += 1;
           continue;
         } else {
