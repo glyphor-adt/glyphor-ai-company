@@ -750,7 +750,8 @@ export type SecurityEventType =
   | 'ACTION_RISK_BLOCKED'
   | 'HOOK_BLOCKED'
   | 'HOOK_ERROR'
-  | 'CAPACITY_TIER_BLOCKED';
+  | 'CAPACITY_TIER_BLOCKED'
+  | 'POLICY_BLOCKED';
 
 export interface SecurityEvent {
   agentId: string;

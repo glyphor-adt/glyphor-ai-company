@@ -66,6 +66,7 @@ export type DenialSource =
   | 'value_gate'
   | 'scope_violation'
   | 'action_risk'
+  | 'policy'
   | 'unknown';
 
 export interface DenialTrackingState {

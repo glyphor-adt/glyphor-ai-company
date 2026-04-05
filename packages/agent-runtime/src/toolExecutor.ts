@@ -1013,7 +1013,7 @@ export class ToolExecutor {
       if (policyDecision && !policyDecision.allowed) {
         const reason = policyDecision.matchedRule?.reason ?? 'Policy denied';
         this.denialState = recordDenial(this.denialState, toolName, `Policy: ${reason}`, 'policy');
-        this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'BLOCKED', {
+        this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'POLICY_BLOCKED', {
           reason: 'policy_limits',
           policy_key: policyDecision.policyKey,
           set_by: policyDecision.matchedRule?.setBy ?? 'default',
