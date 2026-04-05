@@ -2189,6 +2189,15 @@ Rules:
 
         // 4. TOOL CALLS
         if (response.toolCalls.length > 0) {
+          // Strip model-generated hedging when tool calls are present.
+          // The user should see tool progress, not "I'm on it" filler text.
+          // The real response comes AFTER tool execution completes.
+          if (task === 'on_demand' && response.text?.trim()) {
+            const hedgePattern = /^(got it|i'm on it|working on|let me|i'll |sure|okay|on it|thanks|alright)/i;
+            if (hedgePattern.test(response.text.trim())) {
+              response.text = '';
+            }
+          }
           if (task === 'on_demand' && !response.text?.trim() && !onDemandToolOnlyAckInjected) {
             onDemandToolOnlyAckInjected = true;
             history.push({

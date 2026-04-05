@@ -250,6 +250,68 @@ function extractChatMessageMetadata(row: Record<string, unknown>): ChatMessageMe
   };
 }
 
+/** Extract HTML artifact from quick_demo_web_app tool results. */
+function extractHtmlArtifact(actions: ActionReceipt[]): string | null {
+  for (const action of actions) {
+    if (action.tool === 'quick_demo_web_app' && action.result === 'success' && action.output) {
+      try {
+        const parsed = JSON.parse(action.output);
+        if (parsed.html_document && typeof parsed.html_document === 'string') {
+          return parsed.html_document;
+        }
+      } catch {
+        // output might contain the HTML directly if it starts with <!DOCTYPE
+        if (action.output.trim().startsWith('<!DOCTYPE') || action.output.trim().startsWith('<html')) {
+          return action.output;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function HtmlArtifactPreview({ html }: { html: string }) {
+  const [expanded, setExpanded] = useState(true);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  return (
+    <div className="mt-3 rounded-xl border border-border overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-surface border-b border-border">
+        <span className="text-[11px] font-medium text-txt-muted">Live Preview</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const blob = new Blob([html], { type: 'text/html' });
+              const url = URL.createObjectURL(blob);
+              window.open(url, '_blank');
+              setTimeout(() => URL.revokeObjectURL(url), 10000);
+            }}
+            className="text-[10px] text-cyan-400 hover:text-cyan-300"
+          >
+            Open in new tab ↗
+          </button>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-[10px] text-txt-muted hover:text-foreground"
+          >
+            {expanded ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
+      </div>
+      {expanded && (
+        <iframe
+          ref={iframeRef}
+          srcDoc={html}
+          sandbox="allow-scripts allow-same-origin"
+          className="w-full bg-white"
+          style={{ height: '500px', border: 'none' }}
+          title="Web app preview"
+        />
+      )}
+    </div>
+  );
+}
+
 function ActionReceipts({ actions }: { actions: ActionReceipt[] }) {
   const [expanded, setExpanded] = useState(false);
   const errorCount = actions.filter(a => a.result === 'error').length;
@@ -1200,7 +1262,15 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                     Context summarized{msg.compactionCount && msg.compactionCount > 1 ? ` (${msg.compactionCount} events)` : ''} — earlier messages compressed
                   </div>
                 )}
-                {msg.actions && msg.actions.length > 0 && <ActionReceipts actions={msg.actions} />}
+                {msg.actions && msg.actions.length > 0 && (() => {
+                  const htmlArtifact = extractHtmlArtifact(msg.actions);
+                  return (
+                    <>
+                      {htmlArtifact && <HtmlArtifactPreview html={htmlArtifact} />}
+                      <ActionReceipts actions={msg.actions} />
+                    </>
+                  );
+                })()}
                 <p className="mt-1.5 text-[10px] text-txt-faint">
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
@@ -1221,7 +1291,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   </p>
                 )}
                 <p className="text-[13px] leading-relaxed text-txt-secondary mb-2">
-                  Got it — I'm on it. If this needs a live preview or repo setup, it can take a few minutes; I'll reply here when I have something to show.
+                  Working on it now.
                 </p>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] text-txt-faint mr-1">Still working</span>
