@@ -1219,7 +1219,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                 const hasInlineHtml = /<!DOCTYPE html>[\s\S]*<\/html>/i.test(msgContent);
                 const hasActionHtml = msg.actions?.some(a => a.tool === 'quick_demo_web_app' && a.result === 'success') ?? false;
                 const hasArtifact = msg.role === 'agent' && (hasInlineHtml || hasActionHtml);
-                const widthClass = hasArtifact ? 'max-w-full' : 'max-w-[85%] md:max-w-[70%]';
+                const widthClass = hasArtifact ? 'flex-1 min-w-0' : 'max-w-[85%] md:max-w-[70%]';
                 return (
               <div
                 className={`${widthClass} rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${
