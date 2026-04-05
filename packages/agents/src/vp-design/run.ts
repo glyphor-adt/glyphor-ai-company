@@ -103,6 +103,8 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
       // GitHub operations (push files, create repos from template)
       ...createGithubFromTemplateTools(),
       ...createGithubPushFilesTools(),
+      // Lighthouse audits (system prompt grants this authority)
+      ...createAuditTools(),
       // Minimal core (memory, messages, knowledge)
       ...createCoreTools(coreDeps, { chatOnly: true }),
       // Asset generation
