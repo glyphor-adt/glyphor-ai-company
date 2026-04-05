@@ -857,8 +857,22 @@ async function executeWebBuild(
   // After sandbox passes and preview is live, generate images from
   // the manifest and push them to the repo. This is fire-and-forget
   // safe — if image gen fails, the site still works with broken image refs.
-  const imageManifest = foundation.image_manifest as ImageManifestItem[] | undefined;
-  if (imageManifest && imageManifest.length > 0) {
+  const imageManifest = (foundation.image_manifest ?? []) as ImageManifestItem[];
+  console.log(`[WebBuild:Images] Manifest check: ${imageManifest.length} entries in image_manifest`);
+  if (imageManifest.length === 0) {
+    // The UX engineer may have omitted image_manifest or returned empty.
+    // Scan the generated files for /images/ references to detect missing manifest.
+    const allContent = Object.values(files).join('\n');
+    const imageRefs = allContent.match(/\/images\/[a-zA-Z0-9_-]+\.[a-zA-Z]{3,4}/g);
+    if (imageRefs && imageRefs.length > 0) {
+      const uniqueRefs = [...new Set(imageRefs)];
+      console.warn(
+        `[WebBuild:Images] ⚠️ Found ${uniqueRefs.length} /images/* references in code but image_manifest is empty. ` +
+        `References: ${uniqueRefs.join(', ')}. These will show as broken images.`,
+      );
+    }
+  }
+  if (imageManifest.length > 0) {
     try {
       const imageFiles = await generateImagesFromManifest(
         imageManifest,
@@ -2062,6 +2076,16 @@ function validateWebsiteFoundationOutput(
     if ((output.components ?? []).length < 4) {
       errors.push('components must include at least 4 complete section component files.');
     }
+  }
+
+  // Check image manifest consistency (soft — warns but doesn't block)
+  const flatFiles = flattenWebsiteFoundationFiles(output);
+  const allContent = Object.values(flatFiles).join('\n');
+  const imageRefs = allContent.match(/\/images\/[a-zA-Z0-9_-]+\.[a-zA-Z]{3,4}/g);
+  if (imageRefs && imageRefs.length > 0 && (!output.image_manifest || output.image_manifest.length === 0)) {
+    console.warn(
+      `[WebBuild:Validation] Code references ${[...new Set(imageRefs)].length} /images/* paths but image_manifest is empty.`,
+    );
   }
 
   return { ok: errors.length === 0, errors };
