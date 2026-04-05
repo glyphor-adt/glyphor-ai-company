@@ -35,12 +35,14 @@ import { run as layer26 } from './layers/layer26-slack-platform.js';
 import { run as layer27 } from './layers/layer27-schema-consistency.js';
 import { run as layer28 } from './layers/layer28-advancement-rollout.js';
 import { run as layer29 } from './layers/layer29-per-run-evaluation.js';
+import { run as layer30 } from './layers/layer30-tool-execution.js';
 
 const ALL_LAYERS: LayerRunner[] = [
   layer00, layer01, layer02, layer03, layer04, layer05,
   layer06, layer07, layer08, layer09, layer10, layer11, layer12, layer13,
   layer14, layer15, layer16, layer17, layer18, layer19, layer20, layer21,
   layer22, layer23, layer24, layer25, layer26, layer27, layer28, layer29,
+  layer30,
 ];
 
 function loadConfig(): SmokeTestConfig {
@@ -51,8 +53,8 @@ function loadConfig(): SmokeTestConfig {
   if (layerIdx !== -1 && args[layerIdx + 1]) {
     selectedLayers = args[layerIdx + 1].split(',').map(Number);
     for (const n of selectedLayers) {
-      if (isNaN(n) || n < 0 || n > 29) {
-        console.error(`Invalid layer number: ${n}. Must be 0-29.`);
+      if (isNaN(n) || n < 0 || n > 30) {
+        console.error(`Invalid layer number: ${n}. Must be 0-30.`);
         process.exit(1);
       }
     }
