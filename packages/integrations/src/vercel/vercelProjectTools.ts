@@ -84,6 +84,10 @@ export function createVercelProjectTools(): ToolDefinition[] {
             {
               name: projectName,
               framework,
+              gitRepository: {
+                type: 'github',
+                repo: `${githubOrg}/${repoName}`,
+              },
               buildCommand: 'npm run build',
               outputDirectory: 'dist',
               installCommand: 'npm install',
