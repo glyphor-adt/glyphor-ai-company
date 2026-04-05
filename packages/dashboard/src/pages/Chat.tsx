@@ -1246,16 +1246,22 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   (() => {
                     // Detect HTML artifact in message content (from quick_demo_web_app)
                     const content = msg.content ?? '';
-                    const htmlMatch = content.match(/<!DOCTYPE html>[\s\S]*<\/html>/i);
-                    if (htmlMatch) {
-                      // Extract any text before/after the HTML
-                      const htmlStart = content.indexOf(htmlMatch[0]);
+                    
+                    // Match raw HTML or HTML inside markdown code fences
+                    const rawHtmlMatch = content.match(/<!DOCTYPE html>[\s\S]*<\/html>/i);
+                    const fencedHtmlMatch = content.match(/```(?:html)?\s*\n(<!DOCTYPE html>[\s\S]*?<\/html>)\s*\n?```/i);
+                    const htmlContent = fencedHtmlMatch?.[1] ?? rawHtmlMatch?.[0];
+                    
+                    if (htmlContent) {
+                      // Find where the HTML block starts in original content
+                      const matchStr = fencedHtmlMatch?.[0] ?? rawHtmlMatch?.[0] ?? '';
+                      const htmlStart = content.indexOf(matchStr);
                       const textBefore = content.slice(0, htmlStart).trim();
-                      const textAfter = content.slice(htmlStart + htmlMatch[0].length).trim();
+                      const textAfter = content.slice(htmlStart + matchStr.length).trim();
                       return (
                         <>
                           {textBefore && <ChatMarkdown>{textBefore}</ChatMarkdown>}
-                          <HtmlArtifactPreview html={htmlMatch[0]} />
+                          <HtmlArtifactPreview html={htmlContent} />
                           {textAfter && <ChatMarkdown>{textAfter}</ChatMarkdown>}
                         </>
                       );

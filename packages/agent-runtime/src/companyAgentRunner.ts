@@ -53,6 +53,7 @@ import { maybeConsolidate } from './memory/consolidationTrigger.js';
 import { ConcurrentToolExecutor, shouldUseConcurrentExecution, type ToolCallEntry } from './concurrentToolExecutor.js';
 import type { PolicyLimitsCache } from './policyLimits.js';
 import type { CoordinatorSession } from './coordinatorMode.js';
+import { generateAwaySummary, isIdleLongEnough, hasRecentAwaySummary, formatAwaySummaryTurn, type AwaySummaryConfig } from './awaySummary.js';
 import type { RequestSource } from './providers/types.js';
 import type {
   SessionMemoryStore,
@@ -981,6 +982,8 @@ export interface RunDependencies {
   policyCache?: PolicyLimitsCache;
   /** Coordinator session for multi-agent task orchestration. */
   coordinatorSession?: CoordinatorSession;
+  /** Away summary config for session resumption recaps. */
+  awaySummaryConfig?: AwaySummaryConfig;
   /** Optional session summary persistence for cross-turn memory compaction. */
   sessionMemoryStore?: SessionMemoryStore;
   /** Optional post-turn session summary updater. */
@@ -1520,6 +1523,33 @@ export class CompanyAgentRunner {
           content: `[CONTEXT — Do NOT respond to this message; wait for the user's actual message.]\n\n${preamble}${workingMemory.summary}${suffix}`,
           timestamp: Date.now(),
         });
+      }
+
+      // Inject away summary if the agent has been idle long enough
+      if (
+        deps?.awaySummaryConfig?.enabled !== false &&
+        tier !== 'task' &&
+        workingMemory?.lastRunAt &&
+        isIdleLongEnough(workingMemory.lastRunAt) &&
+        !hasRecentAwaySummary(history)
+      ) {
+        try {
+          const awayResult = await generateAwaySummary(
+            {
+              messages: cleanHistory,
+              agentRole: config.role,
+              sessionMemory: workingMemory.summary,
+              conversationId: config.id,
+            },
+            this.modelClient,
+            deps.awaySummaryConfig,
+          );
+          if (awayResult.summary) {
+            history.push(formatAwaySummaryTurn(awayResult.summary));
+          }
+        } catch (err) {
+          console.warn(`[CompanyAgentRunner] Away summary failed for ${config.role}:`, (err as Error).message);
+        }
       }
 
       // Set profile

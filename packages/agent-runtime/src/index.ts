@@ -49,6 +49,15 @@ export type {
   CoordinatorSessionConfig,
   CoordinatorSessionStats,
 } from './coordinatorMode.js';
+// Away summary — session resumption recap after idle periods
+export {
+  generateAwaySummary,
+  buildAwaySummaryPrompt,
+  isIdleLongEnough,
+  hasRecentAwaySummary,
+  formatAwaySummaryTurn,
+} from './awaySummary.js';
+export type { AwaySummaryConfig, AwaySummaryInput, AwaySummaryResult } from './awaySummary.js';
 // buildTool factory — fail-closed tool definitions
 export { buildTool, isSafeTool, getToolMeta, isToolPermittedForRole, getToolTimeout, getToolRateLimit } from './buildTool.js';
 export type { SafeToolDefinition, ToolMetadata, BuildToolInput, PreToolHookFn, PostToolHookFn } from './buildTool.js';
