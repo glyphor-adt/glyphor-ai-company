@@ -12,6 +12,9 @@ export { ProviderFactory, GeminiAdapter, OpenAIAdapter, AnthropicAdapter } from 
 export type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, UnifiedToolCall, UnifiedUsageMetadata, StructuredOutputSpec, ModelRoutingMetadata, UnifiedRequestMetadata } from './providers/types.js';
 export { AgentSupervisor } from './supervisor.js';
 export { ToolExecutor, isToolBlocked, invalidateBlockCache, isToolGranted, invalidateGrantCache, loadGrantedToolNames } from './toolExecutor.js';
+// Concurrent tool execution — parallel dispatch for safe tools
+export { ConcurrentToolExecutor, classifyToolConcurrency, shouldUseConcurrentExecution } from './concurrentToolExecutor.js';
+export type { ToolCallEntry, ConcurrentToolResult, ConcurrentBatchStats, TrackedToolStatus } from './concurrentToolExecutor.js';
 // buildTool factory — fail-closed tool definitions
 export { buildTool, isSafeTool, getToolMeta, isToolPermittedForRole, getToolTimeout, getToolRateLimit } from './buildTool.js';
 export type { SafeToolDefinition, ToolMetadata, BuildToolInput, PreToolHookFn, PostToolHookFn } from './buildTool.js';

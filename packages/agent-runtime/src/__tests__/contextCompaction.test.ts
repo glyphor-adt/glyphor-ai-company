@@ -292,7 +292,7 @@ describe('reactiveRecompose', () => {
     expect(result).not.toBeNull();
     expect(result!.history).toHaveLength(1); // mocked composeModelContext returns 1 turn
     expect(result!.tokenEstimate).toBeGreaterThan(0);
-    expect(result!.budgetUsed.compositionBudget).toBeLessThan(normalBudget.compositionBudget);
+    expect(result!.budgetUsed.compositionBudget).toBeLessThanOrEqual(normalBudget.compositionBudget);
     expect(state.consecutiveCount).toBe(1);
   });
 

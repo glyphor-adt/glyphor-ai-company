@@ -49,6 +49,7 @@ import { extractDashboardChatEmbedsFromHistory } from './dashboardChatEmbeds.js'
 import { shouldUseClientSideHistoryCompression } from './compaction.js';
 import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.js';
 import { maybeConsolidate } from './memory/consolidationTrigger.js';
+import { ConcurrentToolExecutor, shouldUseConcurrentExecution, type ToolCallEntry } from './concurrentToolExecutor.js';
 import type { RequestSource } from './providers/types.js';
 import type {
   SessionMemoryStore,
@@ -2208,8 +2209,7 @@ Rules:
           }
 
           // Execute all tools and push all tool_result turns
-          for (const call of response.toolCalls) {
-            const result = await toolExecutor.execute(call.name, call.args, {
+          const toolContext: ToolContext = {
               agentId: config.id,
               agentRole: config.role,
               turnNumber,
@@ -2224,7 +2224,74 @@ Rules:
               retrievalMetadata: lastRetrievalTrace
                 ? buildCompanyRetrievalMetadataMap(lastRetrievalTrace)
                 : undefined,
-            });
+          };
+
+          // Concurrent dispatch: run safe tools in parallel when possible
+          const useConcurrent = response.toolCalls.length > 1
+            && shouldUseConcurrentExecution(response.toolCalls, (toolExecutor as any).tools);
+
+          if (useConcurrent) {
+            const concurrent = new ConcurrentToolExecutor(toolExecutor);
+            const callEntries: ToolCallEntry[] = response.toolCalls.map((call, idx) => ({
+              index: idx,
+              name: call.name,
+              args: call.args,
+            }));
+
+            let batchAborted = false;
+            const iter = concurrent.executeBatch(callEntries, toolContext);
+            let iterResult = await iter.next();
+            while (!iterResult.done) {
+              const { call, result } = iterResult.value;
+              const resultContent = result.data !== undefined
+                ? JSON.stringify(result.data)
+                : result.error ?? 'ok';
+
+              history.push({
+                role: 'tool_result',
+                content: resultContent,
+                toolName: call.name,
+                toolResult: result,
+                timestamp: Date.now(),
+              });
+
+              actionReceipts.push({
+                tool: call.name,
+                params: call.args,
+                result: result.success ? 'success' : 'error',
+                output: (result.success
+                  ? (typeof result.data === 'string' ? result.data : (JSON.stringify(result.data) ?? 'ok')).slice(0, 500)
+                  : result.error ?? 'Unknown error'
+                ),
+                timestamp: new Date().toISOString(),
+              });
+
+              emitEvent({
+                type: 'tool_result',
+                agentId: config.id,
+                turnNumber,
+                toolName: call.name,
+                success: result.success,
+                filesWritten: result.filesWritten ?? 0,
+                memoryKeysWritten: result.memoryKeysWritten ?? 0,
+              });
+
+              const progressCheck = supervisor.recordToolResult(call.name, result);
+              if (!progressCheck.ok) {
+                if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, progressCheck.reason ?? 'stall_detected', deps);
+                batchAborted = true;
+                return this.buildResult(
+                  config, 'aborted', lastTextOutput, history, supervisor,
+                  progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
+                  0, undefined, actualModelUsed, actualProviderUsed,
+                );
+              }
+              iterResult = await iter.next();
+            }
+          } else {
+          // Sequential fallback (single tool or all tools unsafe)
+          for (const call of response.toolCalls) {
+            const result = await toolExecutor.execute(call.name, call.args, toolContext);
 
             const resultContent = result.data !== undefined
               ? JSON.stringify(result.data)
@@ -2270,6 +2337,7 @@ Rules:
               );
             }
           }
+          } // end if/else concurrent
           continue;
         }
 

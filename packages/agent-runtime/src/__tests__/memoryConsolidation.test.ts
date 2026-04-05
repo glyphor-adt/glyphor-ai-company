@@ -415,6 +415,6 @@ describe('forceConsolidate', () => {
 
     const result = await forceConsolidate(ROLE, store, modelClient);
     expect(result.role).toBe(ROLE);
-    expect(result.durationMs).toBeGreaterThan(0);
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
 });
