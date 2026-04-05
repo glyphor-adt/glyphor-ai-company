@@ -275,7 +275,7 @@ function HtmlArtifactPreview({ html }: { html: string }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   return (
-    <div className="mt-3 rounded-xl border border-border overflow-hidden" style={{ minWidth: '480px' }}>
+    <div className="mt-3 rounded-xl border border-border overflow-hidden">
       <div className="flex items-center justify-between px-3 py-1.5 bg-surface border-b border-border">
         <span className="text-[11px] font-medium text-txt-muted">Live Preview</span>
         <div className="flex items-center gap-2">
@@ -1219,7 +1219,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                 const hasInlineHtml = /<!DOCTYPE html>[\s\S]*<\/html>/i.test(msgContent);
                 const hasActionHtml = msg.actions?.some(a => a.tool === 'quick_demo_web_app' && a.result === 'success') ?? false;
                 const hasArtifact = msg.role === 'agent' && (hasInlineHtml || hasActionHtml);
-                const widthClass = hasArtifact ? 'max-w-[95%] md:max-w-[90%]' : 'max-w-[85%] md:max-w-[70%]';
+                const widthClass = hasArtifact ? 'max-w-full' : 'max-w-[85%] md:max-w-[70%]';
                 return (
               <div
                 className={`${widthClass} rounded-xl px-3 py-2 md:px-4 md:py-2.5 text-[13px] leading-relaxed ${

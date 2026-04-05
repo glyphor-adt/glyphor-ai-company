@@ -1137,9 +1137,27 @@ export class CompanyAgentRunner {
     }
 
     // Pre-seed with prior conversation history for multi-turn chat
+    // ── Augment short confirmatory messages ──────────────────────
+    // When the user says "yes", "yes please", "do it", "go ahead" etc.,
+    // the model often doesn't connect it to its own previous proposal.
+    // Detect this pattern and prepend context from the last assistant turn.
+    let effectiveMessage = initialMessage;
+    const CONFIRMATION_PATTERN = /^(y(es|eah|ep|up)?|do it|go( ahead)?|sure|ok(ay)?|please|sounds good|let'?s do it|go for it|ship it|build it|make it|yep please|yes please|absolutely|definitely|proceed|confirmed?)\s*[.!]?\s*$/i;
+    if (CONFIRMATION_PATTERN.test(initialMessage.trim()) && cleanHistory.length > 0) {
+      // Find the last assistant turn in conversation history
+      const lastAssistantTurn = [...cleanHistory].reverse().find(t => t.role === 'assistant');
+      if (lastAssistantTurn?.content) {
+        const proposal = lastAssistantTurn.content.length > 400
+          ? lastAssistantTurn.content.slice(0, 400) + '…'
+          : lastAssistantTurn.content;
+        effectiveMessage = `${initialMessage}\n\n[SYSTEM: The user is confirming your previous proposal. Your last message was: "${proposal}". Proceed immediately — call the appropriate tools now to execute what you proposed. Do NOT ask clarifying questions or say "ready for your next message".]`;
+        console.log(`[CompanyAgentRunner] Augmented confirmatory message "${initialMessage}" with prior assistant context for ${config.role}`);
+      }
+    }
+
     const history: ConversationTurn[] = [
       ...cleanHistory,
-      { role: 'user', content: initialMessage, timestamp: Date.now(), ...(initialAttachments ? { attachments: initialAttachments } : {}) },
+      { role: 'user', content: effectiveMessage, timestamp: Date.now(), ...(initialAttachments ? { attachments: initialAttachments } : {}) },
     ];
     const toolRunId = dbRunId ?? config.id;
     let lastTextOutput: string | null = null;
@@ -2502,6 +2520,26 @@ Return ONLY strict JSON with:
               `[CompanyAgentRunner] Planning-only response detected for ${config.role} on turn ${turnNumber} — nudging to execute.`,
             );
             history.push({ role: 'user', content: PLANNING_NUDGE, timestamp: Date.now() });
+            continue;
+          }
+
+          // Deflection guard: when user confirmed a previous proposal but the model
+          // responded with a deflective/idle message ("Ready for your next message",
+          // "Let me know what you'd like", etc.) instead of executing, nudge once.
+          const IDLE_DEFLECTION_NUDGE = 'The user already confirmed. Do NOT wait — execute the action you proposed in your previous message. Call the appropriate tools NOW.';
+          const IDLE_DEFLECTION_PATTERN = /^(ready for|let me know|awaiting|standing by|what would you like|how can I help|what can I|is there anything)/i;
+          if (
+            task === 'on_demand' &&
+            lastTextOutput &&
+            actionReceipts.length === 0 &&
+            turnNumber <= 2 &&
+            IDLE_DEFLECTION_PATTERN.test(lastTextOutput.trim()) &&
+            !history.some(h => h.content === IDLE_DEFLECTION_NUDGE)
+          ) {
+            console.warn(
+              `[CompanyAgentRunner] Idle deflection detected for ${config.role}: "${lastTextOutput.slice(0, 60)}" — nudging to execute.`,
+            );
+            history.push({ role: 'user', content: IDLE_DEFLECTION_NUDGE, timestamp: Date.now() });
             continue;
           }
 
