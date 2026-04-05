@@ -49,9 +49,10 @@ export function createQuickDemoWebAppTools(): ToolDefinition[] {
     {
       name: 'quick_demo_web_app',
       description:
-        'Offline / emergency only: generate ONE self-contained HTML file (no GitHub, no Vercel, **no live URL**). '
-        + '**Do not use for dashboard users who expect a preview link** — they should get `normalize_design_brief` + `invoke_web_build` with `tier: prototype` (`preview_url`). '
-        + 'If this tool is used, explain that it is a local file preview, not a hosted deployment.',
+        'Generate a self-contained React web app as a single file — fast path for dashboards, demos, calculators, data visualizations, and simple tools. '
+        + 'Produces a complete working app with mock data, charts, and styling in under 2 minutes. '
+        + '**Use this as the default for simple "build me X" requests in chat.** '
+        + 'For multi-file projects that need a hosted preview URL, use plan_website_build + github_push_files instead.',
       parameters: {
         description: {
           type: 'string',

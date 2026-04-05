@@ -45,6 +45,7 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createWebBuildTools } from '../shared/webBuildTools.js';
 import { createWebBuildPlannerTools } from '../shared/webBuildPlannerTools.js';
+import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
 import { createDesignBriefTools } from '../shared/designBriefTools.js';
 export interface VPDesignRunParams {
   task?: 'design_audit' | 'design_system_review' | 'on_demand';
@@ -85,6 +86,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createAuditTools(),
     ...createDesignBriefTools(),
     ...createWebBuildPlannerTools(),
+    ...createQuickDemoWebAppTools(),
     ...createAssetTools(glyphorEventBus),
     ...createScaffoldTools(),
     ...createDeployPreviewTools(),
