@@ -101,8 +101,9 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ...createStorybookTools(),
     ...createCanvaTools(),
     ...createLogoTools(),
-    ...await createAgent365McpTools('vp-design'),
-    ...await createGlyphorMcpTools('vp-design'),
+    // MCP tools: skip for on_demand chat to reduce tool count and avoid startup latency
+    ...(params.task === 'on_demand' || !params.task ? [] : await createAgent365McpTools('vp-design')),
+    ...(params.task === 'on_demand' || !params.task ? [] : await createGlyphorMcpTools('vp-design')),
   ];
   const toolExecutor = new ToolExecutor(tools);
 
