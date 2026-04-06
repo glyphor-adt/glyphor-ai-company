@@ -1104,6 +1104,18 @@ function detectRequestedDeliverable(message: string): { tool: string } | null {
   return null;
 }
 
+const GENERIC_REFUSAL_PATTERNS = [
+  /i\s*(?:am|'m)\s*sorry[,\s]*but\s*i\s*cannot\s*assist\s*with\s*that\s*request/i,
+  /i\s*cannot\s*assist\s*with\s*that\s*request/i,
+  /i\s*(?:am|'m)\s*sorry[,\s]*but\s*i\s*can'?t\s*assist\s*with\s*that/i,
+  /sorry[,\s]*i\s*can'?t\s*assist\s*with\s*that/i,
+];
+
+function hasGenericRefusal(text: string): boolean {
+  const candidate = text.trim();
+  return GENERIC_REFUSAL_PATTERNS.some((pattern) => pattern.test(candidate));
+}
+
 /** Build a per-tool retrieval metadata map from the ToolRetriever trace. */
 function buildCompanyRetrievalMetadataMap(trace: ToolRetrieverTrace): ToolRetrievalMetadataMap {
   const map: ToolRetrievalMetadataMap = new Map();
@@ -2863,6 +2875,23 @@ Return ONLY strict JSON with:
               `[CompanyAgentRunner] Idle deflection detected for ${config.role}: "${lastTextOutput.slice(0, 60)}" — nudging to execute.`,
             );
             history.push({ role: 'user', content: IDLE_DEFLECTION_NUDGE, timestamp: Date.now() });
+            continue;
+          }
+
+          // ─── GENERIC REFUSAL GUARD ────────────────────────────────
+          // Some providers occasionally emit canned refusal boilerplate
+          // even for routine operational requests. Nudge once to require
+          // concrete execution or explicit handoff with next action.
+          const REFUSAL_NUDGE = 'Do not return a generic refusal. Execute the request with available tools. If truly outside your permissions, explicitly hand off to the correct agent, include the exact record write needed, and request read-back verification. Never reply with canned refusal text.';
+          if (
+            lastTextOutput &&
+            hasGenericRefusal(lastTextOutput) &&
+            !history.some(h => h.content === REFUSAL_NUDGE)
+          ) {
+            console.warn(
+              `[CompanyAgentRunner] Generic refusal detected for ${config.role} — nudging to execute or hand off concretely.`,
+            );
+            history.push({ role: 'user', content: REFUSAL_NUDGE, timestamp: Date.now() });
             continue;
           }
 
