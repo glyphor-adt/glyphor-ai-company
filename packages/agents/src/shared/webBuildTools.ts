@@ -153,13 +153,66 @@ interface ImageManifestItem {
 }
 
 /**
+ * Generate a single image with Imagen 4 primary + DALL-E 3 fallback.
+ * Returns null on total failure (both providers).
+ */
+async function generateSingleImage(
+  item: ImageManifestItem,
+  modelClient: InstanceType<typeof import('@glyphor/agent-runtime').ModelClient>,
+): Promise<{ filePath: string; data: string } | null> {
+  if (!item.fileName || !item.prompt) return null;
+
+  const filePath = item.fileName.startsWith('/')
+    ? `public${item.fileName}`
+    : item.fileName.startsWith('public/')
+      ? item.fileName
+      : `public/images/${item.fileName}`;
+  const ar = item.aspect_ratio || '16:9';
+
+  // Primary: Imagen 4 Ultra
+  try {
+    const result = await Promise.race([
+      modelClient.generateImage(item.prompt, undefined, ar),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Image gen timeout')), IMAGE_GEN_TIMEOUT_MS),
+      ),
+    ]);
+    if (result.imageData) {
+      console.log(`[WebBuild:Images] ✅ ${item.fileName} (Imagen 4, ${ar})`);
+      return { filePath, data: result.imageData };
+    }
+  } catch (err) {
+    console.warn(`[WebBuild:Images] Imagen 4 failed for ${item.fileName}: ${(err as Error).message}`);
+  }
+
+  // Fallback: OpenAI DALL-E 3
+  try {
+    const result = await Promise.race([
+      modelClient.generateImageOpenAI(item.prompt, undefined, ar),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Image gen timeout')), IMAGE_GEN_TIMEOUT_MS),
+      ),
+    ]);
+    if (result.imageData) {
+      console.log(`[WebBuild:Images] ✅ ${item.fileName} (DALL-E 3 fallback)`);
+      return { filePath, data: result.imageData };
+    }
+  } catch (err) {
+    console.warn(`[WebBuild:Images] DALL-E 3 also failed for ${item.fileName}: ${(err as Error).message}`);
+  }
+
+  console.warn(`[WebBuild:Images] ❌ Skipped ${item.fileName} — both providers failed`);
+  return null;
+}
+
+/**
  * Generate images from the build manifest using Imagen 4 (primary) with
- * OpenAI DALL-E 3 fallback. Returns a map of filePath → base64 content
- * ready for github_push_files.
+ * OpenAI DALL-E 3 fallback. All images generated CONCURRENTLY (max 4 at once).
+ * Returns a map of filePath → base64 content ready for github_push_files.
  */
 async function generateImagesFromManifest(
   manifest: ImageManifestItem[],
-  ctx: ToolContext,
+  _ctx: ToolContext,
 ): Promise<Record<string, string>> {
   const { ModelClient: MC } = await import('@glyphor/agent-runtime');
   const modelClient = new MC({
@@ -168,59 +221,22 @@ async function generateImagesFromManifest(
   });
 
   const items = manifest.slice(0, MAX_IMAGE_GEN_ITEMS);
+  console.log(`[WebBuild:Images] Generating ${items.length} images CONCURRENTLY`);
+
+  // Process in batches of 4 to avoid rate limits
+  const MAX_CONCURRENT = 4;
   const imageFiles: Record<string, string> = {};
 
-  console.log(`[WebBuild:Images] Generating ${items.length} images from manifest`);
-
-  for (const item of items) {
-    if (!item.fileName || !item.prompt) continue;
-
-    // Normalize path: /images/hero.jpg → public/images/hero.jpg (Vite serves from public/)
-    const filePath = item.fileName.startsWith('/')
-      ? `public${item.fileName}`
-      : item.fileName.startsWith('public/')
-        ? item.fileName
-        : `public/images/${item.fileName}`;
-
-    try {
-      // Primary: Imagen 4 Ultra — pass aspect ratio from manifest
-      const ar = item.aspect_ratio || '16:9';
-      const result = await Promise.race([
-        modelClient.generateImage(item.prompt, undefined, ar),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Image gen timeout')), IMAGE_GEN_TIMEOUT_MS),
-        ),
-      ]);
-
-      if (result.imageData) {
-        imageFiles[filePath] = result.imageData;
-        console.log(`[WebBuild:Images] ✅ ${item.fileName} (Imagen 4, ${ar})`);
-        continue;
+  for (let i = 0; i < items.length; i += MAX_CONCURRENT) {
+    const batch = items.slice(i, i + MAX_CONCURRENT);
+    const results = await Promise.allSettled(
+      batch.map(item => generateSingleImage(item, modelClient)),
+    );
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        imageFiles[result.value.filePath] = result.value.data;
       }
-    } catch (err) {
-      console.warn(`[WebBuild:Images] Imagen 4 failed for ${item.fileName}: ${(err as Error).message}`);
     }
-
-    // Fallback: OpenAI DALL-E 3
-    try {
-      const ar = item.aspect_ratio || '16:9';
-      const result = await Promise.race([
-        modelClient.generateImageOpenAI(item.prompt, undefined, ar),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Image gen timeout')), IMAGE_GEN_TIMEOUT_MS),
-        ),
-      ]);
-
-      if (result.imageData) {
-        imageFiles[filePath] = result.imageData;
-        console.log(`[WebBuild:Images] ✅ ${item.fileName} (DALL-E 3 fallback)`);
-        continue;
-      }
-    } catch (err) {
-      console.warn(`[WebBuild:Images] DALL-E 3 also failed for ${item.fileName}: ${(err as Error).message}`);
-    }
-
-    console.warn(`[WebBuild:Images] ❌ Skipped ${item.fileName} — both providers failed`);
   }
 
   console.log(`[WebBuild:Images] Generated ${Object.keys(imageFiles).length}/${items.length} images`);
@@ -917,96 +933,108 @@ async function executeWebBuild(
 
   const files = asRecord(foundation.files) as Record<string, string>;
   assertValidWebsiteFileMap(files);
-  const push = await executeWebsitePipelineTool<Record<string, unknown>>(
-    'github_push_files',
-    {
-      repo: project.repoFullName,
-      branch: project.branch,
-      files,
-      commit_message: options.commitMessage
-        ?? (params.tier === 'iterate' ? 'feat: apply website iteration' : 'feat: website pipeline build'),
-    },
-    ctx,
-  );
 
-  const preview = await waitForPreviewUrl(project, ctx);
-  const previewRegistration = await executeWebsitePipelineTool<Record<string, unknown>>(
-    project.isExisting || params.tier === 'iterate' ? 'cloudflare_update_preview' : 'cloudflare_register_preview',
-    {
-      project_slug: project.projectSlug,
-      vercel_deployment_url: preview.preview_url,
-      github_repo_url: `https://github.com/${project.repoFullName}`,
-      project_name: project.projectName,
-    },
-    ctx,
-  );
+  // ─── PARALLEL PIPELINE ─────────────────────────────────────────
+  // Phase 1 (done above): UX engineer generated code + manifests
+  // Phase 2 (NOW): Run media generation IN PARALLEL with deploy
+  //   - Track A: Git push code → Vercel deploy → Cloudflare register
+  //   - Track B: Generate images concurrently (up to 4 at once)
+  //   - Track C: Generate videos concurrently (up to 2)
+  // Phase 3: Push media files to repo after both tracks complete
 
-  // ─── IMAGE GENERATION FROM MANIFEST ─────────────────────────
-  // After sandbox passes and preview is live, generate images from
-  // the manifest and push them to the repo.
+  // Prepare image manifest (reconstruct from code if UX engineer omitted it)
   let imageManifest = (foundation.image_manifest ?? []) as ImageManifestItem[];
-  console.log(`[WebBuild:Images] Manifest check: ${imageManifest.length} entries in image_manifest`);
-
-  // If manifest is empty but code references /images/*, reconstruct from refs
   if (imageManifest.length === 0) {
     const reconstructed = reconstructImageManifestFromCode(files);
     if (reconstructed.length > 0) {
       console.warn(
-        `[WebBuild:Images] ⚠️ Empty manifest but found ${reconstructed.length} /images/* refs in code. ` +
-        `Reconstructing manifest from code references.`,
+        `[WebBuild:Images] ⚠️ Empty manifest but found ${reconstructed.length} /images/* refs in code. Reconstructing.`,
       );
       imageManifest = reconstructed;
     }
   }
+  const videoManifest = (foundation.video_manifest ?? []) as VideoManifestItem[];
 
-  if (imageManifest.length > 0) {
+  console.log(
+    `[WebBuild] Starting parallel pipeline: code deploy + ${imageManifest.length} images + ${videoManifest.length} videos`,
+  );
+
+  // Track A: Deploy code (sequential: push → preview → cloudflare)
+  const deployTrack = (async () => {
+    const push = await executeWebsitePipelineTool<Record<string, unknown>>(
+      'github_push_files',
+      {
+        repo: project.repoFullName,
+        branch: project.branch,
+        files,
+        commit_message: options.commitMessage
+          ?? (params.tier === 'iterate' ? 'feat: apply website iteration' : 'feat: website pipeline build'),
+      },
+      ctx,
+    );
+    const preview = await waitForPreviewUrl(project, ctx);
+    const previewRegistration = await executeWebsitePipelineTool<Record<string, unknown>>(
+      project.isExisting || params.tier === 'iterate' ? 'cloudflare_update_preview' : 'cloudflare_register_preview',
+      {
+        project_slug: project.projectSlug,
+        vercel_deployment_url: preview.preview_url,
+        github_repo_url: `https://github.com/${project.repoFullName}`,
+        project_name: project.projectName,
+      },
+      ctx,
+    );
+    return { push, preview, previewRegistration };
+  })();
+
+  // Track B: Generate images (concurrent, batched at 4)
+  const imageTrack = imageManifest.length > 0
+    ? generateImagesFromManifest(imageManifest, ctx).catch(err => {
+        console.warn(`[WebBuild] Image generation failed (non-blocking): ${(err as Error).message}`);
+        return {} as Record<string, string>;
+      })
+    : Promise.resolve({} as Record<string, string>);
+
+  // Track C: Generate videos (concurrent)
+  const videoTrack = videoManifest.length > 0
+    ? generateVideosFromManifest(videoManifest, ctx).catch(err => {
+        console.warn(`[WebBuild] Video generation failed (non-blocking): ${(err as Error).message}`);
+        return {} as Record<string, string>;
+      })
+    : Promise.resolve({} as Record<string, string>);
+
+  // Wait for ALL tracks to complete
+  const [deployResult, imageFiles, videoFiles] = await Promise.all([
+    deployTrack,
+    imageTrack,
+    videoTrack,
+  ]);
+
+  const { preview, previewRegistration } = deployResult;
+  const push = deployResult.push;
+
+  // Phase 3: Push media files to repo (single commit with all media)
+  const allMediaFiles: Record<string, string> = { ...imageFiles, ...videoFiles };
+  if (Object.keys(allMediaFiles).length > 0) {
     try {
-      const imageFiles = await generateImagesFromManifest(
-        imageManifest,
+      await executeWebsitePipelineTool(
+        'github_push_files',
+        {
+          repo: project.repoFullName,
+          branch: project.branch,
+          files: allMediaFiles,
+          commit_message: `feat: add ${Object.keys(imageFiles).length} images + ${Object.keys(videoFiles).length} videos`,
+        },
         ctx,
       );
-      if (Object.keys(imageFiles).length > 0) {
-        await executeWebsitePipelineTool(
-          'github_push_files',
-          {
-            repo: project.repoFullName,
-            branch: project.branch,
-            files: imageFiles,
-            commit_message: `feat: add ${Object.keys(imageFiles).length} generated images`,
-          },
-          ctx,
-        );
-        console.log(`[WebBuild] Pushed ${Object.keys(imageFiles).length} generated images to ${project.branch}`);
-      } else {
-        console.warn(`[WebBuild:Images] ⚠️ All ${imageManifest.length} image generations failed. Site will have broken image refs.`);
-      }
-    } catch (imgErr) {
-      console.warn(`[WebBuild] Image generation failed (non-blocking): ${(imgErr as Error).message}`);
+      console.log(
+        `[WebBuild] Pushed ${Object.keys(allMediaFiles).length} media files to ${project.branch} ` +
+        `(${Object.keys(imageFiles).length} images, ${Object.keys(videoFiles).length} videos)`,
+      );
+    } catch (mediaErr) {
+      console.warn(`[WebBuild] Media push failed (non-blocking): ${(mediaErr as Error).message}`);
     }
-  }
-
-  // ─── VIDEO GENERATION FROM MANIFEST ─────────────────────────
-  const videoManifest = (foundation.video_manifest ?? []) as VideoManifestItem[];
-  if (videoManifest.length > 0) {
-    console.log(`[WebBuild:Videos] Manifest check: ${videoManifest.length} entries in video_manifest`);
-    try {
-      const videoFiles = await generateVideosFromManifest(videoManifest, ctx);
-      if (Object.keys(videoFiles).length > 0) {
-        await executeWebsitePipelineTool(
-          'github_push_files',
-          {
-            repo: project.repoFullName,
-            branch: project.branch,
-            files: videoFiles,
-            commit_message: `feat: add ${Object.keys(videoFiles).length} generated videos`,
-          },
-          ctx,
-        );
-        console.log(`[WebBuild] Pushed ${Object.keys(videoFiles).length} generated videos to ${project.branch}`);
-      }
-    } catch (vidErr) {
-      console.warn(`[WebBuild] Video generation failed (non-blocking): ${(vidErr as Error).message}`);
-    }
+  } else if (imageManifest.length > 0) {
+    console.warn(`[WebBuild:Images] ⚠️ All media generations failed. Site will have broken media refs.`);
   }
 
   let githubPrUrl: string | undefined;

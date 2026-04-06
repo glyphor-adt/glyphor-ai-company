@@ -71,7 +71,22 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
 
   switch (task) {
     case 'daily_analysis':
-      initialMessage = params.message ?? `Run your daily analysis cycle for ${today}. Start by calling audit_channel_delivery_config and treat any missing, mismatched, or unusable Teams delivery path as an active fleet issue. If the audit reports missing channels or delivery risks, write fleet findings for the impacted paths before continuing. Then analyze the full fleet, take autonomous actions, send approval requests for anything outside your autonomous tier. Before finishing, call watch_tool_gaps so unresolved fleet_findings where finding_type='tool_gap' are auto-built and granted without waiting for human dispatch. Produce your structured output.`;
+      initialMessage = params.message ?? [
+        `Daily analysis cycle for ${today}. Execute these tool calls in order:`,
+        '',
+        '1. audit_channel_delivery_config() — check Teams delivery paths',
+        '2. read_gtm_report() — overall GTM status',
+        '3. read_fleet_health() — full fleet picture',
+        '4. read_tool_failure_rates(min_failure_rate: 0.15) — broken tools',
+        '5. read_blocked_assignments(need_type: "tool_access") — blocked agents',
+        '6. watch_tool_gaps() — auto-resolve tool gaps',
+        '',
+        'After each tool call, take autonomous action on what you find (grant tools, trigger reflections, write findings).',
+        'For anything outside your autonomous tier, use create_approval_request.',
+        'End with your structured output (human summary + JSON report).',
+        '',
+        'IMPORTANT: Call the tools above — do not skip tool calls or produce only text.',
+      ].join('\n');
       break;
 
     case 'watch_tool_gaps':
@@ -94,6 +109,10 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
     maxTurns: consolidationMode ? Math.min(22, PLATFORM_INTEL_CONFIG.maxTurns) : PLATFORM_INTEL_CONFIG.maxTurns,
   }, task);
 
+  // Analysis-heavy tasks need higher stall tolerance — Nexus often plans between tool calls
+  const analysisTask = task === 'daily_analysis' || task === 'on_demand';
+  const maxStallTurns = analysisTask ? 8 : consolidationMode ? 5 : 4;
+
   const config: AgentConfig = {
     id: `platform-intel-${task}-${today}-${Date.now()}`,
     role: 'platform-intel',
@@ -101,7 +120,7 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
     model: agentCfg.model,
     tools,
     maxTurns: agentCfg.maxTurns,
-    maxStallTurns: 3,
+    maxStallTurns,
     timeoutMs: consolidationMode ? 420_000 : 600_000,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,

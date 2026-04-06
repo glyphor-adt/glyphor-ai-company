@@ -338,10 +338,13 @@ export class GeminiAdapter implements ProviderAdapter {
             } catch {
               resultValue = tr.content;
             }
+            const isError = tr.toolResult?.success === false;
             frParts.push({
               functionResponse: {
                 name: tr.toolName,
-                response: { result: resultValue },
+                response: isError
+                  ? { error: resultValue }
+                  : { result: resultValue },
               },
             });
             i++;

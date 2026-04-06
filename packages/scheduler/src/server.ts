@@ -2929,6 +2929,20 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Agent dream consolidation — per-agent cross-session pattern extraction (Cloud Scheduler: 30 3 * * *)
+    if (method === 'POST' && url === '/memory/agent-dream') {
+      try {
+        const { runFleetDreamConsolidation } = await import('./agentDreamConsolidator.js');
+        const report = await runFleetDreamConsolidation();
+        json(res, 200, { success: true, ...report });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[AgentDreamConsolidator] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
     // Batch outcome evaluator endpoint — twice-daily quality scoring (Cloud Scheduler: 0 2,14 * * *)
     if (method === 'POST' && url === '/batch-eval/run') {
       try {

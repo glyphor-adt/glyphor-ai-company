@@ -437,6 +437,16 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/memory/consolidate',
     enabled: true,
   },
+  // Agent dream consolidation — per-agent cross-session pattern extraction.
+  // Runs after memory consolidation to update individual world models and
+  // procedural memory with skill learnings and recurring failure patterns.
+  {
+    id: 'agent-dream-consolidation',
+    schedule: '30 3 * * *',    // 3:30 UTC daily (after memory consolidation)
+    timezone: 'UTC',
+    endpoint: '/memory/agent-dream',
+    enabled: true,
+  },
   // Batch outcome evaluator — twice-daily quality scoring of task run outcomes
   {
     id: 'batch-outcome-eval',

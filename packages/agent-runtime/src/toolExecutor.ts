@@ -586,7 +586,12 @@ const VALUE_GATE_RATIO_THRESHOLD = Number(process.env.TOOL_VALUE_GATE_RATIO_THRE
 const VALUE_GATE_CONFIDENCE_THRESHOLD = Number(process.env.TOOL_VALUE_GATE_CONFIDENCE_THRESHOLD ?? '0.6');
 /** When `enforce`, apply the pre-execution value gate to dashboard/chat (`on_demand`) too. Default: skip gate for chat — user opened the session, same trust model as interactive coding agents. */
 const VALUE_GATE_ENFORCE_ON_DEMAND = process.env.TOOL_VALUE_GATE_ON_DEMAND === 'enforce';
-const TOOL_RETRY_CAP = Math.max(1, Number(process.env.TOOL_RETRY_CAP ?? '3'));
+const TOOL_RETRY_CAP = Math.max(1, Number(process.env.TOOL_RETRY_CAP ?? '5'));
+
+/** Patterns that indicate a transient error worth retrying at the tool level. */
+const TRANSIENT_TOOL_ERROR = /\b(ECONNREFUSED|ECONNRESET|ETIMEDOUT|EPIPE|connection.*(?:terminated|refused|reset|timeout|lost)|too many clients|remaining connection slots|cannot acquire|lock timeout|deadlock|could not serialize|server closed the connection|Client has encountered a connection error|canceling statement due to statement timeout)\b/i;
+const MAX_TOOL_TRANSIENT_RETRIES = 2;
+const TOOL_TRANSIENT_BASE_DELAY_MS = 800;
 
 function estimateTPlus1Impact(toolName: string): number {
   if (toolName.startsWith('send_') || toolName.startsWith('publish_')) return 0.9;

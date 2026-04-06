@@ -10,13 +10,16 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 import { searchWeb, searchNews } from '@glyphor/integrations';
+import { createDeepResearchTool } from './deepResearchTool.js';
 
 /**
  * Create research-specific tools for analyst agents.
  * These complement the shared graph/memory tools.
+ * Includes the composite `deep_research` tool for single-call research pipelines.
  */
 export function createResearchTools(): ToolDefinition[] {
   return [
+    createDeepResearchTool(),
     {
       name: 'web_search',
       description:

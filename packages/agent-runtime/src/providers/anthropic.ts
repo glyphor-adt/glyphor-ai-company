@@ -223,15 +223,17 @@ export class AnthropicAdapter implements ProviderAdapter {
             messages.push({ role: 'user', content: textParts.join('\n\n') });
             break;
           }
-          const content: Array<{ type: 'tool_result'; tool_use_id: string; content: string } | { type: 'text'; text: string }> = [];
+          const content: Array<{ type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean } | { type: 'text'; text: string }> = [];
           let resultIndex = 0;
           while (i < turns.length && turns[i].role === 'tool_result') {
             const tr = turns[i];
             if (resultIndex < lastToolUseIds.length) {
+              const isError = tr.toolResult?.success === false;
               content.push({
                 type: 'tool_result',
                 tool_use_id: lastToolUseIds[resultIndex],
                 content: tr.content,
+                ...(isError && { is_error: true }),
               });
             } else {
               // Excess tool_result with no matching tool_use — fold into text
