@@ -1,6 +1,6 @@
 # Glyphor AI Company - Full Technical Architecture
 
-Last updated: 2026-04-04
+Last updated: 2026-04-05
 
 This document is the full technical architecture readout for the current monorepo.
 It combines a full subsystem walkthrough with current, filesystem-verified inventory counts.
@@ -22,13 +22,14 @@ At a high level:
 Verified from repository state:
 
 - Workspace packages under packages: 25
-- Integration modules under packages/integrations/src: 22
-- File-based agent role directories under packages/agents/src: 29
+- Integration modules under packages/integrations/src: 21
+- File-based agent role directories under packages/agents/src: 28
 - Dashboard page modules under packages/dashboard/src/pages: 36
-- SQL migrations under db/migrations: 284
+- SQL migrations under db/migrations: 404
 - Docker build files under docker (Dockerfile.*): 18
+- Smoketest layers under packages/smoketest/src/layers: 31 (layer 0-30)
 - Dashboard route architecture: dual-mode (app/internal + app/smb) with 27 internal path routes, 7 SMB path routes, legacy redirects, and entry gates
-- Dashboard TABLE_MAP aliases in packages/scheduler/src/dashboardApi.ts: 97 aliases mapped to 68 physical tables
+- Dashboard TABLE_MAP aliases in packages/scheduler/src/dashboardApi.ts: 88 aliases mapped to 60 physical tables
 
 Top-level packages currently present:
 
@@ -198,7 +199,7 @@ Primary role:
 
 - Role-specific prompts, toolsets, and runners for file-based agents plus shared execution wiring.
 
-File-based role directories currently present (29):
+File-based role directories currently present (28):
 
 - chief-of-staff
 - cto
@@ -219,7 +220,6 @@ File-based role directories currently present (29):
 - competitive-intel
 - content-creator
 - seo-analyst
-- shared
 - social-media-manager
 - ui-ux-designer
 - frontend-engineer
@@ -255,7 +255,7 @@ Primary role:
 
 - External system connectivity and domain-specific API clients.
 
-Current integration modules (22):
+Current integration modules (21):
 
 - agent365
 - anthropic
@@ -272,7 +272,6 @@ Current integration modules (22):
 - mercury
 - openai
 - posthog
-- pulse
 - search-console
 - sendgrid
 - sharepoint
@@ -1215,6 +1214,9 @@ Recent migration trend highlights:
   - 20260331193000_sync_client_website_pipeline_automation.sql
   - 20260331120000_dashboard_user_tenant_link.sql
 
+- Deprecations
+  - 20260401143000_deprecate_pulse_creative_stack.sql (removed pulse integration module)
+
 ### 10.5 Complete TABLE_MAP Alias Matrix
 
 This is the full current alias mapping from TABLE_MAP (all 60 physical tables).
@@ -1298,6 +1300,22 @@ Tool surface sources:
 - Runtime and dynamically registered tools through runtime registries.
 - Domain MCP server tools exposed by mcp-* packages.
 
+### 11.0 Tool Health Check System (3-Tier)
+
+The platform includes a continuous tool health verification system with three tiers:
+
+- Tier 1 (Schema): Validates every tool has well-formed JSON schema definitions.
+- Tier 2 (Connectivity): Probes read-only tools at runtime to verify they return valid ToolResult (not throw).
+- Tier 3 (Sandbox): Executes destructive tools against test fixtures in controlled environments.
+
+Implementation:
+
+- Test engine: packages/agent-runtime/src/testing/ (toolClassifier.ts, toolHealthRunner.ts, toolProbe.ts)
+- Scheduler endpoint: `POST /tool-health/run` (triggers tier-selective runs)
+- Data tables: `tool_test_runs`, `tool_test_results`, `tool_test_classifications`
+- Scheduled: daily via Cloud Scheduler cron (tool-health-check) at 06:00 UTC
+- Smoketest integration: Layer 30 triggers tiers 1-2 and validates pass rates, failure classifications, latency, cron freshness, and regression trends
+
 ### 11.1 Shared Agent Tool Modules (packages/agents/src/shared)
 
 The shared tool surface has expanded materially and now includes specialized modules across operations, design, growth, legal, finance, orchestration, and governance. Representative modules include:
@@ -1315,7 +1333,7 @@ The shared tool surface has expanded materially and now includes specialized mod
   - agentCreationTools.ts, agentDirectoryTools.ts, assigneeRouting.ts, peerCoordinationTools.ts, teamOrchestrationTools.ts, executiveOrchestrationTools.ts, collectiveIntelligenceTools.ts, channelNotifyTools.ts, dmTools.ts
 
 - Engineering and design execution
-  - frontendCodeTools.ts, scaffoldTools.ts, screenshotTools.ts, designSystemTools.ts, storybookTools.ts, figmaTools.ts, figmaAuth.ts, patchHarness.ts, v4aDiff.ts, designBriefTools.ts, webBuildTools.ts, sandboxBuildValidator.ts, quickDemoAppTools.ts, deployPreviewTools.ts, engineeringGapTools.ts, diagnosticTools.ts, codexTools.ts
+  - frontendCodeTools.ts, scaffoldTools.ts, screenshotTools.ts, designSystemTools.ts, storybookTools.ts, figmaTools.ts, figmaAuth.ts, patchHarness.ts, v4aDiff.ts, designBriefTools.ts, webBuildTools.ts, webBuildPlannerTools.ts, sandboxBuildValidator.ts, quickDemoAppTools.ts, deployPreviewTools.ts, engineeringGapTools.ts, diagnosticTools.ts, codexTools.ts
 
 - Content and marketing execution
   - contentTools.ts, socialMediaTools.ts, seoTools.ts, researchTools.ts, emailMarketingTools.ts, marketingIntelTools.ts, competitiveIntelTools.ts, facebookTools.ts, linkedinTools.ts, videoCreationTools.ts, websiteIngestionTools.ts, productAnalyticsTools.ts
@@ -1340,7 +1358,10 @@ Recent runtime additions expanded capability governance, self-improvement, and e
   - skillLearning.ts, behavioralFingerprint.ts, subtaskRouter.ts, taskOutcomeHarvester.ts
 
 - Tool execution and quality control
-  - dynamicToolExecutor.ts, runtimeToolFactory.ts, toolRegistry.ts, toolExecutor.ts, toolReputationTracker.ts, toolSubsets.ts
+  - dynamicToolExecutor.ts, runtimeToolFactory.ts, toolRegistry.ts, toolExecutor.ts, toolReputationTracker.ts, toolSubsets.ts, toolNamespaces.ts, toolSearchConfig.ts, concurrentToolExecutor.ts
+
+- Tool policy enforcement and denial tracking
+  - policyLimits.ts, denialTracking.ts, actionRiskClassifier.ts, circuitBreaker.ts, errorRetry.ts, buildTool.ts
 
 - Verification and constitutional controls
   - constitutionalGovernor.ts, constitutionalPreCheck.ts, formalVerifier.ts, verifierRunner.ts, trustScorer.ts
@@ -1474,6 +1495,51 @@ Operationally relevant characteristics:
 - Cross-package build graph via turbo.json.
 - Domain-specific sync and maintenance scripts in scripts/.
 
+### 16.1 Smoketest Architecture (packages/smoketest)
+
+The smoketest package provides a layered end-to-end validation suite run from the CLI or CI.
+
+Layer inventory (31 layers, 0-30):
+
+| Layer | Purpose |
+| --- | --- |
+| 0 | Infrastructure health |
+| 1 | Data sync jobs |
+| 2 | Model client connectivity |
+| 3 | Heartbeat cycle |
+| 4 | Orchestration pipeline |
+| 5 | Inter-agent communication |
+| 6 | Authority gates |
+| 7 | Intelligence engines |
+| 8 | Knowledge graph |
+| 9 | Strategy lab |
+| 10 | Specialist agents |
+| 11 | Dashboard API |
+| 12 | Voice gateway |
+| 13 | M365 integrations |
+| 14 | Migration consistency |
+| 15 | Agent autonomy |
+| 16 | Tool factory and registry |
+| 17 | MCP servers |
+| 18 | Tool access and grants |
+| 19 | Worker dispatch |
+| 20 | GraphRAG indexer |
+| 21 | World model |
+| 22 | Reasoning engine |
+| 23 | Tenant isolation |
+| 24 | Routing policy |
+| 25 | Governance change requests |
+| 26 | Slack platform |
+| 27 | Schema consistency |
+| 28 | Advancement rollout |
+| 29 | Per-run evaluation |
+| 30 | Tool execution health (3-tier: schema, connectivity, sandbox) |
+
+Layer 30 triggers the tool health check system via `POST /tool-health/run`, tests all registered tools across tiers 1-2, and validates pass rates, failure classifications, response latency, cron freshness, and regression trends against the `tool_test_runs` and `tool_test_results` tables.
+
+Run a specific layer: `node dist/index.js --layer 30`
+Run all layers: `node dist/index.js`
+
 ## 17. Architecture Risks and Drift Controls
 
 This codebase evolves quickly, so route counts and endpoint inventories can drift.
@@ -1485,6 +1551,8 @@ Recommended drift controls:
 - Recompute migration count when adding migrations.
 - Keep integration module inventory aligned with packages/integrations/src.
 - Keep docker image list aligned with docker/Dockerfile.* files.
+- Keep smoketest layer inventory aligned with packages/smoketest/src/layers.
+- Keep TABLE_MAP counts aligned with packages/scheduler/src/dashboardApi.ts.
 
 ## 18. Maintenance Checklist
 
@@ -1497,6 +1565,8 @@ When updating architecture docs, re-verify:
 - docker build files
 - auth mode implementation
 - runner selection behavior
+- smoketest layer inventory
+- TABLE_MAP alias count and physical table count
 
 ## 19. Notes on Scope
 
