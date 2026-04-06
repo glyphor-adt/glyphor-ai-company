@@ -164,9 +164,9 @@ export default function Workforce() {
         </div>
       ) : view === 'org-chart' ? (
         /* ── Org Chart View ──────────────── */
-        <div className="space-y-0">
+        <div className="mx-auto w-full max-w-6xl space-y-0">
           {/* Founders row */}
-          <div className="flex justify-center gap-6">
+          <div className="flex flex-wrap justify-center gap-4">
             {FOUNDERS.map((f) => (
               <FounderNode key={f.name} name={f.name} title={f.title} initials={f.initials} color={f.color} photo={f.photo} />
             ))}
@@ -196,7 +196,7 @@ export default function Workforce() {
                 return (
                   <>
                     <div className="h-3 w-px bg-border" />
-                    <div className="flex flex-col gap-1.5">
+                    <div className="grid w-full max-w-2xl gap-1.5 sm:grid-cols-2">
                       {cosDirects.map((m) => (
                         <SubTeamNode key={m.id} member={m} />
                       ))}
@@ -211,24 +211,25 @@ export default function Workforce() {
           <div className="flex justify-center">
             <div className="h-5 w-px bg-border" />
           </div>
-          <div className="mx-auto h-px bg-border" style={{ width: '90%' }} />
+          <div className="mx-auto h-px w-full bg-border" />
 
           {/* Department columns with heads + sub-teams */}
-          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {departmentHeads.map((dept) => {
                 const members = orgAgents.filter((m) => resolveManagerRole(m) === dept.role && m.role !== dept.role && !deptHeadRoles.has(m.role));
               return (
-                <div key={dept.label} className="flex flex-col items-center gap-1.5">
-                  <div className="h-3 w-px bg-border" />
-                  <span className="text-[10px] font-medium uppercase tracking-widest text-txt-faint">
-                    {dept.label}
-                  </span>
-                  <AgentNode agent={dept.agent} compact />
-                  {members.length > 0 && <div className="h-3 w-px bg-border" />}
-                  <div className="flex w-full flex-col gap-1.5">
-                    {members.map((m) => (
-                      <SubTeamNode key={m.id} member={m} />
-                    ))}
+                <div key={dept.label} className="rounded-xl border border-border bg-surface p-3">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <span className="text-[10px] font-medium uppercase tracking-widest text-txt-faint">
+                      {dept.label}
+                    </span>
+                    <AgentNode agent={dept.agent} compact />
+                    {members.length > 0 && <div className="h-3 w-px bg-border" />}
+                    <div className="flex w-full flex-col gap-1.5">
+                      {members.map((m) => (
+                        <SubTeamNode key={m.id} member={m} />
+                      ))}
+                    </div>
                   </div>
                 </div>
               );

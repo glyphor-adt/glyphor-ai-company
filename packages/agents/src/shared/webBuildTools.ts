@@ -43,6 +43,8 @@ interface WebBuildParams {
 interface WebBuildResult {
   project_id?: string;
   preview_url?: string;
+  preview_ready?: boolean;
+  preview_state?: string;
   deploy_url?: string;
   github_pr_url?: string;
   /** Branch that received the generated commit (not necessarily default/main). */
@@ -98,10 +100,10 @@ const DEFAULT_INITIAL_BRANCH = 'feature/initial-build';
 const DEFAULT_PROTOTYPE_BRANCH = 'feature/prototype-build';
 const ITERATION_BRANCH_PREFIX = 'feature/web-iterate';
 const UPGRADE_BRANCH_PREFIX = 'feature/web-upgrade';
-const PREVIEW_POLL_ATTEMPTS = 30;
-const PREVIEW_POLL_INTERVAL_MS = 10_000;
-const PRODUCTION_POLL_ATTEMPTS = 30;
-const PRODUCTION_POLL_INTERVAL_MS = 10_000;
+const PREVIEW_POLL_ATTEMPTS = Number(process.env.WEBBUILD_PREVIEW_POLL_ATTEMPTS ?? '90');
+const PREVIEW_POLL_INTERVAL_MS = Number(process.env.WEBBUILD_PREVIEW_POLL_INTERVAL_MS ?? '10000');
+const PRODUCTION_POLL_ATTEMPTS = Number(process.env.WEBBUILD_PRODUCTION_POLL_ATTEMPTS ?? '30');
+const PRODUCTION_POLL_INTERVAL_MS = Number(process.env.WEBBUILD_PRODUCTION_POLL_INTERVAL_MS ?? '10000');
 
 /** Paths that must exist in generated output before Git push (same set as UX foundation validation). */
 const REQUIRED_FOUNDATION_FILES = new Set([
@@ -903,7 +905,13 @@ async function delay(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-async function waitForPreviewUrl(project: WebsitePipelineProjectRef, ctx: ToolContext): Promise<{ preview_url: string; state: string }> {
+async function waitForPreviewUrl(
+  project: WebsitePipelineProjectRef,
+  ctx: ToolContext,
+): Promise<{ preview_url: string; state: string; is_ready: boolean }> {
+  let lastPreviewUrl: string | null = null;
+  let lastState = 'UNKNOWN';
+
   for (let attempt = 0; attempt < PREVIEW_POLL_ATTEMPTS; attempt += 1) {
     const preview = await executeWebsitePipelineTool<Record<string, unknown>>(
       'vercel_get_preview_url',
@@ -917,13 +925,24 @@ async function waitForPreviewUrl(project: WebsitePipelineProjectRef, ctx: ToolCo
 
     const previewUrl = pickString(preview, 'preview_url', 'deployment_url');
     const state = pickString(preview, 'state') ?? 'UNKNOWN';
+    if (previewUrl) {
+      lastPreviewUrl = previewUrl;
+      lastState = state;
+    }
+
     if (previewUrl && state === 'READY') {
-      return { preview_url: previewUrl, state };
+      return { preview_url: previewUrl, state, is_ready: true };
     }
 
     if (attempt < PREVIEW_POLL_ATTEMPTS - 1) {
       await delay(PREVIEW_POLL_INTERVAL_MS, ctx.abortSignal);
     }
+  }
+
+  // Fallback: Vercel sometimes exposes a deployment URL before READY.
+  // Return that URL so callers can continue and report progress instead of hard-failing.
+  if (lastPreviewUrl) {
+    return { preview_url: lastPreviewUrl, state: lastState, is_ready: false };
   }
 
   throw new Error(`Timed out waiting for Vercel preview deployment for ${project.projectName}.`);
@@ -1102,16 +1121,23 @@ async function executeWebBuild(
       ctx,
     );
     const preview = await waitForPreviewUrl(project, ctx);
-    const previewRegistration = await executeWebsitePipelineTool<Record<string, unknown>>(
-      project.isExisting || params.tier === 'iterate' ? 'cloudflare_update_preview' : 'cloudflare_register_preview',
-      {
-        project_slug: project.projectSlug,
-        vercel_deployment_url: preview.preview_url,
-        github_repo_url: `https://github.com/${project.repoFullName}`,
-        project_name: project.projectName,
-      },
-      ctx,
-    );
+    const previewRegistration = preview.is_ready
+      ? await executeWebsitePipelineTool<Record<string, unknown>>(
+          project.isExisting || params.tier === 'iterate' ? 'cloudflare_update_preview' : 'cloudflare_register_preview',
+          {
+            project_slug: project.projectSlug,
+            vercel_deployment_url: preview.preview_url,
+            github_repo_url: `https://github.com/${project.repoFullName}`,
+            project_name: project.projectName,
+          },
+          ctx,
+        )
+      : {
+          preview_url: preview.preview_url,
+          state: preview.state,
+          registration_skipped: true,
+          reason: 'Preview deployment not READY yet.',
+        };
     return { push, preview, previewRegistration };
   })();
 
@@ -1292,6 +1318,7 @@ async function executeWebBuild(
   const repositoryHint = useFeatureBranch
     ? [
         `Generated website code was pushed to branch "${project.branch}" in ${project.repoFullName}.`,
+        ...(!preview.is_ready ? [`Preview URL exists but Vercel still reports state "${preview.state}".`] : []),
         githubPrUrl
           ? `Open this pull request to review and merge into main: ${githubPrUrl}`
           : 'A pull request was created toward main — open it from the GitHub repo if you do not see new files on the default branch.',
@@ -1299,6 +1326,7 @@ async function executeWebBuild(
       ].join(' ')
     : [
         `Generated website code was committed on "${project.branch}" in ${project.repoFullName}.`,
+        ...(!preview.is_ready ? [`Preview URL exists but Vercel still reports state "${preview.state}".`] : []),
         'No feature branch or pull request was opened (standard POC flow). Open the repo default branch to see the generated app.',
       ].join(' ');
 
@@ -1309,16 +1337,24 @@ async function executeWebBuild(
         githubPrUrl ? `1) Open the PR: ${githubPrUrl}` : `1) Open GitHub and create/find the PR from branch "${project.branch}" → main.`,
         `2) Or browse the branch: ${githubBranchUrl}`,
         '3) `main` may still show the template until you merge — that is expected.',
+        ...(!preview.is_ready
+          ? [`4) Preview URL exists but is still provisioning (state: ${preview.state}). Re-check in 1-3 minutes.`]
+          : []),
       ].join('\n')
     : [
         'Where to see the new code:',
         `1) Browse branch "${project.branch}": ${githubBranchUrl}`,
         `2) Preview: ${pickString(previewRegistration, 'preview_url') ?? preview.preview_url ?? '(see preview_url in result)'}`,
+        ...(!preview.is_ready
+          ? [`3) Preview is still provisioning (state: ${preview.state}). Re-check in 1-3 minutes.`]
+          : []),
       ].join('\n');
 
   return {
     project_id: project.repoFullName,
     preview_url: pickString(previewRegistration, 'preview_url') ?? preview.preview_url,
+    preview_ready: preview.is_ready,
+    preview_state: preview.state,
     deploy_url: deployUrl,
     github_pr_url: githubPrUrl,
     source_branch: project.branch,
