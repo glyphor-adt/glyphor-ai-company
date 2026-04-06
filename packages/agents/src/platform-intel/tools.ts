@@ -9,6 +9,7 @@
 import type { ToolDefinition, ToolContext, ToolResult } from '@glyphor/agent-runtime';
 import { isValidUUID } from '@glyphor/agent-runtime';
 import { invalidateGrantCache, refreshDynamicToolCache, isKnownToolAsync } from '@glyphor/agent-runtime';
+import { applyPatchToGitHub } from '@glyphor/agent-runtime';
 import { A365TeamsChatClient } from '@glyphor/integrations';
 import { buildChannelMap } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
@@ -509,15 +510,50 @@ export function createPlatformIntelTools(): ToolDefinition[] {
         );
 
         const results: Array<Record<string, unknown>> = [];
+        const agentRoles = new Set(
+          (await systemQuery<{ role: string }>('SELECT role FROM company_agents'))
+            .map((row) => row.role.toLowerCase()),
+        );
 
         for (const finding of findings) {
-          const toolName = extractToolNameFromFinding(finding.description);
+          const inferredToolName = extractToolNameFromFinding(finding.description);
+          const roleCollision = inferredToolName ? agentRoles.has(inferredToolName.toLowerCase()) : false;
+          const toolName = roleCollision ? null : inferredToolName;
+
           if (!toolName) {
+            const reason = roleCollision
+              ? `Inferred token '${inferredToolName}' matches an agent role, not a tool`
+              : 'Could not infer tool name from finding description';
+
+            await systemQuery(
+              `INSERT INTO fleet_findings (agent_id, severity, finding_type, description)
+               VALUES ($1, 'P1', 'tool_gap_escalation', $2)
+               ON CONFLICT DO NOTHING`,
+              [
+                finding.agent_id,
+                `Tool gap requires manual triage: ${reason}. (source finding: ${finding.id})`,
+              ],
+            );
+
+            await systemQuery(
+              `UPDATE fleet_findings SET resolved_at = NOW() WHERE id = $1 AND resolved_at IS NULL`,
+              [finding.id],
+            );
+
+            await logPlatformAction(
+              'escalate_tool_gap',
+              'autonomous',
+              finding.agent_id,
+              `Escalated: could not derive valid tool for finding ${finding.id} (${reason})`,
+              { inferred_tool_name: inferredToolName, finding_id: finding.id, reason },
+              ctx.runId,
+            );
+
             results.push({
               finding_id: finding.id,
               agent_id: finding.agent_id,
-              status: 'skipped',
-              reason: 'Could not infer tool name from finding description',
+              status: 'escalated',
+              reason,
             });
             continue;
           }
@@ -1312,6 +1348,25 @@ export function createPlatformIntelTools(): ToolDefinition[] {
     },
 
     // ── CODE FIX PROPOSALS ──────────────────────────────────────
+
+    {
+      name: 'apply_patch_call',
+      description: 'Apply a structured V4A patch to GitHub files on a feature branch for deterministic code fixes.',
+      parameters: {
+        repo: { type: 'string', description: 'Repository name (for example: glyphor-ai-company)', required: true },
+        branch: { type: 'string', description: 'Target branch (must be a feature branch)', required: true },
+        commit_message: { type: 'string', description: 'Commit message for the applied patch', required: true },
+        patch: { type: 'object', description: 'V4A patch document', required: true },
+      },
+      execute: async (params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> => {
+        return applyPatchToGitHub({
+          repo: params.repo as string,
+          branch: params.branch as string,
+          commit_message: params.commit_message as string,
+          patch: params.patch as string | import('@glyphor/agent-runtime').V4APatchDocument,
+        }, ctx);
+      },
+    },
 
     {
       name: 'create_tool_fix_proposal',
