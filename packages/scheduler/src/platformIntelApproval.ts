@@ -47,6 +47,29 @@ h1{font-size:1.5rem;margin-bottom:12px}p{color:#999;line-height:1.6}</style></he
 <body><div class="card"><h1>${titles[status]}</h1><p>${bodies[status]}</p></div></body></html>`;
 }
 
+function renderConfirmationPage(
+  decision: 'approve' | 'reject',
+  tokenPath: string,
+): string {
+  const isApprove = decision === 'approve';
+  const title = isApprove ? 'Confirm Approval' : 'Confirm Rejection';
+  const buttonLabel = isApprove ? 'Approve Action' : 'Reject Action';
+  const buttonClass = isApprove ? 'approve' : 'reject';
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Nexus — ${title}</title>
+<style>
+body{font-family:-apple-system,system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#1A1D2E;color:#fff}
+.card{background:#252836;border-radius:12px;padding:36px;max-width:520px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.3)}
+h1{font-size:1.5rem;margin-bottom:12px}
+p{color:#b7b7b7;line-height:1.6;margin-bottom:24px}
+.btn{display:inline-block;padding:12px 20px;border-radius:8px;color:#fff;text-decoration:none;font-weight:600}
+.approve{background:#0f9d58}
+.reject{background:#c5221f}
+</style></head>
+<body><div class="card"><h1>${title}</h1><p>Confirm your decision to continue. This extra step prevents automated link scanners from consuming one-time tokens.</p><a class="btn ${buttonClass}" href="${tokenPath}?confirm=1">${buttonLabel}</a></div></body></html>`;
+}
+
 async function executeApprovedAction(action: PlatformIntelAction): Promise<void> {
   const payload = action.payload;
 
@@ -167,14 +190,25 @@ export async function handlePlatformIntelApproval(
   _req: IncomingMessage,
   res: ServerResponse,
 ): Promise<boolean> {
+  const [pathPart, queryPart = ''] = url.split('?');
+  const query = new URLSearchParams(queryPart);
+  const confirmed = query.get('confirm') === '1';
+
   // Match GET /platform-intel/approve/:token or /platform-intel/reject/:token
-  const approveMatch = url.match(/^\/platform-intel\/approve\/([a-f0-9]+)$/);
-  const rejectMatch = url.match(/^\/platform-intel\/reject\/([a-f0-9]+)$/);
+  const approveMatch = pathPart.match(/^\/platform-intel\/approve\/([a-f0-9]+)$/);
+  const rejectMatch = pathPart.match(/^\/platform-intel\/reject\/([a-f0-9]+)$/);
 
   if (!approveMatch && !rejectMatch) return false;
 
   const token = (approveMatch ?? rejectMatch)![1];
   const decision: 'approve' | 'reject' = approveMatch ? 'approve' : 'reject';
+
+  // First hit renders a confirmation page and does not consume token.
+  if (!confirmed) {
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(renderConfirmationPage(decision, pathPart));
+    return true;
+  }
 
   const [tokenRow] = await systemQuery<{
     id: string;

@@ -1464,7 +1464,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             );
           })}
 
-          {Array.from(respondingAgents.entries()).filter(([_, targetChat]) => targetChat === selectedRole).map(([respondingRole]) => {
+          {Array.from(respondingAgents.entries()).filter(([respondingRole, targetChat]) => targetChat === selectedRole && respondingRole !== selectedRole).map(([respondingRole]) => {
             const pendingName = DISPLAY_NAME_MAP[respondingRole] ?? respondingRole;
             return (
             <div key={respondingRole} className="flex gap-3">

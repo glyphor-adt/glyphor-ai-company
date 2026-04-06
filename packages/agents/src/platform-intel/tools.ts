@@ -12,7 +12,9 @@ import { invalidateGrantCache, refreshDynamicToolCache, isKnownToolAsync } from 
 import { applyPatchToGitHub } from '@glyphor/agent-runtime';
 import { A365TeamsChatClient } from '@glyphor/integrations';
 import { buildChannelMap } from '@glyphor/integrations';
+import type { AdaptiveCard } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
+import { buildApprovalCard } from './teamsCards.js';
 
 // ── Teams DM helper ────────────────────────────────────────────
 
@@ -35,6 +37,35 @@ async function notifyFounders(message: string): Promise<void> {
     }
   } catch (err) {
     console.warn('[Nexus] Teams notification failed:', (err as Error).message);
+  }
+}
+
+async function notifyFoundersApprovalCard(params: {
+  title: string;
+  rationale: string;
+  actionDescription: string;
+  impact: string;
+  urgency: 'low' | 'medium' | 'high';
+  targetAgent?: string;
+  approveUrl: string;
+  rejectUrl: string;
+  actionId: string;
+}): Promise<void> {
+  try {
+    const client = A365TeamsChatClient.fromEnv('platform-intel');
+    if (!client) return;
+
+    const card = buildApprovalCard(params) as unknown as AdaptiveCard;
+    for (const [name, email] of Object.entries(FOUNDER_EMAILS)) {
+      try {
+        const chatId = await client.createOrGetOneOnOneChat(email, undefined, 'platform-intel');
+        await client.postChatAdaptiveCard(chatId, card, 'platform-intel', 'Nexus');
+      } catch (err) {
+        console.warn(`[Nexus] Failed to send approval card to ${name}:`, (err as Error).message);
+      }
+    }
+  } catch (err) {
+    console.warn('[Nexus] Teams approval card notification failed:', (err as Error).message);
   }
 }
 
@@ -934,29 +965,22 @@ export function createPlatformIntelTools(): ToolDefinition[] {
           [action.id],
         );
 
-        // Send Teams DM with approval links
+        // Send Teams approval card with action buttons (no raw URLs in message text)
         const schedulerUrl = process.env.SCHEDULER_URL ?? 'https://glyphor-scheduler-610179349713.us-central1.run.app';
         const approveUrl = `${schedulerUrl}/platform-intel/approve/${approveToken?.token}`;
         const rejectUrl = `${schedulerUrl}/platform-intel/reject/${rejectToken?.token}`;
-        const urgencyTag = (params.urgency as string).toUpperCase();
-        const dmMessage = [
-          `[${urgencyTag}] ⚡ Nexus — Approval Required`,
-          '',
-          `**${params.title}**`,
-          targetAgentId ? `Agent: ${targetAgentId}` : '',
-          '',
-          `Why: ${params.rationale}`,
-          '',
-          `Action: ${actionDescription}`,
-          '',
-          `Expected outcome: ${params.impact}`,
-          '',
-          `✓ Approve: ${approveUrl}`,
-          `✕ Reject: ${rejectUrl}`,
-          '',
-          `Expires in 48h · Action ID: ${action.id}`,
-        ].filter(Boolean).join('\n');
-        notifyFounders(dmMessage).catch((err) => {
+
+        notifyFoundersApprovalCard({
+          title: String(params.title),
+          rationale: String(params.rationale),
+          actionDescription,
+          impact: String(params.impact),
+          urgency: (params.urgency as 'low' | 'medium' | 'high') ?? 'medium',
+          targetAgent: targetAgentId ?? undefined,
+          approveUrl,
+          rejectUrl,
+          actionId: action.id,
+        }).catch((err) => {
           console.error('[Nexus] Approval card DM delivery failed — founders will not see this card:', (err as Error).message);
         });
 
