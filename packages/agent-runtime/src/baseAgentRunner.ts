@@ -1207,6 +1207,7 @@ Rules:
                   retrievalMetadata: lastRetrievalTrace
                     ? buildRetrievalMetadataMap(lastRetrievalTrace)
                     : undefined,
+                  runPhase,
                 });
                 toolTurnSpan.end({
                   success: toolResult.success,

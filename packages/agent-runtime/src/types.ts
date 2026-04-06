@@ -226,6 +226,11 @@ export interface ToolContext {
   requestSource?: 'on_demand' | 'scheduled' | 'heartbeat' | 'wake' | 'a2a';
   /** Per-tool retrieval metadata from ToolRetriever, keyed by tool name. */
   retrievalMetadata?: ToolRetrievalMetadataMap;
+  /**
+   * Current execution phase of the agent run. When `planning`, only read-only
+   * tools are permitted — the tool executor enforces this as a hard gate.
+   */
+  runPhase?: 'planning' | 'execution';
 }
 
 /** How a tool was selected for this run. */

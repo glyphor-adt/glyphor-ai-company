@@ -698,12 +698,22 @@ export class OpenAIAdapter implements ProviderAdapter {
    * Uses direct fetch instead of the SDK to avoid connection issues in Cloud Run.
    * Routes through Azure OpenAI when configured; otherwise direct OpenAI.
    */
-  async generateImage(prompt: string, model = 'gpt-image-1.5'): Promise<ImageResponse> {
+  async generateImage(prompt: string, model = 'gpt-image-1.5', aspectRatio = '16:9'): Promise<ImageResponse> {
+    // Map aspect ratios to OpenAI sizes
+    const sizeMap: Record<string, string> = {
+      '16:9': '1536x1024',
+      '4:3': '1024x768',
+      '3:4': '768x1024',
+      '1:1': '1024x1024',
+      '9:16': '1024x1536',
+    };
+    const size = sizeMap[aspectRatio] ?? '1536x1024';
+
     const body = JSON.stringify({
       model,
       prompt,
       n: 1,
-      size: '1536x1024',
+      size,
       quality: 'high',
     });
 

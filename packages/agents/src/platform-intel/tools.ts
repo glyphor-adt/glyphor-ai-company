@@ -528,6 +528,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
           if (!toolAlreadyKnown) {
             // Tool doesn't exist in the registry — Nexus cannot conjure infrastructure.
             // Escalate instead of auto-creating a hollow registry entry.
+            // Mark original finding as escalated so it doesn't keep re-triggering.
             await systemQuery(
               `INSERT INTO fleet_findings (agent_id, severity, finding_type, description)
                VALUES ($1, 'P1', 'tool_gap_escalation', $2)
@@ -536,6 +537,12 @@ export function createPlatformIntelTools(): ToolDefinition[] {
                 finding.agent_id,
                 `Tool gap requires manual build: ${toolName}. Nexus could not auto-resolve — tool requires implementation. (source finding: ${finding.id})`,
               ],
+            );
+
+            // Resolve the ORIGINAL finding — the escalation finding now tracks this
+            await systemQuery(
+              `UPDATE fleet_findings SET resolved_at = NOW() WHERE id = $1 AND resolved_at IS NULL`,
+              [finding.id],
             );
 
             await logPlatformAction(
@@ -782,10 +789,29 @@ export function createPlatformIntelTools(): ToolDefinition[] {
         const findingType = params.finding_type as string;
         const description = params.description as string;
 
+        // Dedup: don't create a new finding if there's already an open one
+        // for the same agent + finding_type
+        const [existing] = await systemQuery<{ id: string; detected_at: string }>(
+          `SELECT id, detected_at FROM fleet_findings
+            WHERE agent_id = $1 AND finding_type = $2 AND resolved_at IS NULL
+            ORDER BY detected_at DESC LIMIT 1`,
+          [agentId, findingType],
+        );
+
+        if (existing) {
+          return {
+            success: true,
+            data: {
+              finding_id: existing.id,
+              deduplicated: true,
+              message: `Open ${findingType} finding already exists for ${agentId} (detected ${existing.detected_at}). Skipped duplicate.`,
+            },
+          };
+        }
+
         const [row] = await systemQuery<{ id: string }>(
           `INSERT INTO fleet_findings (agent_id, severity, finding_type, description)
            VALUES ($1, $2, $3, $4)
-           ON CONFLICT DO NOTHING
            RETURNING id`,
           [agentId, severity, findingType, description],
         );
@@ -1321,15 +1347,30 @@ export function createPlatformIntelTools(): ToolDefinition[] {
           ],
         );
 
-        // Also write a fleet finding if P0/P1
+        // Also write a fleet finding if P0/P1 and track created finding IDs
+        const createdFindingIds: string[] = [];
         if (severity === 'P0' || severity === 'P1') {
           for (const agent of affectedAgents) {
-            await systemQuery(
+            const [findingRow] = await systemQuery<{ id: string }>(
               `INSERT INTO fleet_findings (agent_id, severity, finding_type, description)
-               VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT DO NOTHING
+               RETURNING id`,
               [agent, severity, 'tool_bug', `${toolName}: ${rootCause}`],
             );
+            if (findingRow?.id) createdFindingIds.push(findingRow.id);
           }
+
+          // Also resolve any existing stale findings for this tool to prevent duplicates
+          await systemQuery(
+            `UPDATE fleet_findings
+                SET resolved_at = NOW()
+              WHERE finding_type IN ('tool_bug', 'tool_gap')
+                AND description LIKE '%' || $1 || '%'
+                AND resolved_at IS NULL
+                AND id NOT IN (SELECT UNNEST($2::uuid[]))`,
+            [toolName, createdFindingIds.length > 0 ? createdFindingIds : ['00000000-0000-0000-0000-000000000000']],
+          );
 
           // Notify founders — P0/P1 tool bugs need engineering attention
           const dmMessage = [
@@ -1352,7 +1393,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
         await logPlatformAction(
           'create_fix_proposal', blockingGtm ? 'approval_required' : 'autonomous', null,
           `${severity} fix proposal for ${toolName}: ${rootCause}`,
-          { tool_name: toolName, affected_agents: affectedAgents, fix_id: row?.id }, ctx.runId,
+          { tool_name: toolName, affected_agents: affectedAgents, fix_id: row?.id, finding_ids: createdFindingIds }, ctx.runId,
         );
 
         return {
@@ -1362,6 +1403,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
             tool_name: toolName,
             severity,
             affected_agents: affectedAgents,
+            finding_ids: createdFindingIds,
             status: 'pending',
             blocking_gtm: blockingGtm,
           },

@@ -4,6 +4,13 @@ export interface MicroCompactionOptions {
   enabled?: boolean;
   keepRecentToolResults?: number;
   maxToolResultChars?: number;
+  /**
+   * When true (default), automatically adjusts keepRecentToolResults and
+   * maxToolResultChars based on the density of tool_result turns in the
+   * conversation. High-tool-count runs keep more recent results but with
+   * tighter per-result budgets; low-tool-count runs keep fewer but larger.
+   */
+  adaptive?: boolean;
 }
 
 export interface MicroCompactionResult {
@@ -15,6 +22,35 @@ export interface MicroCompactionResult {
 const DEFAULT_KEEP_RECENT_RESULTS = 3;
 const DEFAULT_MAX_TOOL_RESULT_CHARS = 900;
 
+/**
+ * Compute adaptive compaction limits based on tool_result density.
+ *
+ * Strategy (inspired by Claude Code's dynamic context budgeting):
+ *   - Low density  (≤5 results):  keep 2 recent, generous 1500 chars each
+ *   - Medium density (6-12):      keep 3 recent, standard 900 chars each
+ *   - High density   (13-20):     keep 4 recent, tighter 600 chars each
+ *   - Very high      (>20):       keep 5 recent, minimum 400 chars each
+ *
+ * The goal: preserve as much useful context as possible while staying
+ * within the composition budget. High-tool runs need more breadth;
+ * low-tool runs benefit from depth.
+ */
+function computeAdaptiveLimits(toolResultCount: number): {
+  keepRecent: number;
+  maxChars: number;
+} {
+  if (toolResultCount <= 5) {
+    return { keepRecent: 2, maxChars: 1500 };
+  }
+  if (toolResultCount <= 12) {
+    return { keepRecent: 3, maxChars: 900 };
+  }
+  if (toolResultCount <= 20) {
+    return { keepRecent: 4, maxChars: 600 };
+  }
+  return { keepRecent: 5, maxChars: 400 };
+}
+
 export function microCompactHistory(
   history: ConversationTurn[],
   options: MicroCompactionOptions = {},
@@ -24,14 +60,28 @@ export function microCompactHistory(
     return { history, compactedTurns: 0 };
   }
 
-  const keepRecentToolResults = Math.max(0, options.keepRecentToolResults ?? DEFAULT_KEEP_RECENT_RESULTS);
-  const maxToolResultChars = Math.max(120, options.maxToolResultChars ?? DEFAULT_MAX_TOOL_RESULT_CHARS);
-
   const toolResultIndexes: number[] = [];
   for (let i = 0; i < history.length; i++) {
     if (history[i].role === 'tool_result') {
       toolResultIndexes.push(i);
     }
+  }
+
+  // Compute effective limits: use adaptive when enabled and no explicit overrides
+  const useAdaptive = (options.adaptive ?? true)
+    && options.keepRecentToolResults === undefined
+    && options.maxToolResultChars === undefined;
+
+  let keepRecentToolResults: number;
+  let maxToolResultChars: number;
+
+  if (useAdaptive) {
+    const adaptive = computeAdaptiveLimits(toolResultIndexes.length);
+    keepRecentToolResults = adaptive.keepRecent;
+    maxToolResultChars = adaptive.maxChars;
+  } else {
+    keepRecentToolResults = Math.max(0, options.keepRecentToolResults ?? DEFAULT_KEEP_RECENT_RESULTS);
+    maxToolResultChars = Math.max(120, options.maxToolResultChars ?? DEFAULT_MAX_TOOL_RESULT_CHARS);
   }
 
   if (toolResultIndexes.length <= keepRecentToolResults) {

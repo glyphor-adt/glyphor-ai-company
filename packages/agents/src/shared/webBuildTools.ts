@@ -183,9 +183,10 @@ async function generateImagesFromManifest(
         : `public/images/${item.fileName}`;
 
     try {
-      // Primary: Imagen 4 Ultra
+      // Primary: Imagen 4 Ultra — pass aspect ratio from manifest
+      const ar = item.aspect_ratio || '16:9';
       const result = await Promise.race([
-        modelClient.generateImage(item.prompt),
+        modelClient.generateImage(item.prompt, undefined, ar),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Image gen timeout')), IMAGE_GEN_TIMEOUT_MS),
         ),
@@ -193,7 +194,7 @@ async function generateImagesFromManifest(
 
       if (result.imageData) {
         imageFiles[filePath] = result.imageData;
-        console.log(`[WebBuild:Images] ✅ ${item.fileName} (Imagen 4)`);
+        console.log(`[WebBuild:Images] ✅ ${item.fileName} (Imagen 4, ${ar})`);
         continue;
       }
     } catch (err) {
@@ -202,8 +203,9 @@ async function generateImagesFromManifest(
 
     // Fallback: OpenAI DALL-E 3
     try {
+      const ar = item.aspect_ratio || '16:9';
       const result = await Promise.race([
-        modelClient.generateImageOpenAI(item.prompt),
+        modelClient.generateImageOpenAI(item.prompt, undefined, ar),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Image gen timeout')), IMAGE_GEN_TIMEOUT_MS),
         ),
@@ -1754,16 +1756,26 @@ COLOR COMPOSITION PROTOCOL (MANDATORY):
 - Use only one dominant accent family; secondary accent usage should be sparse and purposeful.
 - Headlines and body copy must stay high-contrast on all surfaces; do not sacrifice readability for mood.
 
+IMAGE GENERATION (Imagen 4 with DALL-E 3 fallback):
+Every page needs imagery. Include image_manifest in your output for all images.
+- Prompts MUST be art-directed: [Subject] [Context] [Lighting] [Materials] [Mood] [Style].
+- Keep imagery cohesive: consistent mood/lighting/style across all prompts.
+- Target a strong landing-page media plan: 3-5 images unless the brief explicitly asks for a gallery-heavy layout.
+- Preferred slot plan:
+  1) hero visual (16:9)
+  2) feature visual A (4:3 or 16:9)
+  3) feature visual B (4:3 or 16:9)
+  4) gallery/menu visual A (3:4 or 1:1)
+  5) gallery/menu visual B (3:4 or 1:1)
+  6) gallery/menu visual C OR section background (optional)
+  7) optional section background/accent visual
+- Reuse generated assets for secondary cards instead of inventing new file names outside the manifest.
+
 IMAGE/VISUAL ASSETS (CRITICAL):
-- Use 3-5 images unless brief explicitly requires more.
-- Images must harmonize with the primary accent.
 - Reference images as /images/... (never public/images/...).
 - Every referenced /images/* path MUST have a matching entry in image_manifest.
 - Maximum ${MAX_IMAGE_GEN_ITEMS} unique /images/* paths across ALL files in a single build.
-- Image prompts format: [Subject] [Context] [Lighting] [Materials] [Mood] [Style].
-- Keep imagery cohesive (consistent lighting/mood).
 - Images must be RELEVANT to the specific business — no generic stock.
-- Reuse images across sections instead of creating new ones for every card/testimonial.
 - Product/brand logo must remain text-based wordmark (no image asset).
 - Text over images requires overlay/gradient for readability.
 - For cinematic/Aceternity sections, enforce image framing discipline: explicit object-fit and size/aspect classes, plus overflow-hidden on media containers.
@@ -1775,11 +1787,14 @@ IMAGE BUDGET CONTRACT (HARD):
 4. Reuse assets across sections (gallery/testimonials) instead of adding new files.
 5. If you need more visuals than budget allows, repeat existing paths intentionally.
 
-VIDEO RULES:
-- NEVER include video_manifest unless the brief EXPLICITLY mentions video, animation, or motion background.
-- If video is requested: max ${MAX_VIDEO_MANIFEST_ITEMS} videos, always add overlay for text readability.
+VIDEO HERO (Veo 3.1):
+- Use when it strengthens the concept and user intent (especially if intake/brief selects video).
+- Include video_manifest in your output:
+  [{ fileName: "/videos/hero-bg.mp4", prompt: "...", aspect_ratio: "16:9", duration_seconds: 8, negative_prompt: "..." }]
+- Maximum ${MAX_VIDEO_MANIFEST_ITEMS} videos. Always add overlay for text readability.
 - Reference videos as /videos/... (never public/videos/...).
 - Theme-lock video prompts to the brief's domain nouns; include negative_prompt.
+- NEVER include video_manifest unless the brief EXPLICITLY mentions video, animation, or motion background.
 
 ${MEDIA_EXECUTION_RULES}
 

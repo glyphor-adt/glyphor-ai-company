@@ -15,6 +15,9 @@ export { ToolExecutor, isToolBlocked, invalidateBlockCache, isToolGranted, inval
 // Concurrent tool execution — parallel dispatch for safe tools
 export { ConcurrentToolExecutor, classifyToolConcurrency, shouldUseConcurrentExecution } from './concurrentToolExecutor.js';
 export type { ToolCallEntry, ConcurrentToolResult, ConcurrentBatchStats, TrackedToolStatus } from './concurrentToolExecutor.js';
+// Parallel assignment dispatch — dependency-aware concurrent work assignment execution
+export { dispatchParallelAssignments, classifyDependencies } from './parallelAssignmentDispatcher.js';
+export type { ParallelAssignment, AssignmentResult, ParallelDispatchContext, ParallelDispatchResult } from './parallelAssignmentDispatcher.js';
 // Policy limits — per-agent feature toggles and compliance gates
 export {
   PolicyLimitsCache,

@@ -2543,6 +2543,7 @@ Rules:
               retrievalMetadata: lastRetrievalTrace
                 ? buildCompanyRetrievalMetadataMap(lastRetrievalTrace)
                 : undefined,
+              runPhase,
           };
 
           // Concurrent dispatch: run safe tools in parallel when possible

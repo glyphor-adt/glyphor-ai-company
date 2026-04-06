@@ -299,17 +299,17 @@ export class ModelClient {
   /**
    * Generate an image using Google Imagen 4 Ultra.
    */
-  async generateImage(prompt: string, model = 'imagen-4.0-ultra-generate-001'): Promise<ImageResponse> {
+  async generateImage(prompt: string, model = 'imagen-4.0-ultra-generate-001', aspectRatio = '16:9'): Promise<ImageResponse> {
     const adapter = this.factory.get('gemini') as GeminiAdapter;
-    return adapter.generateImage(prompt, model);
+    return adapter.generateImage(prompt, model, aspectRatio);
   }
 
   /**
    * Generate an image using OpenAI gpt-image-1.5 (text-rich infographics).
    */
-  async generateImageOpenAI(prompt: string, model = 'gpt-image-1.5'): Promise<ImageResponse> {
+  async generateImageOpenAI(prompt: string, model = 'gpt-image-1.5', aspectRatio = '16:9'): Promise<ImageResponse> {
     const adapter = this.factory.get('openai') as OpenAIAdapter;
-    return adapter.generateImage(prompt, model);
+    return adapter.generateImage(prompt, model, aspectRatio);
   }
 
   /**

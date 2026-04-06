@@ -965,6 +965,25 @@ export class ToolExecutor {
       };
     }
 
+    // ─── Planning phase gate: read-only enforcement ────────
+    // When the agent is in the planning phase, only read-only tools are
+    // permitted. This prevents side effects during plan decomposition,
+    // even if the model somehow emits a tool call (tools are stripped from
+    // declarations during planning, but this is defense-in-depth).
+    if (context.runPhase === 'planning' && !isReadOnlyTool(toolName)) {
+      this.logSecurityEvent(context.agentId, context.agentRole, toolName, 'POLICY_BLOCKED', {
+        reason: 'planning_phase_read_only',
+        message: `Tool "${toolName}" blocked during planning phase. Only read-only tools are allowed.`,
+      });
+      return {
+        success: false,
+        error: `Tool "${toolName}" is blocked during the planning phase. Only read-only tools (get_*, read_*, calculate_*, recall_*, query_*, search_*, check_*, fetch_*, discover_*, monitor_*) are permitted. Complete your plan first, then tools will be available during the execution phase.`,
+        filesWritten: 0,
+        memoryKeysWritten: 0,
+        riskLevel: riskAssessment.level,
+      };
+    }
+
     // ─── Circuit breaker: global fleet halt gate ─────────
     // Check if the fleet-wide circuit breaker is tripped.
     // This runs before all other gates — if the fleet is halted, nothing runs.

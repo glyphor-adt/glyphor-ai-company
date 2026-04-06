@@ -156,14 +156,14 @@ export class GeminiAdapter implements ProviderAdapter {
   /**
    * Generate an image using Google Imagen 4 Ultra.
    */
-  async generateImage(prompt: string, model = 'imagen-4.0-ultra-generate-001'): Promise<ImageResponse> {
+  async generateImage(prompt: string, model = 'imagen-4.0-ultra-generate-001', aspectRatio = '16:9'): Promise<ImageResponse> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response = await this.client.models.generateImages({
       model,
       prompt,
       config: {
         numberOfImages: 1,
-        aspectRatio: '16:9',
+        aspectRatio: aspectRatio || '16:9',
       },
     });
 
