@@ -1649,36 +1649,65 @@ export class ToolExecutor {
     };
 
     try {
-      const toolPromise = tool.execute(params, executionContext);
+      const executeOnce = async (): Promise<ToolResult> => {
+        const toolPromise = tool.execute(params, executionContext);
 
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Tool ${toolName} timed out after ${timeoutMs}ms`)), timeoutMs),
-      );
-
-      const abortPromise = new Promise<never>((_, reject) => {
-        if (context.abortSignal.aborted) {
-          reject(new Error('Agent aborted'));
-          return;
-        }
-        context.abortSignal.addEventListener(
-          'abort',
-          () => reject(new Error('Agent aborted')),
-          { once: true },
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Tool ${toolName} timed out after ${timeoutMs}ms`)), timeoutMs),
         );
-      });
 
-      const result = await abacMiddleware(
-        context.agentRole,
-        {
-          tool,
-          toolName,
-          params,
-          taskId: context.assignmentId ?? context.runId,
-          agentRole: context.agentRole,
-          auditAgentId: context.agentRole,
-        },
-        () => Promise.race([toolPromise, timeoutPromise, abortPromise]),
-      );
+        const abortPromise = new Promise<never>((_, reject) => {
+          if (context.abortSignal.aborted) {
+            reject(new Error('Agent aborted'));
+            return;
+          }
+          context.abortSignal.addEventListener(
+            'abort',
+            () => reject(new Error('Agent aborted')),
+            { once: true },
+          );
+        });
+
+        return abacMiddleware(
+          context.agentRole,
+          {
+            tool,
+            toolName,
+            params,
+            taskId: context.assignmentId ?? context.runId,
+            agentRole: context.agentRole,
+            auditAgentId: context.agentRole,
+          },
+          () => Promise.race([toolPromise, timeoutPromise, abortPromise]),
+        );
+      };
+
+      // Transient retry: retry tool execution on connection/DB errors (up to 2 retries)
+      let result: ToolResult | undefined;
+      let lastError: Error | undefined;
+      for (let attempt = 0; attempt <= MAX_TOOL_TRANSIENT_RETRIES; attempt++) {
+        try {
+          result = await executeOnce();
+          // If tool returned success:false with transient error text, retry
+          if (!result.success && attempt < MAX_TOOL_TRANSIENT_RETRIES && TRANSIENT_TOOL_ERROR.test(result.error ?? '')) {
+            const delay = TOOL_TRANSIENT_BASE_DELAY_MS * Math.pow(2, attempt);
+            console.warn(`[ToolExecutor] Transient error on ${toolName} (attempt ${attempt + 1}/${MAX_TOOL_TRANSIENT_RETRIES + 1}): ${result.error?.slice(0, 100)}. Retrying in ${delay}ms.`);
+            await new Promise(r => setTimeout(r, delay));
+            continue;
+          }
+          break;
+        } catch (err) {
+          lastError = err as Error;
+          if (attempt < MAX_TOOL_TRANSIENT_RETRIES && TRANSIENT_TOOL_ERROR.test(lastError.message)) {
+            const delay = TOOL_TRANSIENT_BASE_DELAY_MS * Math.pow(2, attempt);
+            console.warn(`[ToolExecutor] Transient throw on ${toolName} (attempt ${attempt + 1}/${MAX_TOOL_TRANSIENT_RETRIES + 1}): ${lastError.message.slice(0, 100)}. Retrying in ${delay}ms.`);
+            await new Promise(r => setTimeout(r, delay));
+            continue;
+          }
+          throw lastError;
+        }
+      }
+      if (!result) throw lastError ?? new Error(`Tool ${toolName} failed after retries`);
 
       const finalResult: ToolResult = {
         success: result.success,

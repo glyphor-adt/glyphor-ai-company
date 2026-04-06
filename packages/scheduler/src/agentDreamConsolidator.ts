@@ -395,19 +395,38 @@ async function updateAgentWorldModel(
   agentRole: CompanyAgentRole,
   patterns: ExtractedPatterns,
 ): Promise<void> {
+  // Map strengths/weaknesses to the existing agent_world_model schema:
+  // strengths: [{dimension, evidence, confidence}]
+  // weaknesses: [{dimension, evidence, confidence}]
+  // failure_patterns: [{pattern, occurrences, lastSeen}]
+  const strengthEntries = patterns.strengths.map(s => ({
+    dimension: s,
+    evidence: 'dream_consolidation',
+    confidence: 0.7,
+  }));
+  const weaknessEntries = patterns.weaknesses.map(w => ({
+    dimension: w,
+    evidence: 'dream_consolidation',
+    confidence: 0.6,
+  }));
+  const failureEntries = patterns.recurringFailures.map(f => ({
+    pattern: f.pattern,
+    occurrences: f.frequency,
+    lastSeen: new Date().toISOString(),
+  }));
+
   await systemQuery(
-    `INSERT INTO agent_world_models (agent_role, strengths, weaknesses, performance_trend, updated_at)
-     VALUES ($1, $2::jsonb, $3::jsonb, $4, NOW())
-     ON CONFLICT (agent_role) DO UPDATE SET
-       strengths = agent_world_models.strengths || $2::jsonb,
-       weaknesses = $3::jsonb,
-       performance_trend = $4,
-       updated_at = NOW()`,
+    `UPDATE agent_world_model
+     SET strengths = COALESCE(strengths, '[]'::jsonb) || $2::jsonb,
+         weaknesses = $3::jsonb,
+         failure_patterns = $4::jsonb,
+         updated_at = NOW()
+     WHERE agent_role = $1`,
     [
       agentRole,
-      JSON.stringify(patterns.strengths),
-      JSON.stringify(patterns.weaknesses),
-      patterns.performanceTrend,
+      JSON.stringify(strengthEntries),
+      JSON.stringify(weaknessEntries),
+      JSON.stringify(failureEntries),
     ],
   );
 }
@@ -416,16 +435,38 @@ async function updateProceduralMemory(
   agentRole: CompanyAgentRole,
   skills: string[],
 ): Promise<void> {
+  // Use existing shared_procedures table to store discovered skills.
+  // Each skill becomes a procedure with the agent as discoverer.
   for (const skill of skills) {
+    const slug = `dream-${agentRole}-${skill.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60)}`;
     await systemQuery(
-      `INSERT INTO agent_procedural_memory (agent_role, skill_description, confidence, created_at)
-       VALUES ($1, $2, 0.7, NOW())
-       ON CONFLICT (agent_role, skill_description) DO UPDATE SET
-         confidence = LEAST(1.0, agent_procedural_memory.confidence + 0.1),
+      `INSERT INTO shared_procedures (slug, name, domain, description, steps, discovered_by, status)
+       VALUES ($1, $2, $3, $4, '[]'::jsonb, $5, 'proposed')
+       ON CONFLICT (slug) DO UPDATE SET
+         times_used = shared_procedures.times_used + 1,
          updated_at = NOW()`,
-      [agentRole, skill],
+      [
+        slug,
+        skill.slice(0, 200),
+        getDepartmentForRole(agentRole),
+        `Skill learned by ${agentRole} via dream consolidation: ${skill}`,
+        agentRole,
+      ],
     );
   }
+}
+
+function getDepartmentForRole(role: CompanyAgentRole): string {
+  const map: Record<string, string> = {
+    'chief-of-staff': 'operations', 'cto': 'engineering', 'cpo': 'product',
+    'cmo': 'marketing', 'cfo': 'finance', 'clo': 'legal', 'ops': 'operations',
+    'vp-sales': 'sales', 'vp-design': 'design', 'vp-research': 'research',
+    'platform-engineer': 'engineering', 'quality-engineer': 'engineering',
+    'devops-engineer': 'engineering', 'frontend-engineer': 'design',
+    'content-creator': 'marketing', 'seo-analyst': 'marketing',
+    'competitive-research-analyst': 'research', 'market-research-analyst': 'research',
+  };
+  return map[role] ?? 'general';
 }
 
 async function flagForFounderReview(

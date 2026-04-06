@@ -344,8 +344,9 @@ export function createPdfTools(): ToolDefinition[] {
     {
       name: 'generate_pdf',
       description:
-        'Generate a PDF document from markdown or HTML content. Returns a base64-encoded PDF. ' +
-        'Use this when you need to produce a downloadable report, brief, analysis export, or any document artifact as PDF.',
+        'Generate a PDF document from markdown or HTML content. The PDF is automatically saved to SharePoint ' +
+        'and a direct URL is returned. Use this when you need to produce a downloadable report, brief, analysis export, ' +
+        'or any document artifact as PDF. Always provide a descriptive title.',
       parameters: {
         content: { type: 'string', description: 'Markdown or HTML content to render into a PDF.', required: true },
         title: { type: 'string', description: 'Document title (used in the page header).', required: false },
@@ -353,12 +354,16 @@ export function createPdfTools(): ToolDefinition[] {
         landscape: { type: 'boolean', description: 'Use landscape orientation.', required: false },
         content_type: { type: 'string', description: 'Whether the content is markdown or raw HTML. Default: markdown.', required: false, enum: ['markdown', 'html'] },
       },
-      execute: async (params): Promise<ToolResult> => {
+      execute: async (params, ctx): Promise<ToolResult> => {
         const contentType = (params.content_type as string) || 'markdown';
         const content = params.content as string;
         const title = params.title as string | undefined;
         const format = (params.format as string) || 'A4';
         const landscape = (params.landscape as boolean) ?? false;
+
+        let pdfBase64: string | null = null;
+        let sizeBytes = 0;
+        let renderMethod = 'unknown';
 
         // ── Try Playwright service first ──────────────────────────────
         try {
@@ -381,41 +386,74 @@ export function createPdfTools(): ToolDefinition[] {
 
           if (res.ok) {
             const data = (await res.json()) as { pdf: string; size_bytes: number };
-            return {
-              success: true,
-              data: {
-                pdf_base64: data.pdf,
-                size_bytes: data.size_bytes,
-                format,
-                message: `PDF generated successfully (${Math.round(data.size_bytes / 1024)} KB).`,
-              },
-            };
+            pdfBase64 = data.pdf;
+            sizeBytes = data.size_bytes;
+            renderMethod = 'playwright';
+          } else {
+            console.warn(`[generate_pdf] Playwright service returned ${res.status}, falling back to local PDF generation.`);
           }
-          // Non-OK → fall through to local fallback
-          console.warn(`[generate_pdf] Playwright service returned ${res.status}, falling back to local PDF generation.`);
         } catch (err) {
           console.warn(`[generate_pdf] Playwright service unavailable: ${(err as Error).message}. Falling back to local PDF generation.`);
         }
 
         // ── Local PDFKit fallback ─────────────────────────────────────
-        try {
-          const markdown = contentType === 'html'
-            ? content  // Best-effort: PDFKit will render the raw text
-            : (title ? `# ${title}\n\n${content}` : content);
+        if (!pdfBase64) {
+          try {
+            const markdown = contentType === 'html'
+              ? content
+              : (title ? `# ${title}\n\n${content}` : content);
 
-          const data = await generatePdfLocal(markdown, format, landscape);
-          return {
-            success: true,
-            data: {
-              pdf_base64: data.pdf,
-              size_bytes: data.size_bytes,
-              format,
-              message: `PDF generated locally (${Math.round(data.size_bytes / 1024)} KB). Note: local rendering may have simpler formatting than the full Playwright service.`,
-            },
-          };
-        } catch (err) {
-          return { success: false, error: `generate_pdf failed (both Playwright and local fallback): ${(err as Error).message}` };
+            const data = await generatePdfLocal(markdown, format, landscape);
+            pdfBase64 = data.pdf;
+            sizeBytes = data.size_bytes;
+            renderMethod = 'local';
+          } catch (err) {
+            return { success: false, error: `generate_pdf failed (both Playwright and local fallback): ${(err as Error).message}` };
+          }
         }
+
+        // ── Auto-save to SharePoint ───────────────────────────────────
+        // PDFs that only exist as base64 in chat memory are useless.
+        // Automatically persist to SharePoint so the user gets a link.
+        let sharePointUrl: string | null = null;
+        try {
+          const { uploadBinaryToSharePoint } = await import('@glyphor/integrations');
+          const safeName = (title ?? 'document')
+            .replace(/[^a-zA-Z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .toLowerCase()
+            .slice(0, 80);
+          const fileName = `${safeName}-${Date.now()}.pdf`;
+          const buffer = Buffer.from(pdfBase64, 'base64');
+
+          const result = await uploadBinaryToSharePoint(fileName, buffer, {
+            contentType: 'application/pdf',
+            folder: 'Deliverables',
+            summary: title ? `PDF: ${title}` : 'Generated PDF document',
+            agentRole: ctx?.agentRole,
+            tags: ['pdf', 'deliverable', 'generated'],
+          });
+          sharePointUrl = result.webUrl;
+          console.log(`[generate_pdf] Saved to SharePoint: ${sharePointUrl}`);
+        } catch (spErr) {
+          console.warn(`[generate_pdf] SharePoint save failed (PDF still returned as base64): ${(spErr as Error).message}`);
+        }
+
+        return {
+          success: true,
+          data: {
+            pdf_base64: pdfBase64,
+            size_bytes: sizeBytes,
+            format,
+            render_method: renderMethod,
+            ...(sharePointUrl ? {
+              sharepoint_url: sharePointUrl,
+              message: `PDF generated (${Math.round(sizeBytes / 1024)} KB) and saved to SharePoint: ${sharePointUrl}`,
+            } : {
+              message: `PDF generated (${Math.round(sizeBytes / 1024)} KB). Warning: could not save to SharePoint — PDF exists only as base64 in this response.`,
+            }),
+          },
+        };
       },
     },
   ];

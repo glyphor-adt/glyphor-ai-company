@@ -865,10 +865,11 @@ export class OpenAIAdapter implements ProviderAdapter {
             const toolCallId = resultIndex < lastToolCallIds.length
               ? lastToolCallIds[resultIndex]
               : `call_fallback_${resultIndex}_${(tr.toolName ?? '').slice(0, 15)}`.slice(0, 40);
+            const isError = tr.toolResult?.success === false;
             messages.push({
               role: 'tool',
               tool_call_id: toolCallId,
-              content: tr.content,
+              content: isError ? `[ERROR] ${tr.content}` : tr.content,
             });
             resultIndex++;
             i++;
