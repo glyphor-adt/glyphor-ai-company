@@ -33,6 +33,7 @@ import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 import { systemQuery } from '@glyphor/shared/db';
 
 export interface CTORunParams {
@@ -103,6 +104,13 @@ export async function runCTO(params: CTORunParams = {}) {
 
   const task = params.task || 'platform_health_check';
   const today = new Date().toISOString().split('T')[0];
+
+  tools.push(...createSandboxDevTools({
+    repo: 'glyphor-adt/glyphor-ai-company',
+    branch: 'main',
+    agentRole: 'cto',
+    runId: `marcus-${task}-${today}`,
+  }));
 
   let initialMessage: string;
 
