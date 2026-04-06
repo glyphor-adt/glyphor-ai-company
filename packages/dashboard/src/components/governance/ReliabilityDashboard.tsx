@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, SectionHeader, Skeleton } from '../ui';
-import { apiCall, SCHEDULER_URL } from '../../lib/firebase';
+import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../../lib/firebase';
 
 interface FleetLeaderMetric {
   agentId: string;
@@ -196,6 +196,13 @@ interface PlanningGateHealthPayload {
 
 const CANONICAL_SCHEDULER_BASE = 'https://glyphor-scheduler-610179349713.us-central1.run.app';
 
+function candidateMetricPaths(path: string): string[] {
+  if (path.startsWith('/admin/')) {
+    return [path, `/api${path}`];
+  }
+  return [path];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -290,18 +297,21 @@ async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<Plann
   const fallbackBases = [schedulerBase, window.location.origin, CANONICAL_SCHEDULER_BASE]
     .map((base) => base.trim())
     .filter(Boolean);
+  const headers = await buildApiHeaders();
 
   for (const base of fallbackBases) {
-    try {
-      const response = await fetch(`${base}${path}`, {
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-      });
-      if (!response.ok) continue;
-      const data = await response.json();
-      if (isPlanningGateSnapshot(data)) return data;
-    } catch {
-      // Continue trying additional fallback bases.
+    for (const candidatePath of candidateMetricPaths(path)) {
+      try {
+        const response = await fetch(`${base}${candidatePath}`, {
+          headers,
+          cache: 'no-store',
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        if (isPlanningGateSnapshot(data)) return data;
+      } catch {
+        // Continue trying additional fallback bases.
+      }
     }
   }
 
@@ -322,18 +332,21 @@ async function fetchMetricWithFallback<T>(
   const fallbackBases = [window.location.origin, (SCHEDULER_URL ?? '').trim(), CANONICAL_SCHEDULER_BASE]
     .map((base) => base.trim())
     .filter(Boolean);
+  const headers = await buildApiHeaders();
 
   for (const base of fallbackBases) {
-    try {
-      const response = await fetch(`${base}${path}`, {
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-      });
-      if (!response.ok) continue;
-      const data = await response.json();
-      if (guard(data)) return data;
-    } catch {
-      // Continue trying additional fallback bases.
+    for (const candidatePath of candidateMetricPaths(path)) {
+      try {
+        const response = await fetch(`${base}${candidatePath}`, {
+          headers,
+          cache: 'no-store',
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        if (guard(data)) return data;
+      } catch {
+        // Continue trying additional fallback bases.
+      }
     }
   }
 

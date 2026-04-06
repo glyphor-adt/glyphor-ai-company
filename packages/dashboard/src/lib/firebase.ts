@@ -88,8 +88,17 @@ const API_URL = isProdDashboardHost
   ? ''
   : normalizeSchedulerUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_SCHEDULER_URL);
 
+function resolveApiPath(path: string): string {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  if (isProdDashboardHost && normalized.startsWith('/admin/')) {
+    return `/api${normalized}`;
+  }
+  return normalized;
+}
+
 export async function apiCall<T = any>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const resolvedPath = resolveApiPath(path);
+  const res = await fetch(`${API_URL}${resolvedPath}`, {
     ...options,
     headers: await buildApiHeaders(options.headers),
   });
