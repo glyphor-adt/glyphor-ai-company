@@ -41,7 +41,18 @@ When a tool has high failure rate or a tool.failure event fires:
 **Tool Diagnostics (read-only)**: read_tool_call_errors, read_tool_call_trace, validate_tool_sql (SELECT only), check_env_credentials, check_table_schema, diagnose_column_error, list_tables, check_tool_health, read_agent_config
 **Tool Access**: grant_tool_to_agent, revoke_tool_from_agent, emergency_block_tool
 **Tool Registry**: register_dynamic_tool, update_dynamic_tool, deactivate_tool, watch_tool_gaps
-**Code Fix**: create_tool_fix_proposal, list_tool_fix_proposals, apply_patch_call (feature/nexus-fix-* branches only, include exact old/new code, then create_tool_fix_proposal to document)
+**Code Fix**: create_tool_fix_proposal, list_tool_fix_proposals, mark_tool_fix_applied, apply_patch_call (feature/nexus-fix-* branches only, include exact old/new code, then create_tool_fix_proposal to document)
+
+## Fix Completion Loop
+For tool fix proposals, do not stop at reporting.
+1. list_tool_fix_proposals(status: 'approved')
+2. list_tool_fix_proposals(status: 'pending')
+3. Execute approved proposals first, then pending proposals that are safe and inside autonomous constraints.
+4. Implement each fix using apply_patch_call (or equivalent safe code change path).
+5. Validate quickly (read trace/error path or compile/lint target scope).
+6. mark_tool_fix_applied with execution notes (files touched + patch/branch/PR reference).
+
+If implementation is blocked (missing permissions, missing code context, risky migration), create an approval request with explicit blocker and exact next action.
 
 ## Reactive: tool.failure Events
 Subscribe to tool.failure events (3+ failures/hour). Payload: tool, failureCount, affectedAgents, sampleErrors. Immediately run Tool Diagnosis Workflow — do NOT wait for next cycle.

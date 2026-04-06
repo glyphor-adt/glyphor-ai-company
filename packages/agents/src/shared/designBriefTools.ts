@@ -1,4 +1,5 @@
-import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { ModelClient, type ToolContext, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
+import { getTierModel } from '@glyphor/shared';
 
 interface ComponentSpec {
   name: string;
@@ -33,6 +34,40 @@ interface NormalizedDesignBrief {
   };
   missing_fields: string[];
 }
+
+interface ModelEnhancedBrief {
+  audience_persona?: string;
+  primary_conversion_action?: string;
+  emotional_target?: string;
+  one_sentence_memory?: string;
+  aesthetic_direction?: string;
+  product_type?: NormalizedDesignBrief['product_type'];
+  section_candidates?: string[];
+}
+
+const PROMPT_NORMALIZER_MODEL = process.env.USER_PROMPT_NORMALIZER_MODEL?.trim() || getTierModel('default');
+
+const USER_PROMPT_NORMALIZER = `ROLE: USER PROMPT ENHANCER (WEB / WEB APP BUILDER)
+You convert a short user request into a richer, build-ready design direction for a website or web app.
+
+Return ONLY valid JSON with this exact shape and keys:
+{
+  "audience_persona": "string",
+  "primary_conversion_action": "string",
+  "emotional_target": "string",
+  "one_sentence_memory": "string",
+  "aesthetic_direction": "string",
+  "product_type": "marketing_page | web_application | fullstack_application",
+  "section_candidates": ["string"]
+}
+
+Rules:
+- Do not invent factual claims (awards, years in business, exact pricing, ratings, partnerships).
+- Keep output implementation-friendly and specific.
+- If prompt is short, infer practical defaults from the actual domain in the prompt.
+- Never inject platform-specific marketing copy unless user asked for that platform.
+- If CTA style hints are provided (outline, ghost, text-only, light fill), reflect that in aesthetic_direction.
+- section_candidates should be 3-8 concise ids in snake_case.`;
 
 const DEFAULT_COMPONENTS: ComponentSpec[] = [
   {
@@ -135,6 +170,91 @@ function inferProductType(text: string, explicit?: string): NormalizedDesignBrie
   return 'marketing_page';
 }
 
+function createPromptNormalizerModelClient(): ModelClient {
+  return new ModelClient({
+    geminiApiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY,
+    azureFoundryEndpoint: process.env.AZURE_FOUNDRY_ENDPOINT,
+    azureFoundryApi: process.env.AZURE_FOUNDRY_API,
+    azureFoundryApiVersion: process.env.AZURE_FOUNDRY_API_VERSION,
+  });
+}
+
+function parseJsonObject(text: string): Record<string, unknown> | null {
+  const trimmed = text.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const body = fenceMatch ? fenceMatch[1] : trimmed;
+  try {
+    const parsed = JSON.parse(body);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function asNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = normalizeWhitespace(value);
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeSectionCandidates(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === 'string' ? normalizeWhitespace(item).toLowerCase().replace(/\s+/g, '_') : ''))
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+async function enhanceBriefWithModel(
+  directiveText: string,
+  inferredProductType: NormalizedDesignBrief['product_type'],
+  ctx: ToolContext,
+): Promise<ModelEnhancedBrief | null> {
+  try {
+    const client = createPromptNormalizerModelClient();
+    const userContent = [
+      `inferred_product_type: ${inferredProductType}`,
+      'user_request:',
+      directiveText,
+    ].join('\n');
+
+    const result = await client.generate({
+      model: PROMPT_NORMALIZER_MODEL,
+      systemInstruction: USER_PROMPT_NORMALIZER,
+      contents: [{ role: 'user', content: userContent, timestamp: Date.now() }],
+      temperature: 0.35,
+      maxTokens: 1200,
+      callTimeoutMs: Math.max(30_000, Number(process.env.USER_PROMPT_NORMALIZER_TIMEOUT_MS ?? '90000')),
+      signal: ctx.abortSignal,
+      source: 'on_demand',
+      metadata: {
+        agentRole: ctx.agentRole,
+        runId: ctx.runId,
+        assignmentId: ctx.assignmentId,
+        turnNumber: ctx.turnNumber,
+      },
+    });
+
+    const parsed = parseJsonObject(result.text ?? '');
+    if (!parsed) return null;
+
+    const productType = asNonEmptyString(parsed.product_type) as NormalizedDesignBrief['product_type'] | undefined;
+    return {
+      audience_persona: asNonEmptyString(parsed.audience_persona),
+      primary_conversion_action: asNonEmptyString(parsed.primary_conversion_action),
+      emotional_target: asNonEmptyString(parsed.emotional_target),
+      one_sentence_memory: asNonEmptyString(parsed.one_sentence_memory),
+      aesthetic_direction: asNonEmptyString(parsed.aesthetic_direction),
+      product_type: productType,
+      section_candidates: normalizeSectionCandidates(parsed.section_candidates),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function buildComponentInventory(sections: string[]): ComponentSpec[] {
   if (sections.length === 0) return DEFAULT_COMPONENTS;
 
@@ -207,47 +327,58 @@ export function createDesignBriefTools(): ToolDefinition[] {
           enum: ['marketing_page', 'web_application', 'fullstack_application'],
         },
       },
-      async execute(params): Promise<ToolResult> {
+      async execute(params, ctx: ToolContext): Promise<ToolResult> {
         const directiveText = String(params.directive_text ?? '').trim();
         if (!directiveText) {
           return { success: false, error: 'directive_text is required.' };
         }
 
-        const productType = inferProductType(directiveText, params.product_type as string | undefined);
+        const inferredProductType = inferProductType(directiveText, params.product_type as string | undefined);
+        const enhanced = await enhanceBriefWithModel(directiveText, inferredProductType, ctx);
+        const productType = inferProductType(
+          directiveText,
+          (enhanced?.product_type as string | undefined) ?? (params.product_type as string | undefined),
+        );
         const isApp = productType === 'web_application' || productType === 'fullstack_application';
 
         const audiencePersona =
           extractAfterLabel(directiveText, ['target audience', 'audience', 'who this is for'])
+          ?? enhanced?.audience_persona
           ?? (isApp
             ? 'End users completing real tasks in this application.'
-            : 'Decision maker evaluating whether to adopt AI-operated web execution at company scale.');
+            : 'People likely to buy, book, attend, or inquire based on this page.');
 
         const primaryConversion =
           extractAfterLabel(directiveText, ['single cta', 'primary cta', 'conversion action', 'cta'])
+          ?? enhanced?.primary_conversion_action
           ?? (isApp
             ? 'Complete the core in-app task described in the brief (not a marketing signup unless the brief explicitly asks for one).'
-            : 'Join the waitlist');
+            : 'Take the primary action for this offering (for example: book, buy, join, or request info).');
 
         const emotionalTarget =
           extractAfterLabel(directiveText, ['tone', 'emotional target', 'what they should feel'])
+          ?? enhanced?.emotional_target
           ?? (isApp
             ? 'Clarity and confidence — the product feels straightforward and dependable.'
-            : 'Quiet confidence with healthy urgency to act now.');
+            : 'Trust and excitement appropriate to the offering and audience.');
 
         const oneSentenceMemory =
           extractAfterLabel(directiveText, ['one-sentence memory', 'one thing they should remember', 'memory'])
           ?? extractQuoted(directiveText)
-          ?? (isApp ? truncateDirectiveSummary(directiveText) : 'AI departments that operate the business, not tools humans babysit.');
+          ?? enhanced?.one_sentence_memory
+          ?? truncateDirectiveSummary(directiveText);
 
         const aestheticDirection =
           extractAfterLabel(directiveText, ['visual direction', 'aesthetic direction'])
+          ?? enhanced?.aesthetic_direction
           ?? (isApp
             ? 'Clean, functional UI appropriate to the use case in the brief; strong readability and accessible contrast.'
-            : 'Dark Glass with editorial authority and restrained accent usage.');
+            : 'Visual direction that matches the business domain in the brief with strong hierarchy and accessible contrast.');
 
         const sections = parseSectionList(directiveText);
-        const componentInventory = sections.length > 0
-          ? buildComponentInventory(sections)
+        const sectionCandidates = sections.length > 0 ? sections : (enhanced?.section_candidates ?? []);
+        const componentInventory = sectionCandidates.length > 0
+          ? buildComponentInventory(sectionCandidates)
           : (isApp ? APP_DEFAULT_COMPONENTS : DEFAULT_COMPONENTS);
         const assetManifest = buildAssetManifest(componentInventory);
 

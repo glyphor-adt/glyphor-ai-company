@@ -707,6 +707,12 @@ const KNOWN_TOOLS = new Set([
   // ── Customer Slack output tools ──
   'post_to_slack',
   'request_slack_approval',
+
+  // ── Platform Intel fix-loop tools ──
+  'create_tool_fix_proposal',
+  'list_tool_fix_proposals',
+  'mark_tool_fix_applied',
+  'apply_patch_call',
 ]);
 
 /** True if the tool name exists in the compiled-in static tool list (code-backed tools). */

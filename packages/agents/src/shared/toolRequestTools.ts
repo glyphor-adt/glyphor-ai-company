@@ -13,7 +13,7 @@
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { isKnownToolAsync, invalidateGrantCache, refreshDynamicToolCache } from '@glyphor/agent-runtime';
+import { isKnownToolAsync, getAllKnownTools, invalidateGrantCache, refreshDynamicToolCache } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 import { evaluateToolPermissionGate } from './toolPermissionPolicy.js';
 
@@ -128,6 +128,9 @@ export function createToolRequestTools(): ToolDefinition[] {
         const limitRaw = Number(params.limit ?? 50);
         const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 50;
 
+        const staticMatches = getAllKnownTools()
+          .filter((toolName) => toolName.toLowerCase().includes(query));
+
         const rows = await systemQuery<{ tool_name: string }>(
           `SELECT DISTINCT tool_name
              FROM (
@@ -141,12 +144,19 @@ export function createToolRequestTools(): ToolDefinition[] {
           [ctx.agentRole, `%${query}%`, limit],
         );
 
+        const mergedMatches = Array.from(new Set([
+          ...rows.map((r) => r.tool_name),
+          ...staticMatches,
+        ]))
+          .sort((a, b) => a.localeCompare(b))
+          .slice(0, limit);
+
         return {
           success: true,
           data: {
             query,
-            count: rows.length,
-            matches: rows.map((r) => r.tool_name),
+            count: mergedMatches.length,
+            matches: mergedMatches,
             note: 'This searches discoverable registry + active grant names. MCP availability still depends on runtime server auth/health.',
           },
         };

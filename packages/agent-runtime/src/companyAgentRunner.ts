@@ -309,6 +309,11 @@ const AUTOCOMPACT_TARGET_RATIO = 0.50;
 const TOOL_RESULT_DISK_THRESHOLD = 8_000;
 /** Summary reference max length for oversized results. */
 const TOOL_RESULT_SUMMARY_MAX_CHARS = 600;
+/** Critical tools whose payloads must remain fully visible to the model for deterministic remediation. */
+const TOOL_RESULT_BUDGET_EXEMPT_TOOLS = new Set([
+  'list_tool_fix_proposals',
+  'read_fleet_health',
+]);
 
 function historyHasSuccessfulQuickDemoWebApp(history: ConversationTurn[]): boolean {
   return history.some(
@@ -334,6 +339,7 @@ function budgetToolResult(
   runId: string,
   turnNumber: number,
 ): string {
+  if (TOOL_RESULT_BUDGET_EXEMPT_TOOLS.has(toolName)) return content;
   if (content.length <= TOOL_RESULT_DISK_THRESHOLD) return content;
 
   // Ensure temp directory exists

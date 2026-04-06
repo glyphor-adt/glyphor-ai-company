@@ -153,6 +153,8 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
       'deactivate_tool',
       'create_tool_fix_proposal',
       'list_tool_fix_proposals',
+      'mark_tool_fix_applied',
+      'apply_patch_call',
       'read_agent_config',
       'check_table_schema',
       'diagnose_column_error',

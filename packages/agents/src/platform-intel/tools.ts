@@ -1432,6 +1432,105 @@ export function createPlatformIntelTools(): ToolDefinition[] {
       },
     },
 
+    {
+      name: 'mark_tool_fix_applied',
+      description: 'Mark a tool fix proposal as applied after implementing the fix. Also resolves open findings tied to that tool.',
+      parameters: {
+        proposal_id: { type: 'string', description: 'Tool fix proposal ID', required: true },
+        execution_notes: { type: 'string', description: 'Evidence of implementation (files touched, patch/branch/PR/commit)', required: false },
+      },
+      execute: async (params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> => {
+        const proposalId = params.proposal_id as string;
+        const executionNotes = typeof params.execution_notes === 'string' ? params.execution_notes.trim() : '';
+
+        const [proposal] = await systemQuery<{
+          id: string;
+          tool_name: string;
+          status: string;
+          severity: string;
+          affected_agents: string[];
+          review_notes: string | null;
+        }>(
+          `SELECT id, tool_name, status, severity, affected_agents, review_notes
+             FROM tool_fix_proposals
+            WHERE id = $1`,
+          [proposalId],
+        );
+
+        if (!proposal) {
+          return { success: false, error: `Tool fix proposal not found: ${proposalId}` };
+        }
+        if (proposal.status === 'rejected') {
+          return { success: false, error: `Tool fix proposal ${proposalId} is rejected and cannot be marked applied` };
+        }
+        if (proposal.status === 'applied') {
+          return {
+            success: true,
+            data: {
+              proposal_id: proposalId,
+              tool_name: proposal.tool_name,
+              status: 'applied',
+              message: 'Already marked applied',
+            },
+          };
+        }
+
+        const existingNotes = proposal.review_notes?.trim() ?? '';
+        const mergedNotes = [existingNotes, executionNotes].filter((v) => v.length > 0).join('\n\n');
+
+        const [updated] = await systemQuery<{ id: string; status: string; applied_at: string }>(
+          `UPDATE tool_fix_proposals
+              SET status = 'applied',
+                  reviewed_by = COALESCE(reviewed_by, 'platform-intel'),
+                  review_notes = $2,
+                  reviewed_at = COALESCE(reviewed_at, NOW()),
+                  applied_at = NOW()
+            WHERE id = $1
+              AND status IN ('pending', 'approved')
+            RETURNING id, status, applied_at`,
+          [proposalId, mergedNotes || null],
+        );
+
+        if (!updated) {
+          return { success: false, error: `Failed to mark proposal ${proposalId} as applied` };
+        }
+
+        await systemQuery(
+          `UPDATE fleet_findings
+              SET resolved_at = NOW()
+            WHERE finding_type IN ('tool_bug', 'tool_gap', 'tool_gap_escalation')
+              AND description LIKE '%' || $1 || '%'
+              AND resolved_at IS NULL`,
+          [proposal.tool_name],
+        );
+
+        await logPlatformAction(
+          'apply_fix_proposal',
+          'autonomous',
+          null,
+          `Marked tool fix proposal ${proposalId} (${proposal.tool_name}) as applied`,
+          {
+            proposal_id: proposalId,
+            tool_name: proposal.tool_name,
+            severity: proposal.severity,
+            affected_agents: proposal.affected_agents,
+            execution_notes: executionNotes || null,
+          },
+          ctx.runId,
+        );
+
+        return {
+          success: true,
+          data: {
+            proposal_id: proposalId,
+            tool_name: proposal.tool_name,
+            status: updated.status,
+            applied_at: updated.applied_at,
+          },
+        };
+      },
+    },
+
     // ── AGENT LIFECYCLE MANAGEMENT ──────────────────────────────
 
     {

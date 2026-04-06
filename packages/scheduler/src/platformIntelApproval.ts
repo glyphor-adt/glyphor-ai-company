@@ -111,7 +111,7 @@ async function executeApprovedAction(action: PlatformIntelAction): Promise<void>
     }
 
     case 'apply_fix_proposal': {
-      // Mark the fix proposal as approved so Nexus knows to proceed
+      // Mark the fix proposal as approved and queue Nexus to execute the fix.
       const proposalId = payload.proposal_id as string;
       if (proposalId) {
         await systemQuery(
@@ -119,29 +119,26 @@ async function executeApprovedAction(action: PlatformIntelAction): Promise<void>
           [proposalId],
         );
 
-        // Cascade: resolve any fleet_findings linked to this proposal's tool + affected agents
         const [proposal] = await systemQuery<{ tool_name: string; affected_agents: string[] }>(
           `SELECT tool_name, affected_agents FROM tool_fix_proposals WHERE id = $1`,
           [proposalId],
         );
-        if (proposal) {
-          // Resolve tool_bug findings for the affected agents
-          await systemQuery(
-            `UPDATE fleet_findings
-                SET resolved_at = NOW()
-              WHERE finding_type IN ('tool_bug', 'tool_gap', 'tool_gap_escalation')
-                AND description LIKE '%' || $1 || '%'
-                AND resolved_at IS NULL`,
-            [proposal.tool_name],
-          );
-        }
 
-        // Also resolve any finding_ids explicitly listed in the payload
-        const findingIds = Array.isArray(payload.finding_ids) ? payload.finding_ids : [];
-        for (const fid of findingIds) {
+        if (proposal) {
           await systemQuery(
-            `UPDATE fleet_findings SET resolved_at = NOW() WHERE id = $1 AND resolved_at IS NULL`,
-            [fid],
+            `INSERT INTO agent_wake_queue (agent_role, task, reason, context, status)
+             VALUES ($1, $2, $3, $4::jsonb, 'pending')`,
+            [
+              'platform-intel',
+              'on_demand',
+              `Approved fix proposal ${proposalId} for ${proposal.tool_name}; execute and mark applied`,
+              JSON.stringify({
+                task: 'apply_fix_proposal',
+                proposal_id: proposalId,
+                tool_name: proposal.tool_name,
+                affected_agents: proposal.affected_agents,
+              }),
+            ],
           );
         }
       }
