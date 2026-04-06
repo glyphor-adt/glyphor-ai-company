@@ -158,6 +158,16 @@ export class OpenAIAdapter implements ProviderAdapter {
     });
   }
 
+  /**
+   * Map from logical model id → Azure deployment name.
+   * Date-suffixed snapshots (e.g. gpt-5-mini-2025-08-07) share the base
+   * deployment (gpt-5-mini) in Azure. Add entries here when the Azure
+   * deployment name differs from the model id stored in the DB.
+   */
+  private static readonly AZURE_DEPLOYMENT_OVERRIDES: Record<string, string> = {
+    'gpt-5-mini-2025-08-07': 'gpt-5-mini',
+  };
+
   /** Azure uses deployment *name*; it may differ from the logical model id (e.g. o3-deep-research-2). */
   private azureDeploymentModel(logicalModel: string): string {
     if (!this.isAzure) return logicalModel;
@@ -165,7 +175,7 @@ export class OpenAIAdapter implements ProviderAdapter {
       const override = process.env.AZURE_O3_DEEP_RESEARCH_DEPLOYMENT?.trim();
       if (override) return override;
     }
-    return logicalModel;
+    return OpenAIAdapter.AZURE_DEPLOYMENT_OVERRIDES[logicalModel] ?? logicalModel;
   }
 
   async generate(request: UnifiedModelRequest): Promise<UnifiedModelResponse> {

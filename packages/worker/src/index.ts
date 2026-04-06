@@ -1,9 +1,80 @@
 import express from 'express';
 import { systemQuery } from '@glyphor/shared/db';
 import { checkDbHealth } from '@glyphor/shared/db';
+import { OAuth2Client } from 'google-auth-library';
 
 const app = express();
 app.use(express.json());
+const oidcClient = new OAuth2Client();
+
+function getHeaderString(value: string | string[] | undefined): string | undefined {
+  if (!value) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getRequestOrigin(req: express.Request): string | null {
+  const forwardedProto = getHeaderString(req.headers['x-forwarded-proto']);
+  const forwardedHost = getHeaderString(req.headers['x-forwarded-host']) ?? req.get('host');
+  if (!forwardedHost) return null;
+  return `${forwardedProto ?? 'https'}://${forwardedHost}`;
+}
+
+async function requireInternalAuth(
+  req: express.Request,
+  res: express.Response,
+  endpointPath: string,
+): Promise<boolean> {
+  const authorization = getHeaderString(req.headers.authorization);
+  if (!authorization?.startsWith('Bearer ')) {
+    res.status(401).json({ ok: false, error: 'Bearer token required' });
+    return false;
+  }
+
+  const idToken = authorization.slice('Bearer '.length).trim();
+  if (!idToken) {
+    res.status(401).json({ ok: false, error: 'Missing bearer token' });
+    return false;
+  }
+
+  const requestOrigin = getRequestOrigin(req);
+  const audienceCandidates = Array.from(new Set([
+    process.env.WORKER_OIDC_AUDIENCE?.trim() || null,
+    requestOrigin ? `${requestOrigin}${endpointPath}` : null,
+    requestOrigin,
+  ].filter((value): value is string => Boolean(value && value.trim()))));
+
+  if (audienceCandidates.length === 0) {
+    res.status(401).json({ ok: false, error: 'Unauthorized' });
+    return false;
+  }
+
+  let verifiedEmail: string | undefined;
+  let verified = false;
+  for (const audience of audienceCandidates) {
+    try {
+      const ticket = await oidcClient.verifyIdToken({ idToken, audience });
+      const payload = ticket.getPayload();
+      verifiedEmail = typeof payload?.email === 'string' ? payload.email : undefined;
+      verified = true;
+      break;
+    } catch {
+      // try next audience candidate
+    }
+  }
+
+  if (!verified) {
+    res.status(401).json({ ok: false, error: 'Unauthorized' });
+    return false;
+  }
+
+  const expectedServiceAccount = process.env.WORKER_OIDC_SERVICE_ACCOUNT_EMAIL?.trim();
+  if (expectedServiceAccount && verifiedEmail && verifiedEmail !== expectedServiceAccount) {
+    res.status(403).json({ ok: false, error: 'Forbidden' });
+    return false;
+  }
+
+  return true;
+}
 
 // Lazy-load WorkflowOrchestrator to avoid pulling the full agent-runtime barrel at startup
 let _orchestrator: any;
@@ -40,6 +111,8 @@ app.get('/health', async (_req, res) => {
 });
 
 app.post('/run', async (req, res) => {
+  const authed = await requireInternalAuth(req, res, '/run');
+  if (!authed) return;
   const { tenantId, agentRole, taskType, modelTier, metadata } = req.body;
   const startTime = Date.now();
 
@@ -119,6 +192,8 @@ app.post('/run', async (req, res) => {
 });
 
 app.post('/deliver', async (req, res) => {
+  const authed = await requireInternalAuth(req, res, '/deliver');
+  if (!authed) return;
   const { tenantId, agentRole, channel, content, platform } = req.body;
 
   try {

@@ -28,6 +28,7 @@ import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, sy
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { assertWorkAssignmentDispatchAllowed, getTierModel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
+import { verifyUserAccessToken } from '@glyphor/shared/auth';
 import { EventRouter } from './eventRouter.js';
 import { DecisionQueue } from './decisionQueue.js';
 import { DynamicScheduler } from './dynamicScheduler.js';
@@ -65,6 +66,7 @@ import { HeartbeatManager } from './heartbeat.js';
 import { AgentNotifier } from './agentNotifier.js';
 import { runEconomicsGuardrailNotify } from './economicsGuardrailNotify.js';
 import { handleDashboardApi } from './dashboardApi.js';
+import type { AuthenticatedDashboardUser } from './dashboardApi.js';
 import { handleAbacAdminApi } from './abacAdminApi.js';
 import { handleAutonomyAdminApi } from './autonomyAdminApi.js';
 import { handleCapacityAdminApi } from './capacityAdminApi.js';
@@ -374,6 +376,29 @@ async function requireSdkClient(req: IncomingMessage, res: ServerResponse) {
   return client;
 }
 
+async function loadDashboardUserByEmail(email: string): Promise<AuthenticatedDashboardUser | null> {
+  const rows = await systemQuery<{
+    id: string;
+    email: string;
+    role: 'admin' | 'viewer';
+    tenant_id?: string | null;
+  }>(
+    `SELECT id, email, role, tenant_id
+       FROM dashboard_users
+      WHERE LOWER(email) = $1
+      LIMIT 1`,
+    [email.trim().toLowerCase()],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    uid: row.id,
+    email: row.email.trim().toLowerCase(),
+    role: row.role === 'admin' ? 'admin' : 'viewer',
+    tenantId: row.tenant_id ?? null,
+  };
+}
+
 function getHeaderString(value: string | string[] | undefined): string | undefined {
   if (!value) return undefined;
   return Array.isArray(value) ? value[0] : value;
@@ -386,6 +411,123 @@ function getRequestOrigin(req: IncomingMessage): string | null {
   if (!host) return null;
   const proto = forwardedProto ?? 'https';
   return `${proto}://${host}`;
+}
+
+function sendSseEvent(res: ServerResponse, event: Record<string, unknown>): void {
+  res.write(`data: ${JSON.stringify(event)}\n\n`);
+}
+
+function buildDashboardConversationId(email: string, agentRole: string): string {
+  return `dashboard:${email.trim().toLowerCase()}:${agentRole}`;
+}
+
+function buildDashboardResultContent(result: {
+  output?: string | null;
+  action?: string;
+  status?: string;
+  error?: string;
+  reason?: string;
+}): string {
+  if (typeof result.output === 'string' && result.output.trim().length > 0) {
+    return result.output;
+  }
+  if (result.action === 'queued_for_approval') {
+    return 'This request was sent to your approval queue for review.';
+  }
+  if (result.status === 'aborted') {
+    return 'Sorry, I wasn’t able to finish my response. Could you try again?';
+  }
+  if (result.error || result.reason) {
+    const raw = String(result.error ?? result.reason);
+    return `Something went wrong: ${raw.replace(/sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]+/g, '[REDACTED]')}`;
+  }
+  return 'I completed the task but had nothing to report back.';
+}
+
+async function persistDashboardChatMessage(input: {
+  agentRole: string;
+  role: 'user' | 'agent';
+  content: string;
+  userId: string;
+  conversationId: string;
+  sessionId?: string;
+  attachments?: Array<{ name: string; mimeType?: string; type?: string }>;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  await systemQuery(
+    `INSERT INTO chat_messages (
+       agent_role,
+       role,
+       content,
+       user_id,
+       conversation_id,
+       session_id,
+       attachments,
+       metadata,
+       created_at
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, NOW())`,
+    [
+      input.agentRole,
+      input.role,
+      input.content,
+      input.userId,
+      input.conversationId,
+      input.sessionId ?? null,
+      input.attachments?.length
+        ? JSON.stringify(input.attachments.map((item) => ({ name: item.name, type: item.mimeType ?? item.type ?? 'application/octet-stream' })))
+        : null,
+      input.metadata ? JSON.stringify(input.metadata) : null,
+    ],
+  );
+}
+
+async function requireDashboardUser(
+  req: IncomingMessage,
+  res: ServerResponse,
+  options?: { admin?: boolean },
+): Promise<AuthenticatedDashboardUser | null> {
+  if (process.env.NODE_ENV !== 'production') {
+    const authHeader = getHeaderString(req.headers.authorization);
+    if (!authHeader?.startsWith('Bearer ')) {
+      return {
+        uid: 'dev-user',
+        email: 'dev@localhost',
+        role: 'admin',
+        tenantId: null,
+      };
+    }
+  }
+
+  const authorization = getHeaderString(req.headers.authorization);
+  if (!authorization?.startsWith('Bearer ')) {
+    json(res, 401, { error: 'Bearer token required' });
+    return null;
+  }
+
+  const token = authorization.slice('Bearer '.length).trim();
+  if (!token) {
+    json(res, 401, { error: 'Missing bearer token' });
+    return null;
+  }
+
+  try {
+    const verified = await verifyUserAccessToken(token);
+    const user = await loadDashboardUserByEmail(verified.email);
+    if (!user) {
+      json(res, 403, { error: 'Forbidden' });
+      return null;
+    }
+    if (options?.admin && user.role !== 'admin') {
+      json(res, 403, { error: 'Forbidden' });
+      return null;
+    }
+    return user;
+  } catch (err) {
+    console.warn('[DashboardAuth] Failed to verify dashboard user token:', err instanceof Error ? err.message : String(err));
+    json(res, 401, { error: 'Unauthorized' });
+    return null;
+  }
 }
 
 async function requireInternalAuth(
@@ -2446,6 +2588,7 @@ const server = createServer(async (req, res) => {
 
     // Tool health tests (called by Cron or Dashboard)
     if (method === 'POST' && url === '/tool-health/run') {
+      if (!(await requireDashboardUser(req, res, { admin: true }))) return;
       try {
         const rawBody = await readBody(req);
         const parsed = rawBody ? JSON.parse(rawBody) : {};
@@ -2480,6 +2623,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (method === 'GET' && url === '/tool-health/latest') {
+      if (!(await requireDashboardUser(req, res, { admin: true }))) return;
       try {
         const { pool } = await import('@glyphor/shared/db');
         const run = await pool.query(`SELECT * FROM tool_test_runs ORDER BY started_at DESC LIMIT 1`);
@@ -3081,6 +3225,8 @@ const server = createServer(async (req, res) => {
 
     // Canary evaluation endpoint — weekly executive orchestration rollout check (Cloud Scheduler: 0 8 * * 1)
     if (method === 'POST' && url === '/canary/evaluate') {
+      const authed = await requireInternalAuth(req, res, '/canary/evaluate');
+      if (!authed) return;
       try {
         const report = await evaluateCanary(glyphorEventBus);
         json(res, 200, { success: true, ...report });
@@ -3094,6 +3240,8 @@ const server = createServer(async (req, res) => {
 
     // Planning-gate monitor endpoint — daily quality regression alert check
     if (method === 'POST' && url === '/planning-gate/monitor') {
+      const authed = await requireInternalAuth(req, res, '/planning-gate/monitor');
+      if (!authed) return;
       try {
         const report = await evaluatePlanningGateHealth();
         if (report.alerts.length > 0) {
@@ -3164,6 +3312,8 @@ const server = createServer(async (req, res) => {
 
     // Economics guardrails — optional Teams webhook or AgentNotifier (Cloud Scheduler)
     if (method === 'POST' && url === '/economics/guardrail-notify') {
+      const authed = await requireInternalAuth(req, res, '/economics/guardrail-notify');
+      if (!authed) return;
       try {
         const result = await runEconomicsGuardrailNotify(agentNotifier);
         const { success, ...rest } = result;
@@ -3178,6 +3328,7 @@ const server = createServer(async (req, res) => {
 
     // Agent knowledge-gap evaluation endpoint — weekly judge-scored readiness sweep
     if (method === 'POST' && url === '/agent-evals/run') {
+      if (!(await requireDashboardUser(req, res, { admin: true }))) return;
       try {
         const rawBody = await readBody(req).catch(() => '{}');
         const body = (rawBody.trim() ? JSON.parse(rawBody) : {}) as {
@@ -3217,6 +3368,7 @@ const server = createServer(async (req, res) => {
 
     // Golden-task evaluation endpoint — focused quality suite for canary hardening
     if (method === 'POST' && url === '/agent-evals/run-golden') {
+      if (!(await requireDashboardUser(req, res, { admin: true }))) return;
       try {
         const rawBody = await readBody(req).catch(() => '{}');
         const body = (rawBody.trim() ? JSON.parse(rawBody) : {}) as {
@@ -3252,6 +3404,7 @@ const server = createServer(async (req, res) => {
 
     // GTM Readiness — run evaluation (Cloud Scheduler: 0 13 * * *)
     if (method === 'POST' && url === '/gtm-readiness/run') {
+      if (!(await requireDashboardUser(req, res, { admin: true }))) return;
       try {
         const report = await runGtmReadinessEval();
         await persistGtmReport(report);
@@ -3266,6 +3419,7 @@ const server = createServer(async (req, res) => {
 
     // GTM Readiness — latest report
     if (method === 'GET' && url === '/api/eval/gtm-readiness/latest') {
+      if (!(await requireDashboardUser(req, res, { admin: true }))) return;
       try {
         const rows = await systemQuery<{ report_json: unknown }>(
           `SELECT report_json FROM gtm_readiness_reports ORDER BY generated_at DESC LIMIT 1`
@@ -3281,6 +3435,7 @@ const server = createServer(async (req, res) => {
 
     // GTM Readiness — report history
     if (method === 'GET' && url === '/api/eval/gtm-readiness/history') {
+      if (!(await requireDashboardUser(req, res, { admin: true }))) return;
       try {
         const rows = await systemQuery(
           `SELECT id, generated_at, overall, marketing_department_ready,
@@ -3300,6 +3455,8 @@ const server = createServer(async (req, res) => {
 
     // Tool expiration endpoint — daily expiration of stale/unreliable dynamic tools (Cloud Scheduler: 0 6 * * *)
     if (method === 'POST' && url === '/tools/expire') {
+      const authed = await requireInternalAuth(req, res, '/tools/expire');
+      if (!authed) return;
       try {
         const report = await expireTools(glyphorEventBus);
         json(res, 200, { success: true, ...report });
@@ -3313,6 +3470,7 @@ const server = createServer(async (req, res) => {
 
     // Tool re-enable endpoint — manually restore an expired tool
     if (method === 'POST' && url === '/tools/re-enable') {
+      if (!(await requireDashboardUser(req, res, { admin: true }))) return;
       try {
         const body = await new Promise<string>((resolve, reject) => {
           const chunks: Buffer[] = [];
@@ -3384,8 +3542,174 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Direct task invocation with SSE streaming for dashboard chat
+    if (method === 'POST' && url === '/run/stream') {
+      const dashboardUser = await requireDashboardUser(req, res);
+      if (!dashboardUser) return;
+      const body = JSON.parse(await readBody(req));
+      const agentRole = body.agentRole ?? body.agent;
+      const requestRunId = typeof body.runId === 'string' && body.runId.trim().length > 0
+        ? body.runId.trim()
+        : crypto.randomUUID();
+      const userName = body.userName as string | undefined;
+      const persistTranscript = body.persistTranscript === true;
+      const conversationId = typeof body.conversationId === 'string' && body.conversationId.trim().length > 0
+        ? body.conversationId.trim()
+        : buildDashboardConversationId(dashboardUser.email, agentRole);
+
+      let message = body.message as string | undefined;
+      const rawHistory = body.history as { role: string; content: string }[] | undefined;
+      if (message && dashboardUser.email) {
+        const FOUNDERS: Record<string, string> = { 'kristina@glyphor.ai': 'Kristina', 'andrew@glyphor.ai': 'Andrew' };
+        const effectiveEmail = dashboardUser.email.toLowerCase();
+        const founderName = FOUNDERS[effectiveEmail];
+        const identity = founderName
+          ? `[You are speaking with ${founderName} (${effectiveEmail}), Co-Founder of Glyphor. Treat this as a direct conversation with your founder.]`
+          : `[You are speaking with ${userName ?? 'a user'} (${effectiveEmail}).]`;
+        message = `${identity}\n${message}`;
+      }
+
+      const rawAttachments = body.attachments as { name: string; mimeType: string; data: string }[] | undefined;
+      const attachments = rawAttachments?.length
+        ? rawAttachments.map((a) => ({ name: a.name, mimeType: a.mimeType, data: a.data }))
+        : undefined;
+
+      const conversationHistory: ConversationTurn[] = [];
+      if (rawHistory?.length) {
+        for (const h of rawHistory) {
+          conversationHistory.push({
+            role: h.role === 'user' ? 'user' : 'assistant',
+            content: h.content,
+            timestamp: Date.now(),
+          });
+        }
+      }
+      const hasDbRunCarrier = conversationHistory.some(
+        (turn) => typeof turn.content === 'string' && turn.content.startsWith(DB_RUN_ID_TURN_PREFIX),
+      );
+      if (!hasDbRunCarrier) {
+        conversationHistory.unshift({
+          role: 'user',
+          content: `${DB_RUN_ID_TURN_PREFIX}${requestRunId}`,
+          timestamp: Date.now(),
+        });
+      }
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+
+      const heartbeat = setInterval(() => {
+        sendSseEvent(res, { type: 'heartbeat', runId: requestRunId, at: new Date().toISOString() });
+      }, 5000);
+
+      try {
+        if (persistTranscript) {
+          const originalMessage = typeof body.message === 'string' ? body.message : '';
+          await persistDashboardChatMessage({
+            agentRole,
+            role: 'user',
+            content: originalMessage,
+            userId: dashboardUser.email,
+            conversationId,
+            sessionId: requestRunId,
+            attachments,
+            metadata: { runId: requestRunId, streaming: true },
+          });
+        }
+
+        sendSseEvent(res, {
+          type: 'run_started',
+          runId: requestRunId,
+          agentRole,
+          conversationId,
+        });
+
+        sendSseEvent(res, {
+          type: 'status',
+          runId: requestRunId,
+          phase: 'running',
+          message: `Working with ${agentRole}...`,
+        });
+
+        const result = await router.route({
+          source: 'manual',
+          agentRole,
+          task: body.task,
+          payload: {
+            ...(body.payload ?? {}),
+            runId: requestRunId,
+            message,
+            ...(attachments ? { attachments } : {}),
+            ...(conversationHistory.length > 0 ? { conversationHistory } : {}),
+          },
+        });
+
+        if (Array.isArray(result.actions)) {
+          for (const action of result.actions) {
+            sendSseEvent(res, {
+              type: 'action_receipt',
+              runId: requestRunId,
+              action,
+            });
+          }
+        }
+
+        const transcriptContent = buildDashboardResultContent({
+          output: result.output,
+          action: result.action,
+          status: result.status,
+          error: result.error,
+          reason: result.reason,
+        });
+        const transcriptMetadata: Record<string, unknown> = {
+          runId: requestRunId,
+          status: result.status ?? null,
+          action: result.action,
+          actions: result.actions ?? [],
+          dashboardChatEmbeds: result.dashboardChatEmbeds ?? [],
+          streamed: true,
+        };
+        if (persistTranscript) {
+          await persistDashboardChatMessage({
+            agentRole,
+            role: 'agent',
+            content: transcriptContent,
+            userId: dashboardUser.email,
+            conversationId,
+            sessionId: requestRunId,
+            metadata: transcriptMetadata,
+          });
+        }
+
+        sendSseEvent(res, {
+          type: 'result',
+          runId: requestRunId,
+          data: result,
+          transcriptContent,
+          conversationId,
+        });
+      } catch (err) {
+        const messageText = err instanceof Error ? err.message : String(err);
+        sendSseEvent(res, {
+          type: 'error',
+          runId: requestRunId,
+          error: messageText,
+        });
+      } finally {
+        clearInterval(heartbeat);
+        res.end();
+      }
+      return;
+    }
+
     // Direct task invocation
     if (method === 'POST' && url === '/run') {
+      const dashboardUser = await requireDashboardUser(req, res);
+      if (!dashboardUser) return;
       const body = JSON.parse(await readBody(req));
       const agentRole = body.agentRole ?? body.agent;
       const requestRunId = typeof body.runId === 'string' && body.runId.trim().length > 0
@@ -3398,13 +3722,17 @@ const server = createServer(async (req, res) => {
 
       // Inject user identity so agents know who they're talking to
       const userName = body.userName as string | undefined;
-      const userEmail = body.userEmail as string | undefined;
-      if (message && userEmail) {
+      const persistTranscript = body.persistTranscript === true;
+      const conversationId = typeof body.conversationId === 'string' && body.conversationId.trim().length > 0
+        ? body.conversationId.trim()
+        : buildDashboardConversationId(dashboardUser.email, agentRole);
+      if (message && dashboardUser.email) {
         const FOUNDERS: Record<string, string> = { 'kristina@glyphor.ai': 'Kristina', 'andrew@glyphor.ai': 'Andrew' };
-        const founderName = FOUNDERS[userEmail.toLowerCase()];
+        const effectiveEmail = dashboardUser.email.toLowerCase();
+        const founderName = FOUNDERS[effectiveEmail];
         const identity = founderName
-          ? `[You are speaking with ${founderName} (${userEmail}), Co-Founder of Glyphor. Treat this as a direct conversation with your founder.]`
-          : `[You are speaking with ${userName ?? 'a user'} (${userEmail}).]`;
+          ? `[You are speaking with ${founderName} (${effectiveEmail}), Co-Founder of Glyphor. Treat this as a direct conversation with your founder.]`
+          : `[You are speaking with ${userName ?? 'a user'} (${effectiveEmail}).]`;
         message = `${identity}\n${message}`;
       }
 
@@ -3449,6 +3777,42 @@ const server = createServer(async (req, res) => {
           ...(conversationHistory.length > 0 ? { conversationHistory } : {}),
         },
       });
+
+      if (persistTranscript) {
+        const originalMessage = typeof body.message === 'string' ? body.message : '';
+        await persistDashboardChatMessage({
+          agentRole,
+          role: 'user',
+          content: originalMessage,
+          userId: dashboardUser.email,
+          conversationId,
+          sessionId: requestRunId,
+          attachments,
+          metadata: { runId: requestRunId, streaming: false },
+        });
+        await persistDashboardChatMessage({
+          agentRole,
+          role: 'agent',
+          content: buildDashboardResultContent({
+            output: result.output,
+            action: result.action,
+            status: result.status,
+            error: result.error,
+            reason: result.reason,
+          }),
+          userId: dashboardUser.email,
+          conversationId,
+          sessionId: requestRunId,
+          metadata: {
+            runId: requestRunId,
+            status: result.status ?? null,
+            action: result.action,
+            actions: result.actions ?? [],
+            dashboardChatEmbeds: result.dashboardChatEmbeds ?? [],
+            streamed: false,
+          },
+        });
+      }
 
       // Record agent output back to work_assignments if this run was dispatched by orchestration
       const assignmentId = body.payload?.directiveAssignmentId as string | undefined;
@@ -4959,6 +5323,7 @@ const server = createServer(async (req, res) => {
 
     // ─── Triangulated Chat ─────────────────────────────────────────
     if (method === 'POST' && (url === '/ora/chat' || url === '/chat/triangulate')) {
+      if (!(await requireDashboardUser(req, res))) return;
       await handleTriangulatedChat(req, res, {
         modelClient: strategyModelClient,
         embeddingClient: { embed: async (_text: string) => [] as number[] },
@@ -4968,12 +5333,21 @@ const server = createServer(async (req, res) => {
     }
 
     // ── Eval Dashboard API (/api/eval/*) ──────────────────────────
+    if (url.startsWith('/api/eval/')) {
+      if (!(await requireDashboardUser(req, res, { admin: true }))) return;
+    }
     if (await handleEvalApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Governance API (/api/governance/*) ────────────────────────
+    if (url.startsWith('/api/governance/')) {
+      if (!(await requireDashboardUser(req, res, { admin: true }))) return;
+    }
     if (await handleGovernanceApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Admin ABAC API (/admin/abac/*) ────────────────────────────
+    if (url.startsWith('/admin/')) {
+      if (!(await requireDashboardUser(req, res, { admin: true }))) return;
+    }
     if (await handleAbacAdminApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Admin Autonomy API (/admin/autonomy/*) ────────────────────
@@ -5004,7 +5378,11 @@ const server = createServer(async (req, res) => {
     if (await handleTemporalKnowledgeGraphAdminApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Dashboard CRUD API (/api/*) ────────────────────────────────
-    if (await handleDashboardApi(req, res, url, queryString ?? '', method)) return;
+    if (url.startsWith('/api/')) {
+      const dashboardUser = await requireDashboardUser(req, res);
+      if (!dashboardUser) return;
+      if (await handleDashboardApi(req, res, url, queryString ?? '', method, dashboardUser)) return;
+    }
 
     json(res, 404, { error: 'Not found' });
   } catch (err) {

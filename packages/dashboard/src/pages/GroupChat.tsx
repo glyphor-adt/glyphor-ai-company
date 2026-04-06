@@ -10,7 +10,7 @@ import {
   composerIconButtonClassName,
   composerTextareaClassName,
 } from '../components/ChatComposer';
-import { apiCall, SCHEDULER_URL } from '../lib/firebase';
+import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdSearch, MdExpandMore, MdChevronRight } from 'react-icons/md';
 
@@ -416,7 +416,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
         : undefined;
       const res = await fetch(`${SCHEDULER_URL}/run`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await buildApiHeaders(),
         body: JSON.stringify({
           agentRole,
           task: 'on_demand',

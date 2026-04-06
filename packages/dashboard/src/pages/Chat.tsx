@@ -15,7 +15,7 @@ import {
   composerSendButtonClassName,
   composerTextareaClassName,
 } from '../components/ChatComposer';
-import { apiCall, SCHEDULER_URL } from '../lib/firebase';
+import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth, getEmailAliases } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdVideoCall, MdCallEnd, MdAdd, MdSearch, MdDeleteOutline } from 'react-icons/md';
 import { ArrowUp } from 'lucide-react';
@@ -46,6 +46,7 @@ interface Message {
   role: 'user' | 'agent';
   content: string;
   timestamp: Date;
+  streamId?: string;
   attachments?: Attachment[];
   /** Which agent authored this message (for multi-agent @mention threads) */
   agentRole?: string;
@@ -80,6 +81,10 @@ function stripAgentSpeakerPrefix(value: string): string {
   const trimmed = value.trimStart();
   if (!trimmed || !AGENT_SPEAKER_PREFIX_RE) return trimmed;
   return trimmed.replace(AGENT_SPEAKER_PREFIX_RE, '');
+}
+
+function createStreamId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function normalizeMessageContent(value: unknown): string {
@@ -921,7 +926,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
         const res = await fetch(`${SCHEDULER_URL}/run`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await buildApiHeaders(),
           body: JSON.stringify({
             agentRole: role,
             task: 'on_demand',

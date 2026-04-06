@@ -30,9 +30,48 @@ export async function getAuthToken(): Promise<string | null> {
   return user.getIdToken();
 }
 
+function getStoredBrowserAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = window.localStorage.getItem(BROWSER_AUTH_STORAGE_KEY);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored) as { authToken?: unknown };
+    return typeof parsed.authToken === 'string' && parsed.authToken.trim().length > 0
+      ? parsed.authToken
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getPreferredAuthToken(): Promise<string | null> {
+  return (await getAuthToken()) ?? getStoredBrowserAuthToken();
+}
+
+function normalizeHeaders(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+  return { ...headers };
+}
+
+export async function buildApiHeaders(headers?: HeadersInit): Promise<Record<string, string>> {
+  const token = await getPreferredAuthToken();
+  return {
+    ...normalizeHeaders(headers),
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    'Content-Type': 'application/json',
+  };
+}
+
 const LEGACY_SCHEDULER_HOST = 'glyphor-scheduler-v55622rp6q-uc.a.run.app';
 const CANONICAL_SCHEDULER_URL = 'https://glyphor-scheduler-610179349713.us-central1.run.app';
 const PROD_DASHBOARD_HOST = 'glyphor-dashboard-610179349713.us-central1.run.app';
+const BROWSER_AUTH_STORAGE_KEY = 'glyphor-auth';
 
 function normalizeSchedulerUrl(rawValue: string | undefined): string {
   const value = (rawValue ?? '').trim();
@@ -50,14 +89,9 @@ const API_URL = isProdDashboardHost
   : normalizeSchedulerUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_SCHEDULER_URL);
 
 export async function apiCall<T = any>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = await getAuthToken();
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: {
-      ...options.headers,
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      'Content-Type': 'application/json',
-    },
+    headers: await buildApiHeaders(options.headers),
   });
   if (!res.ok) {
     let details = '';

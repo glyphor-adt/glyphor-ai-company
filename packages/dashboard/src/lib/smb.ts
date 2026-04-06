@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiCall } from './firebase';
-import { useAuth } from './auth';
 
 export type SmbAgent = {
   role: string;
@@ -164,25 +163,20 @@ const EMPTY_SUMMARY: SmbSummary = {
   directives: [],
 };
 
-function createQuery(email: string | undefined) {
-  return `?email=${encodeURIComponent(email ?? '')}`;
-}
-
 export function useSmbSummary() {
-  const { user } = useAuth();
   const [data, setData] = useState<SmbSummary>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const summary = await apiCall<SmbSummary>(`/api/smb/summary${createQuery(user?.email)}`);
+      const summary = await apiCall<SmbSummary>('/api/smb/summary');
       setData(summary ?? EMPTY_SUMMARY);
     } catch {
       setData(EMPTY_SUMMARY);
     }
     setLoading(false);
-  }, [user?.email]);
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -192,7 +186,6 @@ export function useSmbSummary() {
 }
 
 export function useSmbSettings() {
-  const { user } = useAuth();
   const [data, setData] = useState<SmbSettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -200,13 +193,13 @@ export function useSmbSettings() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const settings = await apiCall<SmbSettingsData>(`/api/smb/settings${createQuery(user?.email)}`);
+      const settings = await apiCall<SmbSettingsData>('/api/smb/settings');
       setData(settings);
     } catch {
       setData(null);
     }
     setLoading(false);
-  }, [user?.email]);
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -215,7 +208,7 @@ export function useSmbSettings() {
   const update = useCallback(async (payload: Record<string, unknown>) => {
     setSaving(true);
     try {
-      const updated = await apiCall<SmbSettingsData>(`/api/smb/settings${createQuery(user?.email)}`, {
+      const updated = await apiCall<SmbSettingsData>('/api/smb/settings', {
         method: 'PATCH',
         body: JSON.stringify(payload),
       });
@@ -224,7 +217,7 @@ export function useSmbSettings() {
     } finally {
       setSaving(false);
     }
-  }, [user?.email]);
+  }, []);
 
   return { data, loading, saving, refresh, update };
 }

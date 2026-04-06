@@ -14,6 +14,13 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { systemQuery, systemTransaction } from '@glyphor/shared/db';
 
+export interface AuthenticatedDashboardUser {
+  uid: string;
+  email: string;
+  role: 'admin' | 'viewer';
+  tenantId: string | null;
+}
+
 interface SkillUploadTaskMapping {
   task_regex: string;
   priority?: number;
@@ -1305,8 +1312,13 @@ export async function handleDashboardApi(
   url: string,
   queryString: string,
   method: string,
+  authenticatedUser: AuthenticatedDashboardUser | null,
 ): Promise<boolean> {
   if (!url.startsWith('/api/')) return false;
+  if (!authenticatedUser) {
+    jsonResponse(res, 401, { error: 'Unauthorized' });
+    return true;
+  }
 
   // Parse: /api/company_agents or /api/decisions/123 or /api/company-pulse/current
   const apiPath = url.slice(5); // remove "/api/"
@@ -1332,9 +1344,7 @@ export async function handleDashboardApi(
 
   if (apiPath === 'dashboard-profile/current' && method === 'GET') {
     try {
-      const params = new URLSearchParams(queryString ?? '');
-      const email = params.get('email');
-      const profile = await resolveDashboardContext(email);
+      const profile = await resolveDashboardContext(authenticatedUser.email);
       jsonResponse(res, 200, profile);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1345,9 +1355,7 @@ export async function handleDashboardApi(
 
   if (apiPath === 'smb/summary' && method === 'GET') {
     try {
-      const params = new URLSearchParams(queryString ?? '');
-      const email = params.get('email');
-      const summary = await buildSmbSummary(email);
+      const summary = await buildSmbSummary(authenticatedUser.email);
       jsonResponse(res, 200, summary);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1358,9 +1366,7 @@ export async function handleDashboardApi(
 
   if (apiPath === 'smb/settings' && method === 'GET') {
     try {
-      const params = new URLSearchParams(queryString ?? '');
-      const email = params.get('email');
-      const settings = await buildSmbSettings(email);
+      const settings = await buildSmbSettings(authenticatedUser.email);
       jsonResponse(res, 200, settings);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1371,10 +1377,8 @@ export async function handleDashboardApi(
 
   if (apiPath === 'smb/settings' && method === 'PATCH') {
     try {
-      const params = new URLSearchParams(queryString ?? '');
-      const email = params.get('email');
       const body = JSON.parse(await readBody(req)) as Record<string, unknown>;
-      const settings = await updateSmbSettings(email, body ?? {});
+      const settings = await updateSmbSettings(authenticatedUser.email, body ?? {});
       jsonResponse(res, 200, settings);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1386,6 +1390,10 @@ export async function handleDashboardApi(
   const segments = apiPath.split('/');
   const tableSlug = segments[0];
   const resourceId = segments[1]; // may be undefined
+  if (tableSlug === 'dashboard-users' && authenticatedUser.role !== 'admin') {
+    jsonResponse(res, 403, { error: 'Forbidden' });
+    return true;
+  }
 
   const tableName = TABLE_MAP[tableSlug];
   if (!tableName) {

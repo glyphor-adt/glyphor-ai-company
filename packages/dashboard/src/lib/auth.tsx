@@ -73,6 +73,9 @@ interface User {
   email: string;
   name: string;
   picture: string;
+  authToken?: string;
+  authProvider?: 'google' | 'teams';
+  exp?: number;
 }
 
 export type DashboardMode = 'smb' | 'internal';
@@ -159,7 +162,7 @@ function AuthenticatedProvider({
   const refreshProfile = useCallback(async () => {
     setProfileLoading(true);
     try {
-      const data = await apiCall<DashboardProfile>(`/api/dashboard-profile/current?email=${encodeURIComponent(user.email)}`);
+      const data = await apiCall<DashboardProfile>('/api/dashboard-profile/current');
       setProfile(data);
     } catch {
       setProfile({
@@ -248,6 +251,7 @@ function TeamsAuthGate({ children }: { children: ReactNode }) {
             upn?: string;
             name?: string;
             email?: string;
+            exp?: number;
           }>(token);
 
           const email = decoded.preferred_username ?? decoded.upn ?? decoded.email ?? '';
@@ -258,11 +262,16 @@ function TeamsAuthGate({ children }: { children: ReactNode }) {
           }
 
           if (!cancelled) {
-            setUser({
+            const userData = {
               email,
               name: decoded.name ?? email.split('@')[0],
               picture: '',
-            });
+              authToken: token,
+              authProvider: 'teams' as const,
+              exp: decoded.exp,
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+            setUser(userData);
             setLoading(false);
           }
           return;
@@ -299,7 +308,10 @@ function TeamsAuthGate({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  const logout = useCallback(() => setUser(null), []);
+  const logout = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setUser(null);
+  }, []);
 
   if (loading) {
     return (
@@ -378,6 +390,8 @@ function GoogleAuthGate({ children }: { children: ReactNode }) {
         email: decoded.email,
         name: decoded.name,
         picture: decoded.picture,
+        authToken: response.credential,
+        authProvider: 'google' as const,
         exp: decoded.exp,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
