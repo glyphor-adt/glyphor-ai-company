@@ -74,7 +74,7 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
     default:
       initialMessage = params.message || 'Create content as directed.';
   }
-  const agentCfg = await loadAgentConfig('content-creator', { temperature: 0.7, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('content-creator', { temperature: 0.7, maxTurns: 15 });
 
   const config: AgentConfig = {
     id: `tyler-${task}-${today}`, role: 'content-creator',

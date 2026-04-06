@@ -121,7 +121,7 @@ IMPORTANT: Do NOT reference internal engine names — they are not products.`;
     default:
       initialMessage = params.message || 'Provide a product strategy summary for the AI Marketing Department.';
   }
-  const agentCfg = await loadAgentConfig('cpo', { temperature: 0.4, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('cpo', { temperature: 0.4, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `cpo-${task}-${today}`,

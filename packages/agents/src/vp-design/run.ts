@@ -220,7 +220,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a design quality and system status summary.';
   }
-  const agentCfg = await loadAgentConfig('vp-design', { temperature: 0.4, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('vp-design', { temperature: 0.4, maxTurns: 15 });
 
   const config: AgentConfig = {
     id: `vp-design-${task}-${today}`,

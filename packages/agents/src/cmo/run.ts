@@ -241,7 +241,7 @@ Customer tenant ID: ${customerTenantId}`;
     default:
       initialMessage = params.message || 'Provide a content and marketing strategy summary.';
   }
-  const agentCfg = await loadAgentConfig('cmo', { temperature: 0.6, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('cmo', { temperature: 0.6, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `cmo-${task}-${today}`,

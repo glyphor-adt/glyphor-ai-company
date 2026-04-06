@@ -448,7 +448,7 @@ You are in an interactive conversation with a founder. CRITICAL RULES:
       initialMessage = params.message || 'Provide a status summary of the company.';
   }
 
-  const agentCfg = await loadAgentConfig('chief-of-staff', { temperature: 0.3, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('chief-of-staff', { temperature: 0.3, maxTurns: 15 }, task);
 
   const systemPrompt =
     task === 'orchestrate'

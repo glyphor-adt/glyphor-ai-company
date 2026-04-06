@@ -118,7 +118,7 @@ IMPORTANT: Only assert findings about live product features (e.g. footer links, 
     default:
       initialMessage = params.message || 'Provide a legal health summary covering current compliance status, pending legal items, and any regulatory developments requiring attention.';
   }
-  const agentCfg = await loadAgentConfig('clo', { temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('clo', { temperature: 0.3, maxTurns: 15 });
 
   const config: AgentConfig = {
     id: `clo-${task}-${today}`,

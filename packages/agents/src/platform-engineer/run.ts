@@ -101,7 +101,7 @@ Steps:
     default:
       initialMessage = params.message || 'Run a health check on all platform services.';
   }
-  const agentCfg = await loadAgentConfig('platform-engineer', { temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('platform-engineer', { temperature: 0.2, maxTurns: 15 });
 
   const config: AgentConfig = {
     id: `alex-${task}-${today}`,

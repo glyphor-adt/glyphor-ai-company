@@ -120,7 +120,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a financial health summary of the company.';
   }
-  const agentCfg = await loadAgentConfig('cfo', { temperature: 0.3, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('cfo', { temperature: 0.3, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `cfo-${task}-${today}`,

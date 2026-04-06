@@ -111,7 +111,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a sales analysis and pipeline summary.';
   }
-  const agentCfg = await loadAgentConfig('vp-sales', { temperature: 0.3, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('vp-sales', { temperature: 0.3, maxTurns: 15 });
 
   const config: AgentConfig = {
     id: `vps-${task}-${today}`,

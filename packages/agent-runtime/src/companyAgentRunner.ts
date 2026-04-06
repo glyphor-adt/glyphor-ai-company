@@ -93,6 +93,7 @@ import {
   EXECUTIVE_ORCHESTRATION_PROTOCOL,
   ANTI_PATTERNS,
   COST_AWARENESS_BLOCK,
+  EXECUTE_DONT_NARRATE_PROTOCOL,
 } from './prompts/behavioralRules.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -197,7 +198,7 @@ async function persistRunMetricsAuditLog(entry: {
  *  Must exceed TOOL_VERY_LONG_TIMEOUT_MS (default 900s) so invoke_web_build / coding_loop can finish.
  *  Dashboard/client may need a matching HTTP timeout for long builds. Override: ON_DEMAND_SUPERVISOR_TIMEOUT_MS.
  */
-const ON_DEMAND_MAX_TURNS = 12;
+const ON_DEMAND_MAX_TURNS = 16;
 const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = Math.max(120_000, Number(process.env.ON_DEMAND_SUPERVISOR_TIMEOUT_MS ?? '960000'));
 const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = Math.max(120_000, Number(process.env.ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS ?? '960000'));
 /** When the model returns tool calls with no visible text, chat UIs show only a spinner until /run completes — inject this first. */
@@ -809,6 +810,7 @@ function buildSystemPrompt(
       parts.push(CHAT_REASONING_PROTOCOL);
       parts.push(CHAT_DATA_HONESTY);
       parts.push(ACTION_HONESTY_PROTOCOL);
+      parts.push(EXECUTE_DONT_NARRATE_PROTOCOL);
       parts.push(EXTERNAL_COMMUNICATION_PROTOCOL);
       parts.push(TEAMS_COMMUNICATION_PROTOCOL);
       parts.push(INSTRUCTION_ECHO_PROTOCOL);
@@ -817,6 +819,7 @@ function buildSystemPrompt(
       parts.push(REASONING_PROTOCOL);
       parts.push(DATA_GROUNDING_PROTOCOL);
       parts.push(ACTION_HONESTY_PROTOCOL);
+      parts.push(EXECUTE_DONT_NARRATE_PROTOCOL);
       parts.push(EXTERNAL_COMMUNICATION_PROTOCOL);
       parts.push(WORK_ASSIGNMENTS_PROTOCOL);
       parts.push(ALWAYS_ON_PROTOCOL);
@@ -1072,10 +1075,33 @@ const PLANNING_INTENT_PATTERNS = [
   /I will (?:now |begin |start )?(?:create|prepare|draft|build|generate|send|upload)/i,
   /Let me (?:start|begin|prepare|create|draft|build|set up|work on)/i,
   /I'm going to (?:create|prepare|draft|build|generate|send|upload|start|set up)/i,
+  /What remains[: ]/i,
+  /I (?:still )?need to (?:create|prepare|draft|build|generate|send|upload|export|produce)/i,
+  /Next(?:,| step)? I(?:'ll| will| should| need to)/i,
 ];
 
 function containsPlanningIntent(text: string): boolean {
   return PLANNING_INTENT_PATTERNS.some(p => p.test(text));
+}
+
+/**
+ * Detect whether the user's original message requested a concrete deliverable
+ * (PDF, report, document, etc.) — used to nudge the agent when it narrates
+ * intent to produce the deliverable without actually calling the tool.
+ */
+const DELIVERABLE_REQUEST_PATTERNS = [
+  { pattern: /\b(?:create|generate|make|produce|export|send|give)\b.*\bpdf\b/i, tool: 'generate_pdf' },
+  { pattern: /\bpdf\b.*\b(?:report|brief|analysis|document|matrix|comparison)\b/i, tool: 'generate_pdf' },
+  { pattern: /\b(?:create|generate|make|build|deploy)\b.*\b(?:website|landing page|site)\b/i, tool: 'invoke_web_build' },
+  { pattern: /\b(?:create|write|draft|send)\b.*\b(?:email|message)\b/i, tool: 'send_email' },
+  { pattern: /\b(?:post|publish|share)\b.*\b(?:teams|channel|slack)\b/i, tool: 'post_to_teams' },
+];
+
+function detectRequestedDeliverable(message: string): { tool: string } | null {
+  for (const { pattern, tool } of DELIVERABLE_REQUEST_PATTERNS) {
+    if (pattern.test(message)) return { tool };
+  }
+  return null;
 }
 
 /** Build a per-tool retrieval metadata map from the ToolRetriever trace. */
@@ -1886,9 +1912,34 @@ export class CompanyAgentRunner {
 
       const actionReceipts: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }> = [];
 
+      let finalTurnNudgeInjected = false;
+
       while (true) {
         turnNumber++;
         emitEvent({ type: 'turn_started', agentId: config.id, turnNumber });
+
+        // ─── FINAL-TURN DELIVERY NUDGE ────────────────────────────
+        // When approaching maxTurns, inject a wrap-up-and-deliver
+        // message so the agent prioritizes producing output over
+        // gathering more data or narrating future actions.
+        const effectiveMaxTurns = supervisor.config.maxTurns;
+        if (
+          !finalTurnNudgeInjected &&
+          effectiveMaxTurns > 0 &&
+          turnNumber >= effectiveMaxTurns - 1 &&
+          turnNumber > 2
+        ) {
+          const requestedDeliverable = detectRequestedDeliverable(initialMessage);
+          const deliverableHint = requestedDeliverable
+            ? ` The user expects a "${requestedDeliverable.tool}" output — call it NOW if you haven't already.`
+            : '';
+          const FINAL_TURN_NUDGE = `[SYSTEM] You are approaching your turn limit. This is one of your LAST turns. WRAP UP and deliver your final output NOW.${deliverableHint} Do not start new research — synthesize what you have and produce the deliverable.`;
+          history.push({ role: 'user', content: FINAL_TURN_NUDGE, timestamp: Date.now() });
+          finalTurnNudgeInjected = true;
+          console.warn(
+            `[CompanyAgentRunner] Final-turn nudge injected for ${config.role} at turn ${turnNumber}/${effectiveMaxTurns}.`,
+          );
+        }
 
         // 1. SUPERVISOR CHECK
         const check = await supervisor.checkBeforeModelCall();
@@ -2757,35 +2808,53 @@ Return ONLY strict JSON with:
             continue;
           }
 
-          // Planning-detection guard: if the agent described future actions
-          // ("I'll create…", "I'm starting…") on an early turn but never
-          // invoked any tools, nudge it to actually execute instead of
-          // ending the run with an empty promise. Apply once only.
-          const PLANNING_NUDGE = 'You described actions you intend to take but did not execute any tools. Do NOT just describe what you plan to do — actually call the tools now to carry out the work. Use your available tools to complete the task.';
+          // ─── PLANNING-DETECTION GUARD ─────────────────────────────
+          // If the agent described future actions ("I'll create…", "What
+          // remains…") but hasn't called the relevant tools, nudge it to
+          // execute. Fires on ANY turn (not just early ones) and even when
+          // some tools have been called — the agent may have gathered data
+          // but not produced the final deliverable.
+          const PLANNING_NUDGE = 'You described actions you intend to take but did not execute them. Do NOT just describe what you plan to do — actually call the tools now to carry out the work. Use your available tools to complete the task in THIS turn.';
+          const planningNudgeCount = history.filter(h => h.content === PLANNING_NUDGE).length;
           if (
             lastTextOutput &&
-            actionReceipts.length === 0 &&
-            turnNumber <= 2 &&
             containsPlanningIntent(lastTextOutput) &&
-            !history.some(h => h.content === PLANNING_NUDGE)
+            planningNudgeCount < 2
           ) {
             console.warn(
-              `[CompanyAgentRunner] Planning-only response detected for ${config.role} on turn ${turnNumber} — nudging to execute.`,
+              `[CompanyAgentRunner] Planning-only response detected for ${config.role} on turn ${turnNumber} — nudging to execute (nudge #${planningNudgeCount + 1}).`,
             );
             history.push({ role: 'user', content: PLANNING_NUDGE, timestamp: Date.now() });
             continue;
           }
 
-          // Deflection guard: when user confirmed a previous proposal but the model
-          // responded with a deflective/idle message ("Ready for your next message",
-          // "Let me know what you'd like", etc.) instead of executing, nudge once.
+          // ─── DELIVERABLE FOLLOW-THROUGH GUARD ─────────────────────
+          // If user asked for a specific deliverable (PDF, website, email)
+          // and the agent hasn't called the corresponding tool, nudge once.
+          const requestedDeliverable = detectRequestedDeliverable(initialMessage);
+          const DELIVERABLE_NUDGE_PREFIX = '[DELIVERABLE_NUDGE]';
+          if (
+            requestedDeliverable &&
+            lastTextOutput &&
+            !actionReceipts.some(r => r.tool === requestedDeliverable.tool && r.result === 'success') &&
+            !history.some(h => typeof h.content === 'string' && h.content.startsWith(DELIVERABLE_NUDGE_PREFIX))
+          ) {
+            const nudge = `${DELIVERABLE_NUDGE_PREFIX} The user asked for a deliverable that requires the "${requestedDeliverable.tool}" tool. You have not called it yet. Call it NOW to produce the deliverable. Do not describe what you plan to do — execute it.`;
+            console.warn(
+              `[CompanyAgentRunner] Deliverable not produced for ${config.role}: expected ${requestedDeliverable.tool} — nudging.`,
+            );
+            history.push({ role: 'user', content: nudge, timestamp: Date.now() });
+            continue;
+          }
+
+          // ─── IDLE DEFLECTION GUARD ─────────────────────────────────
+          // When user confirmed a previous proposal but the model responded
+          // with a deflective/idle message instead of executing, nudge.
+          // Applies to ALL task types, not just on_demand.
           const IDLE_DEFLECTION_NUDGE = 'The user already confirmed. Do NOT wait — execute the action you proposed in your previous message. Call the appropriate tools NOW.';
           const IDLE_DEFLECTION_PATTERN = /^(ready for|let me know|awaiting|standing by|what would you like|how can I help|what can I|is there anything)/i;
           if (
-            task === 'on_demand' &&
             lastTextOutput &&
-            actionReceipts.length === 0 &&
-            turnNumber <= 2 &&
             IDLE_DEFLECTION_PATTERN.test(lastTextOutput.trim()) &&
             !history.some(h => h.content === IDLE_DEFLECTION_NUDGE)
           ) {
@@ -2927,7 +2996,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
       }
 
       // ─── CLAIM DETECTION: flag unsubstantiated action claims ─────
-      if (lastTextOutput && task === 'on_demand') {
+      if (lastTextOutput) {
         const claims = extractActionClaims(lastTextOutput);
         if (claims.length > 0) {
           const unsubstantiated = hasMatchingAction(claims, actionReceipts);

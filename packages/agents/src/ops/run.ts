@@ -223,7 +223,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, doctr
     default:
       initialMessage = params.message || 'Provide a current system status summary.';
   }
-  const agentCfg = await loadAgentConfig('ops', { temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('ops', { temperature: 0.2, maxTurns: 15 });
 
   const config: AgentConfig = {
     id: `ops-${task}-${today}`,

@@ -69,7 +69,7 @@ export async function runQualityEngineer(params: QualityEngineerRunParams = {}) 
     default:
       initialMessage = params.message || 'Run a QA analysis on recent builds.';
   }
-  const agentCfg = await loadAgentConfig('quality-engineer', { temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('quality-engineer', { temperature: 0.2, maxTurns: 15 });
 
   const config: AgentConfig = {
     id: `sam-${task}-${today}`, role: 'quality-engineer',

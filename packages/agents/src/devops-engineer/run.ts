@@ -76,7 +76,7 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     default:
       initialMessage = params.message || 'Analyze infrastructure for optimization opportunities.';
   }
-  const agentCfg = await loadAgentConfig('devops-engineer', { temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('devops-engineer', { temperature: 0.2, maxTurns: 15 });
 
   const config: AgentConfig = {
     id: `jordan-${task}-${today}`, role: 'devops-engineer',

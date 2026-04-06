@@ -83,7 +83,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a quick workforce health check across all active agents.';
   }
-  const agentCfg = await loadAgentConfig('head-of-hr', { temperature: 0.3, maxTurns: 12 });
+  const agentCfg = await loadAgentConfig('head-of-hr', { temperature: 0.3, maxTurns: 15 });
 
   const config: AgentConfig = {
     id: `jasmine-${task}-${today}`,

@@ -75,7 +75,7 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     default:
       initialMessage = params.message || 'Assist with template architecture as directed.';
   }
-  const agentCfg = await loadAgentConfig('template-architect', { temperature: 0.35, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('template-architect', { temperature: 0.35, maxTurns: 15 });
 
   const config: AgentConfig = {
     id: `ryan-${task}-${today}`, role: 'template-architect',

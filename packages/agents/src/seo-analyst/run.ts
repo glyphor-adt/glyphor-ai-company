@@ -68,7 +68,7 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
     default:
       initialMessage = params.message || 'Run an SEO analysis.';
   }
-  const agentCfg = await loadAgentConfig('seo-analyst', { temperature: 0.2, maxTurns: 10 });
+  const agentCfg = await loadAgentConfig('seo-analyst', { temperature: 0.2, maxTurns: 15 });
 
   const config: AgentConfig = {
     id: `lisa-${task}-${today}`, role: 'seo-analyst',

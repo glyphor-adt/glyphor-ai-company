@@ -137,7 +137,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a technical status summary of the platform.';
   }
-  const agentCfg = await loadAgentConfig('cto', { temperature: 0.3, maxTurns: 10 }, task);
+  const agentCfg = await loadAgentConfig('cto', { temperature: 0.3, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `cto-${task}-${today}`,
