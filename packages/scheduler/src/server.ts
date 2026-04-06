@@ -141,7 +141,13 @@ import {
   normalizeDashboardRunRequest,
   type DashboardRunRequestBody,
 } from './runtimeKernel.js';
-import { appendRunEvent, completeRunSession, upsertRunSession } from './runEventStore.js';
+import {
+  appendRunEvent,
+  completeRunSession,
+  getRunEvents,
+  getRunSession,
+  upsertRunSession,
+} from './runEventStore.js';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const oidcClient = new OAuth2Client();
@@ -422,6 +428,11 @@ function getRequestOrigin(req: IncomingMessage): string | null {
 }
 
 function sendSseEvent(res: ServerResponse, event: Record<string, unknown>): void {
+  res.write(`data: ${JSON.stringify(event)}\n\n`);
+}
+
+function sendSseEventWithId(res: ServerResponse, eventId: number | string, event: Record<string, unknown>): void {
+  res.write(`id: ${eventId}\n`);
   res.write(`data: ${JSON.stringify(event)}\n\n`);
 }
 
@@ -3524,6 +3535,65 @@ const server = createServer(async (req, res) => {
     }
 
     // Direct task invocation with SSE streaming for dashboard chat
+    if (method === 'GET' && url === '/run/events/stream') {
+      const dashboardUser = await requireDashboardUser(req, res);
+      if (!dashboardUser) return;
+      const runId = params.get('run_id')?.trim() || params.get('runId')?.trim() || '';
+      if (!runId) {
+        json(res, 400, { error: 'run_id is required' });
+        return;
+      }
+      const existingSession = await getRunSession({ runId });
+      if (!existingSession) {
+        json(res, 404, { error: 'Run session not found' });
+        return;
+      }
+      if (existingSession.user_id && existingSession.user_id !== dashboardUser.email) {
+        json(res, 403, { error: 'Forbidden' });
+        return;
+      }
+      const fromSeq = Number.parseInt(
+        params.get('from_seq')
+          ?? params.get('fromSeq')
+          ?? getHeaderString(req.headers['last-event-id'])
+          ?? '0',
+        10,
+      );
+      let cursor = Number.isFinite(fromSeq) && fromSeq >= 0 ? fromSeq : 0;
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+
+      sendSseEvent(res, { type: 'replay_started', runId, fromSeq: cursor });
+
+      for (let poll = 0; poll < 90; poll += 1) {
+        const events = await getRunEvents({ runId, fromSeq: cursor, limit: 500 });
+        for (const row of events) {
+          cursor = row.seq;
+          sendSseEventWithId(res, row.seq, {
+            type: row.event_type,
+            runId,
+            phase: row.phase,
+            status: row.status,
+            ...(row.payload ?? {}),
+            ...(row.error ? { error: row.error } : {}),
+          });
+        }
+        const session = await getRunSession({ runId });
+        if (session?.completed_at && events.length === 0) {
+          sendSseEvent(res, { type: 'replay_complete', runId, lastSeq: cursor, status: session.status });
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      res.end();
+      return;
+    }
+
     if (method === 'POST' && url === '/run/stream') {
       const dashboardUser = await requireDashboardUser(req, res);
       if (!dashboardUser) return;
@@ -3679,6 +3749,7 @@ const server = createServer(async (req, res) => {
           phase: 'completed',
           status: result.status ?? 'completed',
           payload: {
+            data: result,
             action: result.action,
             status: result.status,
             conversationId: normalized.conversationId,

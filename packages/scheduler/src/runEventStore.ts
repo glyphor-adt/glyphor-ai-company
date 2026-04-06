@@ -48,8 +48,8 @@ export async function appendRunEvent(input: {
   status?: string;
   payload?: Record<string, unknown>;
   error?: string;
-}): Promise<void> {
-  await systemQuery(
+}): Promise<number> {
+  const [row] = await systemQuery<{ seq: number }>(
     `INSERT INTO run_events (run_id, seq, event_type, phase, status, payload, error, created_at)
      SELECT
        $1,
@@ -59,7 +59,8 @@ export async function appendRunEvent(input: {
        $4,
        $5::jsonb,
        $6,
-       NOW()`,
+       NOW()
+     RETURNING seq`,
     [
       input.runId,
       input.eventType,
@@ -69,6 +70,7 @@ export async function appendRunEvent(input: {
       input.error ?? null,
     ],
   );
+  return row?.seq ?? 0;
 }
 
 export async function completeRunSession(input: {
@@ -84,5 +86,45 @@ export async function completeRunSession(input: {
       WHERE run_id = $1`,
     [input.runId, input.status, input.metadata ? JSON.stringify(input.metadata) : null],
   );
+}
+
+export interface RunEventRow {
+  seq: number;
+  event_type: string;
+  phase: string | null;
+  status: string | null;
+  payload: Record<string, unknown> | null;
+  error: string | null;
+  created_at: string;
+}
+
+export async function getRunEvents(input: {
+  runId: string;
+  fromSeq?: number;
+  limit?: number;
+}): Promise<RunEventRow[]> {
+  const rows = await systemQuery<RunEventRow>(
+    `SELECT seq, event_type, phase, status, payload, error, created_at
+       FROM run_events
+      WHERE run_id = $1
+        AND seq > $2
+      ORDER BY seq ASC
+      LIMIT $3`,
+    [input.runId, input.fromSeq ?? 0, Math.max(1, Math.min(input.limit ?? 500, 2000))],
+  );
+  return rows;
+}
+
+export async function getRunSession(input: {
+  runId: string;
+}): Promise<{ run_id: string; status: string; completed_at: string | null; user_id: string | null } | null> {
+  const rows = await systemQuery<{ run_id: string; status: string; completed_at: string | null; user_id: string | null }>(
+    `SELECT run_id, status, completed_at, user_id
+       FROM run_sessions
+      WHERE run_id = $1
+      LIMIT 1`,
+    [input.runId],
+  );
+  return rows[0] ?? null;
 }
 

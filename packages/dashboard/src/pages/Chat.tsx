@@ -934,6 +934,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         if (!isMentioned) {
           const streamId = createStreamId();
           primaryStreamId = streamId;
+          let liveRunId: string | null = null;
           if (selectedRoleRef.current === targetRole) {
             setMessages((prev) => [...prev, {
               role: 'agent',
@@ -983,6 +984,9 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               if (!line.startsWith('data: ')) continue;
               try {
                 const event = JSON.parse(line.slice(6));
+                if (event && typeof event.runId === 'string') {
+                  liveRunId = event.runId;
+                }
                 if (event.type === 'status') {
                   const statusText = typeof event.message === 'string' ? event.message : '';
                   if (statusText) {
@@ -1023,6 +1027,48 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           }
 
           if (streamError) throw new Error(streamError);
+
+          if (!finalData && liveRunId) {
+            try {
+              const replayRes = await fetch(`${SCHEDULER_URL}/run/events/stream?run_id=${encodeURIComponent(liveRunId)}`, {
+                method: 'GET',
+                headers: await buildApiHeaders(),
+              });
+              if (replayRes.ok && replayRes.body) {
+                const replayReader = replayRes.body.getReader();
+                const replayDecoder = new TextDecoder();
+                let replayBuffer = '';
+                while (true) {
+                  const { done, value } = await replayReader.read();
+                  if (done) break;
+                  replayBuffer += replayDecoder.decode(value, { stream: true });
+                  const replayLines = replayBuffer.split('\n\n');
+                  replayBuffer = replayLines.pop() ?? '';
+                  for (const line of replayLines) {
+                    const payloadLine = line.split('\n').find((part) => part.startsWith('data: '));
+                    if (!payloadLine) continue;
+                    try {
+                      const replayEvent = JSON.parse(payloadLine.slice(6));
+                      if (replayEvent.type === 'result') {
+                        finalData = replayEvent.data ?? finalData;
+                        if (typeof replayEvent.transcriptContent === 'string' && replayEvent.transcriptContent.trim().length > 0) {
+                          streamContent = replayEvent.transcriptContent;
+                        }
+                      } else if (replayEvent.type === 'action_receipt' && replayEvent.action) {
+                        streamedActions = [...(streamedActions ?? []), replayEvent.action as ActionReceipt];
+                      } else if (replayEvent.type === 'error' && !streamError) {
+                        streamError = typeof replayEvent.error === 'string' ? replayEvent.error : null;
+                      }
+                    } catch {
+                      // Ignore malformed replay frames
+                    }
+                  }
+                }
+              }
+            } catch {
+              // Replay is best-effort bridge behavior
+            }
+          }
 
           if (!finalData) {
             throw new Error('Stream ended before result');
