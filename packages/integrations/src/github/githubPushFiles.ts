@@ -125,10 +125,17 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
 
           const treeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
           for (const [filePath, content] of Object.entries(files)) {
+            // Binary files (images/video) arrive as base64 strings from the
+            // image generation pipeline. Text files arrive as raw UTF-8.
+            // Detect binary by extension and avoid double-encoding.
+            const isBinary = /\.(png|jpg|jpeg|gif|webp|svg|ico|mp4|webm|avif|bmp|tiff?)$/i.test(filePath);
+            const blobContent = isBinary
+              ? content                                      // Already base64 — pass through
+              : Buffer.from(content).toString('base64');     // Text — encode to base64
             const blobRes = await githubRequest(
               `/repos/${repo}/git/blobs`,
               'POST',
-              { content: Buffer.from(content).toString('base64'), encoding: 'base64' },
+              { content: blobContent, encoding: 'base64' },
               ctx.abortSignal,
             );
             if (!blobRes.ok) {

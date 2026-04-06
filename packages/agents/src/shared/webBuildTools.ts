@@ -144,6 +144,7 @@ const MAX_IMAGE_GEN_ITEMS = 7;
 const IMAGE_GEN_TIMEOUT_MS = 120_000;
 const MAX_VIDEO_MANIFEST_ITEMS = 2;
 const VIDEO_GEN_TIMEOUT_MS = 180_000;
+const WEB_MEDIA_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 
 interface ImageManifestItem {
   fileName: string;
@@ -323,6 +324,128 @@ async function generateVideosFromManifest(
 
   console.log(`[WebBuild:Videos] Generated ${Object.keys(videoFiles).length}/${items.length} videos`);
   return videoFiles;
+}
+
+function toWebPath(filePath: string): string {
+  const normalized = filePath.replace(/^public\//, '');
+  return normalized.startsWith('/') ? normalized : `/${normalized}`;
+}
+
+function encodeObjectPath(objectPath: string): string {
+  return objectPath
+    .split('/')
+    .map(seg => encodeURIComponent(seg))
+    .join('/');
+}
+
+function contentTypeForMediaPath(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case '.png': return 'image/png';
+    case '.jpg':
+    case '.jpeg': return 'image/jpeg';
+    case '.webp': return 'image/webp';
+    case '.gif': return 'image/gif';
+    case '.svg': return 'image/svg+xml';
+    case '.avif': return 'image/avif';
+    case '.mp4': return 'video/mp4';
+    case '.webm': return 'video/webm';
+    default: return 'application/octet-stream';
+  }
+}
+
+function rewriteFilesWithMediaUrls(
+  files: Record<string, string>,
+  mediaUrlsByWebPath: Record<string, string>,
+): Record<string, string> {
+  const updates: Record<string, string> = {};
+
+  for (const [filePath, original] of Object.entries(files)) {
+    let next = original;
+
+    for (const [webPath, url] of Object.entries(mediaUrlsByWebPath)) {
+      const noLeadingSlash = webPath.startsWith('/') ? webPath.slice(1) : webPath;
+      next = next.replaceAll(webPath, url);
+      next = next.replaceAll(noLeadingSlash, url);
+    }
+
+    if (next !== original) {
+      updates[filePath] = next;
+    }
+  }
+
+  return updates;
+}
+
+async function uploadMediaToObjectStorage(
+  mediaFiles: Record<string, string>,
+  project: WebsitePipelineProjectRef,
+): Promise<{
+  urlsByWebPath: Record<string, string>;
+  uploadedRepoPaths: Set<string>;
+  skippedReason?: string;
+}> {
+  const bucketName = (process.env.WEB_MEDIA_BUCKET || process.env.GCS_BUCKET || '').trim();
+  if (!bucketName) {
+    return {
+      urlsByWebPath: {},
+      uploadedRepoPaths: new Set<string>(),
+      skippedReason: 'WEB_MEDIA_BUCKET/GCS_BUCKET not configured',
+    };
+  }
+
+  const publicBaseRaw = (process.env.WEB_MEDIA_PUBLIC_BASE_URL || `https://storage.googleapis.com/${bucketName}`).trim();
+  const publicBase = publicBaseRaw.replace(/\/+$/, '');
+  const objectPrefix = (process.env.WEB_MEDIA_PREFIX || 'web-builds').trim().replace(/^\/+|\/+$/g, '');
+  const buildStamp = `${Date.now()}-${project.projectSlug.replace(/[^a-z0-9-]/gi, '-').toLowerCase()}`;
+
+  // Dynamic import so cold starts do not hard-depend on GCS in every runtime.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mod = await import('@google-cloud/storage') as any;
+  const StorageCtor = mod.Storage;
+  if (!StorageCtor) {
+    return {
+      urlsByWebPath: {},
+      uploadedRepoPaths: new Set<string>(),
+      skippedReason: '@google-cloud/storage not available',
+    };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const storage = new StorageCtor({ projectId: process.env.GCP_PROJECT_ID || 'ai-glyphor-company' }) as any;
+  const bucket = storage.bucket(bucketName);
+
+  const urlsByWebPath: Record<string, string> = {};
+  const uploadedRepoPaths = new Set<string>();
+
+  for (const [repoPath, base64] of Object.entries(mediaFiles)) {
+    const webPath = toWebPath(repoPath);
+    const relative = webPath.replace(/^\//, '');
+    const objectPath = `${objectPrefix}/${project.projectSlug}/${buildStamp}/${relative}`;
+    const objectFile = bucket.file(objectPath);
+
+    try {
+      const buffer = Buffer.from(base64, 'base64');
+      await objectFile.save(buffer, {
+        contentType: contentTypeForMediaPath(repoPath),
+        resumable: false,
+        metadata: {
+          cacheControl: WEB_MEDIA_CACHE_CONTROL,
+        },
+      });
+
+      if (process.env.WEB_MEDIA_MAKE_PUBLIC === 'true') {
+        await objectFile.makePublic().catch(() => {});
+      }
+
+      urlsByWebPath[webPath] = `${publicBase}/${encodeObjectPath(objectPath)}`;
+      uploadedRepoPaths.add(repoPath);
+    } catch (err) {
+      console.warn(`[WebBuild:Media] Upload failed for ${repoPath}: ${(err as Error).message}`);
+    }
+  }
+
+  return { urlsByWebPath, uploadedRepoPaths };
 }
 
 interface WebsitePipelineProjectRef {
@@ -1012,24 +1135,89 @@ async function executeWebBuild(
   const { preview, previewRegistration } = deployResult;
   const push = deployResult.push;
 
-  // Phase 3: Push media files to repo (single commit with all media)
+  // Phase 3: Store media in object storage + commit lightweight URL references.
+  // Fallback: if storage is unavailable, keep legacy git media commit path.
   const allMediaFiles: Record<string, string> = { ...imageFiles, ...videoFiles };
   if (Object.keys(allMediaFiles).length > 0) {
     try {
-      await executeWebsitePipelineTool(
-        'github_push_files',
-        {
-          repo: project.repoFullName,
-          branch: project.branch,
-          files: allMediaFiles,
-          commit_message: `feat: add ${Object.keys(imageFiles).length} images + ${Object.keys(videoFiles).length} videos`,
-        },
-        ctx,
-      );
-      console.log(
-        `[WebBuild] Pushed ${Object.keys(allMediaFiles).length} media files to ${project.branch} ` +
-        `(${Object.keys(imageFiles).length} images, ${Object.keys(videoFiles).length} videos)`,
-      );
+      const mediaUpload = await uploadMediaToObjectStorage(allMediaFiles, project);
+
+      if (Object.keys(mediaUpload.urlsByWebPath).length > 0) {
+        const rewritten = rewriteFilesWithMediaUrls(files, mediaUpload.urlsByWebPath);
+        const manifestPath = 'public/media-manifest.json';
+        const manifestJson = JSON.stringify({
+          generated_at: new Date().toISOString(),
+          source_repo: project.repoFullName,
+          source_branch: project.branch,
+          media_urls: mediaUpload.urlsByWebPath,
+        }, null, 2);
+
+        const referenceFiles: Record<string, string> = {
+          ...rewritten,
+          [manifestPath]: `${manifestJson}\n`,
+        };
+
+        if (Object.keys(referenceFiles).length > 0) {
+          await executeWebsitePipelineTool(
+            'github_push_files',
+            {
+              repo: project.repoFullName,
+              branch: project.branch,
+              files: referenceFiles,
+              commit_message: `feat: map media to object storage (${Object.keys(mediaUpload.urlsByWebPath).length} assets)`,
+            },
+            ctx,
+          );
+        }
+
+        const fallbackMediaFiles: Record<string, string> = {};
+        for (const [repoPath, base64] of Object.entries(allMediaFiles)) {
+          if (!mediaUpload.uploadedRepoPaths.has(repoPath)) {
+            fallbackMediaFiles[repoPath] = base64;
+          }
+        }
+
+        if (Object.keys(fallbackMediaFiles).length > 0) {
+          await executeWebsitePipelineTool(
+            'github_push_files',
+            {
+              repo: project.repoFullName,
+              branch: project.branch,
+              files: fallbackMediaFiles,
+              commit_message: `feat: add fallback media binaries (${Object.keys(fallbackMediaFiles).length})`,
+            },
+            ctx,
+          );
+          console.warn(
+            `[WebBuild:Media] Uploaded ${Object.keys(mediaUpload.urlsByWebPath).length} assets to object storage, ` +
+            `fallback-committed ${Object.keys(fallbackMediaFiles).length} binaries.`,
+          );
+        } else {
+          console.log(
+            `[WebBuild:Media] Uploaded ${Object.keys(mediaUpload.urlsByWebPath).length} assets to object storage; ` +
+            'no binary media committed to git.',
+          );
+        }
+      } else {
+        if (mediaUpload.skippedReason) {
+          console.warn(`[WebBuild:Media] Object storage skipped: ${mediaUpload.skippedReason}`);
+        }
+
+        await executeWebsitePipelineTool(
+          'github_push_files',
+          {
+            repo: project.repoFullName,
+            branch: project.branch,
+            files: allMediaFiles,
+            commit_message: `feat: add ${Object.keys(imageFiles).length} images + ${Object.keys(videoFiles).length} videos`,
+          },
+          ctx,
+        );
+        console.log(
+          `[WebBuild] Pushed ${Object.keys(allMediaFiles).length} media files to ${project.branch} ` +
+          `(${Object.keys(imageFiles).length} images, ${Object.keys(videoFiles).length} videos)`,
+        );
+      }
     } catch (mediaErr) {
       console.warn(`[WebBuild] Media push failed (non-blocking): ${(mediaErr as Error).message}`);
     }
