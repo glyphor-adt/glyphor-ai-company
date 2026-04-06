@@ -467,6 +467,7 @@ interface WebsitePipelineExecutionOptions {
   commitMessage?: string;
   prTitle?: string;
   prBody?: string;
+  autoRepairAttempt?: number;
 }
 
 let websitePipelineToolCache: Map<string, ToolDefinition> | null = null;
@@ -884,6 +885,11 @@ function buildPullRequestBody(params: WebBuildParams, project: WebsitePipelinePr
   ].join('\n');
 }
 
+function isAutoRepairableDeploymentError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /Latest deployment is (ERROR|CANCELED)|Timed out waiting for Vercel preview deployment/i.test(message);
+}
+
 async function delay(ms: number, signal: AbortSignal): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -1158,11 +1164,52 @@ async function executeWebBuild(
     : Promise.resolve({} as Record<string, string>);
 
   // Wait for ALL tracks to complete
-  const [deployResult, imageFiles, videoFiles] = await Promise.all([
-    deployTrack,
-    imageTrack,
-    videoTrack,
-  ]);
+  let deployResult: Awaited<typeof deployTrack>;
+  let imageFiles: Record<string, string>;
+  let videoFiles: Record<string, string>;
+  try {
+    [deployResult, imageFiles, videoFiles] = await Promise.all([
+      deployTrack,
+      imageTrack,
+      videoTrack,
+    ]);
+  } catch (error) {
+    const autoRepairAttempt = options.autoRepairAttempt ?? 0;
+    const canAutoRepair = autoRepairAttempt < 1
+      && Boolean(project?.repoFullName)
+      && isAutoRepairableDeploymentError(error);
+
+    if (!canAutoRepair) {
+      throw error;
+    }
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `[WebBuild] Auto-repair triggered after deployment failure (${errorMessage}). ` +
+      `Attempt ${autoRepairAttempt + 1}/1 for ${project.repoFullName}.`,
+    );
+
+    return executeWebBuild(
+      {
+        brief: params.brief,
+        tier: 'iterate',
+        project_type: params.project_type,
+        project_id: project.repoFullName,
+        brand_context: params.brand_context,
+      },
+      ctx,
+      {
+        repairContext: [
+          'Auto-repair pass: previous deployment failed or timed out.',
+          `Deployment error: ${errorMessage}`,
+          'Fix likely Vercel build/deploy issues and return a READY preview URL.',
+        ].join('\n'),
+        branchOverride: createBranchName(ITERATION_BRANCH_PREFIX),
+        commitMessage: 'fix: auto-repair failed vercel deployment',
+        autoRepairAttempt: autoRepairAttempt + 1,
+      },
+    );
+  }
 
   const { preview, previewRegistration } = deployResult;
   const push = deployResult.push;

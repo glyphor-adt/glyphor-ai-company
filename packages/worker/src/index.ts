@@ -250,6 +250,8 @@ async function executeWorkflowStep(payload: Record<string, unknown>): Promise<{ 
 // ── Workflow parallel sub-step completion ────────────────────────
 
 app.post('/workflow/step-complete', async (req, res) => {
+  const authed = await requireInternalAuth(req, res, '/workflow/step-complete');
+  if (!authed) return;
   const { workflow_id, step_index, sub_index, result } = req.body;
   if (!workflow_id || step_index === undefined || sub_index === undefined) {
     return res.status(400).json({ error: 'workflow_id, step_index, and sub_index are required' });

@@ -1402,6 +1402,11 @@ export async function handleDashboardApi(
   }
 
   const params = new URLSearchParams(queryString ?? '');
+  const enforceChatMessageOwnership =
+    tableName === 'chat_messages' && authenticatedUser.role !== 'admin';
+  if (enforceChatMessageOwnership) {
+    params.set('user_id', `eq.${authenticatedUser.email}`);
+  }
 
   try {
     // ── Special endpoints ───────────────────────────────────────
@@ -1746,7 +1751,13 @@ export async function handleDashboardApi(
 
       if (resourceId) {
         // GET /api/table/:id
-        const rows = await systemQuery(`SELECT * FROM ${tableName} WHERE id = $1`, [resourceId]);
+        const sql = enforceChatMessageOwnership
+          ? `SELECT * FROM ${tableName} WHERE id = $1 AND user_id = $2`
+          : `SELECT * FROM ${tableName} WHERE id = $1`;
+        const values = enforceChatMessageOwnership
+          ? [resourceId, authenticatedUser.email]
+          : [resourceId];
+        const rows = await systemQuery(sql, values);
         if (rows.length === 0) {
           jsonResponse(res, 404, { error: 'Not found' });
         } else {
@@ -1824,6 +1835,9 @@ export async function handleDashboardApi(
             delete body[key];
           }
         }
+        if (enforceChatMessageOwnership) {
+          body.user_id = authenticatedUser.email;
+        }
       }
 
       if (tableName === 'decisions') {
@@ -1888,7 +1902,12 @@ export async function handleDashboardApi(
       if (resourceId) {
         // PATCH /api/table/:id
         vals.push(resourceId);
-        const sql = `UPDATE ${tableName} SET ${setClauses.join(', ')} WHERE id = $${vals.length} RETURNING *`;
+        let sql = `UPDATE ${tableName} SET ${setClauses.join(', ')} WHERE id = $${vals.length}`;
+        if (enforceChatMessageOwnership) {
+          vals.push(authenticatedUser.email);
+          sql += ` AND user_id = $${vals.length}`;
+        }
+        sql += ' RETURNING *';
         const rows = await systemQuery(sql, vals);
         jsonResponse(res, 200, rows[0] ?? { success: true });
       } else {
@@ -1922,6 +1941,8 @@ export async function handleDashboardApi(
       if (resourceId) {
         if (tableName === 'founder_directives') {
           await cascadeDeleteDirective(resourceId);
+        } else if (enforceChatMessageOwnership) {
+          await systemQuery(`DELETE FROM ${tableName} WHERE id = $1 AND user_id = $2`, [resourceId, authenticatedUser.email]);
         } else {
           await systemQuery(`DELETE FROM ${tableName} WHERE id = $1`, [resourceId]);
         }

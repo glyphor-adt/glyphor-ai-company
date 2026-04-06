@@ -65,14 +65,16 @@ type ViewMode = 'org-chart' | 'grid';
 type Tab = 'overview' | 'roster';
 type DensityMode = 'compact' | 'comfortable';
 
+const HIDDEN_WORKFORCE_STATUSES = new Set(['retired', 'inactive', 'deleted']);
+
 export default function Workforce() {
   const { data: agents, loading } = useAgents();
   const [view, setView] = useState<ViewMode>('org-chart');
   const [density, setDensity] = useState<DensityMode>('compact');
   const [tab, setTab] = useState<Tab>('overview');
 
-  // Keep retired agents out of the live org hierarchy.
-  const orgAgents = agents.filter((a) => a.status !== 'retired');
+  // Keep non-active lifecycle statuses out of the live org hierarchy.
+  const orgAgents = agents.filter((a) => !HIDDEN_WORKFORCE_STATUSES.has(String(a.status ?? '').toLowerCase()));
   const agentMap = new Map(orgAgents.map((a) => [a.role, a]));
   const cos = agentMap.get('chief-of-staff');
   const allDeptRoleSet = new Set(DEPARTMENTS.map((department) => department.role));

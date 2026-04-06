@@ -3,10 +3,13 @@ import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META, ROLE_TITLE, ROLE_DEPARTMENT, ROLE_TIER, AGENT_SKILLS } from '../lib/types';
 import { AgentAvatar, Card, StatusDot, Skeleton } from '../components/ui';
 
+const HIDDEN_ROSTER_STATUSES = new Set(['retired', 'inactive', 'deleted']);
+
 export default function AgentsList() {
   const { data: agents, loading } = useAgents();
+  const visibleAgents = agents.filter((a) => !HIDDEN_ROSTER_STATUSES.has(String(a.status ?? '').toLowerCase()));
 
-  const activeCount = agents.filter((a) => a.status === 'active').length;
+  const activeCount = visibleAgents.filter((a) => a.status === 'active').length;
 
   return (
     <div className="space-y-6">
@@ -19,7 +22,7 @@ export default function AgentsList() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {agents
+          {visibleAgents
             .sort((a, b) => {
               const order = [
                 'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'clo',
@@ -53,7 +56,7 @@ export default function AgentsList() {
             })
             .map((agent) => {
               const meta = AGENT_META[agent.role];
-              const directReports = agents.filter((member) => member.reports_to === agent.role && member.role !== agent.role);
+              const directReports = visibleAgents.filter((member) => member.reports_to === agent.role && member.role !== agent.role);
               const skills = AGENT_SKILLS[agent.role] ?? [];
               return (
                 <Link key={agent.id} to={`/agents/${agent.role}/settings`} className="group block h-full">

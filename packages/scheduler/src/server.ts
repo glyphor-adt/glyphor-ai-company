@@ -141,9 +141,45 @@ import {
   normalizeDashboardRunRequest,
   type DashboardRunRequestBody,
 } from './runtimeKernel.js';
+import {
+  appendRuntimeEvent,
+  createRuntimeAttempt,
+  ensureRuntimeSession,
+  findSessionIdBySessionKey,
+  markRuntimeAttemptRunning,
+  markRuntimeAttemptTerminal,
+  markRuntimeSessionTerminal,
+  replayRuntimeEventsBySeq,
+  resolveRuntimeCursorFromEventId,
+} from './runtimeEventStore.js';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const oidcClient = new OAuth2Client();
+const DEFAULT_CORS_ORIGIN = (process.env.DASHBOARD_URL?.trim() || 'https://dashboard.glyphor.com').replace(/\/$/, '');
+const TRUSTED_CORS_ORIGINS = new Set<string>(
+  [
+    ...((process.env.CORS_ALLOWED_ORIGINS ?? '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0)),
+    process.env.DASHBOARD_URL?.trim(),
+    process.env.PUBLIC_URL?.trim(),
+    process.env.SERVICE_URL?.trim(),
+    DEFAULT_CORS_ORIGIN,
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+  ].filter((origin): origin is string => Boolean(origin && origin.length > 0))
+    .map((origin) => origin.replace(/\/$/, '')),
+);
+
+type SchedulerRouteClass = 'public' | 'authenticated-user' | 'admin-only' | 'internal-service-only';
+
+interface RouteAuthContext {
+  routeClass: SchedulerRouteClass;
+  dashboardUser: AuthenticatedDashboardUser | null;
+}
 
 // ─── Logo watermark ─────────────────────────────────────────────
 const HEADER_LOGO_PATH = path.resolve(import.meta.dirname, '../../dashboard/public/glyphor_full_white.png');
@@ -420,8 +456,195 @@ function getRequestOrigin(req: IncomingMessage): string | null {
   return `${proto}://${host}`;
 }
 
+function getCorsOrigin(req: IncomingMessage): string | null {
+  const originHeader = getHeaderString(req.headers.origin)?.trim();
+  if (!originHeader) return null;
+  const normalizedOrigin = originHeader.replace(/\/$/, '');
+  if (TRUSTED_CORS_ORIGINS.has(normalizedOrigin)) return normalizedOrigin;
+  return null;
+}
+
+function appendCorsHeaders(req: IncomingMessage, headers: Record<string, string>): Record<string, string> {
+  const origin = getCorsOrigin(req);
+  if (origin) {
+    headers['Access-Control-Allow-Origin'] = origin;
+    headers['Vary'] = 'Origin';
+  }
+  return headers;
+}
+
+function classifySchedulerRoute(pathname: string, method: string): SchedulerRouteClass | null {
+  if (pathname === '/health' || pathname === '/') return 'public';
+  if (method === 'OPTIONS') return 'public';
+
+  if (pathname === '/run/stream' || pathname === '/run' || pathname === '/ora/chat' || pathname === '/chat/triangulate') {
+    return 'authenticated-user';
+  }
+
+  if (
+    pathname === '/run/events' ||
+    pathname === '/run/events/stream'
+  ) {
+    return 'authenticated-user';
+  }
+
+  if (
+    pathname === '/api/messages' ||
+    pathname === '/api/agent365/activity' ||
+    pathname === GRAPH_CHAT_WEBHOOK_PATH ||
+    pathname === '/webhook/stripe' ||
+    pathname === '/webhook/docusign' ||
+    pathname === '/oauth/canva/callback' ||
+    /^\/platform-intel\/(approve|reject)\/[a-f0-9]+$/.test(pathname) ||
+    /^\/directives\/(approve|reject)\/[a-f0-9]+$/.test(pathname)
+  ) {
+    return 'public';
+  }
+
+  if (
+    pathname.startsWith('/admin/') ||
+    pathname.startsWith('/api/eval/') ||
+    pathname.startsWith('/api/governance/') ||
+    pathname === '/tool-health/run' ||
+    pathname === '/tool-health/latest' ||
+    pathname === '/agent-evals/run' ||
+    pathname === '/agent-evals/run-golden' ||
+    pathname === '/gtm-readiness/run' ||
+    pathname === '/api/eval/gtm-readiness/latest' ||
+    pathname === '/api/eval/gtm-readiness/history' ||
+    pathname === '/tools/re-enable'
+  ) {
+    return 'admin-only';
+  }
+
+  if (
+    pathname === '/pubsub' ||
+    pathname === '/event' ||
+    pathname === '/heartbeat' ||
+    pathname === '/memory/consolidate' ||
+    pathname === '/memory/agent-dream' ||
+    pathname === '/batch-eval/run' ||
+    pathname === '/autonomy/evaluate-daily' ||
+    pathname === '/shadow-eval/run' ||
+    pathname === '/shadow-eval/run-pending' ||
+    pathname === '/world-state/health' ||
+    pathname === '/cascade/evaluate' ||
+    pathname === '/predictions/resolve' ||
+    pathname === '/memory/archive' ||
+    pathname === '/canary/evaluate' ||
+    pathname === '/planning-gate/monitor' ||
+    pathname === '/economics/guardrail-notify' ||
+    pathname === '/internal/model-check' ||
+    pathname === '/model-check/run' ||
+    pathname === '/cache/invalidate' ||
+    pathname === '/tools/expire' ||
+    pathname.startsWith('/sync/') ||
+    pathname.startsWith('/sdk/')
+  ) {
+    return 'internal-service-only';
+  }
+
+  if (
+    pathname === '/agents/create' ||
+    /^\/agents\/[^/]+\/settings$/.test(pathname) ||
+    /^\/agents\/[^/]+\/avatar$/.test(pathname) ||
+    /^\/agents\/[^/]+\/prompt$/.test(pathname) ||
+    /^\/agents\/[^/]+\/pause$/.test(pathname) ||
+    /^\/agents\/[^/]+\/resume$/.test(pathname) ||
+    /^\/agents\/[^/]+$/.test(pathname) ||
+    pathname === '/analysis/run' ||
+    pathname === '/analysis' ||
+    /^\/analysis\/[^/]+$/.test(pathname) ||
+    /^\/analysis\/[^/]+\/export$/.test(pathname) ||
+    /^\/analysis\/[^/]+\/cancel$/.test(pathname) ||
+    /^\/analysis\/[^/]+\/enhance$/.test(pathname) ||
+    /^\/analysis\/[^/]+\/visual$/.test(pathname) ||
+    pathname === '/simulation/run' ||
+    pathname === '/simulation' ||
+    /^\/simulation\/[^/]+$/.test(pathname) ||
+    /^\/simulation\/[^/]+\/accept$/.test(pathname) ||
+    /^\/simulation\/[^/]+\/export$/.test(pathname) ||
+    pathname === '/meetings/call' ||
+    pathname === '/meetings' ||
+    /^\/meetings\/[^/]+$/.test(pathname) ||
+    pathname === '/cot/run' ||
+    pathname === '/cot' ||
+    /^\/cot\/[^/]+$/.test(pathname) ||
+    /^\/cot\/[^/]+\/export$/.test(pathname) ||
+    pathname === '/deep-dive/run' ||
+    pathname === '/deep-dive' ||
+    /^\/deep-dive\/[^/]+$/.test(pathname) ||
+    /^\/deep-dive\/[^/]+\/cancel$/.test(pathname) ||
+    /^\/deep-dive\/[^/]+\/export$/.test(pathname) ||
+    /^\/deep-dive\/[^/]+\/visual$/.test(pathname) ||
+    pathname === '/strategy-lab/run' ||
+    pathname === '/strategy-lab' ||
+    /^\/strategy-lab\/[^/]+$/.test(pathname) ||
+    /^\/strategy-lab\/[^/]+\/cancel$/.test(pathname) ||
+    /^\/strategy-lab\/[^/]+\/export$/.test(pathname) ||
+    /^\/strategy-lab\/[^/]+\/visual$/.test(pathname) ||
+    pathname === '/messages/send' ||
+    pathname === '/messages' ||
+    /^\/messages\/agent\/[^/]+$/.test(pathname) ||
+    pathname === '/pulse' ||
+    pathname === '/knowledge/company' ||
+    pathname === '/knowledge/routes' ||
+    pathname === '/authority/proposals' ||
+    /^\/authority\/proposals\/[^/]+\/resolve$/.test(pathname) ||
+    pathname === '/knowledge/patterns' ||
+    pathname === '/knowledge/contradictions' ||
+    pathname === '/directives' ||
+    /^\/directives\/[^/]+$/.test(pathname) ||
+    pathname === '/quick-assign' ||
+    pathname === '/workflows' ||
+    pathname === '/workflows/metrics' ||
+    /^\/workflows\/[^/]+$/.test(pathname) ||
+    /^\/workflows\/[^/]+\/cancel$/.test(pathname) ||
+    /^\/workflows\/[^/]+\/retry$/.test(pathname) ||
+    /^\/plan-verify\/[^/]+$/.test(pathname) ||
+    pathname.startsWith('/api/')
+  ) {
+    return 'authenticated-user';
+  }
+
+  return null;
+}
+
+async function resolveRouteAuthContext(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+  method: string,
+): Promise<RouteAuthContext | null> {
+  const routeClass = classifySchedulerRoute(pathname, method);
+  if (!routeClass) {
+    json(res, 403, { error: 'Forbidden: route is not classified for access' }, req);
+    return null;
+  }
+
+  if (routeClass === 'public') {
+    return { routeClass, dashboardUser: null };
+  }
+
+  if (routeClass === 'internal-service-only') {
+    const authed = await requireInternalAuth(req, res, pathname);
+    if (!authed) return null;
+    return { routeClass, dashboardUser: null };
+  }
+
+  const dashboardUser = await requireDashboardUser(req, res, { admin: routeClass === 'admin-only' });
+  if (!dashboardUser) return null;
+  return { routeClass, dashboardUser };
+}
+
 function sendSseEvent(res: ServerResponse, event: Record<string, unknown>): void {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
+}
+
+function parseNumericCursor(value: string | null): number {
+  if (!value) return 0;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
 async function persistDashboardChatMessage(input: {
@@ -2444,11 +2667,12 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-function json(res: ServerResponse, status: number, data: unknown) {
-  res.writeHead(status, {
+function json(res: ServerResponse, status: number, data: unknown, req?: IncomingMessage) {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  });
+  };
+  if (req) appendCorsHeaders(req, headers);
+  res.writeHead(status, headers);
   res.end(JSON.stringify(data));
 }
 
@@ -2459,6 +2683,9 @@ const server = createServer(async (req, res) => {
   const [url, queryString] = rawUrl.split('?');
   const params = new URLSearchParams(queryString ?? '');
   const method = req.method ?? 'GET';
+  const authContext = await resolveRouteAuthContext(req, res, url, method);
+  if (!authContext) return;
+  const dashboardUser = authContext.dashboardUser;
 
   try {
     // Health check
@@ -2590,8 +2817,6 @@ const server = createServer(async (req, res) => {
 
     // Monthly model drift check (Cloud Scheduler; internal-only endpoint)
     if (method === 'POST' && (url === '/internal/model-check' || url === '/model-check/run')) {
-      const authed = await requireInternalAuth(req, res, '/internal/model-check');
-      if (!authed) return;
       try {
         const summary = await runModelChecker();
         json(res, 200, { success: true, summary });
@@ -3205,8 +3430,6 @@ const server = createServer(async (req, res) => {
 
     // Canary evaluation endpoint — weekly executive orchestration rollout check (Cloud Scheduler: 0 8 * * 1)
     if (method === 'POST' && url === '/canary/evaluate') {
-      const authed = await requireInternalAuth(req, res, '/canary/evaluate');
-      if (!authed) return;
       try {
         const report = await evaluateCanary(glyphorEventBus);
         json(res, 200, { success: true, ...report });
@@ -3220,8 +3443,6 @@ const server = createServer(async (req, res) => {
 
     // Planning-gate monitor endpoint — daily quality regression alert check
     if (method === 'POST' && url === '/planning-gate/monitor') {
-      const authed = await requireInternalAuth(req, res, '/planning-gate/monitor');
-      if (!authed) return;
       try {
         const report = await evaluatePlanningGateHealth();
         if (report.alerts.length > 0) {
@@ -3292,8 +3513,6 @@ const server = createServer(async (req, res) => {
 
     // Economics guardrails — optional Teams webhook or AgentNotifier (Cloud Scheduler)
     if (method === 'POST' && url === '/economics/guardrail-notify') {
-      const authed = await requireInternalAuth(req, res, '/economics/guardrail-notify');
-      if (!authed) return;
       try {
         const result = await runEconomicsGuardrailNotify(agentNotifier);
         const { success, ...rest } = result;
@@ -3435,8 +3654,6 @@ const server = createServer(async (req, res) => {
 
     // Tool expiration endpoint — daily expiration of stale/unreliable dynamic tools (Cloud Scheduler: 0 6 * * *)
     if (method === 'POST' && url === '/tools/expire') {
-      const authed = await requireInternalAuth(req, res, '/tools/expire');
-      if (!authed) return;
       try {
         const report = await expireTools(glyphorEventBus);
         json(res, 200, { success: true, ...report });
@@ -3479,7 +3696,8 @@ const server = createServer(async (req, res) => {
     // CORS preflight
     if (method === 'OPTIONS') {
       res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Max-Age': '86400',
@@ -3522,28 +3740,183 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    if (method === 'GET' && url === '/run/events') {
+      if (!dashboardUser) {
+        json(res, 403, { error: 'Forbidden' });
+        return;
+      }
+      const conversationId = params.get('conversation_id');
+      if (!conversationId) {
+        json(res, 400, { error: 'conversation_id is required' });
+        return;
+      }
+      const fromSeq = parseNumericCursor(params.get('from_seq'));
+      const sessionId = await findSessionIdBySessionKey(conversationId);
+      if (!sessionId) {
+        json(res, 200, { conversationId, next_cursor: fromSeq, events: [] });
+        return;
+      }
+      const replayFromSeq = fromSeq;
+      const replay = await replayRuntimeEventsBySeq({
+        sessionId,
+        fromSeq: replayFromSeq,
+        limit: 500,
+      });
+      json(res, 200, {
+        conversationId,
+        sessionId,
+        next_cursor: replay.nextCursor,
+        events: replay.events,
+      });
+      return;
+    }
+
+    if (method === 'GET' && url === '/run/events/stream') {
+      if (!dashboardUser) {
+        json(res, 403, { error: 'Forbidden' });
+        return;
+      }
+      const conversationId = params.get('conversation_id');
+      if (!conversationId) {
+        json(res, 400, { error: 'conversation_id is required' });
+        return;
+      }
+      const fromSeq = parseNumericCursor(params.get('from_seq'));
+      const sessionId = await findSessionIdBySessionKey(conversationId);
+      const lastEventIdHeader = getHeaderString(req.headers['last-event-id']);
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+        'Vary': 'Origin',
+      });
+
+      if (!sessionId) {
+        sendSseEvent(res, {
+          type: 'replay',
+          conversationId,
+          nextCursor: fromSeq,
+          events: [],
+        });
+        res.end();
+        return;
+      }
+
+      const headerCursor = lastEventIdHeader && sessionId
+        ? await resolveRuntimeCursorFromEventId({ sessionId, eventId: lastEventIdHeader })
+        : 0;
+      const replayFromSeq = Math.max(fromSeq, headerCursor);
+      const replay = await replayRuntimeEventsBySeq({
+        sessionId,
+        fromSeq: replayFromSeq,
+        limit: 500,
+      });
+      sendSseEvent(res, {
+        type: 'replay',
+        conversationId,
+        sessionId,
+        nextCursor: replay.nextCursor,
+        events: replay.events,
+      });
+      res.end();
+      return;
+    }
+
     if (method === 'POST' && url === '/run/stream') {
-      const dashboardUser = await requireDashboardUser(req, res);
-      if (!dashboardUser) return;
+      if (!dashboardUser) {
+        json(res, 403, { error: 'Forbidden' });
+        return;
+      }
       const body = JSON.parse(await readBody(req)) as DashboardRunRequestBody;
       const normalized = normalizeDashboardRunRequest({
         body,
         dashboardUserEmail: dashboardUser.email,
         dbRunIdTurnPrefix: DB_RUN_ID_TURN_PREFIX,
       });
+      const sessionId = await ensureRuntimeSession({
+        sessionKey: normalized.conversationId,
+        source: 'dashboard-main-chat',
+        ownerUserId: dashboardUser.uid,
+        ownerEmail: dashboardUser.email,
+        primaryAgentRole: normalized.agentRole,
+        metadata: { stream: true },
+        runId: normalized.runId,
+      });
+      const attempt = await createRuntimeAttempt({
+        sessionId,
+        runId: normalized.runId,
+        triggeredBy: 'dashboard-user',
+        triggerReason: 'chat_stream',
+        requestPayload: {
+          task: normalized.task,
+          message: normalized.originalMessage,
+          persistTranscript: normalized.persistTranscript,
+        },
+      });
+      let lastEventId: string | null = null;
+      const emitAndRecord = async (
+        event: Record<string, unknown>,
+        eventType: Parameters<typeof appendRuntimeEvent>[0]['eventType'],
+      ) => {
+        const persisted = await appendRuntimeEvent({
+          sessionId,
+          attemptId: attempt.id,
+          runId: normalized.runId,
+          eventType,
+          status: typeof event.status === 'string' ? event.status : null,
+          actorRole: normalized.agentRole,
+          payload: event,
+          parentEventId: lastEventId,
+        });
+        lastEventId = persisted.eventId;
+        sendSseEvent(res, { ...event, seq: persisted.seq, event_id: persisted.eventId });
+      };
+
+      await appendRuntimeEvent({
+        sessionId,
+        attemptId: attempt.id,
+        runId: normalized.runId,
+        eventType: 'run_created',
+        status: 'created',
+        actorRole: normalized.agentRole,
+        payload: {
+          runId: normalized.runId,
+          conversationId: normalized.conversationId,
+          task: normalized.task,
+          attemptNumber: attempt.attemptNumber,
+        },
+      });
 
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
       });
 
       const heartbeat = setInterval(() => {
-        sendSseEvent(res, { type: 'heartbeat', runId: normalized.runId, at: new Date().toISOString() });
+        void emitAndRecord({ type: 'heartbeat', runId: normalized.runId, at: new Date().toISOString() }, 'heartbeat');
       }, 5000);
 
       try {
+        await markRuntimeAttemptRunning({ attemptId: attempt.id });
+        await appendRuntimeEvent({
+          sessionId,
+          attemptId: attempt.id,
+          runId: normalized.runId,
+          eventType: 'turn_started',
+          status: 'running',
+          actorRole: normalized.agentRole,
+          payload: {
+            conversationId: normalized.conversationId,
+            stream: true,
+            persistTranscript: normalized.persistTranscript,
+          },
+        });
+
         if (normalized.persistTranscript) {
           await persistDashboardChatMessage({
             agentRole: normalized.agentRole,
@@ -3557,29 +3930,55 @@ const server = createServer(async (req, res) => {
           });
         }
 
-        sendSseEvent(res, {
+        await emitAndRecord({
           type: 'run_started',
           runId: normalized.runId,
           agentRole: normalized.agentRole,
           conversationId: normalized.conversationId,
-        });
+        }, 'run_started');
 
-        sendSseEvent(res, {
+        await emitAndRecord({
           type: 'status',
           runId: normalized.runId,
           phase: 'running',
+          status: 'running',
           message: `Working with ${normalized.agentRole}...`,
-        });
+        }, 'status');
 
         const result = await executeDashboardRun(router, normalized);
 
         if (Array.isArray(result.actions)) {
           for (const action of result.actions) {
-            sendSseEvent(res, {
+            await appendRuntimeEvent({
+              sessionId,
+              attemptId: attempt.id,
+              runId: normalized.runId,
+              eventType: 'tool_called',
+              status: 'running',
+              actorRole: normalized.agentRole,
+              toolName: action.tool,
+              payload: {
+                tool: action.tool,
+                params: action.params,
+              },
+              parentEventId: lastEventId,
+            });
+            await appendRuntimeEvent({
+              sessionId,
+              attemptId: attempt.id,
+              runId: normalized.runId,
+              eventType: 'tool_completed',
+              status: action.result === 'success' ? 'completed' : 'failed',
+              actorRole: normalized.agentRole,
+              toolName: action.tool,
+              payload: action,
+              parentEventId: lastEventId,
+            });
+            await emitAndRecord({
               type: 'action_receipt',
               runId: normalized.runId,
               action,
-            });
+            }, 'status');
           }
         }
 
@@ -3610,19 +4009,81 @@ const server = createServer(async (req, res) => {
           });
         }
 
-        sendSseEvent(res, {
+        if (result.action === 'queued_for_approval') {
+          await appendRuntimeEvent({
+            sessionId,
+            attemptId: attempt.id,
+            runId: normalized.runId,
+            eventType: 'approval_requested',
+            status: 'queued_for_approval',
+            actorRole: normalized.agentRole,
+            payload: {
+              reason: result.reason,
+            },
+            parentEventId: lastEventId,
+          });
+        }
+
+        await emitAndRecord({
           type: 'result',
           runId: normalized.runId,
           data: result,
           transcriptContent,
           conversationId: normalized.conversationId,
+        }, 'result');
+
+        await appendRuntimeEvent({
+          sessionId,
+          attemptId: attempt.id,
+          runId: normalized.runId,
+          eventType: 'run_completed',
+          status: result.error ? 'failed' : 'completed',
+          actorRole: normalized.agentRole,
+          payload: {
+            hasError: Boolean(result.error),
+          },
+          parentEventId: lastEventId,
+        });
+        await markRuntimeAttemptTerminal({
+          attemptId: attempt.id,
+          status: result.error ? 'failed' : result.action === 'queued_for_approval' ? 'queued_for_approval' : 'completed',
+          responseSummary: {
+            action: result.action,
+            status: result.status,
+            reason: result.reason,
+          },
+          errorMessage: result.error ?? null,
+        });
+        await markRuntimeSessionTerminal({
+          sessionId,
+          status: result.error ? 'failed' : 'completed',
         });
       } catch (err) {
         const messageText = err instanceof Error ? err.message : String(err);
-        sendSseEvent(res, {
+        await emitAndRecord({
           type: 'error',
           runId: normalized.runId,
           error: messageText,
+        }, 'run_failed');
+        await appendRuntimeEvent({
+          sessionId,
+          attemptId: attempt.id,
+          runId: normalized.runId,
+          eventType: 'run_failed',
+          status: 'failed',
+          actorRole: normalized.agentRole,
+          payload: { error: messageText },
+          parentEventId: lastEventId,
+        });
+        await markRuntimeAttemptTerminal({
+          attemptId: attempt.id,
+          status: 'failed',
+          responseSummary: { status: 'failed' },
+          errorMessage: messageText,
+        });
+        await markRuntimeSessionTerminal({
+          sessionId,
+          status: 'failed',
         });
       } finally {
         clearInterval(heartbeat);
@@ -3633,14 +4094,68 @@ const server = createServer(async (req, res) => {
 
     // Direct task invocation
     if (method === 'POST' && url === '/run') {
-      const dashboardUser = await requireDashboardUser(req, res);
-      if (!dashboardUser) return;
+      if (!dashboardUser) {
+        json(res, 403, { error: 'Forbidden' });
+        return;
+      }
       const body = JSON.parse(await readBody(req)) as DashboardRunRequestBody;
       const normalized = normalizeDashboardRunRequest({
         body,
         dashboardUserEmail: dashboardUser.email,
         dbRunIdTurnPrefix: DB_RUN_ID_TURN_PREFIX,
       });
+      const sessionId = await ensureRuntimeSession({
+        sessionKey: normalized.conversationId,
+        source: 'dashboard-main-chat',
+        ownerUserId: dashboardUser.uid,
+        ownerEmail: dashboardUser.email,
+        primaryAgentRole: normalized.agentRole,
+        metadata: { stream: false },
+        runId: normalized.runId,
+      });
+      const attempt = await createRuntimeAttempt({
+        sessionId,
+        runId: normalized.runId,
+        triggeredBy: 'dashboard-user',
+        triggerReason: 'chat_sync',
+        requestPayload: {
+          task: normalized.task,
+          message: normalized.originalMessage,
+          persistTranscript: normalized.persistTranscript,
+        },
+      });
+      let parentEventId: string | null = null;
+      const persistEvent = async (eventType: Parameters<typeof appendRuntimeEvent>[0]['eventType'], payload: Record<string, unknown>, status?: string) => {
+        const persisted = await appendRuntimeEvent({
+          sessionId,
+          attemptId: attempt.id,
+          runId: normalized.runId,
+          eventType,
+          status: status ?? null,
+          actorRole: normalized.agentRole,
+          payload,
+          parentEventId,
+        });
+        parentEventId = persisted.eventId;
+      };
+
+      await markRuntimeAttemptRunning({ attemptId: attempt.id });
+      await persistEvent('run_created', {
+        runId: normalized.runId,
+        conversationId: normalized.conversationId,
+        task: normalized.task,
+        attemptNumber: attempt.attemptNumber,
+      }, 'created');
+      await persistEvent('run_started', {
+        runId: normalized.runId,
+      }, 'running');
+      await persistEvent('turn_started', {
+        conversationId: normalized.conversationId,
+      }, 'running');
+      await persistEvent('status', {
+        phase: 'running',
+        message: `Working with ${normalized.agentRole}...`,
+      }, 'running');
 
       const result = await executeDashboardRun(router, normalized);
 
@@ -3678,6 +4193,40 @@ const server = createServer(async (req, res) => {
           },
         });
       }
+      if (Array.isArray(result.actions)) {
+        for (const action of result.actions) {
+          await persistEvent('tool_called', {
+            tool: action.tool,
+            params: action.params,
+          }, 'running');
+          await persistEvent('tool_completed', action, action.result === 'success' ? 'completed' : 'failed');
+        }
+      }
+      if (result.action === 'queued_for_approval') {
+        await persistEvent('approval_requested', { reason: result.reason }, 'queued_for_approval');
+      }
+      await persistEvent('result', {
+        action: result.action,
+        status: result.status,
+        reason: result.reason,
+      }, result.status ?? (result.error ? 'failed' : 'completed'));
+      await persistEvent(result.error ? 'run_failed' : 'run_completed', {
+        error: result.error ?? null,
+      }, result.error ? 'failed' : 'completed');
+      await markRuntimeAttemptTerminal({
+        attemptId: attempt.id,
+        status: result.error ? 'failed' : result.action === 'queued_for_approval' ? 'queued_for_approval' : 'completed',
+        responseSummary: {
+          action: result.action,
+          status: result.status,
+          reason: result.reason,
+        },
+        errorMessage: result.error ?? null,
+      });
+      await markRuntimeSessionTerminal({
+        sessionId,
+        status: result.error ? 'failed' : 'completed',
+      });
 
       // Record agent output back to work_assignments if this run was dispatched by orchestration
       const assignmentId = normalized.payload?.directiveAssignmentId as string | undefined;
@@ -4120,7 +4669,8 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/json',
           'Content-Disposition': `attachment; filename="analysis-${id}.json"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(exportAnalysisJSON(record));
       } else if (format === 'pptx') {
@@ -4128,7 +4678,8 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
           'Content-Disposition': `attachment; filename="analysis-${id}.pptx"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(buffer);
       } else if (format === 'docx') {
@@ -4136,14 +4687,16 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'Content-Disposition': `attachment; filename="analysis-${id}.docx"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(buffer);
       } else {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="analysis-${id}.md"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(exportAnalysisMarkdown(record));
       }
@@ -4259,7 +4812,8 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/json',
           'Content-Disposition': `attachment; filename="simulation-${id}.json"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(exportSimulationJSON(record));
       } else if (format === 'pptx') {
@@ -4267,7 +4821,8 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
           'Content-Disposition': `attachment; filename="simulation-${id}.pptx"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(buffer);
       } else if (format === 'docx') {
@@ -4275,14 +4830,16 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'Content-Disposition': `attachment; filename="simulation-${id}.docx"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(buffer);
       } else {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="simulation-${id}.md"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(exportSimulationMarkdown(record));
       }
@@ -4365,14 +4922,16 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/json',
           'Content-Disposition': `attachment; filename="cot-${id}.json"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(exportCotJSON(record));
       } else {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="cot-${id}.md"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(exportCotMarkdown(record));
       }
@@ -4473,7 +5032,8 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/json',
           'Content-Disposition': `attachment; filename="deep-dive-${ddId}.json"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(exportDeepDiveJSON(record));
       } else if (format === 'pptx') {
@@ -4481,7 +5041,8 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
           'Content-Disposition': `attachment; filename="deep-dive-${ddId}.pptx"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(buffer);
       } else if (format === 'docx') {
@@ -4489,14 +5050,16 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'Content-Disposition': `attachment; filename="deep-dive-${ddId}.docx"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(buffer);
       } else {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="deep-dive-${ddId}.md"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(exportDeepDiveMarkdown(record));
       }
@@ -4591,7 +5154,8 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
           'Content-Disposition': `attachment; filename="strategy-${id}.pptx"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(buffer);
       } else if (format === 'docx') {
@@ -4599,7 +5163,8 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'Content-Disposition': `attachment; filename="strategy-${id}.docx"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(buffer);
       } else {
@@ -4608,7 +5173,8 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="strategy-${id}.md"`,
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
+          'Vary': 'Origin',
         });
         res.end(md);
       }
@@ -5244,8 +5810,10 @@ const server = createServer(async (req, res) => {
 
     // ── Dashboard CRUD API (/api/*) ────────────────────────────────
     if (url.startsWith('/api/')) {
-      const dashboardUser = await requireDashboardUser(req, res);
-      if (!dashboardUser) return;
+      if (!dashboardUser) {
+        json(res, 403, { error: 'Forbidden' });
+        return;
+      }
       if (await handleDashboardApi(req, res, url, queryString ?? '', method, dashboardUser)) return;
     }
 
@@ -5467,3 +6035,4 @@ process.on('SIGTERM', async () => {
     process.exit(0);
   });
 });
+
