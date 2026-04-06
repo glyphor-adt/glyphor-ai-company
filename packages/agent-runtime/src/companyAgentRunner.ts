@@ -1071,12 +1071,12 @@ export interface RunDependencies {
  */
 const PLANNING_INTENT_PATTERNS = [
   /I(?:'m| am) (?:starting|beginning|preparing|creating|drafting|building|working)/i,
-  /I(?:'ll| will) (?:create|prepare|draft|build|generate|send|upload|start|set up|write)/i,
-  /I will (?:now |begin |start )?(?:create|prepare|draft|build|generate|send|upload)/i,
-  /Let me (?:start|begin|prepare|create|draft|build|set up|work on)/i,
-  /I'm going to (?:create|prepare|draft|build|generate|send|upload|start|set up)/i,
+  /I(?:'ll| will) (?:create|prepare|draft|build|generate|send|upload|start|set up|write|run|call|execute|invoke)/i,
+  /I will (?:now |begin |start )?(?:create|prepare|draft|build|generate|send|upload|run|call|execute|invoke)/i,
+  /Let me (?:start|begin|prepare|create|draft|build|set up|work on|run|call|execute|invoke)/i,
+  /I'm going to (?:create|prepare|draft|build|generate|send|upload|start|set up|run|call|execute|invoke)/i,
   /What remains[: ]/i,
-  /I (?:still )?need to (?:create|prepare|draft|build|generate|send|upload|export|produce)/i,
+  /I (?:still )?need to (?:create|prepare|draft|build|generate|send|upload|export|produce|run|call|execute|invoke|use)/i,
   /Next(?:,| step)? I(?:'ll| will| should| need to)/i,
 ];
 
