@@ -1,10 +1,13 @@
 import { CloudTasksClient } from '@google-cloud/tasks';
+import type { CompanyAgentRole, ConversationAttachment, ConversationTurn } from '@glyphor/agent-runtime';
+import type { RouteResult } from './eventRouter.js';
 
 const client = new CloudTasksClient();
 const PROJECT = process.env.GCP_PROJECT_ID || 'ai-glyphor-company';
 const LOCATION = process.env.GCP_REGION || 'us-central1';
 const WORKER_URL = process.env.WORKER_URL?.replace(/\/$/, '');
 const WORKER_SERVICE_ACCOUNT = process.env.WORKER_SERVICE_ACCOUNT;
+const WORKER_SHARED_SECRET = process.env.WORKER_SHARED_SECRET?.trim();
 const QUEUE_AGENT_RUNS = `projects/${PROJECT}/locations/${LOCATION}/queues/agent-runs`;
 
 export interface DeepDiveExecutionTask {
@@ -40,4 +43,48 @@ export async function enqueueDeepDiveExecution(task: DeepDiveExecutionTask): Pro
       },
     },
   });
+}
+
+export interface WorkerAgentExecutionPayload {
+  runId: string;
+  agentRole: CompanyAgentRole;
+  task: string;
+  payload: Record<string, unknown>;
+  message?: string;
+  conversationHistory?: ConversationTurn[];
+  attachments?: ConversationAttachment[];
+  assignmentId?: string;
+  directiveId?: string;
+}
+
+export async function executeWorkerAgentRun(
+  payload: WorkerAgentExecutionPayload,
+): Promise<RouteResult> {
+  if (!WORKER_URL) {
+    throw new Error('Worker execution dispatch is not configured. Set WORKER_URL.');
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (WORKER_SHARED_SECRET) {
+    headers['x-worker-shared-secret'] = WORKER_SHARED_SECRET;
+  }
+
+  const response = await fetch(`${WORKER_URL}/run`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      taskType: 'agent_execute',
+      metadata: payload,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Worker execution dispatch failed (${response.status}): ${text.slice(0, 500)}`);
+  }
+
+  const result = await response.json() as RouteResult;
+  return result;
 }

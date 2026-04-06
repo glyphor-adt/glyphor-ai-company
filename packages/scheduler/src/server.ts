@@ -103,7 +103,7 @@ import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
 import { runGtmReadinessEval, persistGtmReport } from './gtmReadiness/index.js';
 import { evaluatePlanningGateHealth } from './planningGateMonitor.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
-import { enqueueDeepDiveExecution, isWorkerQueueConfigured } from './workerQueue.js';
+import { enqueueDeepDiveExecution, executeWorkerAgentRun, isWorkerQueueConfigured } from './workerQueue.js';
 import { processDailyAutonomyAdjustments } from '@glyphor/shared';
 import {
   handleFounderRejection,
@@ -137,7 +137,6 @@ import { OAuth2Client } from 'google-auth-library';
 import {
   buildDashboardConversationId,
   buildDashboardResultContent,
-  executeDashboardRun,
   normalizeDashboardRunRequest,
   type DashboardRunRequestBody,
 } from './runtimeKernel.js';
@@ -3945,7 +3944,15 @@ const server = createServer(async (req, res) => {
           message: `Working with ${normalized.agentRole}...`,
         }, 'status');
 
-        const result = await executeDashboardRun(router, normalized);
+        const result = await executeWorkerAgentRun({
+          runId: normalized.runId,
+          agentRole: normalized.agentRole,
+          task: normalized.task,
+          payload: normalized.payload,
+          message: normalized.message,
+          conversationHistory: normalized.conversationHistory,
+          attachments: normalized.attachments,
+        });
 
         if (Array.isArray(result.actions)) {
           for (const action of result.actions) {
@@ -4157,7 +4164,15 @@ const server = createServer(async (req, res) => {
         message: `Working with ${normalized.agentRole}...`,
       }, 'running');
 
-      const result = await executeDashboardRun(router, normalized);
+      const result = await executeWorkerAgentRun({
+        runId: normalized.runId,
+        agentRole: normalized.agentRole,
+        task: normalized.task,
+        payload: normalized.payload,
+        message: normalized.message,
+        conversationHistory: normalized.conversationHistory,
+        attachments: normalized.attachments,
+      });
 
       if (normalized.persistTranscript) {
         await persistDashboardChatMessage({
