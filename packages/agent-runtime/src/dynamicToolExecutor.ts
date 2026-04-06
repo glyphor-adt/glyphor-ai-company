@@ -22,10 +22,14 @@ import { systemQuery } from '@glyphor/shared/db';
 /**
  * Attempt to execute a dynamically registered tool from tool_registry.
  * Returns null if the tool is not in the dynamic registry.
+ *
+ * @param agentTools — the CURRENT agent's static tool map. Used to give a
+ *   helpful error when a tool exists in another agent's bundle but not this one.
  */
 export async function executeDynamicTool(
   toolName: string,
   params: Record<string, unknown>,
+  agentTools?: Map<string, unknown>,
 ): Promise<ToolResult | null> {
   // Check if this tool exists in the dynamic registry
   const isDynamic = await isKnownToolAsync(toolName);
@@ -39,13 +43,25 @@ export async function executeDynamicTool(
     return executeApiTool(toolDef, params);
   }
 
-  // Code-backed tools may still appear in tool_registry for discovery/grants without api_config.
+  // Code-backed tool without api_config.
+  // Check if ANY agent has this tool (global KNOWN_TOOLS) — if so, the tool
+  // exists but isn't in THIS agent's bundle. Give a specific error.
   if (hasStaticToolName(toolName)) {
+    // If the agent actually has this tool in its bundle, something else went wrong
+    // (tool executor should have found it at line 881). Log for diagnostics.
+    if (agentTools?.has(toolName)) {
+      console.error(
+        `[DynamicToolExecutor] BUG: Tool "${toolName}" is in agent's static bundle ` +
+        `but was not found by toolExecutor.execute(). This should not happen.`,
+      );
+    }
     return {
       success: false,
       error:
-        `Tool "${toolName}" is implemented in application code, not via the dynamic HTTP executor. ` +
-        `Run an agent whose tool bundle includes this tool (e.g. CTO for GCP operations).`,
+        `Tool "${toolName}" exists but is not available in your current tool bundle. ` +
+        `This tool is implemented in application code and must be added to your agent's ` +
+        `run.ts tool array. Contact your administrator or use who_handles to find an ` +
+        `agent that has this tool.`,
     };
   }
 

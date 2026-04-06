@@ -904,7 +904,7 @@ export class ToolExecutor {
       // If it has an api_config, execute the HTTP call dynamically.
       const dynStart = Date.now();
       try {
-        const dynamicResult = await executeDynamicTool(toolName, params);
+        const dynamicResult = await executeDynamicTool(toolName, params, this.tools);
         if (dynamicResult) {
           const dynLatency = Date.now() - dynStart;
           const classifiedDynamicResult: ToolResult = {

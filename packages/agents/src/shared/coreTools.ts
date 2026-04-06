@@ -27,6 +27,7 @@ import { createExternalA2aTools } from './externalA2aTools.js';
 import { createKnowledgeRetrievalTools } from './knowledgeRetrievalTools.js';
 import { createChannelNotifyTools } from './channelNotifyTools.js';
 import { createSlackOutputTools } from './slackOutputTools.js';
+import { createResearchTools } from './researchTools.js';
 
 export const CORE_TOOL_NAMES: Set<string> = new Set([
   // Assignment lifecycle
@@ -68,6 +69,9 @@ export const CORE_TOOL_NAMES: Set<string> = new Set([
   'discover_external_agents',
   // Knowledge retrieval
   'read_company_knowledge',
+  // Web research
+  'web_fetch',
+  'web_search',
 ]);
 
 export interface CoreToolDeps {
@@ -86,6 +90,7 @@ export const CHAT_CORE_TOOL_NAMES: Set<string> = new Set([
   'read_company_knowledge',
   'generate_pdf',
   'generate_word_doc',
+  'web_fetch',
 ]);
 
 export function createCoreTools(deps: CoreToolDeps, opts?: { chatOnly?: boolean }): ToolDefinition[] {
@@ -103,6 +108,7 @@ export function createCoreTools(deps: CoreToolDeps, opts?: { chatOnly?: boolean 
     ...createWordTools(),
     ...createExternalA2aTools(deps.externalA2aRegistryUrl ?? process.env.A2A_REGISTRY_URL),
     ...createKnowledgeRetrievalTools(),
+    ...createResearchTools(),
   ];
 
   const nameSet = opts?.chatOnly ? CHAT_CORE_TOOL_NAMES : CORE_TOOL_NAMES;
