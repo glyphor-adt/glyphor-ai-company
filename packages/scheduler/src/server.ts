@@ -141,13 +141,6 @@ import {
   normalizeDashboardRunRequest,
   type DashboardRunRequestBody,
 } from './runtimeKernel.js';
-import {
-  appendRunEvent,
-  completeRunSession,
-  getRunEvents,
-  getRunSession,
-  upsertRunSession,
-} from './runEventStore.js';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const oidcClient = new OAuth2Client();
@@ -428,11 +421,6 @@ function getRequestOrigin(req: IncomingMessage): string | null {
 }
 
 function sendSseEvent(res: ServerResponse, event: Record<string, unknown>): void {
-  res.write(`data: ${JSON.stringify(event)}\n\n`);
-}
-
-function sendSseEventWithId(res: ServerResponse, eventId: number | string, event: Record<string, unknown>): void {
-  res.write(`id: ${eventId}\n`);
   res.write(`data: ${JSON.stringify(event)}\n\n`);
 }
 
@@ -3534,66 +3522,6 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Direct task invocation with SSE streaming for dashboard chat
-    if (method === 'GET' && url === '/run/events/stream') {
-      const dashboardUser = await requireDashboardUser(req, res);
-      if (!dashboardUser) return;
-      const runId = params.get('run_id')?.trim() || params.get('runId')?.trim() || '';
-      if (!runId) {
-        json(res, 400, { error: 'run_id is required' });
-        return;
-      }
-      const existingSession = await getRunSession({ runId });
-      if (!existingSession) {
-        json(res, 404, { error: 'Run session not found' });
-        return;
-      }
-      if (existingSession.user_id && existingSession.user_id !== dashboardUser.email) {
-        json(res, 403, { error: 'Forbidden' });
-        return;
-      }
-      const fromSeq = Number.parseInt(
-        params.get('from_seq')
-          ?? params.get('fromSeq')
-          ?? getHeaderString(req.headers['last-event-id'])
-          ?? '0',
-        10,
-      );
-      let cursor = Number.isFinite(fromSeq) && fromSeq >= 0 ? fromSeq : 0;
-
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-      });
-
-      sendSseEvent(res, { type: 'replay_started', runId, fromSeq: cursor });
-
-      for (let poll = 0; poll < 90; poll += 1) {
-        const events = await getRunEvents({ runId, fromSeq: cursor, limit: 500 });
-        for (const row of events) {
-          cursor = row.seq;
-          sendSseEventWithId(res, row.seq, {
-            type: row.event_type,
-            runId,
-            phase: row.phase,
-            status: row.status,
-            ...(row.payload ?? {}),
-            ...(row.error ? { error: row.error } : {}),
-          });
-        }
-        const session = await getRunSession({ runId });
-        if (session?.completed_at && events.length === 0) {
-          sendSseEvent(res, { type: 'replay_complete', runId, lastSeq: cursor, status: session.status });
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-      res.end();
-      return;
-    }
-
     if (method === 'POST' && url === '/run/stream') {
       const dashboardUser = await requireDashboardUser(req, res);
       if (!dashboardUser) return;
@@ -3613,39 +3541,9 @@ const server = createServer(async (req, res) => {
 
       const heartbeat = setInterval(() => {
         sendSseEvent(res, { type: 'heartbeat', runId: normalized.runId, at: new Date().toISOString() });
-        void appendRunEvent({
-          runId: normalized.runId,
-          eventType: 'heartbeat',
-          phase: 'running',
-          status: 'running',
-          payload: { at: new Date().toISOString() },
-        }).catch(() => {});
       }, 5000);
 
       try {
-        await upsertRunSession({
-          runId: normalized.runId,
-          conversationId: normalized.conversationId,
-          userId: dashboardUser.email,
-          agentRole: normalized.agentRole,
-          task: normalized.task,
-          source: 'dashboard',
-          transport: 'sse',
-          status: 'running',
-          metadata: { persistTranscript: normalized.persistTranscript },
-        });
-        await appendRunEvent({
-          runId: normalized.runId,
-          eventType: 'session_started',
-          phase: 'queued',
-          status: 'running',
-          payload: {
-            agentRole: normalized.agentRole,
-            task: normalized.task,
-            conversationId: normalized.conversationId,
-          },
-        });
-
         if (normalized.persistTranscript) {
           await persistDashboardChatMessage({
             agentRole: normalized.agentRole,
@@ -3665,29 +3563,12 @@ const server = createServer(async (req, res) => {
           agentRole: normalized.agentRole,
           conversationId: normalized.conversationId,
         });
-        await appendRunEvent({
-          runId: normalized.runId,
-          eventType: 'run_started',
-          phase: 'running',
-          status: 'running',
-          payload: {
-            agentRole: normalized.agentRole,
-            conversationId: normalized.conversationId,
-          },
-        });
 
         sendSseEvent(res, {
           type: 'status',
           runId: normalized.runId,
           phase: 'running',
           message: `Working with ${normalized.agentRole}...`,
-        });
-        await appendRunEvent({
-          runId: normalized.runId,
-          eventType: 'status',
-          phase: 'running',
-          status: 'running',
-          payload: { message: `Working with ${normalized.agentRole}...` },
         });
 
         const result = await executeDashboardRun(router, normalized);
@@ -3698,13 +3579,6 @@ const server = createServer(async (req, res) => {
               type: 'action_receipt',
               runId: normalized.runId,
               action,
-            });
-            await appendRunEvent({
-              runId: normalized.runId,
-              eventType: 'action_receipt',
-              phase: 'running',
-              status: 'running',
-              payload: { action },
             });
           }
         }
@@ -3743,47 +3617,12 @@ const server = createServer(async (req, res) => {
           transcriptContent,
           conversationId: normalized.conversationId,
         });
-        await appendRunEvent({
-          runId: normalized.runId,
-          eventType: 'result',
-          phase: 'completed',
-          status: result.status ?? 'completed',
-          payload: {
-            data: result,
-            action: result.action,
-            status: result.status,
-            conversationId: normalized.conversationId,
-            transcriptContent,
-          },
-        });
-        await completeRunSession({
-          runId: normalized.runId,
-          status: result.status ?? 'completed',
-          metadata: {
-            action: result.action,
-            streamed: true,
-            persistedTranscript: normalized.persistTranscript,
-          },
-        });
       } catch (err) {
         const messageText = err instanceof Error ? err.message : String(err);
         sendSseEvent(res, {
           type: 'error',
           runId: normalized.runId,
           error: messageText,
-        });
-        await appendRunEvent({
-          runId: normalized.runId,
-          eventType: 'error',
-          phase: 'failed',
-          status: 'failed',
-          error: messageText,
-          payload: { conversationId: normalized.conversationId },
-        });
-        await completeRunSession({
-          runId: normalized.runId,
-          status: 'failed',
-          metadata: { streamed: true, error: messageText },
         });
       } finally {
         clearInterval(heartbeat);
@@ -3801,29 +3640,6 @@ const server = createServer(async (req, res) => {
         body,
         dashboardUserEmail: dashboardUser.email,
         dbRunIdTurnPrefix: DB_RUN_ID_TURN_PREFIX,
-      });
-
-      await upsertRunSession({
-        runId: normalized.runId,
-        conversationId: normalized.conversationId,
-        userId: dashboardUser.email,
-        agentRole: normalized.agentRole,
-        task: normalized.task,
-        source: 'dashboard',
-        transport: 'json',
-        status: 'running',
-        metadata: { persistTranscript: normalized.persistTranscript },
-      });
-      await appendRunEvent({
-        runId: normalized.runId,
-        eventType: 'run_started',
-        phase: 'running',
-        status: 'running',
-        payload: {
-          agentRole: normalized.agentRole,
-          task: normalized.task,
-          conversationId: normalized.conversationId,
-        },
       });
 
       const result = await executeDashboardRun(router, normalized);
@@ -3862,39 +3678,6 @@ const server = createServer(async (req, res) => {
           },
         });
       }
-
-      if (Array.isArray(result.actions)) {
-        for (const action of result.actions) {
-          await appendRunEvent({
-            runId: normalized.runId,
-            eventType: 'action_receipt',
-            phase: 'running',
-            status: 'running',
-            payload: { action },
-          });
-        }
-      }
-      await appendRunEvent({
-        runId: normalized.runId,
-        eventType: 'result',
-        phase: 'completed',
-        status: result.status ?? 'completed',
-        payload: {
-          action: result.action,
-          status: result.status,
-          conversationId: normalized.conversationId,
-          output: result.output ?? null,
-        },
-      });
-      await completeRunSession({
-        runId: normalized.runId,
-        status: result.status ?? 'completed',
-        metadata: {
-          action: result.action,
-          streamed: false,
-          persistedTranscript: normalized.persistTranscript,
-        },
-      });
 
       // Record agent output back to work_assignments if this run was dispatched by orchestration
       const assignmentId = normalized.payload?.directiveAssignmentId as string | undefined;
