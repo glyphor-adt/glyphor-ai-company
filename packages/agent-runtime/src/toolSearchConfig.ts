@@ -64,6 +64,9 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
       'read_founder_directives',
       'get_pending_decisions',
       'send_briefing',
+      'generate_pdf',
+      'generate_word_doc',
+      'web_fetch',
     ],
     cto: [
       'get_platform_health',
