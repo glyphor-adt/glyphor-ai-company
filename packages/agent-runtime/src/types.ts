@@ -114,6 +114,9 @@ export interface ToolDefinition {
   deferLoading?: boolean;
   /** Optional ABAC metadata for data-domain MCP tools. */
   abac?: AbacToolMetadata;
+  /** Optional per-tool timeout override (ms). Used by MCP tools to get longer
+   *  timeouts for Cloud Run cold starts. Checked before name-based classification. */
+  timeoutMs?: number;
   execute: (params: Record<string, unknown>, context: ToolContext) => Promise<ToolResult>;
 }
 

@@ -138,6 +138,7 @@ function convertMcpTool(
     parameters,
     deferLoading: true,
     abac,
+    timeoutMs: 120_000, // MCP tools hit Cloud Run with scale-to-zero; cold start needs headroom
     execute: async (params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
       try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };

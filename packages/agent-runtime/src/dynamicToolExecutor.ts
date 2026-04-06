@@ -93,7 +93,7 @@ async function executeApiTool(
     const fetchOptions: RequestInit = {
       method: config.method,
       headers,
-      signal: AbortSignal.timeout(30_000), // 30s timeout for external APIs
+      signal: AbortSignal.timeout(120_000), // 120s timeout for external/MCP APIs (cold start headroom)
     };
 
     if (body !== undefined && config.method !== 'GET' && config.method !== 'HEAD') {

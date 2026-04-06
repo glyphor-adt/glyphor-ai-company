@@ -444,8 +444,33 @@ You are in an interactive conversation with a founder. CRITICAL RULES:
         : 'Provide a status summary of the company.';
       break;
 
+    case 'heartbeat_response': {
+      // Heartbeat runs that don't match a specific scheduled task.
+      // Instead of falling through to a generic "provide a summary" default,
+      // run a lightweight orchestration pass — check directives, detect stuck
+      // work, and move things forward.
+      const lifecycleContext = await gatherDirectiveLifecycleContext();
+      initialMessage = `Heartbeat check-in for ${today}. Run a focused orchestration pass:
+
+1. Use read_founder_directives(status='active') to check for directives needing attention
+2. Use get_recent_activity to see what happened since the last heartbeat
+3. Use check_escalations to surface anything stuck or overdue
+4. For any directive with pending/stalled assignments, take action:
+   - Dispatch pending assignments
+   - Nudge stalled agents
+   - Escalate blockers that need founder attention
+5. If nothing needs action, confirm the system is running smoothly with a brief status note
+
+Be decisive. If there's work to move forward, move it. If everything is on track, say so briefly with evidence (not just "all good").
+
+${lifecycleContext}`;
+      break;
+    }
+
     default:
-      initialMessage = params.message || 'Provide a status summary of the company.';
+      // Unknown task types get the heartbeat_response treatment rather than
+      // a vague "provide a status summary" that produces minimal output.
+      initialMessage = params.message || `Heartbeat check-in for ${today}. Use get_recent_activity and read_founder_directives(status='active') to check current state, then report anything that needs attention. If all clear, confirm briefly with evidence.`;
   }
 
   const agentCfg = await loadAgentConfig('chief-of-staff', { temperature: 0.3, maxTurns: 15 }, task);

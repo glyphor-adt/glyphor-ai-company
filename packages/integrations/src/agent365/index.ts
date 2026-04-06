@@ -567,6 +567,7 @@ function mcpToolToToolDefinition(
     name: mcpTool.name,
     description: `[Agent365 ${serverName}] ${baseDescription}`,
     parameters: params,
+    timeoutMs: 120_000, // Agent365 MCP uses SSE transport; cold start + token exchange needs headroom
     execute: async (callParams: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
       // Proactively reconnect if token is nearing expiry
       if (isConnectionExpired(activeConn)) {

@@ -277,7 +277,9 @@ const VERY_LONG_TOOL_TIMEOUT_MS = Math.max(60_000, Number(process.env.TOOL_VERY_
 const QUICK_DEMO_TOOL_TIMEOUT_MS = Math.max(60_000, Number(process.env.TOOL_QUICK_DEMO_TIMEOUT_MS ?? '300000'));
 const QUICK_DEMO_TOOLS = new Set(['quick_demo_web_app']);
 
-// Company tools that legitimately take longer (API calls, report generation)
+// Company tools that legitimately take longer (API calls, report generation).
+// MCP tools hit Cloud Run services with scale-to-zero — cold start alone can
+// consume 5-10s, so they need at least 120s total budget.
 const LONG_RUNNING_TOOLS = new Set([
   'generate_briefing',
   'analyze_usage',
@@ -292,7 +294,17 @@ const LONG_RUNNING_TOOLS = new Set([
   'run_test_suite',
   'run_cohort_analysis',
   'calculate_health_scores',
+  'generate_pdf',
+  'run_lighthouse_audit',
+  'send_briefing',
 ]);
+
+// MCP tool prefix patterns — any tool starting with these gets LONG timeout
+// to account for Cloud Run cold starts + network round-trip.
+const MCP_TOOL_PREFIXES = ['mcp_', 'glyphor_', 'a365_'];
+function isMcpTool(name: string): boolean {
+  return MCP_TOOL_PREFIXES.some(p => name.startsWith(p));
+}
 
 const VERY_LONG_RUNNING_TOOLS = new Set([
   'invoke_web_build',
@@ -1575,16 +1587,21 @@ export class ToolExecutor {
     }
 
     // Use buildTool metadata timeout if available, otherwise fall back to legacy constants
+    const toolSource = detectToolSource(toolName);
     const metaTimeout = getToolMeta(tool).timeoutMs;
-    const timeoutMs = metaTimeout !== 30_000  // non-default buildTool timeout takes precedence
-      ? metaTimeout
-      : VERY_LONG_RUNNING_TOOLS.has(toolName)
-        ? VERY_LONG_TOOL_TIMEOUT_MS
-        : QUICK_DEMO_TOOLS.has(toolName)
-          ? QUICK_DEMO_TOOL_TIMEOUT_MS
-          : LONG_RUNNING_TOOLS.has(toolName)
-            ? LONG_TOOL_TIMEOUT_MS
-            : DEFAULT_TOOL_TIMEOUT_MS;
+    // Check the optional per-tool timeoutMs field (set by MCP tool factories)
+    const directTimeout = (tool as { timeoutMs?: number }).timeoutMs;
+    const timeoutMs = directTimeout && directTimeout !== 30_000
+      ? directTimeout
+      : metaTimeout !== 30_000  // non-default buildTool timeout takes precedence
+        ? metaTimeout
+        : VERY_LONG_RUNNING_TOOLS.has(toolName)
+          ? VERY_LONG_TOOL_TIMEOUT_MS
+          : QUICK_DEMO_TOOLS.has(toolName)
+            ? QUICK_DEMO_TOOL_TIMEOUT_MS
+            : LONG_RUNNING_TOOLS.has(toolName) || isMcpTool(toolName) || toolSource === 'mcp'
+              ? LONG_TOOL_TIMEOUT_MS
+              : DEFAULT_TOOL_TIMEOUT_MS;
     const executionSpan = startTraceSpan('tool.execute', {
       run_id: context.runId ?? 'unknown',
       assignment_id: context.assignmentId ?? 'none',
@@ -1595,7 +1612,6 @@ export class ToolExecutor {
       risk_level: riskAssessment.level,
       timeout_ms: timeoutMs,
     });
-    const toolSource = detectToolSource(toolName);
     const execStart = Date.now();
     const executionContext: ToolContext = {
       ...context,
