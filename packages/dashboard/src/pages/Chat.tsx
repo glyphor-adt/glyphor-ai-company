@@ -934,6 +934,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         if (!isMentioned) {
           const streamId = createStreamId();
           primaryStreamId = streamId;
+          const conversationId = buildConversationId(primaryUserAlias, targetRole);
           if (selectedRoleRef.current === targetRole) {
             setMessages((prev) => [...prev, {
               role: 'agent',
@@ -942,6 +943,139 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               streamId,
             }]);
           }
+
+          let finalData: any = null;
+          let streamError: string | null = null;
+          let streamContent = '';
+          let streamMetadata: ChatMessageMetadata | undefined;
+          let streamedActions: ActionReceipt[] | undefined;
+          let streamTerminal = false;
+          let lastSeq = 0;
+          let lastEventId: string | undefined;
+
+          const applyStreamEvent = (event: Record<string, unknown>) => {
+            const payload =
+              event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
+                ? (event.payload as Record<string, unknown>)
+                : event;
+            const eventType =
+              (typeof event.type === 'string' ? event.type : null) ??
+              (typeof event.eventType === 'string' ? event.eventType : null) ??
+              (typeof payload.type === 'string' ? payload.type : null);
+
+            const seqValue = typeof event.seq === 'number'
+              ? event.seq
+              : (typeof event.seq === 'string' ? Number.parseInt(event.seq, 10) : undefined);
+            if (typeof seqValue === 'number' && Number.isFinite(seqValue) && seqValue > lastSeq) {
+              lastSeq = seqValue;
+            }
+
+            const eventId =
+              (typeof event.event_id === 'string' ? event.event_id : null) ??
+              (typeof event.eventId === 'string' ? event.eventId : null);
+            if (eventId) lastEventId = eventId;
+
+            if (eventType === 'run_started') {
+              const runStartedMessage = `Working with ${DISPLAY_NAME_MAP[targetRole] ?? targetRole}...`;
+              streamContent = runStartedMessage;
+              if (selectedRoleRef.current === targetRole) {
+                setMessages((prev) => prev.map((m) => m.streamId === streamId ? { ...m, content: runStartedMessage } : m));
+              }
+              return;
+            }
+
+            if (eventType === 'heartbeat') {
+              return;
+            }
+
+            if (eventType === 'status') {
+              const statusText = typeof payload.message === 'string'
+                ? payload.message
+                : (typeof event.message === 'string' ? event.message : '');
+              if (statusText) {
+                streamContent = statusText;
+                if (selectedRoleRef.current === targetRole) {
+                  setMessages((prev) => prev.map((m) => m.streamId === streamId ? { ...m, content: statusText } : m));
+                }
+              }
+              return;
+            }
+
+            if (eventType === 'action_receipt') {
+              const action = payload.action ?? event.action;
+              if (action && typeof action === 'object') {
+                const receipt = action as ActionReceipt;
+                streamedActions = [...(streamedActions ?? []), receipt];
+              }
+              return;
+            }
+
+            if (eventType === 'result') {
+              const resultData = (
+                payload.data && typeof payload.data === 'object'
+                  ? payload.data
+                  : event.data
+              ) as Record<string, unknown> | undefined;
+              finalData = resultData;
+              streamTerminal = true;
+              streamContent = typeof payload.transcriptContent === 'string'
+                ? payload.transcriptContent
+                : (typeof resultData?.output === 'string' ? resultData.output : streamContent);
+              const apiEmbeds = parseDashboardChatEmbeds(resultData?.dashboardChatEmbeds);
+              streamMetadata =
+                resultData?.compactionOccurred || (apiEmbeds && apiEmbeds.length > 0)
+                  ? {
+                      ...(resultData?.compactionOccurred
+                        ? {
+                            compactionOccurred: true,
+                            compactionCount: typeof resultData?.compactionCount === 'number' ? resultData.compactionCount : undefined,
+                            compactionSummary: typeof resultData?.compactionSummary === 'string' ? resultData.compactionSummary : undefined,
+                          }
+                        : {}),
+                      ...(apiEmbeds && apiEmbeds.length > 0 ? { dashboardChatEmbeds: apiEmbeds } : {}),
+                    }
+                  : undefined;
+              return;
+            }
+
+            if (eventType === 'error' || eventType === 'run_failed') {
+              streamError = typeof payload.error === 'string'
+                ? payload.error
+                : (typeof event.error === 'string' ? event.error : 'Stream failed');
+              streamTerminal = true;
+              return;
+            }
+
+            if (eventType === 'run_completed') {
+              streamTerminal = true;
+            }
+          };
+
+          const replayMissedEvents = async () => {
+            const query = new URLSearchParams();
+            query.set('conversation_id', conversationId);
+            if (lastSeq > 0) query.set('from_seq', String(lastSeq));
+            const replayHeaders = await buildApiHeaders();
+            if (!Array.isArray(replayHeaders) && typeof replayHeaders === 'object' && lastEventId) {
+              (replayHeaders as Record<string, string>)['Last-Event-ID'] = lastEventId;
+            }
+            const replayRes = await fetch(`${SCHEDULER_URL}/run/events?${query.toString()}`, {
+              method: 'GET',
+              headers: replayHeaders,
+              signal: controller.signal,
+            });
+            if (!replayRes.ok) throw new Error(`Replay HTTP ${replayRes.status}`);
+            const replayBody = await replayRes.json() as {
+              next_cursor?: number;
+              events?: Array<Record<string, unknown>>;
+            };
+            for (const replayEvent of replayBody.events ?? []) {
+              applyStreamEvent(replayEvent);
+            }
+            if (typeof replayBody.next_cursor === 'number' && replayBody.next_cursor > lastSeq) {
+              lastSeq = replayBody.next_cursor;
+            }
+          };
 
           const res = await fetch(`${SCHEDULER_URL}/run/stream`, {
             method: 'POST',
@@ -954,7 +1088,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               userName: user?.name,
               userEmail,
               persistTranscript: true,
-              conversationId: buildConversationId(primaryUserAlias, targetRole),
+              conversationId,
               ...(apiAttachments ? { attachments: apiAttachments } : {}),
             }),
             signal: controller.signal,
@@ -966,11 +1100,6 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
           let buffer = '';
-          let finalData: any = null;
-          let streamError: string | null = null;
-          let streamContent = '';
-          let streamMetadata: ChatMessageMetadata | undefined;
-          let streamedActions: ActionReceipt[] | undefined;
 
           while (true) {
             const { done, value } = await reader.read();
@@ -982,56 +1111,24 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             for (const line of lines) {
               if (!line.startsWith('data: ')) continue;
               try {
-                const event = JSON.parse(line.slice(6));
-                if (event.type === 'run_started') {
-                  const runStartedMessage = `Working with ${DISPLAY_NAME_MAP[targetRole] ?? targetRole}...`;
-                  streamContent = runStartedMessage;
-                  if (selectedRoleRef.current === targetRole) {
-                    setMessages((prev) => prev.map((m) => m.streamId === streamId ? { ...m, content: runStartedMessage } : m));
-                  }
-                } else if (event.type === 'heartbeat') {
-                  // Heartbeat keeps the stream alive; no UI change needed.
-                } else if (event.type === 'status') {
-                  const statusText = typeof event.message === 'string' ? event.message : '';
-                  if (statusText) {
-                    streamContent = statusText;
-                    if (selectedRoleRef.current === targetRole) {
-                      setMessages((prev) => prev.map((m) => m.streamId === streamId ? { ...m, content: statusText } : m));
-                    }
-                  }
-                } else if (event.type === 'action_receipt' && event.action) {
-                  const receipt = event.action as ActionReceipt;
-                  streamedActions = [...(streamedActions ?? []), receipt];
-                } else if (event.type === 'result') {
-                  finalData = event.data;
-                  streamContent = typeof event.transcriptContent === 'string'
-                    ? event.transcriptContent
-                    : (typeof event.data?.output === 'string' ? event.data.output : streamContent);
-                  const apiEmbeds = parseDashboardChatEmbeds(event.data?.dashboardChatEmbeds);
-                  streamMetadata =
-                    event.data?.compactionOccurred || (apiEmbeds && apiEmbeds.length > 0)
-                      ? {
-                          ...(event.data?.compactionOccurred
-                            ? {
-                                compactionOccurred: true,
-                                compactionCount: typeof event.data?.compactionCount === 'number' ? event.data.compactionCount : undefined,
-                                compactionSummary: typeof event.data?.compactionSummary === 'string' ? event.data.compactionSummary : undefined,
-                              }
-                            : {}),
-                          ...(apiEmbeds && apiEmbeds.length > 0 ? { dashboardChatEmbeds: apiEmbeds } : {}),
-                        }
-                      : undefined;
-                } else if (event.type === 'error') {
-                  streamError = typeof event.error === 'string' ? event.error : 'Stream failed';
-                }
+                const event = JSON.parse(line.slice(6)) as Record<string, unknown>;
+                applyStreamEvent(event);
               } catch {
                 // Ignore malformed stream frames
               }
             }
           }
 
-          if (streamError) throw new Error(streamError);
+          // If the network stream ended before a terminal event arrived, recover from durable runtime events.
+          if (!streamTerminal) {
+            for (let attempt = 0; attempt < 8 && !streamTerminal; attempt++) {
+              await replayMissedEvents();
+              if (streamTerminal) break;
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
+          }
 
+          if (streamError) throw new Error(streamError);
           if (!finalData) {
             throw new Error('Stream ended before result');
           }

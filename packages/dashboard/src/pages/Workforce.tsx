@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, type DragEvent } from 'react';
 import { useAgents } from '../lib/hooks';
+import { SCHEDULER_URL, buildApiHeaders } from '../lib/firebase';
 import { DISPLAY_NAME_MAP, AGENT_META, ROLE_MANAGER_OVERRIDES, type Agent } from '../lib/types';
 import {
   Card,
@@ -68,10 +69,14 @@ type DensityMode = 'compact' | 'comfortable';
 const HIDDEN_WORKFORCE_STATUSES = new Set(['retired', 'inactive', 'deleted']);
 
 export default function Workforce() {
-  const { data: agents, loading } = useAgents();
+  const { data: agents, loading, refresh } = useAgents();
   const [view, setView] = useState<ViewMode>('org-chart');
   const [density, setDensity] = useState<DensityMode>('compact');
   const [tab, setTab] = useState<Tab>('overview');
+  const [draggingRole, setDraggingRole] = useState<string | null>(null);
+  const [dropTargetRole, setDropTargetRole] = useState<string | null>(null);
+  const [movingRole, setMovingRole] = useState<string | null>(null);
+  const [moveNotice, setMoveNotice] = useState<string>('');
 
   // Keep non-active lifecycle statuses out of the live org hierarchy.
   const orgAgents = agents.filter((a) => !HIDDEN_WORKFORCE_STATUSES.has(String(a.status ?? '').toLowerCase()));
@@ -109,6 +114,76 @@ export default function Workforce() {
   const execCount = executiveAgents.length;
   const individualContributors = orgAgents.filter((a) => !(a.role in TITLE_MAP));
   const totalHeadcount = FOUNDERS.length + orgAgents.length;
+
+  const canDropOnManager = (sourceRole: string, targetRole: string): boolean => {
+    if (!sourceRole || !targetRole) return false;
+    if (sourceRole === targetRole) return false;
+    if (!agentMap.has(sourceRole) || !agentMap.has(targetRole)) return false;
+
+    // Prevent hierarchy loops: target cannot be a descendant of source.
+    let cursor: string | null = targetRole;
+    const seen = new Set<string>();
+    while (cursor && !seen.has(cursor)) {
+      if (cursor === sourceRole) return false;
+      seen.add(cursor);
+      const manager: string | null = agentMap.get(cursor)?.reports_to ?? null;
+      cursor = manager && agentMap.has(manager) ? manager : null;
+    }
+    return true;
+  };
+
+  const persistManager = async (sourceRole: string, targetRole: string) => {
+    setMovingRole(sourceRole);
+    setMoveNotice('');
+    try {
+      const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(sourceRole)}/settings`, {
+        method: 'PUT',
+        headers: await buildApiHeaders(),
+        body: JSON.stringify({ reports_to: targetRole }),
+      });
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || result?.success === false) {
+        throw new Error(result?.error || `Update failed (${resp.status})`);
+      }
+      await refresh();
+      const sourceName = DISPLAY_NAME_MAP[sourceRole] ?? sourceRole;
+      const targetName = DISPLAY_NAME_MAP[targetRole] ?? targetRole;
+      setMoveNotice(`${sourceName} now reports to ${targetName}.`);
+    } catch (err) {
+      setMoveNotice(`Reassign failed: ${(err as Error).message}`);
+    } finally {
+      setMovingRole(null);
+    }
+  };
+
+  const handleAgentDragStart = (role: string) => (e: DragEvent<HTMLDivElement>) => {
+    e.dataTransfer.setData('text/plain', role);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingRole(role);
+    setDropTargetRole(null);
+  };
+
+  const handleAgentDragEnd = () => {
+    setDraggingRole(null);
+    setDropTargetRole(null);
+  };
+
+  const handleManagerDragOver = (targetRole: string) => (e: DragEvent<HTMLDivElement>) => {
+    const sourceRole = e.dataTransfer.getData('text/plain') || draggingRole;
+    if (!sourceRole || !canDropOnManager(sourceRole, targetRole)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetRole(targetRole);
+  };
+
+  const handleManagerDrop = (targetRole: string) => async (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const sourceRole = e.dataTransfer.getData('text/plain') || draggingRole;
+    setDropTargetRole(null);
+    setDraggingRole(null);
+    if (!sourceRole || !canDropOnManager(sourceRole, targetRole)) return;
+    await persistManager(sourceRole, targetRole);
+  };
 
   return (
     <div className="space-y-8">
@@ -186,6 +261,14 @@ export default function Workforce() {
         </div>
       </div>
 
+      {view === 'org-chart' && (
+        <p className="text-xs text-txt-faint">
+          Drag an agent card onto another agent card to change manager and auto-rebalance the org chart.
+          {movingRole ? ' Saving change...' : ''}
+          {moveNotice ? ` ${moveNotice}` : ''}
+        </p>
+      )}
+
       {loading ? (
         <div className="grid grid-cols-2 gap-4">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-36" />)}
@@ -222,7 +305,20 @@ export default function Workforce() {
           <div className="flex justify-center">
             <div className={`flex flex-col items-center ${density === 'compact' ? 'gap-2' : 'gap-3'}`}>
               <div className={density === 'compact' ? 'w-44' : 'w-52'}>
-                {cos ? <AgentNode agent={cos} compact={density === 'compact'} /> : <Skeleton className="h-20 w-full" />}
+                {cos ? (
+                  <AgentNode
+                    agent={cos}
+                    compact={density === 'compact'}
+                    draggable
+                    dropEnabled={Boolean(draggingRole)}
+                    isDragging={draggingRole === cos.role}
+                    isDropTarget={dropTargetRole === cos.role}
+                    onDragStart={handleAgentDragStart(cos.role)}
+                    onDragEnd={handleAgentDragEnd}
+                    onDragOver={handleManagerDragOver(cos.role)}
+                    onDrop={handleManagerDrop(cos.role)}
+                  />
+                ) : <Skeleton className="h-20 w-full" />}
               </div>
               {(() => {
                 const cosDirects = orgAgents.filter(
@@ -234,7 +330,18 @@ export default function Workforce() {
                     <div className="h-3 w-px bg-border" />
                     <div className={`grid w-full max-w-2xl ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'} sm:grid-cols-2`}>
                       {cosDirects.map((m) => (
-                        <SubTeamNode key={m.id} member={m} />
+                        <SubTeamNode
+                          key={m.id}
+                          member={m}
+                          draggable
+                          dropEnabled={Boolean(draggingRole)}
+                          isDragging={draggingRole === m.role}
+                          isDropTarget={dropTargetRole === m.role}
+                          onDragStart={handleAgentDragStart(m.role)}
+                          onDragEnd={handleAgentDragEnd}
+                          onDragOver={handleManagerDragOver(m.role)}
+                          onDrop={handleManagerDrop(m.role)}
+                        />
                       ))}
                     </div>
                   </>
@@ -259,11 +366,33 @@ export default function Workforce() {
                     <span className="text-[10px] font-medium uppercase tracking-widest text-txt-faint">
                       {dept.label}
                     </span>
-                    <AgentNode agent={dept.agent} compact={density === 'compact'} />
+                    <AgentNode
+                      agent={dept.agent}
+                      compact={density === 'compact'}
+                      draggable
+                      dropEnabled={Boolean(draggingRole)}
+                      isDragging={draggingRole === dept.agent.role}
+                      isDropTarget={dropTargetRole === dept.agent.role}
+                      onDragStart={handleAgentDragStart(dept.agent.role)}
+                      onDragEnd={handleAgentDragEnd}
+                      onDragOver={handleManagerDragOver(dept.agent.role)}
+                      onDrop={handleManagerDrop(dept.agent.role)}
+                    />
                     {members.length > 0 && <div className="h-3 w-px bg-border" />}
                     <div className={`flex w-full flex-col ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'}`}>
                       {members.map((m) => (
-                        <SubTeamNode key={m.id} member={m} />
+                        <SubTeamNode
+                          key={m.id}
+                          member={m}
+                          draggable
+                          dropEnabled={Boolean(draggingRole)}
+                          isDragging={draggingRole === m.role}
+                          isDropTarget={dropTargetRole === m.role}
+                          onDragStart={handleAgentDragStart(m.role)}
+                          onDragEnd={handleAgentDragEnd}
+                          onDragOver={handleManagerDragOver(m.role)}
+                          onDrop={handleManagerDrop(m.role)}
+                        />
                       ))}
                     </div>
                   </div>
@@ -407,11 +536,45 @@ function FounderNode({ name, title, initials, color, photo, compact = true }: { 
 }
 
 /* ─── Agent Node (org chart) ──────────────── */
-function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean }) {
-  const meta = AGENT_META[agent.role];
+type OrgDragProps = {
+  draggable?: boolean;
+  dropEnabled?: boolean;
+  isDragging?: boolean;
+  isDropTarget?: boolean;
+  onDragStart?: (e: DragEvent<HTMLDivElement>) => void;
+  onDragEnd?: (e: DragEvent<HTMLDivElement>) => void;
+  onDragOver?: (e: DragEvent<HTMLDivElement>) => void;
+  onDrop?: (e: DragEvent<HTMLDivElement>) => void;
+};
+
+type AgentNodeProps = {
+  agent: Agent;
+  compact?: boolean;
+} & OrgDragProps;
+
+function AgentNode({
+  agent,
+  compact = false,
+  draggable = false,
+  dropEnabled = false,
+  isDragging = false,
+  isDropTarget = false,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+}: AgentNodeProps) {
   return (
+    <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      className={`${isDragging ? 'opacity-60' : ''} ${isDropTarget ? 'ring-2 ring-cyan/40 rounded-xl' : ''}`}
+    >
     <Link to={`/agents/${agent.role}/settings`} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`${compact ? 'p-3' : 'p-4'} w-full text-center`}>
+      <Card className={`${compact ? 'p-3' : 'p-4'} w-full text-center ${dropEnabled ? 'cursor-grab' : ''}`}>
         <div className="flex flex-col items-center gap-1.5">
           <AgentAvatar role={agent.role} size={compact ? 40 : 52} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
           <div className="min-w-0 w-full">
@@ -436,6 +599,7 @@ function AgentNode({ agent, compact = false }: { agent: Agent; compact?: boolean
         </div>
       </Card>
     </Link>
+    </div>
   );
 }
 
@@ -468,12 +632,34 @@ function StatCard({ label, value, total, color, loading }: { label: string; valu
 }
 
 /* ─── Sub-Team Node (org chart) ───────────── */
-function SubTeamNode({ member }: { member: Agent }) {
+type SubTeamNodeProps = {
+  member: Agent;
+} & OrgDragProps;
+
+function SubTeamNode({
+  member,
+  draggable = false,
+  dropEnabled = false,
+  isDragging = false,
+  isDropTarget = false,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+}: SubTeamNodeProps) {
   const displayName = DISPLAY_NAME_MAP[member.role] ?? member.name ?? member.display_name ?? member.role;
   const title = TITLE_MAP[member.role] ?? member.title ?? member.role;
   return (
+    <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      className={`${isDragging ? 'opacity-60' : ''} ${isDropTarget ? 'ring-2 ring-cyan/40 rounded-xl' : ''}`}
+    >
     <Link to={`/agents/${member.role}/settings`} className="block transition-transform hover:scale-[1.02]">
-      <Card className="p-3 min-h-[72px]">
+      <Card className={`p-3 min-h-[72px] ${dropEnabled ? 'cursor-grab' : ''}`}>
         <div className="flex items-center gap-3 h-full">
           <AgentAvatar role={member.role} size={48} glow={member.status === 'active'} avatarUrl={member.avatar_url} />
           <div className="min-w-0 text-left">
@@ -483,5 +669,6 @@ function SubTeamNode({ member }: { member: Agent }) {
         </div>
       </Card>
     </Link>
+    </div>
   );
 }

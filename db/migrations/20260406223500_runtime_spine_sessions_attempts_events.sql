@@ -39,6 +39,13 @@ ALTER TABLE run_sessions ALTER COLUMN primary_agent_role SET NOT NULL;
 ALTER TABLE run_sessions ALTER COLUMN status SET NOT NULL;
 ALTER TABLE run_sessions ALTER COLUMN status SET DEFAULT 'active';
 
+-- Backward-compatibility: some environments created run_sessions without an id column.
+-- FKs below depend on run_sessions(id) existing and being unique.
+ALTER TABLE run_sessions ADD COLUMN IF NOT EXISTS id UUID;
+UPDATE run_sessions SET id = gen_random_uuid() WHERE id IS NULL;
+ALTER TABLE run_sessions ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE run_sessions ALTER COLUMN id SET NOT NULL;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -55,6 +62,9 @@ END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_run_sessions_session_key_unique
   ON run_sessions (session_key);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_run_sessions_id_unique
+  ON run_sessions (id);
 
 CREATE INDEX IF NOT EXISTS idx_run_sessions_source_started
   ON run_sessions (source, started_at DESC);
@@ -104,6 +114,13 @@ ALTER TABLE run_attempts ALTER COLUMN triggered_by SET NOT NULL;
 ALTER TABLE run_attempts ALTER COLUMN status SET NOT NULL;
 ALTER TABLE run_attempts ALTER COLUMN status SET DEFAULT 'created';
 
+-- Backward-compatibility: some environments created run_attempts without an id column.
+-- FKs below depend on run_attempts(id) existing and being unique.
+ALTER TABLE run_attempts ADD COLUMN IF NOT EXISTS id UUID;
+UPDATE run_attempts SET id = gen_random_uuid() WHERE id IS NULL;
+ALTER TABLE run_attempts ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE run_attempts ALTER COLUMN id SET NOT NULL;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -123,6 +140,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_run_attempts_session_attempt_unique
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_run_attempts_run_id_unique
   ON run_attempts (run_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_run_attempts_id_unique
+  ON run_attempts (id);
 
 CREATE INDEX IF NOT EXISTS idx_run_attempts_session_started
   ON run_attempts (session_id, started_at DESC);
