@@ -87,6 +87,10 @@ function createStreamId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function buildConversationId(userId: string, agentRole: string): string {
+  return `dashboard:${userId.trim().toLowerCase()}:${agentRole}`;
+}
+
 function normalizeMessageContent(value: unknown): string {
   if (typeof value === 'string') return value;
   if (value == null) return '';
@@ -659,6 +663,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
     : mentionables;
 
   const userAliases = useMemo(() => getEmailAliases(userEmail), [userEmail]);
+  const primaryUserAlias = userAliases[0] ?? userEmail;
 
   // Load chat history
   const loadHistory = useCallback(
@@ -670,7 +675,11 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         const aliasFilter = userAliases.length > 1
           ? `or=(${userAliases.map(a => `user_id.eq.${a}`).join(',')})`
           : `user_id=${encodeURIComponent(userAliases[0])}`;
-        const data = await apiCall(`/api/chat-messages?agent_role=${role}&${aliasFilter}&order=created_at.desc&limit=200`);
+        const conversationId = buildConversationId(primaryUserAlias, role);
+        const byConversation = await apiCall(`/api/chat-messages?conversation_id=${encodeURIComponent(conversationId)}&order=created_at.desc&limit=200`);
+        const data = Array.isArray(byConversation) && byConversation.length > 0
+          ? byConversation
+          : await apiCall(`/api/chat-messages?agent_role=${role}&${aliasFilter}&order=created_at.desc&limit=200`);
         if (data?.length) {
           // Reverse so oldest-first for display (we fetched newest-first to get recent messages)
           const rows = (data as Record<string, unknown>[]).reverse();
@@ -701,7 +710,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
       }
       setLoadingHistory(false);
     },
-    [userAliases],
+    [primaryUserAlias, userAliases],
   );
 
   useEffect(() => { loadHistory(selectedRole); }, [selectedRole, loadHistory]);
@@ -714,11 +723,14 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
       const recentAliasFilter = userAliases.length > 1
         ? `or=(${userAliases.map(a => `user_id.eq.${a}`).join(',')})`
         : `user_id=${encodeURIComponent(userAliases[0])}`;
-      const data = await apiCall(`/api/chat-messages?${recentAliasFilter}&order=created_at.desc&limit=300&fields=agent_role,role,content,created_at`);
+      const data = await apiCall(`/api/chat-messages?${recentAliasFilter}&order=created_at.desc&limit=300&fields=agent_role,role,content,created_at,conversation_id`);
       if (!data?.length) { setRecentChats([]); return; }
       const map = new Map<string, RecentChat>();
       for (const row of data as Record<string, unknown>[]) {
-        const ar = row.agent_role as string;
+        const conversationId = typeof row.conversation_id === 'string' ? row.conversation_id : '';
+        const ar = conversationId.startsWith(`dashboard:${primaryUserAlias.toLowerCase()}:`)
+          ? conversationId.slice(`dashboard:${primaryUserAlias.toLowerCase()}:`.length)
+          : (row.agent_role as string);
         if (!map.has(ar)) {
           map.set(ar, {
             agentRole: ar,
@@ -730,7 +742,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
       }
       setRecentChats(Array.from(map.values()).sort((a, b) => b.lastTime.getTime() - a.lastTime.getTime()));
     } catch { setRecentChats([]); }
-  }, [userAliases]);
+  }, [primaryUserAlias, userAliases]);
   useEffect(() => { loadRecentChats(); }, [loadRecentChats]);
 
   // Sidebar items: recent chats + ensure selected agent always visible
@@ -865,12 +877,6 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
       return [{ agentRole: targetRole, lastMessage: text.slice(0, 80) || 'Sent file(s)', lastMessageRole: 'user' as const, lastTime: new Date() }, ...without];
     });
 
-    saveMessage(targetRole, 'user', text, userEmail, attachments).catch((err) => {
-      console.error('[Chat] Failed to save user message:', err);
-      setSaveFailed(true);
-      setTimeout(() => setSaveFailed(false), 5000);
-    });
-
     // Extract @mentioned agent roles from the message
     const mentionPattern = /@(\w[\w\s]*?)(?=\s|$|@)/g;
     const mentionedRoles: string[] = [];
@@ -902,6 +908,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
       // Must outlive invoke_web_build (server default ~900s) + supervisor (~960s) + final model turn
       const timeoutId = setTimeout(() => controller.abort(), 1_200_000);
       const agentName = DISPLAY_NAME_MAP[role] ?? role;
+      let primaryStreamId: string | undefined;
 
       try {
         const history = messages.slice(-20).map((m) => ({
@@ -923,6 +930,134 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               data: a.data,
             }))
           : undefined;
+
+        if (!isMentioned) {
+          const streamId = createStreamId();
+          primaryStreamId = streamId;
+          if (selectedRoleRef.current === targetRole) {
+            setMessages((prev) => [...prev, {
+              role: 'agent',
+              content: '',
+              timestamp: new Date(),
+              streamId,
+            }]);
+          }
+
+          const res = await fetch(`${SCHEDULER_URL}/run/stream`, {
+            method: 'POST',
+            headers: await buildApiHeaders(),
+            body: JSON.stringify({
+              agentRole: role,
+              task: 'on_demand',
+              message: msgText,
+              history,
+              userName: user?.name,
+              userEmail,
+              persistTranscript: true,
+              conversationId: buildConversationId(primaryUserAlias, targetRole),
+              ...(apiAttachments ? { attachments: apiAttachments } : {}),
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let finalData: any = null;
+          let streamError: string | null = null;
+          let streamContent = '';
+          let streamMetadata: ChatMessageMetadata | undefined;
+          let streamedActions: ActionReceipt[] | undefined;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop() ?? '';
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              try {
+                const event = JSON.parse(line.slice(6));
+                if (event.type === 'status') {
+                  const statusText = typeof event.message === 'string' ? event.message : '';
+                  if (statusText) {
+                    streamContent = statusText;
+                    if (selectedRoleRef.current === targetRole) {
+                      setMessages((prev) => prev.map((m) => m.streamId === streamId ? { ...m, content: statusText } : m));
+                    }
+                  }
+                } else if (event.type === 'action_receipt' && event.action) {
+                  const receipt = event.action as ActionReceipt;
+                  streamedActions = [...(streamedActions ?? []), receipt];
+                } else if (event.type === 'result') {
+                  finalData = event.data;
+                  streamContent = typeof event.transcriptContent === 'string'
+                    ? event.transcriptContent
+                    : (typeof event.data?.output === 'string' ? event.data.output : streamContent);
+                  const apiEmbeds = parseDashboardChatEmbeds(event.data?.dashboardChatEmbeds);
+                  streamMetadata =
+                    event.data?.compactionOccurred || (apiEmbeds && apiEmbeds.length > 0)
+                      ? {
+                          ...(event.data?.compactionOccurred
+                            ? {
+                                compactionOccurred: true,
+                                compactionCount: typeof event.data?.compactionCount === 'number' ? event.data.compactionCount : undefined,
+                                compactionSummary: typeof event.data?.compactionSummary === 'string' ? event.data.compactionSummary : undefined,
+                              }
+                            : {}),
+                          ...(apiEmbeds && apiEmbeds.length > 0 ? { dashboardChatEmbeds: apiEmbeds } : {}),
+                        }
+                      : undefined;
+                } else if (event.type === 'error') {
+                  streamError = typeof event.error === 'string' ? event.error : 'Stream failed';
+                }
+              } catch {
+                // Ignore malformed stream frames
+              }
+            }
+          }
+
+          if (streamError) throw new Error(streamError);
+
+          if (!finalData) {
+            throw new Error('Stream ended before result');
+          }
+          const data = finalData;
+          let content: string;
+          if (streamContent.trim().length > 0) content = streamContent;
+          else if (data.output) content = formatDashboardContent(data.output, { hideReasoning: true });
+          else if (data.action === 'queued_for_approval') content = `This request was sent to your approval queue for review.`;
+          else if (data.status === 'aborted') content = 'Sorry, I wasn’t able to finish my response. Could you try again?';
+          else if (data.error || data.reason) {
+            const raw = data.error || data.reason;
+            content = `Something went wrong: ${(raw as string).replace(/sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]+/g, '[REDACTED]')}`;
+          } else content = `I completed the task but had nothing to report back.`;
+
+          content = stripAgentSpeakerPrefix(content);
+          if (selectedRoleRef.current === targetRole) {
+            setMessages((prev) => prev.map((m) => m.streamId === streamId ? {
+              ...m,
+              streamId: undefined,
+              content,
+              timestamp: new Date(),
+              actions: data.actions ?? streamedActions,
+              compactionOccurred: streamMetadata?.compactionOccurred,
+              compactionCount: streamMetadata?.compactionCount,
+              compactionSummary: streamMetadata?.compactionSummary,
+              dashboardChatEmbeds: streamMetadata?.dashboardChatEmbeds,
+            } : m));
+          }
+          setRecentChats((prev) => {
+            const without = prev.filter((c) => c.agentRole !== targetRole);
+            return [{ agentRole: targetRole, lastMessage: content.slice(0, 80), lastMessageRole: 'agent' as const, lastTime: new Date() }, ...without];
+          });
+          return;
+        }
 
         const res = await fetch(`${SCHEDULER_URL}/run`, {
           method: 'POST',
@@ -1010,6 +1145,9 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         const errContent = isTimeout
           ? `${agentName} timed out. Please try again.`
           : `Could not reach ${agentName}. Please try again in a moment.`;
+        if (!isMentioned && primaryStreamId && selectedRoleRef.current === targetRole) {
+          setMessages((prev) => prev.filter((m) => m.streamId !== primaryStreamId));
+        }
         if (selectedRoleRef.current === targetRole) {
           setMessages((prev) => [...prev, { role: 'agent', content: errContent, timestamp: new Date(), agentRole: isMentioned ? role : undefined }]);
         }
