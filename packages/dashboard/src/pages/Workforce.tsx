@@ -573,8 +573,8 @@ function AgentNode({
       onDrop={onDrop}
       className={`${isDragging ? 'opacity-60' : ''} ${isDropTarget ? 'ring-2 ring-cyan/40 rounded-xl' : ''}`}
     >
-    <Link to={`/agents/${agent.role}/settings`} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`${compact ? 'p-3' : 'p-4'} w-full text-center ${dropEnabled ? 'cursor-grab' : ''}`}>
+    <Link to={`/agents/${agent.role}/settings`} draggable={false} className="block transition-transform hover:scale-[1.02]">
+      <Card className={`${compact ? 'p-3' : 'p-4'} w-full text-center ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}>
         <div className="flex flex-col items-center gap-1.5">
           <AgentAvatar role={agent.role} size={compact ? 40 : 52} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
           <div className="min-w-0 w-full">
@@ -591,6 +591,7 @@ function AgentNode({
               <span className="font-mono text-txt-faint">
                 {agent.performance_score != null ? `${Math.round(Number(agent.performance_score) * 100)}/100` : '—'}
               </span>
+              {draggable && <span className="text-txt-faint">Drag to move</span>}
             </div>
             {!compact && (
               <p className="mt-0.5 text-[10px] text-txt-faint">Last run: {timeAgo(agent.last_run_at)}</p>
@@ -658,13 +659,14 @@ function SubTeamNode({
       onDrop={onDrop}
       className={`${isDragging ? 'opacity-60' : ''} ${isDropTarget ? 'ring-2 ring-cyan/40 rounded-xl' : ''}`}
     >
-    <Link to={`/agents/${member.role}/settings`} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`p-3 min-h-[72px] ${dropEnabled ? 'cursor-grab' : ''}`}>
+    <Link to={`/agents/${member.role}/settings`} draggable={false} className="block transition-transform hover:scale-[1.02]">
+      <Card className={`p-3 min-h-[72px] ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}>
         <div className="flex items-center gap-3 h-full">
           <AgentAvatar role={member.role} size={48} glow={member.status === 'active'} avatarUrl={member.avatar_url} />
           <div className="min-w-0 text-left">
             <p className="text-sm font-semibold text-txt-primary leading-tight">{displayName}</p>
             <p className="text-xs text-txt-muted leading-tight">{title}</p>
+            {draggable && <p className="text-[10px] text-txt-faint leading-tight">Drag to move</p>}
           </div>
         </div>
       </Card>

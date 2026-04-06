@@ -6,8 +6,13 @@ WORKDIR /app
 # Copy root-level config files
 COPY package.json package-lock.json turbo.json tsconfig.base.json ./
 
-# Copy package manifests for dependency resolution
+# Copy all package manifests needed by worker runtime graph
+COPY packages/agent-runtime/package.json ./packages/agent-runtime/package.json
+COPY packages/company-memory/package.json ./packages/company-memory/package.json
+COPY packages/agents/package.json ./packages/agents/package.json
+COPY packages/integrations/package.json ./packages/integrations/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/scheduler/package.json ./packages/scheduler/package.json
 COPY packages/worker/package.json ./packages/worker/package.json
 
 RUN npm ci
@@ -24,14 +29,31 @@ WORKDIR /app
 
 # Copy only production dependencies
 COPY package.json package-lock.json ./
+# Workspace manifests must exist in runtime stage for npm workspace linking
+COPY packages/agent-runtime/package.json ./packages/agent-runtime/package.json
+COPY packages/company-memory/package.json ./packages/company-memory/package.json
+COPY packages/agents/package.json ./packages/agents/package.json
+COPY packages/integrations/package.json ./packages/integrations/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/scheduler/package.json ./packages/scheduler/package.json
 COPY packages/worker/package.json ./packages/worker/package.json
 
 RUN npm ci --omit=dev
 
-# Copy built output
+# Copy built output for all runtime workspace dependencies
+COPY --from=builder /app/packages/agent-runtime/dist packages/agent-runtime/dist
+COPY --from=builder /app/packages/company-memory/dist packages/company-memory/dist
+COPY --from=builder /app/packages/agents/dist packages/agents/dist
+COPY --from=builder /app/packages/integrations/dist packages/integrations/dist
 COPY --from=builder /app/packages/shared/dist packages/shared/dist
+COPY --from=builder /app/packages/scheduler/dist packages/scheduler/dist
 COPY --from=builder /app/packages/worker/dist packages/worker/dist
+
+# Runtime config/data consumed by agent runtime paths invoked from worker
+COPY --from=builder /app/packages/agent-runtime/src/config/ packages/agent-runtime/dist/config/
+COPY packages/agent-runtime/src/config/ packages/agent-runtime/src/config/
+COPY packages/company-knowledge/ packages/company-knowledge/
+COPY ToolingManifest.json ./ToolingManifest.json
 
 ENV NODE_ENV=production
 

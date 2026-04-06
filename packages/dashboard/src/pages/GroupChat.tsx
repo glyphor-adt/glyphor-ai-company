@@ -31,6 +31,7 @@ interface GroupMessage {
   timestamp: Date;
   attachments?: Attachment[];
   actions?: ActionReceipt[];
+  streamId?: string;
 }
 
 function escapeRegExp(value: string): string {
@@ -58,6 +59,10 @@ function stripAgentSpeakerPrefix(value: string): string {
   const trimmed = value.trimStart();
   if (!trimmed || !AGENT_SPEAKER_PREFIX_RE) return trimmed;
   return trimmed.replace(AGENT_SPEAKER_PREFIX_RE, '');
+}
+
+function createStreamId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function normalizeMessageContent(value: unknown): string {
@@ -409,12 +414,13 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
     message: string,
     history: { role: 'user' | 'agent'; content: string }[],
     fileAttachments?: Attachment[],
+    streamId?: string,
   ): Promise<{ agentRole: string; content: string; actions?: ActionReceipt[] }> => {
     try {
       const apiAttachments = fileAttachments?.length
         ? fileAttachments.map((a) => ({ name: a.name, mimeType: a.type, data: a.data }))
         : undefined;
-      const res = await fetch(`${SCHEDULER_URL}/run`, {
+      const res = await fetch(`${SCHEDULER_URL}/run/stream`, {
         method: 'POST',
         headers: await buildApiHeaders(),
         body: JSON.stringify({
@@ -424,18 +430,76 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
           history,
           userName: user?.name,
           userEmail: (user?.email ?? '').toLowerCase(),
+          persistTranscript: true,
+          conversationId,
           ...(apiAttachments ? { attachments: apiAttachments } : {}),
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      if (!res.body) throw new Error('Missing stream body');
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalData: any = null;
+      let streamError: string | null = null;
+      let streamContent = '';
+      let streamedActions: ActionReceipt[] | undefined;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === 'run_started') {
+              const runStartedMessage = `Working with ${DISPLAY_NAME_MAP[agentRole] ?? agentRole}...`;
+              streamContent = runStartedMessage;
+              if (streamId) {
+                setMessages((prev) => prev.map((m) => m.streamId === streamId ? { ...m, content: runStartedMessage } : m));
+              }
+            } else if (event.type === 'heartbeat') {
+              // Keepalive only.
+            } else if (event.type === 'status') {
+              const statusText = typeof event.message === 'string' ? event.message : '';
+              if (statusText) {
+                streamContent = statusText;
+                if (streamId) {
+                  setMessages((prev) => prev.map((m) => m.streamId === streamId ? { ...m, content: statusText } : m));
+                }
+              }
+            } else if (event.type === 'action_receipt' && event.action) {
+              const receipt = event.action as ActionReceipt;
+              streamedActions = [...(streamedActions ?? []), receipt];
+            } else if (event.type === 'result') {
+              finalData = event.data;
+              streamContent = typeof event.transcriptContent === 'string'
+                ? event.transcriptContent
+                : (typeof event.data?.output === 'string' ? event.data.output : streamContent);
+            } else if (event.type === 'error') {
+              streamError = typeof event.error === 'string' ? event.error : 'Stream failed';
+            }
+          } catch {
+            // Ignore malformed frames.
+          }
+        }
+      }
+
+      if (streamError) throw new Error(streamError);
+      if (!finalData) throw new Error('Stream ended before result');
+      const data = finalData;
       let content: string;
-      if (data.output) content = formatDashboardContent(data.output, { hideReasoning: true });
+      if (streamContent.trim().length > 0) content = streamContent;
+      else if (data.output) content = formatDashboardContent(data.output, { hideReasoning: true });
       else if (data.error) content = `I ran into an issue: ${data.error}`;
       else if (data.status === 'aborted') content = 'My response was cut short — try a simpler question.';
       else content = `Completed but had nothing to report. (status: ${data.status ?? 'unknown'})`;
       content = stripAgentSpeakerPrefix(content);
-      return { agentRole, content, actions: data.actions };
+      return { agentRole, content, actions: data.actions ?? streamedActions };
     } catch {
       return {
         agentRole,
@@ -527,7 +591,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
     setSending(true);
 
     const userId = (user?.email ?? 'unknown').toLowerCase();
-    persistMsg(userId, 'group-chat', 'user', text, attachments);
+    void persistMsg(userId, 'group-chat', 'user', text, attachments);
 
     // Merge @mentioned agents into selected roles
     const mentionedRoles = parseMentions(text);
@@ -544,12 +608,23 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
 
     for (const agentRole of roles) {
       setRespondingAgents(new Set([agentRole]));
+      const streamId = createStreamId();
+      const placeholder: GroupMessage = {
+        role: 'agent',
+        agentRole,
+        content: '',
+        timestamp: new Date(),
+        streamId,
+      };
+      runningMessages = [...runningMessages, placeholder];
+      setMessages((prev) => [...prev, placeholder]);
       const history = buildHistory(runningMessages);
       const result = await callAgent(
         agentRole,
         `${groupContext}\n\n${userLine}`,
         history,
         attachments,
+        streamId,
       );
       const agentMsg: GroupMessage = {
         role: 'agent',
@@ -558,9 +633,9 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
         timestamp: new Date(),
         actions: result.actions,
       };
-      runningMessages = [...runningMessages, agentMsg];
-      setMessages((prev) => [...prev, agentMsg]);
-      persistMsg(userId, agentRole, 'agent', result.content);
+      runningMessages = [...runningMessages.filter((m) => m.streamId !== streamId), agentMsg];
+      setMessages((prev) => prev.map((m) => m.streamId === streamId ? agentMsg : m));
+      // Streamed /run/stream path persists transcript server-side.
     }
 
     setRespondingAgents(new Set());
@@ -581,15 +656,29 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
 
     for (const agentRole of roles) {
       setRespondingAgents(new Set([agentRole]));
+      const streamId = createStreamId();
+      const placeholder: GroupMessage = {
+        role: 'agent',
+        agentRole,
+        content: '',
+        timestamp: new Date(),
+        streamId,
+      };
+      runningMessages = [...runningMessages, placeholder];
+      setMessages((prev) => [...prev, placeholder]);
       const history = buildHistory(runningMessages);
       const result = await callAgent(
         agentRole,
         `${groupContext}\n\nContinue the discussion. Review what others have said and add your perspective.`,
         history,
+        undefined,
+        streamId,
       );
 
       // Skip if agent has nothing to add
       if (result.content.includes('[NO_REPLY]')) {
+        runningMessages = runningMessages.filter((m) => m.streamId !== streamId);
+        setMessages((prev) => prev.filter((m) => m.streamId !== streamId));
         setRespondingAgents(new Set());
         continue;
       }
@@ -602,9 +691,9 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
         timestamp: new Date(),
         actions: result.actions,
       };
-      runningMessages = [...runningMessages, agentMsg];
-      setMessages((prev) => [...prev, agentMsg]);
-      persistMsg(userId, agentRole, 'agent', result.content);
+      runningMessages = [...runningMessages.filter((m) => m.streamId !== streamId), agentMsg];
+      setMessages((prev) => prev.map((m) => m.streamId === streamId ? agentMsg : m));
+      // Streamed /run/stream path persists transcript server-side.
     }
 
     if (!anyReplied) {

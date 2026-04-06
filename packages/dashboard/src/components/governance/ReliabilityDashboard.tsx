@@ -298,6 +298,7 @@ async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<Plann
     .map((base) => base.trim())
     .filter(Boolean);
   const headers = await buildApiHeaders();
+  let sawAuthFailure = false;
 
   for (const base of fallbackBases) {
     for (const candidatePath of candidateMetricPaths(path)) {
@@ -306,13 +307,22 @@ async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<Plann
           headers,
           cache: 'no-store',
         });
-        if (!response.ok) continue;
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            sawAuthFailure = true;
+          }
+          continue;
+        }
         const data = await response.json();
         if (isPlanningGateSnapshot(data)) return data;
       } catch {
         // Continue trying additional fallback bases.
       }
     }
+  }
+
+  if (sawAuthFailure) {
+    throw new Error('AUTH_REQUIRED');
   }
 
   throw new Error('Planning gate metrics unavailable: scheduler URL not configured');
@@ -333,6 +343,7 @@ async function fetchMetricWithFallback<T>(
     .map((base) => base.trim())
     .filter(Boolean);
   const headers = await buildApiHeaders();
+  let sawAuthFailure = false;
 
   for (const base of fallbackBases) {
     for (const candidatePath of candidateMetricPaths(path)) {
@@ -341,7 +352,12 @@ async function fetchMetricWithFallback<T>(
           headers,
           cache: 'no-store',
         });
-        if (!response.ok) continue;
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            sawAuthFailure = true;
+          }
+          continue;
+        }
         const data = await response.json();
         if (guard(data)) return data;
       } catch {
@@ -350,7 +366,16 @@ async function fetchMetricWithFallback<T>(
     }
   }
 
+  if (sawAuthFailure) {
+    throw new Error(`AUTH_REQUIRED:${path}`);
+  }
+
   throw new Error(`Metric unavailable for ${path}`);
+}
+
+function isAuthError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /AUTH_REQUIRED|\b401\b|\b403\b|Bearer token required/i.test(message);
 }
 
 type SortKey = keyof Pick<AgentMetricsSnapshot,
@@ -436,6 +461,7 @@ export default function ReliabilityDashboard() {
   const [strictnessSim, setStrictnessSim] = useState<StrictnessSimPayload | null>(null);
   const [strictnessPassRateMin, setStrictnessPassRateMin] = useState(0.85);
   const [economicsQuality, setEconomicsQuality] = useState<EconomicsQualityOverviewPayload | null>(null);
+  const [authIssue, setAuthIssue] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -463,7 +489,7 @@ export default function ReliabilityDashboard() {
           fetchMetricWithFallback<FleetMetricsSnapshot>(
             `/admin/metrics/fleet?window=${windowDays}`,
             (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
-          ).catch(() => null),
+          ),
           fetchMetricWithFallback<FleetMetricsSnapshot>(
             '/admin/metrics/fleet?window=30',
             (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
@@ -498,6 +524,7 @@ export default function ReliabilityDashboard() {
         ]);
 
         if (!active) return;
+        setAuthIssue(null);
         setFleet(fleetCurrent);
         setFleetMonth(fleetThirty);
         setAgents(agentResponse?.agents ?? []);
@@ -511,6 +538,11 @@ export default function ReliabilityDashboard() {
         setEconomicsQuality(economicsOv);
       } catch (error) {
         if (!active) return;
+        if (isAuthError(error)) {
+          setAuthIssue('Reliability data is unavailable because your scheduler auth token is missing or expired. Re-authenticate and refresh.');
+        } else {
+          setAuthIssue(null);
+        }
         setPlanningGate({
           windowDays,
           totals: {
@@ -566,7 +598,7 @@ export default function ReliabilityDashboard() {
         fetchMetricWithFallback<FleetMetricsSnapshot>(
           `/admin/metrics/fleet?window=${windowDays}`,
           (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
-        ).catch(() => null),
+        ),
         fetchMetricWithFallback<FleetMetricsSnapshot>(
           '/admin/metrics/fleet?window=30',
           (value): value is FleetMetricsSnapshot => isRecord(value) && typeof value.windowDays === 'number' && typeof value.tasksDispatched === 'number',
@@ -615,7 +647,11 @@ export default function ReliabilityDashboard() {
       setQualityOverview(qualityOv);
       setStrictnessSim(strictness);
       setEconomicsQuality(economicsOv);
+      setAuthIssue(null);
     } catch (error) {
+      if (isAuthError(error)) {
+        setAuthIssue('Refresh failed: scheduler auth token missing or expired. Sign in again and retry.');
+      }
       console.warn('[ReliabilityDashboard] Refresh failed:', error);
     } finally {
       setRefreshing(false);
@@ -857,6 +893,13 @@ export default function ReliabilityDashboard() {
           </button>
         </div>
       </div>
+
+      {authIssue ? (
+        <Card className="border border-prism-critical/40 bg-prism-critical/10">
+          <p className="text-[13px] font-semibold text-prism-critical">Reliability data source requires re-authentication</p>
+          <p className="mt-1 text-[12px] text-txt-secondary">{authIssue}</p>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard title={`Fleet Completion Rate (${windowDays}d)`} value={formatPercent(fleet?.completionRate)} subtitle={fleet?.mostReliableAgent ? `Best: ${fleet.mostReliableAgent.agentName}` : 'No leader yet'} />
