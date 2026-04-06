@@ -179,6 +179,96 @@ export class GeminiAdapter implements ProviderAdapter {
     };
   }
 
+  /**
+   * Generate a video using Google Veo 3.1.
+   * Uses the Gemini API's video generation endpoint.
+   */
+  async generateVideo(
+    prompt: string,
+    options?: { aspectRatio?: string; durationSeconds?: number; negativePrompt?: string },
+  ): Promise<{ videoData: string | null }> {
+    try {
+      // Veo 3.1 via Gemini API (uses generateVideos when available)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const genClient = this.client as any;
+      if (typeof genClient.models?.generateVideos !== 'function') {
+        // Fallback: use the REST API directly for video generation
+        const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error('No Google AI API key for video generation');
+
+        const model = 'veo-3.1-generate';
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              instances: [{
+                prompt,
+                ...(options?.negativePrompt ? { negativePrompt: options.negativePrompt } : {}),
+              }],
+              parameters: {
+                aspectRatio: options?.aspectRatio ?? '16:9',
+                durationSeconds: options?.durationSeconds ?? 6,
+                sampleCount: 1,
+              },
+            }),
+          },
+        );
+
+        if (!response.ok) {
+          const errBody = await response.text().catch(() => '');
+          throw new Error(`Veo API error ${response.status}: ${errBody.slice(0, 300)}`);
+        }
+
+        // Long-running operation — poll until done
+        const operation = await response.json() as { name?: string; done?: boolean; response?: { predictions?: Array<{ videoBytes?: string }> } };
+
+        if (operation.done && operation.response?.predictions?.[0]?.videoBytes) {
+          return { videoData: operation.response.predictions[0].videoBytes };
+        }
+
+        // Poll the operation
+        if (operation.name) {
+          const maxPollAttempts = 30;
+          const pollIntervalMs = 5_000;
+          for (let i = 0; i < maxPollAttempts; i++) {
+            await new Promise(r => setTimeout(r, pollIntervalMs));
+            const pollResp = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/${operation.name}?key=${apiKey}`,
+            );
+            if (!pollResp.ok) continue;
+            const pollResult = await pollResp.json() as { done?: boolean; response?: { predictions?: Array<{ videoBytes?: string }> } };
+            if (pollResult.done) {
+              const videoBytes = pollResult.response?.predictions?.[0]?.videoBytes;
+              return { videoData: videoBytes ?? null };
+            }
+          }
+        }
+
+        return { videoData: null };
+      }
+
+      // Direct SDK path
+      const response = await genClient.models.generateVideos({
+        model: 'veo-3.1-generate',
+        prompt,
+        config: {
+          numberOfVideos: 1,
+          aspectRatio: options?.aspectRatio ?? '16:9',
+          durationSeconds: options?.durationSeconds ?? 6,
+        },
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const video = (response as any).generatedVideos?.[0];
+      return { videoData: video?.video?.videoBytes ?? null };
+    } catch (err) {
+      console.warn(`[Gemini] Video generation failed: ${(err as Error).message}`);
+      return { videoData: null };
+    }
+  }
+
   private mapConversation(turns: ConversationTurn[]): unknown[] {
     const contents: unknown[] = [];
     let i = 0;

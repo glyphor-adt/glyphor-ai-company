@@ -141,7 +141,9 @@ function assertValidWebsiteFileMap(files: Record<string, unknown>): void {
 // ─── IMAGE GENERATION FROM MANIFEST ─────────────────────────────────────────
 
 const MAX_IMAGE_GEN_ITEMS = 7;
-const IMAGE_GEN_TIMEOUT_MS = 30_000;
+const IMAGE_GEN_TIMEOUT_MS = 120_000;
+const MAX_VIDEO_MANIFEST_ITEMS = 2;
+const VIDEO_GEN_TIMEOUT_MS = 180_000;
 
 interface ImageManifestItem {
   fileName: string;
@@ -221,6 +223,88 @@ async function generateImagesFromManifest(
 
   console.log(`[WebBuild:Images] Generated ${Object.keys(imageFiles).length}/${items.length} images`);
   return imageFiles;
+}
+
+// ─── FALLBACK: reconstruct manifest from code references ──────────────────────
+
+function reconstructImageManifestFromCode(files: Record<string, string>): ImageManifestItem[] {
+  const allContent = Object.values(files).join('\n');
+  const imageRefs = allContent.match(/\/images\/([a-zA-Z0-9_-]+)\.[a-zA-Z]{3,4}/g);
+  if (!imageRefs || imageRefs.length === 0) return [];
+
+  const unique = [...new Set(imageRefs)];
+  return unique.slice(0, MAX_IMAGE_GEN_ITEMS).map(ref => {
+    const name = ref.replace(/^\/images\//, '').replace(/\.[^.]+$/, '');
+    const humanName = name.replace(/[-_]/g, ' ');
+    return {
+      fileName: ref,
+      prompt: `Professional photograph of ${humanName}. Clean composition, natural lighting, high resolution, editorial quality.`,
+      aspect_ratio: '16:9',
+      altText: humanName,
+    };
+  });
+}
+
+// ─── VIDEO GENERATION FROM MANIFEST ──────────────────────────────────────────
+
+interface VideoManifestItem {
+  fileName: string;
+  prompt: string;
+  negative_prompt?: string;
+  duration_seconds?: number;
+  aspect_ratio?: string;
+}
+
+/**
+ * Generate videos from the build manifest using Veo 3.1 (Google) with
+ * graceful degradation. Returns a map of filePath → base64 content.
+ */
+async function generateVideosFromManifest(
+  manifest: VideoManifestItem[],
+  _ctx: ToolContext,
+): Promise<Record<string, string>> {
+  const { ModelClient: MC } = await import('@glyphor/agent-runtime');
+  const modelClient = new MC({
+    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+  });
+
+  const items = manifest.slice(0, MAX_VIDEO_MANIFEST_ITEMS);
+  const videoFiles: Record<string, string> = {};
+
+  console.log(`[WebBuild:Videos] Generating ${items.length} videos from manifest`);
+
+  for (const item of items) {
+    if (!item.fileName || !item.prompt) continue;
+
+    const filePath = item.fileName.startsWith('/')
+      ? `public${item.fileName}`
+      : item.fileName.startsWith('public/')
+        ? item.fileName
+        : `public/videos/${item.fileName}`;
+
+    try {
+      const result = await Promise.race([
+        modelClient.generateVideo(item.prompt, {
+          aspectRatio: item.aspect_ratio ?? '16:9',
+          durationSeconds: item.duration_seconds ?? 6,
+          negativePrompt: item.negative_prompt,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Video gen timeout')), VIDEO_GEN_TIMEOUT_MS),
+        ),
+      ]);
+
+      if (result.videoData) {
+        videoFiles[filePath] = result.videoData;
+        console.log(`[WebBuild:Videos] ✅ ${item.fileName} (Veo 3.1)`);
+      }
+    } catch (err) {
+      console.warn(`[WebBuild:Videos] ❌ ${item.fileName}: ${(err as Error).message}`);
+    }
+  }
+
+  console.log(`[WebBuild:Videos] Generated ${Object.keys(videoFiles).length}/${items.length} videos`);
+  return videoFiles;
 }
 
 interface WebsitePipelineProjectRef {
@@ -382,15 +466,16 @@ function buildAccountProfileOverride(brand: WebBrandContext): Record<string, unk
   if (brand.primary_color) colors.primary = brand.primary_color;
   if (brand.secondary_color) colors.secondary = brand.secondary_color;
   if (brand.accent_color) colors.accent = brand.accent_color;
-  colors.background = '#0A0A0B';
-  colors.foreground = '#FAFAFA';
+  // Background/foreground are NOT hardcoded — the UX engineer derives them
+  // from the business type and brief. A landscaping company gets earthy
+  // tones, not forced dark mode.
 
   const typography: Record<string, string> = { scale: 'modular_1.25' };
   if (brand.heading_font) typography.headingFont = brand.heading_font;
   if (brand.body_font) typography.bodyFont = brand.body_font;
 
   return {
-    ...(Object.keys(colors).length > 2 ? { brand_colors: colors } : {}),
+    ...(Object.keys(colors).length > 0 ? { brand_colors: colors } : {}),
     ...(Object.keys(typography).length > 1 ? { typography } : {}),
     visual_style: brand.visual_style,
     animation_preference: brand.animation_preference,
@@ -856,23 +941,22 @@ async function executeWebBuild(
 
   // ─── IMAGE GENERATION FROM MANIFEST ─────────────────────────
   // After sandbox passes and preview is live, generate images from
-  // the manifest and push them to the repo. This is fire-and-forget
-  // safe — if image gen fails, the site still works with broken image refs.
-  const imageManifest = (foundation.image_manifest ?? []) as ImageManifestItem[];
+  // the manifest and push them to the repo.
+  let imageManifest = (foundation.image_manifest ?? []) as ImageManifestItem[];
   console.log(`[WebBuild:Images] Manifest check: ${imageManifest.length} entries in image_manifest`);
+
+  // If manifest is empty but code references /images/*, reconstruct from refs
   if (imageManifest.length === 0) {
-    // The UX engineer may have omitted image_manifest or returned empty.
-    // Scan the generated files for /images/ references to detect missing manifest.
-    const allContent = Object.values(files).join('\n');
-    const imageRefs = allContent.match(/\/images\/[a-zA-Z0-9_-]+\.[a-zA-Z]{3,4}/g);
-    if (imageRefs && imageRefs.length > 0) {
-      const uniqueRefs = [...new Set(imageRefs)];
+    const reconstructed = reconstructImageManifestFromCode(files);
+    if (reconstructed.length > 0) {
       console.warn(
-        `[WebBuild:Images] ⚠️ Found ${uniqueRefs.length} /images/* references in code but image_manifest is empty. ` +
-        `References: ${uniqueRefs.join(', ')}. These will show as broken images.`,
+        `[WebBuild:Images] ⚠️ Empty manifest but found ${reconstructed.length} /images/* refs in code. ` +
+        `Reconstructing manifest from code references.`,
       );
+      imageManifest = reconstructed;
     }
   }
+
   if (imageManifest.length > 0) {
     try {
       const imageFiles = await generateImagesFromManifest(
@@ -891,9 +975,35 @@ async function executeWebBuild(
           ctx,
         );
         console.log(`[WebBuild] Pushed ${Object.keys(imageFiles).length} generated images to ${project.branch}`);
+      } else {
+        console.warn(`[WebBuild:Images] ⚠️ All ${imageManifest.length} image generations failed. Site will have broken image refs.`);
       }
     } catch (imgErr) {
       console.warn(`[WebBuild] Image generation failed (non-blocking): ${(imgErr as Error).message}`);
+    }
+  }
+
+  // ─── VIDEO GENERATION FROM MANIFEST ─────────────────────────
+  const videoManifest = (foundation.video_manifest ?? []) as VideoManifestItem[];
+  if (videoManifest.length > 0) {
+    console.log(`[WebBuild:Videos] Manifest check: ${videoManifest.length} entries in video_manifest`);
+    try {
+      const videoFiles = await generateVideosFromManifest(videoManifest, ctx);
+      if (Object.keys(videoFiles).length > 0) {
+        await executeWebsitePipelineTool(
+          'github_push_files',
+          {
+            repo: project.repoFullName,
+            branch: project.branch,
+            files: videoFiles,
+            commit_message: `feat: add ${Object.keys(videoFiles).length} generated videos`,
+          },
+          ctx,
+        );
+        console.log(`[WebBuild] Pushed ${Object.keys(videoFiles).length} generated videos to ${project.branch}`);
+      }
+    } catch (vidErr) {
+      console.warn(`[WebBuild] Video generation failed (non-blocking): ${(vidErr as Error).message}`);
     }
   }
 
@@ -1548,6 +1658,14 @@ function incrementalPatchMaxRounds(): number {
   return Math.min(8, Math.floor(n));
 }
 
+const MEDIA_EXECUTION_RULES = `
+MEDIA EXECUTION DISCIPLINE:
+- For cinematic/Aceternity sections, enforce image framing: explicit object-fit and size/aspect classes, plus overflow-hidden on media containers.
+- All images and videos must use loading="lazy" where supported.
+- Image containers must have defined aspect ratios to prevent layout shift.
+- Video elements must have poster frames or overlay gradients while loading.
+`;
+
 const UX_ENGINEER_SYSTEM_PROMPT = `
 ROLE: You are a world-class design engineer. You receive a creative brief and build a complete,
 production-ready website. You output COMPLETE, PRODUCTION-READY code. No stubs. No placeholders.
@@ -1576,80 +1694,94 @@ DO NOT create src/pages/ — everything composes in src/App.tsx.
 
 DESIGN PRIORITY (MANDATORY):
 - Create STUNNING, scroll-stopping designs that feel premium and intentional
-- Bold typography: mix weights dramatically (font-thin with font-black), oversized headlines
-- Subtle choreography: fade-ins, parallax hints, magnetic hover, scroll-driven reveals
+- Bold typography choices: Mix weights dramatically (100 with 900), use oversized headlines
+- Subtle animations: Fade-ins, parallax hints, hover transforms
 - Glass morphism, gradients, and layered depth where appropriate
-- Never generic, never boring, never template-like
-- Icon discipline: lucide-react with explicit size classes, token-safe colors
+- Never use emojis as icons - Never generic, never boring, never template-like
+- Icon discipline: use lucide/react icons with explicit size classes and token-safe colors (avoid low-contrast light icons on light fills).
 - Colors must match the BUSINESS (landscaping → earthy greens, bakery → warm tones, tech → clean blues). Do NOT default to dark mode for every project.
 
 LAYOUT AND COMPOSITION:
-- Avoid standard SaaS layouts, predictable grids, interchangeable card sections
-- Use asymmetry, strong negative space, confident vertical rhythm
+- Avoid standard SaaS layouts, predictable grids, and interchangeable card sections
+- Use asymmetry, strong negative space, and confident vertical rhythm
 - Treat each section as a visual moment, not a reusable block
-- Let the layout breathe and guide the eye naturally
+- Allow the layout to breathe and guide the eye naturally
 
 TYPOGRAPHY MASTERY:
-- Headlines: text-5xl to text-8xl, font-black or font-bold, commanding
-- Mix weights dramatically — combine extremes for visual tension
-- Letter-spacing and line-height tuned explicitly (tracking-tight, leading-none etc)
-- Create clear hierarchy through size, weight, and color contrast
+- Headlines should be BOLD and commanding (text-5xl to text-8xl)
+- Create visual hierarchy through size, weight, and color contrast
+- Letter-spacing and line-height matter - fine-tune them
 
 BRAND LOGO (TEXT-ONLY WORDMARK):
-- Create a typographic wordmark using real text (the brand name), NOT an image
-- Use font/tracking/weight utility classes only
-- NEVER reference /images/logo* in components or image_manifest
-- Place in navbar and footer minimum
+- Create a typographic logo/wordmark using real text (brand name), not an image.
+- Use font tokens/classes only (font-display/font-body, tracking/weight/size utilities).
+- Do NOT place logo assets in image_manifest and do NOT reference /images/logo* in components.
+- Place the text wordmark where appropriate (at minimum: navbar and footer).
+
+VISUALS:
+- Use high-quality imagery and realistic data
+- Let the design breathe with intentional whitespace
+- Create depth with layering, shadows, and subtle gradients
+
+LEGIBILITY:
+- Text must remain readable without sacrificing visual impact
+- When placing text over imagery, solve contrast intentionally (overlays, gradients, blurs, masks, or image selection)
+- Do not rely on luck or subtle contrast for critical text
 
 COMPONENT SELECTION HIERARCHY:
 1. shadcn/ui — ALL functional UI primitives (buttons, inputs, nav, cards, tabs, dialogs)
 2. ReactBits Pro (@reactbits-pro) — motion and ambient effects ONLY
-3. Aceternity (@aceternity) — cinematic structural anchors ONLY
+3. Aceternity (@aceternity) — cinematic structural anchors ONLY (max 2 per page)
 4. Framer Motion — transitions, hover states, scroll-driven animations
 
 NEVER stack two animation libraries on the same section.
 NEVER use ReactBits/Aceternity for functional UI primitives.
 
 TOKEN-FIRST COLORS (HARD RULES):
-- ALL colors MUST go through CSS variables via Tailwind token classes
-- Use: bg-background, bg-card, bg-muted, bg-primary, bg-accent, bg-secondary
-       text-foreground, text-muted-foreground, text-primary-foreground, text-accent-foreground
-       border-border, ring-ring
-- HARD BAN: no hardcoded hex/rgb/hsl/oklch in className strings or inline styles
-- HARD BAN: no text-white, text-black, bg-white, bg-black, from-slate, to-zinc
-- For opacity: use token opacity variants — text-foreground/80, bg-card/70, border-border/60
+- Prefer token-based Tailwind classes in components:
+  bg-background, bg-card, text-foreground, text-muted-foreground,
+  bg-primary, text-primary-foreground, border-border, ring-ring, bg-accent, text-accent-foreground.
+- If using bg-background/text-foreground/etc., you MUST define the Tailwind token bridge via @theme inline in src/styles/tailwind.css.
+- HARD BAN: no hardcoded hex/rgb/hsl/oklch in className strings or inline style colors.
+- HARD BAN: do not use hardcoded utility families like text-white/text-black/bg-white/bg-black/ring-white/from-slate/to-zinc.
+- If contrast is needed, use token opacity variants only (e.g. text-foreground/80, bg-card/70, border-border/60).
 
-COLOR COMPOSITION (70/20/10 — MANDATORY):
-- 70% neutral surfaces: bg-background, bg-card, bg-muted
-- 20% supporting contrast: secondary, border emphasis, text hierarchy
-- 10% accent/CTA: primary, accent — CTAs, active states, key highlights ONLY
-- Never use primary or accent as full-section backgrounds
-- At least 60% of sections must use neutral surface tokens
-- Use at least 3 distinct section surfaces for visual rhythm
-- Do not repeat the same dominant surface on 3+ adjacent sections
+COLOR COMPOSITION PROTOCOL (MANDATORY):
+- Use a 70/20/10 balance: ~70% neutral surfaces, ~20% supporting contrast surfaces, ~10% accent/interactive color.
+- Keep accent colors concentrated on CTAs, active states, and key highlights (not full-section backgrounds).
+- Do not place primary and accent as adjacent large blocks in more than one section.
+- At least 60% of sections must use neutral/surface tones; avoid painting every section with brand accents.
+- Use only one dominant accent family; secondary accent usage should be sparse and purposeful.
+- Headlines and body copy must stay high-contrast on all surfaces; do not sacrifice readability for mood.
 
 IMAGE/VISUAL ASSETS (CRITICAL):
-- Reference images as /images/... (never public/images/...)
-- Every referenced /images/* path MUST have a matching entry in image_manifest
-- Maximum 7 unique /images/* paths across ALL files in a single build
-- Image prompts format: [Subject] [Context] [Lighting] [Materials] [Mood] [Style]
-- Images must be RELEVANT to the specific business — no generic stock
-- Reuse images across sections instead of creating new ones for every card/testimonial
-- Product/brand logo must remain text-based wordmark (no image asset)
-- Text over images requires overlay/gradient for readability
-- Plan the image budget BEFORE writing components: decide all paths first, then reuse
+- Use 3-5 images unless brief explicitly requires more.
+- Images must harmonize with the primary accent.
+- Reference images as /images/... (never public/images/...).
+- Every referenced /images/* path MUST have a matching entry in image_manifest.
+- Maximum ${MAX_IMAGE_GEN_ITEMS} unique /images/* paths across ALL files in a single build.
+- Image prompts format: [Subject] [Context] [Lighting] [Materials] [Mood] [Style].
+- Keep imagery cohesive (consistent lighting/mood).
+- Images must be RELEVANT to the specific business — no generic stock.
+- Reuse images across sections instead of creating new ones for every card/testimonial.
+- Product/brand logo must remain text-based wordmark (no image asset).
+- Text over images requires overlay/gradient for readability.
+- For cinematic/Aceternity sections, enforce image framing discipline: explicit object-fit and size/aspect classes, plus overflow-hidden on media containers.
 
 IMAGE BUDGET CONTRACT (HARD):
-1. Decide the COMPLETE image budget before writing components
-2. Create image_manifest first, then reuse ONLY those fileName paths in components
-3. Do not invent extra image paths later in sections/cards
-4. Reuse assets across sections (gallery/testimonials) instead of adding new files
-5. If you need more visuals than budget allows, repeat existing paths intentionally
+1. Decide the COMPLETE image budget before writing components.
+2. Create image_manifest first, then reuse ONLY those fileName paths in components.
+3. Do not invent extra image paths later in sections/cards.
+4. Reuse assets across sections (gallery/testimonials) instead of adding new files.
+5. If you need more visuals than budget allows, repeat existing paths intentionally.
 
 VIDEO RULES:
-- NEVER include video_manifest unless the brief EXPLICITLY mentions video, animation, or motion background
-- If video is requested: max 2 videos, always add overlay for text readability
-- Reference videos as /videos/... (never public/videos/...)
+- NEVER include video_manifest unless the brief EXPLICITLY mentions video, animation, or motion background.
+- If video is requested: max ${MAX_VIDEO_MANIFEST_ITEMS} videos, always add overlay for text readability.
+- Reference videos as /videos/... (never public/videos/...).
+- Theme-lock video prompts to the brief's domain nouns; include negative_prompt.
+
+${MEDIA_EXECUTION_RULES}
 
 SCROLLBAR POLISH (Always Apply):
 In src/styles/tailwind.css @layer base:
@@ -1659,31 +1791,47 @@ In src/styles/tailwind.css @layer base:
 FILE CONTRACT (MECHANICAL — FOLLOW EXACTLY):
 Create these files from scratch with COMPLETE content:
 1. index.html — HTML shell with meta/OG tags, <div id="root"></div>, <script type="module" src="/src/main.tsx"></script>
-   Load Google Fonts in <head> with preconnect + stylesheet link
+   If using Google Fonts, load them in <head> with preconnect + stylesheet link.
 2. src/App.tsx — Root composition: QueryClient, Toaster, TooltipProvider. Import and render ALL section components.
    Import: import { Toaster } from "@/components/ui/sonner";
    DO NOT create src/pages/. Everything composes in App.tsx.
 3. src/styles/theme.css — :root and .dark blocks with CSS variable values ONLY.
    REQUIRED vars: --background, --foreground, --card, --card-foreground, --popover, --popover-foreground,
    --primary, --primary-foreground, --secondary, --secondary-foreground, --muted, --muted-foreground,
-   --accent, --accent-foreground, --destructive, --destructive-foreground, --border, --input, --ring, --radius.
+   --accent, --accent-foreground, --destructive, --destructive-foreground, --border, --input, --ring, --radius,
+   --input-background, --switch-background, --chart-1, --chart-2, --chart-3, --chart-4, --chart-5,
+   --sidebar, --sidebar-foreground, --sidebar-primary, --sidebar-primary-foreground,
+   --sidebar-accent, --sidebar-accent-foreground, --sidebar-border, --sidebar-ring,
+   --font-size, --font-weight-medium, --font-weight-normal.
    Use explicit color syntax (hex, rgb(), hsl(), oklch()). No raw HSL tuples.
    NO @theme inline, @layer base, or @import here.
 4. src/styles/fonts.css — Define font variables only (NO external @import). Keep family names unquoted.
-5. src/styles/index.css — Import hub: @import "./fonts.css"; @import "./tailwind.css"; @import "./theme.css";
-6. src/styles/tailwind.css — @import "tailwindcss"; then @source "../**/*.{js,ts,jsx,tsx}"; then @custom-variant dark; then @theme inline token bridge; then @layer base typography + body styles; then @layer utilities font helpers.
+5. src/styles/index.css — Import hub with fonts FIRST:
+   @import "./fonts.css"; @import "./tailwind.css"; @import "./theme.css";
+6. src/styles/tailwind.css — MUST use canonical Tailwind v4 import: @import "tailwindcss"; then @source "../**/*.{js,ts,jsx,tsx}"; then @custom-variant dark; then @theme inline token bridge; then @layer base typography + body styles; then @layer utilities font helpers. DO NOT use @import 'tailwindcss' source(none).
 7. src/components/*.tsx — All section components with COMPLETE implementations
+8. src/lib/*, src/hooks/*, src/data/* — Utility files as needed.
+
+PACKAGE.JSON SAFETY CONTRACT (DEPENDENCY FIXES ONLY):
+- You MAY modify package.json only to resolve missing dependency/build import errors.
+- Allowed changes are additive/merge-safe only: add missing dependencies/devDependencies.
+- Never delete dependency entries. Never replace or rewrite the entire package.json file.
 
 BEFORE PRODUCING OUTPUT, VERIFY:
 - All files have COMPLETE content (no stubs, no TODOs)
+- Do NOT reference undefined CSS size tokens (e.g., --text-2xl/--text-xl/etc.). Use Tailwind text-* utilities.
 - App.tsx imports and renders every section component
 - theme.css has all required CSS vars and reflects the brief's palette intent
 - Token classes used everywhere (no hardcoded hex/rgb in classNames)
-- No missing /images/* references outside image_manifest
+- No missing /images/* or /videos/* references outside manifests
 - Brand logo is text wordmark (no /images/logo*)
 - Text over media has overlay and is readable
-- Image manifest has <= 7 entries
+- Image manifest has >= 3 entries for marketing pages and <= ${MAX_IMAGE_GEN_ITEMS} entries
 - No video manifest unless brief explicitly requested video
+- design_plan includes interaction_budget (motion>=3, hover/focus>=10, primary CTA interactions>=2)
+- design_plan.brief_alignment includes at least 3 explicit brief-to-implementation commitments
+- design_plan.color_strategy includes surface_ladder, accent_policy, section_surface_map, cta_color_map
+- Apply color_strategy in code: section classNames and CTA/button styles must match the declared map
 
 OUTPUT JSON SCHEMA:
 {
@@ -1707,7 +1855,8 @@ OUTPUT JSON SCHEMA:
   "foundation_files": [{ "filePath": "string", "content": "string" }],
   "components": [{ "filePath": "string", "content": "string" }],
   "utility_files": [{ "filePath": "string", "content": "string" }],
-  "image_manifest": [{ "fileName": "string", "prompt": "string", "aspect_ratio": "string", "altText": "string" }]
+  "image_manifest": [{ "fileName": "string", "prompt": "string", "aspect_ratio": "string", "altText": "string" }],
+  "video_manifest": [{ "fileName": "string", "prompt": "string", "negative_prompt": "string", "duration_seconds": 6, "aspect_ratio": "string" }]
 }
 `.trim();
 

@@ -111,13 +111,26 @@ Before planning, extract these from the brief (infer sensible defaults if not st
 - productType: "marketing_page" (landing pages, business sites) or "web_application" (tools, dashboards)
 
 STEP 2 — DESIGN DECISIONS:
-- Choose colors that match the BUSINESS (landscaping → earthy greens, bakery → warm tones, tech → clean blues). NEVER use generic dark mode for every project.
+- Choose colors that match the BUSINESS and its AUDIENCE. Examples:
+  - Landscaping → earthy greens (#4A7C59), warm browns, cream backgrounds
+  - Bakery/restaurant → warm tones, inviting yellows/oranges, light backgrounds
+  - Tech/SaaS → clean blues, whites, modern grays
+  - Luxury brand → black, gold, deep tones
+  - Children/family → bright, playful, light backgrounds
+  - Medical/legal → trustworthy blues, clean whites, professional
+  NEVER use generic dark mode (#0A0A0B) for every project. Match the business personality.
 - Choose fonts that match the brand personality (professional service → clean serif/sans, creative → distinctive display font)
-- Plan 5-7 sections minimum for a landing page: nav, hero, services/features, about/story, testimonials, CTA, footer
+- Design the section structure FROM THE BRIEF — do NOT use the same sections every time:
+  - What is the business selling? Design sections around THAT.
+  - A circus site needs: acts lineup, showtime picker, ticket tiers, FAQ — NOT generic "services/testimonials/CTA"
+  - A landscaping site needs: service areas, project gallery, estimate form — NOT a generic SaaS layout
+  - A restaurant needs: menu, reservations, location, atmosphere photos — NOT feature cards
+  - Think about what THIS business's customer journey looks like and build sections for THAT.
 - Each section needs a distinct surface (use at least 3 different surfaces for visual rhythm)
 
 STEP 3 — IMAGE MANIFEST:
 - Plan up to ${MAX_IMAGE_MANIFEST_ITEMS} images maximum
+- ALWAYS include at least 3 images for marketing pages — sites without images look broken and unprofessional
 - Each image needs a generation prompt: [Subject] [Context] [Lighting] [Materials] [Mood] [Style]
 - Images must be RELEVANT to the specific business (landscaping → manicured lawns, not abstract gradients)
 - Use realistic photography style for business sites, illustration for creative projects

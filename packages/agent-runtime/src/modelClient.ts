@@ -312,6 +312,17 @@ export class ModelClient {
     return adapter.generateImage(prompt, model);
   }
 
+  /**
+   * Generate a video using Google Veo 3.1. Returns base64-encoded video data.
+   */
+  async generateVideo(
+    prompt: string,
+    options?: { aspectRatio?: string; durationSeconds?: number; negativePrompt?: string },
+  ): Promise<{ videoData: string | null }> {
+    const adapter = this.factory.get('gemini') as GeminiAdapter;
+    return adapter.generateVideo(prompt, options);
+  }
+
   // ─── Shared helpers ──────────────────────────────────────
 
   private async raceAbort<T>(promise: Promise<T>, signal?: AbortSignal, callTimeoutMs?: number): Promise<T> {
