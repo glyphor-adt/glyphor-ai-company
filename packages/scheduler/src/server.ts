@@ -134,6 +134,14 @@ import {
   runPlatformIntel,
 } from '@glyphor/agents';
 import { OAuth2Client } from 'google-auth-library';
+import {
+  buildDashboardConversationId,
+  buildDashboardResultContent,
+  executeDashboardRun,
+  normalizeDashboardRunRequest,
+  type DashboardRunRequestBody,
+} from './runtimeKernel.js';
+import { appendRunEvent, completeRunSession, upsertRunSession } from './runEventStore.js';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const oidcClient = new OAuth2Client();
@@ -415,33 +423,6 @@ function getRequestOrigin(req: IncomingMessage): string | null {
 
 function sendSseEvent(res: ServerResponse, event: Record<string, unknown>): void {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
-}
-
-function buildDashboardConversationId(email: string, agentRole: string): string {
-  return `dashboard:${email.trim().toLowerCase()}:${agentRole}`;
-}
-
-function buildDashboardResultContent(result: {
-  output?: string | null;
-  action?: string;
-  status?: string;
-  error?: string;
-  reason?: string;
-}): string {
-  if (typeof result.output === 'string' && result.output.trim().length > 0) {
-    return result.output;
-  }
-  if (result.action === 'queued_for_approval') {
-    return 'This request was sent to your approval queue for review.';
-  }
-  if (result.status === 'aborted') {
-    return 'Sorry, I wasn’t able to finish my response. Could you try again?';
-  }
-  if (result.error || result.reason) {
-    const raw = String(result.error ?? result.reason);
-    return `Something went wrong: ${raw.replace(/sk-ant-[a-zA-Z0-9_-]+|sk-[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]+/g, '[REDACTED]')}`;
-  }
-  return 'I completed the task but had nothing to report back.';
 }
 
 async function persistDashboardChatMessage(input: {
@@ -3546,54 +3527,12 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && url === '/run/stream') {
       const dashboardUser = await requireDashboardUser(req, res);
       if (!dashboardUser) return;
-      const body = JSON.parse(await readBody(req));
-      const agentRole = body.agentRole ?? body.agent;
-      const requestRunId = typeof body.runId === 'string' && body.runId.trim().length > 0
-        ? body.runId.trim()
-        : crypto.randomUUID();
-      const userName = body.userName as string | undefined;
-      const persistTranscript = body.persistTranscript === true;
-      const conversationId = typeof body.conversationId === 'string' && body.conversationId.trim().length > 0
-        ? body.conversationId.trim()
-        : buildDashboardConversationId(dashboardUser.email, agentRole);
-
-      let message = body.message as string | undefined;
-      const rawHistory = body.history as { role: string; content: string }[] | undefined;
-      if (message && dashboardUser.email) {
-        const FOUNDERS: Record<string, string> = { 'kristina@glyphor.ai': 'Kristina', 'andrew@glyphor.ai': 'Andrew' };
-        const effectiveEmail = dashboardUser.email.toLowerCase();
-        const founderName = FOUNDERS[effectiveEmail];
-        const identity = founderName
-          ? `[You are speaking with ${founderName} (${effectiveEmail}), Co-Founder of Glyphor. Treat this as a direct conversation with your founder.]`
-          : `[You are speaking with ${userName ?? 'a user'} (${effectiveEmail}).]`;
-        message = `${identity}\n${message}`;
-      }
-
-      const rawAttachments = body.attachments as { name: string; mimeType: string; data: string }[] | undefined;
-      const attachments = rawAttachments?.length
-        ? rawAttachments.map((a) => ({ name: a.name, mimeType: a.mimeType, data: a.data }))
-        : undefined;
-
-      const conversationHistory: ConversationTurn[] = [];
-      if (rawHistory?.length) {
-        for (const h of rawHistory) {
-          conversationHistory.push({
-            role: h.role === 'user' ? 'user' : 'assistant',
-            content: h.content,
-            timestamp: Date.now(),
-          });
-        }
-      }
-      const hasDbRunCarrier = conversationHistory.some(
-        (turn) => typeof turn.content === 'string' && turn.content.startsWith(DB_RUN_ID_TURN_PREFIX),
-      );
-      if (!hasDbRunCarrier) {
-        conversationHistory.unshift({
-          role: 'user',
-          content: `${DB_RUN_ID_TURN_PREFIX}${requestRunId}`,
-          timestamp: Date.now(),
-        });
-      }
+      const body = JSON.parse(await readBody(req)) as DashboardRunRequestBody;
+      const normalized = normalizeDashboardRunRequest({
+        body,
+        dashboardUserEmail: dashboardUser.email,
+        dbRunIdTurnPrefix: DB_RUN_ID_TURN_PREFIX,
+      });
 
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -3603,57 +3542,99 @@ const server = createServer(async (req, res) => {
       });
 
       const heartbeat = setInterval(() => {
-        sendSseEvent(res, { type: 'heartbeat', runId: requestRunId, at: new Date().toISOString() });
+        sendSseEvent(res, { type: 'heartbeat', runId: normalized.runId, at: new Date().toISOString() });
+        void appendRunEvent({
+          runId: normalized.runId,
+          eventType: 'heartbeat',
+          phase: 'running',
+          status: 'running',
+          payload: { at: new Date().toISOString() },
+        }).catch(() => {});
       }, 5000);
 
       try {
-        if (persistTranscript) {
-          const originalMessage = typeof body.message === 'string' ? body.message : '';
+        await upsertRunSession({
+          runId: normalized.runId,
+          conversationId: normalized.conversationId,
+          userId: dashboardUser.email,
+          agentRole: normalized.agentRole,
+          task: normalized.task,
+          source: 'dashboard',
+          transport: 'sse',
+          status: 'running',
+          metadata: { persistTranscript: normalized.persistTranscript },
+        });
+        await appendRunEvent({
+          runId: normalized.runId,
+          eventType: 'session_started',
+          phase: 'queued',
+          status: 'running',
+          payload: {
+            agentRole: normalized.agentRole,
+            task: normalized.task,
+            conversationId: normalized.conversationId,
+          },
+        });
+
+        if (normalized.persistTranscript) {
           await persistDashboardChatMessage({
-            agentRole,
+            agentRole: normalized.agentRole,
             role: 'user',
-            content: originalMessage,
+            content: normalized.originalMessage,
             userId: dashboardUser.email,
-            conversationId,
-            sessionId: requestRunId,
-            attachments,
-            metadata: { runId: requestRunId, streaming: true },
+            conversationId: normalized.conversationId,
+            sessionId: normalized.runId,
+            attachments: normalized.attachments,
+            metadata: { runId: normalized.runId, streaming: true },
           });
         }
 
         sendSseEvent(res, {
           type: 'run_started',
-          runId: requestRunId,
-          agentRole,
-          conversationId,
+          runId: normalized.runId,
+          agentRole: normalized.agentRole,
+          conversationId: normalized.conversationId,
+        });
+        await appendRunEvent({
+          runId: normalized.runId,
+          eventType: 'run_started',
+          phase: 'running',
+          status: 'running',
+          payload: {
+            agentRole: normalized.agentRole,
+            conversationId: normalized.conversationId,
+          },
         });
 
         sendSseEvent(res, {
           type: 'status',
-          runId: requestRunId,
+          runId: normalized.runId,
           phase: 'running',
-          message: `Working with ${agentRole}...`,
+          message: `Working with ${normalized.agentRole}...`,
+        });
+        await appendRunEvent({
+          runId: normalized.runId,
+          eventType: 'status',
+          phase: 'running',
+          status: 'running',
+          payload: { message: `Working with ${normalized.agentRole}...` },
         });
 
-        const result = await router.route({
-          source: 'manual',
-          agentRole,
-          task: body.task,
-          payload: {
-            ...(body.payload ?? {}),
-            runId: requestRunId,
-            message,
-            ...(attachments ? { attachments } : {}),
-            ...(conversationHistory.length > 0 ? { conversationHistory } : {}),
-          },
-        });
+        const result = await executeDashboardRun(router, normalized);
 
         if (Array.isArray(result.actions)) {
           for (const action of result.actions) {
             sendSseEvent(res, {
               type: 'action_receipt',
-              runId: requestRunId,
+              runId: normalized.runId,
               action,
+            });
+            await appendRunEvent({
+              runId: normalized.runId,
+              eventType: 'action_receipt',
+              phase: 'running',
+              status: 'running',
+              payload: { action },
             });
           }
         }
@@ -3666,38 +3647,72 @@ const server = createServer(async (req, res) => {
           reason: result.reason,
         });
         const transcriptMetadata: Record<string, unknown> = {
-          runId: requestRunId,
+          runId: normalized.runId,
           status: result.status ?? null,
           action: result.action,
           actions: result.actions ?? [],
           dashboardChatEmbeds: result.dashboardChatEmbeds ?? [],
           streamed: true,
         };
-        if (persistTranscript) {
+        if (normalized.persistTranscript) {
           await persistDashboardChatMessage({
-            agentRole,
+            agentRole: normalized.agentRole,
             role: 'agent',
             content: transcriptContent,
             userId: dashboardUser.email,
-            conversationId,
-            sessionId: requestRunId,
+            conversationId: normalized.conversationId,
+            sessionId: normalized.runId,
             metadata: transcriptMetadata,
           });
         }
 
         sendSseEvent(res, {
           type: 'result',
-          runId: requestRunId,
+          runId: normalized.runId,
           data: result,
           transcriptContent,
-          conversationId,
+          conversationId: normalized.conversationId,
+        });
+        await appendRunEvent({
+          runId: normalized.runId,
+          eventType: 'result',
+          phase: 'completed',
+          status: result.status ?? 'completed',
+          payload: {
+            action: result.action,
+            status: result.status,
+            conversationId: normalized.conversationId,
+            transcriptContent,
+          },
+        });
+        await completeRunSession({
+          runId: normalized.runId,
+          status: result.status ?? 'completed',
+          metadata: {
+            action: result.action,
+            streamed: true,
+            persistedTranscript: normalized.persistTranscript,
+          },
         });
       } catch (err) {
         const messageText = err instanceof Error ? err.message : String(err);
         sendSseEvent(res, {
           type: 'error',
-          runId: requestRunId,
+          runId: normalized.runId,
           error: messageText,
+        });
+        await appendRunEvent({
+          runId: normalized.runId,
+          eventType: 'error',
+          phase: 'failed',
+          status: 'failed',
+          error: messageText,
+          payload: { conversationId: normalized.conversationId },
+        });
+        await completeRunSession({
+          runId: normalized.runId,
+          status: 'failed',
+          metadata: { streamed: true, error: messageText },
         });
       } finally {
         clearInterval(heartbeat);
@@ -3710,88 +3725,51 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && url === '/run') {
       const dashboardUser = await requireDashboardUser(req, res);
       if (!dashboardUser) return;
-      const body = JSON.parse(await readBody(req));
-      const agentRole = body.agentRole ?? body.agent;
-      const requestRunId = typeof body.runId === 'string' && body.runId.trim().length > 0
-        ? body.runId.trim()
-        : crypto.randomUUID();
+      const body = JSON.parse(await readBody(req)) as DashboardRunRequestBody;
+      const normalized = normalizeDashboardRunRequest({
+        body,
+        dashboardUserEmail: dashboardUser.email,
+        dbRunIdTurnPrefix: DB_RUN_ID_TURN_PREFIX,
+      });
 
-      // Build conversational message — pass clean message + proper multi-turn history
-      let message = body.message as string | undefined;
-      const rawHistory = body.history as { role: string; content: string }[] | undefined;
-
-      // Inject user identity so agents know who they're talking to
-      const userName = body.userName as string | undefined;
-      const persistTranscript = body.persistTranscript === true;
-      const conversationId = typeof body.conversationId === 'string' && body.conversationId.trim().length > 0
-        ? body.conversationId.trim()
-        : buildDashboardConversationId(dashboardUser.email, agentRole);
-      if (message && dashboardUser.email) {
-        const FOUNDERS: Record<string, string> = { 'kristina@glyphor.ai': 'Kristina', 'andrew@glyphor.ai': 'Andrew' };
-        const effectiveEmail = dashboardUser.email.toLowerCase();
-        const founderName = FOUNDERS[effectiveEmail];
-        const identity = founderName
-          ? `[You are speaking with ${founderName} (${effectiveEmail}), Co-Founder of Glyphor. Treat this as a direct conversation with your founder.]`
-          : `[You are speaking with ${userName ?? 'a user'} (${effectiveEmail}).]`;
-        message = `${identity}\n${message}`;
-      }
-
-      // Accept file attachments for multimodal input (images, PDFs, documents)
-      const rawAttachments = body.attachments as { name: string; mimeType: string; data: string }[] | undefined;
-      const attachments = rawAttachments?.length
-        ? rawAttachments.map((a) => ({ name: a.name, mimeType: a.mimeType, data: a.data }))
-        : undefined;
-
-      // Convert dashboard chat history to proper ConversationTurn[] for multi-turn
-      const conversationHistory: ConversationTurn[] = [];
-      if (rawHistory?.length) {
-        for (const h of rawHistory) {
-          // Skip the last user message — it's the current message
-          conversationHistory.push({
-            role: h.role === 'user' ? 'user' : 'assistant',
-            content: h.content,
-            timestamp: Date.now(),
-          });
-        }
-      }
-      const hasDbRunCarrier = conversationHistory.some(
-        (turn) => typeof turn.content === 'string' && turn.content.startsWith(DB_RUN_ID_TURN_PREFIX),
-      );
-      if (!hasDbRunCarrier) {
-        conversationHistory.unshift({
-          role: 'user',
-          content: `${DB_RUN_ID_TURN_PREFIX}${requestRunId}`,
-          timestamp: Date.now(),
-        });
-      }
-
-      const result = await router.route({
-        source: 'manual',
-        agentRole,
-        task: body.task,
+      await upsertRunSession({
+        runId: normalized.runId,
+        conversationId: normalized.conversationId,
+        userId: dashboardUser.email,
+        agentRole: normalized.agentRole,
+        task: normalized.task,
+        source: 'dashboard',
+        transport: 'json',
+        status: 'running',
+        metadata: { persistTranscript: normalized.persistTranscript },
+      });
+      await appendRunEvent({
+        runId: normalized.runId,
+        eventType: 'run_started',
+        phase: 'running',
+        status: 'running',
         payload: {
-          ...(body.payload ?? {}),
-          runId: requestRunId,
-          message,
-          ...(attachments ? { attachments } : {}),
-          ...(conversationHistory.length > 0 ? { conversationHistory } : {}),
+          agentRole: normalized.agentRole,
+          task: normalized.task,
+          conversationId: normalized.conversationId,
         },
       });
 
-      if (persistTranscript) {
-        const originalMessage = typeof body.message === 'string' ? body.message : '';
+      const result = await executeDashboardRun(router, normalized);
+
+      if (normalized.persistTranscript) {
         await persistDashboardChatMessage({
-          agentRole,
+          agentRole: normalized.agentRole,
           role: 'user',
-          content: originalMessage,
+          content: normalized.originalMessage,
           userId: dashboardUser.email,
-          conversationId,
-          sessionId: requestRunId,
-          attachments,
-          metadata: { runId: requestRunId, streaming: false },
+          conversationId: normalized.conversationId,
+          sessionId: normalized.runId,
+          attachments: normalized.attachments,
+          metadata: { runId: normalized.runId, streaming: false },
         });
         await persistDashboardChatMessage({
-          agentRole,
+          agentRole: normalized.agentRole,
           role: 'agent',
           content: buildDashboardResultContent({
             output: result.output,
@@ -3801,10 +3779,10 @@ const server = createServer(async (req, res) => {
             reason: result.reason,
           }),
           userId: dashboardUser.email,
-          conversationId,
-          sessionId: requestRunId,
+          conversationId: normalized.conversationId,
+          sessionId: normalized.runId,
           metadata: {
-            runId: requestRunId,
+            runId: normalized.runId,
             status: result.status ?? null,
             action: result.action,
             actions: result.actions ?? [],
@@ -3814,8 +3792,41 @@ const server = createServer(async (req, res) => {
         });
       }
 
+      if (Array.isArray(result.actions)) {
+        for (const action of result.actions) {
+          await appendRunEvent({
+            runId: normalized.runId,
+            eventType: 'action_receipt',
+            phase: 'running',
+            status: 'running',
+            payload: { action },
+          });
+        }
+      }
+      await appendRunEvent({
+        runId: normalized.runId,
+        eventType: 'result',
+        phase: 'completed',
+        status: result.status ?? 'completed',
+        payload: {
+          action: result.action,
+          status: result.status,
+          conversationId: normalized.conversationId,
+          output: result.output ?? null,
+        },
+      });
+      await completeRunSession({
+        runId: normalized.runId,
+        status: result.status ?? 'completed',
+        metadata: {
+          action: result.action,
+          streamed: false,
+          persistedTranscript: normalized.persistTranscript,
+        },
+      });
+
       // Record agent output back to work_assignments if this run was dispatched by orchestration
-      const assignmentId = body.payload?.directiveAssignmentId as string | undefined;
+      const assignmentId = normalized.payload?.directiveAssignmentId as string | undefined;
       if (assignmentId && result.action === 'executed') {
         await systemQuery(
           'UPDATE work_assignments SET agent_output=$1, status=$2, completed_at=$3 WHERE id=$4',
@@ -3824,23 +3835,23 @@ const server = createServer(async (req, res) => {
         if (result.error) {
           await failContractForTask(
             assignmentId,
-            agentRole,
+            normalized.agentRole,
             result.error,
             {
               output: result.output ?? result.error,
               assignmentId,
-              submittedBy: agentRole,
+              submittedBy: normalized.agentRole,
               status: 'failed',
             },
           );
         } else {
           await completeContractForTask(
             assignmentId,
-            agentRole,
+            normalized.agentRole,
             {
               output: result.output ?? 'No output captured',
               assignmentId,
-              submittedBy: agentRole,
+              submittedBy: normalized.agentRole,
               status: 'completed',
             },
             1,
