@@ -32,6 +32,7 @@ import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
+import { createAgentManagementTools } from '../shared/agentManagementTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
@@ -200,6 +201,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
     ...orchestrationTools,
     ...createAgentCreationTools(),
     ...createAgentDirectoryTools(),
+    ...createAgentManagementTools(),
     ...createResearchTools(),
     ...createGithubFromTemplateTools(),
     ...createGithubPushFilesTools(),

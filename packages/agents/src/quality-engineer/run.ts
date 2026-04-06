@@ -19,6 +19,7 @@ import { createEngineeringGapTools } from '../shared/engineeringGapTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 
 export interface QualityEngineerRunParams {
   task?: 'qa_report' | 'regression_check' | 'on_demand';
@@ -50,10 +51,17 @@ export async function runQualityEngineer(params: QualityEngineerRunParams = {}) 
     ...await createAgent365McpTools('quality-engineer'),
     ...await createGlyphorMcpTools('quality-engineer'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
 
   const task = params.task || 'qa_report';
   const today = new Date().toISOString().split('T')[0];
+
+  tools.push(...createSandboxDevTools({
+    repo: 'glyphor-adt/glyphor-ai-company',
+    branch: 'main',
+    agentRole: 'quality-engineer',
+    runId: `sam-${task}-${today}`,
+  }));
+  const toolExecutor = new ToolExecutor(tools);
 
   let initialMessage: string;
   switch (task) {

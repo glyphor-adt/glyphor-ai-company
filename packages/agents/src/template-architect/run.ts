@@ -24,6 +24,7 @@ import { createLogoTools } from '../shared/logoTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 
 export interface TemplateArchitectRunParams {
   task?: 'variant_review' | 'template_quality_audit' | 'on_demand';
@@ -56,10 +57,17 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     ...await createAgent365McpTools('template-architect'),
     ...await createGlyphorMcpTools('template-architect'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
 
   const task = params.task || 'on_demand';
   const today = new Date().toISOString().split('T')[0];
+
+  tools.push(...createSandboxDevTools({
+    repo: 'glyphor-adt/glyphor-ai-company',
+    branch: 'main',
+    agentRole: 'template-architect',
+    runId: `ryan-${task}-${today}`,
+  }));
+  const toolExecutor = new ToolExecutor(tools);
 
   let initialMessage: string;
   switch (task) {

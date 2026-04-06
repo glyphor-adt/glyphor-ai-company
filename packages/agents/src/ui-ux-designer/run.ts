@@ -23,6 +23,7 @@ import { createLogoTools } from '../shared/logoTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 import { createWebBuildTools } from '../shared/webBuildTools.js';
 import { createWebBuildPlannerTools } from '../shared/webBuildPlannerTools.js';
 import { createDesignBriefTools } from '../shared/designBriefTools.js';
@@ -68,10 +69,17 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     ...await createAgent365McpTools('ui-ux-designer'),
     ...await createGlyphorMcpTools('ui-ux-designer'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
 
   const task = params.task || 'on_demand';
   const today = new Date().toISOString().split('T')[0];
+
+  tools.push(...createSandboxDevTools({
+    repo: 'glyphor-adt/glyphor-ai-company',
+    branch: 'main',
+    agentRole: 'ui-ux-designer',
+    runId: `leo-${task}-${today}`,
+  }));
+  const toolExecutor = new ToolExecutor(tools);
 
   let initialMessage: string;
   switch (task) {
