@@ -2,7 +2,7 @@ import path from 'node:path';
 import { ModelClient, type ConversationTurn, type ToolContext, type ToolDeclaration, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import { createCloudflarePreviewTools, createGithubFromTemplateTools, createGithubPullRequestTools, createGithubPushFilesTools, createVercelProjectTools } from '@glyphor/integrations';
-import { getTierModel, MODEL_CONFIG } from '@glyphor/shared';
+import { MODEL_CONFIG } from '@glyphor/shared';
 import { createDesignBriefTools } from './designBriefTools.js';
 import { runSandboxBuild } from './sandboxBuildValidator.js';
 import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
@@ -88,7 +88,7 @@ const DEFAULT_BRAND_CONTEXT: WebBrandContext = {
   accent_color: '',
   heading_font: '',
   body_font: '',
-  visual_style: 'minimal',
+  visual_style: 'bold',
   animation_preference: 'subtle',
 };
 
@@ -121,7 +121,7 @@ function assertValidWebsiteFileMap(files: Record<string, unknown>): void {
   if (nonEmptyKeys.length === 0) {
     throw new Error(
       'build_website_foundation returned an empty `files` map — no generated code to push. '
-        + 'Check GOOGLE_AI_API_KEY / GEMINI_API_KEY, UX_ENGINEER_MODEL, timeouts, and runtime logs.',
+        + 'Check GOOGLE_AI_API_KEY / GEMINI_API_KEY, timeouts, and runtime logs.',
     );
   }
   for (const req of REQUIRED_FOUNDATION_FILES) {
@@ -1076,6 +1076,12 @@ async function executeWebBuild(
       imageManifest = reconstructed;
     }
   }
+  const isMarketingBuild = String(foundation.foundation_mode ?? 'marketing') === 'marketing';
+  if (isMarketingBuild && imageManifest.length < 3) {
+    throw new Error(
+      `Marketing build blocked: image_manifest has ${imageManifest.length} entries (minimum 3 required).`,
+    );
+  }
   const videoManifest = (foundation.video_manifest ?? []) as VideoManifestItem[];
 
   console.log(
@@ -1222,6 +1228,12 @@ async function executeWebBuild(
       console.warn(`[WebBuild] Media push failed (non-blocking): ${(mediaErr as Error).message}`);
     }
   } else if (imageManifest.length > 0) {
+    if (isMarketingBuild) {
+      throw new Error(
+        'Marketing build blocked: all media generations failed (0 images generated). '
+        + 'Check GOOGLE_AI_API_KEY or GEMINI_API_KEY and OPENAI_API_KEY for image providers.',
+      );
+    }
     console.warn(`[WebBuild:Images] ⚠️ All media generations failed. Site will have broken media refs.`);
   }
 
@@ -1861,8 +1873,8 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
   return tools;
 }
 
-const DEFAULT_WEBSITE_FOUNDATION_MODEL = process.env.UX_ENGINEER_MODEL?.trim() || MODEL_CONFIG.specialized.code_generation;
-const WEBSITE_FOUNDATION_REPAIR_MODEL = process.env.UX_ENGINEER_REPAIR_MODEL?.trim() || getTierModel('high');
+const DEFAULT_WEBSITE_FOUNDATION_MODEL = MODEL_CONFIG.specialized.code_generation;
+const WEBSITE_FOUNDATION_REPAIR_MODEL = MODEL_CONFIG.specialized.code_generation;
 const WEBSITE_FOUNDATION_MAX_TOKENS = 100000;
 const WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS = 4;
 const SANDBOX_MAX_REPAIR_ROUNDS = 3;
@@ -2457,13 +2469,40 @@ function validateWebsiteFoundationOutput(
     if ((output.components ?? []).length < 4) {
       errors.push('components must include at least 4 complete section component files.');
     }
+
+    const manifestEntries = Array.isArray(output.image_manifest) ? output.image_manifest : [];
+    if (manifestEntries.length < 3) {
+      errors.push('image_manifest must include at least 3 entries for marketing builds.');
+    }
+    if (manifestEntries.length > MAX_IMAGE_GEN_ITEMS) {
+      errors.push(`image_manifest exceeds maximum of ${MAX_IMAGE_GEN_ITEMS} entries.`);
+    }
   }
 
-  // Check image manifest consistency (soft — warns but doesn't block)
+  // Check image manifest consistency
   const flatFiles = flattenWebsiteFoundationFiles(output);
   const allContent = Object.values(flatFiles).join('\n');
   const imageRefs = allContent.match(/\/images\/[a-zA-Z0-9_-]+\.[a-zA-Z]{3,4}/g);
-  if (imageRefs && imageRefs.length > 0 && (!output.image_manifest || output.image_manifest.length === 0)) {
+  const uniqueImageRefs = new Set(imageRefs ?? []);
+  const manifestPaths = new Set((output.image_manifest ?? []).map((entry) => entry.fileName));
+
+  if (mode !== 'utility') {
+    if (uniqueImageRefs.size < 3) {
+      errors.push('marketing builds must reference at least 3 /images/* assets in generated code.');
+    }
+
+    for (const ref of uniqueImageRefs) {
+      if (!manifestPaths.has(ref)) {
+        errors.push(`image reference ${ref} is missing from image_manifest.`);
+      }
+    }
+
+    for (const path of manifestPaths) {
+      if (!uniqueImageRefs.has(path)) {
+        errors.push(`image_manifest entry ${path} is not used by generated code.`);
+      }
+    }
+  } else if (imageRefs && imageRefs.length > 0 && (!output.image_manifest || output.image_manifest.length === 0)) {
     console.warn(
       `[WebBuild:Validation] Code references ${[...new Set(imageRefs)].length} /images/* paths but image_manifest is empty.`,
     );

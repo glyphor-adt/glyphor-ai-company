@@ -36,7 +36,7 @@ export const MODEL_CONFIG = {
     /** Dashboard `quick_demo_web_app` — single-file HTML; Codex via Azure Foundry */
     quick_demo_web: 'gpt-5.3-codex',
     /** Full web builds (build_website_foundation pipeline) — needs strong code generation */
-    code_generation: 'gpt-5.3-codex',
+    code_generation: 'gemini-3.1-pro-preview',
     shadow_eval:   'gemini-3.1-flash-lite-preview',      // Gemini API - shadow runner
     deep_research: 'deep-research-pro-preview-12-2025',  // Gemini API - strategy reports
   },
@@ -53,7 +53,6 @@ export const MODEL_CONFIG = {
     'gemini-3-pro-preview':      true, // shut down March 9 2026
     'gemini-2.0-flash-lite':     true, // shuts down June 1 2026
     'gemini-3-flash-preview':    true, // retired Mar 26 2026 - cost prohibitive
-    'gemini-3.1-pro-preview':    true, // retired Mar 26 2026 - cost prohibitive
     'gemini-2.5-flash':          true, // retired Mar 26 2026 - cost prohibitive
     'claude-opus-4-6':           true, // retired Mar 26 2026 - cost prohibitive ($5/$25 per MTok)
     'claude-sonnet-4-20250514':  true, // stale string - was reflection model
