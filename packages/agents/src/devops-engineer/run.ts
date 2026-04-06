@@ -21,6 +21,7 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createGithubPushFilesTools, createGithubPullRequestTools, createVercelProjectTools, createCloudflarePreviewTools } from '@glyphor/integrations';
+import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 
 export interface DevOpsEngineerRunParams {
   task?: 'optimization_scan' | 'pipeline_report' | 'on_demand';
@@ -57,10 +58,17 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     ...await createAgent365McpTools('devops-engineer'),
     ...await createGlyphorMcpTools('devops-engineer'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
 
   const task = params.task || 'optimization_scan';
   const today = new Date().toISOString().split('T')[0];
+
+  tools.push(...createSandboxDevTools({
+    repo: 'glyphor-adt/glyphor-ai-company',
+    branch: 'main',
+    agentRole: 'devops-engineer',
+    runId: `jordan-${task}-${today}`,
+  }));
+  const toolExecutor = new ToolExecutor(tools);
 
   let initialMessage: string;
   switch (task) {

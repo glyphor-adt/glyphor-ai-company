@@ -26,6 +26,7 @@ import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
+import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 
 export interface PlatformEngineerRunParams {
   task?: 'health_check' | 'metrics_report' | 'on_demand';
@@ -58,7 +59,6 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
     ...await createAgent365McpTools('platform-engineer'),
     ...await createGlyphorMcpTools('platform-engineer'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
 
   eventBus.on('*', (event) => {
     console.log(`[Alex] ${event.type}`, JSON.stringify(event));
@@ -66,6 +66,14 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
 
   const task = params.task || 'health_check';
   const today = new Date().toISOString().split('T')[0];
+
+  tools.push(...createSandboxDevTools({
+    repo: 'glyphor-adt/glyphor-ai-company',
+    branch: 'main',
+    agentRole: 'platform-engineer',
+    runId: `alex-${task}-${today}`,
+  }));
+  const toolExecutor = new ToolExecutor(tools);
 
   let initialMessage: string;
 

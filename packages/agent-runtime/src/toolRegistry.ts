@@ -146,6 +146,12 @@ const KNOWN_TOOLS = new Set([
   'get_template_registry',
   'write_design_audit',
 
+  // ── Sandbox Dev Tools (autonomous shell + file I/O) ──
+  'sandbox_shell',
+  'sandbox_file_read',
+  'sandbox_file_write',
+  'sandbox_file_edit',
+
   // ── Design Team shared tools ──
   // frontendCodeTools
   'read_frontend_file',

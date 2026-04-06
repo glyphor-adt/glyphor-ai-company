@@ -30,6 +30,7 @@ import { createCodexTools } from '../shared/codexTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
 import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
 import { createGithubFromTemplateTools, createGithubPushFilesTools, createGithubPullRequestTools, createVercelProjectTools, createCloudflarePreviewTools } from '@glyphor/integrations';
+import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 
 export interface FrontendEngineerRunParams {
   task?: 'implement_component' | 'accessibility_audit' | 'on_demand';
@@ -78,10 +79,17 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...await createAgent365McpTools('frontend-engineer'),
     ...await createGlyphorMcpTools('frontend-engineer'),
   ];
-  const toolExecutor = new ToolExecutor(tools);
 
   const task = params.task || 'on_demand';
   const today = new Date().toISOString().split('T')[0];
+
+  tools.push(...createSandboxDevTools({
+    repo: 'glyphor-adt/glyphor-ai-company',
+    branch: 'main',
+    agentRole: 'frontend-engineer',
+    runId: `ava-${task}-${today}`,
+  }));
+  const toolExecutor = new ToolExecutor(tools);
 
   let initialMessage: string;
   switch (task) {
