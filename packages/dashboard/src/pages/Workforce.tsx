@@ -63,10 +63,12 @@ const TITLE_MAP: Record<string, string> = {
 
 type ViewMode = 'org-chart' | 'grid';
 type Tab = 'overview' | 'roster';
+type DensityMode = 'compact' | 'comfortable';
 
 export default function Workforce() {
   const { data: agents, loading } = useAgents();
   const [view, setView] = useState<ViewMode>('org-chart');
+  const [density, setDensity] = useState<DensityMode>('compact');
   const [tab, setTab] = useState<Tab>('overview');
 
   // Keep retired agents out of the live org hierarchy.
@@ -137,7 +139,31 @@ export default function Workforce() {
         <AgentsList />
       ) : (
       <>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {view === 'org-chart' ? (
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-txt-faint">Density</span>
+            <div className="flex gap-1 rounded-md border border-border bg-panel p-0.5">
+              <button
+                onClick={() => setDensity('compact')}
+                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                  density === 'compact' ? 'bg-raised text-txt-primary' : 'text-txt-muted hover:text-txt-secondary'
+                }`}
+              >
+                Compact
+              </button>
+              <button
+                onClick={() => setDensity('comfortable')}
+                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                  density === 'comfortable' ? 'bg-raised text-txt-primary' : 'text-txt-muted hover:text-txt-secondary'
+                }`}
+              >
+                Comfortable
+              </button>
+            </div>
+          </div>
+        ) : <div />}
+
         <div className="flex gap-1 rounded-lg border border-border bg-surface p-0.5">
           <button
             onClick={() => setView('org-chart')}
@@ -164,11 +190,19 @@ export default function Workforce() {
         </div>
       ) : view === 'org-chart' ? (
         /* ── Org Chart View ──────────────── */
-        <div className="mx-auto w-full max-w-6xl space-y-0">
+        <div className={`mx-auto w-full ${density === 'compact' ? 'max-w-6xl' : 'max-w-7xl'} space-y-0`}>
           {/* Founders row */}
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className={`flex flex-wrap justify-center ${density === 'compact' ? 'gap-4' : 'gap-6'}`}>
             {FOUNDERS.map((f) => (
-              <FounderNode key={f.name} name={f.name} title={f.title} initials={f.initials} color={f.color} photo={f.photo} />
+              <FounderNode
+                key={f.name}
+                name={f.name}
+                title={f.title}
+                initials={f.initials}
+                color={f.color}
+                photo={f.photo}
+                compact={density === 'compact'}
+              />
             ))}
           </div>
 
@@ -184,9 +218,9 @@ export default function Workforce() {
 
           {/* Chief of Staff */}
           <div className="flex justify-center">
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-44">
-                {cos ? <AgentNode agent={cos} compact /> : <Skeleton className="h-20 w-full" />}
+            <div className={`flex flex-col items-center ${density === 'compact' ? 'gap-2' : 'gap-3'}`}>
+              <div className={density === 'compact' ? 'w-44' : 'w-52'}>
+                {cos ? <AgentNode agent={cos} compact={density === 'compact'} /> : <Skeleton className="h-20 w-full" />}
               </div>
               {(() => {
                 const cosDirects = orgAgents.filter(
@@ -196,7 +230,7 @@ export default function Workforce() {
                 return (
                   <>
                     <div className="h-3 w-px bg-border" />
-                    <div className="grid w-full max-w-2xl gap-1.5 sm:grid-cols-2">
+                    <div className={`grid w-full max-w-2xl ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'} sm:grid-cols-2`}>
                       {cosDirects.map((m) => (
                         <SubTeamNode key={m.id} member={m} />
                       ))}
@@ -214,18 +248,18 @@ export default function Workforce() {
           <div className="mx-auto h-px w-full bg-border" />
 
           {/* Department columns with heads + sub-teams */}
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className={`mt-4 grid grid-cols-1 ${density === 'compact' ? 'gap-4' : 'gap-5'} sm:grid-cols-2 xl:grid-cols-3`}>
             {departmentHeads.map((dept) => {
                 const members = orgAgents.filter((m) => resolveManagerRole(m) === dept.role && m.role !== dept.role && !deptHeadRoles.has(m.role));
               return (
-                <div key={dept.label} className="rounded-xl border border-border bg-surface p-3">
-                  <div className="flex flex-col items-center gap-1.5">
+                <div key={dept.label} className={`rounded-xl border border-border bg-surface ${density === 'compact' ? 'p-3' : 'p-4'}`}>
+                  <div className={`flex flex-col items-center ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'}`}>
                     <span className="text-[10px] font-medium uppercase tracking-widest text-txt-faint">
                       {dept.label}
                     </span>
-                    <AgentNode agent={dept.agent} compact />
+                    <AgentNode agent={dept.agent} compact={density === 'compact'} />
                     {members.length > 0 && <div className="h-3 w-px bg-border" />}
-                    <div className="flex w-full flex-col gap-1.5">
+                    <div className={`flex w-full flex-col ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'}`}>
                       {members.map((m) => (
                         <SubTeamNode key={m.id} member={m} />
                       ))}
@@ -347,19 +381,19 @@ export default function Workforce() {
 }
 
 /* ─── Founder Node (org chart) ────────────── */
-function FounderNode({ name, title, initials, color, photo }: { name: string; title: string; initials: string; color: string; photo: string }) {
+function FounderNode({ name, title, initials, color, photo, compact = true }: { name: string; title: string; initials: string; color: string; photo: string; compact?: boolean }) {
   return (
-    <Card className="w-48 text-center p-3">
-      <div className="flex flex-col items-center gap-2">
+    <Card className={`${compact ? 'w-48 p-3' : 'w-56 p-4'} text-center`}>
+      <div className={`flex flex-col items-center ${compact ? 'gap-2' : 'gap-2.5'}`}>
         <img
           src={photo}
           alt={name}
           className="rounded-full object-cover shrink-0"
-          style={{ width: 56, height: 56, border: `2px solid ${color}40` }}
+          style={{ width: compact ? 56 : 64, height: compact ? 56 : 64, border: `2px solid ${color}40` }}
         />
         <div>
-          <h3 className="text-sm font-semibold text-txt-primary leading-tight">{name}</h3>
-          <p className="text-[11px] text-txt-muted leading-tight">{title}</p>
+          <h3 className={`${compact ? 'text-sm' : 'text-[15px]'} font-semibold text-txt-primary leading-tight`}>{name}</h3>
+          <p className={`${compact ? 'text-[11px]' : 'text-xs'} text-txt-muted leading-tight`}>{title}</p>
           <span
             className="badge badge-teal badge-xs mt-0.5">
             Human
