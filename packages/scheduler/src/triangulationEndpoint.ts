@@ -146,7 +146,7 @@ export async function handleTriangulatedChat(
     }
 
     if (mode === 'single-model') {
-      const model = resolveModel(selectedModel ?? 'gpt-5.4');
+      const model = resolveModel(selectedModel ?? 'claude-sonnet-4-6');
       const provider = detectProvider(model);
       const reasoningLevel = normalizeReasoningLevel(model, effectiveReasoningLevel);
       const effectiveWebSearch = webSearchEnabled || deepResearchEnabled;

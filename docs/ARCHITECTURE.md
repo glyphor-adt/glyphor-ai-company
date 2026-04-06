@@ -25,7 +25,7 @@ Verified from repository state:
 - Integration modules under packages/integrations/src: 21
 - File-based agent role directories under packages/agents/src: 28
 - Dashboard page modules under packages/dashboard/src/pages: 36
-- SQL migrations under db/migrations: 404
+- SQL migrations under db/migrations: 284
 - Docker build files under docker (Dockerfile.*): 18
 - Smoketest layers under packages/smoketest/src/layers: 31 (layer 0-30)
 - Dashboard route architecture: dual-mode (app/internal + app/smb) with 27 internal path routes, 7 SMB path routes, legacy redirects, and entry gates

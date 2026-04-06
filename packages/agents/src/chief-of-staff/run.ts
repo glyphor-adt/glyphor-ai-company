@@ -50,6 +50,7 @@ export interface CoSRunParams {
     | 'strategic_planning'
     | 'midday_digest'
     | 'process_directive'
+    | 'heartbeat_response'
     | 'on_demand';
   recipient?: 'kristina' | 'andrew' | 'both';
   message?: string;
