@@ -170,6 +170,54 @@ describe('ToolExecutor', () => {
     expect(executor.getCallLog()[0]?.riskLevel).toBe('HARD_GATE');
   });
 
+  it('treats Calendar MCP CreateEvent aliases as hard-gated founder calendar writes', async () => {
+    const mcpCalendarTool: ToolDefinition = {
+      name: 'CreateEvent',
+      description: 'Create a calendar event through Calendar MCP',
+      parameters: {
+        attendees: { type: 'array', description: 'Attendees', required: false, items: { type: 'string', description: 'Email' } },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: { created: true } }),
+    };
+
+    const executor = new ToolExecutor([mcpCalendarTool]);
+    const result = await executor.execute(
+      'mcp_CalendarTools/CreateEvent',
+      { attendees: ['external@example.com'] },
+      buildContext(),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('requires approval before execution');
+    expect(result.riskLevel).toBe('HARD_GATE');
+    expect(result.approvalRequired).toBe(true);
+    expect(mcpCalendarTool.execute).not.toHaveBeenCalled();
+  });
+
+  it('treats the Calendar MCP founder proof tool as hard-gated', async () => {
+    const proofTool: ToolDefinition = {
+      name: 'evaluate_calendar_mcp_founder_create_event',
+      description: 'Proof-only founder calendar evaluation through Calendar MCP',
+      parameters: {
+        founder: { type: 'string', description: 'Founder key', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: { created: true } }),
+    };
+
+    const executor = new ToolExecutor([proofTool]);
+    const result = await executor.execute(
+      'evaluate_calendar_mcp_founder_create_event',
+      { founder: 'kristina' },
+      buildContext(),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('requires approval before execution');
+    expect(result.riskLevel).toBe('HARD_GATE');
+    expect(result.approvalRequired).toBe(true);
+    expect(proofTool.execute).not.toHaveBeenCalled();
+  });
+
   it('classifies soft-gate tools without blocking execution', async () => {
     const softGateTool: ToolDefinition = {
       name: 'post_to_slack',

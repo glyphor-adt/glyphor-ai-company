@@ -117,6 +117,14 @@ export const KNOWN_POLICY_KEYS = [
 
 export type KnownPolicyKey = typeof KNOWN_POLICY_KEYS[number];
 
+const CALENDAR_WRITE_POLICY_ALIASES = [
+  'create_calendar_event',
+  'evaluate_calendar_mcp_founder_create_event',
+  'CreateEvent',
+  'mcp_CalendarTools.CreateEvent',
+  'mcp_CalendarTools/CreateEvent',
+] as const;
+
 // ═══════════════════════════════════════════════════════════════════
 // CACHE
 // ═══════════════════════════════════════════════════════════════════
@@ -443,7 +451,6 @@ const TOOL_POLICY_MAP: Record<string, string> = {
   post_to_customer_teams: 'can_write_customer_teams',
   request_teams_approval: 'can_write_customer_teams',
   upload_to_sharepoint: 'can_write_sharepoint',
-  create_calendar_event: 'can_create_calendar_events',
   create_pull_request: 'can_create_pr',
   merge_pull_request: 'can_merge_pr',
   run_migration: 'can_run_migrations',
@@ -451,6 +458,10 @@ const TOOL_POLICY_MAP: Record<string, string> = {
   read_secret: 'can_access_secrets',
   write_secret: 'can_access_secrets',
 };
+
+for (const toolName of CALENDAR_WRITE_POLICY_ALIASES) {
+  TOOL_POLICY_MAP[toolName] = 'can_create_calendar_events';
+}
 
 /**
  * Check if a tool call is allowed by policy limits.

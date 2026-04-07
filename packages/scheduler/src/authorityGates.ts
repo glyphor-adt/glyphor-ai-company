@@ -15,6 +15,14 @@ export interface AuthorityCheck {
   reason?: string;
 }
 
+const CALENDAR_GOVERNED_ACTIONS = [
+  'create_calendar_event',
+  'evaluate_calendar_mcp_founder_create_event',
+  'CreateEvent',
+  'mcp_CalendarTools.CreateEvent',
+  'mcp_CalendarTools/CreateEvent',
+] as const;
+
 /**
  * Green actions by role — no approval needed.
  */
@@ -116,8 +124,11 @@ const YELLOW_ACTIONS: Record<string, { assignTo: string[] }> = {
   'publish_competitive_analysis': { assignTo: ['kristina'] },
   'production_deploy': { assignTo: ['andrew'] },
   'send_dm': { assignTo: ['kristina', 'andrew'] },
-  'create_calendar_event': { assignTo: ['kristina', 'andrew'] },
 };
+
+for (const action of CALENDAR_GOVERNED_ACTIONS) {
+  YELLOW_ACTIONS[action] = { assignTo: ['kristina', 'andrew'] };
+}
 
 /**
  * Red actions — both founders required.

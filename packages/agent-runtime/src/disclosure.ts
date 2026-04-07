@@ -11,6 +11,14 @@ import { isGlyphorInternalEmail } from './config/emailSignatures.js';
 const DISCLOSURE_HTML_MARKER = '<!-- GLYPHOR_DISCLOSURE_V1 -->';
 const DISCLOSURE_TEXT_MARKER = '[GLYPHOR_DISCLOSURE_V1]';
 
+const CALENDAR_EXTERNAL_COMMITMENT_TOOL_NAMES = [
+  'create_calendar_event',
+  'evaluate_calendar_mcp_founder_create_event',
+  'CreateEvent',
+  'mcp_CalendarTools.CreateEvent',
+  'mcp_CalendarTools/CreateEvent',
+] as const;
+
 export const DEFAULT_DISCLOSURE_EMAIL_SIGNATURE_TEMPLATE =
   "This message was composed by {{agent_name}} ({{agent_role}}), an AI assistant operating on behalf of {{company_name}} using Glyphor's Autonomous Development Teams platform.";
 
@@ -71,7 +79,7 @@ export const DEFAULT_EXTERNAL_COMMITMENT_RULES: ExternalCommitmentRule[] = [
   },
   {
     id: 'external_meeting',
-    toolNames: ['create_calendar_event'],
+    toolNames: [...CALENDAR_EXTERNAL_COMMITMENT_TOOL_NAMES],
     match: ({ params }) => getEmailRecipients(params).some((email) => !isGlyphorInternalEmail(email)),
   },
   {

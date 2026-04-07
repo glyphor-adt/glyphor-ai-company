@@ -15,6 +15,7 @@ import {
   postTextToChannel,
   type M365Operation,
 } from '@glyphor/integrations';
+import { createCalendarMcpProofTools } from '../shared/calendarMcpProofTools.js';
 
 function getTeamsClient(): GraphTeamsClient {
   return GraphTeamsClient.fromEnv();
@@ -324,6 +325,19 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
         }
       },
     },
+
+    ...createCalendarMcpProofTools({
+      defaultAgentRole: 'm365-admin',
+      recordActivity: async (summary) => {
+        await memory.appendActivity({
+          agentRole: 'm365-admin',
+          action: 'alert',
+          product: 'company',
+          summary,
+          createdAt: new Date().toISOString(),
+        });
+      },
+    }),
 
     {
       name: 'list_calendar_events',

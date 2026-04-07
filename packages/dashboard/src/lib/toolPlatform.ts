@@ -93,7 +93,7 @@ const TOOL_PLATFORM_MAP: Record<string, ToolPlatform> = {
   upload_to_sharepoint: 'm365', search_sharepoint: 'm365', read_sharepoint_document: 'm365',
   list_users: 'm365', get_user: 'm365',
   list_channels: 'm365', list_channel_members: 'm365', add_channel_member: 'm365', create_channel: 'm365', post_to_channel: 'm365',
-  create_calendar_event: 'm365', list_calendar_events: 'm365',
+  create_calendar_event: 'm365', evaluate_calendar_mcp_founder_create_event: 'm365', list_calendar_events: 'm365',
   list_licenses: 'm365', list_groups: 'm365', list_group_members: 'm365',
   list_app_registrations: 'm365', list_sharepoint_sites: 'm365', get_sharepoint_site_permissions: 'm365',
   write_admin_log: 'm365', check_my_access: 'm365',

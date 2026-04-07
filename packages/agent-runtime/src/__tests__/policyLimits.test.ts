@@ -501,6 +501,37 @@ describe('checkToolPolicy()', () => {
     cache.destroy();
   });
 
+  it('maps evaluate_calendar_mcp_founder_create_event to can_create_calendar_events (fail-closed)', async () => {
+    const cache = await cacheWith([]);
+
+    const result = checkToolPolicy(cache, 'evaluate_calendar_mcp_founder_create_event', CMO);
+    expect(result).not.toBeNull();
+    expect(result!.allowed).toBe(false);
+    expect(result!.policyKey).toBe('can_create_calendar_events');
+    cache.destroy();
+  });
+
+  it('maps Calendar MCP CreateEvent aliases to can_create_calendar_events (fail-closed)', async () => {
+    const cache = await cacheWith([]);
+
+    const createEvent = checkToolPolicy(cache, 'CreateEvent', CMO);
+    const qualifiedDot = checkToolPolicy(cache, 'mcp_CalendarTools.CreateEvent', CMO);
+    const qualifiedSlash = checkToolPolicy(cache, 'mcp_CalendarTools/CreateEvent', CMO);
+
+    expect(createEvent).not.toBeNull();
+    expect(createEvent!.allowed).toBe(false);
+    expect(createEvent!.policyKey).toBe('can_create_calendar_events');
+
+    expect(qualifiedDot).not.toBeNull();
+    expect(qualifiedDot!.allowed).toBe(false);
+    expect(qualifiedDot!.policyKey).toBe('can_create_calendar_events');
+
+    expect(qualifiedSlash).not.toBeNull();
+    expect(qualifiedSlash!.allowed).toBe(false);
+    expect(qualifiedSlash!.policyKey).toBe('can_create_calendar_events');
+    cache.destroy();
+  });
+
   it('maps internal Teams channel tools to can_post_internal_teams_channels (fail-closed)', async () => {
     const cache = await cacheWith([]);
 

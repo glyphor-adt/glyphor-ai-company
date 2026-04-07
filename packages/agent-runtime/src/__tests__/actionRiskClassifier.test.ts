@@ -14,6 +14,10 @@ describe('classifyActionRisk (shared)', () => {
 
   it('classifies calendar writes as HARD_GATE', () => {
     expect(classifyActionRisk('create_calendar_event').level).toBe('HARD_GATE');
+    expect(classifyActionRisk('evaluate_calendar_mcp_founder_create_event').level).toBe('HARD_GATE');
+    expect(classifyActionRisk('CreateEvent').level).toBe('HARD_GATE');
+    expect(classifyActionRisk('mcp_CalendarTools.CreateEvent').level).toBe('HARD_GATE');
+    expect(classifyActionRisk('mcp_CalendarTools/CreateEvent').level).toBe('HARD_GATE');
   });
 
   it('classifies destructive or deploy tools as HARD_GATE', () => {

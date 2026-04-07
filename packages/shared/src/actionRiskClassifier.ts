@@ -49,6 +49,14 @@ const SOFT_GATE_PREFIXES = [
   'post_', 'send_', 'announce_', 'notify_', 'publish_', 'share_', 'compose_', 'create_note_', 'invoke_web_',
 ];
 
+const CALENDAR_HARD_GATE_EXACT = [
+  'create_calendar_event',
+  'evaluate_calendar_mcp_founder_create_event',
+  'createevent',
+  'mcp_calendartools.createevent',
+  'mcp_calendartools/createevent',
+] as const;
+
 const HARD_GATE_EXACT = new Set([
   'create_or_update_file',
   'create_branch',
@@ -58,7 +66,7 @@ const HARD_GATE_EXACT = new Set([
   'github_merge_pull_request',
   'create_github_issue',
   'apply_patch_call',
-  'create_calendar_event',
+  ...CALENDAR_HARD_GATE_EXACT,
 ]);
 
 const HARD_GATE_PREFIXES = [

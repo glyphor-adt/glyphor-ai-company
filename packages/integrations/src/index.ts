@@ -88,10 +88,18 @@ export {
 
 // Calendar (Graph API events)
 export {
+  FounderCalendarMcpWrapper,
   GraphCalendarClient,
   type CreateEventOptions,
   type CreatedEvent,
   type CalendarAttendee,
+  type FounderCalendarMcpWrapperMode,
+  type FounderCalendarMcpTargetMode,
+  type FounderCalendarMcpCreateOptions,
+  type FounderCalendarMcpCancelOptions,
+  type FounderCalendarMcpDeleteOptions,
+  type FounderCalendarMcpGetOptions,
+  type FounderCalendarMcpResult,
 } from './teams/calendar.js';
 
 // Calendar Webhooks (Graph change notifications for auto-join)
@@ -337,11 +345,16 @@ export {
 
 // Agent 365 MCP Bridge — Microsoft Agent 365 governed MCP tool servers
 export {
+  AGENT365_CALENDAR_SERVER_NAME,
+  createAgent365ConfigFromEnv,
   createAgent365Tools,
   createAgent365ToolsFromManifest,
   getAgenticGraphToken,
+  invokeAgent365Tool,
+  withAgent365Tool,
   type Agent365Config,
   type Agent365ToolBridge,
+  type InvokeAgent365ToolOptions,
 } from './agent365/index.js';
 
 export { A365TeamsChatClient } from './agent365/teamsChatClient.js';

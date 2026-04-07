@@ -545,6 +545,10 @@ const CROSS_AGENT_VERIFICATION_TOOLS = new Set([
   'send_dm',
   'send_teams_dm',
   'create_calendar_event',
+  'evaluate_calendar_mcp_founder_create_event',
+  'CreateEvent',
+  'mcp_CalendarTools.CreateEvent',
+  'mcp_CalendarTools/CreateEvent',
   'revoke_tool_access',
 ]);
 

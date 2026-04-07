@@ -38,6 +38,7 @@ import {
   parseInitiativeProposalPayload,
   type InitiativeDirectiveDraft,
 } from '../shared/initiativeTools.js';
+import { createCalendarMcpProofTools } from '../shared/calendarMcpProofTools.js';
 import {
   normalizeAssigneeRole,
   resolveActiveAssigneeBatch,
@@ -1544,6 +1545,19 @@ export function createChiefOfStaffTools(
         return { success: true, data: { eventId: event.id, webLink: event.webLink, onlineMeetingUrl: event.onlineMeetingUrl } };
       },
     },
+
+    ...createCalendarMcpProofTools({
+      defaultAgentRole: 'chief-of-staff',
+      recordActivity: async (summary) => {
+        await memory.appendActivity({
+          agentRole: 'chief-of-staff',
+          action: 'alert',
+          product: 'company',
+          summary,
+          createdAt: new Date().toISOString(),
+        });
+      },
+    }),
   ];
 }
 

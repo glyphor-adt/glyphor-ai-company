@@ -27,6 +27,8 @@ import type { AuthConfiguration } from '@microsoft/agents-hosting';
 import type { MCPServerConfig, McpClientTool } from '@microsoft/agents-a365-tooling';
 import {
   appendGlyphorEmailSignature,
+  getAgentBlueprintSpId,
+  getAgentEntraUserId,
   isGlyphorInternalEmail,
   type ToolDefinition,
   type ToolParameter,
@@ -63,6 +65,16 @@ export interface Agent365ToolBridge {
   /** Close all active MCP client connections */
   close(): Promise<void>;
 }
+
+export interface InvokeAgent365ToolOptions {
+  config: Agent365Config;
+  serverName: string;
+  toolName: string;
+  arguments?: Record<string, unknown>;
+  agentRole?: string;
+}
+
+export const AGENT365_CALENDAR_SERVER_NAME = 'mcp_CalendarTools' as const;
 
 interface ActiveMcpConnection {
   serverName: string;
@@ -448,6 +460,15 @@ async function acquireToken(config: Agent365Config): Promise<string> {
   return token;
 }
 
+function findToolDefinition(
+  tools: ToolDefinition[],
+  toolName: string,
+): ToolDefinition | null {
+  return tools.find((tool) => tool.name === toolName)
+    ?? tools.find((tool) => tool.name.toLowerCase() === toolName.toLowerCase())
+    ?? null;
+}
+
 async function discoverServerConfigs(
   configService: McpToolServerConfigurationService,
   clientId: string,
@@ -785,6 +806,71 @@ export async function createAgent365ToolsFromManifest(
 
 export type { MCPServerConfig, McpClientTool };
 
+export function createAgent365ConfigFromEnv(agentRole?: string): Agent365Config | null {
+  if (process.env.AGENT365_ENABLED !== 'true') return null;
+
+  const clientId = process.env.AGENT365_CLIENT_ID;
+  const clientSecret = process.env.AGENT365_CLIENT_SECRET ?? '';
+  const tenantId = process.env.AGENT365_TENANT_ID;
+  if (!clientId || !tenantId) return null;
+
+  const agentAppInstanceId = agentRole
+    ? getAgentBlueprintSpId(agentRole) ?? process.env.AGENT365_APP_INSTANCE_ID
+    : process.env.AGENT365_APP_INSTANCE_ID;
+  const agenticUserId = agentRole
+    ? getAgentEntraUserId(agentRole) ?? process.env.AGENT365_AGENTIC_USER_ID
+    : process.env.AGENT365_AGENTIC_USER_ID;
+
+  if (!agentAppInstanceId || !agenticUserId) return null;
+
+  return {
+    clientId,
+    clientSecret,
+    tenantId,
+    agenticAppId: process.env.AGENT365_BLUEPRINT_ID,
+    agentAppInstanceId,
+    agenticUserId,
+  };
+}
+
+export async function withAgent365Tool<T>(
+  options: Omit<InvokeAgent365ToolOptions, 'arguments'>,
+  handler: (tool: ToolDefinition) => Promise<T>,
+): Promise<T> {
+  const bridge = await createAgent365Tools(options.config, [options.serverName]);
+  try {
+    const tool = findToolDefinition(bridge.tools, options.toolName);
+    if (!tool) {
+      const available = bridge.tools.map((entry) => entry.name).sort().join(', ');
+      throw new Error(
+        `Agent365 tool "${options.toolName}" not found on ${options.serverName}. `
+        + `Available tools: ${available || 'none'}`,
+      );
+    }
+    return await handler(tool);
+  } finally {
+    await bridge.close();
+  }
+}
+
+export async function invokeAgent365Tool(
+  options: InvokeAgent365ToolOptions,
+): Promise<{ data: unknown; tool: ToolDefinition }> {
+  return withAgent365Tool(options, async (tool) => {
+    const result = await tool.execute(
+      options.arguments ?? {},
+      { agentRole: options.agentRole } as ToolContext,
+    );
+    if (!result.success) {
+      throw new Error(result.error ?? `Agent365 tool ${tool.name} failed.`);
+    }
+    return {
+      data: result.data,
+      tool,
+    };
+  });
+}
+
 /**
  * Acquire a Microsoft Graph token attributed to a specific agentic user.
  *
@@ -797,36 +883,22 @@ export type { MCPServerConfig, McpClientTool };
  * Returns null if Agent365 is not enabled or the agent has no identity configured.
  */
 export async function getAgenticGraphToken(agentRole: string): Promise<string | null> {
-  if (process.env.AGENT365_ENABLED !== 'true') return null;
-
-  const clientId = process.env.AGENT365_CLIENT_ID;
-  const clientSecret = process.env.AGENT365_CLIENT_SECRET ?? '';
-  const tenantId = process.env.AGENT365_TENANT_ID;
-  if (!clientId || !tenantId) return null;
-
-  // Import lazily to avoid circular deps — these come from @glyphor/agent-runtime
-  const { getAgentBlueprintSpId, getAgentEntraUserId } = await import('@glyphor/agent-runtime');
-
-  const agentAppInstanceId = getAgentBlueprintSpId(agentRole)
-    ?? process.env.AGENT365_APP_INSTANCE_ID;
-  const agenticUserId = getAgentEntraUserId(agentRole)
-    ?? process.env.AGENT365_AGENTIC_USER_ID;
-
-  if (!agentAppInstanceId || !agenticUserId) return null;
+  const config = createAgent365ConfigFromEnv(agentRole);
+  if (!config) return null;
 
   if (!tokenProvider) {
     tokenProvider = new MsalTokenProvider({
-      clientId,
-      clientSecret,
-      tenantId,
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      tenantId: config.tenantId,
     } as AuthConfiguration);
   }
 
   try {
     const token = await tokenProvider.getAgenticUserToken(
-      tenantId,
-      agentAppInstanceId,
-      agenticUserId,
+      config.tenantId,
+      config.agentAppInstanceId!,
+      config.agenticUserId!,
       ['https://graph.microsoft.com/.default'],
     );
     return token;
