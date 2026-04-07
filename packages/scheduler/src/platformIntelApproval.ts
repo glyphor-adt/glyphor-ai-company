@@ -104,8 +104,8 @@ async function executeApprovedAction(action: PlatformIntelAction): Promise<void>
       const toolsToRemove = Array.isArray(payload.tools_to_remove) ? payload.tools_to_remove : [];
       for (const tool of toolsToAdd) {
         await systemQuery(
-          `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, last_synced_at)
-           VALUES ($1, $2, 'platform-intel', NOW()) ON CONFLICT DO NOTHING`,
+          `INSERT INTO agent_tool_grants (tenant_id, agent_role, tool_name, granted_by, last_synced_at)
+           VALUES (COALESCE(NULLIF(current_setting('app.current_tenant', true), '')::uuid, '00000000-0000-0000-0000-000000000000'::uuid), $1, $2, 'platform-intel', NOW()) ON CONFLICT DO NOTHING`,
           [targetRole, tool],
         );
       }
@@ -124,8 +124,8 @@ async function executeApprovedAction(action: PlatformIntelAction): Promise<void>
       const toolName = payload.tool_name as string;
       if (!toolName) throw new Error('Missing tool_name in payload');
       await systemQuery(
-        `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
-         VALUES ($1, $2, 'platform-intel', $3, NOW())
+        `INSERT INTO agent_tool_grants (tenant_id, agent_role, tool_name, granted_by, reason, last_synced_at)
+         VALUES (COALESCE(NULLIF(current_setting('app.current_tenant', true), '')::uuid, '00000000-0000-0000-0000-000000000000'::uuid), $1, $2, 'platform-intel', $3, NOW())
          ON CONFLICT (agent_role, tool_name) DO UPDATE
            SET is_active = true, granted_by = 'platform-intel', reason = EXCLUDED.reason, last_synced_at = NOW(), updated_at = NOW()`,
         [targetRole, toolName, payload.reason ?? 'Approved via Nexus approval card'],

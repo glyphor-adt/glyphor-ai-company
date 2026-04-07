@@ -633,8 +633,8 @@ export function createPlatformIntelTools(): ToolDefinition[] {
 
           // Tool exists — grant it to the agent.
           await systemQuery(
-            `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
-             VALUES ($1, $2, $3, $4, NOW())
+            `INSERT INTO agent_tool_grants (tenant_id, agent_role, tool_name, granted_by, reason, last_synced_at)
+             VALUES (COALESCE(NULLIF(current_setting('app.current_tenant', true), '')::uuid, '00000000-0000-0000-0000-000000000000'::uuid), $1, $2, $3, $4, NOW())
              ON CONFLICT (agent_role, tool_name) DO UPDATE
                SET is_active = true, is_blocked = false, granted_by = EXCLUDED.granted_by, reason = EXCLUDED.reason, last_synced_at = NOW(), updated_at = NOW()`,
             [
@@ -1161,8 +1161,8 @@ export function createPlatformIntelTools(): ToolDefinition[] {
         }
 
         await systemQuery(
-          `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
-           VALUES ($1, $2, $3, $4, NOW())
+          `INSERT INTO agent_tool_grants (tenant_id, agent_role, tool_name, granted_by, reason, last_synced_at)
+           VALUES (COALESCE(NULLIF(current_setting('app.current_tenant', true), '')::uuid, '00000000-0000-0000-0000-000000000000'::uuid), $1, $2, $3, $4, NOW())
            ON CONFLICT (agent_role, tool_name) DO UPDATE
              SET is_active = true, granted_by = EXCLUDED.granted_by, reason = EXCLUDED.reason, last_synced_at = NOW(), updated_at = NOW()`,
           [agentRole, toolName, 'platform-intel', reason],
@@ -1223,8 +1223,8 @@ export function createPlatformIntelTools(): ToolDefinition[] {
         const reason = params.reason as string;
 
         await systemQuery(
-          `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, is_blocked, last_synced_at)
-           VALUES ($1, $2, $3, $4, true, NOW())
+          `INSERT INTO agent_tool_grants (tenant_id, agent_role, tool_name, granted_by, reason, is_blocked, last_synced_at)
+           VALUES (COALESCE(NULLIF(current_setting('app.current_tenant', true), '')::uuid, '00000000-0000-0000-0000-000000000000'::uuid), $1, $2, $3, $4, true, NOW())
            ON CONFLICT (agent_role, tool_name) DO UPDATE
              SET is_blocked = true, reason = EXCLUDED.reason, last_synced_at = NOW(), updated_at = NOW()`,
           [agentRole, toolName, 'platform-intel', reason],

@@ -392,15 +392,49 @@ export async function appendRuntimeEvent(input: RuntimeEventInput): Promise<{ se
      FROM next_seq
      RETURNING stream_seq`;
 
-  let rows: Array<{ stream_seq: number }>;
-  try {
-    rows = await systemQuery<{ stream_seq: number }>(insertEvent, baseParams);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!/null value in column "seq" of relation "run_events" violates not-null constraint/i.test(message)) {
+  const resolveSessionRunIdForLegacyFk = async (): Promise<string> => {
+    try {
+      const rows = await systemQuery<{ run_id: string | null; latest_run_id: string | null }>(
+        `SELECT run_id, latest_run_id
+           FROM run_sessions
+          WHERE id = $1
+          LIMIT 1`,
+        [input.sessionId],
+      );
+      const runId = rows[0]?.run_id ?? rows[0]?.latest_run_id ?? null;
+      if (typeof runId === 'string' && runId.trim().length > 0) {
+        return runId.trim();
+      }
+      return input.runId;
+    } catch {
+      return input.runId;
+    }
+  };
+
+  const insertWithSchemaFallbacks = async (params: unknown[]): Promise<Array<{ stream_seq: number }>> => {
+    try {
+      return await systemQuery<{ stream_seq: number }>(insertEvent, params);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/null value in column "seq" of relation "run_events" violates not-null constraint/i.test(message)) {
+        return systemQuery<{ stream_seq: number }>(insertEventWithLegacySeq, params);
+      }
       throw error;
     }
-    rows = await systemQuery<{ stream_seq: number }>(insertEventWithLegacySeq, baseParams);
+  };
+
+  let rows: Array<{ stream_seq: number }>;
+  try {
+    rows = await insertWithSchemaFallbacks(baseParams);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/run_events_run_id_fkey/i.test(message)) {
+      throw error;
+    }
+    const legacyRunId = await resolveSessionRunIdForLegacyFk();
+    const legacyParams = [...baseParams];
+    legacyParams[2] = legacyRunId;
+    rows = await insertWithSchemaFallbacks(legacyParams);
   }
 
   await systemQuery(
