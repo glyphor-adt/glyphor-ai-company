@@ -13,7 +13,7 @@ steps:
         PROJECT=ai-glyphor-company
 
         get_env() {
-          gcloud run services describe "$1" --region="$REGION" --project="$PROJECT" \
+          gcloud run services describe "$$1" --region="$$REGION" --project="$$PROJECT" \
             --format="json(spec.template.spec.containers[0].env)" 2>/dev/null \
             | python3 -c "
         import sys,json
@@ -22,47 +22,47 @@ steps:
         "
         }
 
-        SCHED_ENV=$(get_env glyphor-scheduler)
-        WORKER_ENV=$(get_env glyphor-worker)
+        SCHED_ENV=$$(get_env glyphor-scheduler)
+        WORKER_ENV=$$(get_env glyphor-worker)
         ERRORS=0
 
         check() {
-          local label="$1" val="$2"
-          if [ -z "$val" ] || [ "$val" = "None" ]; then
-            echo "  ✗ MISSING: $label" >&2
-            ERRORS=$((ERRORS+1))
+          local label="$$1" val="$$2"
+          if [ -z "$$val" ] || [ "$$val" = "None" ]; then
+            echo "  ✗ MISSING: $$label" >&2
+            ERRORS=$$((ERRORS+1))
           else
-            echo "  ✓ $label: $val"
+            echo "  ✓ $$label: $$val"
           fi
         }
 
         echo "--- Scheduler ---"
-        check "WORKER_URL"          "$(echo "$SCHED_ENV" | grep ^WORKER_URL= | cut -d= -f2-)"
-        check "WORKER_SHARED_SECRET" "$(echo "$SCHED_ENV" | grep ^WORKER_SHARED_SECRET= | cut -d= -f2-)"
+        check "WORKER_URL"          "$$(echo "$$SCHED_ENV" | grep ^WORKER_URL= | cut -d= -f2-)"
+        check "WORKER_SHARED_SECRET" "$$(echo "$$SCHED_ENV" | grep ^WORKER_SHARED_SECRET= | cut -d= -f2-)"
 
         echo "--- Worker ---"
-        check "WORKER_SHARED_SECRET"          "$(echo "$WORKER_ENV" | grep ^WORKER_SHARED_SECRET= | cut -d= -f2-)"
-        check "WORKER_OIDC_SERVICE_ACCOUNT_EMAIL" "$(echo "$WORKER_ENV" | grep ^WORKER_OIDC_SERVICE_ACCOUNT_EMAIL= | cut -d= -f2-)"
-        check "VERCEL_API_TOKEN"               "$(echo "$WORKER_ENV" | grep ^VERCEL_API_TOKEN= | cut -d= -f2-)"
-        check "VERCEL_TEAM_ID"                 "$(echo "$WORKER_ENV" | grep ^VERCEL_TEAM_ID= | cut -d= -f2-)"
+        check "WORKER_SHARED_SECRET"          "$$(echo "$$WORKER_ENV" | grep ^WORKER_SHARED_SECRET= | cut -d= -f2-)"
+        check "WORKER_OIDC_SERVICE_ACCOUNT_EMAIL" "$$(echo "$$WORKER_ENV" | grep ^WORKER_OIDC_SERVICE_ACCOUNT_EMAIL= | cut -d= -f2-)"
+        check "VERCEL_API_TOKEN"               "$$(echo "$$WORKER_ENV" | grep ^VERCEL_API_TOKEN= | cut -d= -f2-)"
+        check "VERCEL_TEAM_ID"                 "$$(echo "$$WORKER_ENV" | grep ^VERCEL_TEAM_ID= | cut -d= -f2-)"
 
         echo "--- IAM: glyphor-agent-runner run.invoker on worker ---"
-        INVOKER=$(gcloud run services get-iam-policy glyphor-worker --region="$REGION" --project="$PROJECT" \
+        INVOKER=$$(gcloud run services get-iam-policy glyphor-worker --region="$$REGION" --project="$$PROJECT" \
           --format=json 2>/dev/null | python3 -c "
         import sys,json
         p=json.load(sys.stdin)
         members=[m for b in p.get('bindings',[]) if b.get('role')=='roles/run.invoker' for m in b.get('members',[])]
         print(' '.join(members))
         ")
-        if echo "$INVOKER" | grep -q "glyphor-agent-runner"; then
-          echo "  ✓ run.invoker: $INVOKER"
+        if echo "$$INVOKER" | grep -q "glyphor-agent-runner"; then
+          echo "  ✓ run.invoker: $$INVOKER"
         else
           echo "  ✗ MISSING: glyphor-agent-runner not in run.invoker binding" >&2
-          ERRORS=$((ERRORS+1))
+          ERRORS=$$((ERRORS+1))
         fi
 
-        echo "=== Validation complete: $ERRORS error(s) ==="
-        exit $ERRORS
+        echo "=== Validation complete: $$ERRORS error(s) ==="
+        exit $$ERRORS
 images:
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/scheduler:latest'
 options:
