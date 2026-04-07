@@ -931,16 +931,18 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             }))
           : undefined;
 
-        if (!isMentioned) {
+        const useStreamingRuntime = true;
+        if (useStreamingRuntime) {
           const streamId = createStreamId();
           primaryStreamId = streamId;
-          const conversationId = buildConversationId(primaryUserAlias, targetRole);
+          const conversationId = buildConversationId(primaryUserAlias, role);
           if (selectedRoleRef.current === targetRole) {
             setMessages((prev) => [...prev, {
               role: 'agent',
               content: '',
               timestamp: new Date(),
               streamId,
+              agentRole: isMentioned ? role : undefined,
             }]);
           }
 

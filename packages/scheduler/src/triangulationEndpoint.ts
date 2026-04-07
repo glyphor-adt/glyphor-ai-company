@@ -10,8 +10,33 @@ import { systemQuery } from '@glyphor/shared/db';
 import { buildGitHubRepoContext, searchWeb, searchResultsToContext } from '@glyphor/integrations';
 import mammoth from 'mammoth';
 
+const DEFAULT_DASHBOARD_ORIGIN = (process.env.DASHBOARD_URL?.trim() || 'https://dashboard.glyphor.com').replace(/\/$/, '');
+const ORA_TRUSTED_ORIGINS = new Set<string>(
+  [
+    ...((process.env.CORS_ALLOWED_ORIGINS ?? '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0)),
+    process.env.DASHBOARD_URL?.trim(),
+    DEFAULT_DASHBOARD_ORIGIN,
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+  ].filter((origin): origin is string => Boolean(origin && origin.length > 0))
+    .map((origin) => origin.replace(/\/$/, '')),
+);
+
 function sendSSE(res: ServerResponse, event: Record<string, unknown>) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
+}
+
+function resolveOraCorsOrigin(req: IncomingMessage): string {
+  const rawOrigin = req.headers.origin;
+  const origin = (Array.isArray(rawOrigin) ? rawOrigin[0] : rawOrigin)?.trim();
+  if (!origin) return DEFAULT_DASHBOARD_ORIGIN;
+  const normalized = origin.replace(/\/$/, '');
+  return ORA_TRUSTED_ORIGINS.has(normalized) ? normalized : DEFAULT_DASHBOARD_ORIGIN;
 }
 
 /** Convert a .docx base64 attachment to a plain-text attachment the models can read. */
@@ -60,11 +85,13 @@ export async function handleTriangulatedChat(
     redisCache?: RedisCache;
   },
 ): Promise<void> {
+  const corsOrigin = resolveOraCorsOrigin(req);
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': corsOrigin,
+    'Vary': 'Origin',
   });
 
   try {
@@ -222,7 +249,20 @@ export async function handleTriangulatedChat(
       await systemQuery(
         `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, session_id, metadata, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-        ['ora', 'agent', response.text ?? '', userId ?? null, convId, effectiveSessionId, JSON.stringify({ mode: 'single-model', modelRun })],
+        [
+          'ora',
+          'agent',
+          response.text ?? '',
+          userId ?? null,
+          convId,
+          effectiveSessionId,
+          JSON.stringify({
+            mode: 'single-model',
+            modelRun,
+            runtimeBoundary: 'ora-legacy-isolated',
+            runtimeSpine: false,
+          }),
+        ],
       );
 
       await systemQuery(
@@ -294,7 +334,21 @@ export async function handleTriangulatedChat(
     await systemQuery(
       `INSERT INTO chat_messages (agent_role, role, content, user_id, conversation_id, session_id, metadata, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-      ['ora', 'agent', result.selectedResponse, userId ?? null, convId, effectiveSessionId, JSON.stringify({ ...result, reasoningLevel: effectiveReasoningLevel ?? 'standard', deepResearch: deepResearchEnabled })],
+      [
+        'ora',
+        'agent',
+        result.selectedResponse,
+        userId ?? null,
+        convId,
+        effectiveSessionId,
+        JSON.stringify({
+          ...result,
+          reasoningLevel: effectiveReasoningLevel ?? 'standard',
+          deepResearch: deepResearchEnabled,
+          runtimeBoundary: 'ora-legacy-isolated',
+          runtimeSpine: false,
+        }),
+      ],
     );
 
     // Log to agent_runs

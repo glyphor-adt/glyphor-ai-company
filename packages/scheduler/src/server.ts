@@ -2207,6 +2207,50 @@ function truncateForLog(value: unknown, max = 900): string {
   return text.length > max ? `${text.slice(0, max - 1)}...` : text;
 }
 
+function mapWorkerRouteResultToExecutionResult(
+  agentRole: CompanyAgentRole,
+  routeResult: Awaited<ReturnType<typeof executeWorkerAgentRun>>,
+): AgentExecutionResult {
+  const normalizedStatus: AgentExecutionResult['status'] =
+    routeResult.status === 'aborted'
+      ? 'aborted'
+      : routeResult.status === 'failed' || routeResult.action === 'rejected'
+        ? 'error'
+        : 'completed';
+
+  let normalizedOutput: string | null = null;
+  if (typeof routeResult.output === 'string') {
+    normalizedOutput = routeResult.output;
+  } else if (routeResult.output != null) {
+    try {
+      normalizedOutput = JSON.stringify(routeResult.output);
+    } catch {
+      normalizedOutput = String(routeResult.output);
+    }
+  }
+
+  return {
+    agentId: agentRole,
+    role: agentRole,
+    status: normalizedStatus,
+    output: normalizedOutput,
+    resultSummary: routeResult.reason,
+    totalTurns: 0,
+    totalFilesWritten: 0,
+    totalMemoryKeysWritten: 0,
+    elapsedMs: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    thinkingTokens: 0,
+    cachedInputTokens: 0,
+    cost: 0,
+    error: routeResult.error ?? undefined,
+    actions: routeResult.actions,
+    dashboardChatEmbeds: routeResult.dashboardChatEmbeds,
+    conversationHistory: [],
+  };
+}
+
 function isTransientFailure(message: string): boolean {
   const normalized = message.toLowerCase();
   return /timeout|timed out|429|rate limit|quota|temporar|econnreset|enotfound|socket|503|overloaded|try again/.test(normalized);
@@ -2340,7 +2384,22 @@ const trackedAgentExecutor = async (
 
   try {
     const runId = await runIdPromise;
-    const result = await agentExecutor(agentRole, task, runId ? { ...payload, runId } : payload);
+    const workerResult = await executeWorkerAgentRun({
+      runId: runId ?? requestedRunId ?? crypto.randomUUID(),
+      agentRole,
+      task,
+      payload,
+      message: typeof payload.message === 'string' ? payload.message : undefined,
+      conversationHistory: Array.isArray(payload.conversationHistory)
+        ? payload.conversationHistory as ConversationTurn[]
+        : undefined,
+      attachments: Array.isArray(payload.attachments)
+        ? payload.attachments as ConversationAttachment[]
+        : undefined,
+      assignmentId: typeof payload.assignmentId === 'string' ? payload.assignmentId : undefined,
+      directiveId: typeof payload.directiveId === 'string' ? payload.directiveId : undefined,
+    });
+    const result = mapWorkerRouteResultToExecutionResult(agentRole, workerResult);
     const durationMs = Date.now() - startMs;
 
     // Count tool calls from conversation history

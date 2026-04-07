@@ -357,11 +357,11 @@ export default function Workforce() {
           <div className="mx-auto h-px w-full bg-border" />
 
           {/* Department columns with heads + sub-teams */}
-          <div className={`mt-4 grid grid-cols-1 ${density === 'compact' ? 'gap-4' : 'gap-5'} sm:grid-cols-2 xl:grid-cols-3`}>
+          <div className={`mt-4 grid grid-cols-1 items-start ${density === 'compact' ? 'gap-4' : 'gap-5'} sm:grid-cols-2 xl:grid-cols-3`}>
             {departmentHeads.map((dept) => {
                 const members = orgAgents.filter((m) => resolveManagerRole(m) === dept.role && m.role !== dept.role && !deptHeadRoles.has(m.role));
               return (
-                <div key={dept.label} className={`rounded-xl border border-border bg-surface ${density === 'compact' ? 'p-3' : 'p-4'}`}>
+                <div key={dept.label} className={`self-start rounded-xl border border-border bg-surface ${density === 'compact' ? 'p-3' : 'p-4'}`}>
                   <div className={`flex flex-col items-center ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'}`}>
                     <span className="text-[10px] font-medium uppercase tracking-widest text-txt-faint">
                       {dept.label}
