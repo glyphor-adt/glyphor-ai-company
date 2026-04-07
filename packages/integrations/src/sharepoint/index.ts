@@ -1374,13 +1374,22 @@ async function resolveUploadTarget(
   const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
-  // Try agent-attributed token first (idtyp=user → shows agent name in SharePoint).
-  // Falls back to app-only token (shows "SharePoint App") if Agent365 is unavailable.
+  // Prefer agent-attributed token (idtyp=user → shows agent name in SharePoint).
+  // App-only fallback is explicit opt-in because it collapses the agent boundary.
   const agentRole = options?.agentRole;
   const agenticToken = agentRole ? await getAgenticGraphToken(agentRole) : null;
+  const allowAppOnlyFallback = process.env.ALLOW_APP_ONLY_SHAREPOINT_UPLOAD_FALLBACK === 'true';
+  if (!agenticToken && agentRole && !allowAppOnlyFallback) {
+    throw new Error(
+      `SharePoint upload requires Agent365 identity for ${agentRole}. ` +
+      'Set ALLOW_APP_ONLY_SHAREPOINT_UPLOAD_FALLBACK=true only as a temporary exception.',
+    );
+  }
   const token = agenticToken ?? await getM365Token('write_sharepoint');
   if (agenticToken) {
     console.log(`[SharePoint] Using agentic user token for ${agentRole}`);
+  } else if (agentRole) {
+    console.warn(`[SharePoint] Falling back to app-only token for ${agentRole} due to explicit override`);
   }
   const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
 

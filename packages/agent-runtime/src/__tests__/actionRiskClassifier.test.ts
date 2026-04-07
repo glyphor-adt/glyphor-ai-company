@@ -12,6 +12,10 @@ describe('classifyActionRisk (shared)', () => {
     expect(classifyActionRisk('post_to_slack').level).toBe('SOFT_GATE');
   });
 
+  it('classifies calendar writes as HARD_GATE', () => {
+    expect(classifyActionRisk('create_calendar_event').level).toBe('HARD_GATE');
+  });
+
   it('classifies destructive or deploy tools as HARD_GATE', () => {
     expect(classifyActionRisk('delete_branch').level).toBe('HARD_GATE');
     expect(classifyActionRisk('deploy_production').level).toBe('HARD_GATE');

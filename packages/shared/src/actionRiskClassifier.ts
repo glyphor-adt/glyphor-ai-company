@@ -41,7 +41,6 @@ const SOFT_GATE_EXACT = new Set([
   'send_email',
   'send_teams_message',
   'send_message',
-  'create_calendar_event',
   'schedule_meeting',
   'publish_content',
 ]);
@@ -59,6 +58,7 @@ const HARD_GATE_EXACT = new Set([
   'github_merge_pull_request',
   'create_github_issue',
   'apply_patch_call',
+  'create_calendar_event',
 ]);
 
 const HARD_GATE_PREFIXES = [

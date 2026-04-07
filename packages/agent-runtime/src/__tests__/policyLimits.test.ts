@@ -307,10 +307,14 @@ describe('FAIL_CLOSED_POLICIES', () => {
   it('contains exactly the expected security-sensitive policies', () => {
     expect(FAIL_CLOSED_POLICIES).toContain('can_deploy_production');
     expect(FAIL_CLOSED_POLICIES).toContain('can_send_external_email');
+    expect(FAIL_CLOSED_POLICIES).toContain('can_post_internal_teams_channels');
+    expect(FAIL_CLOSED_POLICIES).toContain('can_write_customer_teams');
+    expect(FAIL_CLOSED_POLICIES).toContain('can_write_sharepoint');
+    expect(FAIL_CLOSED_POLICIES).toContain('can_create_calendar_events');
     expect(FAIL_CLOSED_POLICIES).toContain('can_modify_billing');
     expect(FAIL_CLOSED_POLICIES).toContain('can_delete_data');
     expect(FAIL_CLOSED_POLICIES).toContain('can_access_secrets');
-    expect(FAIL_CLOSED_POLICIES.size).toBe(5);
+    expect(FAIL_CLOSED_POLICIES.size).toBe(9);
   });
 });
 
@@ -464,6 +468,36 @@ describe('checkToolPolicy()', () => {
 
     const result = checkToolPolicy(cache, 'send_email', CMO);
     expect(result!.allowed).toBe(true);
+    cache.destroy();
+  });
+
+  it('maps post_to_customer_teams to can_write_customer_teams (fail-closed)', async () => {
+    const cache = await cacheWith([]);
+
+    const result = checkToolPolicy(cache, 'post_to_customer_teams', CMO);
+    expect(result).not.toBeNull();
+    expect(result!.allowed).toBe(false);
+    expect(result!.policyKey).toBe('can_write_customer_teams');
+    cache.destroy();
+  });
+
+  it('maps upload_to_sharepoint to can_write_sharepoint (fail-closed)', async () => {
+    const cache = await cacheWith([]);
+
+    const result = checkToolPolicy(cache, 'upload_to_sharepoint', CTO);
+    expect(result).not.toBeNull();
+    expect(result!.allowed).toBe(false);
+    expect(result!.policyKey).toBe('can_write_sharepoint');
+    cache.destroy();
+  });
+
+  it('maps create_calendar_event to can_create_calendar_events (fail-closed)', async () => {
+    const cache = await cacheWith([]);
+
+    const result = checkToolPolicy(cache, 'create_calendar_event', CMO);
+    expect(result).not.toBeNull();
+    expect(result!.allowed).toBe(false);
+    expect(result!.policyKey).toBe('can_create_calendar_events');
     cache.destroy();
   });
 

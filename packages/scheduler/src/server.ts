@@ -24,7 +24,7 @@ import {
   WorkflowOrchestrator,
 } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { assertWorkAssignmentDispatchAllowed, getTierModel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
@@ -1694,28 +1694,69 @@ async function handleTeamsInstallEvent(context: TurnContext): Promise<void> {
   // Extract teamId from channelData if available (Teams group conversations)
   const channelData = activity.channelData as { team?: { id?: string }; tenant?: { id?: string } } | undefined;
   const teamsTeamId = channelData?.team?.id ?? null;
+  const workspaceKey = canonicalTeamsWorkspaceKey(teamsTenantId, teamsTeamId);
+  const verifiedBinding = await resolveVerifiedTeamsTenantBinding(teamsTenantId, teamsTeamId);
+  const bindingStatus = verifiedBinding ? 'verified' : 'pending';
+  const proof = buildTeamsInstallProof({
+    teamsTenantId,
+    teamsTeamId,
+    installerAadId,
+    serviceUrl,
+    conversationId,
+    source: 'conversation_update',
+  });
 
   console.log(`[Teams Onboarding] Bot installed: tenant=${teamsTenantId} team=${teamsTeamId ?? 'personal'} installer=${installerAadId ?? 'unknown'}`);
 
   // Upsert customer_tenants row
-  const rows = await systemQuery<{ id: string; settings: Record<string, unknown> }>(
+  const rows = await systemQuery<{ id: string; settings: Record<string, unknown>; teams_binding_status: string | null }>(
     `INSERT INTO customer_tenants
        (tenant_id, teams_tenant_id, teams_team_id, teams_installer_aad_id,
-        teams_service_url, teams_conversation_id, platform, status, installed_by)
-     VALUES (
-       (SELECT id FROM tenants LIMIT 1),
-       $1, $2, $3, $4, $5, 'teams', 'active', 'teams_install'
-     )
-     ON CONFLICT (teams_tenant_id, teams_team_id)
-       WHERE teams_tenant_id IS NOT NULL
-     DO UPDATE
-       SET teams_installer_aad_id = COALESCE(EXCLUDED.teams_installer_aad_id, customer_tenants.teams_installer_aad_id),
-           teams_service_url      = COALESCE(EXCLUDED.teams_service_url, customer_tenants.teams_service_url),
-           teams_conversation_id  = COALESCE(EXCLUDED.teams_conversation_id, customer_tenants.teams_conversation_id),
-           status                 = 'active',
-           updated_at             = NOW()
-     RETURNING id, settings`,
-    [teamsTenantId, teamsTeamId, installerAadId, serviceUrl, conversationId],
+        teams_service_url, teams_conversation_id, teams_binding_status,
+        teams_binding_verified_at, teams_binding_workspace_key, teams_binding_proof,
+        platform, status, installed_by)
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7,
+        CASE WHEN $7 = 'verified' THEN NOW() ELSE NULL END,
+        $8, $9::jsonb, 'teams', 'active', 'teams_install'
+      )
+      ON CONFLICT (teams_tenant_id, teams_team_id)
+        WHERE teams_tenant_id IS NOT NULL
+      DO UPDATE
+        SET tenant_id               = CASE
+                                        WHEN EXCLUDED.teams_binding_status = 'verified'
+                                          THEN EXCLUDED.tenant_id
+                                        ELSE customer_tenants.tenant_id
+                                      END,
+            teams_installer_aad_id = COALESCE(EXCLUDED.teams_installer_aad_id, customer_tenants.teams_installer_aad_id),
+            teams_service_url      = COALESCE(EXCLUDED.teams_service_url, customer_tenants.teams_service_url),
+            teams_conversation_id  = COALESCE(EXCLUDED.teams_conversation_id, customer_tenants.teams_conversation_id),
+            teams_binding_status   = CASE
+                                        WHEN EXCLUDED.teams_binding_status = 'verified'
+                                          THEN 'verified'
+                                        ELSE COALESCE(customer_tenants.teams_binding_status, EXCLUDED.teams_binding_status)
+                                      END,
+            teams_binding_verified_at = CASE
+                                          WHEN EXCLUDED.teams_binding_status = 'verified'
+                                            THEN COALESCE(customer_tenants.teams_binding_verified_at, NOW())
+                                          ELSE customer_tenants.teams_binding_verified_at
+                                        END,
+            teams_binding_workspace_key = COALESCE(EXCLUDED.teams_binding_workspace_key, customer_tenants.teams_binding_workspace_key),
+            teams_binding_proof    = COALESCE(customer_tenants.teams_binding_proof, '{}'::jsonb) || EXCLUDED.teams_binding_proof,
+            status                 = 'active',
+            updated_at             = NOW()
+      RETURNING id, settings, teams_binding_status`,
+    [
+      verifiedBinding?.tenantId ?? DEFAULT_SYSTEM_TENANT_ID,
+      teamsTenantId,
+      teamsTeamId,
+      installerAadId,
+      serviceUrl,
+      conversationId,
+      bindingStatus,
+      verifiedBinding?.workspaceKey ?? workspaceKey,
+      JSON.stringify(proof),
+    ],
   );
 
   const customerTenant = rows[0];
@@ -1726,13 +1767,22 @@ async function handleTeamsInstallEvent(context: TurnContext): Promise<void> {
 
   // If onboarding is already complete, send a welcome-back message
   if (customerTenant.settings?.['onboarding_complete']) {
-    await context.sendActivity('Welcome back! Glyphor is reconnected to this workspace.');
+    await context.sendActivity(
+      customerTenant.teams_binding_status === 'verified'
+        ? 'Welcome back! Glyphor is reconnected to this workspace.'
+        : 'Glyphor is reconnected to this Teams workspace, but tenant verification is still pending. Customer-facing Teams delivery stays disabled until the workspace is linked in Glyphor.',
+    );
     return;
   }
 
   // Start the onboarding questionnaire
   await context.sendActivity(
-    "Hi \u2014 I'm Maya, your CMO. Before I get started, I have a few quick questions " +
+    (customerTenant.teams_binding_status === 'verified'
+      ? "Hi \u2014 I'm Maya, your CMO. Before I get started, I have a few quick questions "
+      : "Hi \u2014 I'm Maya, your CMO. I recorded this Teams install, but tenant verification is still pending. "
+        + 'Customer-facing Teams delivery will stay disabled until this workspace is linked in Glyphor.\n\n'
+        + 'I can still capture onboarding details while that binding is completed.\n\n'
+        + 'Before I get started, I have a few quick questions ') +
     'so I can tailor everything to your business.\n\n' +
     "What's your product or service? Give me 2-3 sentences.",
   );

@@ -1,8 +1,10 @@
 import { CloudTasksClient } from '@google-cloud/tasks';
+import { GoogleAuth } from 'google-auth-library';
 import type { CompanyAgentRole, ConversationAttachment, ConversationTurn } from '@glyphor/agent-runtime';
 import type { RouteResult } from './eventRouter.js';
 
 const client = new CloudTasksClient();
+const googleAuth = new GoogleAuth();
 const PROJECT = process.env.GCP_PROJECT_ID || 'ai-glyphor-company';
 const LOCATION = process.env.GCP_REGION || 'us-central1';
 const WORKER_URL = process.env.WORKER_URL?.replace(/\/$/, '');
@@ -58,17 +60,20 @@ export async function executeWorkerDeepDiveExecution(task: DeepDiveExecutionTask
     headers['x-worker-shared-secret'] = WORKER_SHARED_SECRET;
   }
 
-  const response = await fetch(`${WORKER_URL}/run`, {
+  const idTokenClient = await googleAuth.getIdTokenClient(WORKER_URL);
+  const response = await idTokenClient.request<unknown>({
+    url: `${WORKER_URL}/run`,
     method: 'POST',
     headers,
-    body: JSON.stringify({
+    data: {
       taskType: 'deep_dive_execute',
       metadata: task,
-    }),
+    },
+    validateStatus: () => true,
   });
 
-  if (!response.ok) {
-    const text = await response.text();
+  if ((response.status ?? 500) >= 400) {
+    const text = typeof response.data === 'string' ? response.data : JSON.stringify(response.data ?? {});
     throw new Error(`Worker deep dive dispatch failed (${response.status}): ${text.slice(0, 500)}`);
   }
 }
@@ -99,20 +104,23 @@ export async function executeWorkerAgentRun(
     headers['x-worker-shared-secret'] = WORKER_SHARED_SECRET;
   }
 
-  const response = await fetch(`${WORKER_URL}/run`, {
+  const idTokenClient = await googleAuth.getIdTokenClient(WORKER_URL);
+  const response = await idTokenClient.request<RouteResult>({
+    url: `${WORKER_URL}/run`,
     method: 'POST',
     headers,
-    body: JSON.stringify({
+    data: {
       taskType: 'agent_execute',
       metadata: payload,
-    }),
+    },
+    validateStatus: () => true,
   });
 
-  if (!response.ok) {
-    const text = await response.text();
+  if ((response.status ?? 500) >= 400) {
+    const text = typeof response.data === 'string' ? response.data : JSON.stringify(response.data ?? {});
     throw new Error(`Worker execution dispatch failed (${response.status}): ${text.slice(0, 500)}`);
   }
 
-  const result = await response.json() as RouteResult;
+  const result = response.data as RouteResult;
   return result;
 }

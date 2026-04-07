@@ -64,6 +64,17 @@ export {
   type ChatSubscription,
 } from './teams/chatSubscription.js';
 
+export {
+  DEFAULT_SYSTEM_TENANT_ID,
+  buildTeamsInstallProof,
+  buildTeamsWorkspaceKeys,
+  canonicalTeamsWorkspaceKey,
+  isSystemTenantId,
+  resolveVerifiedTeamsTenantBinding,
+  type TeamsInstallProofInput,
+  type TeamsTenantBindingResolution,
+} from './teams/tenantBinding.js';
+
 // Email (Graph API sendMail / readInbox / reply)
 export {
   GraphEmailClient,
