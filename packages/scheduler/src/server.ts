@@ -4972,8 +4972,24 @@ const server = createServer(async (req, res) => {
         json(res, 200, { success: true, deleted: true });
       } else {
         // Soft-delete (retire)
-        await systemQuery('UPDATE company_agents SET status=$1, updated_at=$2 WHERE id=$3', ['retired', new Date().toISOString(), agentId]);
-        await systemQuery('UPDATE agent_schedules SET enabled=$1 WHERE agent_id=$2', [false, agentId]);
+        const [agentRow] = await systemQuery<{ id: string; role: string }>(
+          'SELECT id::text AS id, role FROM company_agents WHERE id::text=$1 OR role=$1 LIMIT 1',
+          [agentId],
+        );
+        if (!agentRow) {
+          json(res, 404, { error: 'Agent not found' });
+          return;
+        }
+
+        const nowIso = new Date().toISOString();
+        await systemQuery(
+          'UPDATE company_agents SET status=$1, updated_at=$2 WHERE id::text=$3 OR role=$3',
+          ['retired', nowIso, agentId],
+        );
+        await systemQuery(
+          'UPDATE agent_schedules SET enabled=$1 WHERE agent_id=$2 OR agent_id=$3',
+          [false, agentRow.id, agentRow.role],
+        );
         json(res, 200, { success: true });
       }
       return;

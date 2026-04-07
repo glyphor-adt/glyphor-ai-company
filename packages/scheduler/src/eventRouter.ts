@@ -11,6 +11,7 @@ import type {
   GlyphorEvent,
 } from '@glyphor/agent-runtime';
 import { GlyphorEventBus, getSubscribers } from '@glyphor/agent-runtime';
+import { systemQuery } from '@glyphor/shared/db';
 import { checkAuthority } from './authorityGates.js';
 import { DecisionQueue } from './decisionQueue.js';
 
@@ -86,6 +87,33 @@ export class EventRouter {
     console.log(
       `[EventRouter] ${ts} Routing ${event.source}/${event.agentRole}/${event.task}`,
     );
+
+    // Block scheduler and external wake paths for inactive/retired/deleted agents.
+    // Agent-to-agent events are left unchanged to avoid interrupting internal handoffs.
+    if (event.source !== 'agent') {
+      const [agent] = await systemQuery<{ status: string }>(
+        'SELECT status FROM company_agents WHERE role = $1 LIMIT 1',
+        [event.agentRole],
+      );
+      if (!agent) {
+        return {
+          routed: false,
+          action: 'rejected',
+          agentRole: event.agentRole,
+          task: event.task,
+          reason: `Agent role not found: ${event.agentRole}`,
+        };
+      }
+      if (agent.status !== 'active') {
+        return {
+          routed: false,
+          action: 'rejected',
+          agentRole: event.agentRole,
+          task: event.task,
+          reason: `Agent ${event.agentRole} is ${agent.status}`,
+        };
+      }
+    }
 
     // Check authority for this action
     const auth = checkAuthority(event.agentRole, event.task);

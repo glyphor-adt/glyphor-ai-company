@@ -361,7 +361,7 @@ async function runE2BBuild(
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mod = await import('e2b') as any;
-    SandboxClass = mod.default ?? mod.Sandbox;
+    SandboxClass = mod.Sandbox ?? mod.default?.Sandbox ?? mod.default;
     if (!SandboxClass?.create) throw new Error('E2B Sandbox.create not found');
   } catch (err) {
     return {

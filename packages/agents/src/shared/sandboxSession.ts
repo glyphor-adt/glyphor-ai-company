@@ -131,7 +131,7 @@ async function createE2BSandbox(signal?: AbortSignal): Promise<E2BSandbox> {
   // Dynamic import to avoid breaking cold starts when e2b isn't installed
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mod = await import('e2b') as any;
-  const SandboxClass = mod.default ?? mod.Sandbox;
+  const SandboxClass = mod.Sandbox ?? mod.default?.Sandbox ?? mod.default;
   if (!SandboxClass?.create) {
     throw new Error('E2B Sandbox.create not found — ensure e2b package is installed');
   }
