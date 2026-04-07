@@ -978,7 +978,9 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             if (eventId) lastEventId = eventId;
 
             if (eventType === 'run_started') {
-              const runStartedMessage = `Working with ${DISPLAY_NAME_MAP[targetRole] ?? targetRole}...`;
+              const runStartedMessage = typeof payload.message === 'string' && payload.message.trim().length > 0
+                ? payload.message
+                : `Delegating to ${DISPLAY_NAME_MAP[targetRole] ?? targetRole}...`;
               streamContent = runStartedMessage;
               if (selectedRoleRef.current === targetRole) {
                 setMessages((prev) => prev.map((m) => m.streamId === streamId ? { ...m, content: runStartedMessage } : m));

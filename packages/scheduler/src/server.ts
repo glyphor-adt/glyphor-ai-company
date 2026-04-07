@@ -4074,9 +4074,10 @@ const server = createServer(async (req, res) => {
         },
       });
       let lastEventId: string | null = null;
-      const emitAndRecord = async (
+      const recordRuntimeEvent = async (
         event: Record<string, unknown>,
         eventType: Parameters<typeof appendRuntimeEvent>[0]['eventType'],
+        toolName?: string | null,
       ) => {
         const persisted = await appendRuntimeEvent({
           sessionId,
@@ -4085,27 +4086,29 @@ const server = createServer(async (req, res) => {
           eventType,
           status: typeof event.status === 'string' ? event.status : null,
           actorRole: normalized.agentRole,
+          toolName: toolName ?? null,
           payload: event,
           parentEventId: lastEventId,
         });
         lastEventId = persisted.eventId;
+        return persisted;
+      };
+      const emitAndRecord = async (
+        event: Record<string, unknown>,
+        eventType: Parameters<typeof appendRuntimeEvent>[0]['eventType'],
+      ) => {
+        const persisted = await recordRuntimeEvent(event, eventType);
         sendSseEvent(res, { ...event, seq: persisted.seq, event_id: persisted.eventId });
       };
 
-      await appendRuntimeEvent({
-        sessionId,
-        attemptId: attempt.id,
+      await recordRuntimeEvent({
+        type: 'run_created',
         runId: normalized.runId,
-        eventType: 'run_created',
+        conversationId: normalized.conversationId,
+        task: normalized.task,
+        attemptNumber: attempt.attemptNumber,
         status: 'created',
-        actorRole: normalized.agentRole,
-        payload: {
-          runId: normalized.runId,
-          conversationId: normalized.conversationId,
-          task: normalized.task,
-          attemptNumber: attempt.attemptNumber,
-        },
-      });
+      }, 'run_created');
 
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -4121,19 +4124,14 @@ const server = createServer(async (req, res) => {
 
       try {
         await markRuntimeAttemptRunning({ attemptId: attempt.id });
-        await appendRuntimeEvent({
-          sessionId,
-          attemptId: attempt.id,
+        await recordRuntimeEvent({
+          type: 'turn_started',
           runId: normalized.runId,
-          eventType: 'turn_started',
+          conversationId: normalized.conversationId,
+          stream: true,
+          persistTranscript: normalized.persistTranscript,
           status: 'running',
-          actorRole: normalized.agentRole,
-          payload: {
-            conversationId: normalized.conversationId,
-            stream: true,
-            persistTranscript: normalized.persistTranscript,
-          },
-        });
+        }, 'turn_started');
 
         if (normalized.persistTranscript) {
           await persistDashboardChatMessage({
@@ -4153,14 +4151,17 @@ const server = createServer(async (req, res) => {
           runId: normalized.runId,
           agentRole: normalized.agentRole,
           conversationId: normalized.conversationId,
+          status: 'running',
+          phase: 'delegation',
+          message: `Delegating to ${normalized.agentRole}...`,
         }, 'run_started');
 
         await emitAndRecord({
           type: 'status',
           runId: normalized.runId,
-          phase: 'running',
+          phase: 'delegation',
           status: 'running',
-          message: `Working with ${normalized.agentRole}...`,
+          message: `Delegating to ${normalized.agentRole}...`,
         }, 'status');
 
         const result = await executeWorkerAgentRun({
@@ -4175,31 +4176,21 @@ const server = createServer(async (req, res) => {
 
         if (Array.isArray(result.actions)) {
           for (const action of result.actions) {
-            await appendRuntimeEvent({
-              sessionId,
-              attemptId: attempt.id,
+            await recordRuntimeEvent({
+              type: 'tool_called',
               runId: normalized.runId,
-              eventType: 'tool_called',
+              tool: action.tool,
+              params: action.params,
               status: 'running',
-              actorRole: normalized.agentRole,
-              toolName: action.tool,
-              payload: {
-                tool: action.tool,
-                params: action.params,
-              },
-              parentEventId: lastEventId,
-            });
-            await appendRuntimeEvent({
-              sessionId,
-              attemptId: attempt.id,
+              phase: 'execution',
+            }, 'tool_called', action.tool);
+            await recordRuntimeEvent({
+              ...action,
+              type: 'tool_completed',
               runId: normalized.runId,
-              eventType: 'tool_completed',
               status: action.result === 'success' ? 'completed' : 'failed',
-              actorRole: normalized.agentRole,
-              toolName: action.tool,
-              payload: action,
-              parentEventId: lastEventId,
-            });
+              phase: action.result === 'success' ? 'execution' : 'failure',
+            }, 'tool_completed', action.tool);
             await emitAndRecord({
               type: 'action_receipt',
               runId: normalized.runId,
@@ -4236,18 +4227,21 @@ const server = createServer(async (req, res) => {
         }
 
         if (result.action === 'queued_for_approval') {
-          await appendRuntimeEvent({
-            sessionId,
-            attemptId: attempt.id,
+          await recordRuntimeEvent({
+            type: 'approval_requested',
             runId: normalized.runId,
-            eventType: 'approval_requested',
+            reason: result.reason,
             status: 'queued_for_approval',
-            actorRole: normalized.agentRole,
-            payload: {
-              reason: result.reason,
-            },
-            parentEventId: lastEventId,
-          });
+            phase: 'approval',
+            message: 'Approval required before this run can continue.',
+          }, 'approval_requested');
+          await emitAndRecord({
+            type: 'status',
+            runId: normalized.runId,
+            status: 'queued_for_approval',
+            phase: 'approval',
+            message: 'Approval required before this run can continue.',
+          }, 'status');
         }
 
         await emitAndRecord({
@@ -4258,18 +4252,25 @@ const server = createServer(async (req, res) => {
           conversationId: normalized.conversationId,
         }, 'result');
 
-        await appendRuntimeEvent({
-          sessionId,
-          attemptId: attempt.id,
+        await emitAndRecord({
+          type: 'status',
           runId: normalized.runId,
-          eventType: 'run_completed',
+          status: result.error ? 'failed' : (result.action === 'queued_for_approval' ? 'queued_for_approval' : 'completed'),
+          phase: result.error ? 'failure' : (result.action === 'queued_for_approval' ? 'approval' : 'completion'),
+          message: result.error
+            ? 'Run failed. Review details and retry if needed.'
+            : (result.action === 'queued_for_approval'
+              ? 'Awaiting approval.'
+              : 'Run completed successfully.'),
+        }, 'status');
+
+        await recordRuntimeEvent({
+          type: 'run_completed',
+          runId: normalized.runId,
+          hasError: Boolean(result.error),
           status: result.error ? 'failed' : 'completed',
-          actorRole: normalized.agentRole,
-          payload: {
-            hasError: Boolean(result.error),
-          },
-          parentEventId: lastEventId,
-        });
+          phase: result.error ? 'failure' : 'completion',
+        }, 'run_completed');
         await markRuntimeAttemptTerminal({
           attemptId: attempt.id,
           status: result.error ? 'failed' : result.action === 'queued_for_approval' ? 'queued_for_approval' : 'completed',
@@ -4286,21 +4287,28 @@ const server = createServer(async (req, res) => {
         });
       } catch (err) {
         const messageText = err instanceof Error ? err.message : String(err);
+        const retryHint = /\bretry\b/i.test(messageText)
+          ? 'Retry is in progress. We will update this stream when it completes.'
+          : null;
+        await emitAndRecord({
+          type: 'status',
+          runId: normalized.runId,
+          status: 'failed',
+          phase: retryHint ? 'retry' : 'failure',
+          message: retryHint ?? 'Run failed. Review details and retry if needed.',
+        }, 'status');
         await emitAndRecord({
           type: 'error',
           runId: normalized.runId,
           error: messageText,
-        }, 'run_failed');
-        await appendRuntimeEvent({
-          sessionId,
-          attemptId: attempt.id,
+        }, 'status');
+        await recordRuntimeEvent({
+          type: 'run_failed',
           runId: normalized.runId,
-          eventType: 'run_failed',
+          error: messageText,
           status: 'failed',
-          actorRole: normalized.agentRole,
-          payload: { error: messageText },
-          parentEventId: lastEventId,
-        });
+          phase: 'failure',
+        }, 'run_failed');
         await markRuntimeAttemptTerminal({
           attemptId: attempt.id,
           status: 'failed',
