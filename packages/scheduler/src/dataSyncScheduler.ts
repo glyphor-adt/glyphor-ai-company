@@ -19,7 +19,8 @@ const googleAuth = new GoogleAuth();
 const SCHEDULER_SELF_URL = (
   process.env.SCHEDULER_OIDC_AUDIENCE ??
   process.env.SCHEDULER_SERVICE_URL ??
-  process.env.SCHEDULER_URL
+  process.env.SCHEDULER_URL ??
+  process.env.PUBLIC_URL
 )?.replace(/\/$/, '');
 
 // Inline cron matcher (same logic as DynamicScheduler)
