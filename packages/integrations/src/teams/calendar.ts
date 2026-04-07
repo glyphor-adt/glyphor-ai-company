@@ -28,6 +28,7 @@ export interface CreateEventOptions {
   userId: string;
   agentRole?: string;
   approvalId?: string;
+  approvalReference?: string;
   tenantId?: string;
   workspaceKey?: string;
   toolName?: string;
@@ -78,6 +79,12 @@ export class GraphCalendarClient {
       throw new Error(
         `Calendar writes are only allowed for explicitly configured owners. ` +
         `Add ${options.userId} to ALLOWED_CALENDAR_OWNER_IDS only if this write path is approved.`,
+      );
+    }
+    if (!options.approvalReference?.trim()) {
+      throw new Error(
+        'Calendar writes require an explicit approval_reference because this path is still an app-only exception. ' +
+        'Provide the founder approval artifact or directive ID that authorized the write.',
       );
     }
 
@@ -137,6 +144,8 @@ export class GraphCalendarClient {
           fallbackUsed: true,
           targetType: 'calendar',
           targetId: options.userId,
+          approvalReference: options.approvalReference,
+          limitation: 'founder-calendar-write-still-app-only',
           responseCode: response.status,
           responseSummary: text.slice(0, 500),
         });
@@ -162,6 +171,8 @@ export class GraphCalendarClient {
         fallbackUsed: true,
         targetType: 'calendar',
         targetId: options.userId,
+        approvalReference: options.approvalReference,
+        limitation: 'founder-calendar-write-still-app-only',
         responseCode: response.status,
         responseSummary: 'created',
       });
@@ -188,6 +199,8 @@ export class GraphCalendarClient {
         fallbackUsed: true,
         targetType: 'calendar',
         targetId: options.userId,
+        approvalReference: options.approvalReference,
+        limitation: 'founder-calendar-write-still-app-only',
         responseCode: 500,
         responseSummary: (error as Error).message.slice(0, 500),
       });

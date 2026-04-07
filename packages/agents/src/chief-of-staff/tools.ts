@@ -1446,7 +1446,7 @@ export function createChiefOfStaffTools(
 
     {
       name: 'create_calendar_event',
-      description: 'Create a calendar event on a founder\'s calendar. Always YELLOW — requires founder approval.',
+      description: 'Create a calendar event on a founder\'s calendar. This remains an app-only exception path and always requires explicit founder approval.',
       parameters: {
         founder: {
           type: 'string',
@@ -1490,6 +1490,11 @@ export function createChiefOfStaffTools(
           description: 'Create as Teams meeting with join link (default: false)',
           required: false,
         },
+        approval_reference: {
+          type: 'string',
+          description: 'Required approval artifact for this app-only calendar exception (e.g. founder directive ID, approval row ID).',
+          required: true,
+        },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         if (!calendarClient) {
@@ -1517,6 +1522,7 @@ export function createChiefOfStaffTools(
         const event = await calendarClient.createEvent({
           userId: contact.userId,
           agentRole: ctx.agentRole,
+          approvalReference: params.approval_reference as string,
           toolName: 'create_calendar_event',
           subject: params.subject as string,
           start: params.start as string,

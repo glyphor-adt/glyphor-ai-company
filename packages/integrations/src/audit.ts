@@ -30,6 +30,8 @@ export interface MicrosoftWriteAuditContext {
   fallbackUsed?: boolean;
   targetType?: string;
   targetId?: string;
+  approvalReference?: string | null;
+  limitation?: string | null;
   responseCode?: number;
   responseSummary?: string;
 }
@@ -94,6 +96,8 @@ export async function logMicrosoftWriteAudit(
         fallbackUsed: ctx.fallbackUsed ?? false,
         targetType: ctx.targetType ?? null,
         targetId: ctx.targetId ?? null,
+        approvalReference: ctx.approvalReference ?? null,
+        limitation: ctx.limitation ?? null,
       },
     },
     ctx.responseCode,

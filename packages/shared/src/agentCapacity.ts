@@ -327,6 +327,12 @@ export async function getAgentCapacityConfig(agentId: string): Promise<AgentCapa
     `SELECT id, agent_id, capacity_tier, requires_human_approval_for, override_by_roles, updated_at, updated_by, metadata
      FROM agent_capacity_config
      WHERE agent_id = $1
+        OR agent_id = (
+          SELECT role
+          FROM company_agents
+          WHERE role = $1 OR id::text = $1
+          LIMIT 1
+        )
      LIMIT 1`,
     [agentId],
   );
@@ -335,6 +341,15 @@ export async function getAgentCapacityConfig(agentId: string): Promise<AgentCapa
 }
 
 export async function upsertAgentCapacityConfig(agentId: string, input: UpsertAgentCapacityInput): Promise<AgentCapacityConfig> {
+  const [agent] = await systemQuery<{ role: string }>(
+    `SELECT role
+     FROM company_agents
+     WHERE role = $1 OR id::text = $1
+     LIMIT 1`,
+    [agentId],
+  );
+  const canonicalAgentId = agent?.role ?? agentId;
+
   const rows = await systemQuery<CapacityConfigRecord>(
     `INSERT INTO agent_capacity_config (
        agent_id,
@@ -355,7 +370,7 @@ export async function upsertAgentCapacityConfig(agentId: string, input: UpsertAg
        metadata = COALESCE(agent_capacity_config.metadata, '{}'::jsonb) || EXCLUDED.metadata
      RETURNING id, agent_id, capacity_tier, requires_human_approval_for, override_by_roles, updated_at, updated_by, metadata`,
     [
-      agentId,
+      canonicalAgentId,
       input.capacityTier,
       JSON.stringify(input.requiresHumanApprovalFor ?? []),
       JSON.stringify(input.overrideByRoles ?? []),
@@ -535,7 +550,14 @@ export async function listCommitments(filters: CommitmentListFilters = {}): Prom
 
   if (filters.agentId) {
     values.push(filters.agentId);
-    conditions.push(`agent_id = $${values.length}`);
+    conditions.push(`(
+      agent_id = $${values.length}
+      OR agent_id IN (
+        SELECT role
+        FROM company_agents
+        WHERE role = $${values.length} OR id::text = $${values.length}
+      )
+    )`);
   }
   if (filters.status) {
     values.push(filters.status);

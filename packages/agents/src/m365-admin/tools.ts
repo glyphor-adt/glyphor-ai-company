@@ -281,7 +281,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
 
     {
       name: 'create_calendar_event',
-      description: 'Create a calendar event on a user\'s calendar. Requires the user\'s Entra Object ID.',
+      description: 'Create a calendar event on an explicitly allowed calendar owner. This remains an app-only exception path and requires a recorded approval reference.',
       parameters: {
         user_id: { type: 'string', description: 'Entra Object ID of the calendar owner', required: true },
         title: { type: 'string', description: 'Event title', required: true },
@@ -291,6 +291,11 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
         description: { type: 'string', description: 'Event description / agenda', required: false },
         location: { type: 'string', description: 'Location or Teams link', required: false },
         is_online: { type: 'boolean', description: 'Create as Teams online meeting (default: true)', required: false },
+        approval_reference: {
+          type: 'string',
+          description: 'Required approval artifact for this app-only calendar exception (e.g. founder directive ID, approval row ID).',
+          required: true,
+        },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
         try {
@@ -303,6 +308,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
           const event = await calClient.createEvent({
             userId: params.user_id as string,
             agentRole: typeof ctx?.agentRole === 'string' ? ctx.agentRole : 'm365-admin',
+            approvalReference: params.approval_reference as string,
             toolName: 'create_calendar_event',
             subject: params.title as string,
             start: params.start as string,

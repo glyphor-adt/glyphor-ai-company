@@ -43,6 +43,7 @@
     "validate:doctrine": "tsx scripts/validate-doctrine-consistency.ts",
     "validate:agent365": "tsx scripts/validate-agent365-setup.ts",
     "validate:agent365:strict": "tsx scripts/validate-agent365-setup.ts --strict-env",
+    "validate:runtime:cloudrun": "tsx scripts/verify-runtime-cloudrun-env.ts",
     "validate:website-pipeline:cloudrun": "tsx scripts/verify-website-pipeline-cloudrun-env.ts",
     "preview-worker:dev": "npx wrangler dev --config workers/preview/wrangler.toml",
     "preview-worker:deploy": "npx wrangler deploy --config workers/preview/wrangler.toml",

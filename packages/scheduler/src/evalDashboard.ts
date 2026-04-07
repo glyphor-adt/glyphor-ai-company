@@ -54,7 +54,10 @@ export async function handleEvalApi(
     // ── GET /api/eval/fleet ──────────────────────────────────
     if (segments[0] === 'fleet' && method === 'GET') {
       const rows = await systemQuery(`
-        WITH eval_scores AS (
+        WITH roster_scope AS (
+          SELECT EXISTS(SELECT 1 FROM company_agents WHERE status = 'active') AS has_active
+        ),
+        eval_scores AS (
           SELECT
             wa.assigned_to AS agent_id,
             AVG(ae.score_normalized) FILTER (WHERE ae.evaluator_type = 'executive' AND ae.evaluated_at > NOW() - INTERVAL '30 days') AS exec_quality,
@@ -109,19 +112,24 @@ export async function handleEvalApi(
           es.team_quality,
           es.cos_quality,
           es.constitutional_score,
-          rs.success_rate,
+          runstat.success_rate,
           COALESCE(fc.open_p0s, 0)  AS open_p0s,
           COALESCE(fc.open_p1s, 0)  AS open_p1s,
           COALESCE(mc.reflection_mutations, 0) AS reflection_mutations,
           COALESCE(mc.promoted_mutations, 0)   AS promoted_mutations,
-          rs.last_run_at
+          runstat.last_run_at
         FROM company_agents a
         LEFT JOIN eval_scores es     ON es.agent_id = a.role
-        LEFT JOIN run_stats rs       ON rs.agent_id = a.role
+        LEFT JOIN run_stats runstat  ON runstat.agent_id = a.role
         LEFT JOIN finding_counts fc  ON fc.agent_id = a.role
         LEFT JOIN prompt_info pi     ON pi.agent_id = a.role
         LEFT JOIN mutation_counts mc ON mc.agent_id = a.role
-        WHERE a.status = 'active'
+        CROSS JOIN roster_scope roster
+        WHERE (
+          (roster.has_active AND a.status = 'active')
+          OR
+          (NOT roster.has_active AND COALESCE(a.status, '') NOT IN ('deleted', 'retired'))
+        )
         ORDER BY a.performance_score ASC NULLS LAST
       `);
       json(res, 200, rows);

@@ -692,6 +692,7 @@ async function apiCallWithTimeout<T = unknown>(path: string, options: RequestIni
 }
 
 const VALID_TABS: GovernanceSurface[] = ['tool-view', 'access-control', 'authority', 'autonomy', 'reliability', 'models'];
+const HIDDEN_AUTHORITY_STATUSES = new Set(['retired', 'inactive', 'deleted']);
 
 export default function Governance() {
   const { user } = useAuth();
@@ -728,16 +729,20 @@ export default function Governance() {
   const [planningGateStage3, setPlanningGateStage3] = useState<PlanningGateStage3Snapshot | null>(null);
 
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
+  const authorityAgents = useMemo(
+    () => agents.filter((agent) => !HIDDEN_AUTHORITY_STATUSES.has(String(agent.status ?? '').toLowerCase())),
+    [agents],
+  );
 
   useEffect(() => {
-    if (agents.length === 0) return;
-    if (selectedAgentId && agents.some((agent) => agent.role === selectedAgentId || agent.id === selectedAgentId)) return;
-    const nextAgent = [...agents]
+    if (authorityAgents.length === 0) return;
+    if (selectedAgentId && authorityAgents.some((agent) => agent.role === selectedAgentId || agent.id === selectedAgentId)) return;
+    const nextAgent = [...authorityAgents]
       .sort((left, right) => (left.display_name || left.name || left.role).localeCompare(right.display_name || right.name || right.role))[0];
     if (nextAgent) {
       setSelectedAgentId(nextAgent.role || nextAgent.id);
     }
-  }, [agents, selectedAgentId]);
+  }, [authorityAgents, selectedAgentId]);
 
   const refresh = useCallback(async (mode: 'initial' | 'refresh' = 'refresh') => {
     if (mode === 'initial') {
@@ -1143,7 +1148,7 @@ export default function Governance() {
         <div id="authority">
           <AuthorityControl
             loading={authorityLoading || agentsLoading}
-            agents={agents}
+            agents={authorityAgents}
             selectedAgentId={selectedAgentId}
             capacityConfig={capacityConfig}
             pendingCommitments={pendingCommitments}

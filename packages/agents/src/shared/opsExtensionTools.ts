@@ -791,8 +791,8 @@ export function createOpsExtensionTools(): ToolDefinition[] {
     {
       name: 'get_platform_audit_log',
       description:
-        'View platform-related actions from the activity log. Filter by platform, ' +
-        'date range, and/or agent role.',
+        'View platform audit records with structured Microsoft write visibility. Filter by platform, ' +
+        'date range, agent role, action, identity type, fallback flag, and outcome.',
       parameters: {
         platform: {
           type: 'string',
@@ -810,45 +810,145 @@ export function createOpsExtensionTools(): ToolDefinition[] {
           description: 'Optional agent role filter',
           required: false,
         },
+        action: {
+          type: 'string',
+          description: 'Optional action filter (for example: teams.channel_post.text, calendar.create_event)',
+          required: false,
+        },
+        identity_type: {
+          type: 'string',
+          description: 'Optional Microsoft identity type filter (agent365, webhook-bot, delegated-graph, app-only-graph)',
+          required: false,
+        },
+        fallback_used: {
+          type: 'boolean',
+          description: 'Optional filter for whether a write used a fallback path',
+          required: false,
+        },
+        outcome: {
+          type: 'string',
+          description: 'Optional outcome filter',
+          enum: ['success', 'failure'],
+          required: false,
+        },
       },
       execute: async (params): Promise<ToolResult> => {
         const platform = params.platform as string | undefined;
         const dateRange = (params.date_range as string) || '30d';
         const agentRole = params.agent_role as string | undefined;
+        const action = params.action as string | undefined;
+        const identityType = params.identity_type as string | undefined;
+        const fallbackUsed = typeof params.fallback_used === 'boolean' ? params.fallback_used : undefined;
+        const outcome = params.outcome as string | undefined;
         const days = dateRange === '7d' ? 7 : dateRange === '90d' ? 90 : 30;
 
         try {
-          let query = `SELECT event_type, agent_role, category, details, created_at
-                       FROM activity_log
-                       WHERE created_at >= NOW() - INTERVAL '${days} days'`;
+          const useMicrosoftView = platform === 'microsoft'
+            || identityType !== undefined
+            || fallbackUsed !== undefined
+            || outcome !== undefined;
+          let query = useMicrosoftView
+            ? `SELECT
+                 timestamp,
+                 agent_role,
+                 action,
+                 resource,
+                 identity_type,
+                 fallback_used,
+                 tenant_id,
+                 workspace_key,
+                 approval_id,
+                 approval_reference,
+                 outcome,
+                 tool_name,
+                 target_type,
+                 target_id,
+                 limitation,
+                 response_code,
+                 response_summary
+               FROM microsoft_write_audit_view
+               WHERE timestamp >= NOW() - INTERVAL '${days} days'`
+            : `SELECT
+                 timestamp,
+                 agent_role,
+                 action,
+                 resource,
+                 NULL::text AS identity_type,
+                 NULL::boolean AS fallback_used,
+                 NULL::text AS tenant_id,
+                 NULL::text AS workspace_key,
+                 NULL::text AS approval_id,
+                 NULL::text AS approval_reference,
+                 NULL::text AS outcome,
+                 NULL::text AS tool_name,
+                 NULL::text AS target_type,
+                 NULL::text AS target_id,
+                 NULL::text AS limitation,
+                 response_code,
+                 response_summary
+               FROM platform_audit_log
+               WHERE timestamp >= NOW() - INTERVAL '${days} days'`;
           const queryParams: unknown[] = [];
           let paramIdx = 1;
 
-          if (platform) {
-            query += ` AND category = $${paramIdx++}`;
+          if (platform && !useMicrosoftView) {
+            query += ` AND platform = $${paramIdx++}`;
             queryParams.push(platform);
           }
           if (agentRole) {
             query += ` AND agent_role = $${paramIdx++}`;
             queryParams.push(agentRole);
           }
+          if (action) {
+            query += ` AND action = $${paramIdx++}`;
+            queryParams.push(action);
+          }
+          if (useMicrosoftView && identityType) {
+            query += ` AND identity_type = $${paramIdx++}`;
+            queryParams.push(identityType);
+          }
+          if (useMicrosoftView && fallbackUsed !== undefined) {
+            query += ` AND fallback_used = $${paramIdx++}`;
+            queryParams.push(fallbackUsed);
+          }
+          if (useMicrosoftView && outcome) {
+            query += ` AND outcome = $${paramIdx++}`;
+            queryParams.push(outcome);
+          }
 
           query += ` ORDER BY created_at DESC LIMIT 100`;
+          query = query.replace(/created_at DESC/, 'timestamp DESC');
 
           const rows = await systemQuery<{
-            event_type: string;
+            timestamp: string;
             agent_role: string;
-            category: string;
-            details: string;
-            created_at: string;
+            action: string;
+            resource: string | null;
+            identity_type: string | null;
+            fallback_used: boolean | null;
+            tenant_id: string | null;
+            workspace_key: string | null;
+            approval_id: string | null;
+            approval_reference: string | null;
+            outcome: string | null;
+            tool_name: string | null;
+            target_type: string | null;
+            target_id: string | null;
+            limitation: string | null;
+            response_code: number | null;
+            response_summary: string | null;
           }>(query, queryParams);
 
           return {
             success: true,
             data: {
               date_range: dateRange,
-              platform: platform ?? 'all',
+              platform: platform ?? (useMicrosoftView ? 'microsoft' : 'all'),
               agent_role: agentRole ?? 'all',
+              action: action ?? 'all',
+              identity_type: identityType ?? 'all',
+              fallback_used: fallbackUsed ?? 'all',
+              outcome: outcome ?? 'all',
               total_entries: rows.length,
               entries: rows,
             },
