@@ -3,6 +3,7 @@ import { getAuth, signInWithEmailAndPassword, type Auth } from 'firebase/auth';
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
+const AUTH_EXPIRED_EVENT = 'glyphor-auth-expired';
 
 const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
 if (apiKey && apiKey !== 'your-firebase-api-key-here') {
@@ -30,6 +31,25 @@ export async function getAuthToken(): Promise<string | null> {
   return user.getIdToken();
 }
 
+function notifyAuthExpired(reason: string): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT, { detail: { reason } }));
+}
+
+function decodeJwtExpSeconds(token: string): number | null {
+  const parts = token.split('.');
+  if (parts.length < 2) return null;
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = `${base64}${'='.repeat((4 - (base64.length % 4)) % 4)}`;
+    const payloadText = atob(padded);
+    const payload = JSON.parse(payloadText) as { exp?: unknown };
+    return typeof payload.exp === 'number' ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
 function getStoredBrowserAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -48,6 +68,12 @@ function getStoredBrowserAuthToken(): string | null {
 
     for (const candidate of candidates) {
       if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        const expSeconds = decodeJwtExpSeconds(candidate);
+        if (typeof expSeconds === 'number' && expSeconds * 1000 <= Date.now()) {
+          window.localStorage.removeItem(BROWSER_AUTH_STORAGE_KEY);
+          notifyAuthExpired('stored-token-expired');
+          return null;
+        }
         return candidate;
       }
     }
@@ -123,10 +149,21 @@ export async function apiCall<T = any>(path: string, options: RequestInit = {}):
     } catch {
       details = '';
     }
+    if (res.status === 401 || res.status === 403) {
+      const message = `${res.status} ${res.statusText} ${details}`.toLowerCase();
+      if (message.includes('bearer token required') || message.includes('unauthorized') || message.includes('token')) {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(BROWSER_AUTH_STORAGE_KEY);
+        }
+        notifyAuthExpired('api-unauthorized');
+      }
+    }
     const suffix = details ? ` — ${details}` : '';
     throw new Error(`API error: ${res.status} ${res.statusText}${suffix}`);
   }
   return res.json();
 }
+
+export { AUTH_EXPIRED_EVENT };
 
 export const SCHEDULER_URL = normalizeSchedulerUrl((import.meta.env.VITE_SCHEDULER_URL as string) ?? API_URL);

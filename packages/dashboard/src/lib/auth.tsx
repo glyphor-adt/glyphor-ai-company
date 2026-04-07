@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 import * as teamsJs from '@microsoft/teams-js';
-import { apiCall } from './firebase';
+import { apiCall, AUTH_EXPIRED_EVENT } from './firebase';
 
 const STORAGE_KEY = 'glyphor-auth';
 const DASHBOARD_MODE_OVERRIDE_KEY = 'glyphor-dashboard-mode-override';
@@ -236,6 +236,16 @@ function TeamsAuthGate({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const handleAuthExpired = () => {
+      localStorage.removeItem(STORAGE_KEY);
+      setUser(null);
+      setError('Session expired. Re-open this tab and sign in again.');
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired as EventListener);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired as EventListener);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function initTeamsSSO() {
@@ -279,19 +289,12 @@ function TeamsAuthGate({ children }: { children: ReactNode }) {
           // SSO token failed — fall back to Teams context
         }
 
-        // Fallback: use Teams context (already authenticated via Teams)
+        // Teams context alone cannot call protected scheduler endpoints.
         const loginHint = context.user?.loginHint ?? '';
-        const displayName = context.user?.displayName ?? loginHint.split('@')[0];
 
         if (loginHint && await isAllowedEmail(loginHint)) {
-          if (!cancelled) {
-            setUser({
-              email: loginHint,
-              name: displayName,
-              picture: '',
-            });
-            setLoading(false);
-          }
+          if (!cancelled) setError('Teams SSO token unavailable. Re-open in Teams or sign in through the web dashboard.');
+          if (!cancelled) setLoading(false);
         } else {
           if (!cancelled) setError(`Access denied for ${loginHint || 'unknown user'}`);
           if (!cancelled) setLoading(false);
@@ -361,6 +364,16 @@ function GoogleAuthGate({ children }: { children: ReactNode }) {
 
   const [error, setError] = useState('');
   const [selectedMode, setSelectedMode] = useState<DashboardMode>(() => getDashboardModeOverride() ?? 'internal');
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      localStorage.removeItem(STORAGE_KEY);
+      setUser(null);
+      setError('Session expired. Please sign in again.');
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired as EventListener);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired as EventListener);
+  }, []);
 
   useEffect(() => {
     setDashboardModeOverrideStorage(selectedMode);

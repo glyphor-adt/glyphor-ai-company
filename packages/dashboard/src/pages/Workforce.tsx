@@ -11,7 +11,7 @@ import {
   timeAgo,
   PageTabs,
 } from '../components/ui';
-import { MdArrowForward } from 'react-icons/md';
+import { MdArrowForward, MdExpandMore } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import AgentsList from './AgentsList';
 
@@ -77,6 +77,7 @@ export default function Workforce() {
   const [dropTargetRole, setDropTargetRole] = useState<string | null>(null);
   const [movingRole, setMovingRole] = useState<string | null>(null);
   const [moveNotice, setMoveNotice] = useState<string>('');
+  const [expandedDepartments, setExpandedDepartments] = useState<Record<string, boolean>>({});
 
   // Keep non-active lifecycle statuses out of the live org hierarchy.
   const orgAgents = agents.filter((a) => !HIDDEN_WORKFORCE_STATUSES.has(String(a.status ?? '').toLowerCase()));
@@ -363,6 +364,8 @@ export default function Workforce() {
                 const membersUseGrid = density !== 'compact' && members.length >= 6;
                 const memberGapClass = density === 'compact' ? 'gap-1.5' : 'gap-2.5';
                 const membersLayoutClass = membersUseGrid ? `grid grid-cols-2 ${memberGapClass}` : `flex flex-col ${memberGapClass}`;
+                    const hasMembers = members.length > 0;
+                    const isExpanded = expandedDepartments[dept.role] ?? false;
               return (
                 <div key={dept.label} className={`self-start rounded-xl border border-border bg-surface ${density === 'compact' ? 'p-3' : 'p-4'}`}>
                   <div className={`flex flex-col items-center ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'}`}>
@@ -381,24 +384,40 @@ export default function Workforce() {
                       onDragOver={handleManagerDragOver(dept.agent.role)}
                       onDrop={handleManagerDrop(dept.agent.role)}
                     />
-                    {members.length > 0 && <div className="h-3 w-px bg-border" />}
-                    <div className={`w-full ${membersLayoutClass}`}>
-                      {members.map((m) => (
-                        <SubTeamNode
-                          key={m.id}
-                          member={m}
-                          compact={density === 'compact'}
-                          draggable
-                          dropEnabled={Boolean(draggingRole)}
-                          isDragging={draggingRole === m.role}
-                          isDropTarget={dropTargetRole === m.role}
-                          onDragStart={handleAgentDragStart(m.role)}
-                          onDragEnd={handleAgentDragEnd}
-                          onDragOver={handleManagerDragOver(m.role)}
-                          onDrop={handleManagerDrop(m.role)}
-                        />
-                      ))}
-                    </div>
+                    {hasMembers && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedDepartments((prev) => ({ ...prev, [dept.role]: !isExpanded }))}
+                          className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-txt-muted hover:text-txt-primary"
+                        >
+                          <span>{members.length} report{members.length === 1 ? '' : 's'}</span>
+                          <MdExpandMore className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isExpanded && (
+                          <>
+                            <div className="h-3 w-px bg-border" />
+                            <div className={`w-full ${membersLayoutClass}`}>
+                              {members.map((m) => (
+                                <SubTeamNode
+                                  key={m.id}
+                                  member={m}
+                                  compact={density === 'compact'}
+                                  draggable
+                                  dropEnabled={Boolean(draggingRole)}
+                                  isDragging={draggingRole === m.role}
+                                  isDropTarget={dropTargetRole === m.role}
+                                  onDragStart={handleAgentDragStart(m.role)}
+                                  onDragEnd={handleAgentDragEnd}
+                                  onDragOver={handleManagerDragOver(m.role)}
+                                  onDrop={handleManagerDrop(m.role)}
+                                />
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               );
