@@ -27,7 +27,7 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { PLATFORM_INTEL_CONFIG } from './config.js';
 
 export interface PlatformIntelRunParams {
-  task?: 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation';
+  task?: 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation' | 'apply_fix_proposal';
   message?: string;
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
@@ -93,6 +93,17 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
 
     case 'watch_tool_gaps':
       initialMessage = params.message ?? 'Run watch_tool_gaps now. Focus only on unresolved fleet_findings where finding_type=\'tool_gap\'. Auto-resolve what is safe, escalate the rest, and return a concise status summary.';
+      break;
+
+    case 'apply_fix_proposal':
+      initialMessage = params.message ?? [
+        'Execute the approved tool fix proposal now.',
+        '1. Call list_tool_fix_proposals(status: "approved") and identify the target proposal from context.',
+        '2. Apply the concrete fix (for code-backed issues use apply_patch_call on a feature branch).',
+        '3. Verify the behavior is fixed.',
+        '4. Call mark_tool_fix_applied with execution_notes including branch/commit/files changed.',
+        'Do not create a new proposal for the same issue in this run.',
+      ].join('\n');
       break;
 
     case 'memory_consolidation':

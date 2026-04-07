@@ -1137,7 +1137,7 @@ const agentExecutor = async (
   // Platform Intelligence
   else if (agentRole === 'platform-intel') {
     return runPlatformIntel({
-      task: (task as 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation'),
+      task: (task as 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation' | 'apply_fix_proposal'),
       message,
       conversationHistory,
     });

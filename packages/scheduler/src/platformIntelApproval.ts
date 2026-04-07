@@ -153,13 +153,14 @@ async function executeApprovedAction(action: PlatformIntelAction): Promise<void>
              VALUES ($1, $2, $3, $4::jsonb, 'pending')`,
             [
               'platform-intel',
-              'on_demand',
+              'apply_fix_proposal',
               `Approved fix proposal ${proposalId} for ${proposal.tool_name}; execute and mark applied`,
               JSON.stringify({
                 task: 'apply_fix_proposal',
                 proposal_id: proposalId,
                 tool_name: proposal.tool_name,
                 affected_agents: proposal.affected_agents,
+                message: `Execute approved tool fix proposal ${proposalId} for ${proposal.tool_name}. After implementation, call mark_tool_fix_applied with execution_notes including files/branch/commit.`,
               }),
             ],
           );

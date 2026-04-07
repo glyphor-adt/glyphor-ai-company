@@ -6,7 +6,21 @@
  * Cloud Scheduler jobs haven't been provisioned yet.
  */
 
+import { GoogleAuth } from 'google-auth-library';
 import { getEnabledSyncJobs } from './cronManager.js';
+
+const googleAuth = new GoogleAuth();
+
+/**
+ * The audience used when requesting OIDC tokens for self-calls to internal routes.
+ * Must be the public Cloud Run URL so the token audience matches what
+ * requireInternalAuth() validates against (SCHEDULER_OIDC_AUDIENCE takes priority).
+ */
+const SCHEDULER_SELF_URL = (
+  process.env.SCHEDULER_OIDC_AUDIENCE ??
+  process.env.SCHEDULER_SERVICE_URL ??
+  process.env.SCHEDULER_URL
+)?.replace(/\/$/, '');
 
 // Inline cron matcher (same logic as DynamicScheduler)
 function cronMatchesNow(expression: string, now: Date): boolean {
@@ -103,9 +117,22 @@ export class DataSyncScheduler {
   private async fireEndpoint(jobId: string, endpoint: string): Promise<void> {
     try {
       console.log(`[DataSyncScheduler] Firing ${jobId} → POST ${endpoint}`);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (SCHEDULER_SELF_URL) {
+        // Obtain an OIDC id-token for the scheduler's own public URL. This satisfies
+        // requireInternalAuth() which validates Bearer tokens on internal-service-only routes.
+        const idTokenClient = await googleAuth.getIdTokenClient(SCHEDULER_SELF_URL);
+        const authHeaders = await idTokenClient.getRequestHeaders();
+        Object.assign(headers, authHeaders);
+      } else {
+        console.warn(
+          '[DataSyncScheduler] No SCHEDULER_OIDC_AUDIENCE / SCHEDULER_SERVICE_URL / SCHEDULER_URL set — ' +
+            'internal self-calls will lack a Bearer token and may receive 401.',
+        );
+      }
       const res = await fetch(`http://localhost:${this.port}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok) {

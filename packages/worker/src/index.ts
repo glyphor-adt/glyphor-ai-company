@@ -291,7 +291,7 @@ async function executeAgentByRole(input: WorkerAgentExecutePayload): Promise<Rou
       result = await runOps({ task: task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene', message, eventPayload: payload, conversationHistory });
     } else if (agentRole === 'platform-intel') {
       result = await runPlatformIntel({
-        task: task as 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation',
+        task: task as 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation' | 'apply_fix_proposal',
         message,
         conversationHistory,
       });
