@@ -357,9 +357,10 @@ export default function Workforce() {
           <div className="mx-auto h-px w-full bg-border" />
 
           {/* Department columns with heads + sub-teams */}
-          <div className={`mt-4 grid grid-cols-1 items-start ${density === 'compact' ? 'gap-4' : 'gap-5'} sm:grid-cols-2 xl:grid-cols-3`}>
+          <div className={`mt-4 grid grid-cols-1 items-start ${density === 'compact' ? 'gap-3' : 'gap-5'} sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5`}>
             {departmentHeads.map((dept) => {
                 const members = orgAgents.filter((m) => resolveManagerRole(m) === dept.role && m.role !== dept.role && !deptHeadRoles.has(m.role));
+                const membersUseGrid = members.length >= 4;
               return (
                 <div key={dept.label} className={`self-start rounded-xl border border-border bg-surface ${density === 'compact' ? 'p-3' : 'p-4'}`}>
                   <div className={`flex flex-col items-center ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'}`}>
@@ -379,11 +380,12 @@ export default function Workforce() {
                       onDrop={handleManagerDrop(dept.agent.role)}
                     />
                     {members.length > 0 && <div className="h-3 w-px bg-border" />}
-                    <div className={`flex w-full flex-col ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'}`}>
+                    <div className={`w-full ${membersUseGrid ? `grid grid-cols-2 ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'}` : `flex flex-col ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'}`}`}>
                       {members.map((m) => (
                         <SubTeamNode
                           key={m.id}
                           member={m}
+                          compact={density === 'compact'}
                           draggable
                           dropEnabled={Boolean(draggingRole)}
                           isDragging={draggingRole === m.role}
@@ -635,10 +637,12 @@ function StatCard({ label, value, total, color, loading }: { label: string; valu
 /* ─── Sub-Team Node (org chart) ───────────── */
 type SubTeamNodeProps = {
   member: Agent;
+  compact?: boolean;
 } & OrgDragProps;
 
 function SubTeamNode({
   member,
+  compact = false,
   draggable = false,
   dropEnabled = false,
   isDragging = false,
@@ -660,13 +664,13 @@ function SubTeamNode({
       className={`${isDragging ? 'opacity-60' : ''} ${isDropTarget ? 'ring-2 ring-cyan/40 rounded-xl' : ''}`}
     >
     <Link to={`/agents/${member.role}/settings`} draggable={false} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`p-3 min-h-[72px] ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}>
-        <div className="flex items-center gap-3 h-full">
-          <AgentAvatar role={member.role} size={48} glow={member.status === 'active'} avatarUrl={member.avatar_url} />
+      <Card className={`${compact ? 'p-2.5 min-h-[60px]' : 'p-3 min-h-[72px]'} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}>
+        <div className={`flex items-center ${compact ? 'gap-2.5' : 'gap-3'} h-full`}>
+          <AgentAvatar role={member.role} size={compact ? 40 : 48} glow={member.status === 'active'} avatarUrl={member.avatar_url} />
           <div className="min-w-0 text-left">
-            <p className="text-sm font-semibold text-txt-primary leading-tight">{displayName}</p>
-            <p className="text-xs text-txt-muted leading-tight">{title}</p>
-            {draggable && <p className="text-[10px] text-txt-faint leading-tight">Drag to move</p>}
+            <p className={`${compact ? 'text-[13px]' : 'text-sm'} font-semibold text-txt-primary leading-tight`}>{displayName}</p>
+            <p className={`${compact ? 'text-[11px]' : 'text-xs'} text-txt-muted leading-tight`}>{title}</p>
+            {!compact && draggable && <p className="text-[10px] text-txt-faint leading-tight">Drag to move</p>}
           </div>
         </div>
       </Card>

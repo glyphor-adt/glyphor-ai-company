@@ -2337,6 +2337,10 @@ const trackedAgentExecutor = async (
   const requestedRunId = typeof payload?.runId === 'string' && UUID_RE.test(payload.runId.trim())
     ? payload.runId.trim()
     : null;
+  let runtimeSessionId: string | null = null;
+  let runtimeAttemptId: string | null = null;
+  let runtimeDispatchRunId: string | null = null;
+  let runtimeParentEventId: string | null = null;
 
   // Insert a "running" row in parallel with agent execution to avoid blocking
   const runIdPromise = (async () => {
@@ -2384,8 +2388,86 @@ const trackedAgentExecutor = async (
 
   try {
     const runId = await runIdPromise;
+    const dispatchRunId = runId ?? requestedRunId ?? crypto.randomUUID();
+    runtimeDispatchRunId = dispatchRunId;
+    const ensuredRuntimeSessionId = await ensureRuntimeSession({
+      sessionKey: `internal:${dispatchRunId}`,
+      source: 'scheduler-non-chat',
+      ownerUserId: null,
+      ownerEmail: null,
+      tenantId: typeof payload.tenantId === 'string'
+        ? payload.tenantId
+        : (typeof payload.tenant_id === 'string' ? payload.tenant_id : null),
+      primaryAgentRole: agentRole,
+      metadata: {
+        nonChat: true,
+        task,
+        source: typeof payload.source === 'string' ? payload.source : 'scheduler',
+        trigger: 'trackedAgentExecutor',
+      },
+      runId: dispatchRunId,
+    });
+    runtimeSessionId = ensuredRuntimeSessionId;
+    const runtimeAttempt = await createRuntimeAttempt({
+      sessionId: ensuredRuntimeSessionId,
+      runId: dispatchRunId,
+      triggeredBy: 'scheduler-system',
+      triggerReason: task,
+      requestPayload: {
+        nonChat: true,
+        agentRole,
+        task,
+        source: typeof payload.source === 'string' ? payload.source : 'scheduler',
+      },
+    });
+    runtimeAttemptId = runtimeAttempt.id;
+    const appendTrackedRuntimeEvent = async (
+      eventType: Parameters<typeof appendRuntimeEvent>[0]['eventType'],
+      eventPayload: Record<string, unknown>,
+      status?: string,
+      toolName?: string | null,
+    ) => {
+      const persisted = await appendRuntimeEvent({
+        sessionId: ensuredRuntimeSessionId,
+        attemptId: runtimeAttempt.id,
+        runId: dispatchRunId,
+        eventType,
+        status: status ?? null,
+        actorRole: agentRole,
+        toolName: toolName ?? null,
+        payload: eventPayload,
+        parentEventId: runtimeParentEventId,
+      });
+      runtimeParentEventId = persisted.eventId;
+    };
+    await appendTrackedRuntimeEvent('run_created', {
+      runId: dispatchRunId,
+      agentRole,
+      task,
+      nonChat: true,
+      source: 'trackedAgentExecutor',
+    }, 'created');
+    await markRuntimeAttemptRunning({ attemptId: runtimeAttempt.id });
+    await appendTrackedRuntimeEvent('run_started', {
+      runId: dispatchRunId,
+      agentRole,
+      task,
+      nonChat: true,
+    }, 'running');
+    await appendTrackedRuntimeEvent('turn_started', {
+      runId: dispatchRunId,
+      task,
+      nonChat: true,
+    }, 'running');
+    await appendTrackedRuntimeEvent('status', {
+      runId: dispatchRunId,
+      phase: 'running',
+      message: `Executing ${agentRole}:${task}`,
+      nonChat: true,
+    }, 'running');
+
     const workerResult = await executeWorkerAgentRun({
-      runId: runId ?? requestedRunId ?? crypto.randomUUID(),
+      runId: dispatchRunId,
       agentRole,
       task,
       payload,
@@ -2575,6 +2657,49 @@ const trackedAgentExecutor = async (
       }
     }
 
+    if (Array.isArray(workerResult.actions)) {
+      for (const action of workerResult.actions) {
+        await appendTrackedRuntimeEvent('tool_called', {
+          tool: action.tool,
+          params: action.params,
+          nonChat: true,
+        }, 'running', action.tool);
+        await appendTrackedRuntimeEvent('tool_completed', {
+          ...action,
+          nonChat: true,
+        }, action.result === 'success' ? 'completed' : 'failed', action.tool);
+      }
+    }
+
+    await appendTrackedRuntimeEvent('result', {
+      action: workerResult.action,
+      status: workerResult.status,
+      reason: workerResult.reason,
+      error: workerResult.error,
+      nonChat: true,
+    }, workerResult.error ? 'failed' : (workerResult.status ?? 'completed'));
+    await appendTrackedRuntimeEvent(workerResult.error ? 'run_failed' : 'run_completed', {
+      error: workerResult.error ?? null,
+      reason: workerResult.reason ?? null,
+      nonChat: true,
+    }, workerResult.error ? 'failed' : 'completed');
+    await markRuntimeAttemptTerminal({
+      attemptId: runtimeAttempt.id,
+      status: workerResult.error
+        ? 'failed'
+        : (workerResult.action === 'queued_for_approval' ? 'queued_for_approval' : 'completed'),
+      responseSummary: {
+        action: workerResult.action,
+        status: workerResult.status,
+        reason: workerResult.reason,
+      },
+      errorMessage: workerResult.error ?? null,
+    });
+    await markRuntimeSessionTerminal({
+      sessionId: runtimeSessionId,
+      status: workerResult.error ? 'failed' : 'completed',
+    });
+
     // Process notification intents from agent output (fire-and-forget)
     if (result?.output && agentNotifier) {
       agentNotifier.processAgentOutput(agentRole, result.output)
@@ -2587,6 +2712,37 @@ const trackedAgentExecutor = async (
     const runId = await runIdPromise;
     const durationMs = Date.now() - startMs;
     const message = err instanceof Error ? err.message : String(err);
+
+    if (runtimeSessionId && runtimeAttemptId && runtimeDispatchRunId) {
+      try {
+        const failedEvent = await appendRuntimeEvent({
+          sessionId: runtimeSessionId,
+          attemptId: runtimeAttemptId,
+          runId: runtimeDispatchRunId,
+          eventType: 'run_failed',
+          status: 'failed',
+          actorRole: agentRole,
+          payload: {
+            error: message,
+            nonChat: true,
+          },
+          parentEventId: runtimeParentEventId,
+        });
+        runtimeParentEventId = failedEvent.eventId;
+        await markRuntimeAttemptTerminal({
+          attemptId: runtimeAttemptId,
+          status: 'failed',
+          responseSummary: { status: 'failed' },
+          errorMessage: message,
+        });
+        await markRuntimeSessionTerminal({
+          sessionId: runtimeSessionId,
+          status: 'failed',
+        });
+      } catch (runtimeErr) {
+        console.warn('[Scheduler] Failed to persist canonical runtime failure event:', (runtimeErr as Error).message);
+      }
+    }
 
     if (runId) {
       await systemQuery(

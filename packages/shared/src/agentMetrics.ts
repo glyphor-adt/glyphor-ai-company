@@ -390,11 +390,52 @@ async function getAssignmentMetrics(agentId: string | null, bounds: WindowBounds
   );
 
   const row = rows[0];
-  return {
+  const assignmentMetrics = {
     total: asNumber(row?.total),
     completed: asNumber(row?.completed),
     failed: asNumber(row?.failed),
     avgMinutes: roundMetric(asNullableNumber(row?.avg_minutes)),
+  };
+
+  // Fallback: some workloads run without writing work_assignments.
+  // In that case, derive reliability counts from agent_runs so dashboards stay populated.
+  if (assignmentMetrics.total > 0) {
+    return assignmentMetrics;
+  }
+
+  const runParams = agentId
+    ? [agentId, bounds.start.toISOString(), bounds.end.toISOString()]
+    : [bounds.start.toISOString(), bounds.end.toISOString()];
+  const runRows = await systemQuery<CountRow>(
+    agentId
+      ? `SELECT
+           COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
+           COUNT(*) FILTER (WHERE status IN ('failed', 'error', 'aborted'))::int AS failed,
+           AVG(EXTRACT(EPOCH FROM (completed_at - started_at)) / 60.0)
+             FILTER (WHERE status = 'completed' AND completed_at IS NOT NULL) AS avg_minutes
+         FROM agent_runs
+         WHERE agent_role = $1
+           AND started_at >= $2
+           AND started_at < $3`
+      : `SELECT
+           COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
+           COUNT(*) FILTER (WHERE status IN ('failed', 'error', 'aborted'))::int AS failed,
+           AVG(EXTRACT(EPOCH FROM (completed_at - started_at)) / 60.0)
+             FILTER (WHERE status = 'completed' AND completed_at IS NOT NULL) AS avg_minutes
+         FROM agent_runs
+         WHERE started_at >= $1
+           AND started_at < $2`,
+    runParams,
+  );
+
+  const runRow = runRows[0];
+  return {
+    total: asNumber(runRow?.total),
+    completed: asNumber(runRow?.completed),
+    failed: asNumber(runRow?.failed),
+    avgMinutes: roundMetric(asNullableNumber(runRow?.avg_minutes)),
   };
 }
 
