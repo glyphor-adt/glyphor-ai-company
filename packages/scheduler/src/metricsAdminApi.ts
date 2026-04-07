@@ -792,9 +792,12 @@ export async function handleMetricsAdminApi(
   queryString: string,
   method: string,
 ): Promise<boolean> {
-  if (!url.startsWith('/admin/metrics')) return false;
+  const normalizedUrl = url.startsWith('/api/admin/metrics')
+    ? url.replace('/api/admin/metrics', '/admin/metrics')
+    : url;
+  if (!normalizedUrl.startsWith('/admin/metrics')) return false;
 
-  if (method === 'POST' && url === '/admin/metrics/planning-gate-eval-suggestions/apply') {
+  if (method === 'POST' && normalizedUrl === '/admin/metrics/planning-gate-eval-suggestions/apply') {
     if (!isPlanningGateEvalApplyEnabled()) {
       json(res, 403, {
         error: 'Planning gate eval apply is disabled (PLANNING_GATE_EVAL_APPLY_ENABLED=false). Unset that variable or set it to true to allow POST apply.',
@@ -826,14 +829,14 @@ export async function handleMetricsAdminApi(
   const params = new URLSearchParams(queryString);
 
   try {
-    if (url === '/admin/metrics/agents') {
+    if (normalizedUrl === '/admin/metrics/agents') {
       const windowDays = parseWindow(params.get('window'));
       const agents = await listAgentMetrics(windowDays);
       json(res, 200, { windowDays, agents });
       return true;
     }
 
-    const agentMatch = url.match(/^\/admin\/metrics\/agents\/([^/]+)$/);
+    const agentMatch = normalizedUrl.match(/^\/admin\/metrics\/agents\/([^/]+)$/);
     if (agentMatch) {
       const agentId = decodeURIComponent(agentMatch[1]);
       const [metrics, reversal7, reversal30, reversal90] = await Promise.all([
@@ -853,13 +856,13 @@ export async function handleMetricsAdminApi(
       return true;
     }
 
-    if (url === '/admin/metrics/fleet') {
+    if (normalizedUrl === '/admin/metrics/fleet') {
       const windowDays = parseWindow(params.get('window'));
       json(res, 200, await computeFleetMetrics(windowDays));
       return true;
     }
 
-    if (url === '/admin/metrics/exceptions') {
+    if (normalizedUrl === '/admin/metrics/exceptions') {
       const filters: ExceptionLogFilters = {
         agentId: params.get('agentId') ?? undefined,
         startDate: params.get('startDate') ?? undefined,
@@ -872,7 +875,7 @@ export async function handleMetricsAdminApi(
       return true;
     }
 
-    if (url === '/admin/metrics/reversals') {
+    if (normalizedUrl === '/admin/metrics/reversals') {
       const filters: ReversalLogFilters = {
         agentId: params.get('agentId') ?? undefined,
         windowDays: params.get('window') ? Number(params.get('window')) : undefined,
@@ -883,18 +886,18 @@ export async function handleMetricsAdminApi(
       return true;
     }
 
-    if (url === '/admin/metrics/benchmark-report') {
+    if (normalizedUrl === '/admin/metrics/benchmark-report') {
       json(res, 200, await getBenchmarkReport(parseWindow(params.get('window'), 90)));
       return true;
     }
 
-    if (url === '/admin/metrics/planning-gate') {
+    if (normalizedUrl === '/admin/metrics/planning-gate') {
       const windowDays = parseWindow(params.get('window'));
       json(res, 200, await getPlanningGateMetrics(windowDays));
       return true;
     }
 
-    if (url === '/admin/metrics/planning-gate-health') {
+    if (normalizedUrl === '/admin/metrics/planning-gate-health') {
       const report = await evaluatePlanningGateHealth();
       const status = report.alerts.length > 0
         ? 'red'
@@ -911,20 +914,20 @@ export async function handleMetricsAdminApi(
       return true;
     }
 
-    if (url === '/admin/metrics/planning-gate-stage3') {
+    if (normalizedUrl === '/admin/metrics/planning-gate-stage3') {
       const windowDays = parseWindow(params.get('window'));
       json(res, 200, await getPlanningGateStage3Metrics(windowDays));
       return true;
     }
 
-    if (url === '/admin/metrics/planning-gate-eval-suggestions') {
+    if (normalizedUrl === '/admin/metrics/planning-gate-eval-suggestions') {
       const windowDays = parseWindow(params.get('window'));
       const limit = parsePositiveInteger(params.get('limit'), 12, 30);
       json(res, 200, await getPlanningGateEvalSuggestions(windowDays, limit));
       return true;
     }
 
-    if (url === '/admin/metrics/quality-overview') {
+    if (normalizedUrl === '/admin/metrics/quality-overview') {
       const windowDays = parseWindow(params.get('window'));
       const [planningGate, goldenEvalByRole] = await Promise.all([
         getPlanningGateMetrics(windowDays),
@@ -939,7 +942,7 @@ export async function handleMetricsAdminApi(
       return true;
     }
 
-    if (url === '/admin/metrics/planning-strictness-sim') {
+    if (normalizedUrl === '/admin/metrics/planning-strictness-sim') {
       const windowDays = parseWindow(params.get('window'));
       const minRaw = Number(params.get('passRateMin') ?? params.get('pass_rate_min') ?? '0.85');
       const passRateMin = Number.isFinite(minRaw) ? Math.min(1, Math.max(0, minRaw)) : 0.85;
@@ -966,7 +969,7 @@ export async function handleMetricsAdminApi(
       return true;
     }
 
-    if (url === '/admin/metrics/economics-quality-overview') {
+    if (normalizedUrl === '/admin/metrics/economics-quality-overview') {
       const windowDays = parseWindow(params.get('window'));
       json(res, 200, await getEconomicsQualityOverview(windowDays));
       return true;
