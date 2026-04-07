@@ -117,11 +117,11 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'cfo-afternoon-costs',
     agentRole: 'cfo',
-    schedule: '0 20 * * *',  // 3:00 PM CT — catch same-day anomalies
+    schedule: '0 20 * * *',  // 3:00 PM CT — disabled: billing data doesn't refresh between morning and afternoon
     timezone: 'America/Chicago',
     task: 'daily_cost_check',
     payload: { context: 'afternoon_check' },
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'cpo-usage-analysis',
@@ -190,20 +190,20 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'ops-morning-status',
     agentRole: 'ops',
-    schedule: '0 11 * * *',  // 6:00 AM CT
+    schedule: '0 11 * * *',  // 6:00 AM CT — disabled: CoS morning_briefing covers this ground
     timezone: 'America/Chicago',
     task: 'morning_status',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'ops-evening-status',
     agentRole: 'ops',
-    schedule: '0 22 * * *',  // 5:00 PM CT
+    schedule: '0 22 * * *',  // 5:00 PM CT — disabled: low-signal status theater; re-enable if incident cadence warrants
     timezone: 'America/Chicago',
     task: 'evening_status',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'ops-knowledge-hygiene',
@@ -328,7 +328,8 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   // ui-ux-designer, frontend-engineer, design-critic, template-architect
   // These are added via DB-driven agent_schedules. See seed migration.
 
-  // Platform Intelligence — Nexus fleet analysis (3x daily)
+  // Platform Intelligence — Nexus fleet analysis (reduced to 1x daily)
+  // Midday and evening runs disabled: tool gaps don't change 3x/day; 7 AM run is sufficient.
   {
     id: 'platform-intel-morning',
     agentRole: 'platform-intel',
@@ -341,20 +342,20 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
   {
     id: 'platform-intel-midday',
     agentRole: 'platform-intel',
-    schedule: '0 12 * * *',     // 12:00 PM CT — midday check
+    schedule: '0 12 * * *',     // 12:00 PM CT — disabled: redundant with morning run
     timezone: 'America/Chicago',
     task: 'daily_analysis',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
   {
     id: 'platform-intel-evening',
     agentRole: 'platform-intel',
-    schedule: '0 17 * * *',     // 5:00 PM CT — end-of-day sweep
+    schedule: '0 17 * * *',     // 5:00 PM CT — disabled: redundant with morning run
     timezone: 'America/Chicago',
     task: 'daily_analysis',
     payload: {},
-    enabled: true,
+    enabled: false,
   },
 ];
 
