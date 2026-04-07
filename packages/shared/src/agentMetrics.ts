@@ -606,15 +606,16 @@ async function getTrustScore(agentId: string | null): Promise<number | null> {
 
 async function computeMetricsSnapshot(identity: AgentIdentity | null, windowDays: number, bounds: WindowBounds): Promise<AgentMetricsSnapshot> {
   const [assignments, escalations, avgConfidenceScore, slaBreachRate, contradictionRate, trustScoreCurrent] = await Promise.all([
-    getAssignmentMetrics(identity?.agentId ?? null, bounds),
-    getEscalationCount(identity?.agentId ?? null, bounds),
-    getConfidenceMetrics(identity?.agentId ?? null, bounds),
-    getSlaBreachRate(identity?.agentId ?? null, bounds),
-    getContradictionRate(identity?.agentId ?? null, bounds),
-    getTrustScore(identity?.agentId ?? null),
+    getAssignmentMetrics(identity?.agentId ?? null, bounds).catch(() => ({ total: 0, completed: 0, failed: 0, avgMinutes: null })),
+    getEscalationCount(identity?.agentId ?? null, bounds).catch(() => 0),
+    getConfidenceMetrics(identity?.agentId ?? null, bounds).catch(() => null),
+    getSlaBreachRate(identity?.agentId ?? null, bounds).catch(() => 0),
+    getContradictionRate(identity?.agentId ?? null, bounds).catch(() => 0),
+    getTrustScore(identity?.agentId ?? null).catch(() => null),
   ]);
 
-  const computeCostPerTask = await getComputeTokensPerCompletedTask(identity?.agentId ?? null, bounds, assignments.completed);
+  const computeCostPerTask = await getComputeTokensPerCompletedTask(identity?.agentId ?? null, bounds, assignments.completed)
+    .catch(() => 0);
 
   return {
     agentId: identity?.agentId ?? '__fleet__',
@@ -639,13 +640,18 @@ async function computeMetricsSnapshot(identity: AgentIdentity | null, windowDays
 }
 
 async function readMetricsCache(agentId: string, windowDays: number): Promise<AgentMetricsSnapshot | null> {
-  const rows = await systemQuery<CacheRow>(
-    `SELECT metrics, computed_at
-     FROM agent_metrics_cache
-     WHERE agent_id = $1 AND window_days = $2
-     LIMIT 1`,
-    [agentId, windowDays],
-  );
+  let rows: CacheRow[] = [];
+  try {
+    rows = await systemQuery<CacheRow>(
+      `SELECT metrics, computed_at
+       FROM agent_metrics_cache
+       WHERE agent_id = $1 AND window_days = $2
+       LIMIT 1`,
+      [agentId, windowDays],
+    );
+  } catch {
+    return null;
+  }
 
   const row = rows[0];
   if (!row) return null;
@@ -655,13 +661,17 @@ async function readMetricsCache(agentId: string, windowDays: number): Promise<Ag
 }
 
 async function writeMetricsCache(agentId: string, windowDays: number, metrics: AgentMetricsSnapshot): Promise<void> {
-  await systemQuery(
-    `INSERT INTO agent_metrics_cache (agent_id, window_days, metrics, computed_at)
-     VALUES ($1, $2, $3::jsonb, NOW())
-     ON CONFLICT (agent_id, window_days)
-     DO UPDATE SET metrics = EXCLUDED.metrics, computed_at = EXCLUDED.computed_at`,
-    [agentId, windowDays, JSON.stringify(metrics)],
-  );
+  try {
+    await systemQuery(
+      `INSERT INTO agent_metrics_cache (agent_id, window_days, metrics, computed_at)
+       VALUES ($1, $2, $3::jsonb, NOW())
+       ON CONFLICT (agent_id, window_days)
+       DO UPDATE SET metrics = EXCLUDED.metrics, computed_at = EXCLUDED.computed_at`,
+      [agentId, windowDays, JSON.stringify(metrics)],
+    );
+  } catch {
+    // Best-effort cache write only.
+  }
 }
 
 export async function computeAgentMetrics(agentId: string, windowDays: number): Promise<AgentMetricsSnapshot> {
@@ -693,9 +703,28 @@ async function getAverageAutonomyLevel(): Promise<number | null> {
 
 export async function computeFleetMetrics(windowDays: number): Promise<FleetMetricsSnapshot> {
   const [fleetBase, avgAutonomyLevel, agents] = await Promise.all([
-    computeMetricsSnapshot(null, windowDays, buildWindowBounds(windowDays)),
-    getAverageAutonomyLevel(),
-    listAgentIdentities(),
+    computeMetricsSnapshot(null, windowDays, buildWindowBounds(windowDays)).catch(() => ({
+      agentId: '__fleet__',
+      agentName: 'Fleet',
+      department: null,
+      roleCategory: null,
+      windowDays,
+      tasksDispatched: 0,
+      tasksCompleted: 0,
+      tasksFailed: 0,
+      tasksEscalated: 0,
+      completionRate: 0,
+      escalationRate: 0,
+      avgConfidenceScore: null,
+      avgTimeToCompletionMinutes: null,
+      computeCostPerTask: 0,
+      slaBreachRate: 0,
+      contradictionRate: 0,
+      trustScoreCurrent: null,
+      computedAt: new Date().toISOString(),
+    })),
+    getAverageAutonomyLevel().catch(() => null),
+    listAgentIdentities().catch(() => []),
   ]);
 
   const currentMetrics = await Promise.all(agents.map((agent) => computeAgentMetrics(agent.agentId, windowDays)));
