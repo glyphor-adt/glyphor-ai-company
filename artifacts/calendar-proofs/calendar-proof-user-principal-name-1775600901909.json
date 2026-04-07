@@ -1,0 +1,22 @@
+{
+  "executedAt": "2026-04-07T22:28:21.909Z",
+  "params": {
+    "founder": "kristina",
+    "target_mode": "user_principal_name",
+    "cleanup_mode": "delete",
+    "inspect_created_event": true,
+    "approval_reference": "calendar-mcp-proof-2026-04-07-user-principal-name",
+    "subject": "Calendar MCP Proof user_principal_name 2026-04-07T22-28-21-304Z",
+    "start": "2026-04-07T22:38:21.304Z",
+    "end": "2026-04-07T22:53:21.304Z",
+    "body": "Real founder-calendar MCP proof execution using user_principal_name targeting.",
+    "location": "Proof cleanup validation",
+    "is_online": false,
+    "time_zone": "America/Chicago",
+    "show_as": "busy"
+  },
+  "result": {
+    "success": false,
+    "error": "Request failed with status code 401"
+  }
+}
