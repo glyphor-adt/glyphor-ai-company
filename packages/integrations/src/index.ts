@@ -159,7 +159,13 @@ export { queryAnthropicUsage, syncAnthropicBilling } from './anthropic/index.js'
 export { queryKlingCosts, syncKlingBilling, type KlingCredentials } from './kling/index.js';
 
 // Platform audit logging
-export { auditedFetch, logPlatformAudit, type AuditContext } from './audit.js';
+export {
+  auditedFetch,
+  logPlatformAudit,
+  logMicrosoftWriteAudit,
+  type AuditContext,
+  type MicrosoftWriteAuditContext,
+} from './audit.js';
 
 // Credential routing
 export { getM365Client, getM365Token, type M365Operation } from './credentials/m365Router.js';

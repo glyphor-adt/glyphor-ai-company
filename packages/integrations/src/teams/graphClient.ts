@@ -24,6 +24,7 @@ import type { AdaptiveCard, TeamsWebhookPayload } from './webhooks.js';
 import { sendTeamsWebhook } from './webhooks.js';
 import { markdownToTeamsHtml } from './messageFormatter.js';
 import { getAgenticGraphToken } from '../agent365/index.js';
+import { logMicrosoftWriteAudit } from '../audit.js';
 import type { GraphChannelMention } from './founderMentions.js';
 
 /** Optional HTML footer + Graph mentions for channel posts (see founderMentions.ts). */
@@ -467,7 +468,55 @@ function getChannelWebhookUrl(channelName: string): string | undefined {
 
 // ─── SEND HELPERS ───────────────────────────────────────────────
 
-export type PostResult = { method: 'webhook' | 'graph' | 'agent' | 'none'; error?: string };
+export type PostResult = {
+  method: 'webhook' | 'graph' | 'agent' | 'none';
+  error?: string;
+  identityType?: 'agent365' | 'webhook-bot' | 'delegated-graph' | 'app-only-graph';
+  fallbackUsed?: boolean;
+};
+
+function allowInternalTeamsDelegatedFallback(agentRole?: string): boolean {
+  if (process.env.ALLOW_INTERNAL_TEAMS_DELEGATED_WRITE_FALLBACK !== 'true') {
+    return false;
+  }
+  if (!agentRole) {
+    return true;
+  }
+  return process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS === 'true';
+}
+
+function allowInternalTeamsAppOnlyFallback(): boolean {
+  return process.env.ALLOW_INTERNAL_TEAMS_APP_ONLY_WRITE_FALLBACK === 'true';
+}
+
+async function auditTeamsChannelWrite(input: {
+  action: 'teams.channel_post.card' | 'teams.channel_post.text';
+  channelName: string;
+  target?: ChannelTarget;
+  identityType: 'agent365' | 'webhook-bot' | 'delegated-graph' | 'app-only-graph';
+  agentRole?: string;
+  fallbackUsed?: boolean;
+  responseCode?: number;
+  responseSummary?: string;
+  outcome: 'success' | 'failure';
+}): Promise<void> {
+  await logMicrosoftWriteAudit({
+    agentRole: input.agentRole ?? 'system',
+    action: input.action,
+    resource: input.target
+      ? `teams/${input.target.teamId}/channels/${input.target.channelId}`
+      : `teams/channel/${input.channelName}`,
+    identityType: input.identityType,
+    workspaceKey: 'glyphor-internal',
+    toolName: input.action === 'teams.channel_post.card' ? 'postCardToChannel' : 'postTextToChannel',
+    outcome: input.outcome,
+    fallbackUsed: input.fallbackUsed,
+    targetType: 'teams-channel',
+    targetId: input.channelName,
+    responseCode: input.responseCode,
+    responseSummary: input.responseSummary,
+  });
+}
 
 /**
  * Post a raw Graph message body to a channel using the agent's own A365 Graph token.
@@ -529,9 +578,8 @@ export async function postCardToChannel(
   const channels = buildChannelMap();
   const target = channels[channelName as keyof ChannelMap];
   const webhookUrl = getChannelWebhookUrl(channelName);
-  const delegatedAgentPostsExplicitlyEnabled = process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS === 'true';
-  // Keep attribution clean: for agent-role posts, delegated fallback must be explicit opt-in.
-  const skipDelegatedFallback = Boolean(agentRole) && !delegatedAgentPostsExplicitlyEnabled;
+  const delegatedFallbackAllowed = target ? allowInternalTeamsDelegatedFallback(agentRole) : false;
+  const appOnlyFallbackAllowed = target ? allowInternalTeamsAppOnlyFallback() : false;
 
   // 0. Agent identity (posts as the agent, not a human or bot)
   if (agentRole && target) {
@@ -540,7 +588,17 @@ export async function postCardToChannel(
       attachments: [{ id: 'adaptiveCard', contentType: 'application/vnd.microsoft.card.adaptive', content: JSON.stringify(card) }],
     };
     const ok = await postAsAgentIdentity(target, graphBody, agentRole);
-    if (ok) return { method: 'agent' };
+    if (ok) {
+      await auditTeamsChannelWrite({
+        action: 'teams.channel_post.card',
+        channelName,
+        target,
+        identityType: 'agent365',
+        agentRole,
+        outcome: 'success',
+      });
+      return { method: 'agent', identityType: 'agent365', fallbackUsed: false };
+    }
   }
 
   // 1. Webhook (posts as bot, not as a user)
@@ -555,31 +613,64 @@ export async function postCardToChannel(
         }
       }
       await sendTeamsWebhook(webhookUrl, webhookPayload, authToken);
-      return { method: 'webhook' };
+      await auditTeamsChannelWrite({
+        action: 'teams.channel_post.card',
+        channelName,
+        target,
+        identityType: 'webhook-bot',
+        agentRole,
+        fallbackUsed: true,
+        outcome: 'success',
+      });
+      return { method: 'webhook', identityType: 'webhook-bot', fallbackUsed: true };
     } catch (err) {
       console.warn(`[GraphClient] Webhook failed for ${channelName}:`, (err as Error).message);
     }
   }
 
-  // 2. Delegated Graph API (ChannelMessage.Send via refresh token — posts as token owner)
-  if (target && !skipDelegatedFallback) {
+  // 2. Delegated Graph API (posts as the refresh-token owner) — explicit exception only.
+  if (target && delegatedFallbackAllowed) {
     const graphBody = {
       body: { contentType: 'html', content: '<attachment id="adaptiveCard"></attachment>' },
       attachments: [{ id: 'adaptiveCard', contentType: 'application/vnd.microsoft.card.adaptive', content: JSON.stringify(card) }],
     };
     const ok = await postWithDelegatedToken(target, graphBody);
-    if (ok) return { method: 'graph' };
+    if (ok) {
+      await auditTeamsChannelWrite({
+        action: 'teams.channel_post.card',
+        channelName,
+        target,
+        identityType: 'delegated-graph',
+        agentRole,
+        fallbackUsed: true,
+        outcome: 'success',
+      });
+      return { method: 'graph', identityType: 'delegated-graph', fallbackUsed: true };
+    }
   }
 
-  // 3. App-only Graph API (will likely 401 for posting, but try anyway)
-  if (graphClient && target) {
+  // 3. App-only Graph API — explicit exception only because it collapses identity.
+  if (graphClient && target && appOnlyFallbackAllowed) {
     try {
       await graphClient.sendCard(target, card);
-      return { method: 'graph' };
+      await auditTeamsChannelWrite({
+        action: 'teams.channel_post.card',
+        channelName,
+        target,
+        identityType: 'app-only-graph',
+        agentRole,
+        fallbackUsed: true,
+        outcome: 'success',
+      });
+      return { method: 'graph', identityType: 'app-only-graph', fallbackUsed: true };
     } catch { /* fall through */ }
   }
 
-  return { method: 'none', error: `No webhook, delegated token, or Graph channel configured for "${channelName}"` };
+  return {
+    method: 'none',
+    error: `No Agent365 identity or webhook path succeeded for "${channelName}". ` +
+      'Delegated and app-only Graph channel writes require explicit fallback overrides.',
+  };
 }
 
 /**
@@ -597,15 +688,24 @@ export async function postTextToChannel(
   const channels = buildChannelMap();
   const target = channels[channelName as keyof ChannelMap];
   const webhookUrl = getChannelWebhookUrl(channelName);
-  const delegatedAgentPostsExplicitlyEnabled = process.env.TEAMS_ALLOW_DELEGATED_FOR_AGENT_POSTS === 'true';
-  // Keep attribution clean: for agent-role posts, delegated fallback must be explicit opt-in.
-  const skipDelegatedFallback = Boolean(agentRole) && !delegatedAgentPostsExplicitlyEnabled;
+  const delegatedFallbackAllowed = target ? allowInternalTeamsDelegatedFallback(agentRole) : false;
+  const appOnlyFallbackAllowed = target ? allowInternalTeamsAppOnlyFallback() : false;
 
   // 0. Agent identity (posts as the agent, not a human or bot)
   if (agentRole && target) {
     const graphBody = buildGraphChannelMessageBody(text, rich);
     const ok = await postAsAgentIdentity(target, graphBody, agentRole);
-    if (ok) return { method: 'agent' };
+    if (ok) {
+      await auditTeamsChannelWrite({
+        action: 'teams.channel_post.text',
+        channelName,
+        target,
+        identityType: 'agent365',
+        agentRole,
+        outcome: 'success',
+      });
+      return { method: 'agent', identityType: 'agent365', fallbackUsed: false };
+    }
   }
 
   // 1. Webhook (posts as bot, not as a user)
@@ -634,14 +734,23 @@ export async function postTextToChannel(
         }
       }
       await sendTeamsWebhook(webhookUrl, payload, authToken);
-      return { method: 'webhook' };
+      await auditTeamsChannelWrite({
+        action: 'teams.channel_post.text',
+        channelName,
+        target,
+        identityType: 'webhook-bot',
+        agentRole,
+        fallbackUsed: true,
+        outcome: 'success',
+      });
+      return { method: 'webhook', identityType: 'webhook-bot', fallbackUsed: true };
     } catch (err) {
       console.warn(`[GraphClient] Webhook failed for ${channelName}:`, (err as Error).message);
     }
   }
 
-  // 2. Delegated Graph API (ChannelMessage.Send via refresh token — posts as token owner)
-  if (target && !skipDelegatedFallback) {
+  // 2. Delegated Graph API (posts as the refresh-token owner) — explicit exception only.
+  if (target && delegatedFallbackAllowed) {
     const graphBody = buildGraphChannelMessageBody(text, rich);
     const ok = await postWithDelegatedToken(target, graphBody);
     if (ok) {
@@ -649,20 +758,42 @@ export async function postTextToChannel(
         '[GraphClient] Channel message sent with GRAPH_DELEGATED_REFRESH_TOKEN — appears as that user. ' +
         'For agent attribution, fix Agent365 channel post (per-role entraUserId in agentIdentities.json) or use TEAMS_WEBHOOK_*.',
       );
-      return { method: 'graph' };
+      await auditTeamsChannelWrite({
+        action: 'teams.channel_post.text',
+        channelName,
+        target,
+        identityType: 'delegated-graph',
+        agentRole,
+        fallbackUsed: true,
+        outcome: 'success',
+      });
+      return { method: 'graph', identityType: 'delegated-graph', fallbackUsed: true };
     }
   }
 
-  // 3. App-only Graph API fallback (no Graph @mentions — app token often cannot post anyway)
-  if (graphClient && target) {
+  // 3. App-only Graph API fallback — explicit exception only because it collapses identity.
+  if (graphClient && target && appOnlyFallbackAllowed) {
     try {
       const fallbackText = text + plainFounderFooterFromRich(rich);
       await graphClient.sendText(target, fallbackText);
-      return { method: 'graph' };
+      await auditTeamsChannelWrite({
+        action: 'teams.channel_post.text',
+        channelName,
+        target,
+        identityType: 'app-only-graph',
+        agentRole,
+        fallbackUsed: true,
+        outcome: 'success',
+      });
+      return { method: 'graph', identityType: 'app-only-graph', fallbackUsed: true };
     } catch { /* fall through */ }
   }
 
-  return { method: 'none', error: `No webhook, delegated token, or Graph channel configured for "${channelName}"` };
+  return {
+    method: 'none',
+    error: `No Agent365 identity or webhook path succeeded for "${channelName}". ` +
+      'Delegated and app-only Graph channel writes require explicit fallback overrides.',
+  };
 }
 
 /**

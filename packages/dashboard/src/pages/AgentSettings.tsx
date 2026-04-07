@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { apiCall, SCHEDULER_URL } from '../lib/firebase';
+import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../lib/firebase';
 import { getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 import {
   DISPLAY_NAME_MAP,
@@ -275,7 +275,10 @@ export default function AgentSettings() {
   const handlePause = async () => {
     if (!agent) return;
     const agentRef = agent.role || agent.id;
-    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, { method: 'POST' });
+    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, {
+      method: 'POST',
+      headers: await buildApiHeaders(),
+    });
     if (!resp.ok) {
       const result = await resp.json().catch(() => ({}));
       setSaveError(typeof result?.error === 'string' ? result.error : `Pause failed (${resp.status})`);
@@ -287,7 +290,10 @@ export default function AgentSettings() {
   const handleResume = async () => {
     if (!agent) return;
     const agentRef = agent.role || agent.id;
-    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, { method: 'POST' });
+    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, {
+      method: 'POST',
+      headers: await buildApiHeaders(),
+    });
     if (!resp.ok) {
       const result = await resp.json().catch(() => ({}));
       setSaveError(typeof result?.error === 'string' ? result.error : `Resume failed (${resp.status})`);

@@ -1516,6 +1516,8 @@ export function createChiefOfStaffTools(
 
         const event = await calendarClient.createEvent({
           userId: contact.userId,
+          agentRole: ctx.agentRole,
+          toolName: 'create_calendar_event',
           subject: params.subject as string,
           start: params.start as string,
           end: params.end as string,

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { inflateRawSync } from 'node:zlib';
 import { getM365Token } from '../credentials/m365Router.js';
 import { getAgenticGraphToken } from '../agent365/index.js';
+import { logMicrosoftWriteAudit } from '../audit.js';
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
   AlignmentType, TabStopType, TabStopPosition, BorderStyle,
@@ -1370,6 +1371,8 @@ async function resolveUploadTarget(
   safeName: string;
   token: string;
   agentRole?: string;
+  identityType: 'agent365' | 'app-only-graph';
+  fallbackUsed: boolean;
 }> {
   const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
@@ -1404,6 +1407,8 @@ async function resolveUploadTarget(
     safeName,
     token,
     agentRole,
+    identityType: agenticToken ? 'agent365' : 'app-only-graph',
+    fallbackUsed: !agenticToken,
   };
 }
 
@@ -1522,6 +1527,20 @@ export async function uploadToSharePoint(
   }
 
   const item = await putSharePointFile(target, uploadBody, contentType);
+  await logMicrosoftWriteAudit({
+    agentRole: target.agentRole ?? 'system',
+    action: 'sharepoint.upload_document',
+    resource: `sites/${target.siteId}/drives/${target.driveId}/root:/${target.remotePath}`,
+    identityType: target.identityType,
+    workspaceKey: 'glyphor-internal',
+    toolName: 'upload_to_sharepoint',
+    outcome: 'success',
+    fallbackUsed: target.fallbackUsed,
+    targetType: 'sharepoint-drive-item',
+    targetId: target.remotePath,
+    responseCode: 200,
+    responseSummary: item.webUrl ?? 'uploaded',
+  });
 
   // Also insert into company_knowledge for immediate availability
   const knowledgeId = await saveKnowledgeEntry({
@@ -1559,6 +1578,20 @@ export async function uploadBinaryToSharePoint(
   const target = await resolveUploadTarget(fileName, options);
   const contentType = options?.contentType?.trim() || 'application/octet-stream';
   const item = await putSharePointFile(target, content, contentType);
+  await logMicrosoftWriteAudit({
+    agentRole: target.agentRole ?? 'system',
+    action: 'sharepoint.upload_binary',
+    resource: `sites/${target.siteId}/drives/${target.driveId}/root:/${target.remotePath}`,
+    identityType: target.identityType,
+    workspaceKey: 'glyphor-internal',
+    toolName: 'upload_to_sharepoint',
+    outcome: 'success',
+    fallbackUsed: target.fallbackUsed,
+    targetType: 'sharepoint-drive-item',
+    targetId: target.remotePath,
+    responseCode: 200,
+    responseSummary: item.webUrl ?? 'uploaded',
+  });
 
   const knowledgeId = await saveKnowledgeEntry({
     content: buildBinaryKnowledgeText(

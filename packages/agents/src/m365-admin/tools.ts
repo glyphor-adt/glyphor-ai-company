@@ -7,7 +7,14 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
-import { GraphTeamsClient, GraphCalendarClient, getM365Token, type M365Operation } from '@glyphor/integrations';
+import {
+  GraphTeamsClient,
+  GraphCalendarClient,
+  buildChannelMap,
+  getM365Token,
+  postTextToChannel,
+  type M365Operation,
+} from '@glyphor/integrations';
 
 function getTeamsClient(): GraphTeamsClient {
   return GraphTeamsClient.fromEnv();
@@ -235,15 +242,33 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
         channel_id: { type: 'string', description: 'Teams channel ID (use list_channels to find IDs)', required: true },
         message: { type: 'string', description: 'Message content (plain text or markdown)', required: true },
       },
-      execute: async (params, _ctx): Promise<ToolResult> => {
+      execute: async (params, ctx): Promise<ToolResult> => {
         try {
-          // Use Graph API to post to channel (ChannelMessage.Send permission)
+          const requestedChannelId = (params.channel_id as string).trim();
+          const knownChannel = Object.entries(buildChannelMap()).find(([, target]) => target.channelId === requestedChannelId);
+          if (!knownChannel) {
+            return {
+              success: false,
+              error:
+                'post_to_channel only supports configured internal Teams channels. ' +
+                'Arbitrary channel IDs are not allowed on this write path.',
+            };
+          }
+
           const teamsClient = getTeamsClient();
-          await teamsClient.sendText(
-            { teamId: TEAM_ID, channelId: params.channel_id as string },
+          const result = await postTextToChannel(
+            knownChannel[0],
             params.message as string,
+            teamsClient,
+            typeof ctx?.agentRole === 'string' ? ctx.agentRole : 'm365-admin',
           );
-          return { success: true, data: { posted: true, channelId: params.channel_id, method: 'graph-api' } };
+          if (result.method === 'none') {
+            return { success: false, error: result.error ?? `Channel "${knownChannel[0]}" is unavailable for posting.` };
+          }
+          return {
+            success: true,
+            data: { posted: true, channelId: requestedChannelId, channel: knownChannel[0], method: result.method },
+          };
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }
@@ -267,7 +292,7 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
         location: { type: 'string', description: 'Location or Teams link', required: false },
         is_online: { type: 'boolean', description: 'Create as Teams online meeting (default: true)', required: false },
       },
-      execute: async (params, _ctx): Promise<ToolResult> => {
+      execute: async (params, ctx): Promise<ToolResult> => {
         try {
           const teamsClient = getTeamsClient();
           const calClient = GraphCalendarClient.fromEnv(teamsClient);
@@ -277,6 +302,8 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
 
           const event = await calClient.createEvent({
             userId: params.user_id as string,
+            agentRole: typeof ctx?.agentRole === 'string' ? ctx.agentRole : 'm365-admin',
+            toolName: 'create_calendar_event',
             subject: params.title as string,
             start: params.start as string,
             end: params.end as string,

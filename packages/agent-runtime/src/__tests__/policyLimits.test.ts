@@ -501,6 +501,28 @@ describe('checkToolPolicy()', () => {
     cache.destroy();
   });
 
+  it('maps internal Teams channel tools to can_post_internal_teams_channels (fail-closed)', async () => {
+    const cache = await cacheWith([]);
+
+    const briefings = checkToolPolicy(cache, 'post_to_briefings', CTO);
+    const deliverables = checkToolPolicy(cache, 'post_to_deliverables', CTO);
+    const teams = checkToolPolicy(cache, 'post_to_teams', CTO);
+
+    expect(briefings).not.toBeNull();
+    expect(briefings!.allowed).toBe(false);
+    expect(briefings!.policyKey).toBe('can_post_internal_teams_channels');
+
+    expect(deliverables).not.toBeNull();
+    expect(deliverables!.allowed).toBe(false);
+    expect(deliverables!.policyKey).toBe('can_post_internal_teams_channels');
+
+    expect(teams).not.toBeNull();
+    expect(teams!.allowed).toBe(false);
+    expect(teams!.policyKey).toBe('can_post_internal_teams_channels');
+
+    cache.destroy();
+  });
+
   it('maps create_pull_request to can_create_pr', async () => {
     const cache = await cacheWith([
       policyRow({ policy_key: 'can_create_pr', allowed: true, agent_role: null }),

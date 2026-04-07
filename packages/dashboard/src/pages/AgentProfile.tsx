@@ -9,7 +9,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
-import { apiCall, SCHEDULER_URL } from '../lib/firebase';
+import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../lib/firebase';
 import { MODELS, VERIFICATION_MODELS, getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 import {
   DISPLAY_NAME_MAP,
@@ -355,7 +355,10 @@ export default function AgentProfile() {
               size="md"
               onClick={async () => {
                 const agentRef = agent.role || agent.id;
-                const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, { method: 'POST' });
+                const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, {
+                  method: 'POST',
+                  headers: await buildApiHeaders(),
+                });
                 if (!resp.ok) return;
                 setAgent((prev) => prev ? { ...prev, status: 'paused' } : prev);
               }}
@@ -368,7 +371,10 @@ export default function AgentProfile() {
               size="md"
               onClick={async () => {
                 const agentRef = agent.role || agent.id;
-                const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, { method: 'POST' });
+                const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, {
+                  method: 'POST',
+                  headers: await buildApiHeaders(),
+                });
                 if (!resp.ok) return;
                 setAgent((prev) => prev ? { ...prev, status: 'active' } : prev);
               }}
@@ -1994,14 +2000,20 @@ function SettingsTab({
 
   const handlePause = async () => {
     const agentRef = agent.role || agent.id;
-    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, { method: 'POST' });
+    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, {
+      method: 'POST',
+      headers: await buildApiHeaders(),
+    });
     if (!resp.ok) return;
     onUpdate((prev) => prev ? { ...prev, status: 'paused' } : prev);
   };
 
   const handleResume = async () => {
     const agentRef = agent.role || agent.id;
-    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, { method: 'POST' });
+    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, {
+      method: 'POST',
+      headers: await buildApiHeaders(),
+    });
     if (!resp.ok) return;
     onUpdate((prev) => prev ? { ...prev, status: 'active' } : prev);
   };

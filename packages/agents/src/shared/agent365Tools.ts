@@ -20,7 +20,11 @@ import {
 } from '@glyphor/agent-runtime';
 import { getAgentBlueprintSpId, getAgentEntraUserId } from '@glyphor/agent-runtime';
 import type { Agent365ToolBridge } from '@glyphor/integrations';
-import { createAgent365Tools as initAgent365Bridge, getM365Token } from '@glyphor/integrations';
+import {
+  createAgent365Tools as initAgent365Bridge,
+  getM365Token,
+  logMicrosoftWriteAudit,
+} from '@glyphor/integrations';
 
 // ── Standard M365 MCP Servers ────────────────────────────────────
 
@@ -49,6 +53,10 @@ function getDefaultAgent365Servers(_agentRole?: string): readonly string[] {
 // ── Singleton Bridge ─────────────────────────────────────────────
 
 const activeBridges = new Map<string, Agent365ToolBridge>();
+
+function allowAppOnlyMailAttachmentFallback(): boolean {
+  return process.env.ALLOW_APP_ONLY_MAIL_ATTACHMENT_FALLBACK === 'true';
+}
 
 function getBridgeCacheKey(agentRole?: string): string {
   return agentRole ?? '__default__';
@@ -121,7 +129,9 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       const fallbackTool = createReadInboxFallback(agentRole as CompanyAgentRole);
       if (fallbackTool) fallbackTools.push(fallbackTool);
       const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
-      if (mailbox) fallbackTools.push(createSendEmailWithAttachmentTool(mailbox));
+      if (mailbox && allowAppOnlyMailAttachmentFallback()) {
+        fallbackTools.push(createSendEmailWithAttachmentTool(mailbox, agentRole));
+      }
       if (fallbackTools.length > 0) {
         console.log(`[Agent365] Identity missing for ${agentRole}; using Graph fallback tools: ${fallbackTools.map(t => t.name).join(', ')}`);
         return fallbackTools;
@@ -191,8 +201,12 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
     if (agentRole) {
       const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
       if (mailbox) {
-        tools.push(createSendEmailWithAttachmentTool(mailbox));
-        console.log(`[Agent365] Added reply_email_with_attachments for ${agentRole} (${mailbox})`);
+        if (allowAppOnlyMailAttachmentFallback()) {
+          tools.push(createSendEmailWithAttachmentTool(mailbox, agentRole));
+          console.log(`[Agent365] Added reply_email_with_attachments fallback for ${agentRole} (${mailbox})`);
+        } else {
+          console.log(`[Agent365] reply_email_with_attachments disabled for ${agentRole}; app-only mail fallback not allowed`);
+        }
       }
     }
 
@@ -206,7 +220,9 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       const fallbackTool = createReadInboxFallback(agentRole as CompanyAgentRole);
       if (fallbackTool) fallbackTools.push(fallbackTool);
       const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
-      if (mailbox) fallbackTools.push(createSendEmailWithAttachmentTool(mailbox));
+      if (mailbox && allowAppOnlyMailAttachmentFallback()) {
+        fallbackTools.push(createSendEmailWithAttachmentTool(mailbox, agentRole));
+      }
       if (fallbackTools.length > 0) {
         console.log(`[Agent365] MCP init failed for ${agentRole}; using Graph fallback tools: ${fallbackTools.map(t => t.name).join(', ')}`);
         return fallbackTools;
@@ -426,7 +442,7 @@ async function downloadSharePointFileForAttachment(
  * Create a tool that sends email with file attachments from SharePoint.
  * Downloads files via Graph API (AZURE_FILES) and sends via Graph API (AZURE_MAIL).
  */
-function createSendEmailWithAttachmentTool(senderMailbox: string): ToolDefinition {
+function createSendEmailWithAttachmentTool(senderMailbox: string, agentRole?: string): ToolDefinition {
   return {
     name: 'reply_email_with_attachments',
     description:
@@ -466,6 +482,14 @@ function createSendEmailWithAttachmentTool(senderMailbox: string): ToolDefinitio
     },
     execute: async (params) => {
       try {
+        if (!allowAppOnlyMailAttachmentFallback()) {
+          return {
+            success: false,
+            error:
+              'reply_email_with_attachments is disabled by default because it uses app-only Graph mail send. ' +
+              'Use Agent365 MailTools for normal mail writes, or set ALLOW_APP_ONLY_MAIL_ATTACHMENT_FALLBACK=true only as an explicit exception.',
+          };
+        }
         // Accept both array and comma-separated string
         let filePaths: string[];
         if (Array.isArray(params.file_paths)) {
@@ -556,11 +580,39 @@ function createSendEmailWithAttachmentTool(senderMailbox: string): ToolDefinitio
         if (!response.ok) {
           const text = await response.text();
           console.error(`[reply_email_with_attachments] Send failed (${response.status}): ${text.slice(0, 500)}`);
+          await logMicrosoftWriteAudit({
+            agentRole: agentRole ?? 'system',
+            action: 'mail.send_attachments',
+            resource: `users/${senderMailbox}/sendMail`,
+            identityType: 'app-only-graph',
+            workspaceKey: 'glyphor-internal',
+            toolName: 'reply_email_with_attachments',
+            outcome: 'failure',
+            fallbackUsed: true,
+            targetType: 'mailbox',
+            targetId: senderMailbox,
+            responseCode: response.status,
+            responseSummary: text.slice(0, 500),
+          });
           return { success: false, error: `Failed to send email (${response.status}): ${text}` };
         }
 
         const fileNames = attachments.map((a) => a.name).join(', ');
         console.log(`[reply_email_with_attachments] SUCCESS: sent to ${toStr} with ${fileNames}`);
+        await logMicrosoftWriteAudit({
+          agentRole: agentRole ?? 'system',
+          action: 'mail.send_attachments',
+          resource: `users/${senderMailbox}/sendMail`,
+          identityType: 'app-only-graph',
+          workspaceKey: 'glyphor-internal',
+          toolName: 'reply_email_with_attachments',
+          outcome: 'success',
+          fallbackUsed: true,
+          targetType: 'mailbox',
+          targetId: senderMailbox,
+          responseCode: response.status,
+          responseSummary: `sent to ${toStr}`,
+        });
         return {
           success: true,
           data: `Email sent from ${senderMailbox} to ${toStr} with attachments: ${fileNames}`,

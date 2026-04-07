@@ -14,6 +14,24 @@ export interface AuditContext {
   action: string;
   resource?: string;
   costEstimate?: number;
+  requestPayload?: Record<string, unknown>;
+}
+
+export interface MicrosoftWriteAuditContext {
+  agentRole: string;
+  action: string;
+  resource: string;
+  identityType: string;
+  tenantId?: string | null;
+  workspaceKey?: string | null;
+  approvalId?: string | null;
+  toolName?: string | null;
+  outcome?: 'success' | 'failure';
+  fallbackUsed?: boolean;
+  targetType?: string;
+  targetId?: string;
+  responseCode?: number;
+  responseSummary?: string;
 }
 
 /**
@@ -57,6 +75,32 @@ export async function logPlatformAudit(
   await logAudit(ctx, ctx.responseCode, ctx.responseSummary);
 }
 
+export async function logMicrosoftWriteAudit(
+  ctx: MicrosoftWriteAuditContext,
+): Promise<void> {
+  await logAudit(
+    {
+      agentRole: ctx.agentRole,
+      platform: 'microsoft',
+      action: ctx.action,
+      resource: ctx.resource,
+      requestPayload: {
+        identityType: ctx.identityType,
+        tenantId: ctx.tenantId ?? null,
+        workspaceKey: ctx.workspaceKey ?? null,
+        approvalId: ctx.approvalId ?? null,
+        toolName: ctx.toolName ?? null,
+        outcome: ctx.outcome ?? null,
+        fallbackUsed: ctx.fallbackUsed ?? false,
+        targetType: ctx.targetType ?? null,
+        targetId: ctx.targetId ?? null,
+      },
+    },
+    ctx.responseCode,
+    ctx.responseSummary,
+  );
+}
+
 async function logAudit(
   ctx: AuditContext,
   responseCode?: number,
@@ -64,8 +108,19 @@ async function logAudit(
 ): Promise<void> {
   try {
     await systemQuery(
-      'INSERT INTO platform_audit_log (agent_role, platform, action, resource, response_code, response_summary, cost_estimate) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [ctx.agentRole, ctx.platform, ctx.action, ctx.resource ?? null, responseCode ?? null, responseSummary ?? null, ctx.costEstimate ?? null],
+      `INSERT INTO platform_audit_log
+         (agent_role, platform, action, resource, request_payload, response_code, response_summary, cost_estimate)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)`,
+      [
+        ctx.agentRole,
+        ctx.platform,
+        ctx.action,
+        ctx.resource ?? null,
+        ctx.requestPayload ? JSON.stringify(ctx.requestPayload) : null,
+        responseCode ?? null,
+        responseSummary ?? null,
+        ctx.costEstimate ?? null,
+      ],
     );
   } catch (err) {
     // Audit logging should never break the main flow

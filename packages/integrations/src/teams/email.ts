@@ -15,6 +15,7 @@
 
 import type { GraphTeamsClient } from './graphClient.js';
 import { applyDisclosurePolicy, isGlyphorInternalEmail } from '@glyphor/agent-runtime';
+import { logMicrosoftWriteAudit } from '../audit.js';
 
 // ─── TYPES ──────────────────────────────────────────────────────
 
@@ -32,6 +33,10 @@ export interface EmailAttachment {
 
 export interface SendEmailOptions {
   agentId?: string;
+  agentRole?: string;
+  approvalId?: string;
+  tenantId?: string;
+  workspaceKey?: string;
   to: EmailRecipient[];
   cc?: EmailRecipient[];
   subject: string;
@@ -68,6 +73,10 @@ export interface InboxMessage {
 
 export interface ReplyOptions {
   agentId?: string;
+  agentRole?: string;
+  approvalId?: string;
+  tenantId?: string;
+  workspaceKey?: string;
   /** Message ID to reply to */
   messageId: string;
   /** Reply body (HTML) */
@@ -104,6 +113,7 @@ export class GraphEmailClient {
    * Send an email via Graph API.
    */
   async sendEmail(options: SendEmailOptions): Promise<void> {
+    this.ensureAppOnlyEmailWriteAllowed('send_email');
     const token = await this.getGraphToken();
 
     const toRecipients = options.to.map(r => ({
@@ -146,8 +156,9 @@ export class GraphEmailClient {
       saveToSentItems: options.saveToSentItems ?? true,
     };
 
+    const resource = `users/${this.senderUserId}/sendMail`;
     const response = await fetch(
-      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(this.senderUserId)}/sendMail`,
+      `https://graph.microsoft.com/v1.0/${resource}`,
       {
         method: 'POST',
         headers: {
@@ -158,11 +169,13 @@ export class GraphEmailClient {
       },
     );
 
-    // sendMail returns 202 Accepted on success
     if (!response.ok) {
       const text = await response.text();
+      await this.logMailAudit(options.agentRole, options, resource, 'mail.send', 'failure', response.status, text);
       throw new Error(`Failed to send email (${response.status}): ${text}`);
     }
+
+    await this.logMailAudit(options.agentRole, options, resource, 'mail.send', 'success', response.status, 'accepted');
   }
 
   // ─── PER-AGENT SENDER ────────────────────────────────────────
@@ -172,6 +185,7 @@ export class GraphEmailClient {
    * Uses `POST /users/{senderEmail}/sendMail`.
    */
   async sendEmailAs(senderEmail: string, options: SendEmailOptions): Promise<void> {
+    this.ensureAppOnlyEmailWriteAllowed('send_email_as');
     const token = await this.getGraphToken();
 
     const toRecipients = options.to.map(r => ({
@@ -209,6 +223,7 @@ export class GraphEmailClient {
       saveToSentItems: options.saveToSentItems ?? true,
     };
 
+    const resource = `users/${senderEmail}/sendMail`;
     const response = await fetch(
       `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(senderEmail)}/sendMail`,
       {
@@ -223,8 +238,11 @@ export class GraphEmailClient {
 
     if (!response.ok) {
       const text = await response.text();
+      await this.logMailAudit(options.agentRole, options, resource, 'mail.send', 'failure', response.status, text);
       throw new Error(`Failed to send email as ${senderEmail} (${response.status}): ${text}`);
     }
+
+    await this.logMailAudit(options.agentRole, options, resource, 'mail.send', 'success', response.status, 'accepted');
   }
 
   // ─── READ INBOX ──────────────────────────────────────────────
@@ -321,6 +339,7 @@ export class GraphEmailClient {
    * Uses `POST /users/{mailboxEmail}/messages/{messageId}/reply`.
    */
   async replyToEmail(mailboxEmail: string, options: ReplyOptions): Promise<void> {
+    this.ensureAppOnlyEmailWriteAllowed('reply_to_email');
     const token = await this.getGraphToken();
     const endpoint = options.replyAll ? 'replyAll' : 'reply';
     const disclosure = await applyDisclosurePolicy(
@@ -332,8 +351,9 @@ export class GraphEmailClient {
     );
     const signedBody = String(disclosure.payload.body ?? options.body);
 
+    const resource = `users/${mailboxEmail}/messages/${options.messageId}/${endpoint}`;
     const response = await fetch(
-      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailboxEmail)}/messages/${encodeURIComponent(options.messageId)}/${endpoint}`,
+      `https://graph.microsoft.com/v1.0/${resource}`,
       {
         method: 'POST',
         headers: {
@@ -348,13 +368,53 @@ export class GraphEmailClient {
 
     if (!response.ok) {
       const text = await response.text();
+      await this.logMailAudit(options.agentRole, options, resource, 'mail.reply', 'failure', response.status, text);
       throw new Error(`Failed to reply to email (${response.status}): ${text}`);
     }
+
+    await this.logMailAudit(options.agentRole, options, resource, 'mail.reply', 'success', response.status, 'accepted');
   }
 
   // ─── PRIVATE ─────────────────────────────────────────────────
 
   private async getGraphToken(): Promise<string> {
     return (this.graphClient as unknown as { getToken(): Promise<string> }).getToken();
+  }
+
+  private ensureAppOnlyEmailWriteAllowed(action: string): void {
+    if (process.env.ALLOW_APP_ONLY_GRAPH_EMAIL_CLIENT === 'true') {
+      return;
+    }
+    throw new Error(
+      `${action} is disabled on the app-only Graph email client. ` +
+      'Use Agent365 MailTools as the default path, or set ALLOW_APP_ONLY_GRAPH_EMAIL_CLIENT=true only as an explicit exception.',
+    );
+  }
+
+  private async logMailAudit(
+    agentRole: string | undefined,
+    options: { approvalId?: string; tenantId?: string; workspaceKey?: string },
+    resource: string,
+    action: 'mail.send' | 'mail.reply',
+    outcome: 'success' | 'failure',
+    responseCode: number,
+    responseSummary: string,
+  ): Promise<void> {
+    await logMicrosoftWriteAudit({
+      agentRole: agentRole ?? 'system',
+      action,
+      resource,
+      identityType: 'app-only-graph',
+      tenantId: options.tenantId,
+      workspaceKey: options.workspaceKey ?? 'glyphor-internal',
+      approvalId: options.approvalId,
+      toolName: action === 'mail.send' ? 'send_email' : 'reply_to_email',
+      outcome,
+      fallbackUsed: true,
+      targetType: 'mailbox',
+      targetId: resource,
+      responseCode,
+      responseSummary: responseSummary.slice(0, 500),
+    });
   }
 }

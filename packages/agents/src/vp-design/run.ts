@@ -41,7 +41,7 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createWebBuildTools } from '../shared/webBuildTools.js';
-import { createGithubFromTemplateTools, createGithubPushFilesTools } from '@glyphor/integrations';
+import { createGithubFromTemplateTools, createGithubPushFilesTools, createVercelProjectTools } from '@glyphor/integrations';
 import { createWebBuildPlannerTools } from '../shared/webBuildPlannerTools.js';
 import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
 import { createDesignBriefTools } from '../shared/designBriefTools.js';
@@ -104,6 +104,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
       // GitHub operations (push files, create repos from template)
       ...createGithubFromTemplateTools(),
       ...createGithubPushFilesTools(),
+      ...createVercelProjectTools(),
       // Lighthouse audits (system prompt grants this authority)
       ...createAuditTools(),
       // Minimal core (memory, messages, knowledge)
@@ -162,6 +163,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
       ...createAssetTools(glyphorEventBus),
       ...createScaffoldTools(),
       ...createDeployPreviewTools(),
+      ...createVercelProjectTools(),
       ...createWebBuildTools(memory, {
         allowBuild: true,
         allowIterate: true,
