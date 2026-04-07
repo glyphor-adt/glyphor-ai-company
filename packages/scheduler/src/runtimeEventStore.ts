@@ -107,6 +107,24 @@ export async function ensureRuntimeSession(input: RuntimeSessionInput): Promise<
        updated_at = NOW()
      RETURNING id`;
 
+  const upsertWithLegacyRunIdAndLegacyAgentRole =
+    `INSERT INTO run_sessions (
+       session_key, source, owner_user_id, owner_email, tenant_id, primary_agent_role, agent_role, run_id, latest_run_id, metadata, status, last_event_at, updated_at
+     )
+     VALUES ($1,$2,$3,$4,$5,$6,$6,$7,$7,$8::jsonb,'active',NOW(),NOW())
+     ON CONFLICT (session_key) DO UPDATE SET
+       source = EXCLUDED.source,
+       owner_user_id = COALESCE(EXCLUDED.owner_user_id, run_sessions.owner_user_id),
+       owner_email = COALESCE(EXCLUDED.owner_email, run_sessions.owner_email),
+       tenant_id = COALESCE(EXCLUDED.tenant_id, run_sessions.tenant_id),
+       primary_agent_role = EXCLUDED.primary_agent_role,
+       agent_role = COALESCE(EXCLUDED.agent_role, run_sessions.agent_role),
+       run_id = COALESCE(EXCLUDED.run_id, run_sessions.run_id),
+       latest_run_id = COALESCE(EXCLUDED.latest_run_id, run_sessions.latest_run_id),
+       metadata = run_sessions.metadata || EXCLUDED.metadata,
+       updated_at = NOW()
+     RETURNING id`;
+
   const upsertModernSchema =
     `INSERT INTO run_sessions (
        session_key, source, owner_user_id, owner_email, tenant_id, primary_agent_role, latest_run_id, metadata, status, last_event_at, updated_at
@@ -123,18 +141,48 @@ export async function ensureRuntimeSession(input: RuntimeSessionInput): Promise<
        updated_at = NOW()
      RETURNING id`;
 
+  const upsertModernSchemaWithLegacyAgentRole =
+    `INSERT INTO run_sessions (
+       session_key, source, owner_user_id, owner_email, tenant_id, primary_agent_role, agent_role, latest_run_id, metadata, status, last_event_at, updated_at
+     )
+     VALUES ($1,$2,$3,$4,$5,$6,$6,$7,$8::jsonb,'active',NOW(),NOW())
+     ON CONFLICT (session_key) DO UPDATE SET
+       source = EXCLUDED.source,
+       owner_user_id = COALESCE(EXCLUDED.owner_user_id, run_sessions.owner_user_id),
+       owner_email = COALESCE(EXCLUDED.owner_email, run_sessions.owner_email),
+       tenant_id = COALESCE(EXCLUDED.tenant_id, run_sessions.tenant_id),
+       primary_agent_role = EXCLUDED.primary_agent_role,
+       agent_role = COALESCE(EXCLUDED.agent_role, run_sessions.agent_role),
+       latest_run_id = COALESCE(EXCLUDED.latest_run_id, run_sessions.latest_run_id),
+       metadata = run_sessions.metadata || EXCLUDED.metadata,
+       updated_at = NOW()
+     RETURNING id`;
+
   try {
     const rows = await systemQuery<{ id: string }>(upsertWithLegacyRunId, baseParams);
     return rows[0].id;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    if (/null value in column "agent_role" of relation "run_sessions" violates not-null constraint/i.test(message)) {
+      const rows = await systemQuery<{ id: string }>(upsertWithLegacyRunIdAndLegacyAgentRole, baseParams);
+      return rows[0].id;
+    }
     if (!/column\s+"?run_id"?\s+of\s+relation\s+"?run_sessions"?\s+does not exist/i.test(message)) {
       throw error;
     }
   }
 
-  const rows = await systemQuery<{ id: string }>(upsertModernSchema, baseParams);
-  return rows[0].id;
+  try {
+    const rows = await systemQuery<{ id: string }>(upsertModernSchema, baseParams);
+    return rows[0].id;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/null value in column "agent_role" of relation "run_sessions" violates not-null constraint/i.test(message)) {
+      const rows = await systemQuery<{ id: string }>(upsertModernSchemaWithLegacyAgentRole, baseParams);
+      return rows[0].id;
+    }
+    throw error;
+  }
 }
 
 export async function createRuntimeAttempt(input: RuntimeAttemptInput): Promise<{ id: string; attemptNumber: number }> {

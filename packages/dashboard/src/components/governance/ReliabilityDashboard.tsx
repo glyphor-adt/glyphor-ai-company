@@ -305,6 +305,7 @@ async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<Plann
   const fallbackBases = metricFallbackBases();
   const headers = await buildApiHeaders();
   let sawAuthFailure = false;
+  let lastFailure: string | null = null;
 
   for (const base of fallbackBases) {
     for (const candidatePath of candidateMetricPaths(path)) {
@@ -318,6 +319,14 @@ async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<Plann
           if (response.status === 401 || response.status === 403) {
             sawAuthFailure = true;
           }
+          let detail = '';
+          try {
+            detail = (await response.text()).trim();
+          } catch {
+            detail = '';
+          }
+          const reason = response.headers.get('X-Glyphor-Auth-Reason') ?? '';
+          lastFailure = `${response.status} ${response.statusText}${reason ? ` [${reason}]` : ''}${detail ? ` - ${detail.slice(0, 220)}` : ''}`;
           continue;
         }
         const data = await response.json();
@@ -332,7 +341,7 @@ async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<Plann
     throw new Error('AUTH_REQUIRED');
   }
 
-  throw new Error('Planning gate metrics unavailable: scheduler URL not configured');
+  throw new Error(`METRIC_FETCH_FAILED:planning-gate ${lastFailure ?? 'unavailable'}`);
 }
 
 async function fetchMetricWithFallback<T>(
@@ -349,6 +358,7 @@ async function fetchMetricWithFallback<T>(
   const fallbackBases = metricFallbackBases();
   const headers = await buildApiHeaders();
   let sawAuthFailure = false;
+  let lastFailure: string | null = null;
 
   for (const base of fallbackBases) {
     for (const candidatePath of candidateMetricPaths(path)) {
@@ -362,6 +372,14 @@ async function fetchMetricWithFallback<T>(
           if (response.status === 401 || response.status === 403) {
             sawAuthFailure = true;
           }
+          let detail = '';
+          try {
+            detail = (await response.text()).trim();
+          } catch {
+            detail = '';
+          }
+          const reason = response.headers.get('X-Glyphor-Auth-Reason') ?? '';
+          lastFailure = `${response.status} ${response.statusText}${reason ? ` [${reason}]` : ''}${detail ? ` - ${detail.slice(0, 220)}` : ''}`;
           continue;
         }
         const data = await response.json();
@@ -376,12 +394,20 @@ async function fetchMetricWithFallback<T>(
     throw new Error(`AUTH_REQUIRED:${path}`);
   }
 
-  throw new Error(`Metric unavailable for ${path}`);
+  throw new Error(`METRIC_FETCH_FAILED:${path} ${lastFailure ?? 'unavailable'}`);
 }
 
 function isAuthError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /AUTH_REQUIRED|\b401\b|\b403\b|Bearer token required/i.test(message);
+}
+
+function toDisplayError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.startsWith('METRIC_FETCH_FAILED:')) {
+    return message.replace('METRIC_FETCH_FAILED:', '').trim();
+  }
+  return message;
 }
 
 type SortKey = keyof Pick<AgentMetricsSnapshot,
@@ -468,6 +494,7 @@ export default function ReliabilityDashboard() {
   const [strictnessPassRateMin, setStrictnessPassRateMin] = useState(0.85);
   const [economicsQuality, setEconomicsQuality] = useState<EconomicsQualityOverviewPayload | null>(null);
   const [authIssue, setAuthIssue] = useState<string | null>(null);
+  const [dataIssue, setDataIssue] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -531,6 +558,7 @@ export default function ReliabilityDashboard() {
 
         if (!active) return;
         setAuthIssue(null);
+        setDataIssue(null);
         setFleet(fleetCurrent);
         setFleetMonth(fleetThirty);
         setAgents(agentResponse?.agents ?? []);
@@ -546,8 +574,10 @@ export default function ReliabilityDashboard() {
         if (!active) return;
         if (isAuthError(error)) {
           setAuthIssue('Reliability data is unavailable because your scheduler auth token is missing or expired. Re-authenticate and refresh.');
+          setDataIssue(null);
         } else {
           setAuthIssue(null);
+          setDataIssue(`Metrics backend error: ${toDisplayError(error)}`);
         }
         setPlanningGate({
           windowDays,
@@ -654,9 +684,13 @@ export default function ReliabilityDashboard() {
       setStrictnessSim(strictness);
       setEconomicsQuality(economicsOv);
       setAuthIssue(null);
+      setDataIssue(null);
     } catch (error) {
       if (isAuthError(error)) {
         setAuthIssue('Refresh failed: scheduler auth token missing or expired. Sign in again and retry.');
+        setDataIssue(null);
+      } else {
+        setDataIssue(`Refresh failed: ${toDisplayError(error)}`);
       }
       console.warn('[ReliabilityDashboard] Refresh failed:', error);
     } finally {
@@ -904,6 +938,13 @@ export default function ReliabilityDashboard() {
         <Card className="border border-prism-critical/40 bg-prism-critical/10">
           <p className="text-[13px] font-semibold text-prism-critical">Reliability data source requires re-authentication</p>
           <p className="mt-1 text-[12px] text-txt-secondary">{authIssue}</p>
+        </Card>
+      ) : null}
+
+      {dataIssue ? (
+        <Card className="border border-prism-elevated/40 bg-prism-elevated/10">
+          <p className="text-[13px] font-semibold text-prism-elevated">Reliability data source error</p>
+          <p className="mt-1 text-[12px] text-txt-secondary">{dataIssue}</p>
         </Card>
       ) : null}
 
