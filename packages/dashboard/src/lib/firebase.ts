@@ -35,10 +35,24 @@ function getStoredBrowserAuthToken(): string | null {
   try {
     const stored = window.localStorage.getItem(BROWSER_AUTH_STORAGE_KEY);
     if (!stored) return null;
-    const parsed = JSON.parse(stored) as { authToken?: unknown };
-    return typeof parsed.authToken === 'string' && parsed.authToken.trim().length > 0
-      ? parsed.authToken
-      : null;
+    const parsed = JSON.parse(stored) as Record<string, unknown>;
+
+    // Support legacy auth object shapes so existing sessions keep working.
+    const candidates = [
+      parsed.authToken,
+      parsed.idToken,
+      parsed.credential,
+      parsed.token,
+      parsed.accessToken,
+    ];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        return candidate;
+      }
+    }
+
+    return null;
   } catch {
     return null;
   }

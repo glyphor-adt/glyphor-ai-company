@@ -305,6 +305,7 @@ async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<Plann
       try {
         const response = await fetch(`${base}${candidatePath}`, {
           headers,
+          credentials: 'include',
           cache: 'no-store',
         });
         if (!response.ok) {
@@ -350,6 +351,7 @@ async function fetchMetricWithFallback<T>(
       try {
         const response = await fetch(`${base}${candidatePath}`, {
           headers,
+          credentials: 'include',
           cache: 'no-store',
         });
         if (!response.ok) {
