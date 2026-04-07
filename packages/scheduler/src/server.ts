@@ -103,7 +103,7 @@ import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
 import { runGtmReadinessEval, persistGtmReport } from './gtmReadiness/index.js';
 import { evaluatePlanningGateHealth } from './planningGateMonitor.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
-import { enqueueDeepDiveExecution, executeWorkerAgentRun, isWorkerQueueConfigured } from './workerQueue.js';
+import { enqueueDeepDiveExecution, executeWorkerAgentRun, executeWorkerDeepDiveExecution, isWorkerQueueConfigured } from './workerQueue.js';
 import { processDailyAutonomyAdjustments } from '@glyphor/shared';
 import {
   handleFounderRejection,
@@ -2671,21 +2671,25 @@ const trackedAgentExecutor = async (
       }
     }
 
+    const workerExecutionFailed =
+      workerResult.error != null ||
+      workerResult.status === 'failed' ||
+      workerResult.action === 'rejected';
     await appendTrackedRuntimeEvent('result', {
       action: workerResult.action,
       status: workerResult.status,
       reason: workerResult.reason,
       error: workerResult.error,
       nonChat: true,
-    }, workerResult.error ? 'failed' : (workerResult.status ?? 'completed'));
-    await appendTrackedRuntimeEvent(workerResult.error ? 'run_failed' : 'run_completed', {
+    }, workerExecutionFailed ? 'failed' : (workerResult.status ?? 'completed'));
+    await appendTrackedRuntimeEvent(workerExecutionFailed ? 'run_failed' : 'run_completed', {
       error: workerResult.error ?? null,
       reason: workerResult.reason ?? null,
       nonChat: true,
-    }, workerResult.error ? 'failed' : 'completed');
+    }, workerExecutionFailed ? 'failed' : 'completed');
     await markRuntimeAttemptTerminal({
       attemptId: runtimeAttempt.id,
-      status: workerResult.error
+      status: workerExecutionFailed
         ? 'failed'
         : (workerResult.action === 'queued_for_approval' ? 'queued_for_approval' : 'completed'),
       responseSummary: {
@@ -2697,7 +2701,7 @@ const trackedAgentExecutor = async (
     });
     await markRuntimeSessionTerminal({
       sessionId: runtimeSessionId,
-      status: workerResult.error ? 'failed' : 'completed',
+      status: workerExecutionFailed ? 'failed' : 'completed',
     });
 
     // Process notification intents from agent output (fire-and-forget)
@@ -5181,43 +5185,195 @@ const server = createServer(async (req, res) => {
         requestedBy: requestedBy ?? 'dashboard',
       };
       const ddId = await deepDiveEngine.create(deepDiveRequest);
-      let dispatchMode: 'queued' | 'inline' = 'inline';
+      const deepDiveRunId = crypto.randomUUID();
+      const deepDiveSessionId = await ensureRuntimeSession({
+        sessionKey: `deep-dive:${ddId}`,
+        source: 'scheduler-deep-dive',
+        ownerUserId: dashboardUser?.uid ?? null,
+        ownerEmail: dashboardUser?.email ?? null,
+        primaryAgentRole: 'vp-research',
+        metadata: {
+          deepDiveId: ddId,
+          target,
+          requestedBy: requestedBy ?? 'dashboard',
+          nonChat: true,
+        },
+        runId: deepDiveRunId,
+      });
+      const deepDiveAttempt = await createRuntimeAttempt({
+        sessionId: deepDiveSessionId,
+        runId: deepDiveRunId,
+        triggeredBy: 'dashboard-user',
+        triggerReason: 'deep_dive_run',
+        requestPayload: {
+          deepDiveId: ddId,
+          target,
+          requestedBy: requestedBy ?? 'dashboard',
+          nonChat: true,
+        },
+      });
+      let deepDiveParentEventId: string | null = null;
+      const persistDeepDiveEvent = async (
+        eventType: Parameters<typeof appendRuntimeEvent>[0]['eventType'],
+        payload: Record<string, unknown>,
+        status?: string,
+      ) => {
+        const persisted = await appendRuntimeEvent({
+          sessionId: deepDiveSessionId,
+          attemptId: deepDiveAttempt.id,
+          runId: deepDiveRunId,
+          eventType,
+          status: status ?? null,
+          actorRole: 'vp-research',
+          payload,
+          parentEventId: deepDiveParentEventId,
+        });
+        deepDiveParentEventId = persisted.eventId;
+      };
+      await persistDeepDiveEvent('run_created', {
+        deepDiveId: ddId,
+        target,
+        nonChat: true,
+      }, 'created');
+      await markRuntimeAttemptRunning({ attemptId: deepDiveAttempt.id });
+      await persistDeepDiveEvent('run_started', {
+        deepDiveId: ddId,
+        target,
+        nonChat: true,
+      }, 'running');
+      await persistDeepDiveEvent('turn_started', {
+        phase: 'deep_dive_dispatch',
+        nonChat: true,
+      }, 'running');
+      let dispatchMode: 'queued' | 'direct_worker' = 'direct_worker';
       let dispatchWarning: string | null = null;
 
       if (isWorkerQueueConfigured()) {
         try {
           await enqueueDeepDiveExecution({
             deepDiveId: ddId,
+            runId: deepDiveRunId,
             target,
             context: ddContext,
             requestedBy: requestedBy ?? 'dashboard',
           });
+          await persistDeepDiveEvent('status', {
+            deepDiveId: ddId,
+            mode: 'queued',
+            phase: 'queued',
+            nonChat: true,
+          }, 'running');
           dispatchMode = 'queued';
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           dispatchWarning = `Failed to enqueue deep dive worker task, running inline fallback: ${message}`;
           console.warn('[DeepDive] Queue dispatch failed, using inline fallback:', message);
 
-          void deepDiveEngine.execute(ddId, deepDiveRequest).catch(async (err) => {
-            console.error('[DeepDive] Inline fallback run failed after enqueue error:', err);
-            const msg = err instanceof Error ? err.message : String(err);
-            try { await deepDiveEngine.markError(ddId, `Inline execution failed: ${msg}`); } catch { /* best effort */ }
-          });
+          await persistDeepDiveEvent('status', {
+            deepDiveId: ddId,
+            mode: 'inline-fallback-worker-dispatch',
+            phase: 'dispatch_retry',
+            warning: message,
+            nonChat: true,
+          }, 'running');
+          try {
+            await executeWorkerDeepDiveExecution({
+              deepDiveId: ddId,
+              runId: deepDiveRunId,
+              target,
+              context: ddContext,
+              requestedBy: requestedBy ?? 'dashboard',
+            });
+            dispatchMode = 'direct_worker';
+          } catch (inlineDispatchError) {
+            const msg = inlineDispatchError instanceof Error ? inlineDispatchError.message : String(inlineDispatchError);
+            await persistDeepDiveEvent('run_failed', {
+              deepDiveId: ddId,
+              error: msg,
+              nonChat: true,
+            }, 'failed');
+            await markRuntimeAttemptTerminal({
+              attemptId: deepDiveAttempt.id,
+              status: 'failed',
+              responseSummary: { dispatch: 'failed', mode: 'inline-worker-dispatch' },
+              errorMessage: msg,
+            });
+            await markRuntimeSessionTerminal({
+              sessionId: deepDiveSessionId,
+              status: 'failed',
+            });
+            try { await deepDiveEngine.markError(ddId, `Worker dispatch failed: ${msg}`); } catch { /* best effort */ }
+            throw inlineDispatchError;
+          }
         }
       } else {
-        dispatchWarning = 'Deep dive worker queue is not configured; running inline execution fallback.';
-        console.warn('[DeepDive] Worker queue not configured, using inline fallback.');
-
-        void deepDiveEngine.execute(ddId, deepDiveRequest).catch(async (err) => {
-          console.error('[DeepDive] Inline fallback run failed after launch:', err);
-          const msg = err instanceof Error ? err.message : String(err);
-          try { await deepDiveEngine.markError(ddId, `Inline execution failed: ${msg}`); } catch { /* best effort */ }
-        });
+        dispatchWarning = 'Deep dive worker queue is not configured; dispatching directly to worker.';
+        console.warn('[DeepDive] Worker queue not configured, dispatching directly to worker.');
+        await persistDeepDiveEvent('status', {
+          deepDiveId: ddId,
+          mode: 'direct-worker-dispatch',
+          phase: 'dispatch',
+          nonChat: true,
+        }, 'running');
+        try {
+          await executeWorkerDeepDiveExecution({
+            deepDiveId: ddId,
+            runId: deepDiveRunId,
+            target,
+            context: ddContext,
+            requestedBy: requestedBy ?? 'dashboard',
+          });
+          dispatchMode = 'direct_worker';
+        } catch (directDispatchError) {
+          const msg = directDispatchError instanceof Error ? directDispatchError.message : String(directDispatchError);
+          await persistDeepDiveEvent('run_failed', {
+            deepDiveId: ddId,
+            error: msg,
+            nonChat: true,
+          }, 'failed');
+          await markRuntimeAttemptTerminal({
+            attemptId: deepDiveAttempt.id,
+            status: 'failed',
+            responseSummary: { dispatch: 'failed', mode: 'direct-worker-dispatch' },
+            errorMessage: msg,
+          });
+          await markRuntimeSessionTerminal({
+            sessionId: deepDiveSessionId,
+            status: 'failed',
+          });
+          try { await deepDiveEngine.markError(ddId, `Worker dispatch failed: ${msg}`); } catch { /* best effort */ }
+          throw directDispatchError;
+        }
       }
+
+      await persistDeepDiveEvent('result', {
+        deepDiveId: ddId,
+        dispatchMode,
+        warning: dispatchWarning,
+        nonChat: true,
+      }, 'completed');
+      await persistDeepDiveEvent('run_completed', {
+        deepDiveId: ddId,
+        dispatchMode,
+        nonChat: true,
+      }, 'completed');
+      await markRuntimeAttemptTerminal({
+        attemptId: deepDiveAttempt.id,
+        status: 'completed',
+        responseSummary: {
+          dispatchMode,
+          warning: dispatchWarning,
+        },
+      });
+      await markRuntimeSessionTerminal({
+        sessionId: deepDiveSessionId,
+        status: 'completed',
+      });
 
       json(res, 200, {
         success: true,
         id: ddId,
+        run_id: deepDiveRunId,
         dispatch_mode: dispatchMode,
         warning: dispatchWarning,
       });

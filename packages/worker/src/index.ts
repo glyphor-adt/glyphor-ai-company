@@ -1,4 +1,5 @@
 import express from 'express';
+import { randomUUID } from 'node:crypto';
 import { systemQuery } from '@glyphor/shared/db';
 import { checkDbHealth } from '@glyphor/shared/db';
 import { OAuth2Client } from 'google-auth-library';
@@ -329,6 +330,106 @@ async function executeAgentByRole(input: WorkerAgentExecutePayload): Promise<Rou
   }
 }
 
+async function resolveRuntimeRunContext(runId: string): Promise<{ sessionId: string; attemptId: string } | null> {
+  const rows = await systemQuery<{ session_id: string; attempt_id: string }>(
+    `SELECT session_id, id AS attempt_id
+       FROM run_attempts
+      WHERE run_id = $1
+      LIMIT 1`,
+    [runId],
+  );
+  const row = rows[0];
+  if (!row?.session_id || !row?.attempt_id) return null;
+  return { sessionId: row.session_id, attemptId: row.attempt_id };
+}
+
+async function appendRuntimeEventForRun(input: {
+  sessionId: string;
+  attemptId: string;
+  runId: string;
+  eventType: string;
+  status?: string | null;
+  actorRole?: string | null;
+  payload?: Record<string, unknown>;
+  parentEventId?: string | null;
+}): Promise<{ eventId: string } | null> {
+  const eventId = randomUUID();
+  const rows = await systemQuery<{ event_id: string }>(
+    `WITH next_seq AS (
+       SELECT COALESCE(MAX(stream_seq), 0) + 1 AS stream_seq
+       FROM run_events
+       WHERE session_id = $1
+     )
+     INSERT INTO run_events (
+       session_id, attempt_id, run_id, stream_seq, event_id, event_type, event_ts, status, actor_role, parent_event_id, payload
+     )
+     SELECT
+       $1, $2, $3, next_seq.stream_seq, $4, $5, NOW(), $6, $7, $8, $9::jsonb
+     FROM next_seq
+     RETURNING event_id`,
+    [
+      input.sessionId,
+      input.attemptId,
+      input.runId,
+      eventId,
+      input.eventType,
+      input.status ?? null,
+      input.actorRole ?? null,
+      input.parentEventId ?? null,
+      JSON.stringify(input.payload ?? {}),
+    ],
+  );
+  if (!rows[0]?.event_id) return null;
+  await systemQuery(
+    `UPDATE run_sessions
+        SET latest_run_id = $2, last_event_at = NOW(), updated_at = NOW()
+      WHERE id = $1`,
+    [input.sessionId, input.runId],
+  );
+  return { eventId: rows[0].event_id };
+}
+
+async function markRuntimeAttemptStatus(input: {
+  attemptId: string;
+  status: 'running' | 'completed' | 'failed';
+  summary?: Record<string, unknown>;
+  errorMessage?: string | null;
+}): Promise<void> {
+  if (input.status === 'running') {
+    await systemQuery(
+      `UPDATE run_attempts
+          SET status = 'running', updated_at = NOW()
+        WHERE id = $1`,
+      [input.attemptId],
+    );
+    return;
+  }
+  await systemQuery(
+    `UPDATE run_attempts
+        SET status = $2,
+            response_summary = response_summary || $3::jsonb,
+            error_message = COALESCE($4, error_message),
+            ended_at = NOW(),
+            updated_at = NOW()
+      WHERE id = $1`,
+    [input.attemptId, input.status, JSON.stringify(input.summary ?? {}), input.errorMessage ?? null],
+  );
+}
+
+async function markRuntimeSessionStatus(input: {
+  sessionId: string;
+  status: 'completed' | 'failed';
+}): Promise<void> {
+  await systemQuery(
+    `UPDATE run_sessions
+        SET status = $2,
+            completed_at = CASE WHEN $2 IN ('completed','failed') THEN NOW() ELSE completed_at END,
+            updated_at = NOW()
+      WHERE id = $1`,
+    [input.sessionId, input.status],
+  );
+}
+
 app.get('/health', async (_req, res) => {
   const dbHealthy = await checkDbHealth();
   res.json({ status: dbHealthy ? 'ok' : 'degraded', db: dbHealthy });
@@ -337,7 +438,7 @@ app.get('/health', async (_req, res) => {
 app.post('/run', async (req, res) => {
   const authed = await requireInternalServiceAuth(req, res, '/run');
   if (!authed) return;
-  const { tenantId, agentRole, taskType, modelTier, metadata } = req.body;
+  const { taskType, metadata } = req.body;
   const startTime = Date.now();
 
   try {
@@ -365,21 +466,106 @@ app.post('/run', async (req, res) => {
     if (taskType === 'deep_dive_execute') {
       const payload = metadata as {
         deepDiveId?: string;
+        runId?: string;
         target?: string;
         context?: string;
         requestedBy?: string;
       } | undefined;
 
-      if (!payload?.deepDiveId || !payload.target) {
-        return res.status(400).json({ error: 'deepDiveId and target are required for deep_dive_execute tasks' });
+      if (!payload?.deepDiveId || !payload?.runId || !payload.target) {
+        return res.status(400).json({ error: 'deepDiveId, runId, and target are required for deep_dive_execute tasks' });
+      }
+
+      const runtimeContext = await resolveRuntimeRunContext(payload.runId);
+      let parentEventId: string | null = null;
+      if (runtimeContext) {
+        await markRuntimeAttemptStatus({ attemptId: runtimeContext.attemptId, status: 'running' });
+        const started = await appendRuntimeEventForRun({
+          sessionId: runtimeContext.sessionId,
+          attemptId: runtimeContext.attemptId,
+          runId: payload.runId,
+          eventType: 'status',
+          status: 'running',
+          actorRole: 'vp-research',
+          payload: {
+            deepDiveId: payload.deepDiveId,
+            phase: 'executing',
+            mode: 'worker',
+            nonChat: true,
+          },
+        });
+        parentEventId = started?.eventId ?? null;
       }
 
       const deepDiveEngine = await getDeepDiveEngine();
-      await deepDiveEngine.execute(payload.deepDiveId, {
-        target: payload.target,
-        context: payload.context,
-        requestedBy: payload.requestedBy ?? 'worker',
-      });
+      try {
+        await deepDiveEngine.execute(payload.deepDiveId, {
+          target: payload.target,
+          context: payload.context,
+          requestedBy: payload.requestedBy ?? 'worker',
+        });
+        if (runtimeContext) {
+          await appendRuntimeEventForRun({
+            sessionId: runtimeContext.sessionId,
+            attemptId: runtimeContext.attemptId,
+            runId: payload.runId,
+            eventType: 'result',
+            status: 'completed',
+            actorRole: 'vp-research',
+            parentEventId,
+            payload: {
+              deepDiveId: payload.deepDiveId,
+              status: 'completed',
+              nonChat: true,
+            },
+          });
+          await appendRuntimeEventForRun({
+            sessionId: runtimeContext.sessionId,
+            attemptId: runtimeContext.attemptId,
+            runId: payload.runId,
+            eventType: 'run_completed',
+            status: 'completed',
+            actorRole: 'vp-research',
+            parentEventId,
+            payload: {
+              deepDiveId: payload.deepDiveId,
+              nonChat: true,
+            },
+          });
+          await markRuntimeAttemptStatus({
+            attemptId: runtimeContext.attemptId,
+            status: 'completed',
+            summary: { deepDiveId: payload.deepDiveId, status: 'completed' },
+          });
+          await markRuntimeSessionStatus({ sessionId: runtimeContext.sessionId, status: 'completed' });
+        }
+      } catch (deepDiveError: any) {
+        const messageText = deepDiveError instanceof Error ? deepDiveError.message : String(deepDiveError);
+        if (runtimeContext) {
+          await appendRuntimeEventForRun({
+            sessionId: runtimeContext.sessionId,
+            attemptId: runtimeContext.attemptId,
+            runId: payload.runId,
+            eventType: 'run_failed',
+            status: 'failed',
+            actorRole: 'vp-research',
+            parentEventId,
+            payload: {
+              deepDiveId: payload.deepDiveId,
+              error: messageText,
+              nonChat: true,
+            },
+          });
+          await markRuntimeAttemptStatus({
+            attemptId: runtimeContext.attemptId,
+            status: 'failed',
+            summary: { deepDiveId: payload.deepDiveId, status: 'failed' },
+            errorMessage: messageText,
+          });
+          await markRuntimeSessionStatus({ sessionId: runtimeContext.sessionId, status: 'failed' });
+        }
+        throw deepDiveError;
+      }
 
       return res.status(200).json({ success: true, deep_dive_id: payload.deepDiveId, durationMs: Date.now() - startTime });
     }
@@ -392,34 +578,9 @@ app.post('/run', async (req, res) => {
       const result = await executeAgentByRole(payload);
       return res.status(200).json(result);
     }
-
-    // Load tenant and agent configuration
-    const [tenant] = await systemQuery(
-      'SELECT * FROM tenants WHERE id = $1', [tenantId]
-    );
-    const [agent] = await systemQuery(
-      'SELECT * FROM tenant_agents WHERE tenant_id = $1 AND agent_role = $2',
-      [tenantId, agentRole]
-    );
-
-    if (!tenant || !agent) {
-      console.error(`Missing tenant or agent: ${tenantId}/${agentRole}`);
-      return res.status(404).json({ error: 'Not found' });
-    }
-
-    // TODO: Execute the agent run via @glyphor/agent-runtime
-    const durationMs = Date.now() - startTime;
-    console.log(`Agent run completed: ${tenantId}/${agentRole} (${durationMs}ms)`);
-
-    // Update last_run_at
-    await systemQuery(
-      'UPDATE tenant_agents SET last_run_at = NOW() WHERE tenant_id = $1 AND agent_role = $2',
-      [tenantId, agentRole]
-    );
-
-    res.status(200).json({ success: true, durationMs });
+    return res.status(400).json({ error: `Unsupported worker taskType: ${String(taskType ?? 'unknown')}` });
   } catch (error: any) {
-    console.error(`Agent run failed: ${tenantId}/${agentRole}`, error);
+    console.error(`[Worker] /run failed taskType=${String(taskType ?? 'unknown')}`, error);
     res.status(500).json({ error: error.message });
   }
 });

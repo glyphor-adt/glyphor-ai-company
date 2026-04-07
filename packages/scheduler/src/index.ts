@@ -77,3 +77,7 @@ export {
   type DeepDiveRecord,
   type DeepDiveReport,
 } from './deepDiveEngine.js';
+export {
+  RUNTIME_SOURCE_OF_TRUTH,
+  type RuntimeSourceOfTruth,
+} from './runtimeSourceOfTruth.js';

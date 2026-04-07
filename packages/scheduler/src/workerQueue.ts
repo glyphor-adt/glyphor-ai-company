@@ -12,6 +12,7 @@ const QUEUE_AGENT_RUNS = `projects/${PROJECT}/locations/${LOCATION}/queues/agent
 
 export interface DeepDiveExecutionTask {
   deepDiveId: string;
+  runId: string;
   target: string;
   context?: string;
   requestedBy: string;
@@ -43,6 +44,33 @@ export async function enqueueDeepDiveExecution(task: DeepDiveExecutionTask): Pro
       },
     },
   });
+}
+
+export async function executeWorkerDeepDiveExecution(task: DeepDiveExecutionTask): Promise<void> {
+  if (!WORKER_URL) {
+    throw new Error('Worker execution dispatch is not configured. Set WORKER_URL.');
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (WORKER_SHARED_SECRET) {
+    headers['x-worker-shared-secret'] = WORKER_SHARED_SECRET;
+  }
+
+  const response = await fetch(`${WORKER_URL}/run`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      taskType: 'deep_dive_execute',
+      metadata: task,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Worker deep dive dispatch failed (${response.status}): ${text.slice(0, 500)}`);
+  }
 }
 
 export interface WorkerAgentExecutionPayload {
