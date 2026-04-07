@@ -349,7 +349,22 @@ export async function createRuntimeAttempt(input: RuntimeAttemptInput): Promise<
 
 export async function appendRuntimeEvent(input: RuntimeEventInput): Promise<{ seq: number; eventId: string }> {
   const eventId = crypto.randomUUID();
-  const rows = await systemQuery<{ stream_seq: number }>(
+  const baseParams = [
+    input.sessionId,
+    input.attemptId,
+    input.runId,
+    eventId,
+    input.eventType,
+    input.eventTs ?? null,
+    input.status ?? null,
+    input.actorRole ?? null,
+    input.toolName ?? null,
+    input.traceId ?? null,
+    input.parentEventId ?? null,
+    normalizeMetadata(input.payload),
+  ];
+
+  const insertEvent =
     `WITH next_seq AS (
        SELECT COALESCE(MAX(stream_seq), 0) + 1 AS stream_seq
        FROM run_events
@@ -361,22 +376,32 @@ export async function appendRuntimeEvent(input: RuntimeEventInput): Promise<{ se
      SELECT
        $1, $2, $3, next_seq.stream_seq, $4, $5, COALESCE($6::timestamptz, NOW()), $7, $8, $9, $10, $11, $12::jsonb
      FROM next_seq
-     RETURNING stream_seq`,
-    [
-      input.sessionId,
-      input.attemptId,
-      input.runId,
-      eventId,
-      input.eventType,
-      input.eventTs ?? null,
-      input.status ?? null,
-      input.actorRole ?? null,
-      input.toolName ?? null,
-      input.traceId ?? null,
-      input.parentEventId ?? null,
-      normalizeMetadata(input.payload),
-    ],
-  );
+     RETURNING stream_seq`;
+
+  const insertEventWithLegacySeq =
+    `WITH next_seq AS (
+       SELECT COALESCE(MAX(stream_seq), 0) + 1 AS stream_seq
+       FROM run_events
+       WHERE session_id = $1
+     )
+     INSERT INTO run_events (
+       session_id, attempt_id, run_id, stream_seq, seq, event_id, event_type, event_ts, status, actor_role, tool_name, trace_id, parent_event_id, payload
+     )
+     SELECT
+       $1, $2, $3, next_seq.stream_seq, next_seq.stream_seq, $4, $5, COALESCE($6::timestamptz, NOW()), $7, $8, $9, $10, $11, $12::jsonb
+     FROM next_seq
+     RETURNING stream_seq`;
+
+  let rows: Array<{ stream_seq: number }>;
+  try {
+    rows = await systemQuery<{ stream_seq: number }>(insertEvent, baseParams);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/null value in column "seq" of relation "run_events" violates not-null constraint/i.test(message)) {
+      throw error;
+    }
+    rows = await systemQuery<{ stream_seq: number }>(insertEventWithLegacySeq, baseParams);
+  }
 
   await systemQuery(
     `UPDATE run_sessions

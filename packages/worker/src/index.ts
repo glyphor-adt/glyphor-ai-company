@@ -354,7 +354,18 @@ async function appendRuntimeEventForRun(input: {
   parentEventId?: string | null;
 }): Promise<{ eventId: string } | null> {
   const eventId = randomUUID();
-  const rows = await systemQuery<{ event_id: string }>(
+  const baseParams = [
+    input.sessionId,
+    input.attemptId,
+    input.runId,
+    eventId,
+    input.eventType,
+    input.status ?? null,
+    input.actorRole ?? null,
+    input.parentEventId ?? null,
+    JSON.stringify(input.payload ?? {}),
+  ];
+  const insertEvent =
     `WITH next_seq AS (
        SELECT COALESCE(MAX(stream_seq), 0) + 1 AS stream_seq
        FROM run_events
@@ -366,19 +377,31 @@ async function appendRuntimeEventForRun(input: {
      SELECT
        $1, $2, $3, next_seq.stream_seq, $4, $5, NOW(), $6, $7, $8, $9::jsonb
      FROM next_seq
-     RETURNING event_id`,
-    [
-      input.sessionId,
-      input.attemptId,
-      input.runId,
-      eventId,
-      input.eventType,
-      input.status ?? null,
-      input.actorRole ?? null,
-      input.parentEventId ?? null,
-      JSON.stringify(input.payload ?? {}),
-    ],
-  );
+     RETURNING event_id`;
+  const insertEventWithLegacySeq =
+    `WITH next_seq AS (
+       SELECT COALESCE(MAX(stream_seq), 0) + 1 AS stream_seq
+       FROM run_events
+       WHERE session_id = $1
+     )
+     INSERT INTO run_events (
+       session_id, attempt_id, run_id, stream_seq, seq, event_id, event_type, event_ts, status, actor_role, parent_event_id, payload
+     )
+     SELECT
+       $1, $2, $3, next_seq.stream_seq, next_seq.stream_seq, $4, $5, NOW(), $6, $7, $8, $9::jsonb
+     FROM next_seq
+     RETURNING event_id`;
+
+  let rows: Array<{ event_id: string }>;
+  try {
+    rows = await systemQuery<{ event_id: string }>(insertEvent, baseParams);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/null value in column "seq" of relation "run_events" violates not-null constraint/i.test(message)) {
+      throw error;
+    }
+    rows = await systemQuery<{ event_id: string }>(insertEventWithLegacySeq, baseParams);
+  }
   if (!rows[0]?.event_id) return null;
   await systemQuery(
     `UPDATE run_sessions
