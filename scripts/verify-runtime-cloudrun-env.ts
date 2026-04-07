@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { execSync } from 'node:child_process';
 
 type EnvEntry = {
