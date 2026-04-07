@@ -400,7 +400,7 @@ export class FounderCalendarMcpWrapper {
         targetId: target.targetValue,
         approvalReference: input.options.approvalReference,
         limitation: 'founder-calendar-mcp-wrapper-proof-only',
-        responseCode: 500,
+        responseCode: extractCalendarErrorStatusCode(error) ?? 500,
         responseSummary: (error as Error).message.slice(0, 500),
       });
       throw error;
@@ -522,6 +522,22 @@ function auditCalendarWrite(
   input: Parameters<typeof logMicrosoftWriteAudit>[0],
 ): Promise<void> {
   return logMicrosoftWriteAudit(input);
+}
+
+function extractCalendarErrorStatusCode(error: unknown): number | null {
+  const responseStatus = typeof error === 'object' && error !== null && 'response' in error
+    ? (error as { response?: { status?: unknown } }).response?.status
+    : undefined;
+  if (typeof responseStatus === 'number' && Number.isFinite(responseStatus)) {
+    return responseStatus;
+  }
+
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const match = message.match(/\bstatus code (\d{3})\b/i);
+  if (!match) return null;
+
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function getCalendarAuditAction(operation: 'create' | 'cancel' | 'delete'): 'calendar.create_event' | 'calendar.cancel_event' | 'calendar.delete_event' {

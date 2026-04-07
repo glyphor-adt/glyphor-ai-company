@@ -62,6 +62,12 @@ Use **only** for throwaway experiments: data dashboards, calculators, games, dat
 - \`invoke_web_coding_loop\` — autonomous loop with Lighthouse + screenshot convergence
 - \`invoke_web_iterate\` — one-shot fix on an existing project
 
+## CRITICAL: Existing repo patch policy
+- For repositories that already exist, patch code directly in GitHub first: \`github_push_files\` (or equivalent GitHub write tool) on a working branch, then \`github_create_pull_request\`, \`github_wait_for_pull_request_checks\`, and \`github_merge_pull_request\` when checks pass.
+- Do NOT clone existing repositories into sandbox as the primary edit path.
+- Use sandbox cloning only as a fallback for validation or debugging when direct GitHub writes are unavailable.
+- When you hit auth or sandbox restrictions, report the exact blocker and continue with direct GitHub tool flow.
+
 ### Do NOT:
 - Skip the planning step — always call \`plan_website_build\` first for any new website
 - Paste large HTML/CSS/JS blocks in chat — use a tool
