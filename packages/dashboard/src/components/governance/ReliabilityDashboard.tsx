@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, SectionHeader, Skeleton } from '../ui';
-import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../../lib/firebase';
+import { apiCall, buildApiHeaders, IS_PROD_DASHBOARD_HOST, SCHEDULER_URL } from '../../lib/firebase';
 
 interface FleetLeaderMetric {
   agentId: string;
@@ -198,9 +198,18 @@ const CANONICAL_SCHEDULER_BASE = 'https://glyphor-scheduler-610179349713.us-cent
 
 function candidateMetricPaths(path: string): string[] {
   if (path.startsWith('/admin/')) {
-    return [path, `/api${path}`];
+    return IS_PROD_DASHBOARD_HOST ? [`/api${path}`] : [path, `/api${path}`];
   }
   return [path];
+}
+
+function metricFallbackBases(): string[] {
+  if (IS_PROD_DASHBOARD_HOST) {
+    return [window.location.origin];
+  }
+  return [window.location.origin, (SCHEDULER_URL ?? '').trim(), CANONICAL_SCHEDULER_BASE]
+    .map((base) => base.trim())
+    .filter(Boolean);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -293,10 +302,7 @@ async function fetchPlanningGateSnapshot(windowDays: 7 | 30 | 90): Promise<Plann
   }
 
   // Fallback path: direct scheduler origin to bypass miswired API base/proxy.
-  const schedulerBase = (SCHEDULER_URL ?? '').trim();
-  const fallbackBases = [schedulerBase, window.location.origin, CANONICAL_SCHEDULER_BASE]
-    .map((base) => base.trim())
-    .filter(Boolean);
+  const fallbackBases = metricFallbackBases();
   const headers = await buildApiHeaders();
   let sawAuthFailure = false;
 
@@ -340,9 +346,7 @@ async function fetchMetricWithFallback<T>(
     // fall through to direct fetch
   }
 
-  const fallbackBases = [window.location.origin, (SCHEDULER_URL ?? '').trim(), CANONICAL_SCHEDULER_BASE]
-    .map((base) => base.trim())
-    .filter(Boolean);
+  const fallbackBases = metricFallbackBases();
   const headers = await buildApiHeaders();
   let sawAuthFailure = false;
 

@@ -120,17 +120,17 @@ function normalizeSchedulerUrl(rawValue: string | undefined): string {
   return value;
 }
 
-const isProdDashboardHost =
+export const IS_PROD_DASHBOARD_HOST =
   typeof window !== 'undefined'
   && window.location.hostname === PROD_DASHBOARD_HOST;
 
-const API_URL = isProdDashboardHost
+const API_URL = IS_PROD_DASHBOARD_HOST
   ? ''
   : normalizeSchedulerUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_SCHEDULER_URL);
 
 function resolveApiPath(path: string): string {
   const normalized = path.startsWith('/') ? path : `/${path}`;
-  if (isProdDashboardHost && normalized.startsWith('/admin/')) {
+  if (IS_PROD_DASHBOARD_HOST && normalized.startsWith('/admin/')) {
     return `/api${normalized}`;
   }
   return normalized;

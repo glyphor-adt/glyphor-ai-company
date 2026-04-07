@@ -354,7 +354,9 @@ export default function AgentProfile() {
               variant="warning"
               size="md"
               onClick={async () => {
-                await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/pause`, { method: 'POST' });
+                const agentRef = agent.role || agent.id;
+                const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, { method: 'POST' });
+                if (!resp.ok) return;
                 setAgent((prev) => prev ? { ...prev, status: 'paused' } : prev);
               }}
             >
@@ -365,7 +367,9 @@ export default function AgentProfile() {
               variant="approve"
               size="md"
               onClick={async () => {
-                await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/resume`, { method: 'POST' });
+                const agentRef = agent.role || agent.id;
+                const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, { method: 'POST' });
+                if (!resp.ok) return;
                 setAgent((prev) => prev ? { ...prev, status: 'active' } : prev);
               }}
             >
@@ -1989,12 +1993,16 @@ function SettingsTab({
   };
 
   const handlePause = async () => {
-    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/pause`, { method: 'POST' });
+    const agentRef = agent.role || agent.id;
+    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, { method: 'POST' });
+    if (!resp.ok) return;
     onUpdate((prev) => prev ? { ...prev, status: 'paused' } : prev);
   };
 
   const handleResume = async () => {
-    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/resume`, { method: 'POST' });
+    const agentRef = agent.role || agent.id;
+    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, { method: 'POST' });
+    if (!resp.ok) return;
     onUpdate((prev) => prev ? { ...prev, status: 'active' } : prev);
   };
 

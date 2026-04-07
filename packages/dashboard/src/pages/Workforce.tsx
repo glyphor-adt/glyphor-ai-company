@@ -366,9 +366,11 @@ export default function Workforce() {
                 const membersLayoutClass = membersUseGrid ? `grid grid-cols-2 ${memberGapClass}` : `flex flex-col ${memberGapClass}`;
                     const hasMembers = members.length > 0;
                     const isExpanded = expandedDepartments[dept.role] ?? false;
+                const collapsedHeightClass = density === 'compact' ? 'h-[210px]' : 'h-[236px]';
+                const cardSizeClass = isExpanded ? 'h-auto' : collapsedHeightClass;
               return (
-                <div key={dept.label} className={`self-start rounded-xl border border-border bg-surface ${density === 'compact' ? 'p-3' : 'p-4'}`}>
-                  <div className={`flex flex-col items-center ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'}`}>
+                <div key={dept.label} className={`self-start rounded-xl border border-border bg-surface ${cardSizeClass} ${density === 'compact' ? 'p-3' : 'p-4'}`}>
+                  <div className={`flex h-full flex-col items-center ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'}`}>
                     <span className="text-[10px] font-medium uppercase tracking-widest text-txt-faint">
                       {dept.label}
                     </span>
@@ -384,7 +386,7 @@ export default function Workforce() {
                       onDragOver={handleManagerDragOver(dept.agent.role)}
                       onDrop={handleManagerDrop(dept.agent.role)}
                     />
-                    {hasMembers && (
+                    {hasMembers ? (
                       <>
                         <button
                           type="button"
@@ -417,6 +419,8 @@ export default function Workforce() {
                           </>
                         )}
                       </>
+                    ) : (
+                      <div className="h-[24px]" aria-hidden="true" />
                     )}
                   </div>
                 </div>

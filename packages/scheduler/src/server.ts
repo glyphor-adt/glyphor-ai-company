@@ -500,6 +500,10 @@ function classifySchedulerRoute(pathname: string, method: string): SchedulerRout
     return 'public';
   }
 
+  if (pathname.startsWith('/admin/metrics')) {
+    return method === 'GET' ? 'authenticated-user' : 'admin-only';
+  }
+
   if (
     pathname.startsWith('/admin/') ||
     pathname.startsWith('/api/eval/') ||
@@ -617,7 +621,13 @@ async function resolveRouteAuthContext(
 ): Promise<RouteAuthContext | null> {
   const routeClass = classifySchedulerRoute(pathname, method);
   if (!routeClass) {
-    json(res, 403, { error: 'Forbidden: route is not classified for access' }, req);
+    json(
+      res,
+      403,
+      { error: 'Forbidden: route is not classified for access' },
+      req,
+      authDenyHeaders('route-unclassified'),
+    );
     return null;
   }
 
@@ -703,13 +713,13 @@ async function requireDashboardUser(
 
   const authorization = getHeaderString(req.headers.authorization);
   if (!authorization?.startsWith('Bearer ')) {
-    json(res, 401, { error: 'Bearer token required' });
+    json(res, 401, { error: 'Bearer token required' }, req, authDenyHeaders('missing-bearer'));
     return null;
   }
 
   const token = authorization.slice('Bearer '.length).trim();
   if (!token) {
-    json(res, 401, { error: 'Missing bearer token' });
+    json(res, 401, { error: 'Missing bearer token' }, req, authDenyHeaders('empty-bearer'));
     return null;
   }
 
@@ -717,17 +727,17 @@ async function requireDashboardUser(
     const verified = await verifyUserAccessToken(token);
     const user = await loadDashboardUserByEmail(verified.email);
     if (!user) {
-      json(res, 403, { error: 'Forbidden' });
+      json(res, 403, { error: 'Forbidden' }, req, authDenyHeaders('dashboard-user-not-found'));
       return null;
     }
     if (options?.admin && user.role !== 'admin') {
-      json(res, 403, { error: 'Forbidden' });
+      json(res, 403, { error: 'Forbidden' }, req, authDenyHeaders('admin-required'));
       return null;
     }
     return user;
   } catch (err) {
     console.warn('[DashboardAuth] Failed to verify dashboard user token:', err instanceof Error ? err.message : String(err));
-    json(res, 401, { error: 'Unauthorized' });
+    json(res, 401, { error: 'Unauthorized' }, req, authDenyHeaders('token-verification-failed'));
     return null;
   }
 }
@@ -739,13 +749,13 @@ async function requireInternalAuth(
 ): Promise<boolean> {
   const authorization = getHeaderString(req.headers.authorization);
   if (!authorization?.startsWith('Bearer ')) {
-    json(res, 401, { ok: false, error: 'Bearer token required' });
+    json(res, 401, { ok: false, error: 'Bearer token required' }, req, authDenyHeaders('internal-missing-bearer'));
     return false;
   }
 
   const idToken = authorization.slice('Bearer '.length).trim();
   if (!idToken) {
-    json(res, 401, { ok: false, error: 'Missing bearer token' });
+    json(res, 401, { ok: false, error: 'Missing bearer token' }, req, authDenyHeaders('internal-empty-bearer'));
     return false;
   }
 
@@ -758,7 +768,7 @@ async function requireInternalAuth(
 
   if (audienceCandidates.length === 0) {
     console.warn('[InternalAuth] No OIDC audience candidates configured for internal endpoint.');
-    json(res, 401, { ok: false, error: 'Unauthorized' });
+    json(res, 401, { ok: false, error: 'Unauthorized' }, req, authDenyHeaders('internal-no-audience'));
     return false;
   }
 
@@ -782,7 +792,7 @@ async function requireInternalAuth(
 
   if (lastError) {
     console.warn('[InternalAuth] Failed OIDC token verification for internal endpoint.');
-    json(res, 401, { ok: false, error: 'Unauthorized' });
+    json(res, 401, { ok: false, error: 'Unauthorized' }, req, authDenyHeaders('internal-token-verification-failed'));
     return false;
   }
 
@@ -791,7 +801,7 @@ async function requireInternalAuth(
     console.warn(
       `[InternalAuth] OIDC principal mismatch. expected=${expectedServiceAccount} actual=${verifiedEmail}`,
     );
-    json(res, 403, { ok: false, error: 'Forbidden' });
+    json(res, 403, { ok: false, error: 'Forbidden' }, req, authDenyHeaders('internal-principal-mismatch'));
     return false;
   }
 
@@ -2885,9 +2895,23 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-function json(res: ServerResponse, status: number, data: unknown, req?: IncomingMessage) {
+function authDenyHeaders(reason: string): Record<string, string> {
+  return {
+    'X-Glyphor-Auth-Result': 'deny',
+    'X-Glyphor-Auth-Reason': reason,
+  };
+}
+
+function json(
+  res: ServerResponse,
+  status: number,
+  data: unknown,
+  req?: IncomingMessage,
+  extraHeaders?: Record<string, string>,
+) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...(extraHeaders ?? {}),
   };
   if (req) appendCorsHeaders(req, headers);
   res.writeHead(status, headers);
@@ -4800,18 +4824,32 @@ const server = createServer(async (req, res) => {
     // Pause agent
     const pauseMatch = url.match(/^\/agents\/([^/]+)\/pause$/);
     if (method === 'POST' && pauseMatch) {
-      const agentId = decodeURIComponent(pauseMatch[1]);
-      await systemQuery('UPDATE company_agents SET status=$1, updated_at=$2 WHERE id=$3', ['paused', new Date().toISOString(), agentId]);
-      json(res, 200, { success: true });
+      const agentRef = decodeURIComponent(pauseMatch[1]);
+      const [updated] = await systemQuery<{ role: string }>(
+        'UPDATE company_agents SET status=$1, updated_at=$2 WHERE id::text=$3 OR role=$3 RETURNING role',
+        ['paused', new Date().toISOString(), agentRef],
+      );
+      if (!updated) {
+        json(res, 404, { success: false, error: `Agent not found: ${agentRef}` });
+        return;
+      }
+      json(res, 200, { success: true, role: updated.role });
       return;
     }
 
     // Resume agent
     const resumeMatch = url.match(/^\/agents\/([^/]+)\/resume$/);
     if (method === 'POST' && resumeMatch) {
-      const agentId = decodeURIComponent(resumeMatch[1]);
-      await systemQuery('UPDATE company_agents SET status=$1, updated_at=$2 WHERE id=$3', ['active', new Date().toISOString(), agentId]);
-      json(res, 200, { success: true });
+      const agentRef = decodeURIComponent(resumeMatch[1]);
+      const [updated] = await systemQuery<{ role: string }>(
+        'UPDATE company_agents SET status=$1, updated_at=$2 WHERE id::text=$3 OR role=$3 RETURNING role',
+        ['active', new Date().toISOString(), agentRef],
+      );
+      if (!updated) {
+        json(res, 404, { success: false, error: `Agent not found: ${agentRef}` });
+        return;
+      }
+      json(res, 200, { success: true, role: updated.role });
       return;
     }
 
@@ -6170,7 +6208,7 @@ const server = createServer(async (req, res) => {
     if (await handleGovernanceApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Admin ABAC API (/admin/abac/*) ────────────────────────────
-    if (url.startsWith('/admin/')) {
+    if (url.startsWith('/admin/') && !(url.startsWith('/admin/metrics') && method === 'GET')) {
       if (!(await requireDashboardUser(req, res, { admin: true }))) return;
     }
     if (await handleAbacAdminApi(req, res, url, queryString ?? '', method)) return;

@@ -274,13 +274,25 @@ export default function AgentSettings() {
 
   const handlePause = async () => {
     if (!agent) return;
-    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/pause`, { method: 'POST' });
+    const agentRef = agent.role || agent.id;
+    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, { method: 'POST' });
+    if (!resp.ok) {
+      const result = await resp.json().catch(() => ({}));
+      setSaveError(typeof result?.error === 'string' ? result.error : `Pause failed (${resp.status})`);
+      return;
+    }
     setAgent((prev) => prev ? { ...prev, status: 'paused' } : prev);
   };
 
   const handleResume = async () => {
     if (!agent) return;
-    await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agent.id)}/resume`, { method: 'POST' });
+    const agentRef = agent.role || agent.id;
+    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, { method: 'POST' });
+    if (!resp.ok) {
+      const result = await resp.json().catch(() => ({}));
+      setSaveError(typeof result?.error === 'string' ? result.error : `Resume failed (${resp.status})`);
+      return;
+    }
     setAgent((prev) => prev ? { ...prev, status: 'active' } : prev);
   };
 
