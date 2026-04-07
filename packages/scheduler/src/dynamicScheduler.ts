@@ -4,10 +4,83 @@
  * Runs alongside static SCHEDULED_JOBS from cronManager.
  * Checks every 60s for enabled schedules attached to active agents,
  * then fires matching jobs whose cron expression matches the current minute.
+ *
+ * shouldRun() gate: for high-churn tasks that poll a work queue, the gate
+ * skips execution when there is no pending work — turning cron-polling into
+ * effective event-driven behavior without changing the underlying cron setup.
+ *
+ * Gated tasks and their "meaningful work" definition:
+ *   chief-of-staff / orchestrate   — active founder_directives with pending/dispatched assignments
+ *   cmo / process_assignments       — pending or dispatched work_assignments assigned to 'cmo'
  */
 
 import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
+
+// ---------------------------------------------------------------------------
+// shouldRun gate
+// ---------------------------------------------------------------------------
+
+interface ShouldRunResult {
+  run: boolean;
+  reason?: string; // populated only when run = false
+}
+
+/**
+ * Returns { run: false, reason } when a task has a gating rule and no
+ * meaningful work is found.  Defaults to { run: true } for any task that
+ * is not explicitly gated — preserving current behaviour for everything else.
+ */
+async function shouldRun(agentId: string, task: string): Promise<ShouldRunResult> {
+  try {
+    // --- Gate 1: chief-of-staff / orchestrate ----------------------------
+    // Skip when there are no active directives that still have pending or
+    // dispatched assignments.  If every active directive is fully completed
+    // (or there are simply no active directives), there is nothing to orchestrate.
+    if (agentId === 'chief-of-staff' && task === 'orchestrate') {
+      const rows = await systemQuery<{ cnt: string }>(
+        `SELECT COUNT(*) AS cnt
+           FROM work_assignments wa
+           JOIN founder_directives fd ON fd.id = wa.directive_id
+          WHERE fd.status = 'active'
+            AND wa.status IN ('pending', 'dispatched')`,
+        [],
+      );
+      const pending = parseInt(rows?.[0]?.cnt ?? '0', 10);
+      if (pending === 0) {
+        return { run: false, reason: 'no_pending_directive_work' };
+      }
+      return { run: true };
+    }
+
+    // --- Gate 2: cmo / process_assignments --------------------------------
+    // Skip when there are no work_assignments waiting for the CMO.
+    if (agentId === 'cmo' && task === 'process_assignments') {
+      const rows = await systemQuery<{ cnt: string }>(
+        `SELECT COUNT(*) AS cnt
+           FROM work_assignments
+          WHERE assigned_to = 'cmo'
+            AND status IN ('pending', 'dispatched')`,
+        [],
+      );
+      const pending = parseInt(rows?.[0]?.cnt ?? '0', 10);
+      if (pending === 0) {
+        return { run: false, reason: 'no_pending_assignments' };
+      }
+      return { run: true };
+    }
+
+    // Default: no gate defined — always run
+    return { run: true };
+  } catch (err) {
+    // Gate query failure must not block execution; log and allow the run.
+    console.error(
+      `[DynamicScheduler] shouldRun check failed for ${agentId}/${task} — defaulting to run:`,
+      (err as Error).message,
+    );
+    return { run: true };
+  }
+}
 
 interface DynamicScheduleRow {
   id: string;
@@ -143,6 +216,15 @@ export class DynamicScheduler {
       for (const schedule of matching) {
         const role = activeAgentMap.get(schedule.agent_id);
         if (!role) continue;
+
+        // Value gate: skip if this task has a pending-work rule and no work exists.
+        const gate = await shouldRun(schedule.agent_id, schedule.task);
+        if (!gate.run) {
+          console.log(
+            `[DynamicScheduler] Skipping ${schedule.agent_id}/${schedule.task}: ${gate.reason}`,
+          );
+          continue;
+        }
 
         console.log(
           `[DynamicScheduler] Firing: ${schedule.agent_id}/${schedule.task} (${schedule.cron_expression})`,
