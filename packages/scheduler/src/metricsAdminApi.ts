@@ -820,6 +820,10 @@ export async function getAgentOpsMetrics(windowDays: 7 | 30 | 90): Promise<{
   fleetEvidenceSummary: EvidenceTierBreakdown & { total: number };
   downgradedTotal: number;
   topDirectives: DirectiveSummaryRow[];
+  claimFabrication: {
+    fleetTotal: number;
+    byAgent: Array<{ agent_role: string; event_count: number; total_claims: number }>;
+  };
 }> {
   const interval = `${windowDays} days`;
 
@@ -934,6 +938,33 @@ export async function getAgentOpsMetrics(windowDays: 7 | 30 | 90): Promise<{
     fleetEvidenceSummary: fleetTotals,
     downgradedTotal,
     topDirectives,
+    claimFabrication: await (async () => {
+      const rows = await systemQuery<{
+        agent_role: string;
+        event_count: string;
+        total_claims: string;
+      }>(
+        `SELECT
+           payload->>'role'                       AS agent_role,
+           COUNT(*)                               AS event_count,
+           COALESCE(SUM((payload->>'claim_count')::int), 0) AS total_claims
+         FROM agent_run_events
+         WHERE event_type = 'unsubstantiated_claims_detected'
+           AND created_at > NOW() - $1::interval
+         GROUP BY payload->>'role'
+         ORDER BY event_count DESC`,
+        [interval],
+      );
+      const byAgent = (rows ?? []).map(r => ({
+        agent_role:   r.agent_role,
+        event_count:  parseInt(r.event_count, 10),
+        total_claims: parseInt(r.total_claims, 10),
+      }));
+      return {
+        fleetTotal: byAgent.reduce((s, r) => s + r.event_count, 0),
+        byAgent,
+      };
+    })(),
   };
 }
 
