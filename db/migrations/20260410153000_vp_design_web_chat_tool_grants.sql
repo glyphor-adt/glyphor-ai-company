@@ -20,7 +20,8 @@ VALUES
   ('00000000-0000-0000-0000-000000000000'::uuid, 'frontend-engineer', 'get_agent_directory', 'system', 'Cross-agent handoff.', true),
   ('00000000-0000-0000-0000-000000000000'::uuid, 'frontend-engineer', 'who_handles', 'system', 'Capability routing.', true),
   ('00000000-0000-0000-0000-000000000000'::uuid, 'frontend-engineer', 'cloudflare_register_preview', 'system', 'Client website pipeline.', true),
-  ('00000000-0000-0000-0000-000000000000'::uuid, 'frontend-engineer', 'cloudflare_update_preview', 'system', 'Client website pipeline.', true)
+  ('00000000-0000-0000-0000-000000000000'::uuid, 'frontend-engineer', 'cloudflare_update_preview', 'system', 'Client website pipeline.', true),
+  ('00000000-0000-0000-0000-000000000000'::uuid, 'frontend-engineer', 'read_company_knowledge', 'system', 'Chat core: engineering context from company knowledge.', true)
 ON CONFLICT (agent_role, tool_name) DO UPDATE SET
   granted_by = EXCLUDED.granted_by,
   reason = EXCLUDED.reason,
