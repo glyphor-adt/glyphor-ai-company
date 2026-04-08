@@ -16,11 +16,10 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { ModelClient } from '@glyphor/agent-runtime';
-import { getTierModel } from '@glyphor/shared';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PLANNER_MODEL = process.env.PLANNER_MODEL?.trim() || getTierModel('default');
+const PLANNER_MODEL = process.env.PLANNER_MODEL?.trim() || 'gemini-3.1-flash-lite-preview';
 const MAX_IMAGE_MANIFEST_ITEMS = 7;
 const PLANNER_TIMEOUT_MS = 45_000;
 
@@ -319,25 +318,20 @@ export function createWebBuildPlannerTools(): ToolDefinition[] {
               normalizedBrief: plan.normalizedBrief,
               fileCount: plan.components.length + 6,
               imageCount,
+              awaiting_confirmation: true,
               instructions: [
                 `## Build Plan: ${plan.projectName}`,
                 '',
                 `**Audience:** ${plan.normalizedBrief?.audience ?? 'Not specified'}`,
                 `**CTA:** ${plan.normalizedBrief?.primaryCta ?? 'Not specified'}`,
                 `**Visual direction:** ${plan.visualDirection}`,
-                `**Components:** ${componentNames}`,
+                `**Components (${plan.components.length}):** ${componentNames}`,
                 `**Images to generate:** ${imageCount}`,
                 '',
-                '### Execution order:',
-                '1. `invoke_web_build` with tier `prototype` and the brief from this plan',
-                '   OR write files manually:',
-                '   a. `github_create_from_template` to create the repo',
-                '   b. Write style files: theme.css, tailwind.css, fonts.css, index.css',
-                `   c. Write components: ${componentNames}`,
-                '   d. Write App.tsx and index.html',
-                '   e. `github_push_files` to commit',
-                '2. After deploy succeeds, images will be generated from the manifest',
-                '3. Share the preview URL with the user',
+                '⚠️ STOP — DO NOT call invoke_web_build yet.',
+                'Present this plan to the user as a readable summary.',
+                'Ask: "Does this plan look good, or would you like any changes before I start building?"',
+                'Wait for explicit user confirmation before proceeding to invoke_web_build.',
               ].join('\n'),
             },
           };

@@ -1,15 +1,13 @@
 /**
  * build_website_foundation
  *
- * The core website generation tool. Replaces the Fuse `codex` + external MCP
- * approach with a direct Claude Opus 4.6 call using the adapted uxEngineer
- * instruction set.
+ * The core website generation tool. Uses Gemini 3.1 Pro (128K output) with
+ * the adapted uxEngineer instruction set.
  *
  * How it works:
  * 1. Accepts normalized brief, brand_spec, intake_context, and any pre-installed
  *    component metadata from MCP lookups the agent performed beforehand.
- * 2. Calls Claude Opus 4.6 (128K output) with the full design engineering system
- *    prompt, adapted from the Fuse uxEngineer instruction for Claude.
+ * 2. Calls Gemini 3.1 Pro with the full design engineering system prompt.
  * 3. The model optionally calls shadcn/aceternity MCP lookup tools before
  *    committing to the build, then outputs a single structured JSON with all files.
  * 4. Returns a flat file map ready for github_push_files.
@@ -18,16 +16,16 @@
  * Register in: packages/agents/src/shared/createRunDeps.ts tool list
  *
  * Required env:
- *   ANTHROPIC_API_KEY — already in Secret Manager
- *   UX_ENGINEER_MODEL — defaults to claude-opus-4-6 (override for cost savings on repairs)
+ *   GOOGLE_AI_API_KEY / GEMINI_API_KEY — Gemini API key
+ *   UX_ENGINEER_MODEL — defaults to gemini-3.1-pro-preview (override for cost savings)
  */
 
 import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 
 // ─── Model Config ─────────────────────────────────────────────────────────────
 
-const DEFAULT_MODEL = 'claude-opus-4-6';
-const REPAIR_MODEL = 'claude-sonnet-4-6'; // faster/cheaper for iteration rounds
+const DEFAULT_MODEL = 'gemini-3.1-pro-preview';
+const REPAIR_MODEL = 'gemini-3.1-flash-lite-preview'; // faster/cheaper for iteration rounds
 const MAX_TOKENS = 100000;
 const MAX_TOOL_ROUNDS = 4; // max MCP lookup rounds before forcing build output
 const MAX_IMAGES = 7;
@@ -357,7 +355,100 @@ interface BuildOutput {
   image_manifest: ImageManifestEntry[];
 }
 
-// ─── Anthropic API Helpers ────────────────────────────────────────────────────
+// ─── Gemini API Helpers ───────────────────────────────────────────────────────
+
+function getGeminiApiKey(): string {
+  const key = (process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
+  if (!key) throw new Error('GOOGLE_AI_API_KEY / GEMINI_API_KEY is not configured.');
+  return key;
+}
+
+// Gemini function declarations (converted from MCP_LOOKUP_TOOLS Anthropic format)
+const MCP_LOOKUP_TOOLS_GEMINI = {
+  functionDeclarations: MCP_LOOKUP_TOOLS.map((t) => ({
+    name: t.name,
+    description: t.description,
+    parameters: {
+      type: 'OBJECT' as const,
+      properties: Object.fromEntries(
+        Object.entries(t.input_schema.properties).map(([k, v]) => [k, { type: 'STRING', description: (v as { description: string }).description }]),
+      ),
+      required: t.input_schema.required,
+    },
+  })),
+};
+
+type NormalizedContent = { type: string; text?: string; id?: string; name?: string; input?: unknown };
+
+async function callGemini(
+  messages: Array<{ role: string; content: unknown }>,
+  model: string,
+  signal?: AbortSignal,
+): Promise<{ content: NormalizedContent[] }> {
+  const apiKey = getGeminiApiKey();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  // Convert Anthropic-style messages to Gemini parts format
+  const geminiContents: Array<{ role: string; parts: unknown[] }> = [];
+  for (const msg of messages) {
+    if (typeof msg.content === 'string') {
+      geminiContents.push({ role: msg.role === 'assistant' ? 'model' : 'user', parts: [{ text: msg.content }] });
+    } else if (Array.isArray(msg.content)) {
+      // Anthropic tool_result messages → Gemini functionResponse
+      const parts: unknown[] = [];
+      for (const block of msg.content as Array<Record<string, unknown>>) {
+        if (block.type === 'tool_result') {
+          parts.push({ functionResponse: { name: String(block.tool_use_id ?? ''), response: { result: block.content } } });
+        } else if (block.type === 'text') {
+          parts.push({ text: block.text });
+        } else if (block.type === 'tool_use') {
+          parts.push({ functionCall: { name: block.name, args: block.input } });
+        }
+      }
+      if (parts.length > 0) {
+        geminiContents.push({ role: msg.role === 'assistant' ? 'model' : 'user', parts });
+      }
+    }
+  }
+
+  const body = {
+    systemInstruction: { parts: [{ text: UX_ENGINEER_SYSTEM_PROMPT }] },
+    tools: [MCP_LOOKUP_TOOLS_GEMINI],
+    generationConfig: { maxOutputTokens: 65536, temperature: 0.7 },
+    contents: geminiContents,
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Gemini API error (${response.status}): ${err.slice(0, 500)}`);
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<Record<string, unknown>> } }>;
+  };
+
+  const parts = data.candidates?.[0]?.content?.parts ?? [];
+  const normalized: NormalizedContent[] = [];
+  let toolIdx = 0;
+  for (const part of parts) {
+    if (typeof part.text === 'string') {
+      normalized.push({ type: 'text', text: part.text });
+    } else if (part.functionCall) {
+      const fc = part.functionCall as { name: string; args?: unknown };
+      normalized.push({ type: 'tool_use', id: `${fc.name}_${toolIdx++}`, name: fc.name, input: fc.args ?? {} });
+    }
+  }
+  return { content: normalized };
+}
+
+// ─── Anthropic API Helpers (kept as fallback for non-Gemini models) ───────────
 
 function getAnthropicApiKey(): string {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
@@ -478,7 +569,8 @@ async function runBuildLoop(
   let output: BuildOutput | null = null;
 
   while (toolRounds <= MAX_TOOL_ROUNDS) {
-    const response = await callAnthropic(messages, model, ctx.abortSignal);
+    const callFn = model.startsWith('gemini') ? callGemini : callAnthropic;
+    const response = await callFn(messages, model, ctx.abortSignal);
     const content = response.content ?? [];
 
     // Collect tool uses and text
@@ -554,7 +646,7 @@ export function createWebBuildTools(): ToolDefinition[] {
       name: 'build_website_foundation',
       description:
         'Generates a complete, production-ready client website from a normalized brief. ' +
-        'Uses Claude Opus 4.6 with 128K output to produce all files in one structured pass: ' +
+        'Uses Gemini 3.1 Pro to produce all files in one structured pass: ' +
         'HTML, CSS, TypeScript components, theme tokens, and an image manifest. ' +
         'Always use this tool for new website builds. ' +
         'After this tool returns, call github_push_files to commit the output to the feature branch. ' +

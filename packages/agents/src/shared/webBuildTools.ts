@@ -1249,34 +1249,22 @@ async function executeWebBuild(
           );
         }
 
-        const fallbackMediaFiles: Record<string, string> = {};
-        for (const [repoPath, base64] of Object.entries(allMediaFiles)) {
-          if (!mediaUpload.uploadedRepoPaths.has(repoPath)) {
-            fallbackMediaFiles[repoPath] = base64;
-          }
-        }
-
-        if (Object.keys(fallbackMediaFiles).length > 0) {
-          await executeWebsitePipelineTool(
-            'github_push_files',
-            {
-              repo: project.repoFullName,
-              branch: project.branch,
-              files: fallbackMediaFiles,
-              commit_message: `feat: add fallback media binaries (${Object.keys(fallbackMediaFiles).length})`,
-            },
-            ctx,
-          );
-          console.warn(
-            `[WebBuild:Media] Uploaded ${Object.keys(mediaUpload.urlsByWebPath).length} assets to object storage, ` +
-            `fallback-committed ${Object.keys(fallbackMediaFiles).length} binaries.`,
-          );
-        } else {
-          console.log(
-            `[WebBuild:Media] Uploaded ${Object.keys(mediaUpload.urlsByWebPath).length} assets to object storage; ` +
-            'no binary media committed to git.',
-          );
-        }
+        // Always commit all media binaries to public/ in git so images are
+        // visible in the repo, regardless of whether CDN storage was used.
+        await executeWebsitePipelineTool(
+          'github_push_files',
+          {
+            repo: project.repoFullName,
+            branch: project.branch,
+            files: allMediaFiles,
+            commit_message: `feat: add ${Object.keys(imageFiles).length} media files to public/ (${Object.keys(mediaUpload.urlsByWebPath).length} also in CDN)`,
+          },
+          ctx,
+        );
+        console.log(
+          `[WebBuild:Media] Uploaded ${Object.keys(mediaUpload.urlsByWebPath).length} assets to object storage, ` +
+          `committed all ${Object.keys(allMediaFiles).length} media binaries to public/ in git.`,
+        );
       } else {
         if (mediaUpload.skippedReason) {
           console.warn(`[WebBuild:Media] Object storage skipped: ${mediaUpload.skippedReason}`);
