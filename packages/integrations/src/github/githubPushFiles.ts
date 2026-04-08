@@ -30,6 +30,37 @@ async function githubRequest(
   return { ok: response.ok, status: response.status, data };
 }
 
+function normalizeFilePath(filePath: string): string {
+  const raw = filePath.replace(/\\/g, '/').trim().replace(/^\.\//, '').replace(/^\//, '');
+  const lower = raw.toLowerCase();
+
+  // Model retries sometimes invent dotless package manifest filenames
+  // (packagejson, packagejson1, package_patch, etc.). Always target the
+  // canonical root manifest path instead of creating duplicate junk files.
+  if (/^package(?:[_-])?json\d*$/i.test(lower) || /^package(?:[_-])?patch\d*$/i.test(lower)) {
+    return 'package.json';
+  }
+
+  return raw;
+}
+
+function normalizeFileMap(files: Record<string, string>): Record<string, string> {
+  const normalized: Record<string, string> = {};
+
+  for (const [rawPath, content] of Object.entries(files)) {
+    const filePath = normalizeFilePath(rawPath);
+    if (!filePath) continue;
+
+    // Prefer explicitly-correct keys when both alias + canonical are present.
+    if (normalized[filePath] !== undefined && rawPath !== filePath) {
+      continue;
+    }
+    normalized[filePath] = content;
+  }
+
+  return normalized;
+}
+
 export function createGithubPushFilesTools(): ToolDefinition[] {
   return [
     {
@@ -69,6 +100,10 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
         if (!branch) return { success: false, error: 'branch is required.' };
         if (!files || Object.keys(files).length === 0) {
           return { success: false, error: 'files is required and must not be empty.' };
+        }
+        const normalizedFiles = normalizeFileMap(files);
+        if (Object.keys(normalizedFiles).length === 0) {
+          return { success: false, error: 'files map did not contain any valid paths after normalization.' };
         }
 
         try {
@@ -128,7 +163,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
           baseTreeSha = String(tree.sha);
 
           const treeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
-          for (const [filePath, content] of Object.entries(files)) {
+          for (const [filePath, content] of Object.entries(normalizedFiles)) {
             // Binary files (images/video) arrive as base64 strings from the
             // image generation pipeline. Text files arrive as raw UTF-8.
             // Detect binary by extension and avoid double-encoding.
@@ -199,7 +234,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
               commit_sha: newCommitSha,
               branch,
               branch_url: `https://github.com/${repo}/tree/${encodeURIComponent(branch)}`,
-              files_pushed: Object.keys(files).length,
+              files_pushed: Object.keys(normalizedFiles).length,
             },
           };
         } catch (err) {

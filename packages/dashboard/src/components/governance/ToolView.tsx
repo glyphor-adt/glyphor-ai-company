@@ -22,6 +22,13 @@ import { getToolPlatform, getToolPlatformMeta, PLATFORM_META, type ToolPlatform 
 
 type HealthFilter = null | 'failing' | 'high-risk' | 'stale' | 'telemetry-gap';
 const LIVE_ROSTER_SET = new Set<string>(LIVE_ROSTER_ORDER);
+const BOOTSTRAP_BASELINE_TOOLS = [
+  'list_my_tools',
+  'tool_search',
+  'check_tool_access',
+  'request_tool_access',
+  'request_new_tool',
+] as const;
 
 interface ToolViewProps {
   loading: boolean;
@@ -352,12 +359,12 @@ function normalizeSearch(value: string): string {
 function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
   const [query, setQuery] = useState('');
 
-  const grantedAgentTools = useMemo(() => {
+  const liveAccessTools = useMemo(() => {
     const merged: Record<string, string[]> = Object.fromEntries(
-      LIVE_ROSTER_ORDER.map((role) => [role, [] as string[]]),
+      LIVE_ROSTER_ORDER.map((role) => [role, [...BOOTSTRAP_BASELINE_TOOLS] as string[]]),
     );
 
-    // The governance tools page should reflect live execution policy, not legacy static metadata.
+    // Reflect the live execution model: bootstrap baseline + explicit grants only.
     for (const grant of grants) {
       if (!grant.is_active || !LIVE_ROSTER_SET.has(grant.agent_role)) continue;
       const role = grant.agent_role;
@@ -388,7 +395,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
         );
         if (!q.split(' ').every((token) => searchable.includes(token))) continue;
 
-        const tools = grantedAgentTools[role] ?? [];
+        const tools = liveAccessTools[role] ?? [];
         matches.push({
           type: 'agent',
           key: `agent:${role}`,
@@ -400,7 +407,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
 
       // ── Tool matches — build from live grants only ──
       const toolToAgents = new Map<string, string[]>();
-      for (const [role, tools] of Object.entries(grantedAgentTools)) {
+      for (const [role, tools] of Object.entries(liveAccessTools)) {
         for (const tool of tools) {
           const list = toolToAgents.get(tool) ?? [];
           list.push(role);
@@ -429,7 +436,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
       if (a.type !== b.type) return a.type === 'agent' ? -1 : 1;
       return a.label.localeCompare(b.label);
     });
-  }, [query, grantedAgentTools]);
+  }, [query, liveAccessTools]);
 
   const showResults = query.trim().length > 0;
 
@@ -565,6 +572,13 @@ export default function ToolView({
     () => grants.filter((grant) => grant.is_active && LIVE_ROSTER_SET.has(grant.agent_role)),
     [grants],
   );
+  const liveVisibleToolNames = useMemo(() => {
+    const names = new Set<string>(BOOTSTRAP_BASELINE_TOOLS);
+    for (const grant of liveActiveGrants) {
+      names.add(grant.tool_name);
+    }
+    return names;
+  }, [liveActiveGrants]);
 
   const activeGrantCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -576,7 +590,7 @@ export default function ToolView({
 
   const activeTools = useMemo<EnrichedTool[]>(() => {
     return toolReputation
-      .filter((tool) => tool.is_active)
+      .filter((tool) => tool.is_active && liveVisibleToolNames.has(tool.tool_name))
       .map((tool) => ({
         ...tool,
         activeGrantCount: activeGrantCounts.get(tool.tool_name) ?? 0,
@@ -597,7 +611,7 @@ export default function ToolView({
           || (left.reliability_score ?? left.success_rate ?? -1) - (right.reliability_score ?? right.success_rate ?? -1)
           || (right.total_calls - left.total_calls);
       });
-  }, [activeGrantCounts, toolReputation]);
+  }, [activeGrantCounts, liveVisibleToolNames, toolReputation]);
 
   const [healthFilter, setHealthFilter] = useState<HealthFilter>(null);
 

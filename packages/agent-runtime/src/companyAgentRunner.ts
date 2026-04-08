@@ -2344,7 +2344,7 @@ Rules:
             systemInstruction: systemPrompt,
             contents: compressedHistory,
             source: requestSource,
-            fallbackScope: 'same-provider',
+            fallbackScope: isOnDemand ? 'cross-provider' : 'same-provider',
             tools: effectiveTools,
             temperature: effectiveTemp,
             topP: config.topP,
