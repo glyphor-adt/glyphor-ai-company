@@ -13,6 +13,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { isCanonicalKeepRole } from '@glyphor/shared';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 import { EXECUTIVE_ROLES, getRedisCache, CACHE_KEYS, CACHE_TTL } from '@glyphor/agent-runtime';
 import { shouldBlockHeartbeat, checkFleetCostCeiling } from '@glyphor/agent-runtime';
@@ -29,6 +30,14 @@ type AgentExecutorFn = (
   payload: Record<string, unknown>,
 ) => Promise<AgentExecutionResult | void>;
 
+function isLiveRuntimeRole(role: string): role is CompanyAgentRole {
+  return isCanonicalKeepRole(role);
+}
+
+function filterLiveRuntimeRoles(roles: readonly CompanyAgentRole[]): CompanyAgentRole[] {
+  return roles.filter((role): role is CompanyAgentRole => isLiveRuntimeRole(role));
+}
+
 export interface HeartbeatResult {
   cycle: number;
   checked: number;
@@ -38,15 +47,14 @@ export interface HeartbeatResult {
 
 /** Tier 1: Executives — every 2 hours (12 x 10-minute cycles) */
 const EXEC_TIER: CompanyAgentRole[] = Array.from(
-  new Set<CompanyAgentRole>(['chief-of-staff', ...(EXECUTIVE_ROLES as CompanyAgentRole[])]),
+  new Set(filterLiveRuntimeRoles(['chief-of-staff', ...(EXECUTIVE_ROLES as CompanyAgentRole[])])),
 );
 
 /** Tier 2: Sub-team — every 4 hours (24 cycles) */
-const SUBTEAM_TIER: CompanyAgentRole[] = [
+const SUBTEAM_TIER: CompanyAgentRole[] = filterLiveRuntimeRoles([
   'platform-engineer',
   'quality-engineer',
   'devops-engineer',
-  'm365-admin',
   'user-researcher',
   'competitive-intel',
   'content-creator',
@@ -56,22 +64,17 @@ const SUBTEAM_TIER: CompanyAgentRole[] = [
   'frontend-engineer',
   'design-critic',
   'template-architect',
-  'head-of-hr',
-];
+]);
 
 /** Tier 3: Specialists — every 6 hours (36 cycles) */
-const SPECIALIST_TIER: CompanyAgentRole[] = [
-  'bob-the-tax-pro',
-  'marketing-intelligence-analyst',
-  'adi-rose',
-];
+const SPECIALIST_TIER: CompanyAgentRole[] = [];
 
 /** Tier 4: Operations */
-const OPS_ATLAS_TIER: CompanyAgentRole[] = ['ops'];          // every 1 hour
-const OPS_MORGAN_TIER: CompanyAgentRole[] = ['global-admin']; // every 4 hours
+const OPS_ATLAS_TIER: CompanyAgentRole[] = filterLiveRuntimeRoles(['ops']);          // every 1 hour
+const OPS_MORGAN_TIER: CompanyAgentRole[] = [];
 
 /** Tier 5: Platform Intelligence — every 2 hours to drain queued wakes */
-const PLATFORM_INTEL_TIER: CompanyAgentRole[] = ['platform-intel'];
+const PLATFORM_INTEL_TIER: CompanyAgentRole[] = [];
 
 const EXEC_CADENCE_CYCLES = 12;
 const SUBTEAM_CADENCE_CYCLES = 24;
@@ -134,7 +137,7 @@ export class HeartbeatManager {
 
       return rows
         .map((row) => row.agent_role)
-        .filter((role): role is CompanyAgentRole => typeof role === 'string' && role.length > 0);
+        .filter((role): role is CompanyAgentRole => isLiveRuntimeRole(role));
     } catch (err) {
       console.warn('[Heartbeat] Failed to read queued wakes:', (err as Error).message);
       return [];
@@ -904,21 +907,24 @@ export class HeartbeatManager {
    * respects pause / inactive / retired / under-review states.
    */
   private async filterActiveAgents(agents: CompanyAgentRole[]): Promise<CompanyAgentRole[]> {
+    const liveAgents = agents.filter((agent): agent is CompanyAgentRole => isLiveRuntimeRole(agent));
+    if (liveAgents.length === 0) return [];
+
     try {
       const data = await systemQuery<{role: string; status: string}>(
         'SELECT role, status FROM company_agents WHERE role = ANY($1) AND status = $2',
-        [agents, 'active'],
+        [liveAgents, 'active'],
       );
 
       const activeRoles = new Set(data.map((r: { role: string }) => r.role));
-      const skipped = agents.filter(a => !activeRoles.has(a));
+      const skipped = liveAgents.filter(a => !activeRoles.has(a));
       if (skipped.length > 0) {
         console.log(`[Heartbeat] Skipping non-active agents: [${skipped.join(', ')}]`);
       }
-      return agents.filter(a => activeRoles.has(a));
+      return liveAgents.filter(a => activeRoles.has(a));
     } catch (err) {
       console.warn('[Heartbeat] Failed to filter active agents, proceeding with all:', (err as Error).message);
-      return agents;
+      return liveAgents;
     }
   }
 

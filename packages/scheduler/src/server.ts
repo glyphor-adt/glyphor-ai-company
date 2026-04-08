@@ -26,7 +26,7 @@ import {
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
-import { assertWorkAssignmentDispatchAllowed, getTierModel } from '@glyphor/shared';
+import { assertWorkAssignmentDispatchAllowed, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { verifyUserAccessToken } from '@glyphor/shared/auth';
 import { EventRouter } from './eventRouter.js';
@@ -119,20 +119,12 @@ import {
   retireClientSdkAgent,
 } from './clientSdk.js';
 import {
-  runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPSales, runVPDesign,
+  runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
   runUserResearcher, runCompetitiveIntel,
   runContentCreator, runSeoAnalyst, runSocialMediaManager,
   runUiUxDesigner, runFrontendEngineer, runDesignCritic, runTemplateArchitect,
-  runM365Admin,
-  runGlobalAdmin,
-  runHeadOfHR,
   runOps,
-  runCompetitiveResearchAnalyst,
-  runMarketResearchAnalyst,
-  runVPResearch,
-  runDynamicAgent,
-  runPlatformIntel,
 } from '@glyphor/agents';
 import { OAuth2Client } from 'google-auth-library';
 import {
@@ -953,12 +945,27 @@ const memory = new CompanyMemoryStore({
 
 const decisionQueue = new DecisionQueue(memory, {});
 
+function isLiveRuntimeRole(role: string): role is CompanyAgentRole {
+  return isCanonicalKeepRole(role);
+}
+
+function blockedRuntimeResult(role: string): AgentExecutionResult {
+  return {
+    output: `Agent "${role}" is not on the live runtime roster and cannot run.`,
+    status: 'error',
+    totalTurns: 0,
+  } as AgentExecutionResult;
+}
+
 const agentExecutor = async (
   agentRole: CompanyAgentRole,
   task: string,
   payload: Record<string, unknown>,
 ): Promise<AgentExecutionResult | void> => {
-  const normalizedTask = task === 'read_inbox' ? 'agent365_mail_triage' : task;
+  if (!isLiveRuntimeRole(agentRole)) {
+    return blockedRuntimeResult(agentRole);
+  }
+
   const message = (payload.message as string) || undefined;
   let conversationHistory = payload.conversationHistory as ConversationTurn[] | undefined;
   const dbRunId = typeof payload.runId === 'string' ? payload.runId : undefined;
@@ -1047,8 +1054,6 @@ const agentExecutor = async (
     return runCTO({ task: (task as 'platform_health_check' | 'dependency_review' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cfo') {
     return runCFO({ task: (task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand'), message, conversationHistory });
-  } else if (agentRole === 'clo') {
-    return runCLO({ task: (normalizedTask as 'regulatory_scan' | 'contract_review' | 'compliance_check' | 'agent365_mail_triage' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cpo') {
     return runCPO({ task: (task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cmo') {
@@ -1118,42 +1123,10 @@ const agentExecutor = async (
     return runDesignCritic({ task: (task as 'grade_builds' | 'quality_report' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'template-architect') {
     return runTemplateArchitect({ task: (task as 'variant_review' | 'template_quality_audit' | 'on_demand'), message, conversationHistory });
-  }
-  // IT / M365
-  else if (agentRole === 'm365-admin') {
-    return runM365Admin({ task: (normalizedTask as 'channel_audit' | 'user_audit' | 'agent365_mail_triage' | 'on_demand'), message, conversationHistory });
-  }
-  // Global Admin
-  else if (agentRole === 'global-admin') {
-    return runGlobalAdmin({ task: (normalizedTask as 'access_audit' | 'compliance_report' | 'onboarding' | 'agent365_mail_triage' | 'on_demand'), message, conversationHistory });
-  }
-  // People & Culture
-  else if (agentRole === 'head-of-hr') {
-    return runHeadOfHR({ task: (normalizedTask as 'workforce_audit' | 'onboard_agent' | 'retire_agent' | 'agent365_mail_triage' | 'on_demand'), message, conversationHistory });
-  }
-  // Operations
-  else if (agentRole === 'ops') {
+  } else if (agentRole === 'ops') {
     return runOps({ task: (task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene'), message, eventPayload: payload, conversationHistory });
-  }
-  // Platform Intelligence
-  else if (agentRole === 'platform-intel') {
-    return runPlatformIntel({
-      task: (task as 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation' | 'apply_fix_proposal'),
-      message,
-      conversationHistory,
-    });
-  }
-  // Strategy Lab v2 — Research Analysts
-  else if (agentRole === 'vp-research') {
-    return runVPResearch({ task: (task as 'decompose_research' | 'qc_and_package_research' | 'follow_up_research' | 'on_demand'), message, analysisId: payload.analysisId as string | undefined, query: payload.query as string | undefined, analysisType: payload.analysisType as string | undefined, depth: payload.depth as string | undefined, sarahNotes: payload.sarahNotes as string | undefined, rawPackets: payload.rawPackets as Record<string, unknown> | undefined, executiveRouting: payload.executiveRouting as Record<string, string[]> | undefined, gaps: payload.gaps as unknown[] | undefined, conversationHistory });
-  } else if (agentRole === 'competitive-research-analyst') {
-    return runCompetitiveResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
-  } else if (agentRole === 'market-research-analyst') {
-    return runMarketResearchAnalyst({ task: (task as 'research' | 'on_demand'), message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
   } else {
-    // Dynamic agent — look up in DB and run with generic runner
-    console.log(`[Scheduler] Agent ${agentRole} not in static roster, trying dynamic runner...`);
-    return runDynamicAgent({ role: agentRole, task, message, conversationHistory });
+    return blockedRuntimeResult(agentRole);
   }
 };
 
@@ -2418,6 +2391,10 @@ const trackedAgentExecutor = async (
   task: string,
   payload: Record<string, unknown>,
 ): Promise<AgentExecutionResult | void> => {
+  if (!isLiveRuntimeRole(agentRole)) {
+    return blockedRuntimeResult(agentRole);
+  }
+
   const inputMsg = typeof payload?.message === 'string' ? payload.message : null;
   const startMs = Date.now();
   const requestedRunId = typeof payload?.runId === 'string' && UUID_RE.test(payload.runId.trim())
@@ -6055,6 +6032,11 @@ const server = createServer(async (req, res) => {
       }
 
       // Validate agent exists and is active
+      if (!isLiveRuntimeRole(agentRole)) {
+        json(res, 404, { error: `Agent "${agentRole}" is not on the live runtime roster` });
+        return;
+      }
+
       const [agent] = await systemQuery(
         "SELECT role FROM company_agents WHERE role = $1 AND status = 'active'",
         [agentRole],

@@ -7,6 +7,7 @@
  */
 
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
+import { isCanonicalKeepRole } from '@glyphor/shared';
 
 export interface ScheduledJob {
   id: string;
@@ -87,25 +88,6 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     enabled: true,
   },
   {
-    id: 'cos-initiative-proposal',
-    agentRole: 'chief-of-staff',
-    schedule: '0 13 * * 1',  // Monday 8:00 AM CT — initiative proposal cycle
-    timezone: 'America/Chicago',
-    task: 'strategic_planning',
-    payload: { focus: 'initiative_proposals' },
-    enabled: false,
-  },
-  // Phase 2+ jobs (disabled until agents are fully implemented)
-  {
-    id: 'cto-health-check',
-    agentRole: 'cto',
-    schedule: '0 */6 * * *',  // every 6 hours (was every 2h — reduced for cost)
-    timezone: 'UTC',
-    task: 'platform_health_check',
-    payload: {},
-    enabled: false,
-  },
-  {
     id: 'cfo-daily-costs',
     agentRole: 'cfo',
     schedule: '0 14 * * *',  // 9:00 AM CT, daily
@@ -113,51 +95,6 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     task: 'daily_cost_check',
     payload: {},
     enabled: true,
-  },
-  {
-    id: 'cfo-afternoon-costs',
-    agentRole: 'cfo',
-    schedule: '0 20 * * *',  // 3:00 PM CT — disabled: billing data doesn't refresh between morning and afternoon
-    timezone: 'America/Chicago',
-    task: 'daily_cost_check',
-    payload: { context: 'afternoon_check' },
-    enabled: false,
-  },
-  {
-    id: 'cpo-usage-analysis',
-    agentRole: 'cpo',
-    schedule: '0 15 * * *',  // 10:00 AM CT, daily
-    timezone: 'America/Chicago',
-    task: 'weekly_usage_analysis',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'cmo-content-calendar',
-    agentRole: 'cmo',
-    schedule: '0 14 * * *',  // 9:00 AM CT, daily
-    timezone: 'America/Chicago',
-    task: 'weekly_content_planning',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'cmo-afternoon-publishing',
-    agentRole: 'cmo',
-    schedule: '0 19 * * *',  // 2:00 PM CT — afternoon publishing/scheduling
-    timezone: 'America/Chicago',
-    task: 'generate_content',
-    payload: { context: 'afternoon_publishing' },
-    enabled: false,
-  },
-  {
-    id: 'vps-pipeline-review',
-    agentRole: 'vp-sales',
-    schedule: '0 14 * * *',  // 9:00 AM CT, daily
-    timezone: 'America/Chicago',
-    task: 'pipeline_review',
-    payload: {},
-    enabled: false,
   },
   // Atlas Vega — Operations agent
   {
@@ -186,176 +123,6 @@ export const SCHEDULED_JOBS: ScheduledJob[] = [
     task: 'cost_check',
     payload: {},
     enabled: true,
-  },
-  {
-    id: 'ops-morning-status',
-    agentRole: 'ops',
-    schedule: '0 11 * * *',  // 6:00 AM CT — disabled: CoS morning_briefing covers this ground
-    timezone: 'America/Chicago',
-    task: 'morning_status',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'ops-evening-status',
-    agentRole: 'ops',
-    schedule: '0 22 * * *',  // 5:00 PM CT — disabled: low-signal status theater; re-enable if incident cadence warrants
-    timezone: 'America/Chicago',
-    task: 'evening_status',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'ops-knowledge-hygiene',
-    agentRole: 'ops',
-    schedule: '0 12 * * *',  // 7:00 AM CT — refresh doctrine before morning briefing
-    timezone: 'America/Chicago',
-    task: 'knowledge_hygiene',
-    payload: {},
-    enabled: false,
-  },
-
-  // ─── Sub-Team Agent Schedules ────────────────────────────────
-
-  // Engineering sub-team (reports to CTO)
-  {
-    id: 'platform-eng-daily',
-    agentRole: 'platform-engineer',
-    schedule: '0 */2 * * *',  // every 2 hours — infrastructure health check
-    timezone: 'UTC',
-    task: 'health_check',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'quality-eng-daily',
-    agentRole: 'quality-engineer',
-    schedule: '0 13 * * *',  // 7:00 AM CT — quality metrics
-    timezone: 'America/Chicago',
-    task: 'qa_report',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'devops-eng-daily',
-    agentRole: 'devops-engineer',
-    schedule: '0 12 * * *',  // 6:00 AM CT — deployment health, CI/CD check
-    timezone: 'America/Chicago',
-    task: 'pipeline_report',
-    payload: {},
-    enabled: false,
-  },
-
-  // Product sub-team (reports to CPO)
-  {
-    id: 'user-researcher-daily',
-    agentRole: 'user-researcher',
-    schedule: '30 16 * * *',  // 10:30 AM CT — usage patterns
-    timezone: 'America/Chicago',
-    task: 'cohort_analysis',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'competitive-intel-daily',
-    agentRole: 'competitive-intel',
-    schedule: '0 14 * * *',  // 8:00 AM CT — competitor monitoring
-    timezone: 'America/Chicago',
-    task: 'landscape_scan',
-    payload: {},
-    enabled: false,
-  },
-
-  // Marketing sub-team (reports to CMO)
-  {
-    id: 'content-creator-daily',
-    agentRole: 'content-creator',
-    schedule: '0 16 * * *',  // 10:00 AM CT — content drafting
-    timezone: 'America/Chicago',
-    task: 'blog_draft',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'seo-analyst-daily',
-    agentRole: 'seo-analyst',
-    schedule: '30 14 * * *',  // 8:30 AM CT — SEO performance
-    timezone: 'America/Chicago',
-    task: 'ranking_report',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'social-media-morning',
-    agentRole: 'social-media-manager',
-    schedule: '0 15 * * *',  // 9:00 AM CT — morning plan
-    timezone: 'America/Chicago',
-    task: 'schedule_batch',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'social-media-afternoon',
-    agentRole: 'social-media-manager',
-    schedule: '0 22 * * *',  // 4:00 PM CT — afternoon engagement check
-    timezone: 'America/Chicago',
-    task: 'engagement_report',
-    payload: {},
-    enabled: false,
-  },
-
-  // IT / M365 (reports to CTO)
-  {
-    id: 'm365-admin-weekly-audit',
-    agentRole: 'm365-admin',
-    schedule: '0 12 * * 1',     // Monday 7:00 AM CT — weekly channel + user audit
-    timezone: 'America/Chicago',
-    task: 'channel_audit',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'm365-admin-user-audit',
-    agentRole: 'm365-admin',
-    schedule: '0 13 * * 1',     // Monday 8:00 AM CT — user access audit
-    timezone: 'America/Chicago',
-    task: 'user_audit',
-    payload: {},
-    enabled: false,
-  },
-
-  // Design sub-team (reports to VP-Design) — roles not in static crons
-  // ui-ux-designer, frontend-engineer, design-critic, template-architect
-  // These are added via DB-driven agent_schedules. See seed migration.
-
-  // Platform Intelligence — Nexus fleet analysis (reduced to 1x daily)
-  // Midday and evening runs disabled: tool gaps don't change 3x/day; 7 AM run is sufficient.
-  {
-    id: 'platform-intel-morning',
-    agentRole: 'platform-intel',
-    schedule: '0 7 * * *',      // 7:00 AM CT — morning analysis after batch eval
-    timezone: 'America/Chicago',
-    task: 'daily_analysis',
-    payload: {},
-    enabled: true,
-  },
-  {
-    id: 'platform-intel-midday',
-    agentRole: 'platform-intel',
-    schedule: '0 12 * * *',     // 12:00 PM CT — disabled: redundant with morning run
-    timezone: 'America/Chicago',
-    task: 'daily_analysis',
-    payload: {},
-    enabled: false,
-  },
-  {
-    id: 'platform-intel-evening',
-    agentRole: 'platform-intel',
-    schedule: '0 17 * * *',     // 5:00 PM CT — disabled: redundant with morning run
-    timezone: 'America/Chicago',
-    task: 'daily_analysis',
-    payload: {},
-    enabled: false,
   },
 ];
 
@@ -583,14 +350,15 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
  * Get all enabled scheduled jobs.
  */
 export function getEnabledJobs(): ScheduledJob[] {
-  return SCHEDULED_JOBS.filter(j => j.enabled);
+  return SCHEDULED_JOBS.filter((job) => job.enabled && isCanonicalKeepRole(job.agentRole));
 }
 
 /**
  * Get scheduled jobs for a specific agent.
  */
 export function getJobsForAgent(role: CompanyAgentRole): ScheduledJob[] {
-  return SCHEDULED_JOBS.filter(j => j.agentRole === role);
+  if (!isCanonicalKeepRole(role)) return [];
+  return SCHEDULED_JOBS.filter((job) => job.agentRole === role);
 }
 
 /**

@@ -15,6 +15,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { isCanonicalKeepRole } from '@glyphor/shared';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 
 // ---------------------------------------------------------------------------
@@ -96,6 +97,10 @@ type AgentExecutorFn = (
   task: string,
   payload: Record<string, unknown>,
 ) => Promise<AgentExecutionResult | void>;
+
+function isLiveRuntimeRole(role: string): role is CompanyAgentRole {
+  return isCanonicalKeepRole(role);
+}
 
 // Returns true if the given cron expression matches the provided date.
 // Supports standard 5-field cron: minute hour day-of-month month day-of-week
@@ -193,8 +198,11 @@ export class DynamicScheduler {
 
       if (!schedules || schedules.length === 0) return;
 
+      const liveSchedules = schedules.filter((schedule) => isLiveRuntimeRole(schedule.agent_id));
+      if (liveSchedules.length === 0) return;
+
       // Filter to schedules whose cron matches now
-      const matching = (schedules as DynamicScheduleRow[]).filter(
+      const matching = liveSchedules.filter(
         (s) => cronMatchesNow(s.cron_expression, now),
       );
 
@@ -203,7 +211,8 @@ export class DynamicScheduler {
       // Verify agents are still active
       // agent_schedules.agent_id stores the role string (e.g. 'chief-of-staff'),
       // so we must query company_agents.role, not .id (which is a UUID).
-      const agentIds = [...new Set(matching.map((s) => s.agent_id))];
+      const agentIds = [...new Set(matching.map((s) => s.agent_id))].filter(isLiveRuntimeRole);
+      if (agentIds.length === 0) return;
       const agents = await systemQuery<{ id: string; role: string; status: string }>(
         'SELECT id, role, status FROM company_agents WHERE role = ANY($1) AND status = $2',
         [agentIds, 'active'],

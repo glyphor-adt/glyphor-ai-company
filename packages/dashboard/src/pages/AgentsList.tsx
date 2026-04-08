@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META, ROLE_TITLE, ROLE_DEPARTMENT, ROLE_TIER, AGENT_SKILLS } from '../lib/types';
+import { LIVE_ROSTER_ORDER } from '../lib/liveRoster';
 import { AgentAvatar, Card, StatusDot, Skeleton } from '../components/ui';
 
 const HIDDEN_ROSTER_STATUSES = new Set(['retired', 'inactive', 'deleted']);
@@ -24,34 +25,8 @@ export default function AgentsList() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {visibleAgents
             .sort((a, b) => {
-              const order = [
-                'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'clo',
-                'vp-sales', 'vp-design', 'vp-customer-success', 'vp-research', 'ops', 'platform-intel',
-                // Engineering
-                'platform-engineer', 'quality-engineer', 'devops-engineer',
-                // Product
-                'user-researcher', 'competitive-intel',
-                // Finance
-                'revenue-analyst', 'cost-analyst',
-                // Marketing
-                'content-creator', 'seo-analyst', 'social-media-manager', 'marketing-intelligence-analyst',
-                // Customer Success
-                'onboarding-specialist', 'support-triage',
-                // Sales
-                'account-research',
-                // Design & Frontend
-                'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
-                // Operations & IT
-                'm365-admin', 'global-admin',
-                // People & Culture
-                'head-of-hr',
-                // Research & Intelligence
-                'competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst',
-                // Specialists
-                'bob-the-tax-pro', 'adi-rose',
-              ];
-              const ai = order.indexOf(a.role);
-              const bi = order.indexOf(b.role);
+              const ai = LIVE_ROSTER_ORDER.indexOf(a.role as (typeof LIVE_ROSTER_ORDER)[number]);
+              const bi = LIVE_ROSTER_ORDER.indexOf(b.role as (typeof LIVE_ROSTER_ORDER)[number]);
               return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
             })
             .map((agent) => {

@@ -36,6 +36,13 @@ export type {
 
 export { classifyActionRisk } from './actionRiskClassifier.js';
 export type { ActionRiskLevel, ActionRiskAssessment } from './actionRiskClassifier.js';
+export {
+  CANONICAL_KEEP_ROSTER,
+  CANONICAL_KEEP_ROSTER_SET,
+  filterCanonicalKeepRoster,
+  isCanonicalKeepRole,
+} from './canonicalKeepRoster.js';
+export type { CanonicalKeepRole } from './canonicalKeepRoster.js';
 
 export {
   getAutonomyLevels,

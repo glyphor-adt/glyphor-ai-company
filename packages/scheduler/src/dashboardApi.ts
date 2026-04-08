@@ -13,6 +13,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { systemQuery, systemTransaction } from '@glyphor/shared/db';
+import { CANONICAL_KEEP_ROSTER, isCanonicalKeepRole } from '@glyphor/shared';
 
 export interface AuthenticatedDashboardUser {
   uid: string;
@@ -44,6 +45,36 @@ interface ParsedSkillMarkdown {
   tools_granted: string[];
   holders: string[];
   version: number;
+}
+
+const LIVE_ROSTER_ROLE_LIST = [...CANONICAL_KEEP_ROSTER];
+const LIVE_ROSTER_FILTER_COLUMNS: Partial<Record<string, string>> = {
+  company_agents: 'role',
+  agent_skills: 'agent_role',
+  agent_tool_grants: 'agent_role',
+};
+
+function buildLiveRosterWhereClause(
+  tableName: string,
+  nextParamIndex: number,
+  hasExistingWhere: boolean,
+): { clause: string; values: unknown[] } {
+  const roleColumn = LIVE_ROSTER_FILTER_COLUMNS[tableName];
+  if (!roleColumn) {
+    return { clause: '', values: [] };
+  }
+
+  if (tableName === 'company_agents') {
+    return {
+      clause: `${hasExistingWhere ? ' AND' : ' WHERE'} status = 'active' AND ${roleColumn} = ANY($${nextParamIndex}::text[])`,
+      values: [LIVE_ROSTER_ROLE_LIST],
+    };
+  }
+
+  return {
+    clause: `${hasExistingWhere ? ' AND' : ' WHERE'} ${roleColumn} = ANY($${nextParamIndex}::text[])`,
+    values: [LIVE_ROSTER_ROLE_LIST],
+  };
 }
 
 // ─── Table whitelist (prevents arbitrary SQL access) ────────────
@@ -535,8 +566,10 @@ async function buildSmbSettings(email: string | null) {
        FROM company_agents ca
        LEFT JOIN agent_profiles ap ON ap.agent_id = ca.role
       WHERE ca.tenant_id = $1
+        AND ca.status = 'active'
+        AND ca.role = ANY($2::text[])
       ORDER BY COALESCE(ca.department, 'General'), COALESCE(ca.display_name, ca.role)`,
-    [organization.id],
+    [organization.id, LIVE_ROSTER_ROLE_LIST],
   );
 
   const authorizedUsers = await (async () => {
@@ -671,8 +704,10 @@ async function buildSmbSummary(email: string | null) {
          FROM company_agents ca
          LEFT JOIN agent_profiles ap ON ap.agent_id = ca.role
         WHERE ca.tenant_id = $1
+          AND ca.status = 'active'
+          AND ca.role = ANY($2::text[])
         ORDER BY COALESCE(ca.department, 'General'), COALESCE(ca.display_name, ca.role)`,
-      [organization.id],
+      [organization.id, LIVE_ROSTER_ROLE_LIST],
     ),
     systemQuery<{
       agent_role: string;
@@ -985,6 +1020,7 @@ async function handleAgentWorkSignals(
     WITH roles AS (
       SELECT role FROM company_agents
       WHERE COALESCE(NULLIF(TRIM(LOWER(status)), ''), 'active') NOT IN ('retired', 'inactive', 'deleted')
+        AND role = ANY($3::text[])
     ),
     wa_agg AS (
       SELECT
@@ -1020,7 +1056,7 @@ async function handleAgentWorkSignals(
     LEFT JOIN ae_agg a ON a.assigned_to = r.role
     ORDER BY r.role
     `,
-    [assignmentDays, evalDays],
+    [assignmentDays, evalDays, LIVE_ROSTER_ROLE_LIST],
   );
 
   const normalized = rows.map((row) => ({
@@ -1557,22 +1593,24 @@ export async function handleDashboardApi(
         let insertedHolders = 0;
 
         if (reconcileHolders) {
-          if (parsed.holders.length > 0) {
+          const liveHolders = parsed.holders.filter((holder) => isCanonicalKeepRole(holder));
+          if (liveHolders.length > 0) {
             const deleted = await client.query(
               `DELETE FROM agent_skills
                WHERE skill_id = $1
                  AND NOT (agent_role = ANY($2::text[]))`,
-              [skill.id, parsed.holders],
+              [skill.id, liveHolders],
             );
             deletedHolders = deleted.rowCount ?? 0;
 
             const inserted = await client.query(
-              `INSERT INTO agent_skills (agent_role, skill_id, proficiency)
-               SELECT ca.role, $1, $2
-               FROM company_agents ca
-               WHERE ca.role = ANY($3::text[])
-               ON CONFLICT (agent_role, skill_id) DO NOTHING`,
-              [skill.id, defaultProficiency, parsed.holders],
+               `INSERT INTO agent_skills (agent_role, skill_id, proficiency)
+                SELECT ca.role, $1, $2
+                FROM company_agents ca
+                WHERE ca.role = ANY($3::text[])
+                  AND ca.status = 'active'
+                ON CONFLICT (agent_role, skill_id) DO NOTHING`,
+              [skill.id, defaultProficiency, liveHolders],
             );
             insertedHolders = inserted.rowCount ?? 0;
           } else {
@@ -1801,12 +1839,18 @@ export async function handleDashboardApi(
 
       if (resourceId) {
         // GET /api/table/:id
+        const liveRosterById = buildLiveRosterWhereClause(
+          tableName,
+          enforceChatMessageOwnership ? 3 : 2,
+          true,
+        );
         const sql = enforceChatMessageOwnership
-          ? `SELECT * FROM ${tableName} WHERE id = $1 AND user_id = $2`
-          : `SELECT * FROM ${tableName} WHERE id = $1`;
-        const values = enforceChatMessageOwnership
+          ? `SELECT * FROM ${tableName} WHERE id = $1 AND user_id = $2${liveRosterById.clause}`
+          : `SELECT * FROM ${tableName} WHERE id = $1${liveRosterById.clause}`;
+        const values: unknown[] = enforceChatMessageOwnership
           ? [resourceId, authenticatedUser.email]
           : [resourceId];
+        values.push(...liveRosterById.values);
         const rows = await systemQuery(sql, values);
         if (rows.length === 0) {
           jsonResponse(res, 404, { error: 'Not found' });
@@ -1842,18 +1886,26 @@ export async function handleDashboardApi(
       if (tableName === 'decisions' && !includeInactiveProposers) {
         const idx1 = values.length + 1;
         const idx2 = values.length + 2;
+        const idx3 = values.length + 3;
         decisionProposerFilter = `${where || extraWhere ? ' AND' : ' WHERE'} NOT (
           status = $${idx1}
           AND proposed_by NOT IN (
-            SELECT role FROM company_agents WHERE status = $${idx2}
+            SELECT role FROM company_agents WHERE status = $${idx2} AND role = ANY($${idx3}::text[])
           )
           AND proposed_by NOT IN ('founder', 'scheduler', 'system', 'kristina', 'andrew')
         )`;
-        values.push('pending', 'active');
+        values.push('pending', 'active', LIVE_ROSTER_ROLE_LIST);
       }
 
+      const liveRosterWhere = buildLiveRosterWhereClause(
+        tableName,
+        values.length + 1,
+        Boolean(where || extraWhere || decisionProposerFilter),
+      );
+      values.push(...liveRosterWhere.values);
+
       if (countOnly) {
-        const rows = await systemQuery<{ count: number }>(`SELECT COUNT(*)::int AS count FROM ${tableName}${where}${extraWhere}${decisionProposerFilter}`, values);
+        const rows = await systemQuery<{ count: number }>(`SELECT COUNT(*)::int AS count FROM ${tableName}${where}${extraWhere}${decisionProposerFilter}${liveRosterWhere.clause}`, values);
         jsonResponse(res, 200, { count: rows[0]?.count ?? 0 });
       } else {
         // Default to newest-first for tables with timestamp columns when no order specified
@@ -1867,7 +1919,7 @@ export async function handleDashboardApi(
           plan_verifications: ' ORDER BY created_at DESC',
         };
         const effectiveOrder = order || DEFAULT_ORDER[tableName] || '';
-        const sql = `SELECT ${select} FROM ${tableName}${where}${extraWhere}${decisionProposerFilter}${effectiveOrder}${limit || ' LIMIT 200'}`;
+        const sql = `SELECT ${select} FROM ${tableName}${where}${extraWhere}${decisionProposerFilter}${liveRosterWhere.clause}${effectiveOrder}${limit || ' LIMIT 200'}`;
         const rows = await systemQuery(sql, values);
         jsonResponse(res, 200, rows);
       }
@@ -1900,6 +1952,10 @@ export async function handleDashboardApi(
         }
 
         if (!SYSTEM_PROPOSERS.has(proposedBy)) {
+          if (!isCanonicalKeepRole(proposedBy)) {
+            jsonResponse(res, 400, { error: `Decision proposer is not on the live roster: ${proposedBy}` });
+            return true;
+          }
           const activeAgent = await systemQuery<{ role: string }>(
             'SELECT role FROM company_agents WHERE role = $1 AND status = $2 LIMIT 1',
             [proposedBy, 'active'],
@@ -1908,6 +1964,14 @@ export async function handleDashboardApi(
             jsonResponse(res, 400, { error: `Decision proposer is not active: ${proposedBy}` });
             return true;
           }
+        }
+      }
+
+      if (tableName === 'agent_tool_grants') {
+        const agentRole = typeof body.agent_role === 'string' ? body.agent_role : null;
+        if (!agentRole || !isCanonicalKeepRole(agentRole)) {
+          jsonResponse(res, 400, { error: 'agent_tool_grants.agent_role must be on the live roster' });
+          return true;
         }
       }
 

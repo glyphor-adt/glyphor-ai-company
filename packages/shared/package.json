@@ -33,6 +33,10 @@
     "./governance": {
       "types": "./dist/governance.d.ts",
       "default": "./dist/governance.js"
+    },
+    "./canonicalKeepRoster": {
+      "types": "./dist/canonicalKeepRoster.d.ts",
+      "default": "./dist/canonicalKeepRoster.js"
     }
   },
   "scripts": {

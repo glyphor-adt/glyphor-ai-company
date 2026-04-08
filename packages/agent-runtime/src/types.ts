@@ -8,7 +8,7 @@
 
 import type { ActionRiskLevel } from '@glyphor/shared';
 
-export type { ActionRiskLevel };
+export type { ActionRiskLevel, CanonicalKeepRole } from '@glyphor/shared';
 
 // ═══════════════════════════════════════════════════════════════════
 // AGENT DEFINITION
@@ -779,17 +779,14 @@ export interface SecurityEvent {
 export type AgentTier = 'executive' | 'sub-team';
 
 export const EXECUTIVE_ROLES: CompanyAgentRole[] = [
-  'chief-of-staff', 'cto', 'cpo', 'cmo', 'cfo', 'clo',
-  'vp-sales', 'vp-design', 'head-of-hr',
+  'chief-of-staff', 'cto', 'cpo', 'cmo', 'cfo',
+  'vp-sales', 'vp-design',
 ];
 
 export const SUB_TEAM_ROLES: CompanyAgentRole[] = [
   'platform-engineer', 'quality-engineer', 'devops-engineer',
   'user-researcher', 'competitive-intel',
-  'content-creator', 'seo-analyst',
-  'social-media-manager', 'm365-admin', 'global-admin',
-  'vp-research',
-  'competitive-research-analyst', 'market-research-analyst',
+  'content-creator', 'seo-analyst', 'social-media-manager',
 ];
 
 /** Events executives can emit */
@@ -915,9 +912,6 @@ export const AGENT_MANAGER: Partial<Record<CompanyAgentRole, CompanyAgentRole>> 
   'content-creator':       'cmo',
   'seo-analyst':           'cmo',
   'social-media-manager':  'cmo',
-  'm365-admin':            'cto',
-  'global-admin':           'chief-of-staff',
-  'head-of-hr':              'chief-of-staff',
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -929,22 +923,18 @@ export type AgentArchetype = 'orchestrator' | 'task';
 /** Roles that use the OrchestratorRunner — they decompose, delegate, evaluate, and synthesize. */
 export const ORCHESTRATOR_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
   'chief-of-staff',   // Master orchestrator — decomposes directives, routes to departments
-  'vp-research',      // Research orchestrator — decomposes research into analyst briefs
   'cto',              // Engineering orchestrator — triages, delegates to eng sub-team
-  'clo',              // Legal orchestrator — decomposes compliance across departments
   'ops',              // System orchestrator — monitors health, triages alerts
   'cmo',              // Marketing orchestrator — plans content cycles, delegates to marketing team
 ]);
 
 /** All remaining roles use the TaskRunner — they receive, reason, execute, and report. */
 export const TASK_AGENT_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
-  'cfo', 'cpo', 'vp-sales', 'vp-design', 'head-of-hr',
+  'cfo', 'cpo', 'vp-sales', 'vp-design',
   'platform-engineer', 'quality-engineer', 'devops-engineer',
   'user-researcher', 'competitive-intel',
   'content-creator', 'seo-analyst', 'social-media-manager',
   'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
-  'm365-admin', 'global-admin',
-  'competitive-research-analyst', 'market-research-analyst',
 ]);
 
 export function getAgentArchetype(role: CompanyAgentRole): AgentArchetype {

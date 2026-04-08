@@ -9,6 +9,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
+import { isCanonicalKeepRole } from '@glyphor/shared';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
 import { WAKE_RULES } from './wakeRules.js';
 import type { WakeRule } from './wakeRules.js';
@@ -174,7 +175,8 @@ export class WakeRouter {
         }
         return w;
       })
-      .filter(Boolean);
+      .filter((role): role is string => typeof role === 'string' && role.length > 0)
+      .filter((role) => isCanonicalKeepRole(role));
   }
 
   /**

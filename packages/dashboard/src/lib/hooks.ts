@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { apiCall } from './firebase';
 import type { Agent, Decision, ActivityEntry, Product, Financial, FounderDirective, Incident, AgentReflection, CompanyPulse, WorkAssignment, DashboardChangeRequest } from './types';
+import { filterCanonicalKeepRoster } from './liveRoster';
 
 /* ─── Generic fetch helper ─────────────────── */
 function useQuery<T>(table: string, orderCol = 'created_at', ascending = false) {
@@ -33,7 +34,7 @@ export function useAgents() {
     setLoading(true);
     try {
       const agents = await apiCall<Agent[]>('/api/agents');
-      setData(agents ?? []);
+      setData(filterCanonicalKeepRoster(agents ?? []));
     } catch {
       setData([]);
     }

@@ -13,6 +13,7 @@ import {
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { systemQuery } from '@glyphor/shared/db';
+import { isCanonicalKeepRole } from '@glyphor/shared';
 import { createMemoryTools } from './memoryTools.js';
 import { createRunDeps, loadAgentConfig } from './createRunDeps.js';
 import { createRunner } from './createRunner.js';
@@ -37,6 +38,14 @@ export interface DynamicAgentRunParams {
 
 export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<AgentExecutionResult> {
   const { role, task = 'on_demand', message, conversationHistory } = params;
+
+  if (!isCanonicalKeepRole(role)) {
+    return {
+      output: `Agent "${role}" is not on the live runtime roster and cannot run.`,
+      status: 'error',
+      totalTurns: 0,
+    } as AgentExecutionResult;
+  }
 
   const memory = new CompanyMemoryStore({
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',

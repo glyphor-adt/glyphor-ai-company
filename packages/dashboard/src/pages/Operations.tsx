@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 const POLL_INTERVAL = 60_000;
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
+import { CANONICAL_KEEP_ROSTER_SET, LIVE_ROSTER_ORDER } from '../lib/liveRoster';
 import {
   Card,
   GradientButton,
@@ -102,7 +103,7 @@ const HIDDEN_ROSTER_STATUSES = new Set(['retired', 'inactive', 'deleted']);
 
 function isAgentOnOperationsRoster(agent: AgentRow): boolean {
   const s = (agent.status ?? 'active').toLowerCase();
-  return !HIDDEN_ROSTER_STATUSES.has(s);
+  return CANONICAL_KEEP_ROSTER_SET.has(agent.role) && !HIDDEN_ROSTER_STATUSES.has(s);
 }
 
 interface ReflectionRow {
@@ -360,32 +361,7 @@ function computeHealthMap(
   return map;
 }
 
-const ROLE_ORDER = [
-  'chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'clo',
-  'vp-sales', 'vp-design', 'vp-customer-success', 'vp-research', 'ops', 'platform-intel',
-  // Engineering
-  'platform-engineer', 'quality-engineer', 'devops-engineer',
-  // Product
-  'user-researcher', 'competitive-intel',
-  // Finance
-  'revenue-analyst', 'cost-analyst',
-  // Marketing
-  'content-creator', 'seo-analyst', 'social-media-manager', 'marketing-intelligence-analyst',
-  // Customer Success
-  'onboarding-specialist', 'support-triage',
-  // Sales
-  'account-research',
-  // Design & Frontend
-  'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
-  // Operations & IT
-  'm365-admin', 'global-admin',
-  // People & Culture
-  'head-of-hr',
-  // Research & Intelligence
-  'competitive-research-analyst', 'market-research-analyst', 'technical-research-analyst', 'industry-research-analyst',
-  // Specialists
-  'bob-the-tax-pro', 'adi-rose',
-];
+const ROLE_ORDER = LIVE_ROSTER_ORDER;
 
 /** Set to true to show secondary/admin telemetry panels (lifetime runs/cost, quality trend, health matrix, memory health, agent details). */
 const SHOW_SECONDARY_PANELS = false;
@@ -855,31 +831,44 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
     () => agents.filter(isAgentOnOperationsRoster),
     [agents],
   );
+  const liveRoleSet = useMemo(() => new Set(rosterAgents.map((agent) => agent.role)), [rosterAgents]);
+  const liveWorkSignals = useMemo(
+    () => workSignals.filter((row) => liveRoleSet.has(row.agent_role)),
+    [liveRoleSet, workSignals],
+  );
+  const liveRecentRuns = useMemo(
+    () => recentRuns.filter((run) => liveRoleSet.has(run.agent_id)),
+    [liveRoleSet, recentRuns],
+  );
+  const liveReflections = useMemo(
+    () => reflections.filter((reflection) => liveRoleSet.has(reflection.agent_role)),
+    [liveRoleSet, reflections],
+  );
 
   const workSignalsByRole = useMemo(() => {
     const m = new Map<string, AgentWorkSignalRow>();
-    for (const row of workSignals) {
+    for (const row of liveWorkSignals) {
       m.set(row.agent_role, row);
     }
     return m;
-  }, [workSignals]);
+  }, [liveWorkSignals]);
 
   const healthMap = useMemo(
-    () => computeHealthMap(rosterAgents, recentRuns, workSignalsByRole),
-    [rosterAgents, recentRuns, workSignalsByRole],
+    () => computeHealthMap(rosterAgents, liveRecentRuns, workSignalsByRole),
+    [rosterAgents, liveRecentRuns, workSignalsByRole],
   );
 
   const orgCompletionRate = useMemo(() => {
-    const rows = workSignals.filter((r) => r.completion_rate != null);
+    const rows = liveWorkSignals.filter((r) => r.completion_rate != null);
     if (rows.length === 0) return null;
     return Math.round(rows.reduce((s, r) => s + (r.completion_rate ?? 0), 0) / rows.length * 100);
-  }, [workSignals]);
+  }, [liveWorkSignals]);
 
   const orgEvalQuality = useMemo(() => {
-    const rows = workSignals.filter((r) => r.avg_external_quality != null);
+    const rows = liveWorkSignals.filter((r) => r.avg_external_quality != null);
     if (rows.length === 0) return null;
     return Math.round(rows.reduce((s, r) => s + (r.avg_external_quality ?? 0), 0) / rows.length);
-  }, [workSignals]);
+  }, [liveWorkSignals]);
 
   const orgFailedAssignments = assignmentFlow?.total_failed ?? null;
 
@@ -924,7 +913,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
   // Quality score over time (daily average across all agents)
   const qualityTrend = useMemo(() => {
     const byDate = new Map<string, { total: number; count: number }>();
-    for (const r of reflections) {
+    for (const r of liveReflections) {
       const date = r.created_at.split('T')[0];
       const entry = byDate.get(date) ?? { total: 0, count: 0 };
       entry.total += r.quality_score;
@@ -937,7 +926,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
         score: Math.round(total / count),
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [reflections]);
+  }, [liveReflections]);
 
   // Summary stats
   const totalRuns = rosterAgents.reduce((s, a) => s + a.total_runs, 0);
@@ -1307,8 +1296,8 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
           <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7">
             {rosterAgents
               .sort((a, b) => {
-                const ai = ROLE_ORDER.indexOf(a.role);
-                const bi = ROLE_ORDER.indexOf(b.role);
+                const ai = ROLE_ORDER.indexOf(a.role as (typeof ROLE_ORDER)[number]);
+                const bi = ROLE_ORDER.indexOf(b.role as (typeof ROLE_ORDER)[number]);
                 return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
               })
               .map((agent) => {
@@ -1450,8 +1439,8 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
           <SectionHeader title="Agent Details (Lifetime)" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {rosterAgents.sort((a, b) => {
-              const ai = ROLE_ORDER.indexOf(a.role);
-              const bi = ROLE_ORDER.indexOf(b.role);
+              const ai = ROLE_ORDER.indexOf(a.role as (typeof ROLE_ORDER)[number]);
+              const bi = ROLE_ORDER.indexOf(b.role as (typeof ROLE_ORDER)[number]);
               return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
             }).map((agent) => (
               <Card key={agent.id}>

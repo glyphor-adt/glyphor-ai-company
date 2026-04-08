@@ -94,36 +94,15 @@ export const WAKE_RULES: WakeRule[] = [
 
   // ── DOCUSIGN CONNECT WEBHOOKS ───────────────────────────────
   {
-    event: 'docusign.envelope-completed',
-    wake: ['clo'],
-    task: 'envelope_completed',
-    priority: 'immediate',
-    cooldown_min: 1,
-  },
-  {
     event: 'docusign.envelope-declined',
-    wake: ['clo', 'chief-of-staff'],
+    wake: ['chief-of-staff'],
     task: 'envelope_declined',
     priority: 'immediate',
     cooldown_min: 1,
   },
   {
-    event: 'docusign.envelope-voided',
-    wake: ['clo'],
-    task: 'envelope_voided',
-    priority: 'immediate',
-    cooldown_min: 1,
-  },
-  {
-    event: 'docusign.recipient-completed',
-    wake: ['clo'],
-    task: 'signer_completed',
-    priority: 'next_heartbeat',
-    cooldown_min: 5,
-  },
-  {
     event: 'docusign.recipient-declined',
-    wake: ['clo', 'chief-of-staff'],
+    wake: ['chief-of-staff'],
     task: 'signer_declined',
     priority: 'immediate',
     cooldown_min: 1,
@@ -154,15 +133,6 @@ export const WAKE_RULES: WakeRule[] = [
     task: 'meeting_follow_up',
     priority: 'next_heartbeat',
   },
-  // ── AGENT LIFECYCLE ─────────────────────────────────────
-  {
-    event: 'agent.spawned',
-    wake: ['head-of-hr'],
-    task: 'onboard_agent',
-    priority: 'immediate',
-    cooldown_min: 2,
-  },
-
   // ── ASSIGNMENT LIFECYCLE (24/7 Autonomous Ops) ──────────
   {
     event: 'assignment.submitted',
@@ -173,7 +143,7 @@ export const WAKE_RULES: WakeRule[] = [
   },
   {
     event: 'assignment.blocked',
-    wake: ['$assigned_by', 'platform-intel'],
+    wake: ['$assigned_by'],
     task: 'orchestrate',
     priority: 'immediate',
     cooldown_min: 2,
@@ -225,43 +195,5 @@ export const WAKE_RULES: WakeRule[] = [
     task: 'orchestrate',
     priority: 'immediate',
     cooldown_min: 2,
-  },
-
-  // ── PLATFORM INTELLIGENCE (Nexus reactive wakes) ────────
-  {
-    event: 'agent.run_failed',
-    wake: ['platform-intel'],
-    task: 'daily_analysis',
-    priority: 'immediate',
-    cooldown_min: 30,
-  },
-  {
-    event: 'eval.batch_completed',
-    wake: ['platform-intel'],
-    task: 'daily_analysis',
-    priority: 'immediate',
-    cooldown_min: 60,
-  },
-  {
-    event: 'fleet_finding.created',
-    wake: ['platform-intel'],
-    task: 'daily_analysis',
-    priority: 'immediate',
-    cooldown_min: 30,
-  },
-  {
-    event: 'alert.triggered',
-    condition: 'severity_critical',
-    wake: ['platform-intel'],
-    task: 'daily_analysis',
-    priority: 'immediate',
-    cooldown_min: 15,
-  },
-  {
-    event: 'tool.failure',
-    wake: ['platform-intel'],
-    task: 'daily_analysis',
-    priority: 'immediate',
-    cooldown_min: 30,
   },
 ];
