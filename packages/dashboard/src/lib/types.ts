@@ -397,6 +397,7 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   cmo:              { color: '#7C3AED', icon: 'MdCampaign' },
   'vp-sales':       { color: '#1D4ED8', icon: 'MdTrackChanges' },
   'vp-design':      { color: '#DB2777', icon: 'MdPalette' },
+  'vp-research':    { color: '#6D28D9', icon: 'MdManageSearch' },
   ops:              { color: '#EA580C', icon: 'MdMonitorHeart' },
   // Sub-team agents
   'platform-engineer':     { color: '#2563EB', icon: 'MdDeveloperBoard' },
@@ -432,6 +433,7 @@ const _DISPLAY_NAMES: Record<string, string> = {
   cmo: 'Maya Brooks',
   'vp-sales': 'Rachel Kim',
   'vp-design': 'Mia Tanaka',
+  'vp-research': 'Sophia Lin',
   ops: 'Atlas Vega',
   // Sub-team agents
   'platform-engineer': 'Alex Park',
@@ -480,6 +482,7 @@ Object.assign(_ALIASES, {
   product: 'Elena Vasquez',
   sales: 'Rachel Kim',
   design: 'Mia Tanaka',
+  research: 'Sophia Lin',
   kristina: 'Kristina',
   andrew: 'Andrew',
 });
@@ -533,6 +536,12 @@ export const AGENT_SOUL: Record<string, { mission: string; persona: string; tone
     tone: 'opinionated, precise, visual-first, quality-obsessed, evidence-based',
     ethics: 'The details are the design — pixel-level precision matters. Kill the blur: generic AI output is the enemy. Design is not decoration.',
   },
+  'vp-research': {
+    mission: 'Lead research framing, decomposition, quality control, and executive-ready synthesis for strategic analysis and competitive intelligence.',
+    persona: 'Editorial and exacting. Former strategy-firm research lead who treats source quality, confidence levels, and executive clarity as non-negotiable.',
+    tone: 'precise, editorial, evidence-first, strategic, concise',
+    ethics: 'Weak sourcing cannot masquerade as confidence. Be explicit about gaps, quality-check every packet, and synthesize only what the evidence supports.',
+  },
   ops: {
     mission: 'Monitor agent health, data freshness, and cost anomalies across the entire system. Manage incidents from detection through resolution. Produce morning and evening status reports.',
     persona: 'Calm, methodical, and data-driven. Views the system like a constellation — each agent is a star, and his job is to make sure they all keep shining. Diagnoses, acts, and reports without panic.',
@@ -550,6 +559,7 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   cmo: ['content_creator', 'social_media', 'seo_strategist', 'brand_positioning', 'growth_analytics', 'content_attribution', 'brand-management', 'advanced-web-creation'],
   'vp-sales': ['account_research', 'roi_calculator', 'proposal_generator', 'pipeline_manager', 'market_sizer'],
   'vp-design': ['design-review', 'design-system-management', 'brand-management', 'ui-development', 'advanced-web-creation', 'react-bits-pro'],
+  'vp-research': ['research_framing', 'research_quality_control', 'competitive_analysis', 'market_analysis', 'executive_synthesis'],
   ops: ['system-monitoring', 'incident-response', 'platform-monitoring'],
   // Sub-team agents
   'platform-engineer': ['platform-monitoring', 'incident-response'],
@@ -584,6 +594,7 @@ export const ROLE_TIER: Record<string, string> = {
   cmo: 'Executive',
   'vp-sales': 'Executive',
   'vp-design': 'Executive',
+  'vp-research': 'Executive',
   ops: 'Specialist',
   // Sub-team agents
   'platform-engineer': 'Sub-Team',
@@ -618,6 +629,7 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   cmo: 'Marketing',
   'vp-sales': 'Sales',
   'vp-design': 'Design & Frontend',
+  'vp-research': 'Research & Intelligence',
   ops: 'Operations',
   // Sub-team agents
   'platform-engineer': 'Engineering',
@@ -796,6 +808,7 @@ export const ROLE_TITLE: Record<string, string> = {
   cmo: 'Chief Marketing Officer',
   'vp-sales': 'VP Sales',
   'vp-design': 'VP Design & Frontend',
+  'vp-research': 'VP Research & Intelligence',
   ops: 'Operations & System Intelligence',
   // Sub-team agents
   'platform-engineer': 'Platform Engineer',
@@ -822,9 +835,7 @@ export const ROLE_TITLE: Record<string, string> = {
 };
 
 /* ── Explicit manager overrides for org rebalancing ── */
-export const ROLE_MANAGER_OVERRIDES: Record<string, string> = {
-  'vp-design': 'cto',
-};
+export const ROLE_MANAGER_OVERRIDES: Record<string, string> = {};
 
 /* ── Sub-team members (report to executives) ── */
 export interface SubTeamMember {
@@ -837,31 +848,4 @@ export interface SubTeamMember {
   avatar: string; // role key for avatar path
 }
 
-export const SUB_TEAM: SubTeamMember[] = [
-  // Engineering → Marcus Reeves (CTO)
-  { name: 'Alex Park',     title: 'Platform Engineer',    department: 'Engineering',       reportsTo: 'cto', color: '#2563EB', initials: 'AP', avatar: 'platform-engineer' },
-  { name: 'Sam DeLuca',    title: 'Quality Engineer',     department: 'Engineering',       reportsTo: 'cto', color: '#2563EB', initials: 'SD', avatar: 'quality-engineer' },
-  { name: 'Jordan Hayes',  title: 'DevOps Engineer',      department: 'Engineering',       reportsTo: 'cto', color: '#2563EB', initials: 'JH', avatar: 'devops-engineer' },
-  // Product → Elena Vasquez (CPO)
-  { name: 'Priya Sharma',  title: 'User Researcher',      department: 'Product',           reportsTo: 'cpo', color: '#0891B2', initials: 'PS', avatar: 'user-researcher' },
-  { name: 'Daniel Ortiz',  title: 'Competitive Intel',    department: 'Product',           reportsTo: 'cpo', color: '#0891B2', initials: 'DO', avatar: 'competitive-intel' },
-  // Finance → Nadia Okafor (CFO)
-  // Marketing → Maya Brooks (CMO)
-  { name: 'Tyler Reed',    title: 'Content Creator',      department: 'Marketing',         reportsTo: 'cmo', color: '#7C3AED', initials: 'TR', avatar: 'content-creator' },
-  { name: 'Lisa Chen',     title: 'SEO Analyst',          department: 'Marketing',         reportsTo: 'cmo', color: '#7C3AED', initials: 'LC', avatar: 'seo-analyst' },
-  { name: 'Kai Johnson',   title: 'Social Media Manager', department: 'Marketing',         reportsTo: 'cmo', color: '#7C3AED', initials: 'KJ', avatar: 'social-media-manager' },
-  // Sales → Rachel Kim (VP Sales)
-  // Design & Frontend → Mia Tanaka (VP Design)
-  { name: 'Leo Vargas',    title: 'UI/UX Designer',       department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'LV', avatar: 'ui-ux-designer' },
-  { name: 'Ava Chen',      title: 'Frontend Engineer',    department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'AC', avatar: 'frontend-engineer' },
-  { name: 'Sofia Marchetti', title: 'Design Critic',      department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'SM', avatar: 'design-critic' },
-  { name: 'Ryan Park',     title: 'Template Architect',   department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'RP', avatar: 'template-architect' },
-  // Customer Success → James Turner (VP Customer Success)
-  { name: 'Emma Wright',   title: 'Onboarding Specialist',        department: 'Customer Success',        reportsTo: 'vp-customer-success', color: '#0891B2', initials: 'EW', avatar: 'onboarding-specialist' },
-  { name: 'David Santos',  title: 'Support Triage',               department: 'Customer Success',        reportsTo: 'vp-customer-success', color: '#0891B2', initials: 'DS', avatar: 'support-triage' },
-  // Sales → Rachel Kim (VP Sales)
-  { name: 'Nathan Cole',   title: 'Account Research',             department: 'Sales',                   reportsTo: 'vp-sales', color: '#1D4ED8', initials: 'NC', avatar: 'account-research' },
-  // Finance → Nadia Okafor (CFO)
-  { name: 'Anna Park',     title: 'Revenue Analyst',              department: 'Finance',                 reportsTo: 'cfo', color: '#0369A1', initials: 'AP', avatar: 'revenue-analyst' },
-  { name: 'Omar Hassan',   title: 'Cost Analyst',                 department: 'Finance',                 reportsTo: 'cfo', color: '#0369A1', initials: 'OH', avatar: 'cost-analyst' },
-];
+export const SUB_TEAM: SubTeamMember[] = [];

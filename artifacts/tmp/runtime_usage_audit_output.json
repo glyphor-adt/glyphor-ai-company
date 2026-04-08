@@ -1,0 +1,1595 @@
+{
+  "traces_30d": [
+    {
+      "total_calls": 37,
+      "distinct_tools": 20,
+      "distinct_agents": 3,
+      "failed_calls": 5
+    }
+  ],
+  "top_tools_30d": [
+    {
+      "tool_name": "read_founder_directives",
+      "call_count": 7,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:28:39.748Z"
+    },
+    {
+      "tool_name": "get_agent_directory",
+      "call_count": 5,
+      "agent_count": 2,
+      "failures": 0,
+      "last_called": "2026-04-08T20:29:58.383Z"
+    },
+    {
+      "tool_name": "check_assignment_status",
+      "call_count": 4,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:28:31.885Z"
+    },
+    {
+      "tool_name": "check_messages",
+      "call_count": 2,
+      "agent_count": 2,
+      "failures": 0,
+      "last_called": "2026-04-08T20:26:45.336Z"
+    },
+    {
+      "tool_name": "check_tool_access",
+      "call_count": 2,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:29:30.055Z"
+    },
+    {
+      "tool_name": "query_db_table",
+      "call_count": 2,
+      "agent_count": 1,
+      "failures": 1,
+      "last_called": "2026-04-08T20:27:07.198Z"
+    },
+    {
+      "tool_name": "read_company_knowledge",
+      "call_count": 2,
+      "agent_count": 1,
+      "failures": 2,
+      "last_called": "2026-04-08T20:30:09.876Z"
+    },
+    {
+      "tool_name": "check_table_schema",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:27:03.210Z"
+    },
+    {
+      "tool_name": "get_data_freshness",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:29:42.756Z"
+    },
+    {
+      "tool_name": "get_pending_decisions",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:27:58.211Z"
+    },
+    {
+      "tool_name": "get_platform_health",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:27:14.319Z"
+    },
+    {
+      "tool_name": "list_cloud_builds",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 1,
+      "last_called": "2026-04-08T20:27:21.658Z"
+    },
+    {
+      "tool_name": "list_my_tools",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:29:11.382Z"
+    },
+    {
+      "tool_name": "query_agent_health",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:29:42.967Z"
+    },
+    {
+      "tool_name": "query_ai_usage",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:26:49.682Z"
+    },
+    {
+      "tool_name": "query_data_sync_status",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:30:19.801Z"
+    },
+    {
+      "tool_name": "read_initiatives",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:26:44.900Z"
+    },
+    {
+      "tool_name": "read_my_assignments",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:26:45.536Z"
+    },
+    {
+      "tool_name": "read_proposed_initiatives",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:28:02.799Z"
+    },
+    {
+      "tool_name": "trigger_agent_run",
+      "call_count": 1,
+      "agent_count": 1,
+      "failures": 1,
+      "last_called": "2026-04-08T20:30:45.644Z"
+    }
+  ],
+  "retrieval_methods_30d": [
+    {
+      "retrieval_method": "semantic",
+      "calls": 18
+    },
+    {
+      "retrieval_method": "role_pin",
+      "calls": 11
+    },
+    {
+      "retrieval_method": "core_pin",
+      "calls": 8
+    }
+  ],
+  "run_events_30d": [
+    {
+      "event_type": "run_created",
+      "event_count": 3,
+      "with_tool_name": 0,
+      "distinct_tools": 0
+    },
+    {
+      "event_type": "run_started",
+      "event_count": 3,
+      "with_tool_name": 0,
+      "distinct_tools": 0
+    },
+    {
+      "event_type": "status",
+      "event_count": 3,
+      "with_tool_name": 0,
+      "distinct_tools": 0
+    },
+    {
+      "event_type": "turn_started",
+      "event_count": 3,
+      "with_tool_name": 0,
+      "distinct_tools": 0
+    },
+    {
+      "event_type": "result",
+      "event_count": 1,
+      "with_tool_name": 0,
+      "distinct_tools": 0
+    },
+    {
+      "event_type": "run_failed",
+      "event_count": 1,
+      "with_tool_name": 0,
+      "distinct_tools": 0
+    }
+  ],
+  "runtime_tools_recent": [
+    {
+      "active_runtime_tools": 0,
+      "ever_used": 0,
+      "used_30d": 0
+    }
+  ],
+  "runtime_tools_top": [],
+  "granted_vs_called_30d": [
+    {
+      "tool_name": "read_founder_directives",
+      "granted_agents": 1,
+      "call_count_30d": 7,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:28:39.748Z"
+    },
+    {
+      "tool_name": "get_agent_directory",
+      "granted_agents": 6,
+      "call_count_30d": 5,
+      "caller_agents_30d": 2,
+      "last_called": "2026-04-08T20:29:58.383Z"
+    },
+    {
+      "tool_name": "check_assignment_status",
+      "granted_agents": 1,
+      "call_count_30d": 4,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:28:31.885Z"
+    },
+    {
+      "tool_name": "check_messages",
+      "granted_agents": 6,
+      "call_count_30d": 2,
+      "caller_agents_30d": 2,
+      "last_called": "2026-04-08T20:26:45.336Z"
+    },
+    {
+      "tool_name": "read_company_knowledge",
+      "granted_agents": 6,
+      "call_count_30d": 2,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:30:09.876Z"
+    },
+    {
+      "tool_name": "check_tool_access",
+      "granted_agents": 5,
+      "call_count_30d": 2,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:29:30.055Z"
+    },
+    {
+      "tool_name": "query_db_table",
+      "granted_agents": 1,
+      "call_count_30d": 2,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:27:07.198Z"
+    },
+    {
+      "tool_name": "list_my_tools",
+      "granted_agents": 5,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:29:11.382Z"
+    },
+    {
+      "tool_name": "read_my_assignments",
+      "granted_agents": 5,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:26:45.536Z"
+    },
+    {
+      "tool_name": "check_table_schema",
+      "granted_agents": 1,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:27:03.210Z"
+    },
+    {
+      "tool_name": "get_data_freshness",
+      "granted_agents": 1,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:29:42.756Z"
+    },
+    {
+      "tool_name": "get_pending_decisions",
+      "granted_agents": 1,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:27:58.211Z"
+    },
+    {
+      "tool_name": "get_platform_health",
+      "granted_agents": 1,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:27:14.319Z"
+    },
+    {
+      "tool_name": "list_cloud_builds",
+      "granted_agents": 1,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:27:21.658Z"
+    },
+    {
+      "tool_name": "query_agent_health",
+      "granted_agents": 1,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:29:42.967Z"
+    },
+    {
+      "tool_name": "query_ai_usage",
+      "granted_agents": 1,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:26:49.682Z"
+    },
+    {
+      "tool_name": "read_initiatives",
+      "granted_agents": 1,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:26:44.900Z"
+    },
+    {
+      "tool_name": "read_proposed_initiatives",
+      "granted_agents": 1,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:28:02.799Z"
+    },
+    {
+      "tool_name": "trigger_agent_run",
+      "granted_agents": 1,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:30:45.644Z"
+    },
+    {
+      "tool_name": "query_data_sync_status",
+      "granted_agents": 0,
+      "call_count_30d": 1,
+      "caller_agents_30d": 1,
+      "last_called": "2026-04-08T20:30:19.801Z"
+    },
+    {
+      "tool_name": "call_meeting",
+      "granted_agents": 6,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "recall_memories",
+      "granted_agents": 6,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "reply_to_email",
+      "granted_agents": 6,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "save_memory",
+      "granted_agents": 6,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "send_agent_message",
+      "granted_agents": 6,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "send_email",
+      "granted_agents": 6,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "who_handles",
+      "granted_agents": 6,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "add_knowledge",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "create_decision",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "create_knowledge_route",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "detect_contradictions",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "discover_external_agents",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "emit_alert",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "emit_insight",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "flag_assignment_blocker",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "get_authority_proposals",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "get_company_vitals",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "get_deliverables",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "get_knowledge_routes",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "get_org_knowledge",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "get_process_patterns",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "get_recent_activity",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "grant_tool_access",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "log_activity",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "post_to_briefings",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "post_to_deliverables",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "promote_to_org_knowledge",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "propose_authority_change",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "propose_initiative",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "publish_deliverable",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "query_knowledge_graph",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "read_company_doctrine",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "read_company_memory",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "read_inbox",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "read_sharepoint_document",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "read_teams_dm",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "record_process_pattern",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "request_new_tool",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "request_tool_access",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "revoke_tool_access",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "search_sharepoint",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "send_teams_dm",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "submit_assignment_output",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "tool_search",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "trace_causes",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "trace_impact",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "update_company_vitals",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "update_doctrine_section",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "update_vitals_highlights",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "upload_to_sharepoint",
+      "granted_agents": 5,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "create_handoff",
+      "granted_agents": 4,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "get_product_metrics",
+      "granted_agents": 4,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "peer_data_request",
+      "granted_agents": 4,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "request_peer_work",
+      "granted_agents": 4,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "assign_team_task",
+      "granted_agents": 3,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "check_team_assignments",
+      "granted_agents": 3,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "check_team_status",
+      "granted_agents": 3,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "create_specialist_agent",
+      "granted_agents": 3,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "create_sub_team_assignment",
+      "granted_agents": 3,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "escalate_to_sarah",
+      "granted_agents": 3,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "get_financials",
+      "granted_agents": 3,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "list_my_created_agents",
+      "granted_agents": 3,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "notify_founders",
+      "granted_agents": 3,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "retire_created_agent",
+      "granted_agents": 3,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "review_team_output",
+      "granted_agents": 3,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "check_system_health",
+      "granted_agents": 2,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "create_branch",
+      "granted_agents": 2,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "create_logo_variation",
+      "granted_agents": 2,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "create_social_avatar",
+      "granted_agents": 2,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "create_team_assignments",
+      "granted_agents": 2,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "deploy_preview",
+      "granted_agents": 2,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "evaluate_team_output",
+      "granted_agents": 2,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "restyle_logo",
+      "granted_agents": 2,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "send_dm",
+      "granted_agents": 2,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "synthesize_team_deliverable",
+      "granted_agents": 2,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "web_search",
+      "granted_agents": 2,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "AcceptEvent",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "activate_initiative",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "AddChannelMember",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "AddChatMember",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "AddComment",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "AddDraftAttachments",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "analyze_market_trends",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "analyze_page_seo",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "approve_content_draft",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "calculate_unit_economics",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "CancelEvent",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "capture_lead",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "check_budget_status",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "check_escalations",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "check_facebook_status",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "check_linkedin_status",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "checkOperationStatus",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "check_responsive",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "check_tool_health",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "cloudflare_register_preview",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "cloudflare_update_preview",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "comment_on_pr",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "compare_features",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    },
+    {
+      "tool_name": "compare_screenshots",
+      "granted_agents": 1,
+      "call_count_30d": 0,
+      "caller_agents_30d": 0,
+      "last_called": null
+    }
+  ],
+  "unused_granted_tools_30d": [
+    {
+      "tool_name": "call_meeting",
+      "granted_agents": 6
+    },
+    {
+      "tool_name": "recall_memories",
+      "granted_agents": 6
+    },
+    {
+      "tool_name": "reply_to_email",
+      "granted_agents": 6
+    },
+    {
+      "tool_name": "save_memory",
+      "granted_agents": 6
+    },
+    {
+      "tool_name": "send_agent_message",
+      "granted_agents": 6
+    },
+    {
+      "tool_name": "send_email",
+      "granted_agents": 6
+    },
+    {
+      "tool_name": "who_handles",
+      "granted_agents": 6
+    },
+    {
+      "tool_name": "add_knowledge",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "create_decision",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "create_knowledge_route",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "detect_contradictions",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "discover_external_agents",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "emit_alert",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "emit_insight",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "flag_assignment_blocker",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "get_authority_proposals",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "get_company_vitals",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "get_deliverables",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "get_knowledge_routes",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "get_org_knowledge",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "get_process_patterns",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "get_recent_activity",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "grant_tool_access",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "log_activity",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "post_to_briefings",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "post_to_deliverables",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "promote_to_org_knowledge",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "propose_authority_change",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "propose_initiative",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "publish_deliverable",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "query_knowledge_graph",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "read_company_doctrine",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "read_company_memory",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "read_inbox",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "read_sharepoint_document",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "read_teams_dm",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "record_process_pattern",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "request_new_tool",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "request_tool_access",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "revoke_tool_access",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "search_sharepoint",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "send_teams_dm",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "submit_assignment_output",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "tool_search",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "trace_causes",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "trace_impact",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "update_company_vitals",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "update_doctrine_section",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "update_vitals_highlights",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "upload_to_sharepoint",
+      "granted_agents": 5
+    },
+    {
+      "tool_name": "create_handoff",
+      "granted_agents": 4
+    },
+    {
+      "tool_name": "get_product_metrics",
+      "granted_agents": 4
+    },
+    {
+      "tool_name": "peer_data_request",
+      "granted_agents": 4
+    },
+    {
+      "tool_name": "request_peer_work",
+      "granted_agents": 4
+    },
+    {
+      "tool_name": "assign_team_task",
+      "granted_agents": 3
+    },
+    {
+      "tool_name": "check_team_assignments",
+      "granted_agents": 3
+    },
+    {
+      "tool_name": "check_team_status",
+      "granted_agents": 3
+    },
+    {
+      "tool_name": "create_specialist_agent",
+      "granted_agents": 3
+    },
+    {
+      "tool_name": "create_sub_team_assignment",
+      "granted_agents": 3
+    },
+    {
+      "tool_name": "escalate_to_sarah",
+      "granted_agents": 3
+    },
+    {
+      "tool_name": "get_financials",
+      "granted_agents": 3
+    },
+    {
+      "tool_name": "list_my_created_agents",
+      "granted_agents": 3
+    },
+    {
+      "tool_name": "notify_founders",
+      "granted_agents": 3
+    },
+    {
+      "tool_name": "retire_created_agent",
+      "granted_agents": 3
+    },
+    {
+      "tool_name": "review_team_output",
+      "granted_agents": 3
+    },
+    {
+      "tool_name": "check_system_health",
+      "granted_agents": 2
+    },
+    {
+      "tool_name": "create_branch",
+      "granted_agents": 2
+    },
+    {
+      "tool_name": "create_logo_variation",
+      "granted_agents": 2
+    },
+    {
+      "tool_name": "create_social_avatar",
+      "granted_agents": 2
+    },
+    {
+      "tool_name": "create_team_assignments",
+      "granted_agents": 2
+    },
+    {
+      "tool_name": "deploy_preview",
+      "granted_agents": 2
+    },
+    {
+      "tool_name": "evaluate_team_output",
+      "granted_agents": 2
+    },
+    {
+      "tool_name": "restyle_logo",
+      "granted_agents": 2
+    },
+    {
+      "tool_name": "send_dm",
+      "granted_agents": 2
+    },
+    {
+      "tool_name": "synthesize_team_deliverable",
+      "granted_agents": 2
+    },
+    {
+      "tool_name": "web_search",
+      "granted_agents": 2
+    },
+    {
+      "tool_name": "AcceptEvent",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "activate_initiative",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "AddChannelMember",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "AddChatMember",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "AddComment",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "AddDraftAttachments",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "analyze_market_trends",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "analyze_page_seo",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "approve_content_draft",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "calculate_unit_economics",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "CancelEvent",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "capture_lead",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "check_budget_status",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "check_escalations",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "check_facebook_status",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "check_linkedin_status",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "checkOperationStatus",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "check_responsive",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "check_tool_health",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "cloudflare_register_preview",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "cloudflare_update_preview",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "comment_on_pr",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "compare_features",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "compare_screenshots",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "contribute_knowledge",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "copyFileOrFolder",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "create_budget",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "create_calendar_event",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "create_canva_design",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "CreateChannel",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "CreateChat",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "create_content_draft",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "CreateDocument",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "CreateDraftMessage",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "CreateEvent",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "create_experiment",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "createFolder",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "create_git_branch",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "create_github_issue",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "create_github_pr",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "create_incident",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "create_or_update_file",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "CreatePrivateChannel",
+      "granted_agents": 1
+    },
+    {
+      "tool_name": "create_roadmap_item",
+      "granted_agents": 1
+    }
+  ],
+  "agent_tool_utilization_30d": [
+    {
+      "agent_role": "chief-of-staff",
+      "granted_tools": 91,
+      "used_tools_30d": 10,
+      "call_count_30d": 23,
+      "failures_30d": 0
+    },
+    {
+      "agent_role": "cto",
+      "granted_tools": 145,
+      "used_tools_30d": 7,
+      "call_count_30d": 8,
+      "failures_30d": 2
+    },
+    {
+      "agent_role": "ops",
+      "granted_tools": 0,
+      "used_tools_30d": 5,
+      "call_count_30d": 6,
+      "failures_30d": 3
+    },
+    {
+      "agent_role": "cpo",
+      "granted_tools": 179,
+      "used_tools_30d": 0,
+      "call_count_30d": 0,
+      "failures_30d": 0
+    },
+    {
+      "agent_role": "cmo",
+      "granted_tools": 147,
+      "used_tools_30d": 0,
+      "call_count_30d": 0,
+      "failures_30d": 0
+    },
+    {
+      "agent_role": "cfo",
+      "granted_tools": 86,
+      "used_tools_30d": 0,
+      "call_count_30d": 0,
+      "failures_30d": 0
+    },
+    {
+      "agent_role": "vp-design",
+      "granted_tools": 29,
+      "used_tools_30d": 0,
+      "call_count_30d": 0,
+      "failures_30d": 0
+    }
+  ],
+  "outcomes_30d": [],
+  "suspicious_runs_30d": [],
+  "tool_accuracy_30d": [
+    {
+      "evals": 0,
+      "avg_score": null
+    }
+  ]
+}

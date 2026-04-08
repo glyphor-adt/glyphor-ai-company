@@ -1,7 +1,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { getModel } from '@glyphor/shared/models';
 import { getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
-import { runCFO, runCMO, runCTO, runChiefOfStaff, runContentCreator, runSeoAnalyst, runSocialMediaManager } from '@glyphor/agents';
+import { runCFO, runCMO, runCTO, runChiefOfStaff, runVPResearch } from '@glyphor/agents';
 import { getRedisCache, ModelClient, type AgentExecutionResult } from '@glyphor/agent-runtime';
 
 export interface AgentKnowledgeEvalReport {
@@ -59,10 +59,7 @@ const RUNNERS: Record<string, (prompt: string) => Promise<AgentExecutionResult>>
   cfo: (prompt) => runCFO({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   // Chief of Staff — orchestration quality
   'chief-of-staff': (prompt) => runChiefOfStaff({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
-  // Marketing department sub-team agents
-  'content-creator': (prompt) => runContentCreator({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
-  'seo-analyst': (prompt) => runSeoAnalyst({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
-  'social-media-manager': (prompt) => runSocialMediaManager({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
+  'vp-research': (prompt) => runVPResearch({ task: 'on_demand', message: prompt, maxToolCalls: 0 }),
 };
 
 export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Promise<AgentKnowledgeEvalReport> {

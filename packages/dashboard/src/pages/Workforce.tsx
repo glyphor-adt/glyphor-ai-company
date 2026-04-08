@@ -26,9 +26,8 @@ const DEPARTMENTS = [
   { label: 'Product', role: 'cpo' },
   { label: 'Finance', role: 'cfo' },
   { label: 'Marketing', role: 'cmo' },
-  { label: 'Customer Success', role: 'vp-customer-success' },
-  { label: 'Sales', role: 'vp-sales' },
   { label: 'Design & Frontend', role: 'vp-design' },
+  { label: 'Research & Intelligence', role: 'vp-research' },
   { label: 'Operations & IT', role: 'ops' },
 ];
 
@@ -38,15 +37,9 @@ const TITLE_MAP: Record<string, string> = {
   cpo: 'Chief Product Officer',
   cfo: 'Chief Financial Officer',
   cmo: 'Chief Marketing Officer',
-  'vp-sales': 'VP Sales',
   'vp-design': 'VP Design & Frontend',
-  'vp-customer-success': 'VP Customer Success',
-  ops: 'Operations Agent',
-  'revenue-analyst': 'Revenue Analyst',
-  'cost-analyst': 'Cost Analyst',
-  'onboarding-specialist': 'Onboarding Specialist',
-  'support-triage': 'Support Triage',
-  'account-research': 'Account Research',
+  'vp-research': 'VP Research & Intelligence',
+  ops: 'Operations & System Intelligence',
 };
 
 type ViewMode = 'org-chart' | 'grid';

@@ -7,12 +7,7 @@ import { OAuth2Client } from 'google-auth-library';
 import type { CompanyAgentRole, ConversationAttachment, ConversationTurn } from '@glyphor/agent-runtime';
 import type { RouteResult } from '@glyphor/scheduler';
 import {
-  runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPSales, runVPDesign,
-  runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
-  runUserResearcher, runCompetitiveIntel,
-  runContentCreator, runSeoAnalyst, runSocialMediaManager,
-  runUiUxDesigner, runFrontendEngineer, runDesignCritic, runTemplateArchitect,
-  runOps, runDynamicAgent,
+  runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPDesign, runOps, runVPResearch, runDynamicAgent,
 } from '@glyphor/agents';
 
 const app = express();
@@ -259,36 +254,24 @@ async function executeAgentByRole(input: WorkerAgentExecutePayload): Promise<Rou
         payload,
         conversationHistory,
       });
-    } else if (agentRole === 'vp-sales') {
-      result = await runVPSales({ task: task as 'pipeline_review' | 'market_sizing' | 'on_demand', message, conversationHistory });
     } else if (agentRole === 'vp-design') {
       result = await runVPDesign({ task: task as 'design_audit' | 'design_system_review' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'platform-engineer') {
-      result = await runPlatformEngineer({ task: task as 'health_check' | 'metrics_report' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'quality-engineer') {
-      result = await runQualityEngineer({ task: task as 'qa_report' | 'regression_check' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'devops-engineer') {
-      result = await runDevOpsEngineer({ task: task as 'optimization_scan' | 'pipeline_report' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'user-researcher') {
-      result = await runUserResearcher({ task: task as 'cohort_analysis' | 'churn_signals' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'competitive-intel') {
-      result = await runCompetitiveIntel({ task: task as 'landscape_scan' | 'deep_dive' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'content-creator') {
-      result = await runContentCreator({ task: task as 'blog_draft' | 'social_batch' | 'performance_review' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'seo-analyst') {
-      result = await runSeoAnalyst({ task: task as 'ranking_report' | 'keyword_research' | 'competitor_gap' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'social-media-manager') {
-      result = await runSocialMediaManager({ task: task as 'engagement_report' | 'schedule_batch' | 'mention_scan' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'ui-ux-designer') {
-      result = await runUiUxDesigner({ task: task as 'component_spec' | 'design_token_review' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'frontend-engineer') {
-      result = await runFrontendEngineer({ task: task as 'implement_component' | 'accessibility_audit' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'design-critic') {
-      result = await runDesignCritic({ task: task as 'grade_builds' | 'quality_report' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'template-architect') {
-      result = await runTemplateArchitect({ task: task as 'variant_review' | 'template_quality_audit' | 'on_demand', message, conversationHistory });
     } else if (agentRole === 'ops') {
       result = await runOps({ task: task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene', message, eventPayload: payload, conversationHistory });
+    } else if (agentRole === 'vp-research') {
+      result = await runVPResearch({
+        task: task as 'decompose_research' | 'qc_and_package_research' | 'follow_up_research' | 'on_demand',
+        message,
+        analysisId: payload.analysisId as string | undefined,
+        query: payload.query as string | undefined,
+        analysisType: payload.analysisType as string | undefined,
+        depth: payload.depth as string | undefined,
+        sarahNotes: payload.sarahNotes as string | undefined,
+        rawPackets: payload.rawPackets as Record<string, unknown> | undefined,
+        executiveRouting: payload.executiveRouting as Record<string, string[]> | undefined,
+        gaps: payload.gaps as unknown[] | undefined,
+        conversationHistory,
+      });
     } else {
       result = await runDynamicAgent({ role: agentRole, task, message, conversationHistory });
     }

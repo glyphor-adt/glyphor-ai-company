@@ -1,0 +1,276 @@
+{
+  "tool_calls_by_agent_30d": [
+    {
+      "agent_role": "chief-of-staff",
+      "tool_name": "read_founder_directives",
+      "call_count": 7,
+      "failures": 0,
+      "last_called": "2026-04-08T20:28:39.748Z"
+    },
+    {
+      "agent_role": "chief-of-staff",
+      "tool_name": "check_assignment_status",
+      "call_count": 4,
+      "failures": 0,
+      "last_called": "2026-04-08T20:28:31.885Z"
+    },
+    {
+      "agent_role": "chief-of-staff",
+      "tool_name": "get_agent_directory",
+      "call_count": 4,
+      "failures": 0,
+      "last_called": "2026-04-08T20:29:58.383Z"
+    },
+    {
+      "agent_role": "chief-of-staff",
+      "tool_name": "check_tool_access",
+      "call_count": 2,
+      "failures": 0,
+      "last_called": "2026-04-08T20:29:30.055Z"
+    },
+    {
+      "agent_role": "chief-of-staff",
+      "tool_name": "check_messages",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:26:45.336Z"
+    },
+    {
+      "agent_role": "chief-of-staff",
+      "tool_name": "get_pending_decisions",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:27:58.211Z"
+    },
+    {
+      "agent_role": "chief-of-staff",
+      "tool_name": "list_my_tools",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:29:11.382Z"
+    },
+    {
+      "agent_role": "chief-of-staff",
+      "tool_name": "read_initiatives",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:26:44.900Z"
+    },
+    {
+      "agent_role": "chief-of-staff",
+      "tool_name": "read_my_assignments",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:26:45.536Z"
+    },
+    {
+      "agent_role": "chief-of-staff",
+      "tool_name": "read_proposed_initiatives",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:28:02.799Z"
+    },
+    {
+      "agent_role": "cto",
+      "tool_name": "query_db_table",
+      "call_count": 2,
+      "failures": 1,
+      "last_called": "2026-04-08T20:27:07.198Z"
+    },
+    {
+      "agent_role": "cto",
+      "tool_name": "check_messages",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:26:41.105Z"
+    },
+    {
+      "agent_role": "cto",
+      "tool_name": "check_table_schema",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:27:03.210Z"
+    },
+    {
+      "agent_role": "cto",
+      "tool_name": "get_agent_directory",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:27:33.069Z"
+    },
+    {
+      "agent_role": "cto",
+      "tool_name": "get_platform_health",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:27:14.319Z"
+    },
+    {
+      "agent_role": "cto",
+      "tool_name": "list_cloud_builds",
+      "call_count": 1,
+      "failures": 1,
+      "last_called": "2026-04-08T20:27:21.658Z"
+    },
+    {
+      "agent_role": "cto",
+      "tool_name": "query_ai_usage",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:26:49.682Z"
+    },
+    {
+      "agent_role": "ops",
+      "tool_name": "read_company_knowledge",
+      "call_count": 2,
+      "failures": 2,
+      "last_called": "2026-04-08T20:30:09.876Z"
+    },
+    {
+      "agent_role": "ops",
+      "tool_name": "get_data_freshness",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:29:42.756Z"
+    },
+    {
+      "agent_role": "ops",
+      "tool_name": "query_agent_health",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:29:42.967Z"
+    },
+    {
+      "agent_role": "ops",
+      "tool_name": "query_data_sync_status",
+      "call_count": 1,
+      "failures": 0,
+      "last_called": "2026-04-08T20:30:19.801Z"
+    },
+    {
+      "agent_role": "ops",
+      "tool_name": "trigger_agent_run",
+      "call_count": 1,
+      "failures": 1,
+      "last_called": "2026-04-08T20:30:45.644Z"
+    }
+  ],
+  "failing_calls_30d": [
+    {
+      "agent_role": "ops",
+      "tool_name": "read_company_knowledge",
+      "failures": 2,
+      "sample_error": "No knowledge sections found for topic: \"data sync ownership freshness syncs stale data pipeline\". Try a different search term or use a specific section_key.",
+      "last_called": "2026-04-08T20:30:09.876Z"
+    },
+    {
+      "agent_role": "cto",
+      "tool_name": "list_cloud_builds",
+      "failures": 1,
+      "sample_error": "7 PERMISSION_DENIED: The caller does not have permission | API: listBuilds({ projectId: \"ai-glyphor-company\", pageSize: 10, filter: none })",
+      "last_called": "2026-04-08T20:27:21.658Z"
+    },
+    {
+      "agent_role": "cto",
+      "tool_name": "query_db_table",
+      "failures": 1,
+      "sample_error": "column \"agent_role\" does not exist",
+      "last_called": "2026-04-08T20:26:54.274Z"
+    },
+    {
+      "agent_role": "ops",
+      "tool_name": "trigger_agent_run",
+      "failures": 1,
+      "sample_error": "Tool trigger_agent_run requires approval before execution.",
+      "last_called": "2026-04-08T20:30:45.644Z"
+    }
+  ],
+  "traces_all_time": [
+    {
+      "total_calls": 37,
+      "distinct_tools": 20,
+      "last_called": "2026-04-08T20:30:45.644Z"
+    }
+  ],
+  "outcomes_all_time": [
+    {
+      "total_rows": 0,
+      "last_created_at": null
+    }
+  ],
+  "run_events_all_time": [
+    {
+      "event_type": "tool_called",
+      "event_count": 31,
+      "with_tool_name": 31,
+      "last_created_at": "2026-04-08T20:31:21.475Z"
+    },
+    {
+      "event_type": "tool_completed",
+      "event_count": 31,
+      "with_tool_name": 31,
+      "last_created_at": "2026-04-08T20:31:21.524Z"
+    },
+    {
+      "event_type": "result",
+      "event_count": 3,
+      "with_tool_name": 0,
+      "last_created_at": "2026-04-08T20:31:21.559Z"
+    },
+    {
+      "event_type": "run_created",
+      "event_count": 3,
+      "with_tool_name": 0,
+      "last_created_at": "2026-04-08T20:29:05.463Z"
+    },
+    {
+      "event_type": "run_started",
+      "event_count": 3,
+      "with_tool_name": 0,
+      "last_created_at": "2026-04-08T20:29:05.501Z"
+    },
+    {
+      "event_type": "status",
+      "event_count": 3,
+      "with_tool_name": 0,
+      "last_created_at": "2026-04-08T20:29:05.545Z"
+    },
+    {
+      "event_type": "turn_started",
+      "event_count": 3,
+      "with_tool_name": 0,
+      "last_created_at": "2026-04-08T20:29:05.522Z"
+    },
+    {
+      "event_type": "run_failed",
+      "event_count": 2,
+      "with_tool_name": 0,
+      "last_created_at": "2026-04-08T20:31:10.082Z"
+    },
+    {
+      "event_type": "run_completed",
+      "event_count": 1,
+      "with_tool_name": 0,
+      "last_created_at": "2026-04-08T20:31:21.590Z"
+    }
+  ],
+  "sessions_all_time": [
+    {
+      "sessions": 3,
+      "with_events": 3,
+      "last_event_at": "2026-04-08T20:31:21.601Z"
+    }
+  ],
+  "attempts_all_time": [
+    {
+      "status": "failed",
+      "attempts": 2,
+      "last_updated_at": "2026-04-08T20:31:10.101Z"
+    },
+    {
+      "status": "completed",
+      "attempts": 1,
+      "last_updated_at": "2026-04-08T20:31:21.611Z"
+    }
+  ]
+}

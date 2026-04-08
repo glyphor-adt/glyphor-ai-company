@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 const POLL_INTERVAL = 60_000;
-import { apiCall, SCHEDULER_URL } from '../lib/firebase';
+import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { CANONICAL_KEEP_ROSTER_SET, LIVE_ROSTER_ORDER } from '../lib/liveRoster';
 import {
@@ -77,9 +77,10 @@ async function schedulerApi<T>(path: string, opts?: RequestInit): Promise<T> {
   if (!base) {
     throw new Error('VITE_SCHEDULER_URL is not set');
   }
+  const headers = await buildApiHeaders(opts?.headers);
   const res = await fetch(`${base}${path}`, {
     ...opts,
-    headers: { 'Content-Type': 'application/json', ...opts?.headers },
+    headers,
   });
   if (!res.ok) throw new Error(`Scheduler API error: ${res.status}`);
   return res.json();
