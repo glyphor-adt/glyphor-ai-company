@@ -134,34 +134,6 @@ async function getMetadataFromR2(slug: string, bucket: R2BucketLike): Promise<Pr
   }
 }
 
-async function getMetadataFromSupabase(slug: string, url: string, key: string): Promise<PreviewMetadata | null> {
-  const tryFetch = async (previewUrl: string): Promise<PreviewMetadata | null> => {
-    const q = `?preview_url=eq.${encodeURIComponent(previewUrl)}&select=deployment_url,preview_url,github_repo_url,project_name`;
-    const res = await fetch(`${url}/rest/v1/ask_conversations${q}`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as PreviewMetadata[];
-    return data?.[0]?.deployment_url ? data[0] : null;
-  };
-
-  try {
-    const exact = await tryFetch(`https://${slug}.preview.glyphor.ai`);
-    if (exact) { console.log(`[Preview Worker] ✅ Supabase hit: ${slug}`); return exact; }
-
-    // Normalize slug and retry
-    const normalized = slug.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').replace(/--+/g, '-');
-    if (normalized !== slug) {
-      const norm = await tryFetch(`https://${normalized}.preview.glyphor.ai`);
-      if (norm) { console.log(`[Preview Worker] ✅ Supabase hit (normalized): ${slug} → ${normalized}`); return norm; }
-    }
-    return null;
-  } catch (e) {
-    console.warn('[Preview Worker] Supabase fallback error:', e);
-    return null;
-  }
-}
-
 function buildCanonicalVercelUrl(metadata: PreviewMetadata, slug: string, incomingUrl: URL): string | null {
   try {
     const candidates = [metadata.repo_name, metadata.project_name, slug].filter(Boolean) as string[];
