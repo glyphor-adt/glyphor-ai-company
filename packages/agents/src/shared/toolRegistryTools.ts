@@ -1,9 +1,8 @@
 /**
  * CTO Tool Registry Management Tools
  *
- * Allows Marcus (CTO) to review, approve, and register new tools
- * from the tool_requests pipeline. This completes the self-service
- * tool creation workflow:
+ * Allows CTO/admin reviewers to approve and register new tools from the
+ * tool_requests pipeline. Requests may be self-served, but activation is not.
  *
  *   1. Any agent → request_new_tool → tool_requests (pending)
  *   2. CTO reviews → approve/reject → tool_requests (approved/rejected)
@@ -14,6 +13,30 @@
 import type { ToolDefinition, ToolResult, ApiToolConfig } from '@glyphor/agent-runtime';
 import { refreshDynamicToolCache } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
+
+const REGISTRY_REVIEWERS = new Set(['cto', 'global-admin', 'kristina', 'system']);
+const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]{2,63}$/;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+async function deactivateMalformedActiveRegistryEntries(): Promise<string[]> {
+  const rows = await systemQuery<{ name: string }>(
+    `UPDATE tool_registry
+        SET is_active = false,
+            updated_at = NOW()
+      WHERE is_active = true
+        AND (name IS NULL OR name !~ '^[a-z][a-z0-9_]{2,63}$')
+      RETURNING name`,
+  );
+
+  if (rows.length > 0) {
+    await refreshDynamicToolCache();
+  }
+
+  return rows.map((row) => row.name);
+}
 
 export function createToolRegistryTools(): ToolDefinition[] {
   return [
@@ -86,6 +109,10 @@ export function createToolRegistryTools(): ToolDefinition[] {
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
+        if (!REGISTRY_REVIEWERS.has(ctx.agentRole)) {
+          return { success: false, error: 'Only CTO/admin roles can review tool requests.' };
+        }
+
         const requestId = typeof params.request_id === 'string' ? params.request_id.trim() : '';
         const action = params.action as 'approve' | 'reject';
         const notes = params.review_notes as string;
@@ -198,15 +225,60 @@ export function createToolRegistryTools(): ToolDefinition[] {
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
-        const toolName = params.name as string;
+        if (!REGISTRY_REVIEWERS.has(ctx.agentRole)) {
+          return { success: false, error: 'Only CTO/admin roles can activate tools in the registry.' };
+        }
+
+        const cleanupDeactivated = await deactivateMalformedActiveRegistryEntries();
+        const toolName = typeof params.name === 'string' ? params.name.trim() : '';
 
         // Validate name format
-        if (!/^[a-z][a-z0-9_]{2,63}$/.test(toolName)) {
+        if (!TOOL_NAME_PATTERN.test(toolName)) {
           return {
             success: false,
             error:
               'Tool name must be snake_case, start with a letter, and be 3–64 characters.',
           };
+        }
+
+        if (!isRecord(params.parameters_schema)) {
+          return {
+            success: false,
+            error: 'parameters_schema must be an object before a tool can be registered.',
+          };
+        }
+
+        if (params.api_config != null && !isRecord(params.api_config)) {
+          return {
+            success: false,
+            error: 'api_config must be an object when provided.',
+          };
+        }
+
+        const requestId = typeof params.request_id === 'string' ? params.request_id.trim() : undefined;
+        if (requestId) {
+          const [request] = await systemQuery<{ id: string; status: string; tool_name: string }>(
+            'SELECT id, status, tool_name FROM tool_requests WHERE id = $1',
+            [requestId],
+          );
+
+          if (!request) {
+            return { success: false, error: `Tool request "${requestId}" not found.` };
+          }
+
+          if (request.status !== 'approved') {
+            return {
+              success: false,
+              error: `Tool request "${requestId}" must be approved before registry activation (current status: "${request.status}").`,
+            };
+          }
+
+          if (request.tool_name !== toolName) {
+            return {
+              success: false,
+              error: `Tool request "${requestId}" is for "${request.tool_name}", not "${toolName}".`,
+            };
+          }
         }
 
         // Insert into tool_registry
@@ -218,7 +290,7 @@ export function createToolRegistryTools(): ToolDefinition[] {
               params.description as string,
               params.category as string,
               params.parameters_schema,
-              (params.api_config as ApiToolConfig) ?? null,
+               (params.api_config as unknown as ApiToolConfig) ?? null,
               ctx.agentRole,
               ctx.agentRole,
               true,
@@ -239,11 +311,10 @@ export function createToolRegistryTools(): ToolDefinition[] {
         await refreshDynamicToolCache();
 
         // If fulfilling a request, mark it completed
-        const requestId = params.request_id as string | undefined;
         if (requestId) {
           await systemQuery(
-            'UPDATE tool_requests SET status = $1, built_by = $2 WHERE id = $3',
-            ['completed', ctx.agentRole, requestId],
+            'UPDATE tool_requests SET status = $1, built_by = $2 WHERE id = $3 AND status = $4',
+            ['completed', ctx.agentRole, requestId, 'approved'],
           );
         }
 
@@ -252,6 +323,7 @@ export function createToolRegistryTools(): ToolDefinition[] {
           data: {
             registered: true,
             tool_name: toolName,
+            deactivated_malformed_entries: cleanupDeactivated,
             message:
               `Tool "${toolName}" registered and active. ` +
               `Use grant_tool_access to grant it to agents who need it.` +
@@ -326,6 +398,7 @@ export function createToolRegistryTools(): ToolDefinition[] {
       },
       execute: async (params): Promise<ToolResult> => {
         try {
+          const cleanupDeactivated = await deactivateMalformedActiveRegistryEntries();
           const conditions: string[] = [];
           const queryParams: unknown[] = [];
 
@@ -346,7 +419,11 @@ export function createToolRegistryTools(): ToolDefinition[] {
 
           return {
             success: true,
-            data: { count: data.length, tools: data },
+            data: {
+              count: data.length,
+              tools: data,
+              deactivated_malformed_entries: cleanupDeactivated,
+            },
           };
         } catch (err) {
           return { success: false, error: (err as Error).message };

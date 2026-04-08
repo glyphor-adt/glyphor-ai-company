@@ -2137,7 +2137,7 @@ Rules:
           if (effectiveTools && turnNumber === 1) {
             try {
               const staticNames = new Set(staticToolNames);
-              const dynamicDecls = await loadDynamicToolDeclarations(staticNames);
+              const dynamicDecls = await loadDynamicToolDeclarations(staticNames, config.role);
               if (dynamicDecls.length > 0) {
                 effectiveTools = [...effectiveTools, ...dynamicDecls];
                 console.log(`[ToolInventory] ${config.role}: +${dynamicDecls.length} dynamic tools from tool_registry`);

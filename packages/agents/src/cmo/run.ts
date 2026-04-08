@@ -25,7 +25,6 @@ import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createInitiativeTools } from '../shared/initiativeTools.js';
-import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createContentTools } from '../shared/contentTools.js';
 import { createSeoTools } from '../shared/seoTools.js';
@@ -89,7 +88,6 @@ export async function runCMO(params: CMORunParams = {}) {
   const tools = [
     ...createCMOTools(memory),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
-    ...createToolGrantTools('cmo'),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),

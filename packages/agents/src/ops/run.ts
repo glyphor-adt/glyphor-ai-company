@@ -18,7 +18,6 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { OPS_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createOpsTools } from './tools.js';
-import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
@@ -55,7 +54,6 @@ export async function runOps(params: OpsRunParams = {}) {
   const tools = [
     ...createOpsTools(memory),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
-    ...createToolGrantTools('ops'),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),

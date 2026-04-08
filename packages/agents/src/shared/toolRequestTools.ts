@@ -1,19 +1,15 @@
 /**
  * Shared Tool Request Tools
  *
- * Allows any agent to request a new tool that doesn't exist yet.
- * Requests are stored in the `tool_requests` table.
+ * Allows agents to request new tools and additional access without
+ * directly activating live capabilities.
  *
- * Default behavior is self-service and unblocked.
- * Approval is required only for paid/spend-impacting capabilities and
- * global-admin/IAM/tenant-permissioning capabilities.
- *
- * Also provides request_tool_access for agents to self-service access
- * to existing tools they don't currently have.
+ * Requests are stored in the `tool_requests` table. Activation remains an
+ * admin-controlled step after review and registry validation.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { isKnownToolAsync, getAllKnownTools, invalidateGrantCache, refreshDynamicToolCache } from '@glyphor/agent-runtime';
+import { isKnownToolAsync, getAllKnownTools, invalidateGrantCache } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 import { evaluateToolPermissionGate } from './toolPermissionPolicy.js';
 
@@ -23,14 +19,31 @@ function looksLikeKnowledgeArtifact(value: string): boolean {
   return KNOWLEDGE_ARTIFACT_PATTERN.test(value);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+const ADMIN_REVIEW_ASSIGNEES = ['cto', 'global-admin'];
+const RESTRICTED_REVIEW_ASSIGNEES = ['kristina', ...ADMIN_REVIEW_ASSIGNEES];
+
+async function queueToolReviewDecision(input: {
+  title: string;
+  summary: string;
+  proposedBy: string;
+  reasoning: string;
+  requiresApproval: boolean;
+  data: Record<string, unknown>;
+}): Promise<void> {
+  await systemQuery(
+    'INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, assigned_to, data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)',
+    [
+      'yellow',
+      'pending',
+      input.title,
+      input.summary,
+      input.proposedBy,
+      input.reasoning,
+      input.requiresApproval ? RESTRICTED_REVIEW_ASSIGNEES : ADMIN_REVIEW_ASSIGNEES,
+      JSON.stringify(input.data),
+    ],
+  );
 }
-
-const DIRECT_PERMISSION_APPROVERS = new Set(['kristina', 'system']);
-
-/** May enter self-service auto-build even when justification triggers paid/admin policy gates — only if full API + parameter schema are present (see autoBuildEligible). */
-const AUTO_BUILD_POLICY_BYPASS_ROLES = new Set(['platform-intel']);
 
 export function createToolRequestTools(): ToolDefinition[] {
   return [
@@ -333,7 +346,6 @@ export function createToolRequestTools(): ToolDefinition[] {
           toolName,
           contextText: [description, justification, useCase],
         });
-        const requesterCanBypassApproval = DIRECT_PERMISSION_APPROVERS.has(ctx.agentRole);
 
         if (looksLikeKnowledgeArtifact(combinedRequestText)) {
           return {
@@ -407,151 +419,23 @@ export function createToolRequestTools(): ToolDefinition[] {
           ],
         );
 
-        // Fast path: allow agents to self-bootstrap API-backed tools immediately
-        // when they provide executable config + parameter schema.
-        const autoBuildEnabled = process.env.ENABLE_AGENT_SELF_TOOL_BUILD !== 'false';
-        const suggestedApiConfig = params.suggested_api_config;
-        const suggestedParameters = params.suggested_parameters;
-        const autoBuildEligible = autoBuildEnabled
-          && isRecord(suggestedApiConfig)
-          && isRecord(suggestedParameters)
-          && (
-            !permissionPolicy.requiresApproval
-            || requesterCanBypassApproval
-            || AUTO_BUILD_POLICY_BYPASS_ROLES.has(ctx.agentRole)
-          );
-
-        if (autoBuildEligible) {
+        if (permissionPolicy.requiresApproval) {
           try {
-            await systemQuery(
-              'INSERT INTO tool_registry (name, description, category, parameters, api_config, created_by, approved_by, is_active, tags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-              [
-                toolName,
-                description,
-                (params.suggested_category as string) ?? 'integration',
-                suggestedParameters,
-                suggestedApiConfig,
-                ctx.agentRole,
-                'self-service-auto',
-                true,
-                ['self-service', 'auto-built'],
-              ],
-            );
-
-            await refreshDynamicToolCache();
-
-            await systemQuery(
-              `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
-               VALUES ($1, $2, $3, $4, NOW())
-               ON CONFLICT (agent_role, tool_name) DO UPDATE
-                 SET is_active = true, granted_by = EXCLUDED.granted_by, reason = EXCLUDED.reason, last_synced_at = NOW(), updated_at = NOW()`,
-              [ctx.agentRole, toolName, 'self-service-auto', `Auto-built via request_new_tool: ${justification}`],
-            );
-            invalidateGrantCache(ctx.agentRole);
-
-            await systemQuery(
-              'UPDATE tool_requests SET status = $1, reviewed_by = $2, review_notes = $3, built_by = $4 WHERE id = $5',
-              [
-                'completed',
-                'self-service-auto',
-                'Auto-built from suggested_api_config + suggested_parameters.',
-                ctx.agentRole,
-                request.id,
-              ],
-            );
-
-            return {
-              success: true,
+            await queueToolReviewDecision({
+              title: `Restricted tool request: ${toolName}`,
+              summary: `${ctx.agentRole} requested restricted tool "${toolName}" (${permissionPolicy.reason}).\n\nDescription: ${description}\n\nJustification: ${justification}\n\nUse case: ${useCase}`,
+              proposedBy: ctx.agentRole,
+              reasoning: justification,
+              requiresApproval: true,
               data: {
-                request_id: request.id,
+                type: 'restricted_tool_request',
                 tool_name: toolName,
-                status: 'completed',
-                auto_registered: true,
-                message:
-                  `Tool "${toolName}" was auto-built and access was granted to ${ctx.agentRole}. ` +
-                  'Retry your original task now using this tool.',
-              },
-            };
-          } catch (autoBuildErr) {
-            console.warn(
-              `[ToolRequest] Auto-build failed for ${toolName}; falling back to CTO review:`,
-              (autoBuildErr as Error).message,
-            );
-          }
-        }
-
-        if (permissionPolicy.requiresApproval && !requesterCanBypassApproval) {
-          const [toolExistsRow] = await systemQuery<{ exists: boolean }>(
-            'SELECT EXISTS(SELECT 1 FROM tool_registry WHERE name = $1 AND is_active = true) AS exists',
-            [toolName],
-          );
-
-          if (!toolExistsRow?.exists) {
-            await systemQuery(
-              `INSERT INTO fleet_findings (agent_id, severity, finding_type, title, description, evidence_data, detected_at)
-               VALUES ($1, 'P2', 'tool_gap', $2, $3, $4::jsonb, NOW())`,
-              [
-                'platform-intel',
-                `Tool gap routed to Nexus: ${toolName}`,
-                `${ctx.agentRole} requested missing restricted tool \"${toolName}\". Routed to Nexus build queue without founder approval.`,
-                JSON.stringify({
-                  requestingAgentRole: ctx.agentRole,
-                  toolName,
-                  requestId: request.id,
-                  source: 'request_new_tool:auto_route',
-                }),
-              ],
-            ).catch(() => {});
-
-            await systemQuery(
-              `INSERT INTO agent_world_model_evidence
-                 (agent_role, evidence_type, skill, description, weight, created_at)
-               VALUES ('chief-of-staff', 'negative', 'escalation_routing', $1, $2, NOW())`,
-              [
-                `Tool gap \"${toolName}\" from ${ctx.agentRole} reached founder-approval path instead of Nexus and was auto-routed.`,
-                -0.75,
-              ],
-            ).catch(() => {});
-
-            await systemQuery(
-              'UPDATE tool_requests SET status = $1, review_notes = $2 WHERE id = $3',
-              ['pending', 'Auto-routed to Nexus because tool does not exist and should not hit founder approval.', request.id],
-            ).catch(() => {});
-
-            return {
-              success: true,
-              data: {
+                requested_by: ctx.agentRole,
+                restriction_reason: permissionPolicy.reason,
+                matches: permissionPolicy.matches,
                 request_id: request.id,
-                tool_name: toolName,
-                status: 'pending',
-                approval_required: false,
-                auto_routed_to_nexus: true,
-                message: `Tool gap for "${toolName}" was auto-routed to Nexus and did not enter founder approval.`,
               },
-            };
-          }
-
-          try {
-            await systemQuery(
-              'INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, assigned_to, data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)',
-              [
-                'yellow',
-                'pending',
-                `Restricted tool request: ${toolName}`,
-                `${ctx.agentRole} requested restricted tool "${toolName}" (${permissionPolicy.reason}).\n\nDescription: ${description}\n\nJustification: ${justification}\n\nUse case: ${useCase}`,
-                ctx.agentRole,
-                justification,
-                ['kristina'],
-                JSON.stringify({
-                  type: 'restricted_tool_request',
-                  tool_name: toolName,
-                  requested_by: ctx.agentRole,
-                  restriction_reason: permissionPolicy.reason,
-                  matches: permissionPolicy.matches,
-                  request_id: request.id,
-                }),
-              ],
-            );
+            });
           } catch (decisionErr) {
             return {
               success: true,
@@ -564,12 +448,9 @@ export function createToolRequestTools(): ToolDefinition[] {
             };
           }
 
-          // Mark the tool request as pending_approval so its DB status accurately
-          // reflects that founder sign-off is required before the CTO can build it.
-          // list_tool_requests and review_tool_request both accept pending_approval.
           const [updated] = await systemQuery<{ id: string }>(
-            'UPDATE tool_requests SET status = $1 WHERE id = $2 RETURNING id',
-            ['pending_approval', request.id],
+            'UPDATE tool_requests SET status = $1, review_notes = $2 WHERE id = $3 RETURNING id',
+            ['pending_approval', 'Awaiting restricted admin review before any registry activation.', request.id],
           );
 
           if (!updated) {
@@ -585,7 +466,7 @@ export function createToolRequestTools(): ToolDefinition[] {
                 approval_reason: permissionPolicy.reason,
                 message:
                   `Restricted request received (${permissionPolicy.reason}). ` +
-                  'Founder approval is required before this tool can be built/granted.',
+                  'Admin review is required before this tool can be activated in the registry.',
               },
             };
           }
@@ -600,7 +481,33 @@ export function createToolRequestTools(): ToolDefinition[] {
               approval_reason: permissionPolicy.reason,
               message:
                 `Restricted request received (${permissionPolicy.reason}). ` +
-                'Founder approval is required before this tool can be built/granted.',
+                'Admin review is required before this tool can be activated in the registry.',
+            },
+          };
+        }
+
+        try {
+          await queueToolReviewDecision({
+            title: `Tool request review: ${toolName}`,
+            summary: `${ctx.agentRole} requested new tool "${toolName}". Review the proposal before any live registry activation.\n\nDescription: ${description}\n\nJustification: ${justification}\n\nUse case: ${useCase}`,
+            proposedBy: ctx.agentRole,
+            reasoning: justification,
+            requiresApproval: false,
+            data: {
+              type: 'tool_request_review',
+              tool_name: toolName,
+              requested_by: ctx.agentRole,
+              request_id: request.id,
+            },
+          });
+        } catch (decisionErr) {
+          return {
+            success: true,
+            data: {
+              request_id: request.id,
+              tool_name: toolName,
+              status: 'pending',
+              warning: `Tool request created but admin review routing failed: ${(decisionErr as Error).message}.`,
             },
           };
         }
@@ -613,8 +520,7 @@ export function createToolRequestTools(): ToolDefinition[] {
             status: 'pending',
             approval_required: false,
             message:
-              'Tool request submitted to build queue. No approval is required for this tool type. ' +
-              'Marcus can build/register it and grant access when ready.',
+              'Tool request submitted for CTO/admin review. No live build, registry activation, or grant occurs until reviewed.',
           },
         };
       },
@@ -657,9 +563,8 @@ export function createToolRequestTools(): ToolDefinition[] {
       name: 'request_tool_access',
       description:
         'Request access to an EXISTING tool you don\'t currently have. Use this when a tool call ' +
-        'fails with "does not have access". Most tools are auto-granted immediately. ' +
-        'Only paid/spend-impacting or global-admin permissioning tools require approval. ' +
-        'After calling this, retry the original tool call.',
+        'fails with "does not have access". This files an access request for admin review; it does not activate access live. ' +
+        'Restricted capabilities include paid/spend-impacting or global-admin permissioning tools.',
       parameters: {
         tool_name: {
           type: 'string',
@@ -686,7 +591,6 @@ export function createToolRequestTools(): ToolDefinition[] {
           toolName,
           contextText: [reason],
         });
-        const requesterCanBypassApproval = DIRECT_PERMISSION_APPROVERS.has(agentRole);
 
         if (!(await isKnownToolAsync(toolName))) {
           if (looksLikeKnowledgeArtifact(`${toolName}\n${reason}`)) {
@@ -720,77 +624,39 @@ export function createToolRequestTools(): ToolDefinition[] {
           };
         }
 
-        if (permissionPolicy.requiresApproval && !requesterCanBypassApproval) {
-          try {
-            await systemQuery(
-              `INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, assigned_to, data)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
-              [
-                'yellow',
-                'pending',
-                `Restricted tool access: ${toolName} → ${agentRole}`,
-                `${agentRole} requested restricted access to "${toolName}" (${permissionPolicy.reason}).`,
-                agentRole,
-                reason,
-                ['kristina'],
-                JSON.stringify({
-                  type: 'restricted_tool_access_request',
-                  agent_role: agentRole,
-                  tool_name: toolName,
-                  restriction_reason: permissionPolicy.reason,
-                  matches: permissionPolicy.matches,
-                }),
-              ],
-            );
-          } catch (decisionErr) {
-            return {
-              success: false,
-              error: `Restricted tool access requires approval, but request routing failed: ${(decisionErr as Error).message}`,
-            };
-          }
-
-          return {
-            success: true,
+        try {
+          await queueToolReviewDecision({
+            title: `${permissionPolicy.requiresApproval ? 'Restricted ' : ''}tool access: ${toolName} → ${agentRole}`,
+            summary: `${agentRole} requested access to "${toolName}". Admin review is required before any live grant.\n\nReason: ${reason}`,
+            proposedBy: agentRole,
+            reasoning: reason,
+            requiresApproval: permissionPolicy.requiresApproval,
             data: {
-              granted: false,
-              pending_approval: true,
+              type: permissionPolicy.requiresApproval ? 'restricted_tool_access_request' : 'tool_access_request',
+              agent_role: agentRole,
               tool_name: toolName,
-              approval_reason: permissionPolicy.reason,
-              message:
-                `Access to "${toolName}" requires approval (${permissionPolicy.reason}). ` +
-                'A Yellow decision was filed to Kristina.',
+              restriction_reason: permissionPolicy.reason,
+              matches: permissionPolicy.matches,
             },
+          });
+        } catch (decisionErr) {
+          return {
+            success: false,
+            error: `Tool access request could not be routed for review: ${(decisionErr as Error).message}`,
           };
         }
-
-        // Auto-grant: insert the grant row
-        try {
-          await systemQuery(
-            `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
-             VALUES ($1, $2, $3, $4, NOW())
-             ON CONFLICT (agent_role, tool_name) DO UPDATE SET is_active = true, reason = $4, last_synced_at = NOW(), updated_at = NOW()`,
-            [agentRole, toolName, 'self-service', `Self-requested: ${reason}`],
-          );
-          invalidateGrantCache(agentRole);
-        } catch (err) {
-          return { success: false, error: `Failed to grant access: ${(err as Error).message}` };
-        }
-
-        // Log for founder awareness
-        try {
-          await systemQuery(
-            `INSERT INTO activity_log (agent_role, action, details) VALUES ($1, $2, $3)`,
-            [agentRole, 'self_service_tool_grant', JSON.stringify({ tool_name: toolName, reason })],
-          );
-        } catch {} // best-effort logging
 
         return {
           success: true,
           data: {
-            granted: true,
+            granted: false,
+            pending_admin_review: true,
+            pending_approval: permissionPolicy.requiresApproval,
             tool_name: toolName,
             agent_role: agentRole,
-            message: `Access to "${toolName}" granted. You can now use it — retry your original tool call.`,
+            message: permissionPolicy.requiresApproval
+              ? `Access request for "${toolName}" was filed for restricted admin review. No live grant was activated.`
+              : `Access request for "${toolName}" was filed for CTO/admin review. No live grant was activated.`,
           },
         };
       },

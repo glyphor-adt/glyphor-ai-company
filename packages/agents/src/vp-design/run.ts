@@ -27,7 +27,6 @@ import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js'
 import { createInitiativeTools } from '../shared/initiativeTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
-import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
 import { createScreenshotTools } from '../shared/screenshotTools.js';
@@ -186,7 +185,6 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     tools = [
       ...vpDesign,
       ...createCoreTools(coreDeps),
-      ...createToolGrantTools('vp-design'),
       ...createCollectiveIntelligenceTools(memory),
       ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
       ...createTeamOrchestrationTools(glyphorEventBus),

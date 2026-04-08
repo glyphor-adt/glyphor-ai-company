@@ -43,7 +43,7 @@ vi.mock('../behavioralFingerprint.js', () => ({
   persistBehavioralAnomalies: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { ToolExecutor } from '../toolExecutor.js';
+import { invalidateBlockCache, ToolExecutor } from '../toolExecutor.js';
 import type { ToolContext, ToolDefinition } from '../types.js';
 import type { ToolHookRunner } from '../hooks/hookRunner.js';
 import { systemQuery } from '@glyphor/shared/db';
@@ -64,7 +64,87 @@ function buildContext(overrides: Partial<ToolContext> = {}): ToolContext {
 describe('ToolExecutor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    invalidateBlockCache();
     vi.mocked(systemQuery).mockResolvedValue([] as never);
+  });
+
+  it('blocks non-live roles before execution', async () => {
+    const tool: ToolDefinition = {
+      name: 'search_docs',
+      description: 'Search docs',
+      parameters: {
+        query: { type: 'string', description: 'Search query', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: [] }),
+    };
+
+    const executor = new ToolExecutor([tool]);
+    const result = await executor.execute(
+      'search_docs',
+      { query: 'architecture' },
+      buildContext({ agentRole: 'platform-intel' as any }),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('is not on the live runtime roster');
+    expect(tool.execute).not.toHaveBeenCalled();
+  });
+
+  it('blocks tools that are missing from the active execution grant policy', async () => {
+    vi.mocked(systemQuery).mockImplementation(async (query: string) => {
+      if (query.includes('FROM agent_tool_grants')) {
+        return [{ tool_name: 'other_tool', is_blocked: false }] as never;
+      }
+      return [] as never;
+    });
+
+    const tool: ToolDefinition = {
+      name: 'search_docs',
+      description: 'Search docs',
+      parameters: {
+        query: { type: 'string', description: 'Search query', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: [] }),
+    };
+
+    const executor = new ToolExecutor([tool]);
+    const result = await executor.execute(
+      'search_docs',
+      { query: 'pricing' },
+      buildContext(),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('not granted');
+    expect(tool.execute).not.toHaveBeenCalled();
+  });
+
+  it('allows tools that are present in the active execution grant policy', async () => {
+    vi.mocked(systemQuery).mockImplementation(async (query: string) => {
+      if (query.includes('FROM agent_tool_grants')) {
+        return [{ tool_name: 'search_docs', is_blocked: false }] as never;
+      }
+      return [] as never;
+    });
+
+    const tool: ToolDefinition = {
+      name: 'search_docs',
+      description: 'Search docs',
+      parameters: {
+        query: { type: 'string', description: 'Search query', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: [] }),
+    };
+
+    const executor = new ToolExecutor([tool]);
+    const result = await executor.execute(
+      'search_docs',
+      { query: 'pricing' },
+      buildContext(),
+    );
+
+    expect(result.success).toBe(true);
+    expect(tool.execute).toHaveBeenCalledOnce();
   });
 
   it('blocks high-stakes tools when cross-model verification returns BLOCK', async () => {

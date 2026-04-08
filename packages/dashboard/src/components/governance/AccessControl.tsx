@@ -487,7 +487,7 @@ function AccessGrantManager({
   onRevoke: (grant: ToolGrant) => Promise<void>;
   onResolveApproval: (id: string, approve: boolean) => Promise<void>;
 }) {
-  const [agentRole, setAgentRole] = useState(AGENT_ROLES[0] ?? 'chief-of-staff');
+  const [agentRole, setAgentRole] = useState<string>(AGENT_ROLES[0] ?? 'chief-of-staff');
   const [toolName, setToolName] = useState('');
   const [reason, setReason] = useState('');
   const [expiresAt, setExpiresAt] = useState('');

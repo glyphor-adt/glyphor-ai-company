@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { MdChevronRight, MdExpandMore } from 'react-icons/md';
 import { Card } from '../ui';
 import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../../lib/types';
+import { LIVE_ROSTER_ORDER } from '../../lib/liveRoster';
 
 export type GovernanceSurface = 'tool-view' | 'access-control' | 'authority' | 'autonomy' | 'reliability' | 'models';
 export type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
@@ -317,7 +318,7 @@ export const ADMIN_EMAILS = [
   'andrew.zwelling@gmail.com',
 ];
 
-export const AGENT_ROLES = Object.keys(DISPLAY_NAME_MAP).sort();
+export const AGENT_ROLES = [...LIVE_ROSTER_ORDER];
 
 const DEPT_ORDER = [
   'Executive Office',

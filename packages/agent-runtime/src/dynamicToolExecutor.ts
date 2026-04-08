@@ -18,6 +18,10 @@ import type { RegisteredToolDef, ApiToolConfig } from './toolRegistry.js';
 import { hasStaticToolName, loadRegisteredTool } from './toolRegistry.js';
 import { isKnownToolAsync } from './toolRegistry.js';
 import { systemQuery } from '@glyphor/shared/db';
+import {
+  authorizeToolExecution,
+  filterGrantedToolDeclarations,
+} from './runtimeExecutionPolicy.js';
 
 /**
  * Attempt to execute a dynamically registered tool from tool_registry.
@@ -29,8 +33,23 @@ import { systemQuery } from '@glyphor/shared/db';
 export async function executeDynamicTool(
   toolName: string,
   params: Record<string, unknown>,
+  agentRole?: string,
   agentTools?: Map<string, unknown>,
 ): Promise<ToolResult | null> {
+  if (agentRole) {
+    const authorization = await authorizeToolExecution({
+      agentRole,
+      toolName,
+      fallbackAllowedTools: agentTools?.keys(),
+    });
+    if (!authorization.allowed) {
+      return {
+        success: false,
+        error: authorization.message,
+      };
+    }
+  }
+
   // Check if this tool exists in the dynamic registry
   const isDynamic = await isKnownToolAsync(toolName);
   if (!isDynamic) return null;
@@ -283,9 +302,11 @@ const DECL_CACHE_TTL = 60_000;
  */
 export async function loadDynamicToolDeclarations(
   staticToolNames: Set<string>,
+  agentRole?: string,
 ): Promise<ToolDeclaration[]> {
   if (Date.now() < _dynamicDeclCacheExpiry && _dynamicDeclCache.length > 0) {
-    return _dynamicDeclCache.filter((d) => !staticToolNames.has(d.name));
+    const declarations = _dynamicDeclCache.filter((d) => !staticToolNames.has(d.name));
+    return agentRole ? filterGrantedToolDeclarations(agentRole, declarations) : declarations;
   }
 
   try {
@@ -330,5 +351,6 @@ export async function loadDynamicToolDeclarations(
     // On DB error, return whatever we have cached
   }
 
-  return _dynamicDeclCache.filter((d) => !staticToolNames.has(d.name));
+  const declarations = _dynamicDeclCache.filter((d) => !staticToolNames.has(d.name));
+  return agentRole ? filterGrantedToolDeclarations(agentRole, declarations) : declarations;
 }

@@ -24,7 +24,6 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createInitiativeTools } from '../shared/initiativeTools.js';
-import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createRevenueTools } from '../shared/revenueTools.js';
 import { createCostManagementTools } from '../shared/costManagementTools.js';
@@ -59,7 +58,6 @@ export async function runCFO(params: CFORunParams = {}) {
   const tools = [
     ...createCFOTools(memory),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
-    ...createToolGrantTools('cfo'),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),

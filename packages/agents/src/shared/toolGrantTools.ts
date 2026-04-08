@@ -1,12 +1,11 @@
 /**
  * Shared Tool Grant Management Tools
  *
- * Allows admin agents (Morgan, Riley, Sarah) to dynamically grant/revoke
- * tools for other agents via the agent_tool_grants table.
+ * Allows admin agents to dynamically grant/revoke tools for other agents
+ * via the agent_tool_grants table.
  *
- * Executive agents can grant most tools directly.
- * Only restricted grants (paid/spend-impacting or global-admin permissioning)
- * file a Yellow decision requiring Kristina's approval.
+ * Non-admin callers may only file grant proposals. Live activation remains
+ * admin-only.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
@@ -14,8 +13,10 @@ import { invalidateGrantCache, isKnownToolAsync } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 import { evaluateToolPermissionGate } from './toolPermissionPolicy.js';
 
-/** Grantors who can directly approve restricted grants without filing a decision */
-const DIRECT_GRANT_ADMINS = new Set(['kristina', 'system']);
+/** Roles allowed to activate live grants directly. */
+const DIRECT_GRANT_ADMINS = new Set(['cto', 'global-admin', 'kristina', 'system']);
+const ADMIN_REVIEW_ASSIGNEES = ['cto', 'global-admin'];
+const RESTRICTED_REVIEW_ASSIGNEES = ['kristina', ...ADMIN_REVIEW_ASSIGNEES];
 
 export function createToolGrantTools(
   grantedBy: string,
@@ -27,8 +28,8 @@ export function createToolGrantTools(
       name: 'grant_tool_access',
       description:
         canDirectGrant
-          ? 'Grant an existing tool to an agent. Most grants are immediate. Restricted grants (paid/spend-impacting or global-admin permissioning) can still be approved directly by you. The tool must exist in the system registry.'
-          : 'Grant a tool to an agent. Most grants are immediate. Only restricted grants (paid/spend-impacting or global-admin permissioning) create a Yellow decision for founder approval. The tool must exist in the system registry.',
+          ? 'Grant an existing tool to an agent. Only admin roles can activate grants in the live registry.'
+          : 'Propose a tool grant for CTO/admin review. Non-admin roles cannot activate grants directly.',
       parameters: {
         agent_role: {
           type: 'string',
@@ -84,14 +85,13 @@ export function createToolGrantTools(
           toolName,
           contextText: [reason],
         });
-        const requiresApproval = permissionPolicy.requiresApproval && !canDirectGrant;
+        const requiresApproval = permissionPolicy.requiresApproval;
 
         const expiresAt = expiresInHours
           ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString()
           : null;
 
-        // Restricted grants by non-admin grantors: file a Yellow decision instead of granting directly
-        if (requiresApproval) {
+        if (!canDirectGrant) {
           try {
             await systemQuery(
               `INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, data, assigned_to)
@@ -99,8 +99,8 @@ export function createToolGrantTools(
               [
                 'yellow',
                 'pending',
-                `Restricted Tool Grant: ${toolName} → ${agentRole}`,
-                `${grantedBy} requests restricted grant "${toolName}" to ${agentRole}. Reason: ${reason}`,
+                `Tool Grant Review: ${toolName} → ${agentRole}`,
+                `${grantedBy} requested tool grant "${toolName}" to ${agentRole}. Admin review is required before any live activation. Reason: ${reason}`,
                 grantedBy,
                 reason,
                 JSON.stringify({
@@ -113,7 +113,7 @@ export function createToolGrantTools(
                   expires_at: expiresAt,
                   directive_id: directiveId ?? null,
                 }),
-                ['kristina'],
+                requiresApproval ? RESTRICTED_REVIEW_ASSIGNEES : ADMIN_REVIEW_ASSIGNEES,
               ],
             );
           } catch (err) {
@@ -124,16 +124,17 @@ export function createToolGrantTools(
             success: true,
             data: {
               granted: false,
-              pending_approval: true,
+              pending_admin_review: true,
+              pending_approval: requiresApproval,
               agent_role: agentRole,
               tool_name: toolName,
               approval_reason: permissionPolicy.reason,
-              note: 'Restricted grant request filed as a Yellow decision for Kristina\'s approval. The grant will take effect once approved.',
+              note: requiresApproval
+                ? 'Restricted grant proposal filed for CTO/admin review with founder visibility. No live grant was activated.'
+                : 'Grant proposal filed for CTO/admin review. No live grant was activated.',
             },
           };
         }
-
-        // Admin grantors: grant directly
 
         try {
           await systemQuery(
@@ -155,8 +156,8 @@ export function createToolGrantTools(
             restricted_tool: permissionPolicy.requiresApproval,
             expires_at: expiresAt,
             note: permissionPolicy.requiresApproval
-              ? 'Restricted tool granted directly by privileged admin.'
-              : 'Tool granted directly.',
+              ? 'Restricted tool granted directly by privileged admin after review.'
+              : 'Tool granted directly by privileged admin.',
             written: { tool_name: toolName, agent_role: agentRole, action: 'grant' },
           },
         };

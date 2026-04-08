@@ -26,7 +26,6 @@ import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.j
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
 import { createInitiativeTools } from '../shared/initiativeTools.js';
 import { createAgentCreationTools } from '../shared/agentCreationTools.js';
-import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createProductAnalyticsTools } from '../shared/productAnalyticsTools.js';
 import { createCompetitiveIntelTools as createSharedCompetitiveIntelTools } from '../shared/competitiveIntelTools.js';
@@ -59,7 +58,6 @@ export async function runCPO(params: CPORunParams = {}) {
   const tools = [
     ...createCPOTools(memory),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
-    ...createToolGrantTools('cpo'),
     ...createCollectiveIntelligenceTools(memory),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createSharePointTools(),

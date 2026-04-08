@@ -128,8 +128,9 @@ const TARGET_AGENTS = [
   { role: 'cfo', label: 'Nadia (CFO)' },
   { role: 'cpo', label: 'Elena (CPO)' },
   { role: 'cmo', label: 'Maya (CMO)' },
-  { role: 'vp-sales', label: 'Rachel (VP Sales)' },
   { role: 'vp-design', label: 'Mia (VP Design)' },
+  { role: 'ops', label: 'Atlas (Ops)' },
+  { role: 'vp-research', label: 'Sophia (VP Research)' },
 ];
 
 /* ── Helpers ───────────────────────────────────── */

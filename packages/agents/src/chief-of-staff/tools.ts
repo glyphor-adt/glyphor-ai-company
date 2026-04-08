@@ -12,10 +12,8 @@ import {
   buildRequiredInputs,
   getActiveContractForTask,
   getRedisCache,
-  invalidateGrantCache,
   issueContract,
 } from '@glyphor/agent-runtime';
-import { isKnownTool } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { markOutcomeRevised, markOutcomeAccepted } from '@glyphor/agent-runtime';
 import { assertBatchWorkAssignmentsDeduped, assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
@@ -44,7 +42,6 @@ import {
   resolveActiveAssigneeBatch,
   resolveAssigneeForWorkAssignment,
 } from '../shared/assigneeRouting.js';
-import { evaluateToolPermissionGate } from '../shared/toolPermissionPolicy.js';
 
 const INITIATIVE_OWNER_CATEGORY: Record<string, string> = {
   cto: 'engineering',
@@ -2605,169 +2602,6 @@ export function createOrchestrationTools(
         }
 
         return { success: true, data: { updated: true } };
-      },
-    },
-
-    // ─── DYNAMIC TOOL GRANTS ──────────────────────────────────
-
-    {
-      name: 'grant_tool_access',
-      description: 'Grant an existing tool to an agent. Most grants are immediate. Only restricted grants (paid/spend-impacting or global-admin permissioning) require founder approval. The tool must exist in the system registry.',
-      parameters: {
-        agent_role: {
-          type: 'string',
-          description: 'Agent role to grant the tool to (e.g., "cmo", "vp-sales")',
-          required: true,
-        },
-        tool_name: {
-          type: 'string',
-          description: 'Name of the tool to grant (must exist in the tool registry)',
-          required: true,
-        },
-        reason: {
-          type: 'string',
-          description: 'Why this grant is needed (links to directive or blocker)',
-          required: true,
-        },
-        directive_id: {
-          type: 'string',
-          description: 'Optional: directive UUID this grant serves',
-          required: false,
-        },
-        expires_in_hours: {
-          type: 'number',
-          description: 'Optional: auto-revoke after N hours (default: no expiry)',
-          required: false,
-        },
-      },
-      execute: async (params, ctx): Promise<ToolResult> => {
-        const agentRole = params.agent_role as string;
-        const toolName = params.tool_name as string;
-        const reason = params.reason as string;
-        const directiveId = params.directive_id as string | undefined;
-        const expiresInHours = params.expires_in_hours as number | undefined;
-
-        // Validate the tool exists
-        if (!isKnownTool(toolName)) {
-          return {
-            success: false,
-            error: `Tool "${toolName}" does not exist in the system registry. Cannot grant a tool that doesn't exist. Ask Marcus (CTO) to build it first.`,
-          };
-        }
-
-        const permissionPolicy = evaluateToolPermissionGate({
-          toolName,
-          contextText: [reason],
-        });
-
-        const expiresAt = expiresInHours
-          ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString()
-          : null;
-
-        if (permissionPolicy.requiresApproval) {
-          await systemQuery(
-            `INSERT INTO decisions (tier, status, title, summary, proposed_by, reasoning, data, assigned_to)
-             VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)`,
-            [
-              'yellow',
-              'pending',
-              `Restricted Tool Grant: ${toolName} → ${agentRole}`,
-              `${ctx.agentRole} requested restricted grant "${toolName}" to ${agentRole}. Reason: ${reason}`,
-              ctx.agentRole,
-              reason,
-              JSON.stringify({
-                type: 'restricted_tool_grant_request',
-                agent_role: agentRole,
-                tool_name: toolName,
-                restriction_reason: permissionPolicy.reason,
-                matches: permissionPolicy.matches,
-                directive_id: directiveId ?? null,
-                expires_at: expiresAt,
-              }),
-              ['kristina'],
-            ],
-          );
-
-          return {
-            success: true,
-            data: {
-              granted: false,
-              pending_approval: true,
-              agent_role: agentRole,
-              tool_name: toolName,
-              approval_reason: permissionPolicy.reason,
-              expires_at: expiresAt,
-              note: 'Restricted grant request filed as a Yellow decision for Kristina approval.',
-            },
-          };
-        }
-
-        // Upsert the grant
-        await systemQuery(
-          `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, directive_id, scope, is_active, expires_at, last_synced_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-           ON CONFLICT (agent_role, tool_name) DO UPDATE SET granted_by = $3, reason = $4, directive_id = $5, scope = $6, is_active = $7, expires_at = $8, last_synced_at = NOW()`,
-          [agentRole, toolName, 'chief-of-staff', reason, directiveId ?? null, 'full', true, expiresAt]);
-
-        // Invalidate cache so the grant takes effect immediately
-        invalidateGrantCache(agentRole);
-
-        return {
-          success: true,
-          data: {
-            granted: true,
-            agent_role: agentRole,
-            tool_name: toolName,
-            restricted_tool: false,
-            expires_at: expiresAt,
-            note: 'Tool granted autonomously.',
-          },
-        };
-      },
-    },
-
-    {
-      name: 'revoke_tool_access',
-      description: 'Revoke a dynamically granted tool from an agent. Only revokes DB-granted tools (not the agent\'s static/baseline tools built into their code).',
-      parameters: {
-        agent_role: {
-          type: 'string',
-          description: 'Agent role to revoke the tool from',
-          required: true,
-        },
-        tool_name: {
-          type: 'string',
-          description: 'Name of the tool to revoke',
-          required: true,
-        },
-        reason: {
-          type: 'string',
-          description: 'Why this grant is being revoked',
-          required: true,
-        },
-      },
-      execute: async (params, _ctx): Promise<ToolResult> => {
-        const agentRole = params.agent_role as string;
-        const toolName = params.tool_name as string;
-
-        const data = await systemQuery(
-          'UPDATE agent_tool_grants SET is_active = false, updated_at = $1 WHERE agent_role = $2 AND tool_name = $3 AND granted_by = $4 RETURNING *',
-          [new Date().toISOString(), agentRole, toolName, 'chief-of-staff']);
-
-        if (!data || (data as any[]).length === 0) {
-          return {
-            success: false,
-            error: `No active dynamic grant found for ${agentRole}:${toolName}. System-granted (baseline) tools cannot be revoked via this tool.`,
-          };
-        }
-
-        // Invalidate cache
-        invalidateGrantCache(agentRole);
-
-        return {
-          success: true,
-          data: { revoked: true, agent_role: agentRole, tool_name: toolName },
-        };
       },
     },
 

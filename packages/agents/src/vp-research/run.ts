@@ -10,7 +10,6 @@ import {
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_RESEARCH_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPResearchTools } from './tools.js';
-import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
@@ -64,7 +63,6 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
   const tools = [
     ...createVPResearchTools(),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
-    ...createToolGrantTools('vp-research'),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createTeamOrchestrationTools(glyphorEventBus),
     ...createPeerCoordinationTools(glyphorEventBus),

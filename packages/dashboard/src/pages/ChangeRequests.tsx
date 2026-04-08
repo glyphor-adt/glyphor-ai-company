@@ -49,14 +49,6 @@ const AREA_OPTIONS = [
 const APPROVAL_REQUIRED_EMAILS = ['andrew@glyphor.ai', 'andrew.zwelling@gmail.com'];
 const APPROVER_EMAILS = ['kristina@glyphor.ai', 'devops@glyphor.ai'];
 
-const IT_AGENTS = [
-  { role: 'frontend-engineer', label: 'Ava Chen (Frontend Engineer)' },
-  { role: 'devops-engineer', label: 'Jordan Hayes (DevOps Engineer)' },
-  { role: 'platform-engineer', label: 'Alex Park (Platform Engineer)' },
-  { role: 'ui-ux-designer', label: 'Leo Vargas (UI/UX Designer)' },
-  { role: 'quality-engineer', label: 'Sam DeLuca (Quality Engineer)' },
-];
-
 /* ── Page ──────────────────────────────────────── */
 
 export default function ChangeRequests() {
@@ -485,9 +477,8 @@ function NewRequestModal({
 
           {/* Info callout */}
           <div className="rounded-lg border border-cyan/20 bg-cyan/5 px-3 py-2.5 text-[12px] text-txt-muted">
-            Your request will be triaged by the engineering team and assigned to an IT agent
-            (like Ava Chen or Jordan Hayes) who will create a branch, implement the changes,
-            and open a PR for review.
+            Your request will be triaged by the live engineering and design leads
+            (typically Marcus, Mia, or Atlas) and routed through the current runtime roster for implementation and review.
           </div>
 
           {/* Submit */}

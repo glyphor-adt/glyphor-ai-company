@@ -38,16 +38,21 @@ export const STANDARD_M365_SERVERS = [
   'mcp_WordServer',
 ] as const;
 
-/** Full supported Microsoft Agent 365 MCP server catalog. */
-export const ALL_M365_SERVERS = [
-  ...STANDARD_M365_SERVERS,
-  'mcp_UserProfile',
-  'mcp_SharePointLists',
-] as const;
+const LIVE_ROLE_M365_ALLOWLISTS: Partial<Record<CompanyAgentRole, readonly string[]>> = {
+  'chief-of-staff': ['mcp_TeamsServer'],
+  'cto': [],
+  'cfo': [],
+  'cpo': [],
+  'cmo': ['mcp_ODSPRemoteServer'],
+  'vp-design': [],
+  'ops': ['mcp_TeamsServer'],
+  'vp-research': [],
+};
 
-/** All agents get the full M365 MCP server catalog — every agent has an Agent365 license. */
-function getDefaultAgent365Servers(_agentRole?: string): readonly string[] {
-  return ALL_M365_SERVERS;
+/** Unknown roles get no default M365 access; explicit serverFilter still overrides this. */
+function getDefaultAgent365Servers(agentRole?: string): readonly string[] {
+  if (!agentRole) return [];
+  return LIVE_ROLE_M365_ALLOWLISTS[agentRole as CompanyAgentRole] ?? [];
 }
 
 // ── Singleton Bridge ─────────────────────────────────────────────
@@ -85,7 +90,7 @@ function resolveAgent365Credentials(_agentRole?: string): {
  * Uses Agent Identity Authentication (client-credentials-only, no refresh token).
  *
  * @param serverFilter Optional list of MCP server names to load.
- *                     Defaults to ALL_M365_SERVERS so the full supported catalog is available.
+ *                     Defaults to the live-roster role allowlist; unknown roles get no default access.
  *
  * Returns an empty array if:
  *   - AGENT365_ENABLED is not 'true'

@@ -12,7 +12,7 @@
  * Agent role is passed via X-Agent-Role header for tool-level authorization.
  */
 
-import type { ToolDefinition, ToolParameter, ToolResult, ToolContext } from '@glyphor/agent-runtime';
+import type { ToolDefinition, ToolParameter, ToolResult, ToolContext, CompanyAgentRole } from '@glyphor/agent-runtime';
 
 // ── GCP Identity Token (Cloud Run service-to-service auth) ───────
 
@@ -76,30 +76,20 @@ const GLYPHOR_MCP_SERVERS: Record<string, string> = {
   'mcp_Codex': process.env.GLYPHOR_MCP_CODEX_URL ?? '',
 };
 
+const LIVE_ROLE_GLYPHOR_MCP_ALLOWLISTS: Partial<Record<CompanyAgentRole, readonly string[]>> = {
+  'chief-of-staff': ['mcp_GlyphorData'],
+  'cto': ['mcp_GlyphorEngineering', 'mcp_GlyphorData'],
+  'cfo': ['mcp_GlyphorFinance', 'mcp_GlyphorData'],
+  'cpo': ['mcp_GlyphorData'],
+  'cmo': ['mcp_GlyphorMarketing', 'mcp_GlyphorData', 'mcp_GlyphorSharePointSites'],
+  'vp-design': ['mcp_GlyphorDesign', 'mcp_GlyphorData'],
+  'ops': ['mcp_GlyphorData'],
+  'vp-research': ['mcp_GlyphorData'],
+};
+
 function getDefaultGlyphorServers(agentRole?: string): string[] {
-  if (!agentRole) return Object.keys(GLYPHOR_MCP_SERVERS);
-  if (['cto', 'platform-engineer', 'quality-engineer', 'devops-engineer', 'frontend-engineer'].includes(agentRole)) {
-    return ['mcp_GlyphorEngineering', 'mcp_GlyphorData', 'mcp_Codex'];
-  }
-  if (['cmo', 'content-creator', 'seo-analyst', 'social-media-manager'].includes(agentRole)) {
-    return ['mcp_GlyphorMarketing', 'mcp_GlyphorEmailMarketing', 'mcp_GlyphorData', 'mcp_GlyphorSharePointSites'];
-  }
-  if (['m365-admin'].includes(agentRole)) {
-    return ['mcp_GlyphorSharePointSites', 'mcp_GlyphorData'];
-  }
-  if (['cfo', 'cost-analyst', 'revenue-analyst', 'ai-impact-analyst'].includes(agentRole)) {
-    return ['mcp_GlyphorFinance', 'mcp_GlyphorData'];
-  }
-  if (['clo'].includes(agentRole)) {
-    return ['mcp_GlyphorLegal', 'mcp_GlyphorData'];
-  }
-  if (['head-of-hr'].includes(agentRole)) {
-    return ['mcp_GlyphorHR', 'mcp_GlyphorData'];
-  }
-  if (['vp-design', 'ui-ux-designer', 'design-critic', 'template-architect'].includes(agentRole)) {
-    return ['mcp_GlyphorDesign', 'mcp_GlyphorData'];
-  }
-  return Object.keys(GLYPHOR_MCP_SERVERS);
+  if (!agentRole) return [];
+  return [...(LIVE_ROLE_GLYPHOR_MCP_ALLOWLISTS[agentRole as CompanyAgentRole] ?? [])];
 }
 
 // ── Schema Conversion ───────────────────────────────────────────
@@ -229,7 +219,7 @@ function getAbacMetadata(
  *
  * @param agentRole  Agent role identifier, passed as X-Agent-Role header.
  * @param serverFilter Optional list of MCP server names to load (e.g. ['mcp_GlyphorData']).
- *                     Loads all configured servers if omitted.
+ *                     Defaults to the live-roster role allowlist; unknown roles get no default access.
  *
  * Returns an empty array if:
  *   - GLYPHOR_MCP_ENABLED is not 'true'

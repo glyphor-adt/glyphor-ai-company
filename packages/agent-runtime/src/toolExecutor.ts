@@ -1,19 +1,16 @@
 /**
  * Tool Executor — Manages tool set and dispatches tool calls
  *
- * Enforcement layers (simplified for MCP architecture):
- *   1. Emergency block check (is_blocked in agent_tool_grants)
- *   2. Rate limit check (prevents runaway loops)
- *   3. Budget check (controls LLM cost)
- *   4. Execute + timeout
+ * Enforcement layers:
+ *   1. Live-roster + execution grant check (agent_tool_grants)
+ *   2. Emergency block check (is_blocked in agent_tool_grants)
+ *   3. Rate limit check (prevents runaway loops)
+ *   4. Budget check (controls LLM cost)
+ *   5. Execute + timeout
  *
- * Grant check and scope check have been removed — Entra agent identities
- * and MCP server-side scoping now handle tool access control. Static tools
- * (in the agent's tool set) are authorized by code. MCP tools are scoped
- * by the agent's Entra app roles.
- *
- * The agent_tool_grants table is retained as an emergency override:
- * set is_blocked=true to immediately revoke a tool without an Entra update.
+ * Execution-time authorization is a hard gate. A tool must be allowed for a
+ * live runtime role by the current agent_tool_grants policy (with the static
+ * tool bundle used only as a local fallback when no policy rows are available).
  */
 
 import type {
@@ -80,6 +77,12 @@ import {
   linkClaimToEvidence,
   createEvidenceSourceRef,
 } from './telemetry/runLedger.js';
+import {
+  authorizeToolExecution,
+  invalidateExecutionPolicyCache,
+  isToolBlockedByPolicy,
+  loadGrantedToolNamesByPolicy,
+} from './runtimeExecutionPolicy.js';
 
 // ─── Tool Call Trace Persistence ───────────────────────────────
 // Fire-and-forget write of each tool call to tool_call_traces for
@@ -195,66 +198,27 @@ async function persistToolActivityLog(
   }
 }
 
-// ─── Emergency Block Cache ─────────────────────────────────────
-const BLOCK_CACHE_TTL_MS = 60_000; // 60 seconds
-
-interface BlockCacheEntry {
-  blockedTools: Set<string>;
-  fetchedAt: number;
-}
-
-const blockCache = new Map<string, BlockCacheEntry>(); // role → cache entry
-
-/**
- * Check if a tool is emergency-blocked for an agent via agent_tool_grants.
- * This is the fast-path override: set is_blocked=true to instantly revoke
- * a tool without waiting for an Entra role update.
- * Results are cached for 60s per role.
- */
 export async function isToolBlocked(
   agentRole: CompanyAgentRole,
   toolName: string,
 ): Promise<boolean> {
-  const now = Date.now();
-  const cached = blockCache.get(agentRole);
-
-  if (cached && now - cached.fetchedAt < BLOCK_CACHE_TTL_MS) {
-    return cached.blockedTools.has(toolName);
-  }
-
-  try {
-    const data = await systemQuery<{ tool_name: string }>(
-      `SELECT tool_name FROM agent_tool_grants WHERE agent_role = $1 AND is_blocked = true`,
-      [agentRole],
-    );
-
-    const blockedTools = new Set(data.map((row) => row.tool_name));
-    blockCache.set(agentRole, { blockedTools, fetchedAt: now });
-
-    return blockedTools.has(toolName);
-  } catch {
-    // On DB error, don't block (fail-open for availability)
-    return false;
-  }
+  return isToolBlockedByPolicy(agentRole, toolName);
 }
 
 /** Invalidate the block cache for a role (called after block/unblock). */
 export function invalidateBlockCache(agentRole?: string): void {
-  if (agentRole) {
-    blockCache.delete(agentRole);
-  } else {
-    blockCache.clear();
-  }
+  invalidateExecutionPolicyCache(agentRole);
 }
 
 // ── Legacy exports (kept for backward compatibility) ────────────
 
-/** @deprecated Use isToolBlocked instead. Grant checks are now handled by Entra identity. */
+/** @deprecated Use authorizeToolExecution/isToolBlocked instead. */
 export async function isToolGranted(
   agentRole: CompanyAgentRole,
-  _toolName: string,
+  toolName: string,
 ): Promise<boolean> {
-  return true; // All tools are implicitly granted; scoping is via Entra identity
+  const decision = await authorizeToolExecution({ agentRole, toolName });
+  return decision.allowed;
 }
 
 /** @deprecated Grant cache replaced by block cache. */
@@ -262,11 +226,11 @@ export function invalidateGrantCache(agentRole?: string): void {
   invalidateBlockCache(agentRole);
 }
 
-/** @deprecated Tool grants are now managed by Entra identity. Returns static tool names. */
+/** @deprecated Use execution policy helpers directly. */
 export async function loadGrantedToolNames(
-  _agentRole: CompanyAgentRole,
+  agentRole: CompanyAgentRole,
 ): Promise<string[]> {
-  return []; // Callers should use tool declarations instead
+  return loadGrantedToolNamesByPolicy(agentRole);
 }
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
@@ -924,7 +888,34 @@ export class ToolExecutor {
       },
     });
 
-    const tool = this.tools.get(toolName) ?? getVirtualTool(toolName);
+    const bundledTool = this.tools.get(toolName);
+    if (this.enforcementEnabled) {
+      const authorization = await authorizeToolExecution({
+        agentRole: context.agentRole,
+        toolName,
+        fallbackAllowedTools: this.tools.keys(),
+      });
+
+      if (!authorization.allowed) {
+        const eventType = authorization.reason === 'emergency_blocked'
+          ? 'TOOL_NOT_GRANTED'
+          : 'POLICY_BLOCKED';
+        this.denialState = recordDenial(this.denialState, toolName, authorization.message, 'policy');
+        this.logSecurityEvent(context.agentId, context.agentRole, toolName, eventType, {
+          reason: authorization.reason,
+          message: authorization.message,
+        });
+        return {
+          success: false,
+          error: authorization.message,
+          filesWritten: 0,
+          memoryKeysWritten: 0,
+          riskLevel: riskAssessment.level,
+        };
+      }
+    }
+
+    const tool = bundledTool ?? getVirtualTool(toolName);
     if (!tool) {
       // ─── Runtime tool routing ──────────────────────────────
       // Tools created mid-run via RuntimeToolFactory are prefixed
@@ -950,7 +941,7 @@ export class ToolExecutor {
       // If it has an api_config, execute the HTTP call dynamically.
       const dynStart = Date.now();
       try {
-        const dynamicResult = await executeDynamicTool(toolName, params, this.tools);
+        const dynamicResult = await executeDynamicTool(toolName, params, context.agentRole, this.tools);
         if (dynamicResult) {
           const dynLatency = Date.now() - dynStart;
           const classifiedDynamicResult: ToolResult = {
@@ -1335,19 +1326,7 @@ export class ToolExecutor {
       const role = context.agentRole;
       const agentId = context.agentId;
 
-      // 1. Emergency block check — is_blocked in agent_tool_grants
-      const blocked = await isToolBlocked(role, toolName);
-      if (blocked) {
-        this.logSecurityEvent(agentId, role, toolName, 'TOOL_NOT_GRANTED', { reason: 'emergency_blocked' });
-        return {
-          success: false,
-          error: `${toolName} is currently blocked for ${role}. Contact an admin to unblock.`,
-          filesWritten: 0,
-          memoryKeysWritten: 0,
-        };
-      }
-
-      // 2. Rate limit check — use buildTool metadata if available
+      // 1. Rate limit check — use buildTool metadata if available
       const effectiveRateLimit = getToolMeta(tool).rateLimit;
       if (!this.checkRateLimit(role, toolName, effectiveRateLimit)) {
         this.denialState = recordDenial(this.denialState, toolName, 'Rate limit exceeded', 'rate_limit');
@@ -1360,7 +1339,7 @@ export class ToolExecutor {
         };
       }
 
-      // 3. Budget check
+      // 2. Budget check
       const estimatedCost = estimateToolCost(toolName);
       if (this.wouldExceedBudget(agentId, role, estimatedCost)) {
         this.denialState = recordDenial(this.denialState, toolName, 'Budget exceeded', 'budget');
@@ -1426,7 +1405,7 @@ export class ToolExecutor {
         }
       }
 
-      // 4. Formal budget verification for write tools
+      // 3. Formal budget verification for write tools
       if (this.formalVerifier && !isReadOnlyTool(toolName)) {
         const budget = AGENT_BUDGETS[role];
         if (budget) {
