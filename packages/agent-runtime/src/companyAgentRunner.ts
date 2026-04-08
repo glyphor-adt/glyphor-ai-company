@@ -1184,14 +1184,28 @@ function hasMatchingAction(
 ): string[] {
   const successfulTools = receipts.filter(r => r.result === 'success').map(r => r.tool);
   if (successfulTools.length === 0) return claims;
-  // If there are successful tool calls, assume claims may be substantiated
-  // Only flag if there are claims but ZERO successful mutations
-  const hasMutations = successfulTools.some(t =>
-    t.startsWith('update_') || t.startsWith('create_') || t.startsWith('delete_') ||
-    t.startsWith('set_') || t.startsWith('assign_') || t.startsWith('grant_') ||
-    t.startsWith('revoke_') || t.startsWith('dispatch_') || t.startsWith('submit_')
-  );
-  return hasMutations ? [] : claims;
+
+  // Per-claim type matching: require that the *type* of action in the claim
+  // corresponds to a successful tool of the matching category.
+  // Old logic: any mutation tool = all claims substantiated (too coarse, easy to fake).
+  // New logic: "I sent X" requires a send_/dispatch_/submit_ tool; "I created Y" requires create_/write_ etc.
+  const CLAIM_TOOL_MAP: Array<[RegExp, string[]]> = [
+    [/sent|dispatched|submitted/i,          ['send_', 'dispatch_', 'submit_', 'post_', 'publish_']],
+    [/created|added|generated|built|established/i, ['create_', 'write_', 'insert_', 'add_', 'generate_']],
+    [/updated|corrected|changed|modified|adjusted|set/i, ['update_', 'set_', 'modify_', 'patch_', 'edit_']],
+    [/deleted|removed|cleared|revoked/i,    ['delete_', 'remove_', 'revoke_', 'clear_']],
+    [/assigned|granted/i,                   ['assign_', 'grant_']],
+  ];
+
+  return claims.filter(claim => {
+    for (const [pattern, prefixes] of CLAIM_TOOL_MAP) {
+      if (pattern.test(claim)) {
+        const substantiated = successfulTools.some(t => prefixes.some(p => t.startsWith(p)));
+        if (!substantiated) return true; // this claim type has no matching successful tool
+      }
+    }
+    return false; // claim matched or no pattern applied — treat as substantiated
+  });
 }
 
 export class CompanyAgentRunner {

@@ -216,6 +216,28 @@ export function createAssignmentTools(
           );
 
           if (status === 'completed') {
+            // ─── EVIDENCE GATE: reject trivially short completions ──────────────
+            // Prevents agents from submitting a one-liner and claiming full completion.
+            // The harvester can downgrade at harvest time, but this blocks the worst cases at source.
+            const trimmedOutput = output?.trim() ?? '';
+            if (trimmedOutput.length < 50) {
+              return {
+                success: false,
+                error:
+                  `Output is too short (${trimmedOutput.length} chars) to mark as completed. ` +
+                  `Provide a substantive summary of what was accomplished (minimum 50 characters). ` +
+                  `For partial progress, use status='in_progress' instead.`,
+              };
+            }
+
+            // Confidence score reflects output length as a proxy for evidence quality.
+            // Hardcoded 1.0 was dishonest — short outputs carry less inherent credibility.
+            const confidenceScore =
+              trimmedOutput.length >= 500 ? 1.0
+              : trimmedOutput.length >= 300 ? 0.8
+              : trimmedOutput.length >= 100 ? 0.6
+              : 0.4;
+
             await completeContractForTask(
               assignmentId,
               ctx.agentRole,
@@ -225,7 +247,7 @@ export function createAssignmentTools(
                 submittedBy: ctx.agentRole,
                 status,
               },
-              1,
+              confidenceScore,
             );
             if (current && !current.dispatched_at) {
               await systemQuery(

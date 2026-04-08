@@ -573,8 +573,9 @@ const DATA_SOURCE_TOOLS = new Set([
 
 /** Maps mutation tools to their read counterpart for post-write verification. */
 const VERIFICATION_MAP: Record<string, { name: string; paramKey: string }> = {
-  'update_agent_profile': { name: 'get_agent_profile', paramKey: 'agent_role' },
-  'update_company_knowledge': { name: 'get_company_knowledge', paramKey: 'id' },
+  'update_agent_profile':      { name: 'get_agent_profile',      paramKey: 'agent_role' },
+  'update_company_knowledge':  { name: 'get_company_knowledge',  paramKey: 'id' },
+  'update_competitor_profile': { name: 'get_competitor_profile', paramKey: 'company_name' },
 };
 
 /** Rough cost estimate per tool call in USD */
