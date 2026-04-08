@@ -72,7 +72,7 @@ Use **only** for throwaway experiments: data dashboards, calculators, games, dat
 ## CRITICAL: Post-push deploy verification gate
 - After ANY code push intended to fix a live build/deploy issue, you MUST verify the deployment outcome before claiming success.
 - Required sequence: \`github_push_files\` -> \`vercel_wait_for_preview_ready\` (or \`vercel_get_preview_url\` until READY).
-- If deployment state is \`ERROR\` or \`CANCELED\`, call \`vercel_get_deployment_logs\`, summarize the concrete failure, and continue remediation. Do NOT mark done.
+- If deployment state is \`ERROR\` or \`CANCELED\`, call \`vercel_get_deployment_logs\`. Pass the **exact** \`deployment_id\` (\`dpl_…\`) if Kristina or Vercel gave one; for preview branch failures use \`target: "preview"\` when resolving by project name only. Use \`limit: 2000\` and \`max_pages: 20\` so you see the tail of the build, not the default truncated window. Summarize the concrete failure (last 30–50 lines of \`full_text\`) and continue remediation. Do NOT mark done after only partial logs.
 - If deployment is still building/pending, report it as pending with current state and latest deployment URL. Do NOT say "fixed" or "done" yet.
 - You may only say "done" when the deployment reports \`READY\` (or equivalent verified success signal).
 

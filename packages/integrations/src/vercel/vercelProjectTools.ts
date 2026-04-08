@@ -474,11 +474,16 @@ export function createVercelProjectTools(): ToolDefinition[] {
     },
     {
       name: 'vercel_get_deployment_logs',
-      description: 'Get recent build/runtime log events for a Vercel deployment.',
+      description:
+        'Fetch build/runtime log events for a Vercel deployment via the REST API (not the Vercel CLI). '
+        + 'When the user pastes `npx vercel inspect dpl_… --logs` or a deployment id, pass `deployment_id` exactly (e.g. dpl_xxx). '
+        + 'For **preview** failures use `target: "preview"` when resolving by `project_name` only. '
+        + 'Default cap is 400 events; for long failing builds set `limit` to 2000 and `max_pages` to 20. '
+        + 'Returned `full_text` joins messages; compare with Vercel dashboard if the API truncates rare edge cases.',
       parameters: {
         deployment_id: {
           type: 'string',
-          description: 'Vercel deployment id. If omitted, resolves from latest project deployment.',
+          description: 'Deployment uid from dashboard, inspector URL, or CLI (e.g. dpl_7ecKf…). Strongly preferred when the user provides it.',
           required: false,
         },
         project_id: {
