@@ -15,7 +15,57 @@ const parsedWorkerRequestTimeoutMs = Number.parseInt(process.env.WORKER_REQUEST_
 const WORKER_REQUEST_TIMEOUT_MS = Number.isFinite(parsedWorkerRequestTimeoutMs) && parsedWorkerRequestTimeoutMs > 0
   ? parsedWorkerRequestTimeoutMs
   : DEFAULT_WORKER_REQUEST_TIMEOUT_MS;
+const parsedWorkerRequestRetryCount = Number.parseInt(process.env.WORKER_REQUEST_RETRY_COUNT ?? '', 10);
+const WORKER_REQUEST_RETRY_COUNT = Number.isFinite(parsedWorkerRequestRetryCount) && parsedWorkerRequestRetryCount >= 0
+  ? parsedWorkerRequestRetryCount
+  : 2;
+const parsedWorkerRequestRetryDelayMs = Number.parseInt(process.env.WORKER_REQUEST_RETRY_DELAY_MS ?? '', 10);
+const WORKER_REQUEST_RETRY_DELAY_MS = Number.isFinite(parsedWorkerRequestRetryDelayMs) && parsedWorkerRequestRetryDelayMs > 0
+  ? parsedWorkerRequestRetryDelayMs
+  : 1_500;
 const QUEUE_AGENT_RUNS = `projects/${PROJECT}/locations/${LOCATION}/queues/agent-runs`;
+
+function isTransientWorkerError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /timeout|timed out|ETIMEDOUT|ECONNRESET|ENOTFOUND|EAI_AGAIN|socket hang up|network/i.test(message);
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function requestWorkerWithRetry<T>(
+  idTokenClient: Awaited<ReturnType<typeof googleAuth.getIdTokenClient>>,
+  request: {
+    url: string;
+    method: 'POST';
+    headers: Record<string, string>;
+    timeout: number;
+    data: unknown;
+    validateStatus: () => boolean;
+  },
+): Promise<{ status?: number | null; data?: T }> {
+  let lastError: unknown = null;
+  const maxAttempts = Math.max(1, WORKER_REQUEST_RETRY_COUNT + 1);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await idTokenClient.request<T>(request);
+    } catch (err) {
+      lastError = err;
+      if (!isTransientWorkerError(err) || attempt >= maxAttempts) {
+        throw err;
+      }
+      const backoffMs = WORKER_REQUEST_RETRY_DELAY_MS * attempt;
+      console.warn(
+        `[WorkerQueue] Transient worker dispatch failure (attempt ${attempt}/${maxAttempts}) — retrying in ${backoffMs}ms: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      await wait(backoffMs);
+    }
+  }
+
+  throw (lastError instanceof Error ? lastError : new Error(String(lastError ?? 'Unknown worker dispatch error')));
+}
 
 export interface DeepDiveExecutionTask {
   deepDiveId: string;
@@ -66,7 +116,7 @@ export async function executeWorkerDeepDiveExecution(task: DeepDiveExecutionTask
   }
 
   const idTokenClient = await googleAuth.getIdTokenClient(WORKER_URL);
-  const response = await idTokenClient.request<unknown>({
+  const response = await requestWorkerWithRetry<unknown>(idTokenClient, {
     url: `${WORKER_URL}/run`,
     method: 'POST',
     headers,
@@ -111,7 +161,7 @@ export async function executeWorkerAgentRun(
   }
 
   const idTokenClient = await googleAuth.getIdTokenClient(WORKER_URL);
-  const response = await idTokenClient.request<RouteResult>({
+  const response = await requestWorkerWithRetry<RouteResult>(idTokenClient, {
     url: `${WORKER_URL}/run`,
     method: 'POST',
     headers,

@@ -893,7 +893,6 @@ export class ToolExecutor {
       const authorization = await authorizeToolExecution({
         agentRole: context.agentRole,
         toolName,
-        fallbackAllowedTools: this.tools.keys(),
       });
 
       if (!authorization.allowed) {

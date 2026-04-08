@@ -61,6 +61,15 @@ function buildContext(overrides: Partial<ToolContext> = {}): ToolContext {
   };
 }
 
+function mockGrantedTools(...toolNames: string[]): void {
+  vi.mocked(systemQuery).mockImplementation(async (query: string) => {
+    if (query.includes('FROM agent_tool_grants')) {
+      return toolNames.map((toolName) => ({ tool_name: toolName, is_blocked: false })) as never;
+    }
+    return [] as never;
+  });
+}
+
 describe('ToolExecutor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -147,7 +156,27 @@ describe('ToolExecutor', () => {
     expect(tool.execute).toHaveBeenCalledOnce();
   });
 
+  it('allows only the bootstrap baseline when a live role has no policy rows', async () => {
+    const tool: ToolDefinition = {
+      name: 'list_my_tools',
+      description: 'List visible tools',
+      parameters: {},
+      execute: vi.fn().mockResolvedValue({ success: true, data: { granted_tools: [] } }),
+    };
+
+    const executor = new ToolExecutor([tool]);
+    const result = await executor.execute(
+      'list_my_tools',
+      {},
+      buildContext(),
+    );
+
+    expect(result.success).toBe(true);
+    expect(tool.execute).toHaveBeenCalledOnce();
+  });
+
   it('blocks high-stakes tools when cross-model verification returns BLOCK', async () => {
+    mockGrantedTools('submit_assignment_output');
     const highStakesTool: ToolDefinition = {
       name: 'submit_assignment_output',
       description: 'Submit assignment output',
@@ -187,6 +216,7 @@ describe('ToolExecutor', () => {
   });
 
   it('allows high-stakes tools when cross-model verification approves', async () => {
+    mockGrantedTools('submit_assignment_output');
     const highStakesTool: ToolDefinition = {
       name: 'submit_assignment_output',
       description: 'Submit assignment output',
@@ -224,6 +254,7 @@ describe('ToolExecutor', () => {
   });
 
   it('blocks hard-gate tools before execution and records the risk level', async () => {
+    mockGrantedTools('create_or_update_file');
     const hardGateTool: ToolDefinition = {
       name: 'create_or_update_file',
       description: 'Update a shared file',
@@ -251,6 +282,7 @@ describe('ToolExecutor', () => {
   });
 
   it('treats Calendar MCP CreateEvent aliases as hard-gated founder calendar writes', async () => {
+    mockGrantedTools('CreateEvent');
     const mcpCalendarTool: ToolDefinition = {
       name: 'CreateEvent',
       description: 'Create a calendar event through Calendar MCP',
@@ -275,6 +307,7 @@ describe('ToolExecutor', () => {
   });
 
   it('treats the Calendar MCP founder proof tool as hard-gated', async () => {
+    mockGrantedTools('evaluate_calendar_mcp_founder_create_event');
     const proofTool: ToolDefinition = {
       name: 'evaluate_calendar_mcp_founder_create_event',
       description: 'Proof-only founder calendar evaluation through Calendar MCP',
@@ -299,6 +332,7 @@ describe('ToolExecutor', () => {
   });
 
   it('classifies soft-gate tools without blocking execution', async () => {
+    mockGrantedTools('post_to_slack');
     const softGateTool: ToolDefinition = {
       name: 'post_to_slack',
       description: 'Post to Slack',
@@ -323,6 +357,7 @@ describe('ToolExecutor', () => {
   });
 
   it('allows invoke_web_build to execute as a soft-gated tool', async () => {
+    mockGrantedTools('invoke_web_build');
     const webBuildTool: ToolDefinition = {
       name: 'invoke_web_build',
       description: 'Build a web app',
@@ -347,6 +382,7 @@ describe('ToolExecutor', () => {
   });
 
   it('classifies read-only tools as autonomous', async () => {
+    mockGrantedTools('search_docs');
     const readOnlyTool: ToolDefinition = {
       name: 'search_docs',
       description: 'Search docs',
@@ -388,6 +424,7 @@ describe('ToolExecutor', () => {
   });
 
   it('blocks execution when pre-tool hook denies the call', async () => {
+    mockGrantedTools('search_docs');
     const tool: ToolDefinition = {
       name: 'search_docs',
       description: 'Search docs',
@@ -421,6 +458,7 @@ describe('ToolExecutor', () => {
   });
 
   it('fails open on autonomous tools when pre-hook errors', async () => {
+    mockGrantedTools('search_docs');
     const tool: ToolDefinition = {
       name: 'search_docs',
       description: 'Search docs',
@@ -450,6 +488,7 @@ describe('ToolExecutor', () => {
   });
 
   it('fails closed on non-autonomous tools when pre-hook errors', async () => {
+    mockGrantedTools('post_to_slack');
     const tool: ToolDefinition = {
       name: 'post_to_slack',
       description: 'Post to Slack',
@@ -480,6 +519,7 @@ describe('ToolExecutor', () => {
   });
 
   it('skips pre-exec value gate for on_demand chat (dashboard trust model)', async () => {
+    mockGrantedTools('invoke_web_build');
     vi.stubEnv('TOOL_VALUE_GATE_CONFIDENCE_THRESHOLD', '0.99');
     const webBuildTool: ToolDefinition = {
       name: 'invoke_web_build',

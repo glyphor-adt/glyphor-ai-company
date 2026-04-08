@@ -40,7 +40,6 @@ export async function executeDynamicTool(
     const authorization = await authorizeToolExecution({
       agentRole,
       toolName,
-      fallbackAllowedTools: agentTools?.keys(),
     });
     if (!authorization.allowed) {
       return {

@@ -3,6 +3,13 @@ import { systemQuery } from '@glyphor/shared/db';
 import type { CompanyAgentRole, ToolDeclaration } from './types.js';
 
 const EXECUTION_POLICY_CACHE_TTL_MS = 60_000;
+const BOOTSTRAP_BASELINE_TOOLS = new Set<string>([
+  'list_my_tools',
+  'tool_search',
+  'check_tool_access',
+  'request_tool_access',
+  'request_new_tool',
+]);
 
 export const LIVE_RUNTIME_ROSTER = [...CANONICAL_KEEP_ROSTER];
 
@@ -17,7 +24,7 @@ export interface ExecutionAuthorizationDecision {
   allowed: boolean;
   reason:
     | 'allowed'
-    | 'fallback_bundle'
+    | 'bootstrap_baseline'
     | 'role_not_live'
     | 'tool_not_granted'
     | 'emergency_blocked';
@@ -73,9 +80,8 @@ async function loadExecutionPolicy(agentRole: string): Promise<ExecutionPolicyCa
 export async function authorizeToolExecution(input: {
   agentRole: string;
   toolName: string;
-  fallbackAllowedTools?: Iterable<string>;
 }): Promise<ExecutionAuthorizationDecision> {
-  const { agentRole, toolName, fallbackAllowedTools } = input;
+  const { agentRole, toolName } = input;
   if (!isLiveRuntimeRole(agentRole)) {
     return {
       allowed: false,
@@ -111,12 +117,11 @@ export async function authorizeToolExecution(input: {
     }
   }
 
-  const fallbackSet = new Set(fallbackAllowedTools ?? []);
-  if (fallbackSet.has(toolName)) {
+  if (BOOTSTRAP_BASELINE_TOOLS.has(toolName)) {
     return {
       allowed: true,
-      reason: 'fallback_bundle',
-      message: `${toolName} is allowed for ${agentRole} via the in-memory tool bundle fallback.`,
+      reason: 'bootstrap_baseline',
+      message: `${toolName} is allowed for ${agentRole} via the bootstrap baseline.`,
     };
   }
 
