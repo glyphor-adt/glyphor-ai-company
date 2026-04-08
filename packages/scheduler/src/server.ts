@@ -4598,7 +4598,12 @@ const server = createServer(async (req, res) => {
               submittedBy: normalized.agentRole,
               status: 'completed',
             },
-            1,
+            // Scale confidence by output length — same logic as submit_assignment_output tool.
+            // SDK runner path previously hardcoded 1.0; that was dishonest for thin outputs.
+            (() => {
+              const len = (result.output ?? '').trim().length;
+              return len >= 500 ? 1.0 : len >= 300 ? 0.8 : len >= 100 ? 0.6 : 0.4;
+            })(),
           );
         }
       }

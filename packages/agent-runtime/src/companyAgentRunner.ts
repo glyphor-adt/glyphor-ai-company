@@ -1161,12 +1161,17 @@ function formatFreshnessTag(item: { metadata?: Record<string, unknown> }): strin
 
 /** Regex patterns that match common action claims in agent text. */
 const ACTION_CLAIM_PATTERNS = [
+  // Active voice — agent self-reports completing an action
   /I(?:'ve| have) (?:updated|corrected|set|changed|modified|adjusted)/gi,
   /I(?:'ve| have) (?:created|added|generated|built|established)/gi,
   /I(?:'ve| have) (?:deleted|removed|cleared|revoked)/gi,
   /I(?:'ve| have) (?:assigned|granted|dispatched|sent|submitted)/gi,
   /I(?:'ve| have) also (?:updated|corrected|set|created|deleted|assigned|fixed)/gi,
   /I just (?:updated|corrected|set|created|deleted|assigned|fixed)/gi,
+  // Passive voice — agent describes outcome without owning the verb, equally unsubstantiated
+  /(?:has|have) been (?:sent|dispatched|submitted|published|created|updated|deleted|assigned|granted|revoked)/gi,
+  /(?:was|were) (?:sent|dispatched|submitted|published|created|updated|deleted|assigned|granted)/gi,
+  /(?:the (?:email|message|report|document|assignment|draft|record)) (?:has been|was) (?:sent|created|updated|deleted)/gi,
 ];
 
 function extractActionClaims(text: string): string[] {

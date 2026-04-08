@@ -571,11 +571,13 @@ const DATA_SOURCE_TOOLS = new Set([
   'query_stripe_subscriptions',
 ]);
 
-/** Maps mutation tools to their read counterpart for post-write verification. */
+/** Maps mutation tools to their read counterpart for post-write verification.
+ * paramKey='' means "no param required" — readback fires unconditionally on success. */
 const VERIFICATION_MAP: Record<string, { name: string; paramKey: string }> = {
   'update_agent_profile':      { name: 'get_agent_profile',      paramKey: 'agent_role' },
   'update_company_knowledge':  { name: 'get_company_knowledge',  paramKey: 'id' },
   'update_competitor_profile': { name: 'get_competitor_profile', paramKey: 'company_name' },
+  'update_company_vitals':     { name: 'get_company_vitals',     paramKey: '' },
 };
 
 /** Rough cost estimate per tool call in USD */
@@ -1788,9 +1790,11 @@ export class ToolExecutor {
       // Auto-verify mutations by reading back the written data
       if (isMutation(toolName) && finalResult.success) {
         const verifySpec = VERIFICATION_MAP[toolName];
-        if (verifySpec && params[verifySpec.paramKey]) {
+        // paramKey='' means no-param readback (fire unconditionally); otherwise require param present
+        if (verifySpec && (verifySpec.paramKey === '' || params[verifySpec.paramKey])) {
           try {
-            const verifyResult = await this.execute(verifySpec.name, { [verifySpec.paramKey]: params[verifySpec.paramKey] }, context);
+            const readbackParams = verifySpec.paramKey === '' ? {} : { [verifySpec.paramKey]: params[verifySpec.paramKey] };
+            const verifyResult = await this.execute(verifySpec.name, readbackParams, context);
             const verifyData = verifyResult.success
               ? (typeof verifyResult.data === 'string' ? verifyResult.data : JSON.stringify(verifyResult.data))
               : `VERIFICATION FAILED: ${verifyResult.error}`;

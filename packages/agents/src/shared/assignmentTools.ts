@@ -218,14 +218,16 @@ export function createAssignmentTools(
           if (status === 'completed') {
             // ─── EVIDENCE GATE: reject trivially short completions ──────────────
             // Prevents agents from submitting a one-liner and claiming full completion.
-            // The harvester can downgrade at harvest time, but this blocks the worst cases at source.
+            // Threshold matches taskOutcomeHarvester MIN_MEANINGFUL_OUTPUT_LENGTH (100)
+            // so the gate and the harvester are aligned: nothing under 100 chars can
+            // claim completed at the tool level OR survive harvest without downgrade.
             const trimmedOutput = output?.trim() ?? '';
-            if (trimmedOutput.length < 50) {
+            if (trimmedOutput.length < 100) {
               return {
                 success: false,
                 error:
                   `Output is too short (${trimmedOutput.length} chars) to mark as completed. ` +
-                  `Provide a substantive summary of what was accomplished (minimum 50 characters). ` +
+                  `Provide a substantive summary of what was accomplished (minimum 100 characters). ` +
                   `For partial progress, use status='in_progress' instead.`,
               };
             }
