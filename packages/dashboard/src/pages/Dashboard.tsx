@@ -1,16 +1,5 @@
-import {
-  MdArrowForward,
-  MdAttachMoney,
-  MdChat,
-  MdCheckCircle,
-  MdCloud,
-  MdFlag,
-  MdOutlineAutoGraph,
-  MdOutlineSettings,
-  MdSpeed,
-  MdWarning,
-} from 'react-icons/md';
-import { Link, useLocation } from 'react-router-dom';
+import { MdCheckCircle } from 'react-icons/md';
+import { Link } from 'react-router-dom';
 import { type HTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useActiveDirectives, useCompanyPulse, useDecisions, useOpenIncidents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP } from '../lib/types';
@@ -82,32 +71,6 @@ const PRIORITY_BADGE: Record<ActionCenterItem['priority'], string> = {
   medium: 'badge-cyan',
 };
 
-const QUICK_ACTIONS = [
-  { label: 'Chat with Ora', description: 'Ask anything about Glyphor', to: '/ora', icon: MdChat },
-  { label: 'Create Directive', description: 'Tell agents what to work on', to: '/directives', icon: MdFlag },
-  { label: 'View Financials', description: 'Cost breakdown and runway', to: '/financials', icon: MdAttachMoney },
-  { label: 'Check Workforce', description: 'Agent health and performance', to: '/workforce', icon: MdOutlineAutoGraph },
-  { label: 'Run Settings', description: 'Adjust schedules and models', to: '/settings', icon: MdOutlineSettings },
-] as const;
-
-const SUGGESTED_DIRECTIVES = [
-  {
-    title: 'Prepare a competitive pricing analysis for Slack-first GTM',
-    description: 'Would activate Sophia, Lena, and Daniel across research and positioning.',
-    cost: '~$2-5 in compute',
-  },
-  {
-    title: 'Draft the first version of our customer-facing landing page',
-    description: 'Would activate Maya, Mia, and Ethan across marketing, design, and frontend.',
-    cost: '~$3-8 in compute',
-  },
-  {
-    title: 'Audit our SOC 2 readiness and produce a gap report',
-    description: 'Would activate Victoria and Morgan for a founder-visible compliance readout.',
-    cost: '~$1-3 in compute',
-  },
-] as const;
-
 function fmtUsd(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return '—';
   if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(1)}k`;
@@ -158,17 +121,6 @@ function HomeInnerCard({ children, className = '', interactive = true, ...rest }
   );
 }
 
-function extractDeliverableScore(deliverable: DeliverableRow): number | null {
-  const metadata = deliverable.metadata ?? {};
-  const direct = metadata.quality_score ?? metadata.score ?? null;
-  if (typeof direct === 'number') return direct;
-  if (typeof direct === 'string') {
-    const parsed = Number(direct);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
 function buildIncidentContext(title: string, description: string | null): { context: string; recommendation: string } {
   const lower = `${title} ${description ?? ''}`.toLowerCase();
   if (lower.includes('latency') || lower.includes('slow') || lower.includes('cold start')) {
@@ -207,7 +159,6 @@ function buildOraActionPrompt(item: ActionCenterItem): string {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const location = useLocation();
   const { data: pulse, loading: pulseLoading } = useCompanyPulse();
   const { data: decisions, loading: decisionsLoading, updateDecision } = useDecisions();
   const { data: incidents, loading: incidentsLoading, resolveIncident } = useOpenIncidents();
@@ -295,7 +246,7 @@ export default function Dashboard() {
     0,
   );
 
-  const criticalIncidents = incidents.filter((i) => i.severity === 'critical' && !i.resolved_at).length;
+  const criticalIncidents = incidents.filter((i) => i.severity === 'critical').length;
   const briefingAgeMs = pulse?.updated_at ? Date.now() - new Date(pulse.updated_at).getTime() : null;
   const briefingStale = briefingAgeMs != null && briefingAgeMs > 18 * 60 * 60 * 1000;
 
