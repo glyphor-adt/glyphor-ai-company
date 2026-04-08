@@ -16,11 +16,12 @@ import {
   getRoleTitle,
   toHumanWords,
 } from './shared';
-import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TITLE, AGENT_BUILT_IN_TOOLS } from '../../lib/types';
+import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TITLE } from '../../lib/types';
 import { LIVE_ROSTER_ORDER } from '../../lib/liveRoster';
 import { getToolPlatform, getToolPlatformMeta, PLATFORM_META, type ToolPlatform } from '../../lib/toolPlatform';
 
 type HealthFilter = null | 'failing' | 'high-risk' | 'stale' | 'telemetry-gap';
+const LIVE_ROSTER_SET = new Set<string>(LIVE_ROSTER_ORDER);
 
 interface ToolViewProps {
   loading: boolean;
@@ -351,20 +352,15 @@ function normalizeSearch(value: string): string {
 function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
   const [query, setQuery] = useState('');
 
-  // Merge static AGENT_BUILT_IN_TOOLS with live grants from agent_tool_grants
-  const mergedAgentTools = useMemo(() => {
-    const merged: Record<string, string[]> = {};
+  const grantedAgentTools = useMemo(() => {
+    const merged: Record<string, string[]> = Object.fromEntries(
+      LIVE_ROSTER_ORDER.map((role) => [role, [] as string[]]),
+    );
 
-    // Start with static tools (deduplicated — shared groups can overlap)
-    for (const [role, tools] of Object.entries(AGENT_BUILT_IN_TOOLS)) {
-      merged[role] = [...new Set(tools)];
-    }
-
-    // Overlay live grants — adds tools not in the static list
+    // The governance tools page should reflect live execution policy, not legacy static metadata.
     for (const grant of grants) {
-      if (!grant.is_active) continue;
+      if (!grant.is_active || !LIVE_ROSTER_SET.has(grant.agent_role)) continue;
       const role = grant.agent_role;
-      if (!merged[role]) merged[role] = [];
       if (!merged[role].includes(grant.tool_name)) {
         merged[role].push(grant.tool_name);
       }
@@ -384,30 +380,30 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
 
     const matches: SearchResult[] = [];
 
-    // ── Agent matches — merged static + live grants ──
-    for (const role of LIVE_ROSTER_ORDER) {
-      const displayName = DISPLAY_NAME_MAP[role] ?? role;
-      const searchable = normalizeSearch(
-        [role, displayName, ROLE_DEPARTMENT[role] ?? '', ROLE_TITLE[role] ?? ''].join(' '),
-      );
-      if (!q.split(' ').every((token) => searchable.includes(token))) continue;
+      // ── Agent matches — live grants only ──
+      for (const role of LIVE_ROSTER_ORDER) {
+        const displayName = DISPLAY_NAME_MAP[role] ?? role;
+        const searchable = normalizeSearch(
+          [role, displayName, ROLE_DEPARTMENT[role] ?? '', ROLE_TITLE[role] ?? ''].join(' '),
+        );
+        if (!q.split(' ').every((token) => searchable.includes(token))) continue;
 
-      const tools = mergedAgentTools[role] ?? [];
-      matches.push({
-        type: 'agent',
-        key: `agent:${role}`,
+        const tools = grantedAgentTools[role] ?? [];
+        matches.push({
+          type: 'agent',
+          key: `agent:${role}`,
         label: displayName,
         subtitle: `${ROLE_TITLE[role] ?? ROLE_DEPARTMENT[role] ?? 'Unknown'} · ${tools.length} tool${tools.length === 1 ? '' : 's'}`,
         tools,
       });
     }
 
-    // ── Tool matches — build from merged tools ──
-    const toolToAgents = new Map<string, string[]>();
-    for (const [role, tools] of Object.entries(mergedAgentTools)) {
-      for (const tool of tools) {
-        const list = toolToAgents.get(tool) ?? [];
-        list.push(role);
+      // ── Tool matches — build from live grants only ──
+      const toolToAgents = new Map<string, string[]>();
+      for (const [role, tools] of Object.entries(grantedAgentTools)) {
+        for (const tool of tools) {
+          const list = toolToAgents.get(tool) ?? [];
+          list.push(role);
         toolToAgents.set(tool, list);
       }
     }
@@ -433,7 +429,7 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
       if (a.type !== b.type) return a.type === 'agent' ? -1 : 1;
       return a.label.localeCompare(b.label);
     });
-  }, [query, mergedAgentTools]);
+  }, [query, grantedAgentTools]);
 
   const showResults = query.trim().length > 0;
 
@@ -565,14 +561,18 @@ export default function ToolView({
   grants,
   onOpenSurface,
 }: ToolViewProps) {
+  const liveActiveGrants = useMemo(
+    () => grants.filter((grant) => grant.is_active && LIVE_ROSTER_SET.has(grant.agent_role)),
+    [grants],
+  );
+
   const activeGrantCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const grant of grants) {
-      if (!grant.is_active) continue;
+    for (const grant of liveActiveGrants) {
       counts.set(grant.tool_name, (counts.get(grant.tool_name) ?? 0) + 1);
     }
     return counts;
-  }, [grants]);
+  }, [liveActiveGrants]);
 
   const activeTools = useMemo<EnrichedTool[]>(() => {
     return toolReputation
@@ -605,8 +605,8 @@ export default function ToolView({
     const knownTools = new Set(toolReputation.map((tool) => tool.tool_name));
     const grouped = new Map<string, { toolName: string; activeGrantCount: number; nextExpiry: string | null }>();
 
-    for (const grant of grants) {
-      if (!grant.is_active || knownTools.has(grant.tool_name)) continue;
+    for (const grant of liveActiveGrants) {
+      if (knownTools.has(grant.tool_name)) continue;
       const current = grouped.get(grant.tool_name);
       const nextExpiry = !current?.nextExpiry
         ? grant.expires_at
@@ -624,7 +624,7 @@ export default function ToolView({
     }
 
     return [...grouped.values()].sort((left, right) => right.activeGrantCount - left.activeGrantCount || left.toolName.localeCompare(right.toolName));
-  }, [grants, toolReputation]);
+  }, [liveActiveGrants, toolReputation]);
 
   if (loading) {
     return (

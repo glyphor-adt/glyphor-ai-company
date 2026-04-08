@@ -1,18 +1,14 @@
 /**
  * Glyphor Preview Worker
  *
- * Strategy (R2-first):
+ * Strategy:
  * 1. Extract project slug from subdomain: {slug}.preview.glyphor.ai
  * 2. Look up deployment metadata in R2: deployments/{slug}.json
  * 3. Proxy content from deployment_url stored in metadata
  *    (always the canonical public Vercel URL, never auth-protected preview URLs)
- * 4. Supabase fallback when R2 has no entry (e.g. older builds)
  *
  * Bindings (wrangler.toml):
  *   R2 bucket: PREVIEW_REGISTRY → glyphor-fuse-storage
- *
- * Secrets (wrangler secret put):
- *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  (for fallback)
  */
 
 interface PreviewMetadata {
@@ -33,8 +29,6 @@ interface R2BucketLike {
 
 interface Env {
   PREVIEW_REGISTRY: R2BucketLike;
-  SUPABASE_URL?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
 export default {
@@ -58,13 +52,8 @@ export default {
         return htmlResponse(generateErrorPage(projectSlug, '500 - Configuration Error', null), 500);
       }
 
-      // R2 primary lookup
-      let metadata = await getMetadataFromR2(projectSlug, env.PREVIEW_REGISTRY);
-
-      // Supabase fallback
-      if (!metadata?.deployment_url && env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
-        metadata = await getMetadataFromSupabase(projectSlug, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-      }
+      // R2 lookup
+      const metadata = await getMetadataFromR2(projectSlug, env.PREVIEW_REGISTRY);
 
       if (!metadata?.deployment_url) {
         console.error(`[Preview Worker] ❌ No metadata for slug: ${projectSlug}`);
