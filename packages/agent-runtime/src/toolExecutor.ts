@@ -1551,7 +1551,7 @@ export class ToolExecutor {
         });
         return {
           success: false,
-          error: `${toolName} rejected: you must call at least one data-reading tool (${[...DATA_SOURCE_TOOLS].join(', ')}) before creating a decision or report. Decisions must be backed by verified data. If no data is available, report that status honestly instead.`,
+          error: `${toolName} rejected: you must call at least one data-reading tool before creating a decision or report. Use tools like get_product_metrics, get_company_vitals, get_financials, get_recent_activity, or any other data-reading tool to gather verified data first. Decisions must be backed by real data — if no data is available, report that status honestly instead.`,
           filesWritten: 0,
           memoryKeysWritten: 0,
         };
