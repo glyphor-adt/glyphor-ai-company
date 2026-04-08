@@ -824,6 +824,15 @@ export async function getAgentOpsMetrics(windowDays: 7 | 30 | 90): Promise<{
     fleetTotal: number;
     byAgent: Array<{ agent_role: string; event_count: number; total_claims: number }>;
   };
+  trustScores: Array<{
+    agent_role: string;
+    trust_score: number;
+    total_runs: number;
+    suspended: boolean;
+    auto_promotion_eligible: boolean;
+    human_overrides: number;
+    formal_failures: number;
+  }>;
 }> {
   const interval = `${windowDays} days`;
 
@@ -964,6 +973,32 @@ export async function getAgentOpsMetrics(windowDays: 7 | 30 | 90): Promise<{
         fleetTotal: byAgent.reduce((s, r) => s + r.event_count, 0),
         byAgent,
       };
+    })(),
+    trustScores: await (async () => {
+      const rows = await systemQuery<{
+        agent_role: string;
+        trust_score: string;
+        total_runs: string;
+        suspended: boolean;
+        auto_promotion_eligible: boolean;
+        human_overrides: string;
+        formal_failures: string;
+      }>(
+        `SELECT agent_role, trust_score, total_runs, suspended, auto_promotion_eligible,
+                human_overrides, formal_failures
+         FROM agent_trust_scores
+         ORDER BY trust_score ASC`,
+        [],
+      );
+      return (rows ?? []).map(r => ({
+        agent_role:               r.agent_role,
+        trust_score:              parseFloat(String(r.trust_score)),
+        total_runs:               parseInt(String(r.total_runs), 10),
+        suspended:                Boolean(r.suspended),
+        auto_promotion_eligible:  Boolean(r.auto_promotion_eligible),
+        human_overrides:          parseInt(String(r.human_overrides), 10),
+        formal_failures:          parseInt(String(r.formal_failures), 10),
+      }));
     })(),
   };
 }

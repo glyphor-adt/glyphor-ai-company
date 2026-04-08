@@ -144,6 +144,17 @@ function summarizeRunOutput(output: string | null, fallback: string): string {
   return sentence.slice(0, 600);
 }
 
+function buildOnDemandAbortOutput(reason?: string): string {
+  const normalized = (reason ?? '').toLowerCase();
+  if (normalized.includes('timeout')) {
+    return 'I could not complete this run because it timed out before producing a verifiable result. Retry this request and I will continue with concrete repo actions.';
+  }
+  if (normalized.includes('stall')) {
+    return 'I could not complete this run because execution stalled before a verifiable result was produced. Retry this request and I will report the first concrete action before proceeding.';
+  }
+  return 'I could not complete this run and did not produce a verifiable result. Retry this request and I will continue with concrete actions.';
+}
+
 async function persistRunMetricsAuditLog(entry: {
   agentRole: string;
   taskId: string;
@@ -2029,6 +2040,9 @@ export class CompanyAgentRunner {
               }
             }
           }
+          if (task === 'on_demand' && !lastTextOutput) {
+            lastTextOutput = buildOnDemandAbortOutput(check.reason);
+          }
           if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
           return this.buildResult(
             config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
@@ -2540,7 +2554,6 @@ Rules:
               content: ON_DEMAND_TOOL_ONLY_ACK,
               timestamp: Date.now(),
             });
-            lastTextOutput = ON_DEMAND_TOOL_ONLY_ACK;
           }
           // Push all tool_call turns first (batched for proper Gemini 3+ thought signature replay)
           for (let j = 0; j < response.toolCalls.length; j++) {
@@ -3078,6 +3091,35 @@ Continue execution, call tools as needed, and return only when all criteria are 
             });
           }
         }
+      }
+
+      // ─── ORCHESTRATION QUALITY SIGNAL ──────────────────────────────────────
+      // CoS orchestrate runs that produce no dispatch actions despite claiming
+      // completion are likely spinning without real effect. Record a run event
+      // so the trust pipeline can detect hollow orchestrate cycles.
+      if (task === 'orchestrate' && config.role === 'chief-of-staff' && lastTextOutput) {
+        const dispatchTools = ['dispatch_assignment', 'create_team_assignments', 'create_sub_team_assignment'];
+        const hasDispatch = actionReceipts.some(r =>
+          r.result === 'success' && dispatchTools.some(t => r.tool.startsWith(t))
+        );
+        const hasWorkQuery = actionReceipts.some(r =>
+          r.result === 'success' && (r.tool.includes('assignment') || r.tool.includes('directive'))
+        );
+        void recordRunEvent({
+          runId: config.dbRunId ?? config.id,
+          eventType: 'orchestrate_quality',
+          trigger: 'orchestration.quality',
+          component: 'companyAgentRunner',
+          payload: {
+            role: config.role,
+            has_dispatch: hasDispatch,
+            has_work_query: hasWorkQuery,
+            dispatch_tools: actionReceipts.filter(r => dispatchTools.some(t => r.tool.startsWith(t))).map(r => r.tool),
+            total_tool_calls: actionReceipts.length,
+            successful_tool_calls: actionReceipts.filter(r => r.result === 'success').length,
+            output_len: lastTextOutput.trim().length,
+          },
+        });
       }
 
       // ─── VERIFICATION PIPELINE (reasoning engine) ──────────────
