@@ -207,6 +207,7 @@ const KNOWN_TOOLS = new Set([
   'build_website_foundation',
   'github_create_from_template',
   'github_push_files',
+  'github_get_repository_file',
   'github_create_pull_request',
   'github_get_pull_request_status',
   'github_wait_for_pull_request_checks',

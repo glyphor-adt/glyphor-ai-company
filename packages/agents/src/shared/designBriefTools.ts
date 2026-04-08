@@ -1,5 +1,6 @@
 import { ModelClient, type ToolContext, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
 import { getTierModel } from '@glyphor/shared';
+import { validateNormalizedDesignBriefPayload } from './normalizedDesignBriefValidation.js';
 
 interface ComponentSpec {
   name: string;
@@ -408,9 +409,17 @@ export function createDesignBriefTools(): ToolDefinition[] {
           missing_fields: missingFields,
         };
 
+        const validated = validateNormalizedDesignBriefPayload(normalized);
+        if (!validated.ok) {
+          return {
+            success: false,
+            error: `normalize_design_brief handoff contract failed: ${validated.errors.join('; ')}`,
+          };
+        }
+
         return {
           success: true,
-          data: normalized,
+          data: validated.value,
         };
       },
     },

@@ -40,7 +40,13 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createWebBuildTools } from '../shared/webBuildTools.js';
-import { createGithubFromTemplateTools, createGithubPushFilesTools, createGithubPullRequestTools, createVercelProjectTools } from '@glyphor/integrations';
+import {
+  createGithubFromTemplateTools,
+  createGithubPushFilesTools,
+  createGithubReadRepositoryFileTools,
+  createGithubPullRequestTools,
+  createVercelProjectTools,
+} from '@glyphor/integrations';
 import { createWebBuildPlannerTools } from '../shared/webBuildPlannerTools.js';
 import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
 import { createDesignBriefTools } from '../shared/designBriefTools.js';
@@ -119,6 +125,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
           allowedBuildTiers: ['prototype', 'full_build'],
         }),
         ...createGithubFromTemplateTools(),
+        ...createGithubReadRepositoryFileTools(),
         ...createVercelProjectTools(),
         ...createDeployPreviewTools(),
         ...createScreenshotTools(),
@@ -146,6 +153,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
         }),
         // GitHub operations (create/push/promote via pull request)
         ...createGithubFromTemplateTools(),
+        ...createGithubReadRepositoryFileTools(),
         ...createGithubPushFilesTools(),
         ...createGithubPullRequestTools(),
         ...createVercelProjectTools(),
@@ -207,6 +215,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
       ...createAssetTools(glyphorEventBus),
       ...createScaffoldTools(),
       ...createDeployPreviewTools(),
+      ...createGithubReadRepositoryFileTools(),
       ...createGithubPullRequestTools(),
       ...createVercelProjectTools(),
       ...createWebBuildTools(memory, {

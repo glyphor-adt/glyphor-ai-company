@@ -518,6 +518,7 @@ export async function mergeGitHubPR(
 
 export { createGithubFromTemplateTools } from './githubFromTemplate.js';
 export { createGithubPushFilesTools } from './githubPushFiles.js';
+export { createGithubReadRepositoryFileTools } from './githubReadRepositoryFile.js';
 export { createGithubPullRequestTools } from './githubPullRequestTools.js';
 
 // ═══════════════════════════════════════════════════════════════════

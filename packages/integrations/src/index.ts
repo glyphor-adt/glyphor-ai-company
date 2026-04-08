@@ -237,6 +237,7 @@ export {
   getIssueDetails,
   createGithubFromTemplateTools,
   createGithubPushFilesTools,
+  createGithubReadRepositoryFileTools,
   createGithubPullRequestTools,
   GLYPHOR_REPOS,
   type GlyphorRepo,

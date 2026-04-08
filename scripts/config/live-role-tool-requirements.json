@@ -1,0 +1,224 @@
+{
+  "critical_roles": {
+    "vp-design": {
+      "description": "Web pipeline + preview — VP Design",
+      "required": [
+        "normalize_design_brief",
+        "plan_website_build",
+        "invoke_web_build",
+        "invoke_web_iterate",
+        "github_create_from_template",
+        "github_push_files",
+        "github_create_pull_request",
+        "vercel_create_project",
+        "vercel_get_preview_url",
+        "deploy_preview",
+        "save_memory"
+      ],
+      "recommended": [
+        "list_my_tools",
+        "tool_search",
+        "invoke_web_coding_loop",
+        "github_merge_pull_request",
+        "github_get_pull_request_status",
+        "github_wait_for_pull_request_checks",
+        "vercel_wait_for_preview_ready",
+        "vercel_get_production_url",
+        "vercel_get_deployment_logs",
+        "get_file_contents",
+        "list_open_prs",
+        "comment_on_pr",
+        "screenshot_page",
+        "run_accessibility_audit",
+        "check_ai_smell",
+        "send_agent_message",
+        "check_messages",
+        "read_inbox",
+        "reply_to_email",
+        "create_git_branch"
+      ]
+    },
+    "chief-of-staff": {
+      "description": "Directive + assignment orchestration — must not run half-tooled",
+      "required": [
+        "read_founder_directives",
+        "create_work_assignments",
+        "dispatch_assignment",
+        "check_assignment_status",
+        "update_directive_progress",
+        "save_memory",
+        "send_agent_message",
+        "check_messages",
+        "read_my_assignments",
+        "submit_assignment_output",
+        "flag_assignment_blocker"
+      ],
+      "recommended": [
+        "read_inbox",
+        "reply_to_email",
+        "evaluate_assignment",
+        "create_decision",
+        "grant_tool_access",
+        "revoke_tool_access",
+        "get_pending_decisions",
+        "log_activity",
+        "read_company_memory",
+        "get_recent_activity",
+        "github_create_from_template",
+        "github_push_files",
+        "github_create_pull_request",
+        "vercel_create_project",
+        "vercel_get_preview_url"
+      ]
+    },
+    "cto": {
+      "description": "Engineering health + incident surface — Marcus Reeves",
+      "required": [
+        "get_platform_health",
+        "save_memory",
+        "send_agent_message",
+        "check_messages",
+        "read_company_memory",
+        "log_activity",
+        "get_recent_activity",
+        "read_my_assignments"
+      ],
+      "recommended": [
+        "get_cloud_run_metrics",
+        "get_infrastructure_costs",
+        "create_github_issue",
+        "get_file_contents",
+        "create_decision",
+        "flag_assignment_blocker",
+        "submit_assignment_output",
+        "get_ci_health",
+        "get_github_pr_status",
+        "read_inbox",
+        "reply_to_email",
+        "send_email",
+        "normalize_design_brief",
+        "invoke_web_build"
+      ]
+    },
+    "ops": {
+      "description": "Fleet health + run trigger — Atlas Vega",
+      "required": [
+        "query_agent_health",
+        "trigger_agent_run",
+        "save_memory",
+        "send_agent_message",
+        "check_messages"
+      ],
+      "recommended": [
+        "pause_agent",
+        "resume_agent",
+        "retry_failed_run",
+        "query_agent_runs",
+        "query_cost_trends",
+        "query_events_backlog",
+        "read_my_assignments"
+      ]
+    }
+  },
+  "warn_only_roles": {
+    "cfo": {
+      "description": "Finance baseline — alert only until grants stable everywhere",
+      "required": [
+        "get_financials",
+        "save_memory",
+        "send_agent_message",
+        "check_messages",
+        "read_company_memory",
+        "log_activity",
+        "read_my_assignments",
+        "submit_assignment_output",
+        "flag_assignment_blocker",
+        "create_decision"
+      ],
+      "recommended": [
+        "query_stripe_mrr",
+        "query_stripe_subscriptions",
+        "write_financial_report",
+        "calculate_unit_economics",
+        "read_inbox",
+        "reply_to_email",
+        "send_email"
+      ]
+    },
+    "cpo": {
+      "description": "Product + roadmap signals — Elena Vasquez",
+      "required": [
+        "get_product_metrics",
+        "read_company_memory",
+        "save_memory",
+        "send_agent_message",
+        "check_messages",
+        "read_my_assignments",
+        "submit_assignment_output",
+        "flag_assignment_blocker",
+        "write_product_analysis",
+        "log_activity",
+        "create_decision"
+      ],
+      "recommended": [
+        "query_analytics_events",
+        "get_usage_metrics",
+        "get_roadmap",
+        "segment_users",
+        "get_competitor_profile",
+        "send_email",
+        "read_inbox",
+        "reply_to_email"
+      ]
+    },
+    "cmo": {
+      "description": "Marketing + content queue — Maya Brooks",
+      "required": [
+        "read_company_memory",
+        "save_memory",
+        "send_agent_message",
+        "check_messages",
+        "read_my_assignments",
+        "submit_assignment_output",
+        "flag_assignment_blocker",
+        "write_content",
+        "log_activity",
+        "create_decision"
+      ],
+      "recommended": [
+        "write_company_memory",
+        "get_product_metrics",
+        "get_recent_activity",
+        "read_inbox",
+        "reply_to_email",
+        "send_email"
+      ]
+    },
+    "vp-research": {
+      "description": "Research corpus + briefs — Sophia Lin",
+      "required": [
+        "save_research",
+        "search_research",
+        "save_memory",
+        "send_agent_message",
+        "check_messages",
+        "read_my_assignments",
+        "submit_assignment_output",
+        "flag_assignment_blocker",
+        "create_research_brief",
+        "compile_research_digest"
+      ],
+      "recommended": [
+        "create_monitor",
+        "check_monitors",
+        "get_monitor_history",
+        "identify_research_gaps",
+        "cross_reference_findings",
+        "get_research_timeline",
+        "read_inbox",
+        "reply_to_email",
+        "send_email"
+      ]
+    }
+  }
+}

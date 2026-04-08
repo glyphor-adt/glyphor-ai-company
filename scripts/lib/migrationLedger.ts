@@ -56,3 +56,16 @@ export async function getCurrentUser(client: PoolClient): Promise<string> {
   const result = await client.query<{ current_user: string }>('select current_user');
   return result.rows[0]?.current_user ?? 'unknown';
 }
+
+/** Migration `.sql` filenames present in repo but not recorded in `schema_migrations`. */
+export async function getPendingMigrationNames(pool: Pool): Promise<string[]> {
+  const client = await pool.connect();
+  try {
+    await ensureLedgerTable(client);
+    const applied = await client.query<{ name: string }>('SELECT name FROM schema_migrations');
+    const appliedSet = new Set(applied.rows.map((r) => r.name));
+    return getRepoMigrations().filter((m) => !appliedSet.has(m.name)).map((m) => m.name);
+  } finally {
+    client.release();
+  }
+}

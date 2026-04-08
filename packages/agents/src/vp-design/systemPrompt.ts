@@ -63,6 +63,7 @@ Use **only** for throwaway experiments: data dashboards, calculators, games, dat
 - \`invoke_web_iterate\` — one-shot fix on an existing project
 
 ## CRITICAL: Existing repo patch policy
+- **Read before blind push:** For **private** client repos (\`owner/name\`, e.g. \`Glyphor-Fuse/the-bakery\`), prefer \`github_get_repository_file\` (\`package.json\`, \`vite.config.ts\`, etc.) — same token as \`github_push_files\`. Use \`web_fetch\` for **public** URLs (docs, public raw GitHub). Never tell the user access was "revoked"; if a tool is denied, say it is not enabled for this run and use the alternative (\`github_get_repository_file\` vs \`web_fetch\`).
 - For repositories that already exist, patch code directly in GitHub first: \`github_push_files\` (or equivalent GitHub write tool) on a working branch, then \`github_create_pull_request\`, \`github_wait_for_pull_request_checks\`, and \`github_merge_pull_request\` when checks pass.
 - Do NOT clone existing repositories into sandbox as the primary edit path.
 - Use sandbox cloning only as a fallback for validation or debugging when direct GitHub writes are unavailable.

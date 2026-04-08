@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://glyphor.local/schemas/normalized-design-brief-v1.schema.json",
+  "title": "NormalizedDesignBriefV1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "audience_persona",
+    "primary_conversion_action",
+    "emotional_target",
+    "one_sentence_memory",
+    "aesthetic_direction",
+    "product_type",
+    "component_inventory",
+    "asset_manifest",
+    "quality_contract",
+    "missing_fields"
+  ],
+  "properties": {
+    "audience_persona": { "type": "string", "minLength": 1 },
+    "primary_conversion_action": { "type": "string", "minLength": 1 },
+    "emotional_target": { "type": "string", "minLength": 1 },
+    "one_sentence_memory": { "type": "string", "minLength": 1 },
+    "aesthetic_direction": { "type": "string", "minLength": 1 },
+    "product_type": {
+      "type": "string",
+      "enum": ["marketing_page", "web_application", "fullstack_application"]
+    },
+    "component_inventory": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "priority", "interaction_intent", "motion_intent"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "priority": { "type": "number" },
+          "interaction_intent": { "type": "string", "minLength": 1 },
+          "motion_intent": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "asset_manifest": {
+      "type": "object",
+      "required": ["images", "videos"],
+      "properties": {
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "purpose", "path_hint"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "purpose": { "type": "string" },
+              "path_hint": { "type": "string" }
+            }
+          }
+        },
+        "videos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "purpose", "path_hint"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "purpose": { "type": "string" },
+              "path_hint": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "quality_contract": {
+      "type": "object",
+      "required": ["required_breakpoints", "required_checks", "max_iteration_rounds"],
+      "properties": {
+        "required_breakpoints": { "type": "array", "items": { "type": "number" } },
+        "required_checks": { "type": "array", "items": { "type": "string" } },
+        "max_iteration_rounds": { "type": "number" }
+      }
+    },
+    "missing_fields": { "type": "array", "items": { "type": "string" } }
+  }
+}

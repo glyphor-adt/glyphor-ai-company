@@ -29,7 +29,14 @@ import { createWebBuildPlannerTools } from '../shared/webBuildPlannerTools.js';
 import { createCodexTools } from '../shared/codexTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
 import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
-import { createGithubFromTemplateTools, createGithubPushFilesTools, createGithubPullRequestTools, createVercelProjectTools, createCloudflarePreviewTools } from '@glyphor/integrations';
+import {
+  createGithubFromTemplateTools,
+  createGithubPushFilesTools,
+  createGithubReadRepositoryFileTools,
+  createGithubPullRequestTools,
+  createVercelProjectTools,
+  createCloudflarePreviewTools,
+} from '@glyphor/integrations';
 import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 import { createDesignBriefTools } from '../shared/designBriefTools.js';
 
@@ -63,6 +70,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     ...createDesignSystemTools(),
     ...createQuickDemoWebAppTools(),
     ...createGithubFromTemplateTools(),
+    ...createGithubReadRepositoryFileTools(),
     ...createGithubPushFilesTools(),
     ...createGithubPullRequestTools(),
     ...createVercelProjectTools(),
