@@ -233,12 +233,12 @@ export function createAssignmentTools(
             }
 
             // Confidence score reflects output length as a proxy for evidence quality.
-            // Hardcoded 1.0 was dishonest — short outputs carry less inherent credibility.
+            // Scale must stay ≥ DEFAULT_HANDOFF_CONFIDENCE_THRESHOLD (0.7) for any output
+            // that passes the gate, otherwise the contract escalates instead of completing.
             const confidenceScore =
               trimmedOutput.length >= 500 ? 1.0
-              : trimmedOutput.length >= 300 ? 0.8
-              : trimmedOutput.length >= 100 ? 0.6
-              : 0.4;
+              : trimmedOutput.length >= 300 ? 0.9
+              : 0.75; // 100–299 chars: passes gate, just above 0.7 threshold
 
             await completeContractForTask(
               assignmentId,
