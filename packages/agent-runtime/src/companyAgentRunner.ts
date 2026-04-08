@@ -324,6 +324,7 @@ const TOOL_RESULT_SUMMARY_MAX_CHARS = 600;
 const TOOL_RESULT_BUDGET_EXEMPT_TOOLS = new Set([
   'list_tool_fix_proposals',
   'read_fleet_health',
+  'vercel_get_deployment_logs',
 ]);
 
 function historyHasSuccessfulQuickDemoWebApp(history: ConversationTurn[]): boolean {

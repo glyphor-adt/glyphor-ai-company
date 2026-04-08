@@ -12,6 +12,43 @@ function getTeamId(): string | undefined {
   return resolveWebsitePipelineEnv('vercel-team-id');
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function resolveNextCursor(payload: Record<string, unknown>): string | number | null {
+  const pagination = (payload.pagination as Record<string, unknown> | undefined) ?? {};
+  const candidates: unknown[] = [
+    pagination.next,
+    pagination.cursor,
+    payload.next,
+    payload.nextCursor,
+    payload.cursor,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) return candidate.trim();
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate;
+    if (candidate && typeof candidate === 'object') {
+      const obj = candidate as Record<string, unknown>;
+      const nested = obj.until ?? obj.cursor ?? obj.next;
+      if (typeof nested === 'string' && nested.trim().length > 0) return nested.trim();
+      if (typeof nested === 'number' && Number.isFinite(nested)) return nested;
+    }
+  }
+
+  return null;
+}
+
+function buildEventsPath(basePath: string, limit: number, cursor?: string | number): string {
+  const pathUrl = new URL(`https://vercel.local${basePath}`);
+  pathUrl.searchParams.set('limit', String(limit));
+  if (cursor !== undefined) {
+    pathUrl.searchParams.set('until', String(cursor));
+  }
+  return `${pathUrl.pathname}${pathUrl.search}`;
+}
+
 async function vercelRequest(
   path: string,
   method: string,
@@ -221,6 +258,130 @@ export function createVercelProjectTools(): ToolDefinition[] {
       },
     },
     {
+      name: 'vercel_wait_for_preview_ready',
+      description: 'Wait for the latest preview deployment to become READY (or fail) for a Vercel project.',
+      parameters: {
+        project_id: {
+          type: 'string',
+          description: 'Optional Vercel project id. Preferred when available.',
+          required: false,
+        },
+        project_name: {
+          type: 'string',
+          description: 'Vercel project name used when project_id is omitted.',
+          required: true,
+        },
+        branch: {
+          type: 'string',
+          description: 'Optional Git branch name to filter deployments.',
+          required: false,
+        },
+        timeout_seconds: {
+          type: 'number',
+          description: 'Maximum wait time in seconds. Defaults to 420.',
+          required: false,
+        },
+        poll_interval_seconds: {
+          type: 'number',
+          description: 'Polling interval in seconds. Defaults to 15.',
+          required: false,
+        },
+      },
+      async execute(params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
+        const projectName = String(params.project_name ?? '').trim();
+        if (!projectName) return { success: false, error: 'project_name is required.' };
+        let projectId = String(params.project_id ?? '').trim();
+        const branch = String(params.branch ?? '').trim();
+        const timeoutSeconds = Math.max(30, Number(params.timeout_seconds ?? 420));
+        const pollIntervalSeconds = Math.max(5, Number(params.poll_interval_seconds ?? 15));
+        const deadline = Date.now() + (timeoutSeconds * 1000);
+
+        try {
+          if (!projectId) {
+            const projectLookup = await vercelRequest(
+              `/v9/projects/${encodeURIComponent(projectName)}`,
+              'GET',
+              undefined,
+              ctx.abortSignal,
+            );
+            if (!projectLookup.ok) {
+              return {
+                success: false,
+                error: `Vercel API error (${projectLookup.status}): could not resolve project id for ${projectName}.`,
+              };
+            }
+            const projectData = projectLookup.data as Record<string, unknown>;
+            projectId = String(projectData.id ?? '').trim();
+          }
+
+          if (!projectId) {
+            return { success: false, error: `Could not resolve Vercel project id for ${projectName}.` };
+          }
+
+          while (Date.now() < deadline) {
+            const path = `/v6/deployments?projectId=${encodeURIComponent(projectId)}&limit=1${branch ? `&meta-gitBranch=${encodeURIComponent(branch)}` : ''}`;
+            const deploymentRes = await vercelRequest(path, 'GET', undefined, ctx.abortSignal);
+            if (!deploymentRes.ok) {
+              return { success: false, error: `Vercel API error (${deploymentRes.status}): could not fetch deployments.` };
+            }
+
+            const result = deploymentRes.data as Record<string, unknown>;
+            const deployments = (result.deployments as unknown[]) ?? [];
+            if (deployments.length > 0) {
+              const latest = deployments[0] as Record<string, unknown>;
+              const deploymentId = String(latest.uid ?? '').trim();
+              const deploymentUrl = String(latest.url ?? '').trim();
+              const deploymentState = String(latest.state ?? 'UNKNOWN').toUpperCase();
+
+              if (deploymentState === 'READY') {
+                return {
+                  success: true,
+                  data: {
+                    state: 'READY',
+                    deployment_id: deploymentId || null,
+                    preview_url: deploymentUrl ? `https://${deploymentUrl}` : null,
+                    project_id: projectId,
+                    project_name: projectName,
+                  },
+                };
+              }
+
+              if (deploymentState === 'ERROR' || deploymentState === 'CANCELED') {
+                return {
+                  success: false,
+                  error: `Latest preview deployment is ${deploymentState}.`,
+                  data: {
+                    state: deploymentState,
+                    deployment_id: deploymentId || null,
+                    deployment_url: deploymentUrl ? `https://${deploymentUrl}` : null,
+                    project_id: projectId,
+                    project_name: projectName,
+                  },
+                };
+              }
+            }
+
+            await sleep(pollIntervalSeconds * 1000);
+          }
+
+          return {
+            success: false,
+            error: `Timed out waiting for preview deployment after ${timeoutSeconds} seconds.`,
+            data: {
+              state: 'TIMEOUT',
+              project_id: projectId,
+              project_name: projectName,
+            },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed while waiting for preview deployment: ${(err as Error).message}`,
+          };
+        }
+      },
+    },
+    {
       name: 'vercel_get_production_url',
       description: 'Get the latest production deployment URL for a Vercel project.',
       parameters: {
@@ -338,7 +499,12 @@ export function createVercelProjectTools(): ToolDefinition[] {
         },
         limit: {
           type: 'number',
-          description: 'Maximum number of log events to return (default: 100, max: 200).',
+          description: 'Maximum number of log events to return (default: 400, max: 2000).',
+          required: false,
+        },
+        max_pages: {
+          type: 'number',
+          description: 'Maximum paginated event pages to fetch per endpoint (default: 8, max: 20).',
           required: false,
         },
       },
@@ -349,8 +515,10 @@ export function createVercelProjectTools(): ToolDefinition[] {
         const target = String(params.target ?? 'production').trim().toLowerCase() === 'preview'
           ? 'preview'
           : 'production';
-        const rawLimit = Number(params.limit ?? 100);
-        const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 200) : 100;
+        const rawLimit = Number(params.limit ?? 400);
+        const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 2000) : 400;
+        const rawMaxPages = Number(params.max_pages ?? 8);
+        const maxPages = Number.isFinite(rawMaxPages) ? Math.min(Math.max(Math.floor(rawMaxPages), 1), 20) : 8;
 
         try {
           if (!deploymentId) {
@@ -426,50 +594,71 @@ export function createVercelProjectTools(): ToolDefinition[] {
             inspectorUrl = String(d.inspectorUrl ?? '') || null;
           }
 
-          const eventEndpoints = [
-            `/v3/deployments/${encodeURIComponent(deploymentId)}/events?limit=${limit}`,
-            `/v2/deployments/${encodeURIComponent(deploymentId)}/events?limit=${limit}`,
-            `/v6/deployments/${encodeURIComponent(deploymentId)}/events?limit=${limit}`,
+          const eventEndpointBases = [
+            `/v3/deployments/${encodeURIComponent(deploymentId)}/events`,
+            `/v2/deployments/${encodeURIComponent(deploymentId)}/events`,
+            `/v6/deployments/${encodeURIComponent(deploymentId)}/events`,
           ];
 
           let parsedLogs: Array<Record<string, unknown>> = [];
           let selectedEndpoint: string | null = null;
+          let fetchedPages = 0;
 
-          for (const endpoint of eventEndpoints) {
-            const response = await vercelRequest(endpoint, 'GET', undefined, ctx.abortSignal);
-            if (!response.ok || !response.data) continue;
+          const perPageLimit = Math.min(limit, 200);
 
-            const payload = response.data as Record<string, unknown>;
-            const candidates = Array.isArray(payload.events)
-              ? payload.events
-              : Array.isArray(payload.logs)
-                ? payload.logs
-                : Array.isArray(response.data)
-                  ? response.data as unknown[]
+          for (const endpointBase of eventEndpointBases) {
+            const collected: Array<Record<string, unknown>> = [];
+            let cursor: string | number | undefined;
+
+            for (let page = 0; page < maxPages && collected.length < limit; page++) {
+              const endpoint = buildEventsPath(endpointBase, perPageLimit, cursor);
+              const response = await vercelRequest(endpoint, 'GET', undefined, ctx.abortSignal);
+              if (!response.ok || !response.data) break;
+
+              fetchedPages += 1;
+              const payload = Array.isArray(response.data)
+                ? { events: response.data }
+                : (response.data as Record<string, unknown>);
+
+              const candidates = Array.isArray(payload.events)
+                ? payload.events
+                : Array.isArray(payload.logs)
+                  ? payload.logs
                   : [];
 
-            const normalized = candidates.map((event) => {
-              const item = event as Record<string, unknown>;
-              const payloadObj = (item.payload as Record<string, unknown> | undefined) ?? {};
-              const text = item.text
-                ?? item.message
-                ?? payloadObj.text
-                ?? payloadObj.message
-                ?? payloadObj.error
-                ?? item.type
-                ?? JSON.stringify(item);
+              if (candidates.length === 0) break;
 
-              return {
-                created_at: item.created ?? item.createdAt ?? item.time ?? null,
-                level: item.level ?? payloadObj.level ?? null,
-                type: item.type ?? item.event ?? null,
-                message: String(text),
-              };
-            });
+              const normalized = candidates.map((event) => {
+                const item = event as Record<string, unknown>;
+                const payloadObj = (item.payload as Record<string, unknown> | undefined) ?? {};
+                const text = item.text
+                  ?? item.message
+                  ?? payloadObj.text
+                  ?? payloadObj.message
+                  ?? payloadObj.error
+                  ?? item.type
+                  ?? JSON.stringify(item);
 
-            if (normalized.length > 0) {
-              parsedLogs = normalized;
-              selectedEndpoint = endpoint;
+                return {
+                  created_at: item.created ?? item.createdAt ?? item.time ?? null,
+                  level: item.level ?? payloadObj.level ?? null,
+                  type: item.type ?? item.event ?? null,
+                  message: String(text),
+                };
+              });
+
+              collected.push(...normalized);
+
+              if (collected.length >= limit) break;
+
+              const nextCursor = resolveNextCursor(payload);
+              if (nextCursor == null) break;
+              cursor = nextCursor;
+            }
+
+            if (collected.length > 0) {
+              parsedLogs = collected.slice(0, limit);
+              selectedEndpoint = endpointBase;
               break;
             }
           }
@@ -489,7 +678,9 @@ export function createVercelProjectTools(): ToolDefinition[] {
               deployment_url: deploymentUrl ? `https://${deploymentUrl}` : null,
               inspector_url: inspectorUrl,
               log_source: selectedEndpoint,
+              fetched_pages: fetchedPages,
               total_events: parsedLogs.length,
+              full_text: parsedLogs.map((entry) => String(entry.message ?? '')).join('\n'),
               logs: parsedLogs,
             },
           };

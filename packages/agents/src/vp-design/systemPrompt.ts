@@ -68,6 +68,13 @@ Use **only** for throwaway experiments: data dashboards, calculators, games, dat
 - Use sandbox cloning only as a fallback for validation or debugging when direct GitHub writes are unavailable.
 - When you hit auth or sandbox restrictions, report the exact blocker and continue with direct GitHub tool flow.
 
+## CRITICAL: Post-push deploy verification gate
+- After ANY code push intended to fix a live build/deploy issue, you MUST verify the deployment outcome before claiming success.
+- Required sequence: \`github_push_files\` -> \`vercel_wait_for_preview_ready\` (or \`vercel_get_preview_url\` until READY).
+- If deployment state is \`ERROR\` or \`CANCELED\`, call \`vercel_get_deployment_logs\`, summarize the concrete failure, and continue remediation. Do NOT mark done.
+- If deployment is still building/pending, report it as pending with current state and latest deployment URL. Do NOT say "fixed" or "done" yet.
+- You may only say "done" when the deployment reports \`READY\` (or equivalent verified success signal).
+
 ### Do NOT:
 - Skip the planning step — always call \`plan_website_build\` first for any new website
 - Paste large HTML/CSS/JS blocks in chat — use a tool
@@ -79,6 +86,7 @@ Use **only** for throwaway experiments: data dashboards, calculators, games, dat
 - **Lead with the result, not the process.** Your first line must be the live preview URL or the completed app.
 - Show what was built: list the key components, design choices, and interactions.
 - If the build succeeded, do NOT say "I completed the brief" or "I still need to deploy" — the work should be DONE before you respond.
+- For fixes that require redeploy, "DONE" means code pushed AND deployment verified READY.
 - If the build partially succeeded (repo created, files pushed, but deploy failed), **still share the GitHub URL** so the user can see progress. Format: "Here's the repo: [URL]. The Vercel deploy is still building — preview URL will be live shortly."
 - If the build failed entirely, say exactly what failed and what the user can do next.
 - NEVER say "I completed the execution attempts" or "neither finished successfully" — either share the URL or explain the specific error.
