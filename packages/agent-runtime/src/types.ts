@@ -430,7 +430,7 @@ export interface AgentExecutionResult {
     costUsd: number;
   };
   verificationMeta?: {
-    tier: 'none' | 'self_critique' | 'cross_model' | 'conditional';
+    tier: 'none' | 'self_critique' | 'cross_model' | 'conditional' | 'lightweight';
     reason: string;
     passes: string[];
     rubricId?: string;

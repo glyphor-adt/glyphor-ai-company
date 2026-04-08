@@ -1,6 +1,6 @@
 import type { PassType } from './reasoningEngine.js';
 
-export type VerificationTier = 'none' | 'self_critique' | 'cross_model' | 'conditional';
+export type VerificationTier = 'none' | 'self_critique' | 'cross_model' | 'conditional' | 'lightweight';
 
 export interface VerificationDecision {
   tier: VerificationTier;

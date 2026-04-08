@@ -3085,6 +3085,10 @@ Continue execution, call tools as needed, and return only when all criteria are 
       // run verification passes (self-critique, consistency, factual checks).
       // Skip for on_demand chat to keep response times fast — only verify
       // scheduled/significant tasks where accuracy matters more than speed.
+      //
+      // Exception: on-demand runs that carry an assignmentId are completing
+      // real work via chat. They get a lightweight evidence tier + run event
+      // (no reasoning engine call, no latency) so the trust pipeline has signal.
       let reasoningResult: ReasoningResult | null = null;
       let verificationDecision: VerificationDecision = {
         tier: 'none',
@@ -3098,6 +3102,39 @@ Continue execution, call tools as needed, and return only when all criteria are 
         reason: 'on-demand chat bypassed verification',
         passes: [],
       };
+
+      // Lightweight trust signal for assignment-chat runs (no reasoning engine, zero latency)
+      if (lastTextOutput && task === 'on_demand' && config.assignmentId) {
+        const hasMutations = actionReceipts.some(r =>
+          r.result === 'success' && (
+            r.tool.startsWith('update_') || r.tool.startsWith('create_') ||
+            r.tool.startsWith('set_') || r.tool.startsWith('submit_') ||
+            r.tool.startsWith('dispatch_') || r.tool.startsWith('assign_')
+          )
+        );
+        const outputLen = lastTextOutput.trim().length;
+        const chatTier = hasMutations && outputLen >= 100 ? 'partially_proven' : 'self_reported';
+        verificationMeta = {
+          tier: 'lightweight',
+          reason: `on-demand assignment-chat: ${chatTier} (output_len=${outputLen}, mutations=${hasMutations})`,
+          passes: [],
+        };
+        void recordRunEvent({
+          runId: config.dbRunId ?? config.id,
+          eventType: 'on_demand_assignment_quality',
+          trigger: 'verification.lightweight',
+          component: 'companyAgentRunner',
+          payload: {
+            role: config.role,
+            assignment_id: config.assignmentId,
+            output_len: outputLen,
+            has_mutations: hasMutations,
+            evidence_tier: chatTier,
+            mutation_tools: actionReceipts.filter(r => r.result === 'success').map(r => r.tool),
+          },
+        });
+      }
+
       if (lastTextOutput && task !== 'on_demand') {
         verificationDecision = determineVerificationTier({
           agentRole: config.role,
