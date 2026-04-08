@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 const POLL_INTERVAL = 60_000;
-import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../lib/firebase';
+import { apiCall, buildApiHeaders, IS_PROD_DASHBOARD_HOST, SCHEDULER_URL } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { CANONICAL_KEEP_ROSTER_SET, LIVE_ROSTER_ORDER } from '../lib/liveRoster';
 import {
@@ -73,12 +73,14 @@ const OPS_BAR_GRADIENTS: { id: string; from: string; to: string }[] = [
 ];
 
 async function schedulerApi<T>(path: string, opts?: RequestInit): Promise<T> {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const base = SCHEDULER_URL?.trim();
-  if (!base) {
+  if (!IS_PROD_DASHBOARD_HOST && !base) {
     throw new Error('VITE_SCHEDULER_URL is not set');
   }
   const headers = await buildApiHeaders(opts?.headers);
-  const res = await fetch(`${base}${path}`, {
+  const target = IS_PROD_DASHBOARD_HOST ? normalizedPath : `${base}${normalizedPath}`;
+  const res = await fetch(target, {
     ...opts,
     headers,
   });
@@ -1547,11 +1549,8 @@ function ActiveWorkflowsSection({
     if (!useOrchestrator) return;
     setActionLoading(`cancel-${id}`);
     try {
-      const base = SCHEDULER_URL?.trim();
-      if (!base) return;
-      await fetch(`${base}/workflows/${id}/cancel`, {
+      await schedulerApi<{ success?: boolean }>(`/workflows/${id}/cancel`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
       });
       onRefresh();
     } catch { /* ignore */ }
@@ -1562,11 +1561,8 @@ function ActiveWorkflowsSection({
     if (!useOrchestrator) return;
     setActionLoading(`retry-${id}`);
     try {
-      const base = SCHEDULER_URL?.trim();
-      if (!base) return;
-      await fetch(`${base}/workflows/${id}/retry`, {
+      await schedulerApi<{ success?: boolean }>(`/workflows/${id}/retry`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
       });
       onRefresh();
     } catch { /* ignore */ }
