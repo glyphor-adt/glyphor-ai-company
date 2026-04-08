@@ -16,6 +16,7 @@
 
 import { systemQuery } from '@glyphor/shared/db';
 import type { AgentExecutionResult, ActionReceipt } from './types.js';
+import type { TrustScorer } from './trustScorer.js';
 
 // ─── Public types ────────────────────────────────────────────────
 
@@ -216,6 +217,8 @@ export interface HarvestRunMeta {
   agentRole: string;
   assignmentId?: string;
   directiveId?: string;
+  /** Optional: if provided, evidence tier results feed back into the trust score. */
+  trustScorer?: TrustScorer;
 }
 
 export async function harvestTaskOutcome(
@@ -309,6 +312,34 @@ export async function harvestTaskOutcome(
       evidenceTier,
     ],
   );
+
+  // ─── EVIDENCE TIER → TRUST SCORE FEEDBACK ──────────────────────────────
+  // Proved completions build trust; self-reported or inconsistent completions
+  // erode it.  Downgraded completions carry the same penalty as self_reported.
+  // Weight: task_outcome_quality × 1.0 (highest in DELTA_WEIGHTS).
+  if (runMeta.trustScorer && runMeta.assignmentId) {
+    const tierDeltas: Record<string, number> = {
+      proven:           +0.04,  // strong tool evidence → positive signal
+      partially_proven: +0.01,  // some evidence — neutral-positive
+      self_reported:    -0.03,  // no evidence → erosion
+      inconsistent:     -0.08,  // claims submitted but tools mostly failed → significant erosion
+    };
+    const downgradeDelta = -0.05; // downgraded from submitted → similar to self_reported
+
+    const delta = downgradedFromSubmit
+      ? downgradeDelta
+      : (tierDeltas[evidenceTier] ?? 0);
+
+    if (delta !== 0) {
+      void runMeta.trustScorer.applyDelta(runMeta.agentRole, {
+        source: 'task_outcome_quality',
+        delta,
+        reason: downgradedFromSubmit
+          ? `Completion downgraded: output too short (${proof.output_length} chars)`
+          : `Evidence tier: ${evidenceTier} (output=${proof.output_length}, tools_ok=${proof.tool_calls_succeeded})`,
+      }).catch(() => {});
+    }
+  }
 }
 
 // ─── Downstream signal helpers ──────────────────────────────────

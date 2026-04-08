@@ -1894,6 +1894,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
         agentRole: config.role,
         assignmentId: config.assignmentId ?? undefined,
         directiveId: config.directiveId ?? undefined,
+        trustScorer: safeDeps.trustScorer,
       }).catch(() => {});
 
       void recordRunEvent({
@@ -1958,6 +1959,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
         agentRole: config.role,
         assignmentId: config.assignmentId ?? undefined,
         directiveId: config.directiveId ?? undefined,
+        trustScorer: safeDeps.trustScorer,
       }).catch(() => {});
       void recordRunEvent({
         runId: config.dbRunId ?? config.id,
