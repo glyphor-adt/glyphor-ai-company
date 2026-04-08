@@ -118,8 +118,14 @@ import {
   retireClientSdkAgent,
 } from './clientSdk.js';
 import {
-  runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPDesign,
+  runChiefOfStaff,
+  runCTO,
+  runCFO,
+  runCPO,
+  runCMO,
+  runVPDesign,
   runOps,
+  resolveVpDesignWorkerMessage,
 } from '@glyphor/agents';
 import { OAuth2Client } from 'google-auth-library';
 import {
@@ -1012,6 +1018,17 @@ const agentExecutor = async (
     !message &&
     agentRole !== 'cmo'
   ) {
+    if (agentRole === 'vp-design') {
+      const enriched = await resolveVpDesignWorkerMessage({
+        payload,
+        assignmentId: payloadAssignmentId,
+        directiveId: payloadDirectiveId,
+        conversationHistory,
+      });
+      if (enriched) {
+        return agentExecutor(agentRole, task, { ...payload, message: enriched });
+      }
+    }
     const effectiveMessage =
       (payload.wake_reason as string) ||
       (typeof payload.context === 'string' ? `Work loop — ${String(payload.context)}` : '') ||
@@ -1081,7 +1098,22 @@ const agentExecutor = async (
       conversationHistory,
     });
   } else if (agentRole === 'vp-design') {
-    return runVPDesign({ task: (task as 'design_audit' | 'design_system_review' | 'on_demand'), message, conversationHistory });
+    let vpMsg = message;
+    if (!vpMsg?.trim()) {
+      const enriched = await resolveVpDesignWorkerMessage({
+        message: vpMsg,
+        payload,
+        assignmentId: payloadAssignmentId,
+        directiveId: payloadDirectiveId,
+        conversationHistory,
+      });
+      if (enriched) vpMsg = enriched;
+    }
+    return runVPDesign({
+      task: task as 'design_audit' | 'design_system_review' | 'on_demand',
+      message: vpMsg,
+      conversationHistory,
+    });
   } else if (agentRole === 'ops') {
     return runOps({ task: (task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene'), message, eventPayload: payload, conversationHistory });
   } else {

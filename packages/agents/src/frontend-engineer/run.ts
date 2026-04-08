@@ -31,6 +31,7 @@ import { createDesignSystemTools } from '../shared/designSystemTools.js';
 import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
 import { createGithubFromTemplateTools, createGithubPushFilesTools, createGithubPullRequestTools, createVercelProjectTools, createCloudflarePreviewTools } from '@glyphor/integrations';
 import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
+import { createDesignBriefTools } from '../shared/designBriefTools.js';
 
 export interface FrontendEngineerRunParams {
   task?: 'implement_component' | 'accessibility_audit' | 'on_demand';
@@ -50,6 +51,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
   const graphWriter = memory.getGraphWriter();
   const tools = [
     ...createFrontendEngineerTools(memory),
+    ...createDesignBriefTools(),
     ...createCoreTools({ glyphorEventBus, memory, schedulerUrl: process.env.SCHEDULER_URL }),
     ...(graphReader && graphWriter ? createGraphTools(graphReader, graphWriter) : []),
     ...createFrontendCodeTools(),

@@ -48,6 +48,17 @@ type DensityMode = 'compact' | 'comfortable';
 
 const HIDDEN_WORKFORCE_STATUSES = new Set(['retired', 'inactive', 'deleted']);
 
+/** Fixed org-chart card shell so founders, executives, and reports share one footprint. */
+function orgChartCardClass(compact: boolean) {
+  return compact
+    ? 'w-48 min-h-[172px] h-[172px] p-3'
+    : 'w-52 min-h-[188px] h-[188px] p-4';
+}
+
+function orgChartAvatarSize(compact: boolean) {
+  return compact ? 48 : 56;
+}
+
 export default function Workforce() {
   const { data: agents, loading, refresh } = useAgents();
   const [view, setView] = useState<ViewMode>('org-chart');
@@ -285,7 +296,7 @@ export default function Workforce() {
           {/* Chief of Staff */}
           <div className="flex justify-center">
             <div className={`flex flex-col items-center ${density === 'compact' ? 'gap-2' : 'gap-3'}`}>
-              <div className={density === 'compact' ? 'w-44' : 'w-52'}>
+              <div className={density === 'compact' ? 'w-48' : 'w-52'}>
                 {cos ? (
                   <AgentNode
                     agent={cos}
@@ -299,7 +310,7 @@ export default function Workforce() {
                     onDragOver={handleManagerDragOver(cos.role)}
                     onDrop={handleManagerDrop(cos.role)}
                   />
-                ) : <Skeleton className="h-20 w-full" />}
+                ) : <Skeleton className={`mx-auto ${density === 'compact' ? 'h-[172px] w-48' : 'h-[188px] w-52'}`} />}
               </div>
               {(() => {
                 const cosDirects = orgAgents.filter(
@@ -309,11 +320,12 @@ export default function Workforce() {
                 return (
                   <>
                     <div className="h-3 w-px bg-border" />
-                    <div className={`grid w-full max-w-2xl ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'} sm:grid-cols-2`}>
+                    <div className={`grid w-full max-w-2xl justify-items-center ${density === 'compact' ? 'gap-1.5' : 'gap-2.5'} sm:grid-cols-2`}>
                       {cosDirects.map((m) => (
                         <SubTeamNode
                           key={m.id}
                           member={m}
+                          compact={density === 'compact'}
                           draggable
                           dropEnabled={Boolean(draggingRole)}
                           isDragging={draggingRole === m.role}
@@ -377,7 +389,7 @@ export default function Workforce() {
                         {isExpanded && (
                           <>
                             <div className="h-3 w-px bg-border" />
-                            <div className={`w-full ${membersLayoutClass}`}>
+                            <div className={`w-full ${membersLayoutClass} ${membersUseGrid ? 'justify-items-center' : 'items-center'}`}>
                               {members.map((m) => (
                                 <SubTeamNode
                                   key={m.id}
@@ -518,22 +530,20 @@ export default function Workforce() {
 
 /* ─── Founder Node (org chart) ────────────── */
 function FounderNode({ name, title, initials, color, photo, compact = true }: { name: string; title: string; initials: string; color: string; photo: string; compact?: boolean }) {
+  const av = orgChartAvatarSize(compact);
   return (
-    <Card className={`${compact ? 'w-48 p-3' : 'w-56 p-4'} text-center`}>
-      <div className={`flex flex-col items-center ${compact ? 'gap-2' : 'gap-2.5'}`}>
+    <Card className={`${orgChartCardClass(compact)} text-center flex flex-col`}>
+      <div className={`flex min-h-0 flex-1 flex-col items-center justify-center ${compact ? 'gap-1.5' : 'gap-2'}`}>
         <img
           src={photo}
           alt={name}
-          className="rounded-full object-cover shrink-0"
-          style={{ width: compact ? 56 : 64, height: compact ? 56 : 64, border: `2px solid ${color}40` }}
+          className="shrink-0 rounded-full object-cover"
+          style={{ width: av, height: av, border: `2px solid ${color}40` }}
         />
-        <div>
-          <h3 className={`${compact ? 'text-sm' : 'text-[15px]'} font-semibold text-txt-primary leading-tight`}>{name}</h3>
-          <p className={`${compact ? 'text-[11px]' : 'text-xs'} text-txt-muted leading-tight`}>{title}</p>
-          <span
-            className="badge badge-teal badge-xs mt-0.5">
-            Human
-          </span>
+        <div className="min-w-0 px-0.5">
+          <h3 className={`${compact ? 'text-xs' : 'text-sm'} font-semibold leading-tight text-txt-primary line-clamp-2`}>{name}</h3>
+          <p className={`${compact ? 'text-[10px]' : 'text-[11px]'} leading-tight text-txt-muted line-clamp-2`}>{title}</p>
+          <span className="badge badge-teal badge-xs mt-0.5">Human</span>
         </div>
       </div>
     </Card>
@@ -569,6 +579,7 @@ function AgentNode({
   onDragOver,
   onDrop,
 }: AgentNodeProps) {
+  const av = orgChartAvatarSize(compact);
   return (
     <div
       draggable={draggable}
@@ -576,30 +587,30 @@ function AgentNode({
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`${isDragging ? 'opacity-60' : ''} ${isDropTarget ? 'ring-2 ring-cyan/40 rounded-xl' : ''}`}
+      className={`${isDragging ? 'opacity-60' : ''} ${isDropTarget ? 'ring-2 ring-cyan/40 rounded-xl' : ''} ${compact ? 'w-48' : 'w-52'}`}
     >
     <Link to={`/agents/${agent.role}/settings`} draggable={false} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`${compact ? 'p-3' : 'p-4'} w-full text-center ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}>
-        <div className="flex flex-col items-center gap-1.5">
-          <AgentAvatar role={agent.role} size={compact ? 40 : 52} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
-          <div className="min-w-0 w-full">
+      <Card className={`${orgChartCardClass(compact)} text-center flex flex-col ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}>
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1">
+          <AgentAvatar role={agent.role} size={av} glow={agent.status === 'active'} avatarUrl={agent.avatar_url} />
+          <div className="min-w-0 w-full px-0.5">
             <div className="flex items-center justify-center gap-1">
-              <h3 className="font-semibold text-txt-primary leading-tight text-xs">
+              <h3 className="line-clamp-2 text-xs font-semibold leading-tight text-txt-primary">
                 {DISPLAY_NAME_MAP[agent.role] ?? agent.display_name ?? agent.name ?? agent.role}
               </h3>
               <StatusDot status={agent.status} />
             </div>
-            <p className="text-[10px] text-txt-muted leading-tight">
+            <p className="line-clamp-2 text-[10px] leading-tight text-txt-muted">
               {TITLE_MAP[agent.role] ?? agent.title ?? agent.role}
             </p>
-            <div className="mt-1 flex items-center justify-center gap-2 text-[10px]">
+            <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-0 text-[10px]">
               <span className="font-mono text-txt-faint">
                 {agent.performance_score != null ? `${Math.round(Number(agent.performance_score) * 100)}/100` : '—'}
               </span>
               {draggable && <span className="text-txt-faint">Drag to move</span>}
             </div>
             {!compact && (
-              <p className="mt-0.5 text-[10px] text-txt-faint">Last run: {timeAgo(agent.last_run_at)}</p>
+              <p className="mt-0.5 line-clamp-1 text-[10px] text-txt-faint">Last run: {timeAgo(agent.last_run_at)}</p>
             )}
           </div>
         </div>
@@ -657,6 +668,7 @@ function SubTeamNode({
 }: SubTeamNodeProps) {
   const displayName = DISPLAY_NAME_MAP[member.role] ?? member.name ?? member.display_name ?? member.role;
   const title = TITLE_MAP[member.role] ?? member.title ?? member.role;
+  const av = orgChartAvatarSize(compact);
   return (
     <div
       draggable={draggable}
@@ -664,16 +676,24 @@ function SubTeamNode({
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`${isDragging ? 'opacity-60' : ''} ${isDropTarget ? 'ring-2 ring-cyan/40 rounded-xl' : ''}`}
+      className={`${isDragging ? 'opacity-60' : ''} ${isDropTarget ? 'ring-2 ring-cyan/40 rounded-xl' : ''} ${compact ? 'w-48' : 'w-52'}`}
     >
     <Link to={`/agents/${member.role}/settings`} draggable={false} className="block transition-transform hover:scale-[1.02]">
-      <Card className={`${compact ? 'p-2.5 min-h-[82px]' : 'p-3 min-h-[72px]'} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}>
-        <div className={`flex items-center ${compact ? 'gap-2.5' : 'gap-3'} h-full`}>
-          <AgentAvatar role={member.role} size={compact ? 40 : 48} glow={member.status === 'active'} avatarUrl={member.avatar_url} />
-          <div className="min-w-0 text-left">
-            <p className={`${compact ? 'text-[13px]' : 'text-sm'} truncate font-semibold text-txt-primary leading-tight`}>{displayName}</p>
-            <p className={`${compact ? 'text-[11px]' : 'text-xs'} truncate text-txt-muted leading-tight`}>{title}</p>
-            {!compact && draggable && <p className="text-[10px] text-txt-faint leading-tight">Drag to move</p>}
+      <Card className={`${orgChartCardClass(compact)} text-center flex flex-col ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}>
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1">
+          <AgentAvatar role={member.role} size={av} glow={member.status === 'active'} avatarUrl={member.avatar_url} />
+          <div className="min-w-0 w-full px-0.5">
+            <div className="flex items-center justify-center gap-1">
+              <h3 className="line-clamp-2 text-xs font-semibold leading-tight text-txt-primary">{displayName}</h3>
+              <StatusDot status={member.status} />
+            </div>
+            <p className="line-clamp-2 text-[10px] leading-tight text-txt-muted">{title}</p>
+            <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-0 text-[10px]">
+              <span className="font-mono text-txt-faint">
+                {member.performance_score != null ? `${Math.round(Number(member.performance_score) * 100)}/100` : '—'}
+              </span>
+              {draggable && <span className="text-txt-faint">Drag to move</span>}
+            </div>
           </div>
         </div>
       </Card>

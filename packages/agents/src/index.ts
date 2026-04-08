@@ -5,6 +5,10 @@ export { runCFO, type CFORunParams } from './cfo/run.js';
 export { runCPO, type CPORunParams } from './cpo/run.js';
 export { runCMO, type CMORunParams } from './cmo/run.js';
 export { runVPDesign, type VPDesignRunParams } from './vp-design/run.js';
+export {
+  resolveVpDesignWorkerMessage,
+  type ResolveVpDesignWorkerMessageInput,
+} from './shared/resolveVpDesignWorkerMessage.js';
 
 // Operations
 export { runOps, type OpsRunParams } from './ops/run.js';

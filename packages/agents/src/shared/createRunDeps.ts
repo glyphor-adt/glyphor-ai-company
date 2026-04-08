@@ -576,6 +576,17 @@ export function createRunDeps(
       // No backfill — only load skills matched by task regex or semantic match.
       // Unmatched skills stay un-loaded to keep prompt size minimal.
 
+      // VP Design: always surface advanced-web-creation when assigned (web pipeline baseline).
+      if (role === 'vp-design') {
+        const awc = (skills as SkillRow[]).find((s) => s.slug === 'advanced-web-creation');
+        if (awc && agentSkillMap.has(awc.id)) {
+          const built = buildContextSkill(awc);
+          const rest = contextSkills.filter((s) => s.slug !== 'advanced-web-creation');
+          contextSkills.length = 0;
+          contextSkills.push(built, ...rest);
+        }
+      }
+
       return contextSkills.length > 0 ? { skills: contextSkills.slice(0, SKILL_CONTEXT_MAX_ITEMS) } : null;
     },
 

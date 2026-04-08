@@ -7,7 +7,16 @@ import { OAuth2Client } from 'google-auth-library';
 import type { CompanyAgentRole, ConversationAttachment, ConversationTurn } from '@glyphor/agent-runtime';
 import type { RouteResult } from '@glyphor/scheduler';
 import {
-  runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPDesign, runOps, runVPResearch, runDynamicAgent,
+  runChiefOfStaff,
+  runCTO,
+  runCFO,
+  runCPO,
+  runCMO,
+  runVPDesign,
+  runOps,
+  runVPResearch,
+  runDynamicAgent,
+  resolveVpDesignWorkerMessage,
 } from '@glyphor/agents';
 
 const app = express();
@@ -190,6 +199,17 @@ async function executeAgentByRole(input: WorkerAgentExecutePayload): Promise<Rou
       !message &&
       agentRole !== 'cmo'
     ) {
+      if (agentRole === 'vp-design') {
+        const enriched = await resolveVpDesignWorkerMessage({
+          payload,
+          assignmentId: input.assignmentId,
+          directiveId: input.directiveId,
+          conversationHistory,
+        });
+        if (enriched) {
+          return executeAgentByRole({ ...input, message: enriched });
+        }
+      }
       const effectiveMessage =
         (payload.wake_reason as string) ||
         (typeof payload.context === 'string' ? `Work loop — ${String(payload.context)}` : '') ||
@@ -255,7 +275,22 @@ async function executeAgentByRole(input: WorkerAgentExecutePayload): Promise<Rou
         conversationHistory,
       });
     } else if (agentRole === 'vp-design') {
-      result = await runVPDesign({ task: task as 'design_audit' | 'design_system_review' | 'on_demand', message, conversationHistory });
+      let vpMessage = message;
+      if (!vpMessage?.trim()) {
+        const enriched = await resolveVpDesignWorkerMessage({
+          message: vpMessage,
+          payload,
+          assignmentId: input.assignmentId,
+          directiveId: input.directiveId,
+          conversationHistory,
+        });
+        if (enriched) vpMessage = enriched;
+      }
+      result = await runVPDesign({
+        task: task as 'design_audit' | 'design_system_review' | 'on_demand',
+        message: vpMessage,
+        conversationHistory,
+      });
     } else if (agentRole === 'ops') {
       result = await runOps({ task: task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene', message, eventPayload: payload, conversationHistory });
     } else if (agentRole === 'vp-research') {

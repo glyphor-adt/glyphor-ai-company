@@ -106,7 +106,10 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     if (enforceLandingBuildMode) {
       // Deterministic brief-first path for net-new landing-page requests.
       // Excludes direct repo patch tools to prevent drifting into hotfix mode.
+      // Include normalize_design_brief explicitly: skills/prompts require it, and
+      // createWebBuildTools only exposes invoke_* (brief normalization runs inside those).
       tools = [
+        ...createDesignBriefTools(),
         ...createWebBuildPlannerTools(),
         ...createWebBuildTools(memory, {
           allowBuild: true,
@@ -127,6 +130,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
       ];
     } else {
       tools = [
+        ...createDesignBriefTools(),
         // Build & preview — the core chat workflow
         ...createQuickDemoWebAppTools(),
         ...createWebBuildPlannerTools(),
