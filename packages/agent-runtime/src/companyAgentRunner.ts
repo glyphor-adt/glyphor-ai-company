@@ -3062,6 +3062,20 @@ Continue execution, call tools as needed, and return only when all criteria are 
               'Executed tools:', actionReceipts.map(a => `${a.tool}:${a.result}`),
             );
             lastTextOutput += '\n\n⚠️ *Some actions mentioned above may not have completed. Please verify changes on the dashboard.*';
+            // Record as a queryable run event so ops can see which agents fabricate completions
+            void recordRunEvent({
+              runId: config.dbRunId ?? config.id,
+              eventType: 'unsubstantiated_claims_detected',
+              trigger: 'claim.detection',
+              component: 'companyAgentRunner',
+              payload: {
+                role: config.role,
+                task,
+                claim_count: unsubstantiated.length,
+                claims: unsubstantiated.slice(0, 5),
+                tools_executed: actionReceipts.map(a => `${a.tool}:${a.result}`),
+              },
+            });
           }
         }
       }

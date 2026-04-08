@@ -559,16 +559,35 @@ const CROSS_AGENT_VERIFICATION_TOOLS = new Set([
 const DATA_EVIDENCE_REQUIRED = new Set([
   'create_decision',
   'write_pipeline_report',
+  'create_status_report',   // report must reflect real state, not invented summaries
 ]);
 
 /** Tools considered valid data sources for the evidence gate. */
 const DATA_SOURCE_TOOLS = new Set([
+  // Financial / metrics
   'get_product_metrics',
   'get_financials',
-  'get_recent_activity',
-  'read_company_memory',
+  'get_burn_rate',
+  'get_cash_balance',
+  'get_cash_flow',
+  'get_ai_model_costs',
   'query_stripe_mrr',
   'query_stripe_subscriptions',
+  // Company state
+  'get_company_vitals',
+  'get_recent_activity',
+  'read_company_memory',
+  'get_data_freshness',
+  // Customer / growth
+  'get_churn_analysis',
+  'get_customer_ltv',
+  'get_cohort_retention',
+  'get_attribution_data',
+  'get_content_metrics',
+  // Competitive / product
+  'get_competitor_profile',
+  'get_roadmap',
+  'get_component_info',
 ]);
 
 /** Maps mutation tools to their read counterpart for post-write verification.
