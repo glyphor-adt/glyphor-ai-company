@@ -162,17 +162,22 @@ interface ImageManifestItem {
 async function generateSingleImage(
   item: ImageManifestItem,
   modelClient: InstanceType<typeof import('@glyphor/agent-runtime').ModelClient>,
-): Promise<{ filePath: string; data: string } | null> {
+): Promise<{ filePath: string; data: string; mimeType: string } | null> {
   if (!item.fileName || !item.prompt) return null;
 
-  const filePath = item.fileName.startsWith('/')
-    ? `public${item.fileName}`
-    : item.fileName.startsWith('public/')
-      ? item.fileName
-      : `public/images/${item.fileName}`;
+  // Normalize filename: ensure .jpg extension (Imagen returns JPEG)
+  const normalizedFileName = /\.[a-z]{2,4}$/i.test(item.fileName)
+    ? item.fileName
+    : `${item.fileName}.jpg`;
+
+  const filePath = normalizedFileName.startsWith('/')
+    ? `public${normalizedFileName}`
+    : normalizedFileName.startsWith('public/')
+      ? normalizedFileName
+      : `public/images/${normalizedFileName}`;
   const ar = item.aspect_ratio || '16:9';
 
-  // Primary: Imagen 4 Ultra
+  // Primary: Imagen 4 Ultra (returns JPEG)
   try {
     const result = await Promise.race([
       modelClient.generateImage(item.prompt, undefined, ar),
@@ -181,11 +186,11 @@ async function generateSingleImage(
       ),
     ]);
     if (result.imageData) {
-      console.log(`[WebBuild:Images] ✅ ${item.fileName} (Imagen 4, ${ar})`);
-      return { filePath, data: result.imageData };
+      console.log(`[WebBuild:Images] ✅ ${normalizedFileName} (Imagen 4, ${ar}, jpeg)`);
+      return { filePath, data: result.imageData, mimeType: result.mimeType ?? 'image/jpeg' };
     }
   } catch (err) {
-    console.warn(`[WebBuild:Images] Imagen 4 failed for ${item.fileName}: ${(err as Error).message}`);
+    console.warn(`[WebBuild:Images] Imagen 4 failed for ${normalizedFileName}: ${(err as Error).message}`);
   }
 
   // Fallback: OpenAI DALL-E 3
@@ -197,14 +202,14 @@ async function generateSingleImage(
       ),
     ]);
     if (result.imageData) {
-      console.log(`[WebBuild:Images] ✅ ${item.fileName} (DALL-E 3 fallback)`);
-      return { filePath, data: result.imageData };
+      console.log(`[WebBuild:Images] ✅ ${normalizedFileName} (DALL-E 3 fallback)`);
+      return { filePath, data: result.imageData, mimeType: result.mimeType ?? 'image/png' };
     }
   } catch (err) {
-    console.warn(`[WebBuild:Images] DALL-E 3 also failed for ${item.fileName}: ${(err as Error).message}`);
+    console.warn(`[WebBuild:Images] DALL-E 3 also failed for ${normalizedFileName}: ${(err as Error).message}`);
   }
 
-  console.warn(`[WebBuild:Images] ❌ Skipped ${item.fileName} — both providers failed`);
+  console.warn(`[WebBuild:Images] ❌ Skipped ${normalizedFileName} — both providers failed`);
   return null;
 }
 

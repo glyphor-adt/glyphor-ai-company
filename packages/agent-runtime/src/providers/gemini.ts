@@ -164,6 +164,7 @@ export class GeminiAdapter implements ProviderAdapter {
       config: {
         numberOfImages: 1,
         aspectRatio: aspectRatio || '16:9',
+        outputMimeType: 'image/jpeg',
       },
     });
 
@@ -175,7 +176,7 @@ export class GeminiAdapter implements ProviderAdapter {
 
     return {
       imageData: image.image.imageBytes,
-      mimeType: 'image/png',
+      mimeType: 'image/jpeg',
     };
   }
 
