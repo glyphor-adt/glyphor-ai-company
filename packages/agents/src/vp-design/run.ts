@@ -182,12 +182,15 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
   console.log(`[VP-Design] Task=${task}: loaded ${tools.length} tools`);
 
   const today = new Date().toISOString().split('T')[0];
-  tools.push(...createSandboxDevTools({
-    repo: 'glyphor-adt/glyphor-ai-company',
-    branch: 'main',
-    agentRole: 'vp-design',
-    runId: `mia-${task}-${today}`,
-  }));
+  const enableSandboxOnDemand = process.env.VP_DESIGN_ENABLE_SANDBOX_ON_DEMAND === 'true';
+  if (!isChat || enableSandboxOnDemand) {
+    tools.push(...createSandboxDevTools({
+      repo: 'glyphor-adt/glyphor-ai-company',
+      branch: 'main',
+      agentRole: 'vp-design',
+      runId: `mia-${task}-${today}`,
+    }));
+  }
 
   const toolExecutor = new ToolExecutor(tools);
 

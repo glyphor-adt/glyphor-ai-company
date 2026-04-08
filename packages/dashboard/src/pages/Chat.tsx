@@ -993,6 +993,9 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             }
 
             if (eventType === 'status') {
+              if (streamTerminal || finalData) {
+                return;
+              }
               const statusText = typeof payload.message === 'string'
                 ? payload.message
                 : (typeof event.message === 'string' ? event.message : '');

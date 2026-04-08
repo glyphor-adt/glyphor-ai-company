@@ -10,6 +10,11 @@ const LOCATION = process.env.GCP_REGION || 'us-central1';
 const WORKER_URL = process.env.WORKER_URL?.replace(/\/$/, '');
 const WORKER_SERVICE_ACCOUNT = process.env.WORKER_SERVICE_ACCOUNT;
 const WORKER_SHARED_SECRET = process.env.WORKER_SHARED_SECRET?.trim();
+const DEFAULT_WORKER_REQUEST_TIMEOUT_MS = 120_000;
+const parsedWorkerRequestTimeoutMs = Number.parseInt(process.env.WORKER_REQUEST_TIMEOUT_MS ?? '', 10);
+const WORKER_REQUEST_TIMEOUT_MS = Number.isFinite(parsedWorkerRequestTimeoutMs) && parsedWorkerRequestTimeoutMs > 0
+  ? parsedWorkerRequestTimeoutMs
+  : DEFAULT_WORKER_REQUEST_TIMEOUT_MS;
 const QUEUE_AGENT_RUNS = `projects/${PROJECT}/locations/${LOCATION}/queues/agent-runs`;
 
 export interface DeepDiveExecutionTask {
@@ -65,6 +70,7 @@ export async function executeWorkerDeepDiveExecution(task: DeepDiveExecutionTask
     url: `${WORKER_URL}/run`,
     method: 'POST',
     headers,
+    timeout: WORKER_REQUEST_TIMEOUT_MS,
     data: {
       taskType: 'deep_dive_execute',
       metadata: task,
@@ -109,6 +115,7 @@ export async function executeWorkerAgentRun(
     url: `${WORKER_URL}/run`,
     method: 'POST',
     headers,
+    timeout: WORKER_REQUEST_TIMEOUT_MS,
     data: {
       taskType: 'agent_execute',
       metadata: payload,

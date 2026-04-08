@@ -454,7 +454,7 @@ jobs:
             --cpu=1 \
             --min-instances=0 \
             --max-instances=10 \
-            --timeout=300 \
+            --timeout=900 \
             --concurrency=10 \
             --service-account=glyphor-worker@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
             --add-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:glyphor-db" \
