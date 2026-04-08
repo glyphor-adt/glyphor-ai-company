@@ -30,9 +30,6 @@ const DEPARTMENTS = [
   { label: 'Sales', role: 'vp-sales' },
   { label: 'Design & Frontend', role: 'vp-design' },
   { label: 'Operations & IT', role: 'ops' },
-  { label: 'Legal', role: 'clo' },
-  { label: 'Research', role: 'vp-research' },
-  { label: 'People & Culture', role: 'head-of-hr' },
 ];
 
 const TITLE_MAP: Record<string, string> = {
@@ -45,16 +42,6 @@ const TITLE_MAP: Record<string, string> = {
   'vp-design': 'VP Design & Frontend',
   'vp-customer-success': 'VP Customer Success',
   ops: 'Operations Agent',
-  clo: 'Chief Legal Officer',
-  'vp-research': 'VP Research & Intelligence',
-  'competitive-research-analyst': 'Competitive Research Analyst',
-  'market-research-analyst': 'Market Research Analyst',
-  'technical-research-analyst': 'Technical Research Analyst',
-  'industry-research-analyst': 'Industry Research Analyst',
-  'm365-admin': 'M365 Administrator',
-  'global-admin': 'Global Administrator',
-  'head-of-hr': 'Head of People & Culture',
-  'platform-intel': 'Platform Intelligence',
   'revenue-analyst': 'Revenue Analyst',
   'cost-analyst': 'Cost Analyst',
   'onboarding-specialist': 'Onboarding Specialist',
@@ -462,7 +449,7 @@ export default function Workforce() {
             {orgAgents
               .filter((a) => a.role in TITLE_MAP)
               .sort((a, b) => {
-                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-sales', 'vp-design', 'ops', 'clo', 'vp-research', 'competitive-research-analyst', 'market-research-analyst', 'm365-admin', 'global-admin'];
+                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops'];
                 return (order.indexOf(a.role) === -1 ? 99 : order.indexOf(a.role)) - (order.indexOf(b.role) === -1 ? 99 : order.indexOf(b.role));
               })
               .map((agent) => {

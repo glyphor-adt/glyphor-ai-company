@@ -52,6 +52,19 @@ export interface VPDesignRunParams {
   conversationHistory?: ConversationTurn[];
 }
 
+const LANDING_PAGE_INTENT_PATTERN = /(landing\s*page|homepage|home\s*page|marketing\s*site|website|web\s*page|build\s+.*(landing|site|page)|create\s+.*(landing|site|page))/i;
+const REPO_FIX_INTENT_PATTERN = /(fix|patch|bug|error|deploy|deployment|vercel|github|repo|pull\s*request|pr\b|index\.css|tailwind|failed\s*build|build\s*failed)/i;
+
+function isLandingPageRequest(message?: string): boolean {
+  const text = String(message ?? '').trim();
+  return text.length > 0 && LANDING_PAGE_INTENT_PATTERN.test(text);
+}
+
+function isRepoFixRequest(message?: string): boolean {
+  const text = String(message ?? '').trim();
+  return text.length > 0 && REPO_FIX_INTENT_PATTERN.test(text);
+}
+
 export async function runVPDesign(params: VPDesignRunParams = {}) {
   const memory = new CompanyMemoryStore({
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
@@ -69,6 +82,10 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
   const graphWriter = memory.getGraphWriter();
   const isChat = params.task === 'on_demand' || !params.task;
   const task = params.task || 'on_demand';
+  const onDemandMessage = params.message ?? '';
+  const enforceLandingBuildMode = isChat
+    && isLandingPageRequest(onDemandMessage)
+    && !isRepoFixRequest(onDemandMessage);
 
   // ─── TASK-SPECIFIC TOOL SURFACES ────────────────────────────
   // Each task gets only the tools it actually uses. Cuts prompt
@@ -87,35 +104,59 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
   let tools: ReturnType<typeof createCoreTools>;
 
   if (isChat) {
-    tools = [
-      // Build & preview — the core chat workflow
-      ...createQuickDemoWebAppTools(),
-      ...createWebBuildPlannerTools(),
-      ...createDeployPreviewTools(),
-      ...createFrontendCodeTools(),
-      ...createScreenshotTools(),
-      ...createWebBuildTools(memory, {
-        allowBuild: true,
-        allowIterate: true,
-        allowAutonomousLoop: true,
-        allowUpgrade: false,
-        allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
-      }),
-      // GitHub operations (create/push/promote via pull request)
-      ...createGithubFromTemplateTools(),
-      ...createGithubPushFilesTools(),
-      ...createGithubPullRequestTools(),
-      ...createVercelProjectTools(),
-      // Lighthouse audits (system prompt grants this authority)
-      ...createAuditTools(),
-      // Minimal core (memory, messages, knowledge)
-      ...createCoreTools(coreDeps, { chatOnly: true }),
-      // Asset generation
-      ...createAssetTools(glyphorEventBus),
-      ...createLogoTools(),
-      // Coordination
-      ...createAgentDirectoryTools(),
-    ];
+    if (enforceLandingBuildMode) {
+      // Deterministic brief-first path for net-new landing-page requests.
+      // Excludes direct repo patch tools to prevent drifting into hotfix mode.
+      tools = [
+        ...createWebBuildPlannerTools(),
+        ...createWebBuildTools(memory, {
+          allowBuild: true,
+          allowIterate: false,
+          allowAutonomousLoop: false,
+          allowUpgrade: false,
+          allowedBuildTiers: ['prototype', 'full_build'],
+        }),
+        ...createGithubFromTemplateTools(),
+        ...createVercelProjectTools(),
+        ...createDeployPreviewTools(),
+        ...createScreenshotTools(),
+        ...createAuditTools(),
+        ...createCoreTools(coreDeps, { chatOnly: true }),
+        ...createAssetTools(glyphorEventBus),
+        ...createLogoTools(),
+        ...createAgentDirectoryTools(),
+      ];
+    } else {
+      tools = [
+        // Build & preview — the core chat workflow
+        ...createQuickDemoWebAppTools(),
+        ...createWebBuildPlannerTools(),
+        ...createDeployPreviewTools(),
+        ...createFrontendCodeTools(),
+        ...createScreenshotTools(),
+        ...createWebBuildTools(memory, {
+          allowBuild: true,
+          allowIterate: true,
+          allowAutonomousLoop: true,
+          allowUpgrade: false,
+          allowedBuildTiers: ['prototype', 'full_build', 'iterate'],
+        }),
+        // GitHub operations (create/push/promote via pull request)
+        ...createGithubFromTemplateTools(),
+        ...createGithubPushFilesTools(),
+        ...createGithubPullRequestTools(),
+        ...createVercelProjectTools(),
+        // Lighthouse audits (system prompt grants this authority)
+        ...createAuditTools(),
+        // Minimal core (memory, messages, knowledge)
+        ...createCoreTools(coreDeps, { chatOnly: true }),
+        // Asset generation
+        ...createAssetTools(glyphorEventBus),
+        ...createLogoTools(),
+        // Coordination
+        ...createAgentDirectoryTools(),
+      ];
+    }
   } else if (task === 'design_audit') {
     tools = [
       ...vpDesign,
@@ -179,7 +220,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     ];
   }
 
-  console.log(`[VP-Design] Task=${task}: loaded ${tools.length} tools`);
+  console.log(`[VP-Design] Task=${task}: loaded ${tools.length} tools (landingBuildMode=${enforceLandingBuildMode})`);
 
   const today = new Date().toISOString().split('T')[0];
   const enableSandboxOnDemand = process.env.VP_DESIGN_ENABLE_SANDBOX_ON_DEMAND === 'true';
@@ -229,7 +270,14 @@ Steps:
       break;
 
     case 'on_demand':
-      initialMessage = params.message || 'Provide a design quality and system status summary.';
+      initialMessage = enforceLandingBuildMode
+        ? `${params.message || 'Build a landing page.'}
+
+[MODE: LANDING_BUILD]
+Treat this as a net-new landing page build request, not a repository hotfix.
+You MUST call plan_website_build first, then invoke_web_build.
+Do not call github_push_files, github_create_pull_request, github_merge_pull_request, invoke_web_iterate, or invoke_web_coding_loop unless the user explicitly asks to fix an existing repository.`
+        : params.message || 'Provide a design quality and system status summary.';
       break;
 
     default:

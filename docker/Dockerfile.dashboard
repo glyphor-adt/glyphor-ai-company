@@ -6,10 +6,12 @@ WORKDIR /app
 # Copy package files for dependency install
 COPY package.json package-lock.json ./
 COPY packages/dashboard/package.json ./packages/dashboard/package.json
+COPY packages/shared/package.json ./packages/shared/package.json
 
-RUN npm ci --workspace=packages/dashboard
+RUN npm ci --workspace=packages/shared --workspace=packages/dashboard
 
-# Copy dashboard source
+# Copy workspace source
+COPY packages/shared/ packages/shared/
 COPY packages/dashboard/ packages/dashboard/
 
 # Build args for config (baked into the static bundle)
@@ -23,8 +25,8 @@ ENV VITE_API_URL=${VITE_SCHEDULER_URL}
 ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
 ENV VITE_VOICE_GATEWAY_URL=${VITE_VOICE_GATEWAY_URL}
 
-WORKDIR /app/packages/dashboard
-RUN npm run build
+RUN npm run build --workspace=packages/shared
+RUN npm run build --workspace=packages/dashboard
 
 # ─── Stage 2: Serve with nginx ───────────────────────────────
 FROM nginx:1.27-alpine AS runtime

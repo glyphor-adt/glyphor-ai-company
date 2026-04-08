@@ -5,8 +5,7 @@
  * email-enabled agent and fires a WakeRouter event when unread
  * external mail is found.
  *
- * Only checks executives + ops + m365-admin — the agents that
- * have email tools wired in. Runs on the MEDIUM tier cadence
+ * Only checks the live inbound triage role. Runs on the MEDIUM tier cadence
  * (every 2nd heartbeat = ~20 min).
  */
 

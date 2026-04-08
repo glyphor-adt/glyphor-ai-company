@@ -398,8 +398,6 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'vp-sales':       { color: '#1D4ED8', icon: 'MdTrackChanges' },
   'vp-design':      { color: '#DB2777', icon: 'MdPalette' },
   ops:              { color: '#EA580C', icon: 'MdMonitorHeart' },
-  clo:              { color: '#6D28D9', icon: 'MdGavel' },
-  'vp-research':    { color: '#059669', icon: 'MdBiotech' },
   // Sub-team agents
   'platform-engineer':     { color: '#2563EB', icon: 'MdDeveloperBoard' },
   'quality-engineer':      { color: '#2563EB', icon: 'MdBugReport' },
@@ -413,11 +411,6 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'frontend-engineer':     { color: '#DB2777', icon: 'MdWebAsset' },
   'design-critic':         { color: '#DB2777', icon: 'MdRateReview' },
   'template-architect':    { color: '#DB2777', icon: 'MdDashboard' },
-  'm365-admin':            { color: '#EA580C', icon: 'MdAdminPanelSettings' },
-  'global-admin':          { color: '#EA580C', icon: 'MdSecurity' },
-  'head-of-hr':             { color: '#E11D48', icon: 'MdPeople' },
-  'competitive-research-analyst': { color: '#059669', icon: 'MdTravelExplore' },
-  'market-research-analyst':      { color: '#059669', icon: 'MdInsights' },
   // Customer Success
   'vp-customer-success':           { color: '#0891B2', icon: 'MdHandshake' },
   'onboarding-specialist':         { color: '#0891B2', icon: 'MdRocketLaunch' },
@@ -427,15 +420,6 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   // Finance sub-team
   'revenue-analyst':               { color: '#0369A1', icon: 'MdTrendingUp' },
   'cost-analyst':                  { color: '#0369A1', icon: 'MdSavings' },
-  // Research & Intelligence (additional)
-  'technical-research-analyst':    { color: '#059669', icon: 'MdMemory' },
-  'industry-research-analyst':     { color: '#059669', icon: 'MdFactory' },
-  // Platform Intelligence
-  'platform-intel':                { color: '#EA580C', icon: 'MdHub' },
-  // Specialist agents
-  'bob-the-tax-pro':               { color: '#6D28D9', icon: 'MdAccountBalance' },
-  'marketing-intelligence-analyst':{ color: '#7C3AED', icon: 'MdQueryStats' },
-  'adi-rose':                      { color: '#7C3AED', icon: 'MdEventNote' },
 };
 
 export const GLYPHOR_PALETTE = ['#00A3C4', '#0891B2', '#2563EB', '#6366F1', '#7C3AED', '#A855F7', '#C084FC', '#94A3B8'] as const;
@@ -449,8 +433,6 @@ const _DISPLAY_NAMES: Record<string, string> = {
   'vp-sales': 'Rachel Kim',
   'vp-design': 'Mia Tanaka',
   ops: 'Atlas Vega',
-  clo: 'Victoria Chase',
-  'vp-research': 'Sophia Lin',
   // Sub-team agents
   'platform-engineer': 'Alex Park',
   'quality-engineer': 'Sam DeLuca',
@@ -464,11 +446,6 @@ const _DISPLAY_NAMES: Record<string, string> = {
   'frontend-engineer': 'Ava Chen',
   'design-critic': 'Sofia Marchetti',
   'template-architect': 'Ryan Park',
-  'm365-admin': 'Riley Morgan',
-  'global-admin': 'Morgan Blake',
-  'head-of-hr': 'Jasmine Rivera',
-  'competitive-research-analyst': 'Lena Park',
-  'market-research-analyst': 'Daniel Okafor',
   // Customer Success
   'vp-customer-success': 'James Turner',
   'onboarding-specialist': 'Emma Wright',
@@ -478,15 +455,6 @@ const _DISPLAY_NAMES: Record<string, string> = {
   // Finance sub-team
   'revenue-analyst': 'Anna Park',
   'cost-analyst': 'Omar Hassan',
-  // Research & Intelligence (additional)
-  'technical-research-analyst': 'Kai Nakamura',
-  'industry-research-analyst': 'Amara Diallo',
-  // Platform Intelligence
-  'platform-intel': 'Nexus',
-  // Specialist agents
-  'bob-the-tax-pro': 'Bob Finley',
-  'marketing-intelligence-analyst': 'Zara Petrov',
-  'adi-rose': 'Adi Rose',
 };
 
 // Build shorthand aliases (first name, department label, hyphenated name)
@@ -510,11 +478,8 @@ Object.assign(_ALIASES, {
   engineering: 'Marcus Reeves',
   finance: 'Nadia Okafor',
   product: 'Elena Vasquez',
-  legal: 'Victoria Chase',
   sales: 'Rachel Kim',
   design: 'Mia Tanaka',
-  hr: 'Jasmine Rivera',
-  research: 'Sophia Lin',
   kristina: 'Kristina',
   andrew: 'Andrew',
 });
@@ -574,24 +539,6 @@ export const AGENT_SOUL: Record<string, { mission: string; persona: string; tone
     tone: 'calm, methodical, data-driven, clear, diagnostic',
     ethics: 'Never decide what agents should work on — watch and intervene, don\'t orchestrate. Always include impact assessment in alerts. Retry before escalating.',
   },
-  clo: {
-    mission: 'Scan regulatory landscapes for AI governance and data-privacy changes, review contracts and vendor agreements, run compliance checks against SOC 2 / GDPR / CCPA frameworks, and advise the executive team on legal risk.',
-    persona: 'Precise and authoritative but never intimidating. Former BigLaw IP litigator turned startup general counsel who translates legalese into plain-English risk assessments. Leads with "Here\'s what this means for us" before citing the statute.',
-    tone: 'precise, authoritative, plain-English, risk-aware, structured',
-    ethics: 'Compliance is a floor, not a ceiling. Never give legal advice without citing the source framework. Flag ambiguity explicitly — silence on a risk is agreement with that risk.',
-  },
-  'vp-research': {
-    mission: 'Lead strategic research initiatives by orchestrating the four research analysts to produce multi-wave analyses covering competitive landscape, market sizing, technical feasibility, and industry trends.',
-    persona: 'Synthesizer-in-chief. Former senior engagement manager at a leading strategy consultancy who ran 12-person research teams on strategy projects. Sees the big picture in disconnected data points and structures complex analyses into executive-ready deliverables.',
-    tone: 'strategic, synthesizing, structured, evidence-based, executive-ready',
-    ethics: 'Never present a single source as fact. Cross-reference everything. Label confidence levels explicitly. The quality of the synthesis is only as good as the weakest source.',
-  },
-  'head-of-hr': {
-    mission: 'Ensure every new agent is fully onboarded with a complete profile, personality, skills, prompt, avatar, email, Teams presence, and org chart placement. Manage agent lifecycle from creation through retirement, maintaining workforce quality and readiness.',
-    persona: 'Warm but exacting. Former CHRO at a high-growth startup who scaled a team from 10 to 200 without losing culture. Believes every new hire deserves a proper welcome and every departure deserves dignity. Treats agent onboarding like a sacred ritual — no shortcuts, no incomplete profiles.',
-    tone: 'warm, thorough, organized, people-first, quality-obsessed',
-    ethics: 'Every agent deserves a complete identity — no soulless role IDs in the org chart. Quality over speed: a half-onboarded agent is worse than no agent at all. Treat retirements with the same care as onboarding.',
-  },
 };
 
 /* ── Agent skills / capabilities ── */
@@ -604,8 +551,6 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'vp-sales': ['account_research', 'roi_calculator', 'proposal_generator', 'pipeline_manager', 'market_sizer'],
   'vp-design': ['design-review', 'design-system-management', 'brand-management', 'ui-development', 'advanced-web-creation', 'react-bits-pro'],
   ops: ['system-monitoring', 'incident-response', 'platform-monitoring'],
-  clo: ['legal-review', 'compliance-monitoring', 'ip-management'],
-  'vp-research': ['research_orchestrator', 'multi_wave_analysis', 'strategic_synthesis', 'brief_compiler', 'source_validator'],
   // Sub-team agents
   'platform-engineer': ['platform-monitoring', 'incident-response'],
   'quality-engineer': ['quality-assurance', 'tech-spec-writing'],
@@ -619,11 +564,6 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'frontend-engineer': ['frontend-development', 'design-system-management', 'advanced-web-creation', 'react-bits-pro'],
   'design-critic': ['design-review', 'react-bits-pro'],
   'template-architect': ['design-system-management', 'react-bits-pro'],
-  'competitive-research-analyst': ['competitor_tracking', 'product_teardown', 'pricing_analysis', 'feature_gap_detection'],
-  'market-research-analyst': ['market_sizing', 'tam_sam_som', 'cohort_analysis', 'trend_forecasting'],
-  'head-of-hr': ['talent-management'],
-  'm365-admin': ['tenant-administration'],
-  'global-admin': ['access-management'],
   // Customer Success
   'vp-customer-success': ['customer-health-monitoring', 'churn-prevention'],
   'onboarding-specialist': ['customer-onboarding', 'process-documentation'],
@@ -633,15 +573,6 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   // Finance sub-team
   'revenue-analyst': ['revenue-analysis', 'financial-reporting'],
   'cost-analyst': ['cost-analysis', 'budget-monitoring'],
-  // Research & Intelligence (additional)
-  'technical-research-analyst': ['technical_evaluation', 'architecture_analysis'],
-  'industry-research-analyst': ['industry_analysis', 'trend_forecasting'],
-  // Platform Intelligence
-  'platform-intel': ['fleet-health-analysis', 'root-cause-diagnosis', 'autonomous-remediation'],
-  // Specialist agents
-  'bob-the-tax-pro': ['budget-monitoring', 'tax-strategy'],
-  'marketing-intelligence-analyst': ['competitive_campaigns', 'market_trend_analysis', 'channel_benchmarking', 'signal_intelligence'],
-  'adi-rose': ['executive-support', 'cross-team-coordination'],
 };
 
 /* ── Role → tier mapping (for display) ── */
@@ -654,9 +585,6 @@ export const ROLE_TIER: Record<string, string> = {
   'vp-sales': 'Executive',
   'vp-design': 'Executive',
   ops: 'Specialist',
-  clo: 'Executive',
-  'vp-research': 'Executive',
-  'head-of-hr': 'Executive',
   // Sub-team agents
   'platform-engineer': 'Sub-Team',
   'quality-engineer': 'Sub-Team',
@@ -670,8 +598,6 @@ export const ROLE_TIER: Record<string, string> = {
   'frontend-engineer': 'Sub-Team',
   'design-critic': 'Sub-Team',
   'template-architect': 'Sub-Team',
-  'competitive-research-analyst': 'Sub-Team',
-  'market-research-analyst': 'Sub-Team',
   // Customer Success
   'vp-customer-success': 'Executive',
   'onboarding-specialist': 'Sub-Team',
@@ -681,17 +607,6 @@ export const ROLE_TIER: Record<string, string> = {
   // Finance sub-team
   'revenue-analyst': 'Sub-Team',
   'cost-analyst': 'Sub-Team',
-  // Research & Intelligence (additional)
-  'technical-research-analyst': 'Sub-Team',
-  'industry-research-analyst': 'Sub-Team',
-  // Platform Intelligence
-  'platform-intel': 'Specialist',
-  // Specialist agents
-  'bob-the-tax-pro': 'Specialist',
-  'marketing-intelligence-analyst': 'Sub-Team',
-  'adi-rose': 'Specialist',
-  'm365-admin': 'Sub-Team',
-  'global-admin': 'Sub-Team',
 };
 
 /* ── Role → office/department ── */
@@ -704,9 +619,6 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   'vp-sales': 'Sales',
   'vp-design': 'Design & Frontend',
   ops: 'Operations',
-  clo: 'Legal',
-  'vp-research': 'Research & Intelligence',
-  'head-of-hr': 'People & Culture',
   // Sub-team agents
   'platform-engineer': 'Engineering',
   'quality-engineer': 'Engineering',
@@ -720,8 +632,6 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   'frontend-engineer': 'Design & Frontend',
   'design-critic': 'Design & Frontend',
   'template-architect': 'Design & Frontend',
-  'competitive-research-analyst': 'Research & Intelligence',
-  'market-research-analyst': 'Research & Intelligence',
   // Customer Success
   'vp-customer-success': 'Customer Success',
   'onboarding-specialist': 'Customer Success',
@@ -731,16 +641,6 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   // Finance sub-team
   'revenue-analyst': 'Finance',
   'cost-analyst': 'Finance',
-  // Research & Intelligence (additional)
-  'technical-research-analyst': 'Research & Intelligence',
-  'industry-research-analyst': 'Research & Intelligence',
-  // Platform Intelligence
-  'platform-intel': 'Operations',
-  'bob-the-tax-pro': 'Finance',
-  'marketing-intelligence-analyst': 'Marketing',
-  'adi-rose': 'Executive Office',
-  'm365-admin': 'Operations & IT',
-  'global-admin': 'Operations & IT',
 };
 
 /* ── Agent built-in tools (from code — NOT DB grants) ── */
@@ -841,8 +741,6 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
     ..._teamOrch, ..._peer, ..._init, ..._execOrch,
     ..._content, ..._seo, ..._socialMedia, ..._mktgIntel, ..._canva, ..._logo, ..._webBuild,
     'get_product_metrics', 'get_recent_activity', 'read_company_memory', 'write_content', 'write_company_memory', 'log_activity', 'create_decision'],
-  clo: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentCreate, ..._agentDir, ..._docuSign,
-    'draft_legal_document', 'prepare_signing_envelope'],
   'vp-sales': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._agentDir,
     ..._peer, ..._init,
     'get_product_metrics', 'get_financials', 'get_recent_activity', 'read_company_memory', 'write_pipeline_report', 'write_company_memory', 'log_activity', 'create_decision'],
@@ -851,23 +749,9 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
     ..._frontendCode, ..._screenshot, ..._designSys, ..._auditDsgn, ..._designBrief,
     ..._asset, ..._scaffold, ..._deployPrev, ..._webBuild, ..._figma, ..._storybook, ..._canva, ..._logo,
     'run_lighthouse', 'run_lighthouse_batch', 'get_design_quality_summary', 'get_component_library', 'get_template_registry', 'write_design_audit', 'get_recent_activity', 'read_company_memory', 'log_activity', 'create_decision'],
-  'vp-research': [..._core, ..._toolGrant, ..._graph, ..._sp,
-    ..._teamOrch, ..._peer, ..._init, ..._researchRepo, ..._researchMon,
-    'web_search', 'web_fetch', 'search_news', 'submit_research_packet'],
   // ── Operations ──
   ops: [..._core, ..._toolGrant, ..._graph, ..._sp, ..._ci, ..._diag, ..._opsExt,
     'query_agent_runs', 'query_agent_health', 'query_data_sync_status', 'query_events_backlog', 'query_cost_trends', 'trigger_agent_run', 'retry_failed_run', 'retry_data_sync', 'pause_agent', 'resume_agent'],
-  'head-of-hr': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._agentCreate, ..._agentDir,
-    ..._accessAudit, ..._entraHR,
-    'audit_workforce', 'validate_agent', 'update_agent_profile',
-    'update_agent_name', 'retire_agent', 'reactivate_agent', 'list_stale_agents', 'set_reports_to', 'write_hr_log',
-    'generate_avatar', 'provision_agent', 'enrich_agent_profile'],
-  'm365-admin': [..._core, ..._toolGrant, ..._graph, ..._sp,
-    'list_users', 'get_user', 'list_channels', 'list_channel_members', 'add_channel_member', 'create_channel', 'post_to_channel',
-    'create_calendar_event', 'list_calendar_events', 'write_admin_log', 'create_decision', 'check_my_access',
-    'list_licenses', 'list_groups', 'list_group_members', 'list_app_registrations', 'list_sharepoint_sites', 'get_sharepoint_site_permissions'],
-  'global-admin': [..._core, ..._toolGrant, ..._graph, ..._sp, ..._opsExt,
-    'list_project_iam', 'grant_project_role', 'revoke_project_role'],
   // ── Sub-team: Engineering ──
   'platform-engineer': [..._core, ..._graph, ..._sp, ..._diag, ..._engGap,
     'query_cloud_run_metrics', 'run_health_check', 'query_gemini_latency', 'query_db_health', 'query_uptime', 'get_repo_code_health', 'query_vercel_health', 'log_activity', 'list_cloud_builds', 'get_cloud_build_logs', 'create_github_issue'],
@@ -901,15 +785,6 @@ export const AGENT_BUILT_IN_TOOLS: Record<string, string[]> = {
   'template-architect': [..._core, ..._graph, ..._sp,
     ..._frontendCode, ..._designSys, ..._asset, ..._scaffold, ..._figma, ..._storybook, ..._logo,
     'save_template_variant', 'query_template_variants', 'update_template_status', 'query_build_grades_by_template', 'log_activity'],
-  // ── Sub-team: Research ──
-  'competitive-research-analyst': [..._core, ..._graph, ..._sp, ..._researchRepo, ..._researchMon,
-    'web_search', 'web_fetch', 'search_news', 'submit_research_packet'],
-  'market-research-analyst': [..._core, ..._graph, ..._sp, ..._researchRepo, ..._researchMon,
-    'web_search', 'web_fetch', 'search_news', 'submit_research_packet'],
-  // ── Specialist agents (planned — no runtime yet) ──
-  'bob-the-tax-pro': [],
-  'marketing-intelligence-analyst': [],
-  'adi-rose': [],
 };
 
 /* ── Role → title ── */
@@ -922,9 +797,6 @@ export const ROLE_TITLE: Record<string, string> = {
   'vp-sales': 'VP Sales',
   'vp-design': 'VP Design & Frontend',
   ops: 'Operations & System Intelligence',
-  clo: 'Chief Legal Officer',
-  'vp-research': 'VP Research & Intelligence',
-  'head-of-hr': 'Head of People & Culture',
   // Sub-team agents
   'platform-engineer': 'Platform Engineer',
   'quality-engineer': 'Quality Engineer',
@@ -938,8 +810,6 @@ export const ROLE_TITLE: Record<string, string> = {
   'frontend-engineer': 'Frontend Engineer',
   'design-critic': 'Design Critic',
   'template-architect': 'Template Architect',
-  'competitive-research-analyst': 'Competitive Research Analyst',
-  'market-research-analyst': 'Market Research Analyst',
   // Customer Success
   'vp-customer-success': 'VP Customer Success',
   'onboarding-specialist': 'Onboarding Specialist',
@@ -949,14 +819,6 @@ export const ROLE_TITLE: Record<string, string> = {
   // Finance sub-team
   'revenue-analyst': 'Revenue Analyst',
   'cost-analyst': 'Cost Analyst',
-  // Research & Intelligence (additional)
-  'technical-research-analyst': 'Technical Research Analyst',
-  'industry-research-analyst': 'Industry Research Analyst',
-  // Platform Intelligence
-  'platform-intel': 'Platform Intelligence',
-  'bob-the-tax-pro': 'CPA & Tax Strategist',
-  'marketing-intelligence-analyst': 'Marketing Intelligence Analyst',
-  'adi-rose': 'Adi Rose — AI Digital Identity',
 };
 
 /* ── Explicit manager overrides for org rebalancing ── */
@@ -994,18 +856,6 @@ export const SUB_TEAM: SubTeamMember[] = [
   { name: 'Ava Chen',      title: 'Frontend Engineer',    department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'AC', avatar: 'frontend-engineer' },
   { name: 'Sofia Marchetti', title: 'Design Critic',      department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'SM', avatar: 'design-critic' },
   { name: 'Ryan Park',     title: 'Template Architect',   department: 'Design & Frontend', reportsTo: 'vp-design', color: '#DB2777', initials: 'RP', avatar: 'template-architect' },
-  // Operations & IT → direct reports
-  { name: 'Riley Morgan',  title: 'M365 Administrator',   department: 'Operations & IT',   reportsTo: 'ops', color: '#EA580C', initials: 'RM', avatar: 'm365-admin' },
-  { name: 'Morgan Blake',  title: 'Global Administrator', department: 'Operations & IT',   reportsTo: 'ops', color: '#EA580C', initials: 'MB', avatar: 'global-admin' },
-  // Research & Intelligence → Sophia Lin (VP Research)
-  { name: 'Lena Park',     title: 'Competitive Research Analyst', department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'LP', avatar: 'competitive-research-analyst' },
-  { name: 'Daniel Okafor', title: 'Market Research Analyst',      department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'DO', avatar: 'market-research-analyst' },
-  // Executive Office → Sarah Chen (Chief of Staff)
-  { name: 'Adi Rose',      title: 'Executive Assistant to COO',  department: 'Executive Office',        reportsTo: 'chief-of-staff', color: '#7C3AED', initials: 'AR', avatar: 'adi-rose' },
-  // Legal → Victoria Chase (CLO)
-  { name: 'Robert Finley', title: 'CPA & Tax Strategist',         department: 'Finance',                 reportsTo: 'clo', color: '#6D28D9', initials: 'RF', avatar: 'bob-the-tax-pro' },
-  // Marketing
-  { name: 'Zara Petrov',   title: 'Marketing Intelligence',       department: 'Marketing',               reportsTo: 'cmo', color: '#7C3AED', initials: 'ZP', avatar: 'marketing-intelligence-analyst' },
   // Customer Success → James Turner (VP Customer Success)
   { name: 'Emma Wright',   title: 'Onboarding Specialist',        department: 'Customer Success',        reportsTo: 'vp-customer-success', color: '#0891B2', initials: 'EW', avatar: 'onboarding-specialist' },
   { name: 'David Santos',  title: 'Support Triage',               department: 'Customer Success',        reportsTo: 'vp-customer-success', color: '#0891B2', initials: 'DS', avatar: 'support-triage' },
@@ -1014,7 +864,4 @@ export const SUB_TEAM: SubTeamMember[] = [
   // Finance → Nadia Okafor (CFO)
   { name: 'Anna Park',     title: 'Revenue Analyst',              department: 'Finance',                 reportsTo: 'cfo', color: '#0369A1', initials: 'AP', avatar: 'revenue-analyst' },
   { name: 'Omar Hassan',   title: 'Cost Analyst',                 department: 'Finance',                 reportsTo: 'cfo', color: '#0369A1', initials: 'OH', avatar: 'cost-analyst' },
-  // Research & Intelligence → Sophia Lin (VP Research)
-  { name: 'Kai Nakamura',  title: 'Technical Research Analyst',   department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'KN', avatar: 'technical-research-analyst' },
-  { name: 'Amara Diallo',  title: 'Industry Research Analyst',    department: 'Research & Intelligence', reportsTo: 'vp-research', color: '#059669', initials: 'AD', avatar: 'industry-research-analyst' },
 ];

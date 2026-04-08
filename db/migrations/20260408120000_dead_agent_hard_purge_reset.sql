@@ -24,9 +24,9 @@ INSERT INTO tmp_keep_roles (role, display_name, title, department, team, reports
   ('cpo', 'Elena Vasquez', 'Chief Product Officer', 'Product', 'Executive', 'chief-of-staff'),
   ('cmo', 'Maya Brooks', 'Chief Marketing Officer', 'Marketing', 'Executive', 'chief-of-staff'),
   ('vp-customer-success', 'James Turner', 'VP Customer Success', 'Customer Success', 'Executive', 'chief-of-staff'),
-  ('vp-sales', 'James Mitchell', 'VP of Sales', 'Sales', 'Executive', 'chief-of-staff'),
+  ('vp-sales', 'Rachel Kim', 'VP Sales', 'Sales', 'Executive', 'chief-of-staff'),
   ('vp-design', 'Mia Tanaka', 'VP Design & Frontend', 'Design & Frontend', 'Executive', 'chief-of-staff'),
-  ('ops', 'Atlas Vega', 'Operations & System Intelligence', 'Operations', 'Operations', 'chief-of-staff'),
+  ('ops', 'Atlas Vega', 'Operations Agent', 'Operations & IT', 'Operations', 'chief-of-staff'),
   ('platform-engineer', 'Alex Park', 'Platform Engineer', 'Engineering', 'Engineering', 'cto'),
   ('quality-engineer', 'Sam DeLuca', 'Quality Engineer', 'Engineering', 'Engineering', 'cto'),
   ('devops-engineer', 'Jordan Hayes', 'DevOps Engineer', 'Engineering', 'Engineering', 'cto'),
@@ -408,7 +408,13 @@ INSERT INTO agent_constitutions
 SELECT * FROM tmp_keep_agent_constitutions;
 
 INSERT INTO agent_disclosure_config
-SELECT * FROM tmp_keep_agent_disclosure_config;
+SELECT * FROM tmp_keep_agent_disclosure_config
+ON CONFLICT (agent_id) DO UPDATE
+SET disclosure_level = EXCLUDED.disclosure_level,
+    email_signature_template = EXCLUDED.email_signature_template,
+    display_name_suffix = EXCLUDED.display_name_suffix,
+    external_commitment_gate = EXCLUDED.external_commitment_gate,
+    updated_at = EXCLUDED.updated_at;
 
 INSERT INTO agent_disclosure_config (
   agent_id,
@@ -431,7 +437,14 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO agent_capacity_config
-SELECT * FROM tmp_keep_agent_capacity_config;
+SELECT * FROM tmp_keep_agent_capacity_config
+ON CONFLICT (agent_id) DO UPDATE
+SET capacity_tier = EXCLUDED.capacity_tier,
+    requires_human_approval_for = EXCLUDED.requires_human_approval_for,
+    override_by_roles = EXCLUDED.override_by_roles,
+    updated_at = EXCLUDED.updated_at,
+    updated_by = EXCLUDED.updated_by,
+    metadata = EXCLUDED.metadata;
 
 INSERT INTO agent_capacity_config (
   agent_id,

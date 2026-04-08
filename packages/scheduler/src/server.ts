@@ -95,7 +95,6 @@ import { evaluateBatch } from './batchOutcomeEvaluator.js';
 import { runShadow, getPendingShadowTasks, evaluatePromotion, getPendingChallengerVersions, getWorldStateHealth } from '@glyphor/agent-runtime';
 import { evaluateCascadePredictions } from './cascadePredictionEvaluator.js';
 import { resolvePredictionJournal } from './predictionResolver.js';
-import { handlePlatformIntelApproval } from './platformIntelApproval.js';
 import { handleDirectiveApproval } from './directiveApproval.js';
 import { expireTools } from './toolExpirationManager.js';
 import { evaluateCanary } from './canaryEvaluator.js';
@@ -512,7 +511,6 @@ function classifySchedulerRoute(pathname: string, method: string): SchedulerRout
     pathname === '/webhook/stripe' ||
     pathname === '/webhook/docusign' ||
     pathname === '/oauth/canva/callback' ||
-    /^\/platform-intel\/(approve|reject)\/[a-f0-9]+$/.test(pathname) ||
     /^\/directives\/(approve|reject)\/[a-f0-9]+$/.test(pathname)
   ) {
     return 'public';
@@ -1150,13 +1148,10 @@ const RUN_STATUS_DEPARTMENT_FALLBACK: Record<string, string> = {
   cfo: 'finance',
   cpo: 'product',
   cmo: 'marketing',
-  clo: 'legal',
+  'vp-customer-success': 'customer-success',
   'vp-sales': 'sales',
   'vp-design': 'design',
-  'vp-research': 'research',
   ops: 'operations',
-  'platform-intel': 'operations',
-  'global-admin': 'operations',
 };
 
 const AUTO_INVESTIGATE_ON_FAILURE = process.env.AUTO_INVESTIGATE_ON_FAILURE !== 'false';
@@ -2710,8 +2705,8 @@ const trackedAgentExecutor = async (
 
       await storeAgentRunStatus(agentRole, task, runId, runStatus, result ?? undefined);
 
-      // Reactive wake: notify platform-intel of agent failures/aborts
-      if ((runStatus === 'failed' || runStatus === 'aborted') && agentRole !== 'platform-intel') {
+      // Reactive wake: emit failure events for live wake rules to pick up.
+      if (runStatus === 'failed' || runStatus === 'aborted') {
         wakeRouter.processEvent({
           type: 'agent.run_failed',
           data: { agent_role: agentRole, task, run_id: runId, status: runStatus, error: result?.error ?? result?.abortReason ?? null },
@@ -3016,10 +3011,10 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Platform Intel approval/rejection webhooks (GET from Teams card links)
+    // Retired platform-intel approvals are intentionally unavailable after the live-roster purge.
     if (method === 'GET' && url?.startsWith('/platform-intel/')) {
-      const handled = await handlePlatformIntelApproval(url, req, res);
-      if (handled) return;
+      json(res, 404, { error: 'platform-intel approvals are not available on the live roster' });
+      return;
     }
 
     // Directive approval/rejection webhooks (GET from Teams card buttons)
@@ -3054,7 +3049,7 @@ const server = createServer(async (req, res) => {
       const rawBody = await readBody(req);
       const result = handleDocuSignWebhook(rawBody, req.headers as Record<string, string | string[] | undefined>);
 
-      // Reactive wake: notify CLO and relevant agents of DocuSign events
+      // Reactive wake: notify live workflow handlers of DocuSign events
       if (result.status === 200 && 'event' in result.body) {
         try {
           const body = result.body as import('@glyphor/integrations').DocuSignWebhookResult;
@@ -3075,7 +3070,7 @@ const server = createServer(async (req, res) => {
             `INSERT INTO activity_log (agent_role, action, summary, details, created_at)
              VALUES ($1, $2, $3, $4, NOW())`,
             [
-              'clo',
+              'chief-of-staff',
               `docusign.${body.event}`,
               body.summary,
               JSON.stringify({ envelope_id: body.envelopeId, signers: body.signers }),
@@ -3539,18 +3534,12 @@ const server = createServer(async (req, res) => {
                   lastConsolidatedAt: gate.lastConsolidatedAt,
                   minHours: gate.minHours,
                 });
-                const dreamResult = await trackedAgentExecutor('platform-intel', 'memory_consolidation', {
-                  message: dreamMessage,
-                });
-                completed = dreamResult?.status === 'completed';
                 fleetMemoryDream = {
-                  status: dreamResult?.status ?? 'unknown',
-                  detail: dreamResult?.resultSummary ?? dreamResult?.error ?? dreamResult?.abortReason ?? undefined,
-                  output: dreamResult?.output ?? null,
+                  status: 'skipped',
+                  detail: 'memory_consolidation_disabled_after_dead_agent_purge',
                 };
-                if (completed) {
-                  await markMemoryConsolidationSuccess();
-                }
+                completed = true;
+                await markMemoryConsolidationSuccess();
               } catch (dreamErr) {
                 const msg = dreamErr instanceof Error ? dreamErr.message : String(dreamErr);
                 fleetMemoryDream = { status: 'error', detail: msg };
@@ -5049,6 +5038,10 @@ const server = createServer(async (req, res) => {
 
     // Launch analysis — redirects to Strategy Lab v2 engine
     if (method === 'POST' && url === '/analysis/run') {
+      if (!isLiveRuntimeRole('vp-research')) {
+        json(res, 409, { error: 'Strategy analysis is unavailable because the research lead role is not on the live roster.' });
+        return;
+      }
       const body = JSON.parse(await readBody(req));
       const { type, query, requestedBy } = body;
       const id = await strategyLabEngine.launch({
@@ -5363,6 +5356,10 @@ const server = createServer(async (req, res) => {
 
     // Launch deep dive
     if (method === 'POST' && url === '/deep-dive/run') {
+      if (!isLiveRuntimeRole('vp-research')) {
+        json(res, 409, { error: 'Deep dive runs are unavailable because the research lead role is not on the live roster.' });
+        return;
+      }
       const body = JSON.parse(await readBody(req));
       const { target, context: ddContext, requestedBy } = body;
       if (!target) { json(res, 400, { error: 'target is required' }); return; }
@@ -5674,6 +5671,10 @@ const server = createServer(async (req, res) => {
 
     // Launch a strategy analysis
     if (method === 'POST' && url === '/strategy-lab/run') {
+      if (!isLiveRuntimeRole('vp-research')) {
+        json(res, 409, { error: 'Strategy Lab runs are unavailable because the research lead role is not on the live roster.' });
+        return;
+      }
       const body = JSON.parse(await readBody(req));
       const { query, analysisType, requestedBy } = body;
       if (!query) { json(res, 400, { error: 'query is required' }); return; }

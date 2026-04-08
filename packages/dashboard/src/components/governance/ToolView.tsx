@@ -17,6 +17,7 @@ import {
   toHumanWords,
 } from './shared';
 import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TITLE, AGENT_BUILT_IN_TOOLS } from '../../lib/types';
+import { LIVE_ROSTER_ORDER } from '../../lib/liveRoster';
 import { getToolPlatform, getToolPlatformMeta, PLATFORM_META, type ToolPlatform } from '../../lib/toolPlatform';
 
 type HealthFilter = null | 'failing' | 'high-risk' | 'stale' | 'telemetry-gap';
@@ -384,7 +385,8 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
     const matches: SearchResult[] = [];
 
     // ── Agent matches — merged static + live grants ──
-    for (const [role, displayName] of Object.entries(DISPLAY_NAME_MAP)) {
+    for (const role of LIVE_ROSTER_ORDER) {
+      const displayName = DISPLAY_NAME_MAP[role] ?? role;
       const searchable = normalizeSearch(
         [role, displayName, ROLE_DEPARTMENT[role] ?? '', ROLE_TITLE[role] ?? ''].join(' '),
       );
