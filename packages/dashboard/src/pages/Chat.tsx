@@ -4,6 +4,7 @@ import { useAgents } from '../lib/hooks';
 import { formatDashboardContent } from '../lib/formatDashboardContent';
 import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP, AGENT_META } from '../lib/types';
+import { isCanonicalKeepRole } from '../lib/liveRoster';
 import { Card, AgentAvatar, GradientButton } from '../components/ui';
 import {
   ChatComposerFrame,
@@ -89,6 +90,10 @@ function createStreamId(): string {
 
 function buildConversationId(userId: string, agentRole: string): string {
   return `dashboard:${userId.trim().toLowerCase()}:${agentRole}`;
+}
+
+function normalizeLiveChatRole(role: string | null | undefined): string {
+  return role && isCanonicalKeepRole(role) ? role : 'chief-of-staff';
 }
 
 function normalizeMessageContent(value: unknown): string {
@@ -499,8 +504,8 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
     : '??';
 
   const [selectedRole, setSelectedRole] = useState(() => {
-    if (agentId) return agentId;
-    try { return localStorage.getItem('glyphor-chat-agent') || 'chief-of-staff'; } catch { return 'chief-of-staff'; }
+    if (agentId) return normalizeLiveChatRole(agentId);
+    try { return normalizeLiveChatRole(localStorage.getItem('glyphor-chat-agent')); } catch { return 'chief-of-staff'; }
   });
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -668,6 +673,12 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
   // Load chat history
   const loadHistory = useCallback(
     async (role: string) => {
+      const liveRole = normalizeLiveChatRole(role);
+      if (liveRole !== role) {
+        setLoadingHistory(false);
+        setMessages([]);
+        return;
+      }
       setLoadingHistory(true);
       setMessages([]);
       try {
@@ -675,11 +686,11 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         const aliasFilter = userAliases.length > 1
           ? `or=(${userAliases.map(a => `user_id.eq.${a}`).join(',')})`
           : `user_id=${encodeURIComponent(userAliases[0])}`;
-        const conversationId = buildConversationId(primaryUserAlias, role);
+        const conversationId = buildConversationId(primaryUserAlias, liveRole);
         const byConversation = await apiCall(`/api/chat-messages?conversation_id=${encodeURIComponent(conversationId)}&order=created_at.desc&limit=200`);
         const data = Array.isArray(byConversation) && byConversation.length > 0
           ? byConversation
-          : await apiCall(`/api/chat-messages?agent_role=${role}&${aliasFilter}&order=created_at.desc&limit=200`);
+          : await apiCall(`/api/chat-messages?agent_role=${liveRole}&${aliasFilter}&order=created_at.desc&limit=200`);
         if (data?.length) {
           // Reverse so oldest-first for display (we fetched newest-first to get recent messages)
           const rows = (data as Record<string, unknown>[]).reverse();
@@ -714,8 +725,11 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
   );
 
   useEffect(() => { loadHistory(selectedRole); }, [selectedRole, loadHistory]);
-  useEffect(() => { if (agentId) setSelectedRole(agentId); }, [agentId]);
+  useEffect(() => { if (agentId) setSelectedRole(normalizeLiveChatRole(agentId)); }, [agentId]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => {
+    if (!isCanonicalKeepRole(selectedRole)) setSelectedRole('chief-of-staff');
+  }, [selectedRole]);
 
   // Load recent chats index (which agents have conversations)
   const loadRecentChats = useCallback(async () => {
@@ -731,6 +745,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
         const ar = conversationId.startsWith(`dashboard:${primaryUserAlias.toLowerCase()}:`)
           ? conversationId.slice(`dashboard:${primaryUserAlias.toLowerCase()}:`.length)
           : (row.agent_role as string);
+        if (!isCanonicalKeepRole(ar)) continue;
         if (!map.has(ar)) {
           map.set(ar, {
             agentRole: ar,

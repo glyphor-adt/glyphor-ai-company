@@ -48,10 +48,16 @@ interface ParsedSkillMarkdown {
 }
 
 const LIVE_ROSTER_ROLE_LIST = [...CANONICAL_KEEP_ROSTER];
+const ACTIVITY_VISIBLE_ROLE_LIST = [...LIVE_ROSTER_ROLE_LIST, 'system', 'founder', 'kristina', 'andrew'];
 const LIVE_ROSTER_FILTER_COLUMNS: Partial<Record<string, string>> = {
   company_agents: 'role',
+  agent_runs: 'agent_id',
+  agent_memory: 'agent_role',
+  agent_reflections: 'agent_role',
   agent_skills: 'agent_role',
   agent_tool_grants: 'agent_role',
+  agent_world_model: 'agent_role',
+  activity_log: 'agent_role',
 };
 
 function buildLiveRosterWhereClause(
@@ -68,6 +74,13 @@ function buildLiveRosterWhereClause(
     return {
       clause: `${hasExistingWhere ? ' AND' : ' WHERE'} status = 'active' AND ${roleColumn} = ANY($${nextParamIndex}::text[])`,
       values: [LIVE_ROSTER_ROLE_LIST],
+    };
+  }
+
+  if (tableName === 'activity_log') {
+    return {
+      clause: `${hasExistingWhere ? ' AND' : ' WHERE'} (${roleColumn} IS NULL OR ${roleColumn} = ANY($${nextParamIndex}::text[]))`,
+      values: [ACTIVITY_VISIBLE_ROLE_LIST],
     };
   }
 
@@ -709,7 +722,7 @@ async function buildSmbSummary(email: string | null) {
         ORDER BY COALESCE(ca.department, 'General'), COALESCE(ca.display_name, ca.role)`,
       [organization.id, LIVE_ROSTER_ROLE_LIST],
     ),
-    systemQuery<{
+      systemQuery<{
       agent_role: string;
       summary: string;
       action: string;
@@ -717,8 +730,10 @@ async function buildSmbSummary(email: string | null) {
     }>(
       `SELECT agent_role, summary, action, created_at
          FROM activity_log
+        WHERE agent_role IS NULL OR agent_role = ANY($1::text[])
         ORDER BY created_at DESC
         LIMIT 12`,
+      [ACTIVITY_VISIBLE_ROLE_LIST],
     ),
     systemQuery<{
       id: string;

@@ -160,7 +160,7 @@ export function buildMemoryConsolidationPromptMessage(stats: {
 export function memoryConsolidationSkipResult(reason: string): AgentExecutionResult {
   return {
     agentId: 'memory-consolidation-precheck',
-    role: 'platform-intel',
+    role: 'ops',
     status: 'skipped_precheck',
     output: `Memory consolidation skipped: ${reason}`,
     resultSummary: `Precheck skip: ${reason}`,

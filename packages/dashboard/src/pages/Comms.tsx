@@ -4,6 +4,7 @@ import ChatMarkdown from '../components/ChatMarkdown';
 import { apiCall, SCHEDULER_URL } from '../lib/firebase';
 import { formatDashboardContent } from '../lib/formatDashboardContent';
 import { DISPLAY_NAME_MAP } from '../lib/types';
+import { isCanonicalKeepRole } from '../lib/liveRoster';
 import { Card, GradientButton, PageTabs, Skeleton, timeAgo } from '../components/ui';
 import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
 
@@ -56,8 +57,8 @@ function agentName(role: string): string {
 function uniqueAgents(messages: AgentMessage[]): string[] {
   const set = new Set<string>();
   for (const m of messages) {
-    set.add(m.from_agent);
-    set.add(m.to_agent);
+    if (isCanonicalKeepRole(m.from_agent)) set.add(m.from_agent);
+    if (isCanonicalKeepRole(m.to_agent)) set.add(m.to_agent);
   }
   return Array.from(set).sort((a, b) => agentName(a).localeCompare(agentName(b)));
 }
@@ -78,7 +79,7 @@ function InterAgentFeed() {
       const data = await apiCall<AgentMessage[]>(
         '/api/agent_messages?order=created_at.desc&limit=200',
       );
-      setMessages(data ?? []);
+      setMessages((data ?? []).filter((m) => isCanonicalKeepRole(m.from_agent) && isCanonicalKeepRole(m.to_agent)));
     } catch (err) {
       console.error('[InterAgentFeed] Failed to load messages:', err);
     } finally {
@@ -268,7 +269,7 @@ function EmailActivityFeed() {
       const data = await apiCall<EmailActivity[]>(
         '/api/agent-runs?task=agent365_mail_triage&order=started_at.desc&limit=100',
       );
-      setRuns(data ?? []);
+      setRuns((data ?? []).filter((r) => isCanonicalKeepRole(r.agent_role)));
     } catch (err) {
       console.error('[EmailActivity] Failed to load:', err);
     } finally {
@@ -396,7 +397,7 @@ function QuickAssign() {
         const data = await apiCall<{ role: string; status: string }[]>(
           '/api/company_agents?status=active&select=role,status&order=role.asc',
         );
-        setAgents(data ?? []);
+        setAgents((data ?? []).filter((agent) => isCanonicalKeepRole(agent.role)));
       } catch {
         setAgents([]);
       } finally {

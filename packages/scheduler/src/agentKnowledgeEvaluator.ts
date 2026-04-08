@@ -1,7 +1,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { getModel } from '@glyphor/shared/models';
-import { getTierModel } from '@glyphor/shared';
-import { runCFO, runCMO, runCTO, runChiefOfStaff, runContentCreator, runSeoAnalyst, runSocialMediaManager, runPlatformIntel } from '@glyphor/agents';
+import { getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
+import { runCFO, runCMO, runCTO, runChiefOfStaff, runContentCreator, runSeoAnalyst, runSocialMediaManager } from '@glyphor/agents';
 import { getRedisCache, ModelClient, type AgentExecutionResult } from '@glyphor/agent-runtime';
 
 export interface AgentKnowledgeEvalReport {
@@ -63,7 +63,6 @@ const RUNNERS: Record<string, (prompt: string) => Promise<AgentExecutionResult>>
   'content-creator': (prompt) => runContentCreator({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   'seo-analyst': (prompt) => runSeoAnalyst({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   'social-media-manager': (prompt) => runSocialMediaManager({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
-  'platform-intel': (prompt) => runPlatformIntel({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
 };
 
 export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Promise<AgentKnowledgeEvalReport> {
@@ -127,6 +126,10 @@ export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Pro
 
     for (const scenario of scenarios) {
       try {
+        if (!isCanonicalKeepRole(scenario.agent_role)) {
+          console.log(`${LOG_PREFIX} Skipping retired role scenario ${scenario.agent_role}/${scenario.scenario_name}`);
+          continue;
+        }
         const runner = RUNNERS[scenario.agent_role];
         if (!runner) {
           console.warn(`${LOG_PREFIX} No eval runner registered for ${scenario.agent_role}`);

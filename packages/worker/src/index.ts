@@ -2,18 +2,17 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { systemQuery } from '@glyphor/shared/db';
 import { checkDbHealth } from '@glyphor/shared/db';
+import { isCanonicalKeepRole } from '@glyphor/shared';
 import { OAuth2Client } from 'google-auth-library';
 import type { CompanyAgentRole, ConversationAttachment, ConversationTurn } from '@glyphor/agent-runtime';
 import type { RouteResult } from '@glyphor/scheduler';
 import {
-  runChiefOfStaff, runCTO, runCFO, runCLO, runCPO, runCMO, runVPSales, runVPDesign,
+  runChiefOfStaff, runCTO, runCFO, runCPO, runCMO, runVPSales, runVPDesign,
   runPlatformEngineer, runQualityEngineer, runDevOpsEngineer,
   runUserResearcher, runCompetitiveIntel,
   runContentCreator, runSeoAnalyst, runSocialMediaManager,
   runUiUxDesigner, runFrontendEngineer, runDesignCritic, runTemplateArchitect,
-  runM365Admin, runGlobalAdmin, runHeadOfHR, runOps,
-  runCompetitiveResearchAnalyst, runMarketResearchAnalyst, runVPResearch,
-  runDynamicAgent, runPlatformIntel,
+  runOps, runDynamicAgent,
 } from '@glyphor/agents';
 
 const app = express();
@@ -177,7 +176,16 @@ function buildWorkerPayload(input: WorkerAgentExecutePayload): {
 
 async function executeAgentByRole(input: WorkerAgentExecutePayload): Promise<RouteResult> {
   const { agentRole, task } = input;
-  const mappedTask = task === 'read_inbox' ? 'agent365_mail_triage' : task;
+  if (!isCanonicalKeepRole(agentRole)) {
+    return {
+      routed: false,
+      action: 'rejected',
+      agentRole,
+      task,
+      error: `Agent "${agentRole}" is not on the live runtime roster.`,
+      reason: `Rejected dead-role execution for ${agentRole}`,
+    };
+  }
   const { message, conversationHistory, payload } = buildWorkerPayload(input);
 
   try {
@@ -220,8 +228,6 @@ async function executeAgentByRole(input: WorkerAgentExecutePayload): Promise<Rou
       result = await runCTO({ task: task as 'platform_health_check' | 'dependency_review' | 'on_demand', message, conversationHistory });
     } else if (agentRole === 'cfo') {
       result = await runCFO({ task: task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'clo') {
-      result = await runCLO({ task: mappedTask as 'regulatory_scan' | 'contract_review' | 'compliance_check' | 'agent365_mail_triage' | 'on_demand', message, conversationHistory });
     } else if (agentRole === 'cpo') {
       result = await runCPO({ task: task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand', message, conversationHistory });
     } else if (agentRole === 'cmo') {
@@ -281,26 +287,8 @@ async function executeAgentByRole(input: WorkerAgentExecutePayload): Promise<Rou
       result = await runDesignCritic({ task: task as 'grade_builds' | 'quality_report' | 'on_demand', message, conversationHistory });
     } else if (agentRole === 'template-architect') {
       result = await runTemplateArchitect({ task: task as 'variant_review' | 'template_quality_audit' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'm365-admin') {
-      result = await runM365Admin({ task: mappedTask as 'channel_audit' | 'user_audit' | 'agent365_mail_triage' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'global-admin') {
-      result = await runGlobalAdmin({ task: mappedTask as 'access_audit' | 'compliance_report' | 'onboarding' | 'agent365_mail_triage' | 'on_demand', message, conversationHistory });
-    } else if (agentRole === 'head-of-hr') {
-      result = await runHeadOfHR({ task: mappedTask as 'workforce_audit' | 'onboard_agent' | 'retire_agent' | 'agent365_mail_triage' | 'on_demand', message, conversationHistory });
     } else if (agentRole === 'ops') {
       result = await runOps({ task: task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene', message, eventPayload: payload, conversationHistory });
-    } else if (agentRole === 'platform-intel') {
-      result = await runPlatformIntel({
-        task: task as 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation' | 'apply_fix_proposal',
-        message,
-        conversationHistory,
-      });
-    } else if (agentRole === 'vp-research') {
-      result = await runVPResearch({ task: task as 'decompose_research' | 'qc_and_package_research' | 'follow_up_research' | 'on_demand', message, analysisId: payload.analysisId as string | undefined, query: payload.query as string | undefined, analysisType: payload.analysisType as string | undefined, depth: payload.depth as string | undefined, sarahNotes: payload.sarahNotes as string | undefined, rawPackets: payload.rawPackets as Record<string, unknown> | undefined, executiveRouting: payload.executiveRouting as Record<string, string[]> | undefined, gaps: payload.gaps as unknown[] | undefined, conversationHistory });
-    } else if (agentRole === 'competitive-research-analyst') {
-      result = await runCompetitiveResearchAnalyst({ task: task as 'research' | 'on_demand', message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
-    } else if (agentRole === 'market-research-analyst') {
-      result = await runMarketResearchAnalyst({ task: task as 'research' | 'on_demand', message, researchBrief: payload.researchBrief as string | undefined, searchQueries: payload.searchQueries as string[] | undefined, analysisId: payload.analysisId as string | undefined, conversationHistory });
     } else {
       result = await runDynamicAgent({ role: agentRole, task, message, conversationHistory });
     }

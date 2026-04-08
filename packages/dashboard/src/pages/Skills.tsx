@@ -7,6 +7,7 @@ import {
 } from 'react-icons/md';
 import { apiCall } from '../lib/firebase';
 import { DISPLAY_NAME_MAP } from '../lib/types';
+import { isCanonicalKeepRole } from '../lib/liveRoster';
 import {
   AgentAvatar,
   ButtonOutlineSecondary,
@@ -76,6 +77,10 @@ interface SyncHistoryRow {
   action: string;
   detail: string;
   created_at: string;
+}
+
+function isVisibleSkillSyncActor(role: string): boolean {
+  return role === 'system' || role === 'founder' || role === 'kristina' || role === 'andrew' || isCanonicalKeepRole(role);
 }
 
 interface UploadTaskMapping {
@@ -179,7 +184,7 @@ export default function Skills() {
       });
 
     setTopAgents(topByUsage);
-    setSyncHistory(syncHistoryData ?? []);
+    setSyncHistory((syncHistoryData ?? []).filter((entry) => isVisibleSkillSyncActor(entry.agent_role)));
     setLoading(false);
   };
 
