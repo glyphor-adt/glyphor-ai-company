@@ -7,6 +7,11 @@
  *
  * All writes are fire-and-forget — harvesting failures must never block or
  * break the agent run pipeline.
+ *
+ * Evidence classification added 2026-04-08:
+ *   Completion claims are now classified by evidence tier rather than accepted
+ *   at face value.  A submitted run with trivially short output is downgraded
+ *   to partial_progress and tagged self_reported before writing.
  */
 
 import { systemQuery } from '@glyphor/shared/db';
@@ -29,6 +34,8 @@ export interface TaskRunOutcome {
   input_tokens: number;
   output_tokens: number;
 }
+
+export type EvidenceTier = 'proven' | 'partially_proven' | 'self_reported' | 'inconsistent';
 
 // ─── Immediate quality scoring ──────────────────────────────────
 
@@ -121,6 +128,87 @@ function deriveFinalStatus(
   return 'partial_progress';
 }
 
+// ─── Proof snapshot ─────────────────────────────────────────────
+
+interface ProofSnapshot {
+  output_length: number;        // length of work_assignments.agent_output at harvest time
+  tool_calls_succeeded: number; // actions with result === 'success'
+  tool_calls_failed: number;    // actions with result === 'error'
+  has_meaningful_output: boolean; // output_length >= MIN_MEANINGFUL_OUTPUT_LENGTH
+}
+
+// Minimum output length to treat a submission as having meaningful content.
+// Below this threshold a 'submitted' claim is downgraded to 'partial_progress'.
+const MIN_MEANINGFUL_OUTPUT_LENGTH = 100;
+
+async function buildProofSnapshot(
+  assignmentId: string | undefined,
+  actions: ActionReceipt[],
+): Promise<ProofSnapshot> {
+  const toolCallsSucceeded = actions.filter(a => a.result === 'success').length;
+  const toolCallsFailed = actions.filter(a => a.result === 'error').length;
+
+  let outputLength = 0;
+  if (assignmentId) {
+    try {
+      const rows = await systemQuery<{ len: string }>(
+        'SELECT COALESCE(LENGTH(agent_output), 0) AS len FROM work_assignments WHERE id = $1',
+        [assignmentId],
+      );
+      outputLength = parseInt(rows?.[0]?.len ?? '0', 10) || 0;
+    } catch {
+      // Non-blocking — snapshot degrades gracefully; outputLength stays 0
+    }
+  }
+
+  return {
+    output_length: outputLength,
+    tool_calls_succeeded: toolCallsSucceeded,
+    tool_calls_failed: toolCallsFailed,
+    has_meaningful_output: outputLength >= MIN_MEANINGFUL_OUTPUT_LENGTH,
+  };
+}
+
+// ─── Evidence tier classification ───────────────────────────────
+
+/**
+ * Classify how strongly runtime evidence supports the completion claim.
+ *
+ * proven           — submitted + meaningful output + tool work beyond submit itself
+ * partially_proven — submitted with meaningful output OR non-trivial tool work, but not both
+ * self_reported    — claimed done but insufficient evidence (output too short, no tool proof)
+ * inconsistent     — majority of tool calls failed despite claimed success
+ */
+function classifyEvidenceTier(
+  finalStatus: TaskRunOutcome['final_status'],
+  proof: ProofSnapshot,
+  toolCallCount: number,
+): EvidenceTier {
+  // Inconsistent: more tool failures than successes on a claimed submission
+  if (
+    finalStatus === 'submitted' &&
+    proof.tool_calls_failed > proof.tool_calls_succeeded
+  ) {
+    return 'inconsistent';
+  }
+
+  if (finalStatus === 'failed' || finalStatus === 'aborted') return 'self_reported';
+  if (finalStatus === 'flagged_blocker') return 'partially_proven';
+
+  if (finalStatus === 'submitted') {
+    // tool_calls_succeeded > 1 means at least one successful tool call beyond submit itself
+    const hasToolWork = proof.tool_calls_succeeded > 1;
+    if (proof.has_meaningful_output && hasToolWork) return 'proven';
+    if (proof.has_meaningful_output || hasToolWork) return 'partially_proven';
+    // Submit tool called successfully but no real output evidence
+    return 'self_reported';
+  }
+
+  // partial_progress
+  if (toolCallCount > 0 && proof.tool_calls_succeeded > 0) return 'partially_proven';
+  return 'self_reported';
+}
+
 // ─── Main harvester ─────────────────────────────────────────────
 
 export interface HarvestRunMeta {
@@ -139,7 +227,30 @@ export async function harvestTaskOutcome(
   const toolCallCount = actions.length;
   const toolFailureCount = actions.filter(a => a.result === 'error').length;
   const hadPartialSave = actions.some(a => a.tool === 'save_partial_output' && a.result === 'success');
-  const finalStatus = deriveFinalStatus(result, actions);
+  let finalStatus = deriveFinalStatus(result, actions);
+
+  // Build proof snapshot — queries agent_output from work_assignments if available.
+  // Failure is non-blocking; snapshot defaults to zero-length output.
+  const proof = await buildProofSnapshot(runMeta.assignmentId, actions);
+
+  // Downgrade: agent called submit_assignment_output successfully but the stored output
+  // is too short to constitute a real submission.  This stops trivial completions from
+  // inflating quality scores and appearing as 'submitted' in the audit trail.
+  let downgradedFromSubmit = false;
+  if (finalStatus === 'submitted' && runMeta.assignmentId && !proof.has_meaningful_output) {
+    finalStatus = 'partial_progress';
+    downgradedFromSubmit = true;
+  }
+
+  const evidenceTier = classifyEvidenceTier(finalStatus, proof, toolCallCount);
+
+  const proofOfWork = {
+    output_length: proof.output_length,
+    tool_calls_succeeded: proof.tool_calls_succeeded,
+    tool_calls_failed: proof.tool_calls_failed,
+    has_meaningful_output: proof.has_meaningful_output,
+    ...(downgradedFromSubmit && { downgraded_from: 'submitted', downgrade_reason: 'output_too_short' }),
+  };
 
   const outcome: TaskRunOutcome = {
     run_id: runMeta.runId,
@@ -165,13 +276,18 @@ export async function harvestTaskOutcome(
     cost_usd: result.cost,
   });
 
+  const notesWithTier = downgradedFromSubmit
+    ? `[DOWNGRADED: output_too_short] ${perRunNotes}`
+    : `[evidence:${evidenceTier}] ${perRunNotes}`;
+
   await systemQuery(
     `INSERT INTO task_run_outcomes (
        run_id, agent_role, directive_id, assignment_id,
        final_status, turn_count, tool_call_count, tool_failure_count,
        had_partial_save, elapsed_ms, cost_usd, input_tokens, output_tokens,
-       per_run_quality_score, per_run_evaluation_notes
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+       per_run_quality_score, per_run_evaluation_notes,
+       proof_of_work, evidence_tier
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      ON CONFLICT (run_id) DO NOTHING`,
     [
       outcome.run_id,
@@ -188,7 +304,9 @@ export async function harvestTaskOutcome(
       outcome.input_tokens,
       outcome.output_tokens,
       perRunScore,
-      perRunNotes,
+      notesWithTier,
+      JSON.stringify(proofOfWork),
+      evidenceTier,
     ],
   );
 }
@@ -233,3 +351,4 @@ export async function markOutcomeAccepted(assignmentId: string, submittedAt?: Da
     [assignmentId, ts],
   );
 }
+
