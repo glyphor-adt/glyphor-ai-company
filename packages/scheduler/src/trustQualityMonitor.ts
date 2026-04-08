@@ -22,7 +22,9 @@ import { systemQuery } from '@glyphor/shared/db';
 export type TrustAlertType =
   | 'high_self_reported_rate'
   | 'high_downgrade_rate'
-  | 'claim_fabrication_spike';
+  | 'claim_fabrication_spike'
+  | 'per_agent_self_reported_rate'
+  | 'per_agent_claim_fabrication';
 
 export interface TrustAlert {
   type: TrustAlertType;
@@ -178,6 +180,49 @@ export async function evaluateTrustQuality(): Promise<TrustQualityReport> {
       threshold: claimFabMax,
       observed: claimFabricationEvents,
       affectedAgents: fabricators.slice(0, 10),
+    });
+  }
+
+  // ── Per-agent SLO checks ─────────────────────────────────────────────────
+  // Fleet-wide checks can hide individual bad actors. Check each agent
+  // independently against per-agent thresholds. Only agents with
+  // minAgentRuns or more runs in the window are evaluated.
+  const minAgentRuns = parseThreshold('TRUST_ALERT_MIN_AGENT_RUNS', 3, 1, 500);
+  const agentSelfRepMax = parseThreshold('TRUST_ALERT_AGENT_SELF_REPORTED_MAX', 0.75, 0, 1);
+  const agentClaimMax = parseThreshold('TRUST_ALERT_AGENT_CLAIM_MAX', 3, 0, 100);
+
+  const perAgentSelfRepViolators = agentBreakdown.filter(a =>
+    a.run_count >= minAgentRuns &&
+    a.self_reported / a.run_count > agentSelfRepMax
+  );
+  if (perAgentSelfRepViolators.length > 0) {
+    alerts.push({
+      type: 'per_agent_self_reported_rate',
+      message:
+        `${perAgentSelfRepViolators.length} agent(s) exceed per-agent self-reported SLO ` +
+        `(>${Math.round(agentSelfRepMax * 100)}% over ${minAgentRuns}+ runs): ` +
+        perAgentSelfRepViolators.map(a =>
+          `${a.role} ${Math.round(a.self_reported / a.run_count * 100)}% (${a.self_reported}/${a.run_count})`
+        ).join(', '),
+      threshold: agentSelfRepMax,
+      observed: perAgentSelfRepViolators.length,
+      affectedAgents: perAgentSelfRepViolators.map(a => a.role),
+    });
+  }
+
+  const perAgentClaimViolators = agentBreakdown.filter(a =>
+    a.claim_events > agentClaimMax
+  );
+  if (perAgentClaimViolators.length > 0) {
+    alerts.push({
+      type: 'per_agent_claim_fabrication',
+      message:
+        `${perAgentClaimViolators.length} agent(s) exceed per-agent claim fabrication SLO ` +
+        `(>${agentClaimMax} events in ${windowDays}d): ` +
+        perAgentClaimViolators.map(a => `${a.role} (${a.claim_events})`).join(', '),
+      threshold: agentClaimMax,
+      observed: perAgentClaimViolators.length,
+      affectedAgents: perAgentClaimViolators.map(a => a.role),
     });
   }
 

@@ -560,6 +560,7 @@ const DATA_EVIDENCE_REQUIRED = new Set([
   'create_decision',
   'write_pipeline_report',
   'create_status_report',   // report must reflect real state, not invented summaries
+  'create_research_brief',  // research brief should synthesise real data, not hallucinate
 ]);
 
 /** Tools considered valid data sources for the evidence gate. */
@@ -597,6 +598,8 @@ const VERIFICATION_MAP: Record<string, { name: string; paramKey: string }> = {
   'update_company_knowledge':  { name: 'get_company_knowledge',  paramKey: 'id' },
   'update_competitor_profile': { name: 'get_competitor_profile', paramKey: 'company_name' },
   'update_company_vitals':     { name: 'get_company_vitals',     paramKey: '' },
+  'update_roadmap_item':       { name: 'get_roadmap',            paramKey: '' },
+  'update_doctrine_section':   { name: 'read_company_doctrine',  paramKey: '' },
 };
 
 /** Rough cost estimate per tool call in USD */
