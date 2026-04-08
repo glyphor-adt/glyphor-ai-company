@@ -252,6 +252,38 @@ function useRecentRuns(hours = 48) {
   return { data, loading, error };
 }
 
+interface ClaimEvidenceSummary {
+  window_days: number;
+  total_claims: number;
+  supported: number;
+  unsupported: number;
+  disputed: number;
+  unsupported_rate: number | null;
+}
+
+function useClaimEvidenceSummary(days = 30) {
+  const [data, setData] = useState<ClaimEvidenceSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const result = await apiCall<ClaimEvidenceSummary>(`/api/ops/claim-evidence-summary?days=${days}`);
+      setData(result ?? null);
+    } catch {
+      setData(null);
+    }
+    setLoading(false);
+  }, [days]);
+
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  return { data, loading };
+}
+
 function computeHealthMap(
   agents: AgentRow[],
   recentRuns: RecentRunRow[],
@@ -354,6 +386,9 @@ const ROLE_ORDER = [
   // Specialists
   'bob-the-tax-pro', 'adi-rose',
 ];
+
+/** Set to true to show secondary/admin telemetry panels (lifetime runs/cost, quality trend, health matrix, memory health, agent details). */
+const SHOW_SECONDARY_PANELS = false;
 
 interface SyncRow {
   id: string;
@@ -794,6 +829,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
   const { data: layerCounts, loading: layersLoading, refresh: refreshLayers } = useMemoryLayerCounts();
   const { data: tableCounts, loading: tableCountsLoading } = useMemoryTableCounts();
   const { data: consolidationActivity, loading: consolidationLoading } = useConsolidationActivity(30);
+  const { data: claimSummary, loading: claimLoading } = useClaimEvidenceSummary(30);
   const {
     workflows,
     metrics: wfMetrics,
@@ -832,6 +868,20 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
     () => computeHealthMap(rosterAgents, recentRuns, workSignalsByRole),
     [rosterAgents, recentRuns, workSignalsByRole],
   );
+
+  const orgCompletionRate = useMemo(() => {
+    const rows = workSignals.filter((r) => r.completion_rate != null);
+    if (rows.length === 0) return null;
+    return Math.round(rows.reduce((s, r) => s + (r.completion_rate ?? 0), 0) / rows.length * 100);
+  }, [workSignals]);
+
+  const orgEvalQuality = useMemo(() => {
+    const rows = workSignals.filter((r) => r.avg_external_quality != null);
+    if (rows.length === 0) return null;
+    return Math.round(rows.reduce((s, r) => s + (r.avg_external_quality ?? 0), 0) / rows.length);
+  }, [workSignals]);
+
+  const orgFailedAssignments = assignmentFlow?.total_failed ?? null;
 
   const dataLoadErrors = useMemo(() => {
     const raw = [
@@ -945,16 +995,22 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
         </button>
       </div>
 
-      {/* Summary Cards */}
+      {/* Core Ops Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <SummaryCard label="Total Runs" value={String(totalRuns)} loading={loading} color="#00E0FF" />
-        <SummaryCard label="Total AI Spend" value={`$${totalCost.toFixed(2)}`} loading={loading} color="#C084FC" />
-        <SummaryCard label="Avg Score" value={`${avgScore}/100`} loading={loading} color="#7DD3FC" />
-        <SummaryCard label="Active Agents" value={`${rosterAgents.length}`} loading={loading} color="#A855F7" />
+        <SummaryCard label="Active Agents" value={`${rosterAgents.length}`} loading={agentsLoading} color="#A855F7" />
+        <SummaryCard label="Completion Rate (30d)" value={orgCompletionRate != null ? `${orgCompletionRate}%` : '—'} loading={workSignalsLoading} color="#34D399" />
+        <SummaryCard label="Ext Eval Quality" value={orgEvalQuality != null ? `${orgEvalQuality}/100` : '—'} loading={workSignalsLoading} color="#00E0FF" />
+        <SummaryCard label="Failed (30d)" value={orgFailedAssignments != null ? String(orgFailedAssignments) : '—'} loading={wfLoading} color={orgFailedAssignments != null && orgFailedAssignments > 0 ? '#EF4444' : '#7DD3FC'} />
       </div>
+      {SHOW_SECONDARY_PANELS && (
+        <div className="grid grid-cols-2 gap-3">
+          <SummaryCard label="Lifetime Runs" value={String(totalRuns)} loading={loading} color="#64748B" />
+          <SummaryCard label="Lifetime AI Spend" value={`$${totalCost.toFixed(2)}`} loading={loading} color="#64748B" />
+        </div>
+      )}
 
-      {/* Plan Quality Card */}
-      <PlanQualityCard verifications={planVerifications} loading={pvLoading} />
+      {/* Plan Quality — secondary/admin telemetry */}
+      {SHOW_SECONDARY_PANELS && <PlanQualityCard verifications={planVerifications} loading={pvLoading} />}
 
       {/* Active Workflows */}
       <ActiveWorkflowsSection
@@ -965,10 +1021,14 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
         onRefresh={refreshWorkflows}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Claim Truth — org-wide unsupported claim rate from run ledger */}
+      <ClaimTruthCard summary={claimSummary} loading={claimLoading} />
+
+      {/* Lifetime runs/cost by agent — secondary/admin telemetry */}
+      {SHOW_SECONDARY_PANELS && <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Runs by agent (deduped by display name) */}
         <Card className="overflow-hidden border-border/80">
-          <SectionHeader title="Runs by agent" subtitle="Merged by person — duplicate roles combined" />
+          <SectionHeader title="Lifetime Runs by agent" subtitle="Merged by person — duplicate roles combined" />
           {loading ? (
             <Skeleton className="h-64" />
           ) : runsData.length === 0 ? (
@@ -1097,10 +1157,10 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
             </div>
           )}
         </Card>
-      </div>
+      </div>}
 
-      {/* Quality Score Trend */}
-      <Card>
+      {/* Quality Score Trend — hidden: reflection scores are self-generated, not a trustworthy primary signal */}
+      {SHOW_SECONDARY_PANELS && <Card>
         <SectionHeader title="Quality Score Trend (14 days)" />
         {loading ? (
           <Skeleton className="h-64" />
@@ -1125,7 +1185,7 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
             </LineChart>
           </ResponsiveContainer>
         )}
-      </Card>
+      </Card>}
 
       {/* Data Sync Status + Incident Log */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1235,8 +1295,8 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
         </div>
       </div>
 
-      {/* Agent Health Matrix */}
-      <Card>
+      {/* Agent Health Matrix — hidden: composite score; see Completion Rate and Ext Eval Quality cards instead */}
+      {SHOW_SECONDARY_PANELS && <Card>
         <SectionHeader
           title="Agent Health Matrix"
           subtitle="Composite: 40% success (60d assignment completion when present, else 48h run rate) + 25% external eval quality (exec/team/cos, 14d) + 20% performance + 15% recency · Retired, inactive, or deleted agents are hidden"
@@ -1369,51 +1429,55 @@ function OperationsOverview({ focus, focusId }: { focus: OperationsFocus; focusI
               })}
           </div>
         )}
-      </Card>
+      </Card>}
 
-      {/* Memory Health */}
-      <MemoryHealthSection
-        layerCounts={layerCounts}
-        layersLoading={layersLoading}
-        tableCounts={tableCounts}
-        tableCountsLoading={tableCountsLoading}
-        consolidationActivity={consolidationActivity}
-        consolidationLoading={consolidationLoading}
-        onRefresh={refreshLayers}
-      />
+      {/* Memory Health — hidden: admin/internals telemetry, not founder-operationally actionable */}
+      {SHOW_SECONDARY_PANELS && (
+        <MemoryHealthSection
+          layerCounts={layerCounts}
+          layersLoading={layersLoading}
+          tableCounts={tableCounts}
+          tableCountsLoading={tableCountsLoading}
+          consolidationActivity={consolidationActivity}
+          consolidationLoading={consolidationLoading}
+          onRefresh={refreshLayers}
+        />
+      )}
 
-      {/* Agent Detail Cards */}
-      <div>
-        <SectionHeader title="Agent Details" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {rosterAgents.sort((a, b) => {
-            const ai = ROLE_ORDER.indexOf(a.role);
-            const bi = ROLE_ORDER.indexOf(b.role);
-            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-          }).map((agent) => (
-            <Card key={agent.id}>
-              <div className="flex items-center gap-3">
-                <AgentAvatar role={agent.role} size={36} />
-                <div className="flex-1">
-                  <h3 className="text-[14px] font-semibold text-txt-primary">
-                    {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
-                  </h3>
-                  <p className="text-[11px] text-txt-muted">{agent.role}</p>
+      {/* Agent Detail Cards — secondary/admin view */}
+      {SHOW_SECONDARY_PANELS && (
+        <div>
+          <SectionHeader title="Agent Details (Lifetime)" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {rosterAgents.sort((a, b) => {
+              const ai = ROLE_ORDER.indexOf(a.role);
+              const bi = ROLE_ORDER.indexOf(b.role);
+              return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+            }).map((agent) => (
+              <Card key={agent.id}>
+                <div className="flex items-center gap-3">
+                  <AgentAvatar role={agent.role} size={36} />
+                  <div className="flex-1">
+                    <h3 className="text-[14px] font-semibold text-txt-primary">
+                      {DISPLAY_NAME_MAP[agent.role] ?? agent.role}
+                    </h3>
+                    <p className="text-[11px] text-txt-muted">{agent.role}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-sm text-txt-secondary">{agent.total_runs} runs</p>
+                    <p className="text-[11px] text-txt-faint">${Number(agent.total_cost_usd ?? 0).toFixed(2)} total</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-mono text-sm text-txt-secondary">{agent.total_runs} runs</p>
-                  <p className="text-[11px] text-txt-faint">${Number(agent.total_cost_usd ?? 0).toFixed(2)} total</p>
-                </div>
-              </div>
-              {agent.last_run_duration_ms && (
-                <p className="mt-2 text-[11px] text-txt-faint">
-                  Last run: {(Number(agent.last_run_duration_ms) / 1000).toFixed(1)}s
-                </p>
-              )}
-            </Card>
-          ))}
+                {agent.last_run_duration_ms && (
+                  <p className="mt-2 text-[11px] text-txt-faint">
+                    Last run: {(Number(agent.last_run_duration_ms) / 1000).toFixed(1)}s
+                  </p>
+                )}
+              </Card>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -1527,7 +1591,7 @@ function ActiveWorkflowsSection({
 
   return (
     <>
-      <SectionHeader title="Active Workflows" subtitle={subtitle} />
+      <SectionHeader title={useOrchestrator ? 'Active Workflows' : 'Work Queue'} subtitle={subtitle} />
 
       {/* Waiting workflows highlight */}
       {useOrchestrator && waitingWorkflows.length > 0 && (
@@ -2008,6 +2072,46 @@ function EmptyChart({ message }: { message: string }) {
   );
 }
 
+function ClaimTruthCard({ summary, loading }: { summary: ClaimEvidenceSummary | null; loading: boolean }) {
+  if (loading) return <Skeleton className="h-20" />;
+  if (!summary || summary.total_claims === 0) {
+    return (
+      <Card>
+        <SectionHeader title="Claim Truth (30 days)" subtitle="Unsupported claim rate from run ledger — requires AGENT_RUN_LEDGER_ENABLED" />
+        <p className="py-3 text-sm text-txt-faint">No claim/evidence links recorded yet in this window.</p>
+      </Card>
+    );
+  }
+  const { total_claims, supported, unsupported, disputed, unsupported_rate } = summary;
+  const unsupportedColor = unsupported_rate == null ? 'text-txt-primary' : unsupported_rate <= 10 ? 'text-[#34D399]' : unsupported_rate <= 30 ? 'text-prism-elevated' : 'text-prism-critical';
+  return (
+    <Card>
+      <SectionHeader title="Claim Truth (30 days)" subtitle="Unsupported claim rate from run ledger — 0% is ideal" />
+      <div className="mt-3 grid grid-cols-4 gap-3">
+        <div className="glass-surface rounded-xl px-3 py-2.5" style={{ borderTopColor: '#64748b', borderTopWidth: '2px' }}>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Total Claims</p>
+          <p className="font-mono text-xl font-semibold text-txt-primary">{total_claims}</p>
+        </div>
+        <div className="glass-surface rounded-xl px-3 py-2.5" style={{ borderTopColor: '#34d399', borderTopWidth: '2px' }}>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Supported</p>
+          <p className="font-mono text-xl font-semibold text-[#34D399]">{supported}</p>
+        </div>
+        <div className="glass-surface rounded-xl px-3 py-2.5" style={{ borderTopColor: unsupported_rate != null && unsupported_rate > 10 ? '#ef4444' : '#64748b', borderTopWidth: '2px' }}>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Unsupported</p>
+          <p className={`font-mono text-xl font-semibold ${unsupportedColor}`}>{unsupported}</p>
+        </div>
+        <div className="glass-surface rounded-xl px-3 py-2.5" style={{ borderTopColor: '#a78bfa', borderTopWidth: '2px' }}>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Unsupported Rate</p>
+          <p className={`font-mono text-xl font-semibold ${unsupportedColor}`}>{unsupported_rate != null ? `${unsupported_rate}%` : '—'}</p>
+        </div>
+      </div>
+      {disputed > 0 && (
+        <p className="mt-2 text-[11px] text-txt-faint">{disputed} disputed claim{disputed > 1 ? 's' : ''} — review run evidence for contradictions.</p>
+      )}
+    </Card>
+  );
+}
+
 // ─── Delegation Monitoring ──────────────────────────────────────
 
 interface DelegationPerfRow {
@@ -2219,77 +2323,87 @@ function DelegationOverview() {
         </button>
       </div>
 
-      {/* Canary Comparison Card */}
-      <Card>
-        <SectionHeader title="Canary Comparison — Sarah vs Executive Orchestration" />
-        {perfLoading ? (
-          <Skeleton className="h-48" />
-        ) : !sarahRow && !execAgg ? (
-          <p className="py-8 text-center text-sm text-txt-faint">No delegation performance data yet</p>
-        ) : (
-          <div className="overflow-x-auto">
-            {showTelemetryGapHint && (
-              <p className="mb-3 text-xs text-txt-faint">
-                Some metrics are unavailable because run outcome telemetry has not been recorded yet for the selected window.
-              </p>
-            )}
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-[11px] uppercase tracking-wider text-txt-muted">
-                  <th className="pb-2 text-left font-medium">Metric</th>
-                  <th className="pb-2 text-right font-medium">Sarah</th>
-                  <th className="pb-2 text-right font-medium">Executive</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                <tr>
-                  <td className="py-2 text-txt-secondary">First-time accept rate</td>
-                  <td className="py-2 text-right font-mono text-txt-primary">{fmtPct(sarahRow?.first_time_accept_rate)}</td>
-                  <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.first_time_accept_rate, execAgg?.first_time_accept_rate, true)}`}>
-                    {fmtPct(execAgg?.first_time_accept_rate)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-2 text-txt-secondary">Revision rate</td>
-                  <td className="py-2 text-right font-mono text-txt-primary">{fmtPct(sarahRow?.revision_rate)}</td>
-                  <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.revision_rate, execAgg?.revision_rate, false)}`}>
-                    {fmtPct(execAgg?.revision_rate)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-2 text-txt-secondary">Failure rate</td>
-                  <td className="py-2 text-right font-mono text-txt-primary">{fmtPct(sarahRow?.failure_rate)}</td>
-                  <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.failure_rate, execAgg?.failure_rate, false)}`}>
-                    {fmtPct(execAgg?.failure_rate)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-2 text-txt-secondary">Avg quality score</td>
-                  <td className="py-2 text-right font-mono text-txt-primary">{fmtScore(sarahRow?.avg_quality)}</td>
-                  <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.avg_quality, execAgg?.avg_quality, true)}`}>
-                    {fmtScore(execAgg?.avg_quality)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-2 text-txt-secondary">Avg cost per assignment</td>
-                  <td className="py-2 text-right font-mono text-txt-primary">{fmtCost(sarahRow?.avg_cost)}</td>
-                  <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.avg_cost, execAgg?.avg_cost, false)}`}>
-                    {fmtCost(execAgg?.avg_cost)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-2 text-txt-secondary">Total assignments</td>
-                  <td className="py-2 text-right font-mono text-txt-primary">{sarahRow?.total_assignments ?? '—'}</td>
-                  <td className="py-2 text-right font-mono text-txt-primary">{execAgg?.total_assignments ?? '—'}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {/* Canary Comparison — hidden: outcome telemetry is incomplete; productivity truth now on main dashboard */}
+      {SHOW_SECONDARY_PANELS ? (
+        <Card>
+          <SectionHeader title="Canary Comparison — Sarah vs Executive Orchestration" />
+          {perfLoading ? (
+            <Skeleton className="h-48" />
+          ) : !sarahRow && !execAgg ? (
+            <p className="py-8 text-center text-sm text-txt-faint">No delegation performance data yet</p>
+          ) : (
+            <div className="overflow-x-auto">
+              {showTelemetryGapHint && (
+                <p className="mb-3 text-xs text-txt-faint">
+                  Some metrics are unavailable because run outcome telemetry has not been recorded yet for the selected window.
+                </p>
+              )}
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-[11px] uppercase tracking-wider text-txt-muted">
+                    <th className="pb-2 text-left font-medium">Metric</th>
+                    <th className="pb-2 text-right font-medium">Sarah</th>
+                    <th className="pb-2 text-right font-medium">Executive</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr>
+                    <td className="py-2 text-txt-secondary">First-time accept rate</td>
+                    <td className="py-2 text-right font-mono text-txt-primary">{fmtPct(sarahRow?.first_time_accept_rate)}</td>
+                    <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.first_time_accept_rate, execAgg?.first_time_accept_rate, true)}`}>
+                      {fmtPct(execAgg?.first_time_accept_rate)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 text-txt-secondary">Revision rate</td>
+                    <td className="py-2 text-right font-mono text-txt-primary">{fmtPct(sarahRow?.revision_rate)}</td>
+                    <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.revision_rate, execAgg?.revision_rate, false)}`}>
+                      {fmtPct(execAgg?.revision_rate)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 text-txt-secondary">Failure rate</td>
+                    <td className="py-2 text-right font-mono text-txt-primary">{fmtPct(sarahRow?.failure_rate)}</td>
+                    <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.failure_rate, execAgg?.failure_rate, false)}`}>
+                      {fmtPct(execAgg?.failure_rate)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 text-txt-secondary">Avg quality score</td>
+                    <td className="py-2 text-right font-mono text-txt-primary">{fmtScore(sarahRow?.avg_quality)}</td>
+                    <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.avg_quality, execAgg?.avg_quality, true)}`}>
+                      {fmtScore(execAgg?.avg_quality)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 text-txt-secondary">Avg cost per assignment</td>
+                    <td className="py-2 text-right font-mono text-txt-primary">{fmtCost(sarahRow?.avg_cost)}</td>
+                    <td className={`py-2 text-right font-mono ${comparisonColor(sarahRow?.avg_cost, execAgg?.avg_cost, false)}`}>
+                      {fmtCost(execAgg?.avg_cost)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 text-txt-secondary">Total assignments</td>
+                    <td className="py-2 text-right font-mono text-txt-primary">{sarahRow?.total_assignments ?? '—'}</td>
+                    <td className="py-2 text-right font-mono text-txt-primary">{execAgg?.total_assignments ?? '—'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      ) : (
+        <Card>
+          <SectionHeader title="Delegation" />
+          <p className="py-4 text-sm text-txt-faint">
+            Assignment completion and evaluation quality are shown on the main dashboard.
+            Full canary comparison is available when outcome telemetry is wired end-to-end.
+          </p>
+        </Card>
+      )}
 
-      {/* Executive Orchestration Config */}
-      <Card>
+      {/* Executive Orchestration Config — secondary/admin */}
+      {SHOW_SECONDARY_PANELS && <Card>
         <SectionHeader title="Executive Orchestration Config" />
         {configLoading ? (
           <Skeleton className="h-32" />
@@ -2341,10 +2455,10 @@ function DelegationOverview() {
             </table>
           </div>
         )}
-      </Card>
+      </Card>}
 
-      {/* Delegation Activity Feed */}
-      <Card>
+      {/* Delegation Activity Feed — secondary/admin */}
+      {SHOW_SECONDARY_PANELS && <Card>
         <SectionHeader title="Recent Delegation Activity" />
         {activityLoading ? (
           <Skeleton className="h-48" />
@@ -2379,7 +2493,7 @@ function DelegationOverview() {
             ))}
           </div>
         )}
-      </Card>
+      </Card>}
     </div>
   );
 }

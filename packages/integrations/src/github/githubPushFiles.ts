@@ -2,12 +2,13 @@ import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-run
 import { getWebsitePipelineGitHubToken } from './websitePipelineAuth.js';
 
 async function githubRequest(
+  repo: string,
   path: string,
   method: string,
   body?: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
-  const token = await getWebsitePipelineGitHubToken();
+  const token = await getWebsitePipelineGitHubToken(repo);
   const response = await fetch(`https://api.github.com${path}`, {
     method,
     headers: {
@@ -71,7 +72,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
         }
 
         try {
-          const repoRes = await githubRequest(`/repos/${repo}`, 'GET', undefined, ctx.abortSignal);
+          const repoRes = await githubRequest(repo, `/repos/${repo}`, 'GET', undefined, ctx.abortSignal);
           if (!repoRes.ok) {
             return {
               success: false,
@@ -85,6 +86,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
           let baseSha: string;
           let baseTreeSha: string;
           const branchRes = await githubRequest(
+            repo,
             `/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`,
             'GET',
             undefined,
@@ -97,6 +99,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
             baseSha = String(obj.sha);
           } else {
             const defaultRef = await githubRequest(
+              repo,
               `/repos/${repo}/git/ref/heads/${encodeURIComponent(defaultBranch)}`,
               'GET',
               undefined,
@@ -111,6 +114,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
           }
 
           const commitRes = await githubRequest(
+            repo,
             `/repos/${repo}/git/commits/${baseSha}`,
             'GET',
             undefined,
@@ -133,6 +137,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
               ? content                                      // Already base64 — pass through
               : Buffer.from(content).toString('base64');     // Text — encode to base64
             const blobRes = await githubRequest(
+              repo,
               `/repos/${repo}/git/blobs`,
               'POST',
               { content: blobContent, encoding: 'base64' },
@@ -150,6 +155,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
           }
 
           const treeRes = await githubRequest(
+            repo,
             `/repos/${repo}/git/trees`,
             'POST',
             { base_tree: baseTreeSha, tree: treeItems },
@@ -159,6 +165,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
           const treeData = treeRes.data as Record<string, unknown>;
 
           const newCommitRes = await githubRequest(
+            repo,
             `/repos/${repo}/git/commits`,
             'POST',
             { message: commitMessage, tree: String(treeData.sha), parents: [baseSha] },
@@ -170,6 +177,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
 
           if (branchRes.ok) {
             await githubRequest(
+              repo,
               `/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,
               'PATCH',
               { sha: newCommitSha, force: false },
@@ -177,6 +185,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
             );
           } else {
             await githubRequest(
+              repo,
               `/repos/${repo}/git/refs`,
               'POST',
               { ref: `refs/heads/${branch}`, sha: newCommitSha },

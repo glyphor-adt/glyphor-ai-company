@@ -7,12 +7,13 @@ const TEMPLATE_REPO = 'glyphor-fuse-template';
 const DEFAULT_ORG = getWebsitePipelineOrg();
 
 async function githubRequest(
+  owner: string,
   path: string,
   method: string,
   body?: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
-  const token = await getWebsitePipelineGitHubToken();
+  const token = await getWebsitePipelineGitHubToken(owner);
   const response = await fetch(`https://api.github.com${path}`, {
     method,
     headers: {
@@ -79,6 +80,7 @@ export function createGithubFromTemplateTools(): ToolDefinition[] {
 
         try {
           const { ok, status, data } = await githubRequest(
+            owner,
             `/repos/${TEMPLATE_OWNER}/${TEMPLATE_REPO}/generate`,
             'POST',
             {

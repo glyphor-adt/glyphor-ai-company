@@ -5,7 +5,10 @@ interface CachedInstallationToken {
   expiresAtMs: number;
 }
 
-let cachedInstallationToken: CachedInstallationToken | null = null;
+type GitHubCredentialProfile = 'core' | 'fuse';
+
+const FUSE_OWNER_NAMES = new Set(['glyphor-fuse']);
+const cachedInstallationTokenByProfile: Partial<Record<GitHubCredentialProfile, CachedInstallationToken>> = {};
 
 function resolveEnv(...names: string[]): string | undefined {
   for (const name of names) {
@@ -61,10 +64,12 @@ async function createGitHubAppJwt(appId: string, privateKey: string): Promise<st
 }
 
 async function createInstallationAccessToken(
+  profile: GitHubCredentialProfile,
   appId: string,
   privateKey: string,
   installationId: string,
 ): Promise<string> {
+  const cachedInstallationToken = cachedInstallationTokenByProfile[profile];
   if (cachedInstallationToken && Date.now() < cachedInstallationToken.expiresAtMs - 60_000) {
     return cachedInstallationToken.token;
   }
@@ -97,35 +102,60 @@ async function createInstallationAccessToken(
     throw new Error('GitHub App auth response did not include token metadata.');
   }
 
-  cachedInstallationToken = {
+  cachedInstallationTokenByProfile[profile] = {
     token,
     expiresAtMs: new Date(expiresAt).getTime(),
   };
   return token;
 }
 
-export async function getWebsitePipelineGitHubToken(): Promise<string> {
-  const appId = resolveEnv('GITHUB_APP_ID', 'FUSE_GITHUB_APP_ID');
-  const privateKey = resolveEnv('GITHUB_APP_PRIVATE_KEY', 'FUSE_GITHUB_APP_PRIVATE_KEY');
-  const installationId = resolveEnv(
-    'GITHUB_INSTALLATION_ID',
-    'GLYPHOR_INSTALLATION_ID',
-    'FUSE_GITHUB_INSTALLATION_ID',
-    'FUSE_GLYPHOR_INSTALLATION_ID',
-  );
+function inferProfileFromRepo(repoOrOwner?: string): GitHubCredentialProfile {
+  const normalized = String(repoOrOwner ?? '').trim().toLowerCase();
+  if (!normalized) return 'core';
+  const owner = normalized.includes('/') ? normalized.split('/')[0] : normalized;
+  return FUSE_OWNER_NAMES.has(owner) ? 'fuse' : 'core';
+}
+
+function resolveProfileCredentialSet(profile: GitHubCredentialProfile): {
+  appId?: string;
+  privateKey?: string;
+  installationId?: string;
+  fallbackToken?: string;
+} {
+  if (profile === 'fuse') {
+    return {
+      appId: resolveEnv('FUSE_GITHUB_APP_ID', 'GITHUB_APP_ID'),
+      privateKey: resolveEnv('FUSE_GITHUB_APP_PRIVATE_KEY', 'GITHUB_APP_PRIVATE_KEY'),
+      installationId: resolveEnv('FUSE_GITHUB_INSTALLATION_ID', 'FUSE_GLYPHOR_INSTALLATION_ID', 'GITHUB_INSTALLATION_ID', 'GLYPHOR_INSTALLATION_ID'),
+      fallbackToken: resolveEnv('FUSE_GITHUB_SERVICE_PAT', 'GITHUB_SERVICE_PAT', 'GITHUB_MCP_TOKEN', 'GITHUB_TOKEN'),
+    };
+  }
+
+  return {
+    appId: resolveEnv('GITHUB_APP_ID'),
+    privateKey: resolveEnv('GITHUB_APP_PRIVATE_KEY'),
+    installationId: resolveEnv('GITHUB_INSTALLATION_ID', 'GLYPHOR_INSTALLATION_ID'),
+    fallbackToken: resolveEnv('GITHUB_TOKEN', 'GITHUB_MCP_TOKEN', 'GITHUB_SERVICE_PAT', 'FUSE_GITHUB_SERVICE_PAT'),
+  };
+}
+
+export async function getWebsitePipelineGitHubToken(repoOrOwner?: string): Promise<string> {
+  const profile = inferProfileFromRepo(repoOrOwner);
+  const { appId, privateKey, installationId, fallbackToken } = resolveProfileCredentialSet(profile);
 
   if (appId && privateKey && installationId) {
     try {
-      return await createInstallationAccessToken(appId, privateKey, installationId);
+      return await createInstallationAccessToken(profile, appId, privateKey, installationId);
     } catch (error) {
-      const fallbackToken = resolveEnv('GITHUB_SERVICE_PAT', 'FUSE_GITHUB_SERVICE_PAT', 'GITHUB_MCP_TOKEN', 'GITHUB_TOKEN');
       if (fallbackToken) {
-        console.warn(`[GitHub] GitHub App auth failed, falling back to shared token: ${(error as Error).message}`);
+        console.warn(`[GitHub] ${profile} GitHub App auth failed, falling back to shared token: ${(error as Error).message}`);
         return fallbackToken;
       }
       throw error;
     }
   }
+
+  if (fallbackToken) return fallbackToken;
 
   return requireWebsitePipelineEnv('github-token');
 }

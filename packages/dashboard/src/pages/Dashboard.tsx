@@ -219,6 +219,9 @@ export default function Dashboard() {
   const [activityRows, setActivityRows] = useState<ActivityRow[]>([]);
   const [deliverables, setDeliverables] = useState<DeliverableRow[]>([]);
   const [metricsLoading, setMetricsLoading] = useState(true);
+  const [orgCompletionRate, setOrgCompletionRate] = useState<number | null>(null);
+  const [orgEvalQuality, setOrgEvalQuality] = useState<number | null>(null);
+  const [orgFailedAssignments, setOrgFailedAssignments] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -230,12 +233,14 @@ export default function Dashboard() {
       const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [financialsRes, billingRes, runsRes, activityRes, deliverablesRes] = await Promise.all([
+      const [financialsRes, billingRes, runsRes, activityRes, deliverablesRes, workSignalsRes, assignmentFlowRes] = await Promise.all([
         apiCall<FinancialRow[]>('/api/financials?order=date.desc&limit=120').catch(() => []),
         apiCall<GcpBillingRow[]>(`/api/gcp-billing?since=${thirtyDaysAgo}`).catch(() => []),
         apiCall<AgentRunRow[]>(`/api/agent-runs?since=${todayIso}T00:00:00Z&status=completed&limit=250`).catch(() => []),
         apiCall<ActivityRow[]>('/api/activity?limit=8').catch(() => []),
         apiCall<DeliverableRow[]>(`/api/deliverables?since=${sevenDaysAgo}&order=created_at.desc&limit=10`).catch(() => []),
+        apiCall<Array<{ completion_rate: number | null; avg_external_quality: number | null }>>('/api/ops/agent-work-signals?assignments_days=30').catch(() => []),
+        apiCall<{ total_failed: number } | null>('/api/ops/assignment-flow-metrics?days=30').catch(() => null),
       ]);
 
       if (!active) return;
@@ -244,6 +249,12 @@ export default function Dashboard() {
       setRunsToday(runsRes ?? []);
       setActivityRows(activityRes ?? []);
       setDeliverables(deliverablesRes ?? []);
+      const wsRows = workSignalsRes ?? [];
+      const ratesRows = wsRows.filter((r) => r.completion_rate != null);
+      setOrgCompletionRate(ratesRows.length > 0 ? Math.round(ratesRows.reduce((s, r) => s + (r.completion_rate ?? 0), 0) / ratesRows.length * 100) : null);
+      const qualRows = wsRows.filter((r) => r.avg_external_quality != null);
+      setOrgEvalQuality(qualRows.length > 0 ? Math.round(qualRows.reduce((s, r) => s + (r.avg_external_quality ?? 0), 0) / qualRows.length) : null);
+      setOrgFailedAssignments(assignmentFlowRes?.total_failed ?? null);
       setMetricsLoading(false);
     })();
 
@@ -284,6 +295,7 @@ export default function Dashboard() {
     0,
   );
 
+  const criticalIncidents = incidents.filter((i) => i.severity === 'critical' && !i.resolved_at).length;
   const briefingAgeMs = pulse?.updated_at ? Date.now() - new Date(pulse.updated_at).getTime() : null;
   const briefingStale = briefingAgeMs != null && briefingAgeMs > 18 * 60 * 60 * 1000;
 
@@ -397,9 +409,9 @@ export default function Dashboard() {
             </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <MetricRibbon label="Cash" color="#00E0FF" value={fmtUsd(cashBalance)} detail={cashChangeToday == null ? 'Daily delta unavailable' : `${cashChangeToday >= 0 ? '↑' : '↓'} ${fmtUsd(Math.abs(cashChangeToday))} today · Runway ${fmtMonths(runwayMonths)}`} />
-              <MetricRibbon label="MRR" color="#C084FC" value={fmtUsd(pulse?.mrr ?? null)} detail={pulse?.mrr != null ? 'Pre-revenue operating posture' : 'No revenue signal yet'} />
+              <MetricRibbon label="Critical Incidents" color="#EF4444" value={incidentsLoading ? '…' : String(criticalIncidents)} detail={criticalIncidents > 0 ? 'Open critical incidents — investigate now' : 'No critical incidents open'} toneClass={criticalIncidents > 0 ? 'text-prism-critical' : 'text-[#34D399]'} />
               <MetricRibbon label="Compute" color="#7DD3FC" value={fmtUsd(computeToday)} detail={`${fmtUsd(computeMtd)} MTD · ${fmtUsd(rollingThirtyDayBurn)} rolling 30d`} />
-              <MetricRibbon label="System" color="#A855F7" value={pulse?.platform_status?.toUpperCase() ?? '—'} detail={`${pendingDecisions.length} pending decisions · ${runsToday.length} runs today`} toneClass={statusTone(pulse?.platform_status)} />
+              <MetricRibbon label="Platform Status" color="#A855F7" value={pulse?.platform_status?.toUpperCase() ?? '—'} detail={`${pendingDecisions.length} pending decisions · ${runsToday.length} runs today`} toneClass={statusTone(pulse?.platform_status)} />
             </div>
           </div>
         </HomeCard>
@@ -478,11 +490,12 @@ export default function Dashboard() {
         </HomeCard>
 
         <HomeCard className="p-4">
-          <SectionHeader title="Company Vitals" action={<Link to="/operations" className="text-[11px] text-cyan hover:underline">View all</Link>} />
-          <div className="grid grid-cols-3 gap-3">
+          <SectionHeader title="Workload Snapshot" action={<Link to="/operations" className="text-[11px] text-cyan hover:underline">View all</Link>} />
+          <div className="grid grid-cols-4 gap-3">
             <PulseStat label="Runs" value={String(runsToday.length)} />
             <PulseStat label="Active" value={String(activeAssignments)} />
             <PulseStat label="Pending" value={String(pendingDecisions.length)} />
+            <PulseStat label="Deliverables" value={metricsLoading ? '…' : String(deliverables.length)} />
           </div>
           <div className="mt-4 space-y-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-txt-muted">Recent Work</p>
@@ -507,74 +520,40 @@ export default function Dashboard() {
         </HomeCard>
       </div>
 
-      {/* ── Row 2: Quick Actions (left) + Intelligence Feed (right) ── */}
+      {/* ── Row 2: Productivity Truth (left) + Recent Deliverables (right) ── */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[0.8fr_1.2fr]">
         <HomeCard className="p-4">
-          <SectionHeader title="Quick Actions" />
-          <div className="space-y-1.5">
-            {QUICK_ACTIONS.map((action) => {
-              const Icon = action.icon;
-              const isSelected = location.pathname === action.to || location.pathname.startsWith(`${action.to}/`);
-              return (
-                <Link
-                  key={action.label}
-                  to={action.to}
-                  aria-current={isSelected ? 'page' : undefined}
-                  className={`group flex items-center gap-2.5 rounded-lg border bg-transparent px-3 py-2 transition-colors ${
-                    isSelected
-                      ? 'border-[#00E0FF]/70'
-                      : 'border-border/60 hover:border-[#00E0FF]/70 focus-visible:border-[#00E0FF]/70'
-                  }`}
-                >
-                  <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-txt-muted shadow-sm transition-colors ${
-                      isSelected
-                        ? 'border-[#00E0FF]/60 text-cyan'
-                        : 'border-border/80 group-hover:border-[#00E0FF]/60 group-hover:text-cyan'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[12px] font-semibold text-txt-primary">{action.label}</p>
-                    <p className="text-[11px] text-txt-muted">{action.description}</p>
-                  </div>
-                  <MdArrowForward className={`h-3.5 w-3.5 ${isSelected ? 'text-cyan' : 'text-txt-faint group-hover:text-cyan'}`} />
-                </Link>
-              );
-            })}
-          </div>
+          <SectionHeader title="Productivity Truth" action={<span className="text-[11px] text-txt-faint">30 days</span>} />
+          {metricsLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-10" />)}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <ProductivityStat label="Assignment Completion" value={orgCompletionRate != null ? `${orgCompletionRate}%` : '—'} good={orgCompletionRate == null ? null : orgCompletionRate >= 80} />
+              <ProductivityStat label="Ext Eval Quality" value={orgEvalQuality != null ? `${orgEvalQuality}/100` : '—'} good={orgEvalQuality == null ? null : orgEvalQuality >= 70} />
+              <ProductivityStat label="Failed Assignments (30d)" value={orgFailedAssignments != null ? String(orgFailedAssignments) : '—'} good={orgFailedAssignments != null ? orgFailedAssignments === 0 : null} />
+            </div>
+          )}
         </HomeCard>
 
         <HomeCard className="p-4">
-          <SectionHeader title="Intelligence Feed" action={<span className="text-[11px] text-txt-faint">Last 7 days</span>} />
+          <SectionHeader title="Recent Deliverables" action={<span className="text-[11px] text-txt-faint">Last 7 days</span>} />
           {metricsLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-14" />)}
             </div>
           ) : deliverables.length === 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <p className="text-sm text-txt-faint">No deliverables in the last 7 days.</p>
               <p className="text-[12px] text-txt-muted">Create directives so agents can produce founder-visible work.</p>
-              <div className="space-y-2">
-                {SUGGESTED_DIRECTIVES.map((directive) => (
-                  <div key={directive.title} className="glass-surface inner-card-lift flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2">
-                    <MdSpeed className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[12px] font-medium text-txt-primary line-clamp-1">{directive.title}</p>
-                      <p className="text-[11px] text-txt-muted">{directive.cost}</p>
-                    </div>
-                    <GradientButton as={Link} to="/directives" variant="primary" size="sm">
-                      Create
-                    </GradientButton>
-                  </div>
-                ))}
-              </div>
+              <GradientButton as={Link} to="/directives" variant="primary" size="sm">
+                Create directive
+              </GradientButton>
             </div>
           ) : (
             <div className="space-y-2">
               {deliverables.map((deliverable) => {
-                const score = extractDeliverableScore(deliverable);
                 const producer = deliverable.producing_agent ? (DISPLAY_NAME_MAP[deliverable.producing_agent] ?? deliverable.producing_agent) : 'Unknown';
                 const summary = previewText(deliverable.content, 'Open the linked artifact for the full output.');
                 return (
@@ -585,11 +564,6 @@ export default function Dashboard() {
                         <p className="mt-0.5 text-[11px] text-txt-faint">{producer} · {timeAgo(deliverable.created_at)}</p>
                         <p className="mt-1 text-[12px] text-txt-secondary line-clamp-2">{summary}</p>
                       </div>
-                      {score != null ? (
-                        <span className="shrink-0 rounded-full border border-[#34D399]/25 bg-[#34D399]/10 px-2 py-0.5 text-[10px] font-semibold text-[#34D399]">
-                          {score}/100
-                        </span>
-                      ) : null}
                     </div>
                   </HomeInnerCard>
                 );
@@ -630,6 +604,16 @@ function PulseStat({ label, value }: { label: string; value: string }) {
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color }}>{label}</p>
       <p className="mt-2 text-[1.6rem] font-semibold text-txt-primary">{value}</p>
+    </div>
+  );
+}
+
+function ProductivityStat({ label, value, good }: { label: string; value: string; good: boolean | null }) {
+  const valueColor = good === null ? 'text-txt-primary' : good ? 'text-[#34D399]' : 'text-prism-critical';
+  return (
+    <div className="glass-surface flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+      <span className="text-[12px] text-txt-muted">{label}</span>
+      <span className={`font-mono text-[14px] font-semibold ${valueColor}`}>{value}</span>
     </div>
   );
 }

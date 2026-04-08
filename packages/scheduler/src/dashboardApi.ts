@@ -1094,6 +1094,46 @@ async function handleAssignmentFlowMetrics(
   });
 }
 
+/** GET /api/ops/claim-evidence-summary — org-wide claim verification truth for the run ledger */
+async function handleClaimEvidenceSummary(
+  res: ServerResponse,
+  queryString: string,
+): Promise<void> {
+  const params = new URLSearchParams(queryString ?? '');
+  const days = Math.min(90, Math.max(1, parseInt(params.get('days') ?? '30', 10) || 30));
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+
+  const rows = await systemQuery<{
+    verification_state: string;
+    count: string | number;
+  }>(
+    `SELECT verification_state, COUNT(*)::int AS count
+       FROM agent_claim_evidence_links
+      WHERE created_at >= $1
+      GROUP BY verification_state`,
+    [since],
+  ).catch(() => [] as Array<{ verification_state: string; count: string | number }>);
+
+  const byState: Record<string, number> = {};
+  for (const row of rows) {
+    byState[row.verification_state] = Number(row.count);
+  }
+  const total = Object.values(byState).reduce((s, n) => s + n, 0);
+  const supported = byState['supported'] ?? 0;
+  const unsupported = byState['unsupported'] ?? 0;
+  const disputed = byState['disputed'] ?? 0;
+  const unsupportedRate = total > 0 ? Math.round((unsupported / total) * 100) : null;
+
+  jsonResponse(res, 200, {
+    window_days: days,
+    total_claims: total,
+    supported,
+    unsupported,
+    disputed,
+    unsupported_rate: unsupportedRate,
+  });
+}
+
 /**
  * Parse PostgREST-style query parameters into SQL clauses.
  *
@@ -1335,6 +1375,16 @@ export async function handleDashboardApi(
   if (method === 'GET' && apiPath === 'ops/assignment-flow-metrics') {
     try {
       await handleAssignmentFlowMetrics(res, queryString);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      jsonResponse(res, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'GET' && apiPath === 'ops/claim-evidence-summary') {
+    try {
+      await handleClaimEvidenceSummary(res, queryString);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       jsonResponse(res, 500, { error: message });

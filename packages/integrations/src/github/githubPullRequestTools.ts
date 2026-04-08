@@ -16,12 +16,13 @@ function parseRepoFullName(repo: string): { owner: string; name: string; fullNam
 }
 
 async function githubRequest(
+  repo: string,
   path: string,
   method: string,
   body?: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
-  const token = await getWebsitePipelineGitHubToken();
+  const token = await getWebsitePipelineGitHubToken(repo);
   const response = await fetch(`https://api.github.com${path}`, {
     method,
     headers: {
@@ -81,6 +82,7 @@ async function getPullRequestStatus(
   const { owner, name, fullName } = parseRepoFullName(repoInput);
 
   const prResponse = await githubRequest(
+    fullName,
     `/repos/${owner}/${name}/pulls/${prNumber}`,
     'GET',
     undefined,
@@ -102,6 +104,7 @@ async function getPullRequestStatus(
   let statusContexts: Array<Record<string, unknown>> = [];
   if (sha) {
     const statusResponse = await githubRequest(
+      fullName,
       `/repos/${owner}/${name}/commits/${sha}/status`,
       'GET',
       undefined,
@@ -129,6 +132,7 @@ async function getPullRequestStatus(
   let checkRunsState: 'success' | 'pending' | 'failure' = statusState;
   if (sha) {
     const checksResponse = await githubRequest(
+      fullName,
       `/repos/${owner}/${name}/commits/${sha}/check-runs`,
       'GET',
       undefined,
@@ -238,6 +242,7 @@ export function createGithubPullRequestTools(): ToolDefinition[] {
         try {
           const { owner, name, fullName } = parseRepoFullName(repoInput);
           const { ok, status, data } = await githubRequest(
+            fullName,
             `/repos/${owner}/${name}/pulls`,
             'POST',
             {
@@ -436,6 +441,7 @@ export function createGithubPullRequestTools(): ToolDefinition[] {
         try {
           const { owner, name, fullName } = parseRepoFullName(repoInput);
           const { ok, status, data } = await githubRequest(
+            fullName,
             `/repos/${owner}/${name}/pulls/${prNumber}/merge`,
             'PUT',
             {

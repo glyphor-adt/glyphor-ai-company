@@ -28,6 +28,9 @@ const PROVIDER_ICONS: Record<string, { icon: IconType; color: string }> = {
   'atlassian': { icon: SiAtlassian, color: '#0052CC' },
 };
 
+/** Set to true to show secondary/admin telemetry panels (product profitability, cost by product, top subscriptions). */
+const SHOW_SECONDARY_PANELS = false;
+
 function getProviderIcon(name: string): { icon: IconType; color: string } | null {
   const lower = name.toLowerCase();
   if (PROVIDER_ICONS[lower]) return PROVIDER_ICONS[lower];
@@ -746,7 +749,7 @@ export default function Financials() {
           </div>
           <div className="flex items-center gap-2">
             <GradientButton variant="neutral" onClick={() => setShowSyncPanel((v) => !v)}>
-              {showSyncPanel ? 'Hide Sources' : 'Data Sources'}
+              {showSyncPanel ? 'Hide Sources' : 'Source Sync Status'}
             </GradientButton>
             <GradientButton
               variant="primary"
@@ -762,7 +765,7 @@ export default function Financials() {
       {showSyncPanel && (
         <Card className="h-full">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Data Source Status</p>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-txt-muted">Source Sync Status</p>
           </div>
           {syncLoading ? <Skeleton className="h-16" /> : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -940,7 +943,8 @@ export default function Financials() {
         )}
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      {/* Product Profitability + Top Subscriptions — secondary/admin: depends on mature product attribution */}
+      {SHOW_SECONDARY_PANELS && <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="h-full xl:col-span-2">
           <SectionHeader title="Product Profitability Snapshot" />
           {loading ? (
@@ -1002,9 +1006,10 @@ export default function Financials() {
             </div>
           )}
         </Card>
-      </div>
+      </div>}
 
-      <Card className="h-full !p-4">
+      {/* Cost Structure by Product — secondary/admin: depends on mature product attribution */}
+      {SHOW_SECONDARY_PANELS && <Card className="h-full !p-4">
         <SectionHeader title="Cost Structure by Product" />
         {loading ? (
           <Skeleton className="h-52" />
@@ -1027,7 +1032,7 @@ export default function Financials() {
             </BarChart>
           </ResponsiveContainer>
         )}
-      </Card>
+      </Card>}
     </div>
   );
 }
