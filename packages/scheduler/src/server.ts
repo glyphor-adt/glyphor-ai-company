@@ -102,6 +102,7 @@ import { evaluateCanary } from './canaryEvaluator.js';
 import { evaluateAgentKnowledgeGaps } from './agentKnowledgeEvaluator.js';
 import { runGtmReadinessEval, persistGtmReport } from './gtmReadiness/index.js';
 import { evaluatePlanningGateHealth } from './planningGateMonitor.js';
+import { evaluateTrustQuality } from './trustQualityMonitor.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
 import { enqueueDeepDiveExecution, executeWorkerAgentRun, executeWorkerDeepDiveExecution, isWorkerQueueConfigured } from './workerQueue.js';
 import { processDailyAutonomyAdjustments } from '@glyphor/shared';
@@ -3823,6 +3824,73 @@ const server = createServer(async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[PlanningGateMonitor] Endpoint error:', message);
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // Trust quality monitor — daily evidence tier and claim fabrication alert check
+    if (method === 'POST' && url === '/trust/monitor') {
+      try {
+        const report = await evaluateTrustQuality();
+        if (report.alerts.length > 0) {
+          const summary = report.alerts.map((a) => a.message).join(' | ');
+          await systemQuery(
+            `INSERT INTO activity_log (agent_role, action, summary, details, created_at)
+             VALUES ($1, $2, $3, $4, NOW())`,
+            [
+              'ops',
+              'trust_quality.alert',
+              summary,
+              JSON.stringify({
+                window_days: report.windowDays,
+                total_runs: report.totalRuns,
+                self_reported_rate: report.selfReportedRate,
+                downgrade_rate: report.downgradeRate,
+                claim_fabrication_events: report.claimFabricationEvents,
+                alerts: report.alerts,
+              }),
+            ],
+          );
+
+          const incidentTitle = 'Trust quality degradation';
+          const existing = await systemQuery<{ id: string }>(
+            `SELECT id FROM incidents
+              WHERE title = $1 AND status = 'open'
+                AND created_at >= NOW() - INTERVAL '24 hours'
+              LIMIT 1`,
+            [incidentTitle],
+          );
+          if (existing.length === 0) {
+            await systemQuery(
+              `INSERT INTO incidents (severity, title, description, affected_agents, status, created_by, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+              [
+                'high',
+                incidentTitle,
+                summary,
+                report.alerts.flatMap((a) => a.affectedAgents ?? []),
+                'open',
+                'scheduler',
+              ],
+            );
+          }
+
+          const notifyBlock = [
+            `<notify type="blocker" to="both" title="Trust quality alert">`,
+            summary,
+            `Window: ${report.windowDays}d | Runs: ${report.totalRuns}`,
+            `Self-reported rate: ${Math.round(report.selfReportedRate * 100)}%`,
+            `Downgrade rate: ${Math.round(report.downgradeRate * 100)}%`,
+            `Claim fabrication events: ${report.claimFabricationEvents}`,
+            `</notify>`,
+          ].join('\n');
+          await agentNotifier.processAgentOutput('ops', notifyBlock);
+        }
+        json(res, 200, { success: true, ...report, alerted: report.alerts.length > 0 });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[TrustQualityMonitor] Endpoint error:', message);
         json(res, 500, { success: false, error: message });
       }
       return;

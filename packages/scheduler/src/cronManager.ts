@@ -495,6 +495,14 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     endpoint: '/planning-gate/monitor',
     enabled: true,
   },
+  // Trust quality monitor — daily evidence tier and claim fabrication alert check
+  {
+    id: 'trust-quality-monitor',
+    schedule: '15 7 * * *',    // 7:15 AM UTC daily (after planning-gate)
+    timezone: 'UTC',
+    endpoint: '/trust/monitor',
+    enabled: true,
+  },
   // Economics guardrails — daily Teams notify when ECONOMICS_ALERT_* thresholds breach
   {
     id: 'economics-guardrail-notify',
