@@ -785,6 +785,158 @@ async function getPlanningGateStage3Metrics(windowDays: 7 | 30 | 90): Promise<{
   };
 }
 
+// ─── Agent Ops Metrics ──────────────────────────────────────────────────────
+
+interface EvidenceTierBreakdown {
+  proven: number;
+  partially_proven: number;
+  self_reported: number;
+  inconsistent: number;
+  unclassified: number; // pre-migration rows with no evidence_tier
+}
+
+interface AgentOpsRow {
+  agent_role: string;
+  run_count: number;
+  avg_quality: number | null;
+  evidence_tiers: EvidenceTierBreakdown;
+  downgraded_count: number; // runs downgraded from submitted due to thin output
+  tool_failure_rate: number | null;
+}
+
+interface DirectiveSummaryRow {
+  directive_id: string;
+  title: string;
+  priority: string;
+  total_assignments: number;
+  completed: number;
+  avg_quality: number | null;
+}
+
+export async function getAgentOpsMetrics(windowDays: 7 | 30 | 90): Promise<{
+  windowDays: number;
+  generatedAt: string;
+  agentRows: AgentOpsRow[];
+  fleetEvidenceSummary: EvidenceTierBreakdown & { total: number };
+  downgradedTotal: number;
+  topDirectives: DirectiveSummaryRow[];
+}> {
+  const interval = `${windowDays} days`;
+
+  // Per-agent run counts, quality, evidence tier breakdown
+  const agentRunRows = await systemQuery<{
+    agent_role: string;
+    run_count: string;
+    avg_quality: string | null;
+    proven: string;
+    partially_proven: string;
+    self_reported: string;
+    inconsistent: string;
+    unclassified: string;
+    downgraded_count: string;
+    tool_failure_rate: string | null;
+  }>(
+    `SELECT
+       tro.agent_role,
+       COUNT(*)                                                                  AS run_count,
+       ROUND(AVG(tro.per_run_quality_score)::numeric, 2)                        AS avg_quality,
+       COUNT(*) FILTER (WHERE tro.evidence_tier = 'proven')                     AS proven,
+       COUNT(*) FILTER (WHERE tro.evidence_tier = 'partially_proven')           AS partially_proven,
+       COUNT(*) FILTER (WHERE tro.evidence_tier = 'self_reported')              AS self_reported,
+       COUNT(*) FILTER (WHERE tro.evidence_tier = 'inconsistent')               AS inconsistent,
+       COUNT(*) FILTER (WHERE tro.evidence_tier IS NULL)                        AS unclassified,
+       COUNT(*) FILTER (
+         WHERE tro.proof_of_work->>'downgrade_reason' = 'output_too_short'
+       )                                                                         AS downgraded_count,
+       ROUND(
+         (COUNT(*) FILTER (WHERE tro.tool_failure_count > 0))::numeric /
+         NULLIF(COUNT(*), 0) * 100,
+         1
+       )                                                                         AS tool_failure_rate
+     FROM task_run_outcomes tro
+    WHERE tro.created_at > NOW() - $1::interval
+    GROUP BY tro.agent_role
+    ORDER BY run_count DESC`,
+    [interval],
+  );
+
+  const agentRows: AgentOpsRow[] = (agentRunRows ?? []).map(r => ({
+    agent_role: r.agent_role,
+    run_count: parseInt(r.run_count, 10),
+    avg_quality: r.avg_quality !== null ? parseFloat(r.avg_quality) : null,
+    evidence_tiers: {
+      proven:           parseInt(r.proven, 10),
+      partially_proven: parseInt(r.partially_proven, 10),
+      self_reported:    parseInt(r.self_reported, 10),
+      inconsistent:     parseInt(r.inconsistent, 10),
+      unclassified:     parseInt(r.unclassified, 10),
+    },
+    downgraded_count: parseInt(r.downgraded_count, 10),
+    tool_failure_rate: r.tool_failure_rate !== null ? parseFloat(r.tool_failure_rate) : null,
+  }));
+
+  // Fleet-wide evidence tier summary
+  const fleetTotals = agentRows.reduce(
+    (acc, r) => {
+      acc.proven           += r.evidence_tiers.proven;
+      acc.partially_proven += r.evidence_tiers.partially_proven;
+      acc.self_reported    += r.evidence_tiers.self_reported;
+      acc.inconsistent     += r.evidence_tiers.inconsistent;
+      acc.unclassified     += r.evidence_tiers.unclassified;
+      acc.total            += r.run_count;
+      return acc;
+    },
+    { proven: 0, partially_proven: 0, self_reported: 0, inconsistent: 0, unclassified: 0, total: 0 },
+  );
+
+  const downgradedTotal = agentRows.reduce((sum, r) => sum + r.downgraded_count, 0);
+
+  // Top active directives by completion quality (up to 20)
+  const directiveRows = await systemQuery<{
+    directive_id: string;
+    title: string;
+    priority: string;
+    total_assignments: string;
+    completed: string;
+    avg_quality: string | null;
+  }>(
+    `SELECT
+       fd.id                                                              AS directive_id,
+       fd.title,
+       fd.priority,
+       COUNT(wa.id)                                                       AS total_assignments,
+       COUNT(*) FILTER (WHERE wa.status = 'completed')                   AS completed,
+       ROUND(AVG(tro.per_run_quality_score)::numeric, 2)                 AS avg_quality
+     FROM founder_directives fd
+     JOIN work_assignments wa ON wa.directive_id = fd.id
+     LEFT JOIN task_run_outcomes tro ON tro.assignment_id = wa.id
+    WHERE fd.status = 'active'
+      AND wa.created_at > NOW() - $1::interval
+    GROUP BY fd.id, fd.title, fd.priority
+    ORDER BY fd.priority, completed DESC
+    LIMIT 20`,
+    [interval],
+  );
+
+  const topDirectives: DirectiveSummaryRow[] = (directiveRows ?? []).map(r => ({
+    directive_id:      r.directive_id,
+    title:             r.title,
+    priority:          r.priority,
+    total_assignments: parseInt(r.total_assignments, 10),
+    completed:         parseInt(r.completed, 10),
+    avg_quality:       r.avg_quality !== null ? parseFloat(r.avg_quality) : null,
+  }));
+
+  return {
+    windowDays,
+    generatedAt: new Date().toISOString(),
+    agentRows,
+    fleetEvidenceSummary: fleetTotals,
+    downgradedTotal,
+    topDirectives,
+  };
+}
+
 export async function handleMetricsAdminApi(
   req: IncomingMessage,
   res: ServerResponse,
@@ -972,6 +1124,13 @@ export async function handleMetricsAdminApi(
     if (normalizedUrl === '/admin/metrics/economics-quality-overview') {
       const windowDays = parseWindow(params.get('window'));
       json(res, 200, await getEconomicsQualityOverview(windowDays));
+      return true;
+    }
+
+    // ── Agent Ops: claim-vs-evidence, run frequency, quality distribution ──
+    if (normalizedUrl === '/admin/metrics/agent-ops') {
+      const windowDays = parseWindow(params.get('window'), 7);
+      json(res, 200, await getAgentOpsMetrics(windowDays));
       return true;
     }
 
