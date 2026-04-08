@@ -1,14 +1,30 @@
+/**
+ * Glyphor Preview Worker
+ *
+ * Strategy (R2-first):
+ * 1. Extract project slug from subdomain: {slug}.preview.glyphor.ai
+ * 2. Look up deployment metadata in R2: deployments/{slug}.json
+ * 3. Proxy content from deployment_url stored in metadata
+ *    (always the canonical public Vercel URL, never auth-protected preview URLs)
+ * 4. Supabase fallback when R2 has no entry (e.g. older builds)
+ *
+ * Bindings (wrangler.toml):
+ *   R2 bucket: PREVIEW_REGISTRY → glyphor-fuse-storage
+ *
+ * Secrets (wrangler secret put):
+ *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  (for fallback)
+ */
+
 interface PreviewMetadata {
   deployment_url: string;
   preview_url?: string;
   github_repo_url?: string | null;
-  project_name?: string;
-  registered_at?: string;
+  project_name?: string | null;
+  repo_name?: string | null;
 }
 
 interface R2ObjectLike {
-  text(): Promise<string>;
-  httpEtag?: string;
+  json<T = unknown>(): Promise<T>;
 }
 
 interface R2BucketLike {
@@ -17,203 +33,215 @@ interface R2BucketLike {
 
 interface Env {
   PREVIEW_REGISTRY: R2BucketLike;
-  PREVIEW_DOMAIN?: string;
-  PREVIEW_REGISTRY_PREFIX?: string;
-  ALLOWED_ORIGIN_SUFFIX?: string;
-}
-
-interface ExecutionContextLike {
-  waitUntil(promise: Promise<unknown>): void;
-}
-
-const DEFAULT_PREVIEW_DOMAIN = 'preview.glyphor.ai';
-const DEFAULT_REGISTRY_PREFIX = 'deployments';
-const DEFAULT_ALLOWED_ORIGIN_SUFFIX = '.vercel.app';
-
-function json(data: unknown, init?: ResponseInit): Response {
-  return new Response(JSON.stringify(data, null, 2), {
-    ...init,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store',
-      ...(init?.headers ?? {}),
-    },
-  });
-}
-
-function getPreviewDomain(env: Env): string {
-  return (env.PREVIEW_DOMAIN || DEFAULT_PREVIEW_DOMAIN).trim().toLowerCase();
-}
-
-function getRegistryPrefix(env: Env): string {
-  return (env.PREVIEW_REGISTRY_PREFIX || DEFAULT_REGISTRY_PREFIX).trim().replace(/^\/+|\/+$/g, '');
-}
-
-function getAllowedOriginSuffix(env: Env): string {
-  return (env.ALLOWED_ORIGIN_SUFFIX || DEFAULT_ALLOWED_ORIGIN_SUFFIX).trim().toLowerCase();
-}
-
-function buildRegistrationKey(env: Env, slug: string): string {
-  return `${getRegistryPrefix(env)}/${slug}.json`;
-}
-
-function deriveSlug(hostname: string, previewDomain: string): string | null {
-  const host = hostname.toLowerCase();
-  if (host === previewDomain) return null;
-  const suffix = `.${previewDomain}`;
-  if (!host.endsWith(suffix)) return null;
-  const slug = host.slice(0, -suffix.length);
-  if (!slug || slug.includes('.')) return null;
-  if (!/^[a-z0-9-]+$/.test(slug)) return null;
-  return slug;
-}
-
-function normalizeDeploymentUrl(value: string, allowedOriginSuffix: string): URL {
-  const candidate = value.trim();
-  const url = new URL(candidate.startsWith('http') ? candidate : `https://${candidate}`);
-  if (url.protocol !== 'https:') {
-    throw new Error('deployment_url must use https.');
-  }
-  const hostname = url.hostname.toLowerCase();
-  if (allowedOriginSuffix && !hostname.endsWith(allowedOriginSuffix)) {
-    throw new Error(`deployment_url host must end with ${allowedOriginSuffix}.`);
-  }
-  return url;
-}
-
-async function readRegistration(env: Env, slug: string): Promise<{ metadata: PreviewMetadata; etag?: string }> {
-  const object = await env.PREVIEW_REGISTRY.get(buildRegistrationKey(env, slug));
-  if (!object) {
-    throw new Response(`No preview registration found for ${slug}.`, { status: 404 });
-  }
-
-  let parsed: PreviewMetadata;
-  try {
-    parsed = JSON.parse(await object.text()) as PreviewMetadata;
-  } catch {
-    throw new Response(`Preview registration for ${slug} is not valid JSON.`, { status: 502 });
-  }
-
-  if (!parsed.deployment_url) {
-    throw new Response(`Preview registration for ${slug} is missing deployment_url.`, { status: 502 });
-  }
-
-  return { metadata: parsed, etag: object.httpEtag };
-}
-
-function rewriteLocation(location: string, targetOrigin: URL, requestUrl: URL): string {
-  const resolved = new URL(location, targetOrigin);
-  if (resolved.origin === targetOrigin.origin) {
-    resolved.protocol = requestUrl.protocol;
-    resolved.host = requestUrl.host;
-  }
-  return resolved.toString();
-}
-
-function copyProxyHeaders(request: Request, slug: string): Headers {
-  const headers = new Headers(request.headers);
-  headers.delete('host');
-  headers.set('x-forwarded-host', new URL(request.url).host);
-  headers.set('x-glyphor-preview-slug', slug);
-  return headers;
-}
-
-function buildOriginRequest(request: Request, targetUrl: URL, slug: string): Request {
-  const init: RequestInit = {
-    method: request.method,
-    headers: copyProxyHeaders(request, slug),
-    redirect: 'manual',
-  };
-
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    init.body = request.body;
-  }
-
-  return new Request(targetUrl.toString(), init);
-}
-
-async function handleMetadata(requestUrl: URL, env: Env, slug: string): Promise<Response> {
-  const { metadata, etag } = await readRegistration(env, slug);
-  return json(
-    {
-      slug,
-      preview_domain: getPreviewDomain(env),
-      registration_key: buildRegistrationKey(env, slug),
-      ...metadata,
-    },
-    {
-      status: 200,
-      headers: etag ? { etag } : undefined,
-    },
-  );
-}
-
-async function handleProxy(request: Request, env: Env, slug: string): Promise<Response> {
-  const { metadata } = await readRegistration(env, slug);
-  const requestUrl = new URL(request.url);
-  const targetOrigin = normalizeDeploymentUrl(metadata.deployment_url, getAllowedOriginSuffix(env));
-  const targetUrl = new URL(requestUrl.pathname + requestUrl.search, targetOrigin);
-
-  const originResponse = await fetch(buildOriginRequest(request, targetUrl, slug));
-  const responseHeaders = new Headers(originResponse.headers);
-  responseHeaders.set('x-robots-tag', 'noindex, nofollow');
-  responseHeaders.set('x-glyphor-preview-slug', slug);
-  responseHeaders.set('cache-control', 'no-store');
-
-  const location = responseHeaders.get('location');
-  if (location) {
-    responseHeaders.set('location', rewriteLocation(location, targetOrigin, requestUrl));
-  }
-
-  return new Response(originResponse.body, {
-    status: originResponse.status,
-    statusText: originResponse.statusText,
-    headers: responseHeaders,
-  });
-}
-
-async function routeRequest(request: Request, env: Env): Promise<Response> {
-  const requestUrl = new URL(request.url);
-  const previewDomain = getPreviewDomain(env);
-  const slug = deriveSlug(requestUrl.hostname, previewDomain);
-
-  if (requestUrl.pathname === '/__preview/health') {
-    return json({ ok: true, preview_domain: previewDomain, hostname: requestUrl.hostname });
-  }
-
-  if (!slug) {
-    return json(
-      {
-        ok: false,
-        error: `Expected a hostname like <slug>.${previewDomain}.`,
-      },
-      { status: 404 },
-    );
-  }
-
-  if (requestUrl.pathname === '/__preview/meta') {
-    return handleMetadata(requestUrl, env, slug);
-  }
-
-  return handleProxy(request, env, slug);
+  SUPABASE_URL?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
 export default {
-  async fetch(request: Request, env: Env, _ctx: ExecutionContextLike): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: getCorsHeaders() });
+    }
+
+    const url = new URL(request.url);
+    const projectSlug = extractProjectSlug(url.hostname);
+
+    if (!projectSlug) {
+      return Response.redirect('https://glyphor.ai', 302);
+    }
+
+    console.log(`[Preview Worker] Request for slug: ${projectSlug}`);
+
     try {
-      return await routeRequest(request, env);
-    } catch (error) {
-      if (error instanceof Response) {
-        return error;
+      if (!env.PREVIEW_REGISTRY) {
+        console.error('[Preview Worker] ❌ PREVIEW_REGISTRY R2 bucket not bound');
+        return htmlResponse(generateErrorPage(projectSlug, '500 - Configuration Error', null), 500);
       }
 
-      return json(
-        {
-          ok: false,
-          error: error instanceof Error ? error.message : 'Unexpected preview worker error.',
-        },
-        { status: 500 },
-      );
+      // R2 primary lookup
+      let metadata = await getMetadataFromR2(projectSlug, env.PREVIEW_REGISTRY);
+
+      // Supabase fallback
+      if (!metadata?.deployment_url && env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+        metadata = await getMetadataFromSupabase(projectSlug, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+      }
+
+      if (!metadata?.deployment_url) {
+        console.error(`[Preview Worker] ❌ No metadata for slug: ${projectSlug}`);
+        return htmlResponse(generateErrorPage(projectSlug, 'Deployment Not Found', null, true), 404);
+      }
+
+      // Validate preview_url matches incoming request
+      const incomingOrigin = `${url.protocol}//${url.hostname}`.replace(/\/$/, '');
+      const metadataOrigin = String(metadata.preview_url ?? '').replace(/\/$/, '');
+      if (metadataOrigin && metadataOrigin !== incomingOrigin) {
+        console.error(`[Preview Worker] ❌ preview_url mismatch: request=${incomingOrigin} metadata=${metadataOrigin}`);
+        return htmlResponse(generateErrorPage(projectSlug, 'Preview Mapping Mismatch', metadata.github_repo_url ?? null), 409);
+      }
+
+      const targetUrl = new URL(metadata.deployment_url);
+      targetUrl.pathname = url.pathname;
+      targetUrl.search = url.search;
+
+      console.log(`[Preview Worker] ✅ Proxying to: ${targetUrl}`);
+
+      let upstream = await fetch(targetUrl.toString(), {
+        headers: { 'User-Agent': request.headers.get('User-Agent') ?? 'Glyphor-Preview-Worker/1.0' },
+      });
+
+      // 401 resilience: retry against canonical Vercel domain
+      if (upstream.status === 401) {
+        const canonical = buildCanonicalVercelUrl(metadata, projectSlug, url);
+        if (canonical && canonical !== targetUrl.toString()) {
+          console.warn(`[Preview Worker] ⚠️ 401, retrying canonical: ${canonical}`);
+          upstream = await fetch(canonical, {
+            headers: { 'User-Agent': request.headers.get('User-Agent') ?? 'Glyphor-Preview-Worker/1.0' },
+          });
+        }
+      }
+
+      if (!upstream.ok) {
+        console.error(`[Preview Worker] ❌ Upstream ${upstream.status}`);
+        return htmlResponse(generateErrorPage(projectSlug, '404 - Project Not Found', metadata.github_repo_url ?? null), 404);
+      }
+
+      const contentType = upstream.headers.get('Content-Type') ?? 'text/html';
+      const isBinary = /^(image|audio|video|font)\//.test(contentType)
+        || /octet-stream|pdf|zip|wasm/.test(contentType);
+
+      const body = isBinary ? await upstream.arrayBuffer() : await upstream.text();
+
+      return new Response(body, {
+        status: upstream.status,
+        headers: { ...getResponseHeaders(contentType), 'X-Content-Type-Options': 'nosniff' },
+      });
+
+    } catch (err) {
+      console.error('[Preview Worker] ❌ Unhandled error:', err);
+      return htmlResponse(generateErrorPage(projectSlug, '500 - Internal Server Error', null), 500);
     }
   },
 };
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function extractProjectSlug(hostname: string): string | null {
+  const match = hostname.match(/^([^.]+)\.preview\.glyphor\.ai$/);
+  return match ? match[1] : null;
+}
+
+async function getMetadataFromR2(slug: string, bucket: R2BucketLike): Promise<PreviewMetadata | null> {
+  try {
+    const key = `deployments/${slug}.json`;
+    console.log(`[Preview Worker] R2 lookup: ${key}`);
+    const obj = await bucket.get(key);
+    if (!obj) { console.log(`[Preview Worker] R2 miss: ${key}`); return null; }
+    const data = await obj.json<PreviewMetadata>();
+    console.log(`[Preview Worker] ✅ R2 hit: ${slug}`);
+    return data;
+  } catch (e) {
+    console.error('[Preview Worker] R2 error:', e);
+    return null;
+  }
+}
+
+async function getMetadataFromSupabase(slug: string, url: string, key: string): Promise<PreviewMetadata | null> {
+  const tryFetch = async (previewUrl: string): Promise<PreviewMetadata | null> => {
+    const q = `?preview_url=eq.${encodeURIComponent(previewUrl)}&select=deployment_url,preview_url,github_repo_url,project_name`;
+    const res = await fetch(`${url}/rest/v1/ask_conversations${q}`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as PreviewMetadata[];
+    return data?.[0]?.deployment_url ? data[0] : null;
+  };
+
+  try {
+    const exact = await tryFetch(`https://${slug}.preview.glyphor.ai`);
+    if (exact) { console.log(`[Preview Worker] ✅ Supabase hit: ${slug}`); return exact; }
+
+    // Normalize slug and retry
+    const normalized = slug.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').replace(/--+/g, '-');
+    if (normalized !== slug) {
+      const norm = await tryFetch(`https://${normalized}.preview.glyphor.ai`);
+      if (norm) { console.log(`[Preview Worker] ✅ Supabase hit (normalized): ${slug} → ${normalized}`); return norm; }
+    }
+    return null;
+  } catch (e) {
+    console.warn('[Preview Worker] Supabase fallback error:', e);
+    return null;
+  }
+}
+
+function buildCanonicalVercelUrl(metadata: PreviewMetadata, slug: string, incomingUrl: URL): string | null {
+  try {
+    const candidates = [metadata.repo_name, metadata.project_name, slug].filter(Boolean) as string[];
+    for (const raw of candidates) {
+      const n = raw.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').replace(/--+/g, '-');
+      if (!n) continue;
+      const u = new URL(incomingUrl.toString());
+      u.hostname = `${n}.vercel.app`;
+      return u.toString();
+    }
+  } catch (e) {
+    console.warn('[Preview Worker] canonical URL build failed:', e);
+  }
+  return null;
+}
+
+function getCorsHeaders(): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
+
+function getResponseHeaders(contentType: string): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': contentType, ...getCorsHeaders() };
+  if (contentType.includes('text/html')) {
+    headers['X-Frame-Options'] = 'ALLOWALL';
+    headers['Content-Security-Policy'] = "frame-ancestors *; default-src * 'unsafe-inline' 'unsafe-eval' data: blob:";
+  }
+  return headers;
+}
+
+function htmlResponse(body: string, status: number): Response {
+  return new Response(body, { status, headers: getResponseHeaders('text/html') });
+}
+
+function generateErrorPage(slug: string, message: string, repoUrl: string | null, showTroubleshoot = false): string {
+  const troubleshoot = showTroubleshoot
+    ? `<p><strong>Just built?</strong> Wait 1–2 min for R2 to update, then refresh.</p>
+       <p><strong>Otherwise:</strong> Check that Cloud Run has R2 secrets and the build pipeline completed.</p>`
+    : '';
+  const repoLink = repoUrl ? `<p><a href="${repoUrl}" target="_blank">View on GitHub</a></p>` : '';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview Not Found — ${slug}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0;
+           background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; }
+    .box { text-align:center; padding:2rem; max-width:560px; }
+    h1 { font-size:2.2rem; margin-bottom:1rem; }
+    p  { font-size:1rem; opacity:.9; text-align:left; margin-bottom:.75rem; }
+    .slug { font-size:.9rem; opacity:.6; margin-top:1.5rem; }
+    a { color:white; }
+    code { background:rgba(0,0,0,.2); padding:.1em .3em; border-radius:3px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>🚫 ${message}</h1>
+    <p>No deployment found for this preview.</p>
+    ${troubleshoot}${repoLink}
+    <div class="slug">Slug: ${slug}</div>
+  </div>
+</body>
+</html>`;
+}
+

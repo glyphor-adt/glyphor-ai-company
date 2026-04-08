@@ -3,10 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2026-03-31"
 workers_dev = true
 
-[vars]
-PREVIEW_DOMAIN = "preview.glyphor.ai"
-PREVIEW_REGISTRY_PREFIX = "deployments"
-ALLOWED_ORIGIN_SUFFIX = ".vercel.app"
+# Secrets (set via: wrangler secret put <NAME>)
+# SUPABASE_URL
+# SUPABASE_SERVICE_ROLE_KEY
 
 [[routes]]
 pattern = "*.preview.glyphor.ai/*"
