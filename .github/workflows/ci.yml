@@ -23,6 +23,7 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - run: npx turbo build --filter=@glyphor/agent-runtime
       - run: npm run validate:skills
       - run: npx turbo build
       - run: npx turbo test
