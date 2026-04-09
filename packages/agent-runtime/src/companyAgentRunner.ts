@@ -216,6 +216,20 @@ const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = Math.max(120_000, Number(proces
 const ON_DEMAND_TOOL_ONLY_ACK =
   'Working on it now.';
 
+/** Roles that commonly run multi-minute web-build tool chains in dashboard chat. */
+const ON_DEMAND_WEB_PIPELINE_ROLES = new Set<string>(['vp-design', 'frontend-engineer', 'template-architect']);
+
+function onDemandToolGating(role: string): {
+  maxToolTurn: number;
+  elapsedStripRatio: number;
+  penultimateElapsedLow: number;
+} {
+  if (ON_DEMAND_WEB_PIPELINE_ROLES.has(role)) {
+    return { maxToolTurn: 14, elapsedStripRatio: 0.92, penultimateElapsedLow: 0.82 };
+  }
+  return { maxToolTurn: 6, elapsedStripRatio: 0.55, penultimateElapsedLow: 0.45 };
+}
+
 const CHIEF_OF_STAFF_REFLECTION_PROMPT = `
 You are reflecting on your recent orchestration performance as Chief of Staff.
 You must be CRITICAL and HONEST. Self-congratulation is a failure mode.
@@ -2120,10 +2134,8 @@ Rules:
           const isOnDemand = task === 'on_demand';
 
           // ─── SMART TOOL GATING (on_demand / task) ────────────────
-          // on_demand: time-aware gating. The model gets tools on early turns
-          //   BUT if we've used >55% of the time budget, strip tools immediately
-          //   to force a text response before the supervisor times out.
-          //   Also strip after turn 3 regardless.
+          // on_demand: strip tools late to force a text wrap-up before timeout.
+          // Default: after turn 6 or >55% elapsed. Web-pipeline roles (Mia, Ava, …): wider window.
           // task tier: strip tools on last turn to force a text response.
           // Scheduled: full tool access every turn.
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
@@ -2156,11 +2168,15 @@ Rules:
             }
           }
           const elapsedRatio = supervisor.elapsedMs / supervisor.config.timeoutMs;
+          const odGate = onDemandToolGating(config.role);
           const isLastTurn = isOnDemand
-            ? (turnNumber > 6 || elapsedRatio > 0.55)
+            ? (turnNumber > odGate.maxToolTurn || elapsedRatio > odGate.elapsedStripRatio)
             : isTaskTier && turnNumber >= supervisor.config.maxTurns;
           const isPenultimateTurn = !isLastTurn && (
-            (isOnDemand && (turnNumber === 6 || (elapsedRatio > 0.45 && elapsedRatio <= 0.55))) ||
+            (isOnDemand && (
+              turnNumber === odGate.maxToolTurn
+              || (elapsedRatio > odGate.penultimateElapsedLow && elapsedRatio <= odGate.elapsedStripRatio)
+            )) ||
             (isTaskTier && turnNumber === supervisor.config.maxTurns - 1)
           );
 

@@ -664,7 +664,9 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'cpo':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
   'cmo':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
   'vp-sales':             { perRunUsd: 0.08, dailyUsd: 1.50, monthlyUsd: 45 },
-  'vp-design':            { perRunUsd: 0.08, dailyUsd: 1.50, monthlyUsd: 45 },
+  // VP Design runs web pipeline tools (invoke_web_build, foundation, etc.); each is ~$0.02 in the
+  // estimator vs former perRunUsd 0.08, which blocked builds after a handful of prior tool calls.
+  'vp-design':            { perRunUsd: 1.00, dailyUsd: 5.00, monthlyUsd: 150 },
   // ── Ops (Atlas): Always-hot tier ──
   'ops':                  { perRunUsd: 0.08, dailyUsd: 3.00, monthlyUsd: 90 },
   // ── Sub-team: Standard 24/7 budgets ──
