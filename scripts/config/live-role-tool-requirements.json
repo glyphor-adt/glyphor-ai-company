@@ -4,6 +4,7 @@
       "description": "Web pipeline + preview — VP Design",
       "required": [
         "normalize_design_brief",
+        "build_website_foundation",
         "plan_website_build",
         "invoke_web_build",
         "invoke_web_iterate",
@@ -97,6 +98,7 @@
         "reply_to_email",
         "send_email",
         "normalize_design_brief",
+        "build_website_foundation",
         "invoke_web_build"
       ]
     },
