@@ -23,7 +23,6 @@ import type { TranscriptEntry, VoiceToolDeclaration } from './types.js';
 export interface AudioBridgeOptions {
   sessionId: string;
   agentRole: CompanyAgentRole;
-  openaiApiKey: string;
   tools: ToolDefinition[];
   promptContext?: VoicePromptContext;
   /** Called for each transcription event (user or agent speech) */
@@ -42,7 +41,6 @@ export class TeamsAudioBridge {
   private mediaWs: WebSocket | null = null;
   private sessionId: string;
   private agentRole: CompanyAgentRole;
-  private openaiApiKey: string;
   private tools: ToolDefinition[];
   private voiceConfig: ReturnType<typeof getAgentVoiceConfig>;
   private systemPrompt: string;
@@ -55,7 +53,6 @@ export class TeamsAudioBridge {
   constructor(opts: AudioBridgeOptions) {
     this.sessionId = opts.sessionId;
     this.agentRole = opts.agentRole;
-    this.openaiApiKey = opts.openaiApiKey;
     this.tools = opts.tools;
     this.voiceConfig = getAgentVoiceConfig(opts.agentRole);
     this.systemPrompt = buildVoiceSystemPrompt(this.voiceConfig, opts.promptContext);

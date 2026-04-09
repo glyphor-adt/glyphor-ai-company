@@ -60,7 +60,6 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
   });
   const modelClient = new ModelClient({
     geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    openaiApiKey: process.env.OPENAI_API_KEY,
   });
   const runner = createRunner(modelClient, 'vp-research', params.task ?? 'on_demand');
   const eventBus = new EventBus();

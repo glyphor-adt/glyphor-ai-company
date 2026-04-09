@@ -238,7 +238,6 @@ export function createRunDeps(
   // Context distiller — compresses raw JIT results into focused briefings
   const distillerModelClient = new ModelClient({
     geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    openaiApiKey: process.env.OPENAI_API_KEY,
   });
   const contextDistiller = new ContextDistiller(distillerModelClient, cache);
 
@@ -261,9 +260,7 @@ export function createRunDeps(
     const config = await ReasoningEngine.loadConfig(agentRole, cache);
     if (!config || !config.enabled) return null;
     const modelClient = new ModelClient({
-      geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-      openaiApiKey: process.env.OPENAI_API_KEY,
-    });
+      geminiApiKey: process.env.GOOGLE_AI_API_KEY,    });
     return new ReasoningEngine(modelClient, config, cache);
   };
 

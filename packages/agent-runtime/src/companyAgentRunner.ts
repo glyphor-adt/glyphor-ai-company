@@ -15,6 +15,7 @@ import { AgentSupervisor } from './supervisor.js';
 import {
   applyWorkloadReadsProgressAndStallFloor,
   reserveSupervisorWrapUpTurnForWorkload,
+  SCHEDULED_TOOL_EXECUTION_TASKS,
 } from './supervisorWorkloadStallPolicy.js';
 import { enqueueWorkloadContinuationWakeIfBudgetHit } from './continuationWake.js';
 import { extractReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
@@ -1973,6 +1974,9 @@ export class CompanyAgentRunner {
           applyWorkloadReadsProgressAndStallFloor(supervisor.config);
         } else if (task === 'process_assignments') {
           // Same stall headroom as task tier; keep agent-config maxTurns/timeout (sweeps can be long).
+          applyWorkloadReadsProgressAndStallFloor(supervisor.config);
+        } else if (SCHEDULED_TOOL_EXECUTION_TASKS.has(task)) {
+          // Successful reads count as progress; min stall cap matches reactive workloads (CMO runs often used maxStallTurns: 3).
           applyWorkloadReadsProgressAndStallFloor(supervisor.config);
         } else if (usesThinking) {
           // Thinking-enabled scheduled tasks: ensure at least 10 min

@@ -35,7 +35,7 @@ export async function runDesignCritic(params: DesignCriticRunParams = {}) {
   const memory = new CompanyMemoryStore({
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
   });
-  const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY });
+  const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY });
   const runner = createRunner(modelClient, 'design-critic', params.task ?? 'on_demand');
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({});

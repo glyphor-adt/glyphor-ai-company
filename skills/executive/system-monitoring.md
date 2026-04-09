@@ -52,7 +52,7 @@ Beyond scheduled runs, you're woken by events:
 
 ### Data Pipeline Health
 
-Six nightly sync pipelines feed the `financials` table and other data stores. If these fail, agents make decisions on stale data without knowing it.
+Nightly sync jobs keep the `financials` table and other data stores current. If these fail, agents make decisions on stale data without knowing it.
 
 `get_data_freshness` — check when each critical table was last updated:
 
@@ -63,7 +63,6 @@ Six nightly sync pipelines feed the `financials` table and other data stores. If
 | Mercury sync | < 24 hours | `financials` |
 | OpenAI billing sync | < 24 hours | `financials` |
 | Anthropic billing sync | < 24 hours | `financials` |
-| Kling billing sync | < 24 hours | `financials` |
 | SharePoint knowledge sync | < 24 hours | `company_knowledge` |
 | GraphRAG index | < 7 days | `kg_nodes`, `kg_edges` |
 

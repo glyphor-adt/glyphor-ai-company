@@ -113,9 +113,7 @@ export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Pro
       return report;
     }
 
-    const judgeClient = new ModelClient({
-      openaiApiKey: process.env.OPENAI_API_KEY,
-      geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    const judgeClient = new ModelClient({      geminiApiKey: process.env.GOOGLE_AI_API_KEY,
       anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     });
 

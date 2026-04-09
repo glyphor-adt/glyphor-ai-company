@@ -1,15 +1,9 @@
-# On CI failure, dispatch to Glyphor scheduler → Cloud Tasks → worker → agent (default vp-design / Mia).
-# Ships with pr-auto-merge.yml in this repo. For Fuse / Vercel site repos, copy both files from
-# templates/website-repo-github/.github/workflows/ (name your main workflow "CI", or edit workflow_run.workflows).
+# Copy to site repo as .github/workflows/ci-self-heal-dispatch.yml
+# Your main workflow must be named "CI" OR edit workflow_run.workflows below.
 #
-# Repository secrets (Settings → Secrets):
-#   GLYPHOR_CI_HEAL_URL   — production: https://glyphor-scheduler-v55622rp6q-uc.a.run.app/webhook/ci-heal
-#                           (derive any time: gcloud run services describe glyphor-scheduler --region=us-central1 --project=ai-glyphor-company --format='value(status.url)' then append /webhook/ci-heal)
-#   GLYPHOR_CI_HEAL_SECRET — must match Cloud Run CI_HEAL_WEBHOOK_SECRET (Secret Manager: ci-heal-webhook-secret).
-# Sync from GCP to GitHub: scripts/sync-github-ci-heal-secrets.sh [owner/repo ...]
-#
-# Cloud Run (glyphor-scheduler): set CI_HEAL_WEBHOOK_SECRET (Secret Manager recommended).
-# Optional: CI_HEAL_AGENT_ROLE — default vp-design; use cto for engineering-only triage.
+# Secrets (sync via glyphor-ai-company/scripts/sync-github-ci-heal-secrets.sh):
+#   GLYPHOR_CI_HEAL_URL=https://glyphor-scheduler-v55622rp6q-uc.a.run.app/webhook/ci-heal  (hostname may change after redeploy — re-sync script pulls current URL)
+#   GLYPHOR_CI_HEAL_SECRET  (Secret Manager ci-heal-webhook-secret, same as scheduler env)
 
 name: CI self-heal dispatch
 

@@ -4,13 +4,10 @@
  * Provides real web search capability for agent research threads.
  * Uses OpenAI's Responses API with web search to perform grounded searches.
  *
- * Prefers Azure OpenAI when endpoint + key are set; otherwise direct OpenAI:
- *   Azure (preferred when configured):
+ * Azure OpenAI / Foundry only (no api.openai.com):
  *     AZURE_OPENAI_ENDPOINT or AZURE_FOUNDRY_ENDPOINT — e.g. https://my-resource.openai.azure.com
  *     AZURE_OPENAI_API_KEY or AZURE_FOUNDRY_API — API key
  *     WEB_SEARCH_AZURE_DEPLOYMENT (optional) — deployment name (default: gpt-5.4-mini)
- *   Direct OpenAI (fallback):
- *     OPENAI_API_KEY — direct API key
  */
 
 /* ── Types ──────────────────────────────────── */

@@ -1104,7 +1104,7 @@ export function createPlatformIntelTools(): ToolDefinition[] {
       parameters: {
         env_vars: {
           type: 'array',
-          description: 'List of env var names to check (e.g. ["GOOGLE_AI_API_KEY", "OPENAI_API_KEY"])',
+          description: 'List of env var names to check (e.g. ["GOOGLE_AI_API_KEY", "AZURE_FOUNDRY_API"])',
           required: true,
         },
       },

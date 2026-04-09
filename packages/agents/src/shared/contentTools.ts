@@ -11,15 +11,12 @@
  *   publish_content           — Move a non-social draft to published status
  *   get_content_metrics       — Read content performance metrics
  *   get_content_calendar      — View content pipeline by status and date
- *   generate_content_image    — Generate image for content using DALL-E 3
+ *   generate_content_image    — Generate image for content using Gemini Imagen 4
  */
 
 import type { CompanyAgentRole, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
-
-const PRISM_STYLE_AUGMENT =
-  'Use the Glyphor Prism brand palette: deep indigo (#1E1B4B), electric violet (#7C3AED), ' +
-  'soft lavender (#C4B5FD), crisp white (#FFFFFF). Clean, modern, geometric style with subtle gradients.';
+import { generateImageWithImagen } from './assetTools.js';
 
 const CONTENT_APPROVERS = new Set<CompanyAgentRole>(['cmo', 'chief-of-staff']);
 
@@ -840,7 +837,7 @@ export function createContentTools(): ToolDefinition[] {
 
     {
       name: 'generate_content_image',
-      description: 'Generate an image for content using DALL-E 3. Optionally constrain to Glyphor brand palette.',
+      description: 'Generate an image for content using Gemini Imagen 4 (GOOGLE_AI_API_KEY or GEMINI_API_KEY). Optionally constrain to Glyphor brand palette.',
       parameters: {
         prompt: {
           type: 'string',
@@ -866,57 +863,13 @@ export function createContentTools(): ToolDefinition[] {
         },
       },
       execute: async (params): Promise<ToolResult> => {
-        try {
-          const apiKey = process.env.OPENAI_API_KEY;
-          if (!apiKey) {
-            return { success: false, error: 'OPENAI_API_KEY not configured' };
-          }
-
-          const style = (params.style as string) || 'illustration';
-          const dimensions = (params.dimensions as string) || '1024x1024';
-          const brandConstrained = params.brand_constrained ?? false;
-
-          let finalPrompt = `${params.prompt as string} (style: ${style})`;
-          if (brandConstrained) {
-            finalPrompt = `${finalPrompt}. ${PRISM_STYLE_AUGMENT}`;
-          }
-
-          const res = await fetch('https://api.openai.com/v1/images/generations', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: 'gpt-image-1.5-2025-12-16',
-              prompt: finalPrompt,
-              size: dimensions,
-              quality: 'standard',
-              n: 1,
-            }),
-            signal: AbortSignal.timeout(60_000),
-          });
-
-          if (!res.ok) {
-            return { success: false, error: `DALL-E API returned ${res.status}: ${await res.text()}` };
-          }
-
-          const data = await res.json() as Record<string, unknown>;
-          const images = data.data as Array<Record<string, unknown>> | undefined;
-          const image = images?.[0];
-          return {
-            success: true,
-            data: {
-              url: image?.url,
-              revised_prompt: image?.revised_prompt,
-              dimensions,
-              style,
-              brand_constrained: brandConstrained,
-            },
-          };
-        } catch (err) {
-          return { success: false, error: `generate_content_image failed: ${(err as Error).message}` };
-        }
+        const result = await generateImageWithImagen({
+          prompt: params.prompt as string,
+          style: params.style as string | undefined,
+          dimensions: params.dimensions as string | undefined,
+          brand_constrained: params.brand_constrained as boolean | undefined,
+        });
+        return result;
       },
     },
   ];

@@ -38,7 +38,6 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
 
   const modelClient = new ModelClient({
     geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    openaiApiKey: process.env.OPENAI_API_KEY,
   });
   const runner = createRunner(modelClient, 'devops-engineer', params.task ?? 'on_demand');
   const eventBus = new EventBus();

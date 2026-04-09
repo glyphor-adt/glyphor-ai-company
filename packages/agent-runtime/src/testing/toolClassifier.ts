@@ -59,7 +59,7 @@ const CLASSIFICATION_RULES: Array<{
 
   // ── EXTERNAL API (calls third-party services) ─────────────────────────────
   {
-    pattern: /slack|teams|github|stripe|mercury|figma|canva|vercel|linear|notion|hubspot|salesforce|mailchimp|twilio|sendgrid|kling|synthesia|mcp_|agent365|entra/i,
+    pattern: /slack|teams|github|stripe|mercury|figma|canva|vercel|linear|notion|hubspot|salesforce|mailchimp|twilio|sendgrid|synthesia|mcp_|agent365|entra/i,
     tier: 'external_api',
     strategy: 'probe',
   },
@@ -273,7 +273,7 @@ const CLASSIFICATION_RULES: Array<{
 
   // ── CREATIVE / AI GENERATION TOOLS ────────────────────────────────────────
   {
-    pattern: /^kling_|synthesize_video|generate_image|generate_video|render_video/i,
+    pattern: /synthesize_video|generate_image|generate_video|render_video/i,
     tier: 'external_api',
     strategy: 'probe',
     notes: 'AI media generation — expensive, probe only',

@@ -98,11 +98,11 @@ export const tools: ToolDefinition[] = [
   // ── API Billing ──────────────────────────────────────────
   {
     name: 'query_api_billing',
-    description: 'Query external API costs (OpenAI, Anthropic, Kling, etc.) by provider and service.',
+      description: 'Query external API costs (OpenAI, Anthropic, etc.) by provider and service.',
     inputSchema: {
       type: 'object',
       properties: {
-        provider: { type: 'string', description: 'Filter by API provider (openai, anthropic, kling).' },
+        provider: { type: 'string', description: 'Filter by API provider (openai, anthropic).' },
         service: { type: 'string', description: 'Filter by model/service name (gpt-4o, claude-sonnet-4-20250514, etc.).' },
         product: { type: 'string', description: 'Filter by product (pulse, web-build, glyphor-ai-company).' },
         since: { type: 'string', description: 'Only return records after this ISO-8601 timestamp.' },

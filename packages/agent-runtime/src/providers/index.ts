@@ -18,8 +18,6 @@ import { OpenAIAdapter } from './openai.js';
 
 export interface ProviderFactoryConfig {
   geminiApiKey?: string;
-  /** Deprecated: direct OpenAI API key is intentionally ignored by policy. */
-  openaiApiKey?: string;
   /** Azure Foundry endpoint, e.g. https://my-resource.openai.azure.com */
   azureFoundryEndpoint?: string;
   /** Azure Foundry API key. When set with azureFoundryEndpoint, routes OpenAI calls through Azure. */
@@ -50,9 +48,15 @@ export class ProviderFactory {
   private create(provider: ModelProvider): ProviderAdapter {
     switch (provider) {
       case 'gemini': {
-        const directGeminiKey = (this.config.geminiApiKey ?? process.env.GOOGLE_AI_API_KEY)?.trim();
+        const directGeminiKey = (
+          this.config.geminiApiKey
+          ?? process.env.GOOGLE_AI_API_KEY
+          ?? process.env.GEMINI_API_KEY
+        )?.trim();
 
-        if (!directGeminiKey) throw new Error('Gemini not configured — set GOOGLE_AI_API_KEY for direct access');
+        if (!directGeminiKey) {
+          throw new Error('Gemini not configured — set GOOGLE_AI_API_KEY or GEMINI_API_KEY');
+        }
         return new GeminiAdapter({ apiKey: directGeminiKey });
       }
       case 'openai': {

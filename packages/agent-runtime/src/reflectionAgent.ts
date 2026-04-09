@@ -132,7 +132,6 @@ export async function reflect(
 
   const modelClient = new ModelClient({
     geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    openaiApiKey: process.env.OPENAI_API_KEY,
   });
 
   try {

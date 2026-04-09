@@ -15,6 +15,18 @@ export const REACTIVE_STALL_FLOOR_TASKS = new Set([
 ]);
 
 /**
+ * Scheduled CMO-style jobs whose prompts assume tools from turn 1.
+ * If planning mode is left on (env/DB), the runner strips tools during the JSON plan phase
+ * and the model often produces zero tool_call rows → supervisor "stalled" abort.
+ */
+export const SCHEDULED_TOOL_EXECUTION_TASKS = new Set([
+  'weekly_content_planning',
+  'generate_content',
+  'seo_analysis',
+  'content_planning_cycle',
+]);
+
+/**
  * Scheduled workload tasks (work_loop, proactive, process_assignments) should treat
  * successful read-only tool calls as progress so triage does not trip the stall
  * abort. Also raises the minimum consecutive no-progress turn cap.

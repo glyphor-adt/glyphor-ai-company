@@ -11,7 +11,7 @@ const newContent = `GCP Cloud Run, Cloud SQL PostgreSQL, Cloud Scheduler, Cloud 
 
 All secrets and integrations below are ALREADY PROVISIONED in GCP Secret Manager and mounted as environment variables on every Cloud Run service. Do NOT create assignments to "add" or "configure" these — they are live and working.
 
-AI & API keys: GOOGLE_AI_API_KEY, OPENAI_API_KEY, AZURE_FOUNDRY_ENDPOINT, AZURE_FOUNDRY_API
+AI & API keys: GOOGLE_AI_API_KEY, AZURE_FOUNDRY_ENDPOINT, AZURE_FOUNDRY_API
 Database: DB_HOST, DB_NAME, DB_USER, DB_PASSWORD (Cloud SQL PostgreSQL)
 GitHub: GITHUB_TOKEN (PAT with repo access), GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_INSTALLATION_ID, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
 Microsoft 365 / Teams: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, TEAMS_TEAM_ID, all TEAMS_CHANNEL_* IDs, TEAMS_USER_* IDs, AGENT365_* credentials

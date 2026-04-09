@@ -956,11 +956,6 @@
   },
   {
     "agent_role": "cmo",
-    "tool_name": "pulse_kling_multi_shot",
-    "count": 1
-  },
-  {
-    "agent_role": "cmo",
     "tool_name": "pulse_list_brand_kits",
     "count": 1
   },
@@ -2156,11 +2151,6 @@
   },
   {
     "agent_role": "content-creator",
-    "tool_name": "pulse_kling_multi_shot",
-    "count": 1
-  },
-  {
-    "agent_role": "content-creator",
     "tool_name": "pulse_list_brand_kits",
     "count": 1
   },
@@ -3157,11 +3147,6 @@
   {
     "agent_role": "social-media-manager",
     "tool_name": "pulse_get_storyboard",
-    "count": 1
-  },
-  {
-    "agent_role": "social-media-manager",
-    "tool_name": "pulse_kling_multi_shot",
     "count": 1
   },
   {

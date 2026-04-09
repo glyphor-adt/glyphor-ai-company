@@ -1294,7 +1294,7 @@ ModelClient.generate(request)
 | Provider | Model Prefixes | Auth Env Var | Adapter | Features |
 |----------|---------------|--------------|---------|----------|
 | Google Gemini | `gemini-*` | `GOOGLE_AI_API_KEY` | `GeminiAdapter` | Function calling, thinkingLevel (3.x) / thinkingBudget (2.5), thought signatures, Imagen image gen |
-| OpenAI | `gpt-*`, `o1-*`, `o3-*`, `o4-*` | `OPENAI_API_KEY` | `OpenAIAdapter` | Function calling, reasoning_effort (o-series/GPT-5), max_completion_tokens, gpt-image-1 |
+| OpenAI (Azure) | `gpt-*`, `o1-*`, `o3-*`, `o4-*` | `AZURE_FOUNDRY_*` / `AZURE_OPENAI_*` | `OpenAIAdapter` | Function calling, reasoning_effort (o-series/GPT-5), max_completion_tokens |
 | Anthropic | `claude-*` | `ANTHROPIC_API_KEY` | `AnthropicAdapter` | Tool use, extended thinking (manual or adaptive for claude-opus-4-6) |
 
 All agents currently use **`gemini-3-flash-preview`**. Multi-provider support is built in for fallback.

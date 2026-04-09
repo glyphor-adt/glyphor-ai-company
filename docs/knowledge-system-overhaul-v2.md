@@ -562,7 +562,7 @@ CFO: Nadia Okafor (solo — no sub-team analysts currently).
 - Stripe: MRR, churn, subscriptions (daily sync midnight CT)
 - Mercury: Cash balance, flows, vendor subs (daily sync 2 AM CT)
 - GCP BigQuery: Compute billing (daily sync 1 AM CT)
-- OpenAI/Anthropic/Kling: AI billing (daily sync 3 AM CT)
+- OpenAI/Anthropic/Google (Gemini): AI billing (daily sync 3 AM CT)
 
 ## Cost Monitoring
 Per-agent budget caps enforced. Nadia runs daily cost analysis (9 AM CT) and afternoon anomaly catch (3 PM CT).

@@ -1,0 +1,77 @@
+# Copy this folder into a site repo root, or copy only this file to .github/workflows/pr-auto-merge.yml
+# Mirror of glyphor-ai-company/.github/workflows/pr-auto-merge.yml — sync when that file changes.
+
+# Enables GitHub auto-merge (squash + delete head branch) for eligible PRs once branch protection + checks pass.
+# Requires: Settings → General → "Allow auto-merge" ON, and "Automatically delete head branches" ON (recommended).
+#
+# Eligible PRs: base = default branch, not draft, and (head ref is feature/*, copilot/*, dependabot/* — or author is a GitHub App/bot).
+# Uses `gh pr merge --auto` so Vercel and every other required check is respected (not only checks named CI/Build).
+
+name: PR auto-merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  check_suite:
+    types: [completed]
+
+concurrency:
+  group: pr-auto-merge-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    if: >-
+      (
+        github.event_name != 'check_suite' ||
+        (
+          github.event.check_suite.head_branch != github.event.repository.default_branch &&
+          github.event.check_suite.head_sha != ''
+        )
+      ) &&
+      (
+        (github.event_name != 'pull_request' && github.event_name != 'pull_request_review') ||
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge on eligible open PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          BASE=$(gh api "repos/${REPO}" --jq '.default_branch // "main"')
+
+          echo "Repository: ${REPO}, default branch: ${BASE}"
+
+          ELIGIBLE=$(gh pr list --repo "${REPO}" --base "${BASE}" --state open \
+            --json number,headRefName,isDraft,author \
+            --jq '.[] | select(.isDraft == false)
+              | select(
+                  (.headRefName | test("^(feature/|copilot/|dependabot/)"))
+                  or (.author.login | test("\\[bot\\]$"))
+                )
+              | .number' || true)
+
+          if [ -z "${ELIGIBLE}" ]; then
+            echo "No eligible open PRs (feature/*, copilot/*, dependabot/*, or *[bot] author)."
+            exit 0
+          fi
+
+          for PR in ${ELIGIBLE}; do
+            echo "Enabling auto-merge (squash, delete branch) for PR #${PR}..."
+            gh pr merge "${PR}" --repo "${REPO}" --auto --squash --delete-branch || \
+              echo "  (note) PR #${PR}: could not enable auto-merge — may already be enabled, blocked by protection, or not mergeable."
+          done
+
+          echo "Done."

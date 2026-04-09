@@ -45,7 +45,6 @@ export async function runOps(params: OpsRunParams = {}) {
 
   const modelClient = new ModelClient({
     geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    openaiApiKey: process.env.OPENAI_API_KEY,
   });
   const runner = createRunner(modelClient, 'ops', params.task ?? 'on_demand');
   const eventBus = new EventBus();

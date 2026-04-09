@@ -24,7 +24,7 @@ import {
   WorkflowOrchestrator,
 } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncKlingBilling, syncSharePointKnowledge, type KlingCredentials, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncSharePointKnowledge, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { assertWorkAssignmentDispatchAllowed, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
@@ -2957,7 +2957,6 @@ const heartbeatManager = new HeartbeatManager(
 
 const strategyModelClient = new ModelClient({
   geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-  openaiApiKey: process.env.OPENAI_API_KEY,
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
 });
 const analysisEngine = new AnalysisEngine(strategyModelClient);
@@ -3473,32 +3472,6 @@ const server = createServer(async (req, res) => {
         json(res, anySuccess ? 200 : 500, { success: anySuccess, products: results, errors: errors.length > 0 ? errors : undefined });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        json(res, 500, { success: false, error: message });
-      }
-      return;
-    }
-
-    // Kling billing sync endpoint
-    if (method === 'POST' && url === '/sync/kling-billing') {
-      try {
-        const accessKey = process.env.KLING_ACCESS_KEY;
-        const secretKey = process.env.KLING_SECRET_KEY;
-        if (!accessKey || !secretKey) throw new Error('KLING_ACCESS_KEY and KLING_SECRET_KEY not configured');
-        const credentials: KlingCredentials = { accessKey, secretKey };
-        const result = await syncKlingBilling(credentials, 'pulse');
-        await systemQuery(
-          'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, updated_at=$4 WHERE id=$5',
-          [new Date().toISOString(), 0, 'ok', new Date().toISOString(), 'kling-billing'],
-        );
-        json(res, 200, { success: true, ...result });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['kling-billing']);
-        const failures = (current?.consecutive_failures ?? 0) + 1;
-        await systemQuery(
-          'UPDATE data_sync_status SET last_failure_at=$1, last_error=$2, consecutive_failures=$3, status=$4, updated_at=$5 WHERE id=$6',
-          [new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString(), 'kling-billing'],
-        );
         json(res, 500, { success: false, error: message });
       }
       return;

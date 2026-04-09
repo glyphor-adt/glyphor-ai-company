@@ -28,7 +28,7 @@ Monitoring is not dashboarding. Dashboards show data. Monitoring is the act of l
 
 **Event bus** — the nervous system. Agents communicate through events. Key signals: queue depth (should be near zero in steady state), delivery failure rate, stuck/undeliverable events, consumer lag. Rate limited: 10 events per agent per hour.
 
-**Data sync jobs** — 9 scheduled sync jobs (Stripe, GCP billing, Mercury, OpenAI billing, Anthropic billing, Kling billing, SharePoint knowledge, governance, GraphRAG). Key signals: last successful sync time, sync duration, error count. Stale sync data means agents are making decisions on outdated information.
+**Data sync jobs** — 8 scheduled sync jobs (Stripe, GCP billing, Mercury, OpenAI billing, Anthropic billing, SharePoint knowledge, governance, GraphRAG). Key signals: last successful sync time, sync duration, error count. Stale sync data means agents are making decisions on outdated information.
 
 **External APIs** — the dependency layer. The platform calls OpenAI, Anthropic, Google, and various MCP servers. You cannot fix these when they break, but you must detect their failures quickly and distinguish "our problem" from "their problem." Key signals: response latency, error rates, rate limit hits.
 

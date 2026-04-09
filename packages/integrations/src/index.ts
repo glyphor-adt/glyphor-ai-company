@@ -152,9 +152,6 @@ export { queryOpenAICosts, syncOpenAIBilling } from './openai/index.js';
 // Anthropic billing
 export { queryAnthropicUsage, syncAnthropicBilling } from './anthropic/index.js';
 
-// Kling AI billing
-export { queryKlingCosts, syncKlingBilling, type KlingCredentials } from './kling/index.js';
-
 // Platform audit logging
 export {
   auditedFetch,
@@ -193,7 +190,7 @@ export {
   type ResolvedSharePointGraphToken,
 } from './sharepoint/index.js';
 
-// Web search (OpenAI Responses API + web_search_preview; OPENAI_API_KEY only)
+// Web search (Azure OpenAI Responses API + web_search — AZURE_* / AZURE_FOUNDRY_* only)
 export {
   searchWeb,
   searchNews,

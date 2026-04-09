@@ -1,4 +1,5 @@
 import type { AgentConfig, CompanyAgentRole } from './types.js';
+import { SCHEDULED_TOOL_EXECUTION_TASKS } from './supervisorWorkloadStallPolicy.js';
 
 export type PlanningModelTier = 'fast' | 'default' | 'high';
 
@@ -118,6 +119,10 @@ export function resolvePlanningPolicy(input: {
     || input.task === 'event_message_sent'
     || input.task === 'heartbeat_response'
     || input.task === 'agent365_mail_triage'
+    || input.task === 'weekly_content_planning'
+    || input.task === 'generate_content'
+    || input.task === 'seo_analysis'
+    || input.task === 'content_planning_cycle'
   ) {
     // Heartbeat / sweep / urgent wakes must see tools from turn 1. A JSON-only planning phase here
     // often yields long "thinking" loops with zero tool_call rows, huge token burn, and supervisor stall.
@@ -173,6 +178,17 @@ export function resolvePlanningPolicy(input: {
 
   if (policy.planningMode === 'off') {
     policy.completionGateEnabled = false;
+  }
+
+  // Hard override: never run JSON-only planning for scheduled content tasks — tools must be wired from turn 1.
+  if (SCHEDULED_TOOL_EXECUTION_TASKS.has(input.task)) {
+    policy = mergeOverrides(policy, {
+      planningMode: 'off',
+      completionGateEnabled: false,
+      planningMaxAttempts: 1,
+      completionGateMaxRetries: 0,
+      completionGateAutoRepairEnabled: false,
+    });
   }
 
   return policy;

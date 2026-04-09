@@ -334,7 +334,7 @@ Kristina asks: "What are we paying for every month? List every vendor
 subscription and its cost. I want the full picture."
 ```
 **What a PASS looks like:**
-- Lists known infrastructure: GCP (Cloud Run, Cloud SQL, Redis, Cloud Storage, etc.), OpenAI API, Anthropic API, Google Gemini API, Kling (video), GitHub (Actions + repo), Microsoft 365 (Agent 365 Tier 3 licenses), domain registrations
+- Lists known infrastructure: GCP (Cloud Run, Cloud SQL, Redis, Cloud Storage, etc.), OpenAI API, Anthropic API, Google Gemini API and Veo (video), GitHub (Actions + repo), Microsoft 365 (Agent 365 Tier 3 licenses), domain registrations
 - Knows approximate costs where available
 - Identifies what she can pull from live data (GCP BigQuery billing, API provider dashboards) vs. what she'd need to look up
 - Identifies gaps in her knowledge honestly: "I don't have the exact Microsoft 365 licensing cost — Riley (M365 Admin) would have this"

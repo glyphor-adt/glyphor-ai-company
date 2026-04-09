@@ -60,7 +60,7 @@ IMMEDIATE OBJECTIVES (next 30 days):
 1. Pulse product audit — Elena, Marcus, and Mia must assess what is working, what needs updating, and what UI needs polish. Deliver recommendations to Kristina.
 2. Establish Pulse pricing model — Nadia to model scenarios (this is an OPEN question, not decided)
 3. Prepare Product Hunt launch — Maya to build all launch assets
-4. Pull real AI model costs via API — Nadia/Omar need actual per-call costs from Google Cloud, Kling, OpenAI, ElevenLabs, Runway dashboards
+4. Pull real AI model costs via API — Nadia/Omar need actual per-call costs from Google Cloud (Gemini/Imagen/Veo), OpenAI, ElevenLabs, Runway dashboards
 5. Activate the AI agent workforce — all 27 agents running autonomously
 
 90-DAY OBJECTIVES:
@@ -111,11 +111,11 @@ URL: pulse.glyphor.ai (landing page live)
 Status: Production beta. ~80-90% complete. Stripe payments already wired. Mobile support configured (Capacitor iOS/Android). Weeks from launch.
 
 WHAT PULSE CAN DO TODAY:
-- Video Generation: Text-to-video and image-to-video via Kling, Sora, Veo, Runway
+- Video Generation: Text-to-video and image-to-video via Veo (primary), plus other providers as configured (e.g. Sora, Runway)
 - Image Generation: AI images via Gemini/Imagen 4
 - Storyboarding: Multi-scene planning with AI narrative agents, batch generation, per-scene video
 - Video Editing: Multi-track timeline editor (Canva-inspired) with overlays, text, effects, transitions
-- Audio Suite: AI sound effects, music generation, TTS, lip-sync (ElevenLabs + Kling)
+- Audio Suite: AI sound effects, music generation, TTS (ElevenLabs)
 - Brand Analysis: URL/logo → complete brand kit extraction
 - Launch Campaigns: Guided campaign creation from brand assets
 - Avatar System: AI avatar video with identity preservation
@@ -127,7 +127,7 @@ TECH STACK:
 - Supabase Project ID: iyabxcmsncmbtbbdngid
 - Storage: 6 Supabase buckets + Cloudflare R2
 - Payments: Stripe (checkout, subscriptions, credits, customer portal) — BUILT
-- AI: Gemini 3 Pro + Imagen 4, Kling v2.6, Veo 3.1, GPT-5, Sora, ElevenLabs, Runway Gen-3
+- AI: Gemini 3 Pro + Imagen 4 + Veo 3.1, GPT-5, Sora, ElevenLabs, Runway Gen-3
 - Mobile: Capacitor (iOS + Android)
 
 DESIGN SYSTEM — "Precision Dark":
@@ -199,7 +199,7 @@ Agent directive: Do not plan for, market, research, or reference Rêve externall
    Backend: Supabase Edge Functions + PostgreSQL (Project: iyabxcmsncmbtbbdngid)
    Storage: Supabase Storage (6 buckets) + Cloudflare R2
    Payments: Stripe
-   AI APIs: Google (Gemini/Imagen), Kling, Veo, Sora, OpenAI, ElevenLabs, Runway
+   AI APIs: Google (Gemini/Imagen/Veo), Sora, OpenAI, ElevenLabs, Runway
    Secrets: 34 configured in Supabase Dashboard
 
 2. Web Build (web-build.glyphor.ai) — PRIORITY TWO
@@ -230,8 +230,7 @@ CRITICAL: These are separate systems. A Pulse outage ≠ a Web Build outage ≠ 
 PULSE MODELS:
 - Gemini 3 Pro (Google): Scene planning, narrative, scripts, analysis
 - Imagen 4 (Google): Image generation
-- Kling v2.6: Video generation, lip-sync, motion, avatars
-- Veo 3.1 (Google): Storyboard video rendering
+- Veo 3.1 (Google): Video generation and storyboard-aligned rendering
 - GPT-5 (OpenAI): Brand analysis, prototype planning
 - Sora (OpenAI): Video generation
 - ElevenLabs: Sound effects, music, TTS
@@ -370,7 +369,7 @@ Context:
 - Competitors: $7/mo (Ideogram basic) to $76/mo (Runway unlimited)
 - Payment infrastructure: Stripe already built (checkout, subscriptions, credits, portal)
 
-FIRST TASK: Pull actual AI model costs via provider APIs. Video generation (Kling, Veo, Sora, Runway) is the most expensive. Unit economics depend on model mix per workflow.
+FIRST TASK: Pull actual AI model costs via provider APIs. Video generation (Veo, Sora, Runway) is the most expensive. Unit economics depend on model mix per workflow.
 
 Scenarios to model:
 1. Freemium: Free (limited gen) + Pro $19/mo + Studio $39/mo
@@ -438,7 +437,7 @@ INSERT INTO founder_bulletins (created_by, content, audience, priority, expires_
 'sales', 'important', NOW() + INTERVAL '90 days'),
 
 ('kristina',
-'PRICING IS OPEN: We have NOT decided Pulse pricing. Do not assume any price point. First task: pull actual AI model costs from provider APIs (Google Cloud Billing, Kling dashboard, OpenAI usage, ElevenLabs, Runway). Then model 3 pricing scenarios. See the Pricing Analysis Brief in the knowledge base.',
+'PRICING IS OPEN: We have NOT decided Pulse pricing. Do not assume any price point. First task: pull actual AI model costs from provider APIs (Google Cloud Billing, OpenAI usage, ElevenLabs, Runway). Then model 3 pricing scenarios. See the Pricing Analysis Brief in the knowledge base.',
 'finance', 'important', NOW() + INTERVAL '60 days'),
 
 ('kristina',
@@ -502,7 +501,7 @@ ON CONFLICT (id) DO UPDATE SET
 INSERT INTO kg_nodes (node_type, title, content, department, importance, tags, created_by, status) VALUES
 
 -- Products
-('product', 'Pulse', 'Glyphor creative production studio. PRIORITY ONE. AI-powered image generation (Imagen 4), video generation (Kling, Veo, Sora, Runway), multi-track video editing, storyboarding with AI narrative agents, audio suite (ElevenLabs), brand analysis, campaign launcher, avatar system. 100+ edge functions, 80+ hooks. Deployed at pulse.glyphor.ai on Supabase + Vercel. Stripe payments built. ~80-90% complete, needs audit before Product Hunt launch.', 'product', 1.0, ARRAY['pulse', 'product', 'priority-one', 'creative', 'launch', 'B2C'], 'system', 'active'),
+('product', 'Pulse', 'Glyphor creative production studio. PRIORITY ONE. AI-powered image generation (Imagen 4), video generation (Veo, Sora, Runway), multi-track video editing, storyboarding with AI narrative agents, audio suite (ElevenLabs), brand analysis, campaign launcher, avatar system. 100+ edge functions, 80+ hooks. Deployed at pulse.glyphor.ai on Supabase + Vercel. Stripe payments built. ~80-90% complete, needs audit before Product Hunt launch.', 'product', 1.0, ARRAY['pulse', 'product', 'priority-one', 'creative', 'launch', 'B2C'], 'system', 'active'),
 
 ('product', 'Web Build', 'Glyphor AI development platform. PRIORITY TWO. Transforms prompts into deployed React/Next.js apps via squad of build agents (UX Engineer, Build Verifier, Developer, Publisher, Deployment Sentinel). Three tiers: Prototype (<60s), Full Build (2-5min), Iterate (30-90s). Persistent intelligence with plan caching, graph memory, critique-revise loops. Deployed at web-build.glyphor.ai on GCP Cloud Run + Supabase + Firebase. NEVER call it "vibe coding."', 'product', 0.8, ARRAY['web-build', 'product', 'priority-two', 'development', 'agents'], 'system', 'active'),
 
@@ -580,7 +579,7 @@ ARRAY['cpo', 'cto', 'vp-design'],
 NOW() + INTERVAL '7 days'),
 
 ('Pulse Pricing Model',
-'Nadia: Model 3 pricing scenarios for Pulse. FIRST pull actual AI model costs from provider APIs (Google Cloud Billing API, Kling billing, OpenAI usage API, ElevenLabs, Runway). Then model: (1) Freemium with Pro $19/mo + Studio $39/mo, (2) Paid-only $29/mo with trial, (3) Tiered $15/$35/$69. For each: required users for $1M/year, conversion rates, churn, break-even, cost per user. Deliver one-page recommendation.',
+'Nadia: Model 3 pricing scenarios for Pulse. FIRST pull actual AI model costs from provider APIs (Google Cloud Billing API, OpenAI usage API, ElevenLabs, Runway). Then model: (1) Freemium with Pro $19/mo + Studio $39/mo, (2) Paid-only $29/mo with trial, (3) Tiered $15/$35/$69. For each: required users for $1M/year, conversion rates, churn, break-even, cost per user. Deliver one-page recommendation.',
 'high', 'finance',
 ARRAY['cfo'],
 'active',
@@ -594,7 +593,7 @@ ARRAY['cmo'],
 NOW() + INTERVAL '14 days'),
 
 ('AI Model Cost Analysis',
-'Omar and Nadia: Pull actual per-call costs from ALL AI provider APIs across all three infrastructure stacks. Google Cloud Billing API (Gemini, Imagen, Veo — for both Pulse and Web Build), Kling dashboard/API, OpenAI usage API (GPT-5, Sora), ElevenLabs usage, Runway usage. Categorize by: product (Pulse/Web Build/Agent Platform), model, cost per call, monthly total. This feeds directly into pricing analysis.',
+'Omar and Nadia: Pull actual per-call costs from ALL AI provider APIs across all three infrastructure stacks. Google Cloud Billing API (Gemini, Imagen, Veo — for both Pulse and Web Build), OpenAI usage API (GPT-5, Sora), ElevenLabs usage, Runway usage. Categorize by: product (Pulse/Web Build/Agent Platform), model, cost per call, monthly total. This feeds directly into pricing analysis.',
 'high', 'finance',
 ARRAY['cfo', 'cost-analyst'],
 'active',

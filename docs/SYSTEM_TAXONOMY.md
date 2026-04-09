@@ -397,7 +397,6 @@ Full list from packages/agent-runtime/src/toolRegistry.ts KNOWN_TOOLS:
 - pulse_generate_video
 - pulse_generate_voiceover_script
 - pulse_get_storyboard
-- pulse_kling_multi_shot
 - pulse_list_brand_kits
 - pulse_list_concept_images
 - pulse_list_storyboards

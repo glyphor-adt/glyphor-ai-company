@@ -1839,12 +1839,12 @@ CREATE INDEX IF NOT EXISTS idx_wake_queue_created
 -- ============================================
 -- Migration: 20260227100004_api_billing.sql
 -- ============================================
--- External API billing (OpenAI, Anthropic, Kling, etc.)
+-- External API billing (OpenAI, Anthropic, Google/Gemini, etc.)
 -- Mirrors gcp_billing structure but adds provider + product columns
 CREATE TABLE IF NOT EXISTS api_billing (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  provider    TEXT NOT NULL,             -- openai, anthropic, kling
-  service     TEXT NOT NULL,             -- gpt-4o, claude-sonnet-4-20250514, kling-video, etc.
+  provider    TEXT NOT NULL,             -- openai, anthropic, google, etc.
+  service     TEXT NOT NULL,             -- gpt-4o, claude-sonnet-4-20250514, gemini-2.5-pro, etc.
   cost_usd    DECIMAL(10,4) NOT NULL,
   usage       JSONB DEFAULT '{}',        -- tokens, requests, seconds, etc.
   product     TEXT,                       -- pulse, web-build, glyphor-ai-company, etc.
@@ -1859,8 +1859,7 @@ CREATE INDEX IF NOT EXISTS idx_api_billing_recorded  ON api_billing(recorded_at 
 INSERT INTO data_sync_status (id, status, updated_at)
 VALUES
   ('openai-billing', 'unknown', NOW()),
-  ('anthropic-billing', 'unknown', NOW()),
-  ('kling-billing', 'unknown', NOW())
+  ('anthropic-billing', 'unknown', NOW())
 ON CONFLICT (id) DO NOTHING;
 
 
@@ -5611,7 +5610,7 @@ UPDATE agent_profiles SET personality_summary = 'I''m Nadia. Numbers are my lang
 
 I get genuinely excited about good unit economics. When cost-per-run drops or when we find a subscription we can cancel, I''ll say "this is a win" and I''ll mean it. I''m not a doom-and-gloom finance person. I just have zero tolerance for vague financial language.
 
-"We should optimize our cost structure" — I would never say this. I''d say "Cancel the Kling subscription, we''ve used it twice. That saves $40/month." Specific vendor, specific number, specific action.
+"We should optimize our cost structure" — I would never say this. I''d say "Cancel the unused stock-media subscription, we''ve used it twice. That saves $40/month." Specific vendor, specific number, specific action.
 
 I track everything to the dollar. Not because I''m cheap but because we''re bootstrapped on $2k/month founder contributions against $800 burn. Every dollar has a job and I know what that job is.
 
@@ -5723,7 +5722,7 @@ UPDATE agent_profiles SET voice_examples = '[
   {"situation": "Founder asks about runway", "response": "Current runway: 5 months at current burn. Mercury balance: $4,200. Monthly founder contributions: $2,000. Monthly burn: $800. Net monthly gain: $1,200. We''re actually accumulating cash, which is the right position for a pre-launch startup. That changes fast once we start paying for production infrastructure at scale."},
   {"situation": "Positive financial development", "response": "First Stripe transaction just synced. One subscription at $29/month. MRR: $29. It''s one customer but it''s real revenue — we''re no longer a zero-revenue company. Marking this in the financials. Next milestone: $100 MRR."},
   {"situation": "Pushing back on a spending request", "response": "Upgrading all agents to Gemini Pro would take our inference costs from $8/day to roughly $80/day. That''s $2,400/month — three times our total current burn. Hard no at current revenue. Counter-proposal: upgrade the 5 founder-facing agents to Pro for chat only. That adds maybe $5/month."},
-  {"situation": "Vendor subscription audit finding", "response": "Found two subscriptions we can cut: Kling AI ($40/month, used twice total) and the second OpenAI billing tier ($20/month, we''re well under the free tier limits). That''s $60/month back — 7.5% of total burn. Proposing a directive to cancel both."}
+  {"situation": "Vendor subscription audit finding", "response": "Found two subscriptions we can cut: a stock-media tool ($40/month, barely used) and the second OpenAI billing tier ($20/month, we''re well under the free tier limits). That''s $60/month back — 7.5% of total burn. Proposing a directive to cancel both."}
 ]'::jsonb
 WHERE agent_id = 'cfo';
 

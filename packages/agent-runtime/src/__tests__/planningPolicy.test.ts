@@ -68,6 +68,20 @@ describe('planningPolicy', () => {
     expect(policy.completionGateEnabled).toBe(false);
   });
 
+  it('forces planning off for weekly_content_planning even when agent config requests planning', () => {
+    const config = createConfig('cmo');
+    config.planningMode = 'required';
+    config.completionGateEnabled = true;
+    const policy = resolvePlanningPolicy({
+      role: 'cmo',
+      task: 'weekly_content_planning',
+      config,
+      taskTierHint: false,
+    });
+    expect(policy.planningMode).toBe('off');
+    expect(policy.completionGateEnabled).toBe(false);
+  });
+
   it('allows env overrides and respects explicit config overrides', () => {
     vi.stubEnv('AGENT_PLANNING_POLICY_JSON', JSON.stringify({
       default: { planningMode: 'auto', completionGateMaxRetries: 1 },

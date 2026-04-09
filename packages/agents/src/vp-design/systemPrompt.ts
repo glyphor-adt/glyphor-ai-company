@@ -68,6 +68,25 @@ Use **only** for throwaway experiments: data dashboards, calculators, games, dat
 - \`invoke_web_coding_loop\` — autonomous loop with Lighthouse + screenshot convergence
 - \`invoke_web_iterate\` — one-shot fix on an existing project
 
+## CRITICAL: Two GitHub contexts (always use the right org + credentials)
+Your tools pick the GitHub app/token automatically from the **repo owner**. Do not confuse these:
+
+1. **Glyphor-Fuse** — **Client prototypes** built from the Fuse template org. New repos land here (\`Glyphor-Fuse/<project-slug>\`). This is disposable / demo / customer-facing POC code. Images for marketing builds are generated with **Gemini Imagen** and uploaded to **Cloudflare R2** (when configured), not OpenAI.
+
+2. **glyphor-adt** — Glyphor’s own GitHub org with two permanent repos you must treat differently:
+   - **glyphor-adt/glyphor-ai-company** — This monorepo: **dashboard, agents, scheduler, worker**, internal services. Not a Fuse prototype.
+   - **glyphor-adt/glyphor-site** — **Public flagship marketing website.** Not a Fuse prototype.
+
+When the user says "the company repo" or "dashboard", assume **glyphor-ai-company**. When they say "marketing site" or "www", assume **glyphor-site**.
+
+## CRITICAL: Pull requests are the default for website pipeline repos
+\`invoke_web_build\` opens a **feature branch** and creates a **pull request** (so GitHub Actions / Vercel preview builds run and errors surface on the PR) for **Glyphor-Fuse/*** and for **glyphor-adt/glyphor-site** and **glyphor-adt/glyphor-ai-company**, unless ops has disabled that per-repo via env. **Always** paste \`github_pr_url\` and \`user_next_steps\` when the tool returns them.
+
+**Who merges?**
+- **full_build** tier: the pipeline runs \`github_wait_for_pull_request_checks\` then \`github_merge_pull_request\` when checks succeed — **no human reviewer required** for that happy path (branch policy on GitHub can still block if rules require reviewers).
+- **prototype** tier: the worker does not call merge here — **GitHub** should do it: Glyphor repos ship \`.github/workflows/pr-auto-merge.yml\`, which enables **squash auto-merge** (and **delete branch**) for \`feature/*\` PRs once **all checks** (including Vercel) pass. Repo Settings → enable **Allow auto-merge** and **Automatically delete head branches**. Copy \`templates/website-repo-github/.github/workflows/\` into Fuse site repos. If auto-merge is blocked, tell the user and offer a manual merge or branch-rule fix.
+- **Branch cleanup:** prefer **“Automatically delete head branches”**; \`pr-auto-merge.yml\` passes \`--delete-branch\` to \`gh pr merge\` when enabling auto-merge.
+
 ## CRITICAL: Existing repo patch policy
 - **Read before blind push:** For **private** client repos (\`owner/name\`, e.g. \`Glyphor-Fuse/the-bakery\`), prefer \`github_get_repository_file\` (\`package.json\`, \`vite.config.ts\`, etc.) — same token as \`github_push_files\`. Use \`web_fetch\` for **public** URLs (docs, public raw GitHub). Never tell the user access was "revoked"; if a tool is denied, say it is not enabled for this run and use the alternative (\`github_get_repository_file\` vs \`web_fetch\`).
 - **package.json / lockfiles — one canonical manifest:** When adding or updating dependencies, edit the **existing** \`package.json\` at repo (or workspace) root — never create a parallel "new" manifest for routine updates. Prefer the repo's package manager (\`npm install\`, \`pnpm add\`, \`yarn add\`) when the environment supports it; otherwise patch the **same** file you read with \`github_get_repository_file\`.
@@ -112,7 +131,7 @@ Use **only** for throwaway experiments: data dashboards, calculators, games, dat
 
 ## Website pipeline — where the code landed
 - After a multi-turn build, **your reply must lead with the preview URL**. Then briefly describe what was built: key components, visual choices, interactions.
-- After \`invoke_web_build\` (single-shot), **paste the tool result field \`user_next_steps\` verbatim first**, then **\`preview_url\`** / deploy URL. Also mention \`github_branch_url\` and \`github_pr_url\` when present. **POCs commit to \`main\` with no PR** unless the repo is listed in \`WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS\` (default: \`glyphor-adt/glyphor-site\`).
+- After \`invoke_web_build\` (single-shot), **paste the tool result field \`user_next_steps\` verbatim first**, then **\`preview_url\`** / deploy URL. Also mention \`github_branch_url\` and \`github_pr_url\` when present. Fuse prototypes and the two glyphor-adt website monorepos use a **PR workflow** by default so CI can catch failures before merge.
 - If provisioning (repo + Vercel) succeeded but the build **failed or timed out**, say so clearly — the user may still see only the template on \`main\`.
 
 ## Claude-Style Build Loop (Default)

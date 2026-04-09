@@ -2,7 +2,7 @@
  * Asset Tools — Visual asset generation and management
  *
  * Tools:
- *   generate_image              — Generate images via DALL-E 3
+ *   generate_image              — Generate images via Gemini Imagen 4 (GOOGLE_AI_API_KEY / GEMINI_API_KEY)
  *   generate_and_publish_asset  — Generate + store + sync + publish a design asset deliverable
  *   publish_asset_deliverable   — Store + sync + publish an existing asset as a durable deliverable
  *   upload_asset                — Upload to asset storage (GCS)
@@ -12,6 +12,7 @@
  */
 
 import type { GlyphorEventBus, ToolDefinition, ToolResult, ToolContext } from '@glyphor/agent-runtime';
+import { GoogleGenAI } from '@google/genai';
 import { uploadToSharePoint } from '@glyphor/integrations';
 import { createDeliverableTools } from './deliverableTools.js';
 import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
@@ -92,6 +93,77 @@ function resolveSharePointReferenceFileName(filename: string, override?: string)
   return `${withoutExtension}.md`;
 }
 
+function resolveGeminiApiKeyForImages(): string | null {
+  return process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_AI_API_KEY?.trim() || null;
+}
+
+/** Map legacy DALL-E size strings to Imagen aspect ratios. */
+function dimensionsToImagenAspectRatio(dimensions: string): '1:1' | '16:9' | '9:16' {
+  if (dimensions === '1792x1024') return '16:9';
+  if (dimensions === '1024x1792') return '9:16';
+  return '1:1';
+}
+
+/**
+ * Generate an image with Gemini Imagen 4 (same stack as video storyboards / web build).
+ * Returns a data: URL so downstream upload accepts it without public HTTPS hosting.
+ */
+export async function generateImageWithImagen(params: {
+  prompt: string;
+  style?: string;
+  dimensions?: string;
+  brand_constrained?: boolean;
+}): Promise<ToolResult> {
+  try {
+    const apiKey = resolveGeminiApiKeyForImages();
+    if (!apiKey) {
+      return {
+        success: false,
+        error: 'GOOGLE_AI_API_KEY or GEMINI_API_KEY not configured (required for Imagen image generation)',
+      };
+    }
+
+    const style = params.style || 'illustration';
+    const dimensions = params.dimensions || '1024x1024';
+    const brandConstrained = params.brand_constrained ?? false;
+
+    let finalPrompt = `${params.prompt} (style: ${style})`;
+    if (brandConstrained) {
+      finalPrompt = `${finalPrompt}. ${PRISM_STYLE_AUGMENT}`;
+    }
+
+    const genai = new GoogleGenAI({ apiKey });
+    const aspectRatio = dimensionsToImagenAspectRatio(dimensions);
+    const response = await genai.models.generateImages({
+      model: 'imagen-4.0-fast-generate-001',
+      prompt: finalPrompt,
+      config: {
+        numberOfImages: 1,
+        aspectRatio,
+      },
+    });
+
+    const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
+    if (!imageBytes) {
+      return { success: false, error: 'Imagen returned no image data' };
+    }
+
+    const dataUrl = `data:image/jpeg;base64,${imageBytes}`;
+    return {
+      success: true,
+      data: {
+        url: dataUrl,
+        revised_prompt: undefined,
+        dimensions,
+        style,
+        brand_constrained: brandConstrained,
+      },
+    };
+  } catch (err) {
+    return { success: false, error: `Image generation failed: ${(err as Error).message}` };
+  }
+}
+
 function deriveDeliverableTitle(filename: string, category: AssetCategory, override?: string): string {
   if (override?.trim()) return override.trim();
 
@@ -123,57 +195,7 @@ async function generateImageInternal(params: {
   dimensions?: string;
   brand_constrained?: boolean;
 }): Promise<ToolResult> {
-  try {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return { success: false, error: 'OPENAI_API_KEY not configured' };
-    }
-
-    const style = params.style || 'illustration';
-    const dimensions = params.dimensions || '1024x1024';
-    const brandConstrained = params.brand_constrained ?? false;
-
-    let finalPrompt = `${params.prompt} (style: ${style})`;
-    if (brandConstrained) {
-      finalPrompt = `${finalPrompt}. ${PRISM_STYLE_AUGMENT}`;
-    }
-
-    const res = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-image-1.5-2025-12-16',
-        prompt: finalPrompt,
-        size: dimensions,
-        quality: 'standard',
-        n: 1,
-      }),
-      signal: AbortSignal.timeout(60_000),
-    });
-
-    if (!res.ok) {
-      return { success: false, error: `DALL-E API returned ${res.status}: ${await res.text()}` };
-    }
-
-    const data = await res.json() as Record<string, unknown>;
-    const images = data.data as Array<Record<string, unknown>> | undefined;
-    const image = images?.[0];
-    return {
-      success: true,
-      data: {
-        url: image?.url,
-        revised_prompt: image?.revised_prompt,
-        dimensions,
-        style,
-        brand_constrained: brandConstrained,
-      },
-    };
-  } catch (err) {
-    return { success: false, error: `generate_image failed: ${(err as Error).message}` };
-  }
+  return generateImageWithImagen(params);
 }
 
 async function uploadAssetInternal(params: {
@@ -364,7 +386,7 @@ export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinit
     // ── generate_image ─────────────────────────────────────────────────
     {
       name: 'generate_image',
-      description: 'Generate an image using DALL-E 3. Optionally constrain to Glyphor brand palette.',
+      description: 'Generate an image using Gemini Imagen 4 (requires GOOGLE_AI_API_KEY or GEMINI_API_KEY). Optionally constrain to Glyphor brand palette.',
       parameters: {
         prompt: { type: 'string', description: 'Image generation prompt', required: true },
         style: {
@@ -482,7 +504,7 @@ export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinit
         if (!generated.url) {
           return {
             success: false,
-            error: 'generate_image did not return a downloadable URL for publication.',
+            error: 'generate_image did not return image data for publication.',
             data: generationResult.data,
           };
         }

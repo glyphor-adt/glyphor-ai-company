@@ -2,7 +2,7 @@
 name: financial-reporting
 slug: financial-reporting
 category: finance
-description: Produce structured financial reports covering revenue, costs, margins, runway, and unit economics for founder consumption, investor readiness, and strategic planning. Use when generating monthly or weekly financial summaries, when founders need a current financial snapshot, when investor-facing metrics need updating, when cost anomalies require investigation, or when financial data needs synthesis across multiple sources (Stripe, Mercury, GCP billing, AI API costs). This skill turns six data sync pipelines into a single coherent financial narrative.
+description: Produce structured financial reports covering revenue, costs, margins, runway, and unit economics for founder consumption, investor readiness, and strategic planning. Use when generating monthly or weekly financial summaries, when founders need a current financial snapshot, when investor-facing metrics need updating, when cost anomalies require investigation, or when financial data needs synthesis across multiple sources (Stripe, Mercury, GCP billing, AI API costs). This skill turns five data sync pipelines into a single coherent financial narrative.
 holders: cfo
 tools_granted: query_financials, query_costs, query_stripe_mrr, query_stripe_revenue, query_stripe_subscriptions, get_burn_rate, get_cash_balance, get_cash_flow, get_margin_analysis, get_mrr_breakdown, get_unit_economics, get_revenue_forecast, query_agent_run_costs, get_ai_model_costs, get_gcp_costs, get_infrastructure_costs, query_gcp_billing, get_cost_anomalies, get_vendor_costs, get_stripe_invoices, get_subscription_details, calculate_unit_economics, calculate_ltv_cac, forecast_revenue, query_revenue_by_cohort, query_revenue_by_product, query_churn_revenue, generate_financial_report, write_financial_report, file_decision, save_memory, send_agent_message, propose_directive
 version: 2
@@ -16,7 +16,7 @@ Financial reporting at an AI-native company has a unique complexity: the product
 
 ## The Data Sources
 
-Financial data flows into Cloud SQL from six nightly sync pipelines. Understanding these sources is critical because the data is only as fresh as the last successful sync.
+Financial data flows into Cloud SQL from five nightly sync pipelines. Understanding these sources is critical because the data is only as fresh as the last successful sync.
 
 | Source | Sync Schedule (CT) | What it provides | Cloud SQL table |
 |--------|-------------------|-----------------|-----------------|
@@ -25,7 +25,6 @@ Financial data flows into Cloud SQL from six nightly sync pipelines. Understandi
 | **Mercury** | 2:00 AM | Bank balance, cash flow, vendor subscriptions, transactions | `financials` |
 | **OpenAI** | 3:00 AM | API usage and billing by model | `financials` |
 | **Anthropic** | 3:00 AM | Claude API usage and billing | `financials` |
-| **Kling AI** | 3:00 AM | Video generation billing | `financials` |
 
 **Data freshness check:** Before producing any report, verify the `financials` table was updated in the last 24 hours. If any sync failed, the report will have stale data in that category. Note which data is current and which may be stale — don't present yesterday's costs as today's without flagging it.
 
@@ -162,7 +161,7 @@ File a decision via `file_decision` when financial data triggers a threshold:
 
 **Weekly (Monday):** Revenue and cost summary for founders. Key metrics, trends, any decisions needed.
 
-**Monthly (1st business day):** Full financial report with all six sections. This is the comprehensive document that goes to founders, gets archived, and feeds investor reporting.
+**Monthly (1st business day):** Full financial report with all document sections (executive summary through recommendations). This is the comprehensive document that goes to founders, gets archived, and feeds investor reporting.
 
 Save all reports as memories. The pattern over months is more valuable than any single snapshot — you're building the financial history of the company.
 

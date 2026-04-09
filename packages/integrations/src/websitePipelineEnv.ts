@@ -32,7 +32,7 @@ export const WEBSITE_PIPELINE_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
     id: 'r2-endpoint',
     preferredEnvName: 'PREVIEWS_R2_ENDPOINT',
     acceptedEnvNames: ['PREVIEWS_R2_ENDPOINT', 'FUSE_PREVIEWS_R2_ENDPOINT'],
-    recommendedSecretNames: ['PREVIEWS_R2_ENDPOINT'],
+    recommendedSecretNames: ['fuse-r2-endpoint', 'PREVIEWS_R2_ENDPOINT'],
     description: 'Cloudflare R2 endpoint for preview metadata writes.',
   },
   {

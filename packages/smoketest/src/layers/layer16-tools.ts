@@ -237,15 +237,12 @@ const ENV_REQUIRED: Record<string, string[]> = {
   'Mercury (banking)': ['MERCURY_API_TOKEN'],
   'Mailchimp (email campaigns)': ['GLYPHOR_MAILCHIMP_API'],
   'Mandrill (transactional email)': ['GLYPHOR_MANDRILL_API_KEY'],
-  'OpenAI (images + AI)': ['OPENAI_API_KEY'],  // or AZURE_FOUNDRY_ENDPOINT + AZURE_FOUNDRY_API
+  'Azure OpenAI / Foundry (chat + web search)': ['AZURE_FOUNDRY_ENDPOINT', 'AZURE_FOUNDRY_API'],
 };
 
-/**
- * OpenAI can be configured directly (OPENAI_API_KEY) or via Azure Foundry
- * (AZURE_FOUNDRY_ENDPOINT + AZURE_FOUNDRY_API). Either is acceptable.
- */
+/** Satisfy the same logical service with classic Azure OpenAI env names. */
 const AZURE_FOUNDRY_ALTERNATIVE: Record<string, string[]> = {
-  'OpenAI (images + AI)': ['AZURE_FOUNDRY_ENDPOINT', 'AZURE_FOUNDRY_API'],
+  'Azure OpenAI / Foundry (chat + web search)': ['AZURE_OPENAI_ENDPOINT', 'AZURE_OPENAI_API_KEY'],
 };
 
 /** Optional env vars — services not yet provisioned (informational). */

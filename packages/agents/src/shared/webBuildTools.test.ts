@@ -58,16 +58,19 @@ describe('webBuildTools website pipeline replacement', () => {
         case 'build_website_foundation':
           return {
             files: { ...MOCK_FOUNDATION_FILES },
+            foundation_mode: 'utility',
             architectural_reasoning: 'reasoning',
             design_plan: { sections: [{ id: 'hero' }] },
             image_manifest: [],
           };
         case 'github_push_files':
-          return { commit_sha: 'abc123', branch_url: 'https://github.com/Glyphor-Fuse/acme-launch/tree/main' };
+          return { commit_sha: 'abc123', branch_url: 'https://github.com/Glyphor-Fuse/acme-launch/tree/feature%2Fprototype-build' };
         case 'vercel_get_preview_url':
           return { state: 'READY', preview_url: 'https://acme-launch-git-feature.vercel.app' };
         case 'cloudflare_register_preview':
           return { preview_url: 'https://acme-launch.preview.glyphor.ai' };
+        case 'github_create_pull_request':
+          return { pr_url: 'https://github.com/Glyphor-Fuse/acme-launch/pull/1', pr_number: 1 };
         default:
           throw new Error(`Unexpected child tool: ${toolName}`);
       }
@@ -92,10 +95,12 @@ describe('webBuildTools website pipeline replacement', () => {
       deploy_url: 'https://acme-launch-git-feature.vercel.app',
       tier_used: 'prototype',
     });
-    expect((result.data as { github_pr_url?: string }).github_pr_url).toBeUndefined();
+    expect((result.data as { github_pr_url?: string }).github_pr_url).toBe(
+      'https://github.com/Glyphor-Fuse/acme-launch/pull/1',
+    );
     expect(executeChildTool).toHaveBeenCalledWith(
       'github_push_files',
-      expect.objectContaining({ branch: 'main', repo: 'Glyphor-Fuse/acme-launch' }),
+      expect.objectContaining({ branch: 'feature/prototype-build', repo: 'Glyphor-Fuse/acme-launch' }),
     );
     expect(calls).toEqual([
       'normalize_design_brief',
@@ -105,9 +110,10 @@ describe('webBuildTools website pipeline replacement', () => {
       'github_push_files',
       'vercel_get_preview_url',
       'cloudflare_register_preview',
+      'github_create_pull_request',
     ]);
     expect(appendActivity).toHaveBeenCalledOnce();
-  });
+  }, 20_000);
 
   it('ships full builds through PR merge and production verification', async () => {
     const appendActivity = vi.fn();
@@ -129,16 +135,23 @@ describe('webBuildTools website pipeline replacement', () => {
         case 'build_website_foundation':
           return {
             files: { ...MOCK_FOUNDATION_FILES },
+            foundation_mode: 'utility',
             architectural_reasoning: 'reasoning',
             design_plan: { sections: [{ id: 'hero' }, { id: 'cta' }] },
             image_manifest: [],
           };
         case 'github_push_files':
-          return { commit_sha: 'def456', branch_url: 'https://github.com/Glyphor-Fuse/pilot-ops/tree/main' };
+          return { commit_sha: 'def456', branch_url: 'https://github.com/Glyphor-Fuse/pilot-ops/tree/feature%2Finitial-build' };
         case 'vercel_get_preview_url':
           return { state: 'READY', preview_url: 'https://pilot-ops-git-feature.vercel.app' };
         case 'cloudflare_register_preview':
           return { preview_url: 'https://pilot-ops.preview.glyphor.ai' };
+        case 'github_create_pull_request':
+          return { pr_url: 'https://github.com/Glyphor-Fuse/pilot-ops/pull/2', pr_number: 2 };
+        case 'github_wait_for_pull_request_checks':
+          return { status: 'completed', conclusion: 'success' };
+        case 'github_merge_pull_request':
+          return { merged: true };
         case 'vercel_get_production_url':
           return { state: 'READY', production_url: 'https://pilot-ops.vercel.app' };
         default:
@@ -163,11 +176,13 @@ describe('webBuildTools website pipeline replacement', () => {
       deploy_url: 'https://pilot-ops.vercel.app',
       tier_used: 'full_build',
     });
-    expect((result.data as { github_pr_url?: string }).github_pr_url).toBeUndefined();
-    expect(executeChildTool).not.toHaveBeenCalledWith('github_merge_pull_request', expect.anything());
+    expect((result.data as { github_pr_url?: string }).github_pr_url).toBe(
+      'https://github.com/Glyphor-Fuse/pilot-ops/pull/2',
+    );
+    expect(executeChildTool).toHaveBeenCalledWith('github_merge_pull_request', expect.anything());
     expect(executeChildTool).toHaveBeenCalledWith('vercel_get_production_url', expect.anything());
     expect(appendActivity).toHaveBeenCalledOnce();
-  });
+  }, 20_000);
 
   it('runs autonomous coding loop and exits when thresholds are met', async () => {
     const appendActivity = vi.fn();
@@ -185,6 +200,7 @@ describe('webBuildTools website pipeline replacement', () => {
         case 'build_website_foundation':
           return {
             files: { ...MOCK_FOUNDATION_FILES },
+            foundation_mode: 'utility',
             architectural_reasoning: 'reasoning',
             design_plan: { sections: [{ id: 'hero' }, { id: 'cta' }] },
             image_manifest: [],
@@ -195,6 +211,8 @@ describe('webBuildTools website pipeline replacement', () => {
           return { state: 'READY', preview_url: 'https://pilot-ops-git-iter.vercel.app' };
         case 'cloudflare_update_preview':
           return { preview_url: 'https://pilot-ops.preview.glyphor.ai' };
+        case 'github_create_pull_request':
+          return { pr_url: 'https://github.com/Glyphor-Fuse/pilot-ops/pull/99', pr_number: 99 };
         default:
           throw new Error(`Unexpected child tool: ${toolName}`);
       }

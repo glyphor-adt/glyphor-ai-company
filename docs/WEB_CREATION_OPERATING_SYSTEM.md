@@ -100,10 +100,10 @@ Tyler starts as soon as asset manifest is available. Tool routing rules:
 - Product shot: screenshot + `pulse_product_recontext`
 - Editorial portrait: `pulse_enhance_prompt` -> `pulse_generate_concept_image`
 - Pattern texture: generate + optional upscale
-- Hero loop video: enhance prompt -> Kling text-to-video -> poll
-- Product demo: screenshot states -> Kling image-to-video -> extend/stitch
+- Hero loop video: enhance prompt -> `pulse_generate_video` (Veo) -> `pulse_poll_video_status`
+- Product demo: screenshot states -> `pulse_generate_video` (image-to-video) -> remix or stitch in post as needed
 - Promo video: storyboard -> scene previews -> final hero promo
-- Testimonial video: TTS -> lip sync
+- Testimonial-style video: TTS narration + B-roll / motion graphics (no third-party lip-sync dependency)
 
 After each generated asset:
 

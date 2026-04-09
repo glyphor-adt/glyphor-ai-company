@@ -10,7 +10,7 @@
  *   - claude-*    → Anthropic (@anthropic-ai/sdk)
  */
 
-import { ProviderFactory, type ProviderFactoryConfig, type GeminiAdapter, type OpenAIAdapter } from './providers/index.js';
+import { ProviderFactory, type ProviderFactoryConfig, type GeminiAdapter } from './providers/index.js';
 import type { ModelProvider, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './providers/types.js';
 import { getFallbackChain, getProviderLocalFallbackChain, resolveModel } from '@glyphor/shared/models';
 import { getTierModel } from '@glyphor/shared';
@@ -313,11 +313,10 @@ export class ModelClient {
   }
 
   /**
-   * Generate an image using OpenAI gpt-image-1.5 (text-rich infographics).
+   * @deprecated All image generation uses Gemini Imagen (Google AI). Kept for call-site compatibility.
    */
-  async generateImageOpenAI(prompt: string, model = 'gpt-image-1.5', aspectRatio = '16:9'): Promise<ImageResponse> {
-    const adapter = this.factory.get('openai') as OpenAIAdapter;
-    return adapter.generateImage(prompt, model, aspectRatio);
+  async generateImageOpenAI(prompt: string, _model = 'gpt-image-1.5', aspectRatio = '16:9'): Promise<ImageResponse> {
+    return this.generateImage(prompt, 'imagen-4.0-ultra-generate-001', aspectRatio);
   }
 
   /**

@@ -45,8 +45,8 @@ export async function initializeToolRetriever(
   usageQueriesMap?: Map<string, string[]>
 ): Promise<ToolRetriever> {
   const embedder = new OpenAIEmbeddingProvider(
-    process.env.OPENAI_API_KEY!,
-    'text-embedding-3-small'  // ~$0.02 per 1M tokens — negligible
+    process.env.AZURE_FOUNDRY_API ?? process.env.AZURE_OPENAI_API_KEY!,
+    'text-embedding-3-small'  // deploy on Azure OpenAI / Foundry — negligible $/M tokens
   );
 
   const retriever = new ToolRetriever(embedder);
@@ -166,10 +166,12 @@ async function setupTool2VecQueries() {
   // Use any LLM to generate the usage queries
   const llmCall = async (prompt: string): Promise<string> => {
     // Example using OpenAI
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const base = process.env.AZURE_FOUNDRY_ENDPOINT ?? process.env.AZURE_OPENAI_ENDPOINT;
+    const key = process.env.AZURE_FOUNDRY_API ?? process.env.AZURE_OPENAI_API_KEY;
+    const response = await fetch(`${base?.replace(/\/$/, '')}/openai/deployments/gpt-4.1-mini/chat/completions?api-version=2025-04-01-preview`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'api-key': key ?? '',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

@@ -55,8 +55,7 @@ const FINANCIAL_SYNCS = [
   { id: 'mercury', label: 'Mercury (Banking)', endpoint: '/sync/mercury' },
   { id: 'gcp-billing', label: 'GCP Billing', endpoint: '/sync/gcp-billing' },
   { id: 'anthropic-billing', label: 'Anthropic', endpoint: '/sync/anthropic-billing' },
-  { id: 'openai-billing', label: 'OpenAI', endpoint: '/sync/openai-billing' },
-  { id: 'kling-billing', label: 'Kling', endpoint: '/sync/kling-billing' },
+  { id: 'openai-billing', label: 'OpenAI (Azure usage)', endpoint: '/sync/openai-billing' },
 ];
 
 function useSyncStatus() {
@@ -578,26 +577,6 @@ export default function Financials() {
     return Array.from(byProvider.entries()).map(([provider, data]) => ({ provider, ...data }));
   }, [apiBilling]);
 
-  // Kling resource packs from api_billing — deduplicate by service name, keep latest
-  const klingPacks = useMemo(() => {
-    const byService = new Map<string, ApiBillingRow>();
-    for (const r of apiBilling.filter((r) => r.provider === 'kling')) {
-      const existing = byService.get(r.service);
-      if (!existing || r.recorded_at > existing.recorded_at) {
-        byService.set(r.service, r);
-      }
-    }
-    return Array.from(byService.values()).map((r) => ({
-      name: r.service,
-      total: (r.usage?.total_quantity as number) ?? 0,
-      remaining: (r.usage?.remaining_quantity as number) ?? 0,
-      consumed: (r.usage?.consumed_quantity as number) ?? 0,
-      status: (r.usage?.status as string) ?? 'unknown',
-      effective: r.usage?.effective_time ? formatDate(String(r.usage.effective_time).split('T')[0]) : '—',
-      expires: r.usage?.invalid_time ? formatDate(String(r.usage.invalid_time).split('T')[0]) : '—',
-    }));
-  }, [apiBilling]);
-
   // Vendor subscriptions from Mercury — deduplicate by vendor name, keep latest sync date
   const subscriptions = useMemo(() => {
     const byVendor = new Map<string, { name: string; monthly: number; lastPayment: string; count: number; syncDate: string }>();
@@ -1048,7 +1027,6 @@ const GCP_SERVICE_COLORS: Record<string, string> = {
   compute: '#0891B2', storage: '#C084FC', networking: '#2563EB',
 };
 const API_COLORS = ['#7C3AED', '#2563EB', '#0891B2', '#6366F1', '#A855F7'];
-const API_PROVIDER_COLORS: Record<string, string> = { openai: '#00A3C4', anthropic: '#6366F1', kling: '#7C3AED' };
 const VERIF_COLORS: Record<string, string> = { none: '#2563EB', self_critique: '#00A3C4', cross_model: '#6366F1', conditional: '#7C3AED', unknown: '#94A3B8' };
 const VERIF_LABELS: Record<string, string> = { none: 'None', self_critique: 'Self-critique', cross_model: 'Cross-model', conditional: 'Conditional', unknown: 'Unknown' };
 const COMPLEXITY_COLORS: Record<string, string> = { trivial: '#00A3C4', standard: '#2563EB', complex: '#6366F1', frontier: '#7C3AED', unknown: '#94A3B8' };

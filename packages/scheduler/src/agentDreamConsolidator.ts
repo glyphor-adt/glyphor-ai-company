@@ -307,7 +307,6 @@ async function extractPatterns(
 ): Promise<ExtractedPatterns> {
   const client = new ModelClient({
     geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    openaiApiKey: process.env.OPENAI_API_KEY,
   });
 
   const runSummaries = runs.map(r => ({

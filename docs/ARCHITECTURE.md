@@ -15,7 +15,7 @@ At a high level:
 - Execution plane: agent-runtime + role runners + tool execution + provider abstraction.
 - Data plane: Cloud SQL-backed memory, operations, routing, and telemetry state.
 - Operator plane: dashboard, settings, approvals, directives, governance, and strategy surfaces.
-- Integration plane: Stripe, Mercury, GCP, Teams/Graph, OpenAI, Anthropic, Kling, SharePoint, GitHub, Vercel, Canva, DocuSign, Cloudflare, and others.
+- Integration plane: Stripe, Mercury, GCP, Teams/Graph, Azure OpenAI / Foundry, Anthropic, SharePoint, GitHub, Vercel, Canva, DocuSign, Cloudflare, and others.
 
 ## 2. Current State Inventory
 
@@ -266,7 +266,6 @@ Current integration modules (21):
 - gcp
 - github
 - governance
-- kling
 - linkedin
 - mercury
 - openai
@@ -818,7 +817,6 @@ The scheduler server in packages/scheduler/src/server.ts exposes the following r
 | POST | /sync/mercury | Mercury banking sync job | Trusted caller (no bearer) |
 | POST | /sync/openai-billing | OpenAI billing sync job | Trusted caller (no bearer) |
 | POST | /sync/anthropic-billing | Anthropic billing sync job | Trusted caller (no bearer) |
-| POST | /sync/kling-billing | Kling billing sync job | Trusted caller (no bearer) |
 | POST | /sync/sharepoint-knowledge | SharePoint knowledge sync job | Trusted caller (no bearer) |
 | POST | /sync/governance | Governance IAM sync job | Trusted caller (no bearer) |
 | GET | /oauth/canva/callback | Canva OAuth callback | OAuth callback code flow |
@@ -1395,7 +1393,7 @@ This means skills are no longer only static prompt concepts; they are persisted,
 
 - Stripe
 - Mercury
-- OpenAI/Anthropic/Kling billing
+- OpenAI/Anthropic and Google (Gemini/Veo) billing
 - GCP billing exports
 
 ### 12.3 Engineering and Delivery

@@ -21,7 +21,6 @@
 | Mercury | 2:00 AM | `/sync/mercury` | Bank balance, cash flow, vendor subscriptions |
 | OpenAI | 3:00 AM | `/sync/openai-billing` | API usage and billing by model |
 | Anthropic | 3:00 AM | `/sync/anthropic-billing` | Claude API usage and billing |
-| Kling AI | 3:00 AM | `/sync/kling-billing` | Video generation billing |
 
 All sync to the `financials` table in Cloud SQL. Nadia's morning run depends on these completing successfully overnight.
 

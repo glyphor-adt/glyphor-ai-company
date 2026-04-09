@@ -1,13 +1,25 @@
----
-name: content-creation
-slug: content-creation
-category: marketing
-description: Produce multi-format content — blog posts, video promos, social campaigns, email sequences, case studies, storyboarded product demos, and branded visual assets — that position Glyphor as the leader in autonomous AI operations. Use when any content needs producing across any medium (written, visual, video, audio), when the content calendar needs filling, when a product milestone needs announcing, when a campaign requires coordinated assets across channels, or when any published asset needs to carry the Glyphor voice and visual identity. This skill covers the full production pipeline from research through multi-format asset creation to publish, orchestrating the Pulse creative production engine for visual, video, and audio work.
-holders: cmo, content-creator
-tools_granted: web_search, web_fetch, save_memory, send_agent_message, draft_blog_post, draft_case_study, draft_email, draft_social_post, write_content, create_content_draft, update_content_draft, submit_content_for_review, approve_content_draft, reject_content_draft, publish_content, get_content_calendar, get_content_drafts, get_trending_topics, get_content_metrics, query_content_performance, query_top_performing_content, validate_brand_compliance, generate_content_image, pulse_generate_concept_image, pulse_edit_image, pulse_enhance_prompt, pulse_enhance_video_prompt, pulse_polish_scene_prompt, pulse_remove_background, pulse_upscale_image, pulse_expand_image, pulse_extract_image_text, pulse_replace_image_text, pulse_transform_viral_image, pulse_product_recontext, pulse_doodle_to_image, pulse_generate_video, pulse_poll_video_status, pulse_poll_multi_shot, pulse_list_videos, pulse_remix_video, pulse_text_to_speech, pulse_generate_sound_effect, pulse_generate_music, pulse_create_storyboard_from_idea, pulse_list_storyboards, pulse_get_storyboard, pulse_generate_scene_images, pulse_suggest_scenes, pulse_storyboard_chat, pulse_generate_storyboard_script, pulse_generate_voiceover_script, pulse_create_hero_promo, pulse_create_multi_angle, pulse_create_product_showcase, pulse_generate_promo_scenes, pulse_analyze_brand_website, pulse_analyze_image_for_video, pulse_create_share_link, pulse_list_brand_kits
-version: 4
----
+-- Align stored skills + sync metadata with Veo-only video: remove Kling billing sync and
+-- legacy pulse_kling_* tool grants; refresh content-creation playbook from skills/marketing/content-creation.md (v4).
 
+BEGIN;
+
+DELETE FROM data_sync_status WHERE id = 'kling-billing';
+
+UPDATE skills
+SET
+  tools_granted = COALESCE(
+    ARRAY(SELECT t FROM unnest(tools_granted) AS x(t) WHERE t NOT LIKE 'pulse_kling%'),
+    '{}'::text[]
+  ),
+  updated_at = NOW()
+WHERE EXISTS (SELECT 1 FROM unnest(tools_granted) AS x(t) WHERE t LIKE 'pulse_kling%');
+
+UPDATE skills
+SET
+  description = $desc$
+Produce multi-format content — blog posts, video promos, social campaigns, email sequences, case studies, storyboarded product demos, and branded visual assets — that position Glyphor as the leader in autonomous AI operations. Use when any content needs producing across any medium (written, visual, video, audio), when the content calendar needs filling, when a product milestone needs announcing, when a campaign requires coordinated assets across channels, or when any published asset needs to carry the Glyphor voice and visual identity. This skill covers the full production pipeline from research through multi-format asset creation to publish, orchestrating the Pulse creative production engine for visual, video, and audio work.
+$desc$,
+  methodology = $cc$
 # Content Creation
 
 You are not just a writer. You are a creative director with a full production studio at your disposal. You have Pulse — an MCP creative engine that generates images, produces video (Veo), creates storyboards, synthesizes speech and music, builds multi-scene promos, and handles everything from product photography to branded video. Your written content is the strategy and narrative. Pulse is the production firepower that turns your words into multi-format campaigns.
@@ -282,3 +294,58 @@ Save after every published piece:
 - What didn't (low read-through, weak CTAs, underperforming formats)
 
 Build a pattern library: after 3 months, you should know which content types drive engagement, which Pulse tools produce the best brand-native visuals, and which production pipelines are most efficient. This data turns content creation from guessing into a system.
+$cc$,
+  tools_granted = ARRAY[
+    'web_search', 'web_fetch', 'save_memory', 'send_agent_message', 'draft_blog_post', 'draft_case_study', 'draft_email', 'draft_social_post', 'write_content', 'create_content_draft', 'update_content_draft', 'submit_content_for_review', 'approve_content_draft', 'reject_content_draft', 'publish_content', 'get_content_calendar', 'get_content_drafts', 'get_trending_topics', 'get_content_metrics', 'query_content_performance', 'query_top_performing_content', 'validate_brand_compliance', 'generate_content_image', 'pulse_generate_concept_image', 'pulse_edit_image', 'pulse_enhance_prompt', 'pulse_enhance_video_prompt', 'pulse_polish_scene_prompt', 'pulse_remove_background', 'pulse_upscale_image', 'pulse_expand_image', 'pulse_extract_image_text', 'pulse_replace_image_text', 'pulse_transform_viral_image', 'pulse_product_recontext', 'pulse_doodle_to_image', 'pulse_generate_video', 'pulse_poll_video_status', 'pulse_poll_multi_shot', 'pulse_list_videos', 'pulse_remix_video', 'pulse_text_to_speech', 'pulse_generate_sound_effect', 'pulse_generate_music', 'pulse_create_storyboard_from_idea', 'pulse_list_storyboards', 'pulse_get_storyboard', 'pulse_generate_scene_images', 'pulse_suggest_scenes', 'pulse_storyboard_chat', 'pulse_generate_storyboard_script', 'pulse_generate_voiceover_script', 'pulse_create_hero_promo', 'pulse_create_multi_angle', 'pulse_create_product_showcase', 'pulse_generate_promo_scenes', 'pulse_analyze_brand_website', 'pulse_analyze_image_for_video', 'pulse_create_share_link', 'pulse_list_brand_kits'
+  ]::text[],
+  version = 4,
+  updated_at = NOW()
+WHERE slug = 'content-creation';
+
+UPDATE skills
+SET
+  description = replace(description, 'six data sync pipelines', 'five data sync pipelines'),
+  methodology = replace(
+    replace(
+      replace(methodology, 'Financial data flows into Cloud SQL from six nightly sync pipelines.', 'Financial data flows into Cloud SQL from five nightly sync pipelines.'),
+      E'| **Kling AI** | 3:00 AM | Video generation billing | `financials` |\n',
+      ''
+    ),
+    'This skill turns six data sync pipelines into a single coherent financial narrative.',
+    'This skill turns five data sync pipelines into a single coherent financial narrative.'
+  ),
+  updated_at = NOW()
+WHERE slug = 'financial-reporting';
+
+UPDATE skills
+SET methodology = replace(
+  replace(
+    methodology,
+    'Six nightly sync pipelines feed the `financials` table and other data stores.',
+    'Nightly sync jobs keep the `financials` table and other data stores current.'
+  ),
+  E'| Kling billing sync | < 24 hours | `financials` |\n',
+  ''
+),
+updated_at = NOW()
+WHERE slug = 'system-monitoring';
+
+UPDATE skills
+SET methodology = replace(
+  methodology,
+  '9 data sync jobs (Stripe, GCP billing, Mercury, OpenAI billing, Anthropic billing, Kling billing, SharePoint knowledge, governance, GraphRAG)',
+  '8 data sync jobs (Stripe, GCP billing, Mercury, OpenAI billing, Anthropic billing, SharePoint knowledge, governance, GraphRAG)'
+),
+updated_at = NOW()
+WHERE slug = 'incident-response';
+
+UPDATE skills
+SET methodology = replace(
+  methodology,
+  '9 scheduled sync jobs (Stripe, GCP billing, Mercury, OpenAI billing, Anthropic billing, Kling billing, SharePoint knowledge, governance, GraphRAG)',
+  '8 scheduled sync jobs (Stripe, GCP billing, Mercury, OpenAI billing, Anthropic billing, SharePoint knowledge, governance, GraphRAG)'
+),
+updated_at = NOW()
+WHERE slug = 'platform-monitoring';
+
+COMMIT;

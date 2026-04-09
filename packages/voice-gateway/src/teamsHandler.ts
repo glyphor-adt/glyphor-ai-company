@@ -389,7 +389,6 @@ export class TeamsCallHandler {
       const bridge = new TeamsAudioBridge({
         sessionId,
         agentRole: session.agentRole,
-        openaiApiKey: this.openai.apiKey,
         tools: toolDefs,
         promptContext: {
           personalitySummary: profile?.personality_summary ?? undefined,

@@ -69,7 +69,7 @@ const ASSIGNMENTS: AssignmentSeed[] = [
     priority: 'urgent',
     blocking: true,
     dependsOn: [],
-    task: 'Verify and mount GITHUB_TOKEN, VERCEL_TOKEN, PULSE_SERVICE_KEY, OPENAI_API_KEY, CLOUDFLARE_API_TOKEN on glyphor-scheduler. Validate API connectivity and required IAM roles.',
+    task: 'Verify and mount GITHUB_TOKEN, VERCEL_TOKEN, PULSE_SERVICE_KEY, AZURE_FOUNDRY_* (or AZURE_OPENAI_*), GOOGLE_AI_API_KEY, CLOUDFLARE_API_TOKEN on glyphor-scheduler. Validate API connectivity and required IAM roles.',
     deliverable: 'All required secrets exist in Secret Manager, mounted on glyphor-scheduler, and externally validated via health/API checks.',
     acceptanceTest: 'inspect_cloud_run_service confirms mounted secrets; each credential test returns valid response.',
   },
@@ -125,7 +125,7 @@ const ASSIGNMENTS: AssignmentSeed[] = [
     blocking: true,
     dependsOn: ['0.3'],
     task: 'Install Codex CLI in scheduler runtime, register mcp_Codex server, expose codex/codex-reply, and grant access to frontend-engineer.',
-    deliverable: 'Codex tools callable by frontend-engineer from agent runtime with OPENAI_API_KEY-backed auth.',
+    deliverable: 'Codex tools callable by frontend-engineer from agent runtime with Azure OpenAI / Gemini-backed auth.',
     acceptanceTest: 'Frontend engineer executes codex() against web-template-react branch and produces PR that passes npm run build.',
   },
   {

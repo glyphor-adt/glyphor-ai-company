@@ -156,8 +156,7 @@ interface ImageManifestItem {
 }
 
 /**
- * Generate a single image with Imagen 4 primary + DALL-E 3 fallback.
- * Returns null on total failure (both providers).
+ * Generate a single image with Gemini Imagen (Google AI) only.
  */
 async function generateSingleImage(
   item: ImageManifestItem,
@@ -165,7 +164,7 @@ async function generateSingleImage(
 ): Promise<{ filePath: string; data: string; mimeType: string } | null> {
   if (!item.fileName || !item.prompt) return null;
 
-  // Normalize filename: ensure .jpg extension (Imagen returns JPEG)
+  // Normalize extension — Imagen returns JPEG
   const normalizedFileName = /\.[a-z]{2,4}$/i.test(item.fileName)
     ? item.fileName
     : `${item.fileName}.jpg`;
@@ -177,7 +176,6 @@ async function generateSingleImage(
       : `public/images/${normalizedFileName}`;
   const ar = item.aspect_ratio || '16:9';
 
-  // Primary: Imagen 4 Ultra (returns JPEG)
   try {
     const result = await Promise.race([
       modelClient.generateImage(item.prompt, undefined, ar),
@@ -186,47 +184,32 @@ async function generateSingleImage(
       ),
     ]);
     if (result.imageData) {
-      console.log(`[WebBuild:Images] ✅ ${normalizedFileName} (Imagen 4, ${ar}, jpeg)`);
+      console.log(`[WebBuild:Images] ✅ ${normalizedFileName} (Imagen, ${ar})`);
       return { filePath, data: result.imageData, mimeType: result.mimeType ?? 'image/jpeg' };
     }
   } catch (err) {
-    console.warn(`[WebBuild:Images] Imagen 4 failed for ${normalizedFileName}: ${(err as Error).message}`);
+    console.warn(`[WebBuild:Images] Imagen failed for ${normalizedFileName}: ${(err as Error).message}`);
   }
 
-  // Fallback: OpenAI DALL-E 3
-  try {
-    const result = await Promise.race([
-      modelClient.generateImageOpenAI(item.prompt, undefined, ar),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Image gen timeout')), IMAGE_GEN_TIMEOUT_MS),
-      ),
-    ]);
-    if (result.imageData) {
-      console.log(`[WebBuild:Images] ✅ ${normalizedFileName} (DALL-E 3 fallback)`);
-      return { filePath, data: result.imageData, mimeType: result.mimeType ?? 'image/png' };
-    }
-  } catch (err) {
-    console.warn(`[WebBuild:Images] DALL-E 3 also failed for ${normalizedFileName}: ${(err as Error).message}`);
-  }
-
-  console.warn(`[WebBuild:Images] ❌ Skipped ${normalizedFileName} — both providers failed`);
+  console.warn(`[WebBuild:Images] ❌ Skipped ${normalizedFileName}`);
   return null;
 }
 
 /**
  * Generate images from the build manifest using Imagen 4 (primary) with
- * OpenAI DALL-E 3 fallback. All images generated CONCURRENTLY (max 4 at once).
- * Returns a map of filePath → base64 content ready for github_push_files.
+ * All images generated CONCURRENTLY (max 4 at once) via Gemini Imagen only.
  */
 async function generateImagesFromManifest(
   manifest: ImageManifestItem[],
   _ctx: ToolContext,
 ): Promise<Record<string, string>> {
   const { ModelClient: MC } = await import('@glyphor/agent-runtime');
-  const modelClient = new MC({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    openaiApiKey: process.env.OPENAI_API_KEY,
-  });
+  const geminiKey = (process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
+  if (!geminiKey) {
+    console.warn('[WebBuild:Images] GOOGLE_AI_API_KEY / GEMINI_API_KEY not set — skipping image generation');
+    return {};
+  }
+  const modelClient = new MC({ geminiApiKey: geminiKey });
 
   const items = manifest.slice(0, MAX_IMAGE_GEN_ITEMS);
   console.log(`[WebBuild:Images] Generating ${items.length} images CONCURRENTLY`);
@@ -384,7 +367,113 @@ function rewriteFilesWithMediaUrls(
   return updates;
 }
 
-async function uploadMediaToObjectStorage(
+/** Value from Secret Manager (e.g. fuse-r2-endpoint): full S3 API URL or bare account id. */
+function resolveR2S3ApiEndpoint(): string | undefined {
+  const raw = (process.env.PREVIEWS_R2_ENDPOINT?.trim()
+    || process.env.FUSE_PREVIEWS_R2_ENDPOINT?.trim()
+    || '');
+  if (!raw) return undefined;
+  if (/^https:\/\//i.test(raw)) {
+    return raw.replace(/\/+$/, '');
+  }
+  if (/^[a-f0-9]{20,40}$/i.test(raw)) {
+    return `https://${raw}.r2.cloudflarestorage.com`;
+  }
+  const m = raw.match(/([a-f0-9]{20,40})\.r2\.cloudflarestorage\.com/i);
+  if (m?.[1]) {
+    return `https://${m[1]}.r2.cloudflarestorage.com`;
+  }
+  return undefined;
+}
+
+function webMediaUsesR2Backend(): boolean {
+  const flag = process.env.WEB_MEDIA_STORAGE?.trim().toLowerCase();
+  if (flag === 'r2') return true;
+  if (flag === 'gcs') return false;
+  const access = process.env.R2_ACCESS_KEY_ID?.trim()
+    || process.env.PREVIEWS_R2_ACCESS_KEY_ID?.trim()
+    || process.env.FUSE_PREVIEWS_R2_ACCESS_KEY_ID?.trim();
+  const secret = process.env.R2_SECRET_ACCESS_KEY?.trim()
+    || process.env.PREVIEWS_R2_SECRET_ACCESS_KEY?.trim()
+    || process.env.FUSE_PREVIEWS_R2_SECRET_ACCESS_KEY?.trim();
+  const endpoint = process.env.R2_ACCOUNT_ID?.trim()
+    ? `https://${process.env.R2_ACCOUNT_ID.trim()}.r2.cloudflarestorage.com`
+    : resolveR2S3ApiEndpoint();
+  return Boolean(endpoint && access && secret);
+}
+
+async function uploadMediaToR2(
+  mediaFiles: Record<string, string>,
+  project: WebsitePipelineProjectRef,
+): Promise<{
+  urlsByWebPath: Record<string, string>;
+  uploadedRepoPaths: Set<string>;
+  skippedReason?: string;
+}> {
+  const s3Endpoint = process.env.R2_ACCOUNT_ID?.trim()
+    ? `https://${process.env.R2_ACCOUNT_ID.trim()}.r2.cloudflarestorage.com`
+    : resolveR2S3ApiEndpoint();
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim()
+    || process.env.PREVIEWS_R2_ACCESS_KEY_ID?.trim()
+    || process.env.FUSE_PREVIEWS_R2_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim()
+    || process.env.PREVIEWS_R2_SECRET_ACCESS_KEY?.trim()
+    || process.env.FUSE_PREVIEWS_R2_SECRET_ACCESS_KEY?.trim();
+  const bucketName = (
+    process.env.R2_BUCKET_NAME?.trim()
+    || process.env.WEB_MEDIA_BUCKET?.trim()
+    || process.env.PREVIEWS_R2_BUCKET?.trim()
+    || process.env.FUSE_PREVIEWS_R2_BUCKET?.trim()
+    || ''
+  );
+  const publicBaseRaw = process.env.WEB_MEDIA_PUBLIC_BASE_URL?.trim();
+  if (!s3Endpoint || !accessKeyId || !secretAccessKey || !bucketName || !publicBaseRaw) {
+    return {
+      urlsByWebPath: {},
+      uploadedRepoPaths: new Set<string>(),
+      skippedReason:
+        'R2 incomplete — need PREVIEWS_R2_ENDPOINT (or R2_ACCOUNT_ID), R2 access key + secret, '
+        + 'bucket (R2_BUCKET_NAME / PREVIEWS_R2_BUCKET / WEB_MEDIA_BUCKET), WEB_MEDIA_PUBLIC_BASE_URL',
+    };
+  }
+  const publicBase = publicBaseRaw.replace(/\/+$/, '');
+  const objectPrefix = (process.env.WEB_MEDIA_PREFIX || 'web-builds').trim().replace(/^\/+|\/+$/g, '');
+  const buildStamp = `${Date.now()}-${project.projectSlug.replace(/[^a-z0-9-]/gi, '-').toLowerCase()}`;
+
+  const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+  const client = new S3Client({
+    region: 'auto',
+    endpoint: s3Endpoint,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+
+  const urlsByWebPath: Record<string, string> = {};
+  const uploadedRepoPaths = new Set<string>();
+
+  for (const [repoPath, base64] of Object.entries(mediaFiles)) {
+    const webPath = toWebPath(repoPath);
+    const relative = webPath.replace(/^\//, '');
+    const objectPath = `${objectPrefix}/${project.projectSlug}/${buildStamp}/${relative}`;
+    try {
+      const buffer = Buffer.from(base64, 'base64');
+      await client.send(new PutObjectCommand({
+        Bucket: bucketName,
+        Key: objectPath,
+        Body: buffer,
+        ContentType: contentTypeForMediaPath(repoPath),
+        CacheControl: WEB_MEDIA_CACHE_CONTROL,
+      }));
+      urlsByWebPath[webPath] = `${publicBase}/${encodeObjectPath(objectPath)}`;
+      uploadedRepoPaths.add(repoPath);
+    } catch (err) {
+      console.warn(`[WebBuild:Media:R2] Upload failed for ${repoPath}: ${(err as Error).message}`);
+    }
+  }
+
+  return { urlsByWebPath, uploadedRepoPaths };
+}
+
+async function uploadMediaToGcs(
   mediaFiles: Record<string, string>,
   project: WebsitePipelineProjectRef,
 ): Promise<{
@@ -406,7 +495,6 @@ async function uploadMediaToObjectStorage(
   const objectPrefix = (process.env.WEB_MEDIA_PREFIX || 'web-builds').trim().replace(/^\/+|\/+$/g, '');
   const buildStamp = `${Date.now()}-${project.projectSlug.replace(/[^a-z0-9-]/gi, '-').toLowerCase()}`;
 
-  // Dynamic import so cold starts do not hard-depend on GCS in every runtime.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mod = await import('@google-cloud/storage') as any;
   const StorageCtor = mod.Storage;
@@ -448,11 +536,25 @@ async function uploadMediaToObjectStorage(
       urlsByWebPath[webPath] = `${publicBase}/${encodeObjectPath(objectPath)}`;
       uploadedRepoPaths.add(repoPath);
     } catch (err) {
-      console.warn(`[WebBuild:Media] Upload failed for ${repoPath}: ${(err as Error).message}`);
+      console.warn(`[WebBuild:Media:GCS] Upload failed for ${repoPath}: ${(err as Error).message}`);
     }
   }
 
   return { urlsByWebPath, uploadedRepoPaths };
+}
+
+async function uploadMediaToObjectStorage(
+  mediaFiles: Record<string, string>,
+  project: WebsitePipelineProjectRef,
+): Promise<{
+  urlsByWebPath: Record<string, string>;
+  uploadedRepoPaths: Set<string>;
+  skippedReason?: string;
+}> {
+  if (webMediaUsesR2Backend()) {
+    return uploadMediaToR2(mediaFiles, project);
+  }
+  return uploadMediaToGcs(mediaFiles, project);
 }
 
 interface WebsitePipelineProjectRef {
@@ -587,24 +689,52 @@ function getWebsitePipelineOrgFromEnv(): string {
     || 'Glyphor-Fuse';
 }
 
-/** Default: public glyphor site repo (feature branches + PRs). Override or clear via env. */
-const DEFAULT_WEBSITE_FEATURE_BRANCH_REPOS = 'glyphor-adt/glyphor-site';
+/**
+ * ADT repos that are never Fuse prototypes: flagship marketing site + monorepo (dashboard / agents / worker).
+ */
+const WEBSITE_PIPELINE_PR_REPOS_ADT = new Set([
+  'glyphor-adt/glyphor-site',
+  'glyphor-adt/glyphor-ai-company',
+]);
 
 /**
- * POC / client template repos commit straight to `main` with no PR.
- * `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS`: comma-separated `owner/repo` list for feature-branch + PR flow.
- * If unset, defaults to {@link DEFAULT_WEBSITE_FEATURE_BRANCH_REPOS}. Set to empty string to disable.
+ * Website pipeline uses feature branch + GitHub PR so CI/Vercel checks run before merge.
+ *
+ * Defaults (when WEBSITE_PIPELINE_PR_REPOS is unset):
+ * - All `owner/repo` under **Glyphor-Fuse/** (client prototypes from templates)
+ * - **glyphor-adt/glyphor-site** and **glyphor-adt/glyphor-ai-company**
+ *
+ * Override: set `WEBSITE_PIPELINE_PR_REPOS` to a comma-separated exact `owner/repo` list (empty = no PRs anywhere).
+ * Legacy: `WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS` is still read if `WEBSITE_PIPELINE_PR_REPOS` is unset.
+ * Opt-out per repo: `WEBSITE_PIPELINE_SKIP_PR_REPOS=owner/repo,...`
  */
-function shouldUseFeatureBranchWorkflow(repoFullName: string): boolean {
-  const raw = process.env.WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS;
-  const listSource =
-    raw === undefined || raw === null ? DEFAULT_WEBSITE_FEATURE_BRANCH_REPOS : raw.trim();
-  if (!listSource) return false;
+function repoUsesWebsitePullRequestWorkflow(repoFullName: string): boolean {
   const key = repoFullName.trim().toLowerCase();
-  return listSource.split(',').some((part) => {
-    const entry = part.trim().toLowerCase();
-    return entry.length > 0 && entry === key;
-  });
+  const skipRaw = process.env.WEBSITE_PIPELINE_SKIP_PR_REPOS?.trim();
+  if (skipRaw) {
+    const skip = new Set(skipRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+    if (skip.has(key)) return false;
+  }
+
+  let explicit = process.env.WEBSITE_PIPELINE_PR_REPOS?.trim();
+  if (explicit === undefined || explicit === null) {
+    const legacy = process.env.WEBSITE_PIPELINE_FEATURE_BRANCH_REPOS?.trim();
+    if (legacy !== undefined && legacy !== null) {
+      explicit = legacy;
+    }
+  }
+
+  if (explicit !== undefined && explicit !== null) {
+    if (explicit === '') return false;
+    return explicit.split(',').some((part) => {
+      const entry = part.trim().toLowerCase();
+      return entry.length > 0 && entry === key;
+    });
+  }
+
+  if (WEBSITE_PIPELINE_PR_REPOS_ADT.has(key)) return true;
+  if (key.startsWith('glyphor-fuse/')) return true;
+  return false;
 }
 
 function buildAccountProfileOverride(brand: WebBrandContext): Record<string, unknown> {
@@ -720,7 +850,7 @@ function parseProjectReference(projectId: string, tier: WebBuildTier): WebsitePi
   const projectSlug = pickString(record, 'project_slug', 'repo_name', 'project_name') ?? repoName;
   const projectName = pickString(record, 'project_name', 'repo_name') ?? repoName;
   const resolvedFullName = repoFullName ?? `${owner}/${repoName}`;
-  const useFeatureBranch = shouldUseFeatureBranchWorkflow(resolvedFullName);
+  const useFeatureBranch = repoUsesWebsitePullRequestWorkflow(resolvedFullName);
 
   return {
     repoFullName: resolvedFullName,
@@ -741,7 +871,7 @@ function buildSyntheticProjectRef(
 ): WebsitePipelineProjectRef {
   const org = getWebsitePipelineOrgFromEnv();
   const repoFullName = `${org}/${candidateRepoName}`;
-  const useFeatureBranch = shouldUseFeatureBranchWorkflow(repoFullName);
+  const useFeatureBranch = repoUsesWebsitePullRequestWorkflow(repoFullName);
   return {
     repoFullName,
     owner: org,
@@ -1004,7 +1134,7 @@ async function executeWebBuild(
 
   if (params.project_id?.trim()) {
     project = parseProjectReference(params.project_id.trim(), params.tier);
-    const useFeatureBranch = shouldUseFeatureBranchWorkflow(project.repoFullName);
+    const useFeatureBranch = repoUsesWebsitePullRequestWorkflow(project.repoFullName);
     if (useFeatureBranch && options.branchOverride?.trim()) {
       project = { ...project, branch: options.branchOverride.trim() };
     }
@@ -1030,7 +1160,7 @@ async function executeWebBuild(
     for (const candidate of repoCandidates) {
       try {
         let workProject = buildSyntheticProjectRef(candidate, params);
-        const useFeatureBranch = shouldUseFeatureBranchWorkflow(workProject.repoFullName);
+        const useFeatureBranch = repoUsesWebsitePullRequestWorkflow(workProject.repoFullName);
         if (useFeatureBranch && options.branchOverride?.trim()) {
           workProject = { ...workProject, branch: options.branchOverride.trim() };
         }
@@ -1082,7 +1212,7 @@ async function executeWebBuild(
     await new Promise(resolve => setTimeout(resolve, 8_000));
   }
 
-  const useFeatureBranch = shouldUseFeatureBranchWorkflow(project.repoFullName);
+  const useFeatureBranch = repoUsesWebsitePullRequestWorkflow(project.repoFullName);
 
   const files = asRecord(foundation.files) as Record<string, string>;
   assertValidWebsiteFileMap(files);
@@ -1297,7 +1427,7 @@ async function executeWebBuild(
     if (isMarketingBuild) {
       throw new Error(
         'Marketing build blocked: all media generations failed (0 images generated). '
-        + 'Check GOOGLE_AI_API_KEY or GEMINI_API_KEY and OPENAI_API_KEY for image providers.',
+        + 'Check GOOGLE_AI_API_KEY or GEMINI_API_KEY (Gemini Imagen).',
       );
     }
     console.warn(`[WebBuild:Images] ⚠️ All media generations failed. Site will have broken media refs.`);
@@ -1319,7 +1449,7 @@ async function executeWebBuild(
         base_branch: 'main',
         title: options.prTitle ?? buildPullRequestTitle(project, params.tier),
         body: options.prBody ?? buildPullRequestBody(params, project),
-        draft: params.tier !== 'full_build',
+        draft: false,
       },
       ctx,
     );
@@ -1593,7 +1723,7 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
       description:
         'Full website pipeline with GitHub repo + Vercel deployment. **Use only for multi-file client projects that need a hosted preview URL.** '
         + 'For simple dashboards, demos, tools, or data visualizations, use `quick_demo_web_app` instead (faster, no repo needed). '
-        + 'This tool normalizes the brief, generates all source files via UX-engineer pass, creates the GitHub repo + Vercel project, pushes code, and returns a preview URL. '
+        + 'This tool normalizes the brief, generates source files (Gemini Imagen for marketing images when configured), creates the GitHub repo + Vercel project, pushes to a feature branch, opens a PR when policy requires (Fuse + glyphor-adt flagship repos by default), and returns a preview URL. '
         + 'Can take 5-15 minutes. Only appropriate for real project deliverables, not quick chat requests.',
       parameters: {
         brief: {
@@ -2060,7 +2190,7 @@ COLOR COMPOSITION PROTOCOL (MANDATORY):
 - Use only one dominant accent family; secondary accent usage should be sparse and purposeful.
 - Headlines and body copy must stay high-contrast on all surfaces; do not sacrifice readability for mood.
 
-IMAGE GENERATION (Imagen 4 with DALL-E 3 fallback):
+IMAGE GENERATION (Gemini Imagen 4 only — GOOGLE_AI_API_KEY / GEMINI_API_KEY):
 Every page needs imagery. Include image_manifest in your output for all images.
 - Prompts MUST be art-directed: [Subject] [Context] [Lighting] [Materials] [Mood] [Style].
 - Keep imagery cohesive: consistent mood/lighting/style across all prompts.

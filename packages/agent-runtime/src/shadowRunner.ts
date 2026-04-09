@@ -59,7 +59,6 @@ export async function runShadow(
   // Generate outputs in parallel using a lightweight LLM call (not full runner)
   const modelClient = new ModelClient({
     geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    openaiApiKey: process.env.OPENAI_API_KEY,
   });
 
   const [baselineResult, challengerResult] = await Promise.all([

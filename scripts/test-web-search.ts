@@ -1,4 +1,4 @@
-import 'dotenv/config'; // Load .env so OPENAI_API_KEY is available
+import 'dotenv/config';
 import { searchWeb } from '@glyphor/integrations';
 
 async function main() {

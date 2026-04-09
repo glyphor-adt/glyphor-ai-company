@@ -33,7 +33,7 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
   const memory = new CompanyMemoryStore({
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
   });
-  const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY, openaiApiKey: process.env.OPENAI_API_KEY });
+  const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY });
   const runner = createRunner(modelClient, 'content-creator', params.task ?? 'on_demand');
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({});

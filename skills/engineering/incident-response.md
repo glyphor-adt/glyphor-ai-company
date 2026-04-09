@@ -79,7 +79,7 @@ The most common root causes on this platform, in rough order of frequency:
 6. **Agent behavior loop** — prompt or routing change causes infinite tool calls or max-turn violations.
 7. **Missing environment variable or secret** — a secret in GCP Secret Manager wasn't propagated to the Cloud Run revision. Deploys use `--update-secrets` merge mode — if a new secret is added but not listed in the deploy command, it won't exist in the container. This has happened before (the historical heartbeat scheduler bug).
 8. **Pub/Sub delivery failure** — Cloud Scheduler triggers agent runs via Pub/Sub topic `glyphor-agent-tasks`. If Pub/Sub push delivery fails, no scheduled agent runs happen.
-9. **Data sync failure** — 9 data sync jobs (Stripe, GCP billing, Mercury, OpenAI billing, Anthropic billing, Kling billing, SharePoint knowledge, governance, GraphRAG) run on schedule. A failed sync means stale data in Cloud SQL tables.
+9. **Data sync failure** — 8 data sync jobs (Stripe, GCP billing, Mercury, OpenAI billing, Anthropic billing, SharePoint knowledge, governance, GraphRAG) run on schedule. A failed sync means stale data in Cloud SQL tables.
 10. **Data corruption** — bad write to a shared table (founder_directives, company_agents, skills) cascades to multiple agents.
 
 ### 3. MITIGATE — Stop the bleeding
