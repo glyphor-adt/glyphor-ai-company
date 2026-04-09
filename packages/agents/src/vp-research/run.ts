@@ -25,7 +25,14 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface VPResearchRunParams {
-  task?: 'decompose_research' | 'qc_and_package_research' | 'follow_up_research' | 'on_demand';
+  task?:
+    | 'decompose_research'
+    | 'qc_and_package_research'
+    | 'follow_up_research'
+    | 'work_loop'
+    | 'proactive'
+    | 'urgent_message_response'
+    | 'on_demand';
   message?: string;
   analysisId?: string;
   /** The original query for decomposition */
@@ -139,6 +146,14 @@ For each gap:
 2. If deeper investigation is needed, create a brief for the appropriate analyst.
 
 Return structured JSON with keys: findings (object), analystBriefs (array of { analystRole, researchBrief, searchQueries } — or empty array if you handled it all).`;
+  } else if (task === 'urgent_message_response') {
+    initialMessage =
+      params.message?.trim()
+      || 'URGENT: a peer message needs a timely response. Use check_messages (or read inbox), execute the work requested, and reply with findings.';
+  } else if (task === 'work_loop' || task === 'proactive') {
+    initialMessage =
+      params.message?.trim()
+      || 'Work loop: review your inbox, pending assignments, and research queue; execute what is needed and report back.';
   } else {
     initialMessage = params.message || 'Run a research status check.';
   }

@@ -125,8 +125,10 @@ import {
   runCPO,
   runCMO,
   runVPDesign,
+  runVPResearch,
   runOps,
   resolveVpDesignWorkerMessage,
+  type VPResearchRunParams,
 } from '@glyphor/agents';
 import { OAuth2Client } from 'google-auth-library';
 import {
@@ -1154,6 +1156,45 @@ const agentExecutor = async (
     });
   } else if (agentRole === 'ops') {
     return runOps({ task: (task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene'), message, eventPayload: payload, conversationHistory });
+  } else if (agentRole === 'vp-research') {
+    let vpMessage = message;
+    if (!vpMessage?.trim() && task === 'urgent_message_response') {
+      const ed = payload.event_data as { from_agent?: string; message?: string } | undefined;
+      if (ed?.message?.trim()) {
+        vpMessage = `URGENT — from ${ed.from_agent ?? 'peer'}:\n${ed.message}`;
+      } else {
+        vpMessage =
+          'URGENT inbound message. Use check_messages to read your queue, fulfill the request (research, web search, competitive work as needed), then reply to the sender with findings.';
+      }
+    }
+    // message.sent events only include message_id; load body so Sophia does not run blind.
+    if (!vpMessage?.trim()) {
+      const mid = typeof payload.message_id === 'string' ? payload.message_id.trim() : '';
+      if (mid) {
+        try {
+          const [row] = await systemQuery<{ message: string; from_agent: string }>(
+            'SELECT message, from_agent FROM agent_messages WHERE id = $1',
+            [mid],
+          );
+          if (row?.message?.trim()) {
+            vpMessage = `Inbound message from ${row.from_agent}:\n${row.message}`;
+          }
+        } catch { /* non-fatal */ }
+      }
+    }
+    return runVPResearch({
+      task: task as VPResearchRunParams['task'],
+      message: vpMessage,
+      analysisId: payload.analysisId as string | undefined,
+      query: payload.query as string | undefined,
+      analysisType: payload.analysisType as string | undefined,
+      depth: payload.depth as string | undefined,
+      sarahNotes: payload.sarahNotes as string | undefined,
+      rawPackets: payload.rawPackets as Record<string, unknown> | undefined,
+      executiveRouting: payload.executiveRouting as Record<string, string[]> | undefined,
+      gaps: payload.gaps as unknown[] | undefined,
+      conversationHistory,
+    });
   } else {
     return blockedRuntimeResult(agentRole);
   }

@@ -17,6 +17,7 @@ import {
   runVPResearch,
   runDynamicAgent,
   resolveVpDesignWorkerMessage,
+  type VPResearchRunParams,
 } from '@glyphor/agents';
 
 const app = express();
@@ -295,7 +296,7 @@ async function executeAgentByRole(input: WorkerAgentExecutePayload): Promise<Rou
       result = await runOps({ task: task as 'health_check' | 'freshness_check' | 'cost_check' | 'morning_status' | 'evening_status' | 'on_demand' | 'event_response' | 'contradiction_detection' | 'knowledge_hygiene', message, eventPayload: payload, conversationHistory });
     } else if (agentRole === 'vp-research') {
       result = await runVPResearch({
-        task: task as 'decompose_research' | 'qc_and_package_research' | 'follow_up_research' | 'on_demand',
+        task: task as VPResearchRunParams['task'],
         message,
         analysisId: payload.analysisId as string | undefined,
         query: payload.query as string | undefined,
