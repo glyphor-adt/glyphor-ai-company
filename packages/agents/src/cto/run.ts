@@ -36,6 +36,23 @@ import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 import { systemQuery } from '@glyphor/shared/db';
 
+/** Inbox / reactive runs need more LLM rounds than a tight DB max_turns allows. */
+const CTO_REACTIVE_TURN_FLOOR = 28;
+const CTO_REACTIVE_TASKS = new Set<string>([
+  'work_loop',
+  'proactive',
+  'urgent_message_response',
+  'incident_response',
+  'event_message_sent',
+]);
+
+function effectiveCtoMaxTurns(task: string, loadedMax: number): number {
+  if (CTO_REACTIVE_TASKS.has(task) || task.startsWith('event_')) {
+    return Math.max(loadedMax, CTO_REACTIVE_TURN_FLOOR);
+  }
+  return loadedMax;
+}
+
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
   message?: string;
@@ -146,6 +163,7 @@ Steps:
       initialMessage = params.message || 'Provide a technical status summary of the platform.';
   }
   const agentCfg = await loadAgentConfig('cto', { temperature: 0.3, maxTurns: 15 }, task);
+  const maxTurns = effectiveCtoMaxTurns(task, agentCfg.maxTurns);
 
   const config: AgentConfig = {
     id: `cto-${task}-${today}`,
@@ -153,7 +171,7 @@ Steps:
     systemPrompt: CTO_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns,
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,
