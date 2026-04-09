@@ -15,6 +15,7 @@ import { AgentSupervisor } from './supervisor.js';
 import {
   applyWorkloadReadsProgressAndStallFloor,
   reserveSupervisorWrapUpTurnForWorkload,
+  REACTIVE_STALL_FLOOR_TASKS,
   SCHEDULED_TOOL_EXECUTION_TASKS,
 } from './supervisorWorkloadStallPolicy.js';
 import { enqueueWorkloadContinuationWakeIfBudgetHit } from './continuationWake.js';
@@ -118,6 +119,7 @@ const EXECUTION_GATE_AUTO_REPAIR_MARKER = '__completion_gate_auto_repair__';
 
 const THINKING_DISABLED_TASKS = new Set<string>([
   // on_demand is intentionally NOT here — it uses dynamic classification
+  'urgent_message_response',
 ]);
 
 const THINKING_ENABLED_TASKS = new Set([
@@ -1982,6 +1984,10 @@ export class CompanyAgentRunner {
           // Thinking-enabled scheduled tasks: ensure at least 10 min
           supervisor.config.timeoutMs = Math.max(supervisor.config.timeoutMs, SCHEDULED_THINKING_TIMEOUT_MS);
         }
+      }
+      // Align with BaseAgentRunner: urgent wakes / work_loop get reads-as-progress + stall floor.
+      if (REACTIVE_STALL_FLOOR_TASKS.has(task)) {
+        applyWorkloadReadsProgressAndStallFloor(supervisor.config);
       }
       reserveSupervisorWrapUpTurnForWorkload(supervisor, task);
 

@@ -7,6 +7,12 @@
 
 export const REACTIVE_AGENT_TASK_TURN_FLOOR = 40;
 
+/**
+ * Inter-agent urgent wakes must answer quickly; a 40-turn ceiling matches long work_loop
+ * budgets and encourages "think forever" without tools. Keep this low.
+ */
+export const URGENT_MESSAGE_RESPONSE_MAX_TURNS = 16;
+
 /** Wall-clock ceiling for scheduled reactive runs (thinking models + deep tool chains). */
 export const REACTIVE_WORKLOAD_SUPERVISOR_TIMEOUT_MS = 900_000;
 
@@ -40,7 +46,12 @@ export function effectiveMaxTurnsForReactiveTask(task: string | undefined, loade
     // Invalid values become a conservative default; AgentSupervisor also enforces min 1.
     return valid ?? 15;
   }
-  return Math.max(valid ?? REACTIVE_AGENT_TASK_TURN_FLOOR, REACTIVE_AGENT_TASK_TURN_FLOOR);
+  const floor = REACTIVE_AGENT_TASK_TURN_FLOOR;
+  const raised = Math.max(valid ?? floor, floor);
+  if (task === 'urgent_message_response') {
+    return Math.min(raised, URGENT_MESSAGE_RESPONSE_MAX_TURNS);
+  }
+  return raised;
 }
 
 /** Use for agent run configs so heartbeat/work_loop does not hit 5m timeout before turn budget. */

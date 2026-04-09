@@ -118,6 +118,7 @@ import {
   listClientSdkAgents,
   retireClientSdkAgent,
 } from './clientSdk.js';
+import type { CTORunParams } from '@glyphor/agents';
 import {
   runChiefOfStaff,
   runCTO,
@@ -1146,7 +1147,11 @@ const agentExecutor = async (
       conversationHistory,
     });
   } else if (agentRole === 'cto') {
-    return runCTO({ task: (task as 'platform_health_check' | 'dependency_review' | 'on_demand'), message, conversationHistory });
+    return runCTO({
+      task: task as CTORunParams['task'],
+      message,
+      conversationHistory,
+    });
   } else if (agentRole === 'cfo') {
     return runCFO({ task: (task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cpo') {

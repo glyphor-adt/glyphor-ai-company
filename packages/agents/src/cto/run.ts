@@ -41,7 +41,13 @@ import {
 } from '../shared/reactiveTurnBudget.js';
 
 export interface CTORunParams {
-  task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
+  task?:
+    | 'platform_health_check'
+    | 'dependency_review'
+    | 'on_demand'
+    | 'work_loop'
+    | 'proactive'
+    | 'urgent_message_response';
   message?: string;
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
@@ -143,6 +149,17 @@ Steps:
 
     case 'on_demand':
       initialMessage = params.message || 'Provide a technical status summary of the platform.';
+      break;
+
+    case 'urgent_message_response':
+      initialMessage = [
+        'URGENT: another agent or founder needs a concrete reply in this run.',
+        '',
+        params.message?.trim()
+          || 'Use check_messages (or your mail tools) to read the inbound request, then answer with repo-backed facts or send_agent_message.',
+        '',
+        'You must call tools (grep, codebase_search, read_file, list_my_tools, send_agent_message, etc.) — do not answer from memory alone.',
+      ].join('\n');
       break;
 
     default:

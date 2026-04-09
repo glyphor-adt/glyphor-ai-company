@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   REACTIVE_AGENT_TASK_TURN_FLOOR,
   REACTIVE_WORKLOAD_SUPERVISOR_TIMEOUT_MS,
+  URGENT_MESSAGE_RESPONSE_MAX_TURNS,
   effectiveMaxTurnsForReactiveTask,
   supervisorTimeoutMsForReactiveWorkload,
 } from '../reactiveTurnBudget.js';
@@ -10,6 +11,11 @@ describe('reactiveTurnBudget', () => {
   it('raises work_loop turn floor', () => {
     expect(effectiveMaxTurnsForReactiveTask('work_loop', 15)).toBeGreaterThanOrEqual(REACTIVE_AGENT_TASK_TURN_FLOOR);
     expect(REACTIVE_AGENT_TASK_TURN_FLOOR).toBeGreaterThanOrEqual(40);
+  });
+
+  it('caps urgent_message_response below reactive floor', () => {
+    expect(effectiveMaxTurnsForReactiveTask('urgent_message_response', 15)).toBe(URGENT_MESSAGE_RESPONSE_MAX_TURNS);
+    expect(effectiveMaxTurnsForReactiveTask('urgent_message_response', 80)).toBe(URGENT_MESSAGE_RESPONSE_MAX_TURNS);
   });
 
   it('extends supervisor timeout for reactive workload tasks', () => {
