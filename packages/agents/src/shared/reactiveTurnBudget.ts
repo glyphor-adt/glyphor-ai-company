@@ -14,19 +14,26 @@ const REACTIVE_TASK_IDS = new Set<string>([
   'incident_response',
   'event_message_sent',
   'heartbeat_response',
+  /** Heartbeat-driven Agent365 mailbox triage (same budget needs as work_loop). */
+  'agent365_mail_triage',
   'orchestrate',
   'strategic_planning',
   'process_directive',
 ]);
 
 export function isReactiveAgentTask(task: string | undefined): boolean {
-  const t = (task ?? '').trim();
+  const t = (task ?? '').trim().toLowerCase();
   if (!t) return false;
   return REACTIVE_TASK_IDS.has(t) || t.startsWith('event_');
 }
 
 /** Raise loaded maxTurns when task is reactive; otherwise leave unchanged. */
 export function effectiveMaxTurnsForReactiveTask(task: string | undefined, loadedMax: number): number {
-  if (!isReactiveAgentTask(task)) return loadedMax;
-  return Math.max(loadedMax, REACTIVE_AGENT_TASK_TURN_FLOOR);
+  const n = Math.floor(Number(loadedMax));
+  const valid = Number.isFinite(n) && n > 0 ? n : null;
+  if (!isReactiveAgentTask(task)) {
+    // Invalid values become a conservative default; AgentSupervisor also enforces min 1.
+    return valid ?? 15;
+  }
+  return Math.max(valid ?? REACTIVE_AGENT_TASK_TURN_FLOOR, REACTIVE_AGENT_TASK_TURN_FLOOR);
 }

@@ -37,6 +37,16 @@ export interface RouteResult {
   actions?: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }>;
   /** Dashboard chat only — iframe preview URLs from web pipeline tools. */
   dashboardChatEmbeds?: Array<{ kind: 'iframe_preview'; url: string; label?: string }>;
+  /** Populated when worker executes an agent run (scheduler maps these to agent_runs). */
+  totalTurns?: number;
+  totalFilesWritten?: number;
+  totalMemoryKeysWritten?: number;
+  elapsedMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  thinkingTokens?: number;
+  cachedInputTokens?: number;
+  cost?: number;
 }
 
 export interface CascadePreview {

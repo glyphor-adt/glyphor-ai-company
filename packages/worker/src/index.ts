@@ -322,6 +322,15 @@ async function executeAgentByRole(input: WorkerAgentExecutePayload): Promise<Rou
       error: result?.error ?? result?.abortReason,
       actions: result?.actions,
       dashboardChatEmbeds: result?.dashboardChatEmbeds,
+      totalTurns: result?.totalTurns,
+      totalFilesWritten: result?.totalFilesWritten,
+      totalMemoryKeysWritten: result?.totalMemoryKeysWritten,
+      elapsedMs: result?.elapsedMs,
+      inputTokens: result?.inputTokens,
+      outputTokens: result?.outputTokens,
+      thinkingTokens: result?.thinkingTokens,
+      cachedInputTokens: result?.cachedInputTokens,
+      cost: result?.cost,
     };
     return routeResult;
   } catch (err) {

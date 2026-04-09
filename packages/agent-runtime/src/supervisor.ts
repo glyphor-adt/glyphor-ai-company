@@ -24,7 +24,12 @@ export class AgentSupervisor {
   private turnHadProgress = false;
 
   constructor(config: SupervisorConfig) {
-    this.config = config;
+    const mt = Math.floor(Number(config.maxTurns));
+    const safeMax = Number.isFinite(mt) && mt > 0 ? mt : 1;
+    this.config =
+      safeMax === config.maxTurns
+        ? config
+        : { ...config, maxTurns: safeMax };
   }
 
   get signal(): AbortSignal {

@@ -720,11 +720,16 @@ export async function loadAgentConfig(
 
     if (data) {
       const dbModel = data.model || null;
+      const rawTurns = data.max_turns != null ? Number(data.max_turns) : NaN;
+      const maxTurns =
+        Number.isFinite(rawTurns) && rawTurns > 0
+          ? Math.floor(rawTurns)
+          : defaults.maxTurns;
       return {
         // Always route through resolveModel (which calls optimizeModel) — picks cheapest tier for the role
         model: resolveModel(role as any, task ?? 'scheduled', DEFAULT_AGENT_MODEL, dbModel),
         temperature: data.temperature ?? defaults.temperature,
-        maxTurns: data.max_turns ?? defaults.maxTurns,
+        maxTurns,
         thinkingEnabled: data.thinking_enabled ?? true,
       };
     }

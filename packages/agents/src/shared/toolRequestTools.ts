@@ -562,9 +562,9 @@ export function createToolRequestTools(): ToolDefinition[] {
     {
       name: 'request_tool_access',
       description:
-        'Request access to an EXISTING tool you don\'t currently have. Use this when a tool call ' +
-        'fails with "does not have access". This files an access request for admin review; it does not activate access live. ' +
-        'Restricted capabilities include paid/spend-impacting or global-admin permissioning tools.',
+        'Request access to an EXISTING tool you don\'t currently have. Use when execution returns "not granted". ' +
+        'Non-restricted tools (most read/research/web tools) are **activated immediately** for your role. ' +
+        'Restricted tools (paid billing, IAM, secrets, tenant admin) file a yellow decision for CTO/founder review only.',
       parameters: {
         tool_name: {
           type: 'string',
@@ -587,9 +587,11 @@ export function createToolRequestTools(): ToolDefinition[] {
         if (!reason) {
           return { success: false, error: 'reason is required' };
         }
+        // Judge risk from the tool id only — agent-written reasons often mention "cost"/"pricing"
+        // and incorrectly tripped the paid-risk patterns.
         const permissionPolicy = evaluateToolPermissionGate({
           toolName,
-          contextText: [reason],
+          contextText: [],
         });
 
         if (!(await isKnownToolAsync(toolName))) {
@@ -624,15 +626,46 @@ export function createToolRequestTools(): ToolDefinition[] {
           };
         }
 
+        if (!permissionPolicy.requiresApproval) {
+          try {
+            await systemQuery(
+              `INSERT INTO agent_tool_grants (tenant_id, agent_role, tool_name, granted_by, reason, is_active)
+               VALUES ('00000000-0000-0000-0000-000000000000'::uuid, $1, $2, 'self-service', $3, true)
+               ON CONFLICT (agent_role, tool_name) DO UPDATE SET
+                 granted_by = EXCLUDED.granted_by,
+                 reason = EXCLUDED.reason,
+                 is_active = EXCLUDED.is_active,
+                 tenant_id = EXCLUDED.tenant_id,
+                 updated_at = NOW()`,
+              [agentRole, toolName, `Self-service grant: ${reason.slice(0, 480)}`],
+            );
+          } catch (insErr) {
+            return {
+              success: false,
+              error: `Could not activate grant for "${toolName}": ${(insErr as Error).message}`,
+            };
+          }
+          invalidateGrantCache(agentRole);
+          return {
+            success: true,
+            data: {
+              granted: true,
+              tool_name: toolName,
+              agent_role: agentRole,
+              message: `Access to "${toolName}" is now active for your role. Retry your tool call.`,
+            },
+          };
+        }
+
         try {
           await queueToolReviewDecision({
-            title: `${permissionPolicy.requiresApproval ? 'Restricted ' : ''}tool access: ${toolName} → ${agentRole}`,
-            summary: `${agentRole} requested access to "${toolName}". Admin review is required before any live grant.\n\nReason: ${reason}`,
+            title: `Restricted tool access: ${toolName} → ${agentRole}`,
+            summary: `${agentRole} requested access to "${toolName}". Restricted capability — admin review before live grant.\n\nReason: ${reason}`,
             proposedBy: agentRole,
             reasoning: reason,
-            requiresApproval: permissionPolicy.requiresApproval,
+            requiresApproval: true,
             data: {
-              type: permissionPolicy.requiresApproval ? 'restricted_tool_access_request' : 'tool_access_request',
+              type: 'restricted_tool_access_request',
               agent_role: agentRole,
               tool_name: toolName,
               restriction_reason: permissionPolicy.reason,
@@ -651,12 +684,12 @@ export function createToolRequestTools(): ToolDefinition[] {
           data: {
             granted: false,
             pending_admin_review: true,
-            pending_approval: permissionPolicy.requiresApproval,
+            pending_approval: true,
             tool_name: toolName,
             agent_role: agentRole,
-            message: permissionPolicy.requiresApproval
-              ? `Access request for "${toolName}" was filed for restricted admin review. No live grant was activated.`
-              : `Access request for "${toolName}" was filed for CTO/admin review. No live grant was activated.`,
+            message:
+              `Access request for "${toolName}" was filed for restricted admin review. ` +
+              `Ping Marcus (cto) via send_agent_message with tool name and task if urgent.`,
           },
         };
       },

@@ -201,6 +201,11 @@
       "required": [
         "save_research",
         "search_research",
+        "web_search",
+        "web_fetch",
+        "deep_research",
+        "search_news",
+        "submit_research_packet",
         "save_memory",
         "send_agent_message",
         "check_messages",
