@@ -170,7 +170,14 @@ const TRUSTED_CORS_ORIGINS = new Set<string>(
     .map((origin) => origin.replace(/\/$/, '')),
 );
 
-type SchedulerRouteClass = 'public' | 'authenticated-user' | 'admin-only' | 'internal-service-only' | 'admin-or-internal';
+type SchedulerRouteClass =
+  | 'public'
+  | 'authenticated-user'
+  | 'admin-only'
+  | 'internal-service-only'
+  | 'admin-or-internal'
+  /** Cron OIDC or any logged-in dashboard user (viewer/admin)—used for golden-eval "run now" from Reliability UI */
+  | 'internal-or-dashboard-user';
 
 const DASHBOARD_FALLBACK_EMAILS = new Set([
   'kristina@glyphor.ai',
@@ -540,12 +547,14 @@ function classifySchedulerRoute(pathname: string, method: string): SchedulerRout
     return 'admin-only';
   }
 
-  // Callable by both cron (OIDC service account) and dashboard admin (Bearer token)
-  if (
-    pathname === '/agent-evals/run' ||
-    pathname === '/agent-evals/run-golden'
-  ) {
+  // Callable by both cron (OIDC) and dashboard admin
+  if (pathname === '/agent-evals/run') {
     return 'admin-or-internal';
+  }
+
+  // Golden suite: cron OIDC or any dashboard account (viewer can use "Run golden suite now" in Reliability)
+  if (pathname === '/agent-evals/run-golden') {
+    return 'internal-or-dashboard-user';
   }
 
   if (
@@ -695,6 +704,41 @@ async function resolveRouteAuthContext(
     if (isOidc) return { routeClass, dashboardUser: null };
     // Fall back to dashboard admin check
     const dashboardUser = await requireDashboardUser(req, res, { admin: true });
+    if (!dashboardUser) return null;
+    return { routeClass, dashboardUser };
+  }
+
+  if (routeClass === 'internal-or-dashboard-user') {
+    const authorization = getHeaderString(req.headers.authorization);
+    const token = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length).trim() : '';
+    let isOidc = false;
+    if (token) {
+      try {
+        const requestOrigin = getRequestOrigin(req);
+        const audienceCandidates = Array.from(
+          new Set(
+            [
+              process.env.SCHEDULER_OIDC_AUDIENCE?.trim() || null,
+              requestOrigin ? `${requestOrigin}${pathname}` : null,
+              requestOrigin,
+            ].filter((v): v is string => Boolean(v && v.trim())),
+          ),
+        );
+        for (const audience of audienceCandidates) {
+          try {
+            await oidcClient.verifyIdToken({ idToken: token, audience });
+            isOidc = true;
+            break;
+          } catch {
+            /* try next audience */
+          }
+        }
+      } catch {
+        /* not OIDC */
+      }
+    }
+    if (isOidc) return { routeClass, dashboardUser: null };
+    const dashboardUser = await requireDashboardUser(req, res, { admin: false });
     if (!dashboardUser) return null;
     return { routeClass, dashboardUser };
   }
