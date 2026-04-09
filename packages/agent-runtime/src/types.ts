@@ -653,6 +653,43 @@ export interface AgentBudget {
   monthlyUsd: number;
 }
 
+/**
+ * Heartbeat cost guard: skip optional wakes when an agent’s roll-up spend for today exceeds this (USD).
+ * - Default **25** (~5× the old $5 cap) so test/staging can run without silent wake starvation.
+ * - Set `HEARTBEAT_DAILY_COST_BUDGET_USD=0` | `off` | `disabled` to turn the guard off entirely.
+ */
+export function getHeartbeatDailyCostBudgetUsd(): number | null {
+  const raw = process.env.HEARTBEAT_DAILY_COST_BUDGET_USD;
+  if (raw !== undefined && raw !== '' && /^(0|off|disabled|false)$/i.test(String(raw).trim())) {
+    return null;
+  }
+  if (raw === undefined || raw === '') return 25;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+/**
+ * Effective per-role caps for ToolExecutor (per-run / daily / monthly). Base values come from {@link AGENT_BUDGETS}.
+ * - Default scale **5** for pre-launch validation; set `AGENT_BUDGET_SCALE=1` before tight production caps.
+ * - Set `AGENT_BUDGET_SCALE=0` | `off` | `disabled` to skip executor-side budget enforcement for tools.
+ */
+export function getEffectiveAgentBudget(role: CompanyAgentRole): AgentBudget | null {
+  const raw = process.env.AGENT_BUDGET_SCALE;
+  if (raw !== undefined && raw !== '' && /^(0|off|disabled|false)$/i.test(String(raw).trim())) {
+    return null;
+  }
+  const scale = raw === undefined || raw === '' ? 5 : Number(raw);
+  const s = Number.isFinite(scale) && scale > 0 ? scale : 5;
+  const base = AGENT_BUDGETS[role];
+  if (!base) return null;
+  return {
+    perRunUsd: base.perRunUsd * s,
+    dailyUsd: base.dailyUsd * s,
+    monthlyUsd: base.monthlyUsd * s,
+  };
+}
+
 export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   // ── Executives: 24/7 always-on budgets ──
   // CoS orchestrates cross-team workflows and frequently executes multi-step tool batches.

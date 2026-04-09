@@ -25,7 +25,7 @@ import type {
   SecurityEventType,
   ToolRetrievalMeta,
 } from './types.js';
-import { AGENT_BUDGETS, WRITE_TOOLS as WRITE_TOOL_SET } from './types.js';
+import { getEffectiveAgentBudget, WRITE_TOOLS as WRITE_TOOL_SET } from './types.js';
 import { systemQuery } from '@glyphor/shared/db';
 import { buildSearchableToolDescription } from './toolRegistry.js';
 import type { FormalVerifier } from './formalVerifier.js';
@@ -786,7 +786,7 @@ export class ToolExecutor {
     role: CompanyAgentRole,
     estimatedCost: number,
   ): boolean {
-    const budget = AGENT_BUDGETS[role];
+    const budget = getEffectiveAgentBudget(role);
     if (!budget) return false;
 
     const runCost = (this.runCosts.get(agentId) ?? 0) + estimatedCost;
@@ -1406,7 +1406,7 @@ export class ToolExecutor {
 
       // 3. Formal budget verification for write tools
       if (this.formalVerifier && !isReadOnlyTool(toolName)) {
-        const budget = AGENT_BUDGETS[role];
+        const budget = getEffectiveAgentBudget(role);
         if (budget) {
           const result = this.formalVerifier.verifyBudgetConstraint({
             proposedSpend: estimatedCost,

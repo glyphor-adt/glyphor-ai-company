@@ -391,6 +391,8 @@ export { recordToolCall, detectToolSource, incrementDownstreamDefects } from './
 export type { ToolSource } from './toolReputationTracker.js';
 export {
   AGENT_BUDGETS,
+  getHeartbeatDailyCostBudgetUsd,
+  getEffectiveAgentBudget,
   EXECUTIVE_ROLES,
   SUB_TEAM_ROLES,
   EXECUTIVE_ALLOWED_EVENTS,

@@ -15,7 +15,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { isCanonicalKeepRole } from '@glyphor/shared';
 import type { CompanyAgentRole, AgentExecutionResult } from '@glyphor/agent-runtime';
-import { EXECUTIVE_ROLES, getRedisCache, CACHE_KEYS, CACHE_TTL } from '@glyphor/agent-runtime';
+import { EXECUTIVE_ROLES, getHeartbeatDailyCostBudgetUsd, getRedisCache, CACHE_KEYS, CACHE_TTL } from '@glyphor/agent-runtime';
 import { shouldBlockHeartbeat, checkFleetCostCeiling } from '@glyphor/agent-runtime';
 import { executeWorkLoop, WorkflowOrchestrator } from '@glyphor/agent-runtime';
 import type { WakeRouter } from './wakeRouter.js';
@@ -94,8 +94,6 @@ const INBOX_SIGNATURE_TTL_SECONDS = 7 * 24 * 60 * 60;
 const DIRECTIVE_RETRY_CAP = 3;
 /** Lookback window for checking recent orchestrate runs before re-waking CoS */
 const DIRECTIVE_RECHECK_WINDOW_MS = 60 * 60 * 1000; // 60 minutes
-/** Daily cost budget per agent (USD). Heartbeat skips non-critical wakes when exceeded. */
-const DAILY_COST_BUDGET_USD = 5.00;
 
 function inboxSignatureCacheKey(role: CompanyAgentRole): string {
   return `inbox-signature:${role}`;
@@ -188,6 +186,8 @@ export class HeartbeatManager {
   async runHeartbeat(): Promise<HeartbeatResult> {
     this.cycle++;
 
+    const heartbeatDailyBudgetUsd = getHeartbeatDailyCostBudgetUsd();
+
     // ── Fleet-wide circuit breaker check ──
     // If the fleet is halted at any level, skip the entire heartbeat cycle.
     // Auto-trip if fleet daily cost exceeds the configured ceiling.
@@ -222,11 +222,13 @@ export class HeartbeatManager {
     // ── Phase 0c: DIRECTIVE DETECTION — runs EVERY cycle (~10 min) ──
     // This is outside the tier-gated agent loop so new directives are
     // detected within ~10 minutes regardless of CoS's exec-tier cadence.
-    // Cost guard: skip if CoS has exceeded daily budget
+    // Cost guard: skip if CoS has exceeded daily budget (null budget = disabled via env)
     let directiveWake: WaveAgent | null = null;
     const cosCostToday = await this.getAgentCostToday('chief-of-staff');
-    if (cosCostToday >= DAILY_COST_BUDGET_USD) {
-      console.log(`[Heartbeat] CoS daily cost $${cosCostToday.toFixed(2)} >= budget $${DAILY_COST_BUDGET_USD} — skipping directive wake`);
+    if (heartbeatDailyBudgetUsd != null && cosCostToday >= heartbeatDailyBudgetUsd) {
+      console.log(
+        `[Heartbeat] CoS daily cost $${cosCostToday.toFixed(2)} >= budget $${heartbeatDailyBudgetUsd} — skipping directive wake`,
+      );
     } else {
       directiveWake = await this.checkDirectiveNeeds();
     }
@@ -266,10 +268,12 @@ export class HeartbeatManager {
       const hasQueuedWake = queuedWakeAgents.includes(agentRole);
 
       // Cost guard: skip non-critical wakes if agent exceeded daily budget
-      if (!hasQueuedWake) {
+      if (!hasQueuedWake && heartbeatDailyBudgetUsd != null) {
         const agentCostToday = await this.getAgentCostToday(agentRole);
-        if (agentCostToday >= DAILY_COST_BUDGET_USD) {
-          console.log(`[Heartbeat] ${agentRole} daily cost $${agentCostToday.toFixed(2)} >= budget $${DAILY_COST_BUDGET_USD} — skipping heartbeat wake`);
+        if (agentCostToday >= heartbeatDailyBudgetUsd) {
+          console.log(
+            `[Heartbeat] ${agentRole} daily cost $${agentCostToday.toFixed(2)} >= budget $${heartbeatDailyBudgetUsd} — skipping heartbeat wake`,
+          );
           continue;
         }
       }
