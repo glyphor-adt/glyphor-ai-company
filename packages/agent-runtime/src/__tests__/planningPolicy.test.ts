@@ -56,6 +56,18 @@ describe('planningPolicy', () => {
     expect(policy.completionGateEnabled).toBe(false);
   });
 
+  it('disables planning for urgent_message_response so orchestrators can call tools immediately', () => {
+    const config = createConfig('cto');
+    const policy = resolvePlanningPolicy({
+      role: 'cto',
+      task: 'urgent_message_response',
+      config,
+      taskTierHint: false,
+    });
+    expect(policy.planningMode).toBe('off');
+    expect(policy.completionGateEnabled).toBe(false);
+  });
+
   it('allows env overrides and respects explicit config overrides', () => {
     vi.stubEnv('AGENT_PLANNING_POLICY_JSON', JSON.stringify({
       default: { planningMode: 'auto', completionGateMaxRetries: 1 },

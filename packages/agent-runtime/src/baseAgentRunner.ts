@@ -15,6 +15,7 @@ import { ToolExecutor } from './toolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
 import {
   applyWorkloadReadsProgressAndStallFloor,
+  REACTIVE_STALL_FLOOR_TASKS,
   reserveSupervisorWrapUpTurnForWorkload,
 } from './supervisorWorkloadStallPolicy.js';
 import { enqueueWorkloadContinuationWakeIfBudgetHit } from './continuationWake.js';
@@ -505,7 +506,7 @@ export abstract class BaseAgentRunner {
     const completionGateMaxRetries = planningPolicy.completionGateMaxRetries;
     const completionGateAutoRepairEnabled = planningPolicy.completionGateAutoRepairEnabled;
     let runPhase: 'planning' | 'execution' = planningMode === 'off' ? 'execution' : 'planning';
-    if (taskForContext === 'work_loop' || taskForContext === 'proactive' || taskForContext === 'process_assignments') {
+    if (REACTIVE_STALL_FLOOR_TASKS.has(taskForContext)) {
       applyWorkloadReadsProgressAndStallFloor(supervisor.config);
       reserveSupervisorWrapUpTurnForWorkload(supervisor, taskForContext);
     }

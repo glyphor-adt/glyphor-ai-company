@@ -14,6 +14,7 @@ export { AgentSupervisor } from './supervisor.js';
 export {
   applyWorkloadReadsProgressAndStallFloor,
   reserveSupervisorWrapUpTurnForWorkload,
+  REACTIVE_STALL_FLOOR_TASKS,
   WORKLOAD_WRAP_UP_TASKS,
 } from './supervisorWorkloadStallPolicy.js';
 export { enqueueWorkloadContinuationWakeIfBudgetHit } from './continuationWake.js';

@@ -109,9 +109,18 @@ export function resolvePlanningPolicy(input: {
       completionGateMaxRetries: 0,
       completionGateAutoRepairEnabled: false,
     };
-  } else if (input.task === 'work_loop' || input.task === 'proactive' || input.task === 'process_assignments') {
-    // Heartbeat / sweep tasks must see tools from turn 1. A JSON-only planning phase here
-    // often yields long "thinking" loops with zero tool_call rows and huge token burn.
+  } else if (
+    input.task === 'work_loop'
+    || input.task === 'proactive'
+    || input.task === 'process_assignments'
+    || input.task === 'urgent_message_response'
+    || input.task === 'incident_response'
+    || input.task === 'event_message_sent'
+    || input.task === 'heartbeat_response'
+    || input.task === 'agent365_mail_triage'
+  ) {
+    // Heartbeat / sweep / urgent wakes must see tools from turn 1. A JSON-only planning phase here
+    // often yields long "thinking" loops with zero tool_call rows, huge token burn, and supervisor stall.
     policy = {
       planningMode: 'off',
       completionGateEnabled: false,
