@@ -11,7 +11,7 @@ export const REACTIVE_AGENT_TASK_TURN_FLOOR = 40;
  * Inter-agent urgent wakes must answer quickly; a 40-turn ceiling matches long work_loop
  * budgets and encourages "think forever" without tools. Keep this low.
  */
-export const URGENT_MESSAGE_RESPONSE_MAX_TURNS = 16;
+export const URGENT_MESSAGE_RESPONSE_MAX_TURNS = 22;
 
 /** Wall-clock ceiling for scheduled reactive runs (thinking models + deep tool chains). */
 export const REACTIVE_WORKLOAD_SUPERVISOR_TIMEOUT_MS = 900_000;

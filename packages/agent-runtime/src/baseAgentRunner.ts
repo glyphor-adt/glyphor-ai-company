@@ -1039,9 +1039,9 @@ Rules:
             );
           }
 
-          // Strip tools on last turn to force text response
+          // Do not strip tools when approaching maxTurns — that produced "locked out of tools
+          // on the final turn" while work was unfinished. Supervisor still aborts after maxTurns.
           let effectiveTools: ReturnType<typeof toolExecutor.getDeclarations> | undefined = toolExecutor.getDeclarations();
-          if (turnNumber >= supervisor.config.maxTurns) effectiveTools = undefined;
           if (runPhase === 'planning') effectiveTools = undefined;
           if (effectiveTools) {
               const modelForRetrieval = routedModel.model === '__deterministic__'

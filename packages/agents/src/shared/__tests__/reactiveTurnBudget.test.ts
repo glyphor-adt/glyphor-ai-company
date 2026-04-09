@@ -14,8 +14,12 @@ describe('reactiveTurnBudget', () => {
   });
 
   it('caps urgent_message_response below reactive floor', () => {
-    expect(effectiveMaxTurnsForReactiveTask('urgent_message_response', 15)).toBe(URGENT_MESSAGE_RESPONSE_MAX_TURNS);
-    expect(effectiveMaxTurnsForReactiveTask('urgent_message_response', 80)).toBe(URGENT_MESSAGE_RESPONSE_MAX_TURNS);
+    expect(effectiveMaxTurnsForReactiveTask('urgent_message_response', 15)).toBe(
+      URGENT_MESSAGE_RESPONSE_MAX_TURNS,
+    );
+    expect(effectiveMaxTurnsForReactiveTask('urgent_message_response', 80)).toBe(
+      URGENT_MESSAGE_RESPONSE_MAX_TURNS,
+    );
   });
 
   it('extends supervisor timeout for reactive workload tasks', () => {

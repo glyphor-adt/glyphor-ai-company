@@ -313,7 +313,8 @@ not just that the run completed.
 /** Task tier (work_loop) — narrow executor with tight limits.
  *  Research/account agents need multi-step tool calls (each = 2 turns),
  *  so 10 is too tight — raised to 20 for headroom. */
-const TASK_TIER_MAX_TURNS = 20;
+/** work_loop / proactive — was 20; CoS dispatch chains need more headroom before max_turns_exceeded. */
+const TASK_TIER_MAX_TURNS = 36;
 const TASK_TIER_TIMEOUT_MS = 600_000;
 const TASK_TIER_CALL_TIMEOUT_MS = 300_000;
 
@@ -339,7 +340,7 @@ const AUTOCOMPACT_TARGET_RATIO = 0.50;
 
 // ─── TOOL RESULT SIZE BUDGETING ───────────────────────────────────
 /** Tool results larger than this (chars) get persisted to disk and replaced with a summary reference. */
-const TOOL_RESULT_DISK_THRESHOLD = 8_000;
+const TOOL_RESULT_DISK_THRESHOLD = 12_000;
 /** Summary reference max length for oversized results. */
 const TOOL_RESULT_SUMMARY_MAX_CHARS = 600;
 /** Critical tools whose payloads must remain fully visible to the model for deterministic remediation. */
@@ -347,6 +348,12 @@ const TOOL_RESULT_BUDGET_EXEMPT_TOOLS = new Set([
   'list_tool_fix_proposals',
   'read_fleet_health',
   'vercel_get_deployment_logs',
+  // Image pipelines: budgeting to disk hid base64 from the next github_push_files call.
+  'generate_image',
+  'generate_and_publish_asset',
+  'upload_asset',
+  'publish_asset_deliverable',
+  'generate_video',
 ]);
 
 function historyHasSuccessfulQuickDemoWebApp(history: ConversationTurn[]): boolean {
@@ -374,6 +381,8 @@ function budgetToolResult(
   turnNumber: number,
 ): string {
   if (TOOL_RESULT_BUDGET_EXEMPT_TOOLS.has(toolName)) return content;
+  // Keep inline any payload that embeds raster data so a follow-up turn can push to GitHub.
+  if (/data:image\/[^;]+;base64,/i.test(content)) return content;
   if (content.length <= TOOL_RESULT_DISK_THRESHOLD) return content;
 
   // Ensure temp directory exists
@@ -2193,9 +2202,12 @@ Rules:
           }
           const elapsedRatio = supervisor.elapsedMs / supervisor.config.timeoutMs;
           const odGate = onDemandToolGating(config.role);
+          // Only strip tools for on_demand chat (wrap-up before timeout). Task/scheduled runs
+          // must keep tools until supervisor abort — otherwise executives report "locked out"
+          // on the last turn with dispatches still pending.
           const isLastTurn = isOnDemand
             ? (turnNumber > odGate.maxToolTurn || elapsedRatio > odGate.elapsedStripRatio)
-            : isTaskTier && turnNumber >= supervisor.config.maxTurns;
+            : false;
           const isPenultimateTurn = !isLastTurn && (
             (isOnDemand && (
               turnNumber === odGate.maxToolTurn
