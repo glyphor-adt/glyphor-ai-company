@@ -1,7 +1,7 @@
 # Enables GitHub auto-merge (squash + delete head branch) for eligible PRs once branch protection + checks pass.
 # Requires: Settings → General → "Allow auto-merge" ON, and "Automatically delete head branches" ON (recommended).
 #
-# Eligible PRs: base = default branch, not draft, and (head ref is feature/*, copilot/*, dependabot/* — or author is a GitHub App/bot).
+# Eligible PRs: base = default branch, not draft, and (head ref is feature/*, fix/*, copilot/*, dependabot/* — or author is a GitHub App/bot).
 # Uses `gh pr merge --auto` so Vercel and every other required check is respected (not only checks named CI/Build).
 
 name: PR auto-merge
@@ -55,13 +55,13 @@ jobs:
             --json number,headRefName,isDraft,author \
             --jq '.[] | select(.isDraft == false)
               | select(
-                  (.headRefName | test("^(feature/|copilot/|dependabot/)"))
+                  (.headRefName | test("^(feature/|fix/|copilot/|dependabot/)"))
                   or (.author.login | test("\\[bot\\]$"))
                 )
               | .number' || true)
 
           if [ -z "${ELIGIBLE}" ]; then
-            echo "No eligible open PRs (feature/*, copilot/*, dependabot/*, or *[bot] author)."
+            echo "No eligible open PRs (feature/*, fix/*, copilot/*, dependabot/*, or *[bot] author)."
             exit 0
           fi
 

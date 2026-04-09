@@ -1,0 +1,65 @@
+# Mirror of glyphor-ai-company/.github/workflows/auto-open-pr.yml — sync when that file changes.
+
+name: Auto-open PR
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'fix/**'
+
+concurrency:
+  group: auto-open-pr-${{ github.repository }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Create PR and request reviewers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_REVIEWER: ${{ vars.BOT_REVIEWER }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          BRANCH="${{ github.ref_name }}"
+
+          BASE=$(gh api "repos/${REPO}" --jq '.default_branch // "main"')
+          if [ "$BRANCH" = "$BASE" ]; then
+            echo "Skipping default branch."
+            exit 0
+          fi
+
+          TITLE=$(git log -1 --pretty=%s)
+          BODY="Opened automatically for \`${BRANCH}\` → \`${BASE}\`."
+
+          EXISTING=$(gh pr list --repo "$REPO" --head "$BRANCH" --base "$BASE" --json number --jq '.[0].number // empty')
+          if [ -n "${EXISTING}" ]; then
+            echo "PR #${EXISTING} already exists for ${BRANCH}."
+            PR_NUM="${EXISTING}"
+          else
+            PR_NUM=$(gh pr create --repo "$REPO" --base "$BASE" --head "$BRANCH" \
+              --title "$TITLE" \
+              --body "$BODY" \
+              --json number --jq '.number')
+            echo "Created PR #${PR_NUM}"
+          fi
+
+          gh pr edit "$PR_NUM" --repo "$REPO" --add-reviewer copilot 2>/dev/null || \
+            echo "Note: could not add reviewer copilot (enable Copilot code review or check org settings)."
+
+          if [ -n "${BOT_REVIEWER:-}" ]; then
+            gh pr edit "$PR_NUM" --repo "$REPO" --add-reviewer "$BOT_REVIEWER" 2>/dev/null || \
+              echo "Note: could not add BOT_REVIEWER=${BOT_REVIEWER}"
+          fi
+
+          echo "Done with PR #${PR_NUM}"
