@@ -87,6 +87,13 @@ function basenameOnly(filename: string): string {
   return base || trimmed;
 }
 
+/** Repo files must be binary JPEG; Imagen is requested as image/jpeg (see generateImages config). */
+function ensureJpegBasename(filename: string): string {
+  const base = basenameOnly(sanitizeFilename(filename));
+  const withoutExt = base.replace(/\.[^.]+$/i, '');
+  return `${withoutExt || 'asset'}.jpg`;
+}
+
 async function fetchImageBuffer(imageUrl: string): Promise<Buffer> {
   if (/^data:/i.test(imageUrl)) {
     const match = /^data:[^;]+;base64,(.+)$/i.exec(imageUrl);
@@ -177,7 +184,8 @@ function dimensionsToImagenAspectRatio(dimensions: string): '1:1' | '16:9' | '9:
 
 /**
  * Generate an image with Gemini Imagen 4 (same stack as video storyboards / web build).
- * Returns a data: URL so downstream upload accepts it without public HTTPS hosting.
+ * Returns a data: URL for in-process upload tools only — do not paste this string into
+ * source or markdown committed to GitHub; use upload_asset / GitHub binary paths instead.
  */
 export async function generateImageWithImagen(params: {
   prompt: string;
@@ -211,6 +219,7 @@ export async function generateImageWithImagen(params: {
       config: {
         numberOfImages: 1,
         aspectRatio,
+        outputMimeType: 'image/jpeg',
       },
     });
 
@@ -279,10 +288,7 @@ async function uploadAssetInternal(params: {
     const ghConfig = resolveGithubAssetConfig();
     if (ghConfig) {
       const buffer = await fetchImageBuffer(params.image_url);
-      const safeName = sanitizeFilename(basenameOnly(params.filename));
-      if (!safeName) {
-        return { success: false, error: 'upload_asset: invalid filename' };
-      }
+      const safeName = ensureJpegBasename(params.filename);
       const repoPath = `${ghConfig.pathPrefix}/${params.category}/${safeName}`.replace(/\/{2,}/g, '/');
       const commit = await createOrUpdateBinaryFile(
         ghConfig.owner,
@@ -495,7 +501,9 @@ export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinit
     // ── generate_image ─────────────────────────────────────────────────
     {
       name: 'generate_image',
-      description: 'Generate an image using Gemini Imagen 4 (requires GOOGLE_AI_API_KEY or GEMINI_API_KEY). Optionally constrain to Glyphor brand palette.',
+      description:
+        'Generate an image using Gemini Imagen 4 (requires GOOGLE_AI_API_KEY or GEMINI_API_KEY). Optionally constrain to Glyphor brand palette. '
+        + 'Response may include a temporary data: URL for passing to upload_asset or publish tools only — never paste that value into repo files; commit JPEG binaries or public paths instead.',
       parameters: {
         prompt: { type: 'string', description: 'Image generation prompt', required: true },
         style: {
@@ -528,7 +536,8 @@ export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinit
     {
       name: 'generate_and_publish_asset',
       description:
-        'Generate an image, store it in asset storage, upload it to SharePoint, and publish it as a design_asset deliverable.',
+        'Generate an image, store it in asset storage, upload it to SharePoint, and publish it as a design_asset deliverable. '
+        + 'Prefer the returned storage/public URLs in docs and code — not the inline data: URL.',
       parameters: {
         prompt: { type: 'string', description: 'Image generation prompt', required: true },
         filename: { type: 'string', description: 'Target filename for the generated asset', required: true },
@@ -675,7 +684,8 @@ export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinit
       parameters: {
         image_url: {
           type: 'string',
-          description: 'URL to download from or base64-encoded image data',
+          description:
+            'HTTPS URL, data: URL, or raw base64 for this upload step only. After publish, reference the returned file URL or repo path in markdown/code — do not embed data: URLs in committed documents.',
           required: true,
         },
         filename: { type: 'string', description: 'Target filename for the asset', required: true },
@@ -751,11 +761,13 @@ export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinit
     {
       name: 'upload_asset',
       description:
-        'Upload an image to GitHub (ASSET_GITHUB_REPO + ASSET_GITHUB_OWNER) or legacy ASSET_SERVICE_URL.',
+        'Upload an image to GitHub (ASSET_GITHUB_REPO + ASSET_GITHUB_OWNER) or legacy ASSET_SERVICE_URL. '
+        + 'Commits a binary JPEG under the configured prefix — do not duplicate the image as a data: URL in other repo files.',
       parameters: {
         image_url: {
           type: 'string',
-          description: 'URL to download from or base64-encoded image data',
+          description:
+            'HTTPS URL, data: URL, or raw base64 for this upload only. Use the tool result path/URL in site source, not an embedded data URI.',
           required: true,
         },
         filename: { type: 'string', description: 'Target filename for the asset', required: true },

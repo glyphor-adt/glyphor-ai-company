@@ -1,4 +1,5 @@
 import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { dataImageUriViolations, isBinaryMediaPath } from './embeddedDataImageGuard.js';
 import { getWebsitePipelineGitHubToken } from './websitePipelineAuth.js';
 
 async function githubRequest(
@@ -106,6 +107,16 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
           return { success: false, error: 'files map did not contain any valid paths after normalization.' };
         }
 
+        const dataUriViolations = dataImageUriViolations(normalizedFiles);
+        if (dataUriViolations.length > 0) {
+          return {
+            success: false,
+            error:
+              'Push blocked: do not commit embedded raster data: URLs. Add JPEG/PNG (or other) binaries and reference them by path, or use upload_asset / object-storage URLs.\n'
+              + dataUriViolations.map((v) => `• ${v}`).join('\n'),
+          };
+        }
+
         try {
           const repoRes = await githubRequest(repo, `/repos/${repo}`, 'GET', undefined, ctx.abortSignal);
           if (!repoRes.ok) {
@@ -167,7 +178,7 @@ export function createGithubPushFilesTools(): ToolDefinition[] {
             // Binary files (images/video) arrive as base64 strings from the
             // image generation pipeline. Text files arrive as raw UTF-8.
             // Detect binary by extension and avoid double-encoding.
-            const isBinary = /\.(png|jpg|jpeg|gif|webp|svg|ico|mp4|webm|avif|bmp|tiff?)$/i.test(filePath);
+            const isBinary = isBinaryMediaPath(filePath);
             const blobContent = isBinary
               ? content                                      // Already base64 — pass through
               : Buffer.from(content).toString('base64');     // Text — encode to base64

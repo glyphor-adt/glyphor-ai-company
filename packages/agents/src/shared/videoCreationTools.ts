@@ -174,6 +174,7 @@ export function createVideoCreationTools(_jobContext: VideoJobContext): ToolDefi
             config: {
               numberOfImages: 1,
               aspectRatio,
+              outputMimeType: 'image/jpeg',
             },
           });
 

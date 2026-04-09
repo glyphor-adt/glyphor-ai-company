@@ -8,6 +8,10 @@
  */
 
 import { Octokit } from '@octokit/rest';
+import {
+  assertBinaryImageBufferNotDataUri,
+  assertNoEmbeddedDataImageInTextContent,
+} from './embeddedDataImageGuard.js';
 
 export const GLYPHOR_GITHUB_ORG = 'glyphor-adt';
 const ORG = GLYPHOR_GITHUB_ORG;
@@ -405,6 +409,8 @@ export async function createOrUpdateFile(
   branch: string,
   commitMessage: string,
 ): Promise<{ commit_sha: string; path: string; created_or_updated: 'created' | 'updated' }> {
+  assertNoEmbeddedDataImageInTextContent(content);
+
   const gh = getGitHubClient();
 
   // Check if file already exists on this branch to get its SHA
@@ -432,7 +438,10 @@ export async function createOrUpdateFile(
   };
 }
 
-/** Create or update binary file contents (images, fonts, etc.) on a branch. */
+/**
+ * Create or update binary file contents on a branch.
+ * `content` is raw bytes; the GitHub API expects Base64 in JSON — the stored git blob is decoded binary, not text.
+ */
 export async function createOrUpdateBinaryFile(
   owner: string,
   repoName: string,
@@ -463,6 +472,8 @@ export async function createOrUpdateBinaryFile(
   } catch (err: unknown) {
     if ((err as { status?: number }).status !== 404) throw err;
   }
+
+  assertBinaryImageBufferNotDataUri(path, content);
 
   const body: Parameters<typeof gh.repos.createOrUpdateFileContents>[0] = {
     owner: org,
