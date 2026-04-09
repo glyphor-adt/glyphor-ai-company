@@ -11,7 +11,12 @@ export type { ModelClientConfig, ModelProvider, ImageResponse } from './modelCli
 export { ProviderFactory, GeminiAdapter, OpenAIAdapter, AnthropicAdapter } from './providers/index.js';
 export type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, UnifiedToolCall, UnifiedUsageMetadata, StructuredOutputSpec, ModelRoutingMetadata, UnifiedRequestMetadata } from './providers/types.js';
 export { AgentSupervisor } from './supervisor.js';
-export { applyWorkloadReadsProgressAndStallFloor } from './supervisorWorkloadStallPolicy.js';
+export {
+  applyWorkloadReadsProgressAndStallFloor,
+  reserveSupervisorWrapUpTurnForWorkload,
+  WORKLOAD_WRAP_UP_TASKS,
+} from './supervisorWorkloadStallPolicy.js';
+export { enqueueWorkloadContinuationWakeIfBudgetHit } from './continuationWake.js';
 export { ToolExecutor, isToolBlocked, invalidateBlockCache, isToolGranted, invalidateGrantCache, loadGrantedToolNames } from './toolExecutor.js';
 // Concurrent tool execution — parallel dispatch for safe tools
 export { ConcurrentToolExecutor, classifyToolConcurrency, shouldUseConcurrentExecution } from './concurrentToolExecutor.js';

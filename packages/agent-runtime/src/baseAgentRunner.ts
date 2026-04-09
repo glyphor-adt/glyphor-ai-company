@@ -13,7 +13,11 @@
 import { ModelClient } from './modelClient.js';
 import { ToolExecutor } from './toolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
-import { applyWorkloadReadsProgressAndStallFloor } from './supervisorWorkloadStallPolicy.js';
+import {
+  applyWorkloadReadsProgressAndStallFloor,
+  reserveSupervisorWrapUpTurnForWorkload,
+} from './supervisorWorkloadStallPolicy.js';
+import { enqueueWorkloadContinuationWakeIfBudgetHit } from './continuationWake.js';
 import { extractReasoning } from './reasoning.js';
 import { isOfficeDocument, extractDocumentText } from './documentExtractor.js';
 import type { GlyphorEventBus } from './glyphorEventBus.js';
@@ -503,6 +507,7 @@ export abstract class BaseAgentRunner {
     let runPhase: 'planning' | 'execution' = planningMode === 'off' ? 'execution' : 'planning';
     if (taskForContext === 'work_loop' || taskForContext === 'proactive' || taskForContext === 'process_assignments') {
       applyWorkloadReadsProgressAndStallFloor(supervisor.config);
+      reserveSupervisorWrapUpTurnForWorkload(supervisor, taskForContext);
     }
     let planningAttempts = 0;
     let completionGateRetries = 0;
@@ -874,6 +879,12 @@ ${memPrompt}`, timestamp: Date.now() });
         // ── Supervisor check ────────────────────────────────────
         const check = await supervisor.checkBeforeModelCall();
         if (!check.ok) {
+          void enqueueWorkloadContinuationWakeIfBudgetHit({
+            agentRole: config.role,
+            task: taskForContext,
+            abortReason: check.reason,
+            runId: config.dbRunId ?? config.id,
+          });
           return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary());
         }
 

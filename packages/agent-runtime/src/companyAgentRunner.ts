@@ -12,7 +12,11 @@ import { ModelClient, detectProvider } from './modelClient.js';
 import { ToolExecutor } from './toolExecutor.js';
 import { loadDynamicToolDeclarations } from './dynamicToolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
-import { applyWorkloadReadsProgressAndStallFloor } from './supervisorWorkloadStallPolicy.js';
+import {
+  applyWorkloadReadsProgressAndStallFloor,
+  reserveSupervisorWrapUpTurnForWorkload,
+} from './supervisorWorkloadStallPolicy.js';
+import { enqueueWorkloadContinuationWakeIfBudgetHit } from './continuationWake.js';
 import { extractReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
 import { isOfficeDocument, extractDocumentText } from './documentExtractor.js';
 import type { GlyphorEventBus } from './glyphorEventBus.js';
@@ -1972,6 +1976,7 @@ export class CompanyAgentRunner {
           supervisor.config.timeoutMs = Math.max(supervisor.config.timeoutMs, SCHEDULED_THINKING_TIMEOUT_MS);
         }
       }
+      reserveSupervisorWrapUpTurnForWorkload(supervisor, task);
 
       const actionReceipts: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }> = [];
 
@@ -2059,6 +2064,12 @@ export class CompanyAgentRunner {
             lastTextOutput = buildOnDemandAbortOutput(check.reason);
           }
           if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
+          void enqueueWorkloadContinuationWakeIfBudgetHit({
+            agentRole: config.role,
+            task,
+            abortReason: check.reason,
+            runId: config.dbRunId ?? config.id,
+          });
           return this.buildResult(
             config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
             0, undefined, actualModelUsed, actualProviderUsed,
