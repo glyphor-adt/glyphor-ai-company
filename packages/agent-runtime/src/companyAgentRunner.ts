@@ -1366,21 +1366,24 @@ export class CompanyAgentRunner {
               AND NOT (tool_name = ANY($2::text[]))`,
           [config.role, staticToolNames],
         );
-        const values = staticToolNames.map((_, i) =>
-          `($1, $${i + 2}, 'system', 'auto-synced from static tool array', NOW())`
-        ).join(', ');
-         await systemQuery(
-           `INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, last_synced_at)
+        const values = staticToolNames
+          .map((_, i) =>
+            `('00000000-0000-0000-0000-000000000000'::uuid, $1, $${i + 2}, 'system', 'auto-synced from static tool array', NOW())`,
+          )
+          .join(', ');
+        await systemQuery(
+          `INSERT INTO agent_tool_grants (tenant_id, agent_role, tool_name, granted_by, reason, last_synced_at)
             VALUES ${values}
            ON CONFLICT (agent_role, tool_name) DO UPDATE
-           SET granted_by = EXCLUDED.granted_by,
+           SET tenant_id = COALESCE(agent_tool_grants.tenant_id, EXCLUDED.tenant_id),
+               granted_by = EXCLUDED.granted_by,
                reason = EXCLUDED.reason,
                is_active = true,
                expires_at = NULL,
                last_synced_at = NOW(),
                updated_at = NOW()`,
-           [config.role, ...staticToolNames],
-         );
+          [config.role, ...staticToolNames],
+        );
       } catch {
         // Best-effort — DB may not be available in test/dev
       }

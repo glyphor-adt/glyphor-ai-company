@@ -138,7 +138,21 @@ export function createToolGrantTools(
 
         try {
           await systemQuery(
-            'INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason, directive_id, scope, is_active, expires_at, last_synced_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) ON CONFLICT (agent_role, tool_name) DO UPDATE SET granted_by = EXCLUDED.granted_by, reason = EXCLUDED.reason, directive_id = EXCLUDED.directive_id, scope = EXCLUDED.scope, is_active = EXCLUDED.is_active, expires_at = EXCLUDED.expires_at, last_synced_at = NOW()',
+            `INSERT INTO agent_tool_grants (
+               tenant_id, agent_role, tool_name, granted_by, reason, directive_id, scope, is_active, expires_at, last_synced_at
+             ) VALUES (
+               '00000000-0000-0000-0000-000000000000'::uuid, $1, $2, $3, $4, $5, $6, $7, $8, NOW()
+             )
+             ON CONFLICT (agent_role, tool_name) DO UPDATE SET
+               tenant_id = COALESCE(agent_tool_grants.tenant_id, EXCLUDED.tenant_id),
+               granted_by = EXCLUDED.granted_by,
+               reason = EXCLUDED.reason,
+               directive_id = EXCLUDED.directive_id,
+               scope = EXCLUDED.scope,
+               is_active = EXCLUDED.is_active,
+               expires_at = EXCLUDED.expires_at,
+               last_synced_at = NOW(),
+               updated_at = NOW()`,
             [agentRole, toolName, grantedBy, reason, directiveId ?? null, 'full', true, expiresAt],
           );
         } catch (err) {
