@@ -81,7 +81,7 @@ const LIVE_ROLE_GLYPHOR_MCP_ALLOWLISTS: Partial<Record<CompanyAgentRole, readonl
   'cto': ['mcp_GlyphorEngineering', 'mcp_GlyphorData'],
   'cfo': ['mcp_GlyphorFinance', 'mcp_GlyphorData'],
   'cpo': ['mcp_GlyphorData'],
-  'cmo': ['mcp_GlyphorMarketing', 'mcp_GlyphorData', 'mcp_GlyphorSharePointSites'],
+  'cmo': ['mcp_GlyphorMarketing', 'mcp_GlyphorData'],
   'vp-design': ['mcp_GlyphorDesign', 'mcp_GlyphorData'],
   'ops': ['mcp_GlyphorData'],
   'vp-research': ['mcp_GlyphorData'],

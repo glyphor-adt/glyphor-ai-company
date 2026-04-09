@@ -2,10 +2,9 @@
  * SharePoint Tools — Search, read, and upload with Cloud SQL knowledge sync
  *
  * upload_to_sharepoint syncs uploaded documents to the Cloud SQL company_knowledge table.
- * search_sharepoint and read_sharepoint_document prefer Agent365 agent-attributed Graph
- * tokens when AGENT365_ENABLED=true (same identity boundary as uploads). App-only
- * AZURE_FILES (or AZURE_* fallback) is used for scheduled sync and as an explicit
- * fallback when ALLOW_APP_ONLY_SHAREPOINT_FALLBACK is set.
+ * search_sharepoint, read_sharepoint_document, and upload_to_sharepoint use **Agent365
+ * agentic Graph tokens** only (same identity as Agent365 MCP). Scheduled knowledge sync
+ * without an agent role still uses app-only AZURE_FILES in @glyphor/integrations.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
@@ -13,7 +12,8 @@ import { uploadToSharePoint, searchSharePoint, readSharePointDocument } from '@g
 
 /**
  * Create SharePoint upload tool for agents.
- * Search, read, list, and page creation are covered by Agent365 mcp_ODSPRemoteServer.
+ * Prefer **mcp_ODSPRemoteServer** (loaded for every agent via Agent365 defaults) for richer
+ * browse/list/page flows; these tools stay for search/read/upload with knowledge sync.
  */
 export function createSharePointTools(): ToolDefinition[] {
   return [

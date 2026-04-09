@@ -24,6 +24,7 @@ import {
   createAgent365Tools as initAgent365Bridge,
   getM365Token,
   logMicrosoftWriteAudit,
+  resolveSharePointGraphToken,
 } from '@glyphor/integrations';
 
 // ── Standard M365 MCP Servers ────────────────────────────────────
@@ -43,16 +44,23 @@ const LIVE_ROLE_M365_ALLOWLISTS: Partial<Record<CompanyAgentRole, readonly strin
   'cto': [],
   'cfo': [],
   'cpo': [],
-  'cmo': ['mcp_ODSPRemoteServer'],
+  'cmo': [],
   'vp-design': [],
   'ops': ['mcp_TeamsServer'],
   'vp-research': [],
 };
 
-/** Unknown roles get no default M365 access; explicit serverFilter still overrides this. */
+/** SharePoint / OneDrive MCP — loaded for every agent when Agent365 is on (company standard). */
+const AGENT365_ODSP_SERVER = 'mcp_ODSPRemoteServer' as const;
+
+/** Unknown roles get ODSP only; explicit serverFilter still overrides this. */
 function getDefaultAgent365Servers(agentRole?: string): readonly string[] {
   if (!agentRole) return [];
-  return LIVE_ROLE_M365_ALLOWLISTS[agentRole as CompanyAgentRole] ?? [];
+  const base = [...(LIVE_ROLE_M365_ALLOWLISTS[agentRole as CompanyAgentRole] ?? [])];
+  if (!base.includes(AGENT365_ODSP_SERVER)) {
+    base.push(AGENT365_ODSP_SERVER);
+  }
+  return [...new Set(base)];
 }
 
 // ── Singleton Bridge ─────────────────────────────────────────────
@@ -135,7 +143,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       if (fallbackTool) fallbackTools.push(fallbackTool);
       const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
       if (mailbox && allowAppOnlyMailAttachmentFallback()) {
-        fallbackTools.push(createSendEmailWithAttachmentTool(mailbox, agentRole));
+        fallbackTools.push(createSendEmailWithAttachmentTool(mailbox, agentRole as CompanyAgentRole));
       }
       if (fallbackTools.length > 0) {
         console.log(`[Agent365] Identity missing for ${agentRole}; using Graph fallback tools: ${fallbackTools.map(t => t.name).join(', ')}`);
@@ -201,13 +209,12 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
 
     // Add reply_email_with_attachments tool — bypasses MCP MailTools for attachments.
     // The MCP send_email's attachmentUris and reply_to_email both fail with file attachments.
-    // This tool downloads files from SharePoint via Graph API (AZURE_FILES) and sends
-    // the email via Graph API sendMail (AZURE_MAIL) with inline base64 attachments.
+    // Downloads from SharePoint use Agent365 agentic Graph; sendMail still uses AZURE_MAIL when fallback is enabled.
     if (agentRole) {
       const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
       if (mailbox) {
         if (allowAppOnlyMailAttachmentFallback()) {
-          tools.push(createSendEmailWithAttachmentTool(mailbox, agentRole));
+          tools.push(createSendEmailWithAttachmentTool(mailbox, agentRole as CompanyAgentRole));
           console.log(`[Agent365] Added reply_email_with_attachments fallback for ${agentRole} (${mailbox})`);
         } else {
           console.log(`[Agent365] reply_email_with_attachments disabled for ${agentRole}; app-only mail fallback not allowed`);
@@ -226,7 +233,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       if (fallbackTool) fallbackTools.push(fallbackTool);
       const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
       if (mailbox && allowAppOnlyMailAttachmentFallback()) {
-        fallbackTools.push(createSendEmailWithAttachmentTool(mailbox, agentRole));
+        fallbackTools.push(createSendEmailWithAttachmentTool(mailbox, agentRole as CompanyAgentRole));
       }
       if (fallbackTools.length > 0) {
         console.log(`[Agent365] MCP init failed for ${agentRole}; using Graph fallback tools: ${fallbackTools.map(t => t.name).join(', ')}`);
@@ -362,12 +369,13 @@ const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 
 /**
  * Download a file from SharePoint by path or webUrl and return base64 bytes.
- * Uses AZURE_FILES credentials (Sites.Selected scope).
+ * Uses the same Agent365 agentic Graph token as native SharePoint tools (no AZURE_FILES).
  */
 async function downloadSharePointFileForAttachment(
   filePathOrUrl: string,
+  agentRole: CompanyAgentRole,
 ): Promise<{ contentBytes: string; contentType: string; name: string }> {
-  const token = await getM365Token('read_sharepoint');
+  const { token } = await resolveSharePointGraphToken('read_sharepoint', agentRole);
   const siteId = (process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
@@ -445,9 +453,9 @@ async function downloadSharePointFileForAttachment(
 
 /**
  * Create a tool that sends email with file attachments from SharePoint.
- * Downloads files via Graph API (AZURE_FILES) and sends via Graph API (AZURE_MAIL).
+ * Downloads files via Agent365 agentic Graph; sends via Graph API (AZURE_MAIL) when fallback is enabled.
  */
-function createSendEmailWithAttachmentTool(senderMailbox: string, agentRole?: string): ToolDefinition {
+function createSendEmailWithAttachmentTool(senderMailbox: string, agentRole?: CompanyAgentRole): ToolDefinition {
   return {
     name: 'reply_email_with_attachments',
     description:
@@ -485,7 +493,7 @@ function createSendEmailWithAttachmentTool(senderMailbox: string, agentRole?: st
         required: false,
       },
     },
-    execute: async (params) => {
+    execute: async (params, ctx) => {
       try {
         if (!allowAppOnlyMailAttachmentFallback()) {
           return {
@@ -495,6 +503,7 @@ function createSendEmailWithAttachmentTool(senderMailbox: string, agentRole?: st
               'Use Agent365 MailTools for normal mail writes, or set ALLOW_APP_ONLY_MAIL_ATTACHMENT_FALLBACK=true only as an explicit exception.',
           };
         }
+        const role = agentRole ?? ctx.agentRole;
         // Accept both array and comma-separated string
         let filePaths: string[];
         if (Array.isArray(params.file_paths)) {
@@ -515,7 +524,7 @@ function createSendEmailWithAttachmentTool(senderMailbox: string, agentRole?: st
           filePaths.map(async (fp) => {
             try {
               console.log(`[reply_email_with_attachments] Downloading: ${fp}`);
-              const result = await downloadSharePointFileForAttachment(fp);
+              const result = await downloadSharePointFileForAttachment(fp, role);
               console.log(`[reply_email_with_attachments] Downloaded: ${result.name} (${result.contentType}, ${Math.round(result.contentBytes.length * 3 / 4 / 1024)}KB)`);
               return result;
             } catch (err) {

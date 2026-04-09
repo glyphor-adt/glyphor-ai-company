@@ -66,14 +66,6 @@ function encodeDriveId(driveId: string): string {
   return encodeURIComponent(driveId).replace(/%21/g, '!');
 }
 
-/** Opt-in app-only Graph when Agent365 is enabled but agentic token cannot be acquired. */
-function allowAppOnlySharePointFallback(): boolean {
-  return (
-    process.env.ALLOW_APP_ONLY_SHAREPOINT_FALLBACK === 'true'
-    || process.env.ALLOW_APP_ONLY_SHAREPOINT_UPLOAD_FALLBACK === 'true'
-  );
-}
-
 type SharePointGraphOperation = Extract<
   M365Operation,
   'read_sharepoint' | 'write_sharepoint' | 'search_sharepoint'
@@ -88,8 +80,10 @@ export interface ResolvedSharePointGraphToken {
 }
 
 /**
- * Prefer Agent365 agent-attributed Graph tokens when `agentRole` is set and Agent365 is enabled.
- * Daemon / sync callers omit `agentRole` and use AZURE_FILES (or AZURE_*) app-only credentials only.
+ * Resolve Microsoft Graph tokens for SharePoint operations.
+ *
+ * - **Agent runs** (`agentRole` set): **Agent365 agentic user token only** — no AZURE_FILES fallback.
+ * - **System jobs** (no `agentRole`, e.g. scheduled knowledge sync): app-only `AZURE_FILES` via {@link getM365Token}.
  */
 export async function resolveSharePointGraphToken(
   operation: SharePointGraphOperation,
@@ -105,32 +99,20 @@ export async function resolveSharePointGraphToken(
 
   const role = agentRole.trim();
   const agenticToken = await getAgenticGraphToken(role);
-  if (agenticToken) {
-    console.log(`[SharePoint] Using agentic user token for ${operation} (${role})`);
-    return {
-      token: agenticToken,
-      identityType: 'agent365',
-      fallbackUsed: false,
-      agentRole: role,
-    };
-  }
-
-  const agent365On = process.env.AGENT365_ENABLED === 'true';
-  if (agent365On && !allowAppOnlySharePointFallback()) {
+  if (!agenticToken) {
     throw new Error(
-      `SharePoint ${operation} requires Agent365 identity for ${role}. `
-      + 'Set ALLOW_APP_ONLY_SHAREPOINT_FALLBACK=true (or ALLOW_APP_ONLY_SHAREPOINT_UPLOAD_FALLBACK=true) only as a deliberate exception.',
+      `SharePoint ${operation} requires an Agent365 Graph token for "${role}". `
+      + 'Set AGENT365_ENABLED=true with AGENT365_CLIENT_ID / AGENT365_CLIENT_SECRET / AGENT365_TENANT_ID, '
+      + 'and ensure agentIdentities.json (or AGENT365_APP_INSTANCE_ID + AGENT365_AGENTIC_USER_ID) '
+      + 'defines blueprintSpId and entraUserId for this role.',
     );
   }
 
-  if (agent365On) {
-    console.warn(`[SharePoint] Falling back to app-only token for ${operation} (${role})`);
-  }
-
+  console.log(`[SharePoint] Using agentic user token for ${operation} (${role})`);
   return {
-    token: await getM365Token(operation),
-    identityType: 'app-only-graph',
-    fallbackUsed: agent365On,
+    token: agenticToken,
+    identityType: 'agent365',
+    fallbackUsed: false,
     agentRole: role,
   };
 }

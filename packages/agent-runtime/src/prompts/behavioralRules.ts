@@ -385,8 +385,8 @@ You have full Microsoft 365 access via Agent365 MCP tools. These tools appear in
 | \`mcp_UserProfile\` | Look up user profiles and org info |
 | \`mcp_SharePointLists\` | Read and write SharePoint list items |
 
-You also have these SharePoint tools that use app-level permissions (work across all sites):
-- \`search_sharepoint\` — keyword search across all SharePoint document libraries
+Native SharePoint tools (same **Agent365 agentic identity** as \`mcp_ODSPRemoteServer\`):
+- \`search_sharepoint\` — keyword search across SharePoint libraries visible to your identity
 - \`read_sharepoint_document\` — read file content by path
 - \`upload_to_sharepoint\` — upload files with automatic knowledge sync
 
