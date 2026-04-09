@@ -20,6 +20,7 @@ import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { normalizeAssigneeRole } from './assigneeRouting.js';
+import { queueAgentMessageWake } from './queueAgentMessageWake.js';
 
 /* ── Rate Limits ──────────────────────────── */
 
@@ -199,6 +200,16 @@ export function createCommunicationTools(
           priority: (params.priority as string) === 'urgent' ? 'high' : 'normal',
         });
 
+        await queueAgentMessageWake({
+          toAgent,
+          fromAgent,
+          messageId: row.id,
+          message,
+          priority,
+          threadId,
+          messageType,
+        });
+
         return {
           success: true,
           data: {
@@ -315,19 +326,33 @@ export function createCommunicationTools(
           escalationPolicy: 'return_to_issuer',
         });
 
-        await systemQuery(
-          'INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        const peerThreadId = crypto.randomUUID();
+        const peerBody =
+          `Peer work request from ${ctx.agentRole}\n\nRequest:\n${requestText}\n\nExpected deliverable:\n${expectedDeliverable}\n\nAssignment ID: ${assignment.id}`;
+        const peerPriority = priority === 'urgent' ? 'urgent' : 'normal';
+        const [peerMsg] = await systemQuery<{ id: string }>(
+          'INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
           [
             ctx.agentRole,
             toAgent,
-            crypto.randomUUID(),
-            `Peer work request from ${ctx.agentRole}\n\nRequest:\n${requestText}\n\nExpected deliverable:\n${expectedDeliverable}\n\nAssignment ID: ${assignment.id}`,
+            peerThreadId,
+            peerBody,
             'request',
-            priority === 'urgent' ? 'urgent' : 'normal',
+            peerPriority,
             'pending',
             { assignment_id: assignment.id, request_type: 'peer_work' },
           ],
         );
+
+        await queueAgentMessageWake({
+          toAgent,
+          fromAgent: ctx.agentRole,
+          messageId: peerMsg.id,
+          message: peerBody,
+          priority: peerPriority,
+          threadId: peerThreadId,
+          messageType: 'request',
+        });
 
         await glyphorEventBus.emit({
           type: 'assignment.created',

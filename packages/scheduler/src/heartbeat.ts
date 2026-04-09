@@ -274,10 +274,12 @@ export class HeartbeatManager {
         }
       }
 
-      // Skip if agent ran recently
-      const lastRun = lastRuns.get(agentRole);
-      const gap = agentRole === 'ops' ? OPS_RUN_GAP_MS : MIN_RUN_GAP_MS;
-      if (lastRun && Date.now() - lastRun.getTime() < gap) continue;
+      // Skip if agent ran recently — but never defer explicit reactive wakes (message queue, etc.).
+      if (!hasQueuedWake) {
+        const lastRun = lastRuns.get(agentRole);
+        const gap = agentRole === 'ops' ? OPS_RUN_GAP_MS : MIN_RUN_GAP_MS;
+        if (lastRun && Date.now() - lastRun.getTime() < gap) continue;
+      }
 
       const needs = await this.checkAgentNeeds(agentRole);
       if (needs.shouldWake) {
