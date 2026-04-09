@@ -64,8 +64,8 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // Gemini cached input = 10% of input price (90% off). Thinking tokens billed at output rate.
   // Prices are for prompts ≤200K tokens. >200K prompts cost 2× input and 1.5× output for Pro/Flash models.
   // Rates calibrated against actual GCP billing (Mar 25 2026): 126 runs, $76.39 actual vs $14.97 prior estimate → 5x correction.
-  // RETIRED (Mar 26 2026): gemini-3.1-pro-preview, gemini-3-flash-preview, gemini-2.5-flash — cost prohibitive. Kept for pricing lookups only.
-  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (retired)',  provider: 'gemini',    tier: 'flagship',  inputPer1M: 10.00, outputPer1M: 60.0,  thinkingPer1M: 60.0,  cachedInputDiscount: 0.10, contextWindowTokens: 2_000_000, selectable: false, verifier: false },
+  // RETIRED (Mar 26 2026) for cost: gemini-3-flash-preview, gemini-2.5-flash — kept for pricing / legacy rows.
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',  provider: 'gemini',    tier: 'flagship',  inputPer1M: 10.00, outputPer1M: 60.0,  thinkingPer1M: 60.0,  cachedInputDiscount: 0.10, contextWindowTokens: 2_000_000, selectable: true,  verifier: true  },
   { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', tier: 'economy', inputPer1M: 1.25, outputPer1M: 7.50, thinkingPer1M: 7.50, cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: true, verifier: true  },
   { id: 'gemini-3-flash-preview',  label: 'Gemini 3 Flash (retired)', provider: 'gemini',    tier: 'standard',  inputPer1M: 2.50,  outputPer1M: 15.00, thinkingPer1M: 15.00, cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: false, verifier: false },
   { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash (retired)', provider: 'gemini', tier: 'standard',  inputPer1M: 1.50,  outputPer1M: 12.50, thinkingPer1M: 12.50, cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: false, verifier: false },
@@ -141,7 +141,6 @@ export const DEPRECATED_MODELS: Record<string, string> = {
   'gemini-2.5-pro':             'gpt-5.4',
 
   // Gemini retired (cost-prohibitive, Mar 26 2026)
-  'gemini-3.1-pro-preview':     'gpt-5.4',
   'gemini-3-flash-preview':     'gemini-3.1-flash-lite-preview',
   'gemini-2.5-flash':           'gemini-3.1-flash-lite-preview',
 
@@ -200,6 +199,7 @@ export const GRAPHRAG_MODEL = 'model-router';
 
 export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   // Gemini primary → try same-provider tier first, then cheapest cross-provider
+  'gemini-3.1-pro-preview':         ['gemini-3.1-flash-lite-preview', 'gpt-5.4', 'gpt-5.4-mini'],
   'gemini-3.1-flash-lite-preview':  ['gemini-2.5-flash-lite', 'gpt-5-mini'],
   'gemini-2.5-flash-lite':          ['gemini-3.1-flash-lite-preview', 'model-router'],
 
@@ -278,7 +278,8 @@ function getOpsFallbackChainExcludingGemini(model: string): readonly string[] {
 // triangulation slots where the OpenAI/Gemini/Claude lanes must remain stable.
 
 export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> = {
-  // Gemini (only flash-lite + lite remain active)
+  // Gemini
+  'gemini-3.1-pro-preview':        ['gemini-3.1-flash-lite-preview'],
   'gemini-3.1-flash-lite-preview': ['gemini-2.5-flash-lite'],
   'gemini-2.5-flash-lite':         ['gemini-3.1-flash-lite-preview'],
 
@@ -317,6 +318,7 @@ export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> =
 
 export const VERIFIER_MAP: Record<string, string> = {
   // Gemini primary → cheapest cross-provider verifier
+  'gemini-3.1-pro-preview':         'gpt-5-mini',
   'gemini-3.1-flash-lite-preview': 'gpt-5-nano',
   'gemini-2.5-flash-lite':         'gpt-5-nano',
 

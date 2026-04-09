@@ -12,7 +12,7 @@
 
 import { ProviderFactory, type ProviderFactoryConfig, type GeminiAdapter, type OpenAIAdapter } from './providers/index.js';
 import type { ModelProvider, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './providers/types.js';
-import { getFallbackChain, getProviderLocalFallbackChain } from '@glyphor/shared/models';
+import { getFallbackChain, getProviderLocalFallbackChain, resolveModel } from '@glyphor/shared/models';
 import { getTierModel } from '@glyphor/shared';
 import { startTraceSpan } from './telemetry/tracing.js';
 import {
@@ -110,7 +110,15 @@ export class ModelClient {
       request = { ...request, model: normalizedRequestedModel };
     }
 
-    const requestedModel = normalizedRequestedModel;
+    // DB/UI may still hold deprecated slugs (see DEPRECATED_MODELS). Map through
+    // DEPRECATED_MODELS before calling providers so fallbacks and pricing match reality.
+    const policyModel = resolveModel(request.model);
+    if (policyModel !== request.model) {
+      console.warn(`[ModelClient] resolveModel: ${request.model} → ${policyModel}`);
+      request = { ...request, model: policyModel };
+    }
+
+    const requestedModel = request.model;
     if (requestedModel.startsWith('deep-research-')) {
       try {
         const deepResearchResponse = await this.generateWithDeepResearch(requestedModel, request);

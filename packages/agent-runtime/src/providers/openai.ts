@@ -210,11 +210,10 @@ export class OpenAIAdapter implements ProviderAdapter {
 
     // o-series models (o1, o3, o4) don't accept temperature, top_p, or max_tokens
     const isOSeries = /^o[134](-|$)/.test(request.model);
+    const isFoundryModelRouter = request.model === 'model-router' || request.model.startsWith('model-router');
     // GPT-5 family: gpt-5, gpt-5.1, gpt-5.2, gpt-5-mini, gpt-5-nano, etc.
-    // Foundry model-router: Chat Completions; may route to GPT-5 / o4-mini — use GPT-5 parameter rules.
-    const isGpt5Family = request.model.startsWith('gpt-5')
-      || request.model === 'model-router'
-      || request.model.startsWith('model-router');
+    // Foundry model-router: Chat Completions; may route to GPT-5 / o4-mini — use GPT-5 token/temp rules.
+    const isGpt5Family = request.model.startsWith('gpt-5') || isFoundryModelRouter;
     const modelSupportsMinimalReasoning = supportsMinimalReasoning(request.model);
 
     let reasoningEffort: string | undefined;
@@ -277,7 +276,11 @@ export class OpenAIAdapter implements ProviderAdapter {
             temperature: forceDefaultTemp ? 1 : (request.temperature ?? 0.7),
             ...(request.topP !== undefined ? { top_p: request.topP } : {}),
           }),
-      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+      // Azure AI Foundry model-router rejects `reasoning_effort` on Chat Completions with
+      // 400 "The requested operation is unsupported" — the router sets behavior internally.
+      ...(reasoningEffort && !(this.isAzure && isFoundryModelRouter)
+        ? { reasoning_effort: reasoningEffort }
+        : {}),
       ...(modelConfig?.structuredOutput ? {
         response_format: {
           type: 'json_schema',
