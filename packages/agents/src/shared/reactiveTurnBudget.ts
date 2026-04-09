@@ -5,7 +5,10 @@
  * Omit `on_demand` here — CompanyAgentRunner clamps chat with ON_DEMAND_MAX_TURNS separately.
  */
 
-export const REACTIVE_AGENT_TASK_TURN_FLOOR = 28;
+export const REACTIVE_AGENT_TASK_TURN_FLOOR = 40;
+
+/** Wall-clock ceiling for scheduled reactive runs (thinking models + deep tool chains). */
+export const REACTIVE_WORKLOAD_SUPERVISOR_TIMEOUT_MS = 900_000;
 
 const REACTIVE_TASK_IDS = new Set<string>([
   'work_loop',
@@ -38,4 +41,14 @@ export function effectiveMaxTurnsForReactiveTask(task: string | undefined, loade
     return valid ?? 15;
   }
   return Math.max(valid ?? REACTIVE_AGENT_TASK_TURN_FLOOR, REACTIVE_AGENT_TASK_TURN_FLOOR);
+}
+
+/** Use for agent run configs so heartbeat/work_loop does not hit 5m timeout before turn budget. */
+export function supervisorTimeoutMsForReactiveWorkload(
+  task: string | undefined,
+  fallbackMs: number,
+): number {
+  const t = (task ?? '').trim().toLowerCase();
+  if (!t || !isReactiveAgentTask(t)) return fallbackMs;
+  return Math.max(fallbackMs, REACTIVE_WORKLOAD_SUPERVISOR_TIMEOUT_MS);
 }

@@ -19,7 +19,10 @@ import { CMO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCMOTools } from './tools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
-import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
+import {
+  effectiveMaxTurnsForReactiveTask,
+  supervisorTimeoutMsForReactiveWorkload,
+} from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -241,6 +244,7 @@ Customer tenant ID: ${customerTenantId}`;
       initialMessage = params.message || 'Provide a content and marketing strategy summary.';
   }
   const agentCfg = await loadAgentConfig('cmo', { temperature: 0.6, maxTurns: 15 }, task);
+  const timeoutMs = supervisorTimeoutMsForReactiveWorkload(task, 300_000);
 
   const config: AgentConfig = {
     id: `cmo-${task}-${today}`,
@@ -250,7 +254,7 @@ Customer tenant ID: ${customerTenantId}`;
     tools,
     maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
-    timeoutMs: 300_000,
+    timeoutMs,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,

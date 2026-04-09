@@ -35,7 +35,10 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 import { systemQuery } from '@glyphor/shared/db';
-import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
+import {
+  effectiveMaxTurnsForReactiveTask,
+  supervisorTimeoutMsForReactiveWorkload,
+} from '../shared/reactiveTurnBudget.js';
 
 export interface CTORunParams {
   task?: 'platform_health_check' | 'dependency_review' | 'on_demand';
@@ -148,6 +151,7 @@ Steps:
   }
   const agentCfg = await loadAgentConfig('cto', { temperature: 0.3, maxTurns: 15 }, task);
   const maxTurns = effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns);
+  const timeoutMs = supervisorTimeoutMsForReactiveWorkload(task, 300_000);
 
   const config: AgentConfig = {
     id: `cto-${task}-${today}`,
@@ -157,7 +161,7 @@ Steps:
     tools,
     maxTurns,
     maxStallTurns: 3,
-    timeoutMs: 300_000,
+    timeoutMs,
     temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
