@@ -2,10 +2,10 @@
  * SharePoint Tools — Search, read, and upload with Cloud SQL knowledge sync
  *
  * upload_to_sharepoint syncs uploaded documents to the Cloud SQL company_knowledge table.
- * search_sharepoint and read_sharepoint_document use app-level permissions
- * (Sites.Read.All) which work across all sites without per-user membership.
- * Agent365 mcp_ODSPRemoteServer tools are also available but depend on the
- * agentic user's SharePoint site membership, which may not cover all sites.
+ * search_sharepoint and read_sharepoint_document prefer Agent365 agent-attributed Graph
+ * tokens when AGENT365_ENABLED=true (same identity boundary as uploads). App-only
+ * AZURE_FILES (or AZURE_* fallback) is used for scheduled sync and as an explicit
+ * fallback when ALLOW_APP_ONLY_SHAREPOINT_FALLBACK is set.
  */
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
@@ -92,11 +92,9 @@ export function createSharePointTools(): ToolDefinition[] {
       name: 'search_sharepoint',
       description:
         'Search for documents in the company SharePoint site by keyword. ' +
-        'Uses app-level permissions so it can find files across all document libraries, ' +
-        'not just the agent knowledge folder. Use this to find company documents like ' +
-        'policies, certificates, legal filings, briefs, or any file stored in SharePoint. ' +
-        'Returns file names, paths, and web URLs. Prefer this over mcp_ODSPRemoteServer ' +
-        'for finding files by name or keyword.',
+        'Runs as the agent identity when Agent365 is enabled (otherwise app credentials). ' +
+        'Use this to find company documents like policies, certificates, legal filings, briefs, ' +
+        'or any file stored in SharePoint. Returns file names, paths, and web URLs.',
       parameters: {
         query: {
           type: 'string',
@@ -109,11 +107,11 @@ export function createSharePointTools(): ToolDefinition[] {
           required: false,
         },
       },
-      execute: async (params): Promise<ToolResult> => {
+      execute: async (params, ctx): Promise<ToolResult> => {
         try {
           const results = await searchSharePoint(
             params.query as string,
-            { maxResults: (params.max_results as number) ?? 10 },
+            { maxResults: (params.max_results as number) ?? 10, agentRole: ctx.agentRole },
           );
 
           if (results.length === 0) {
@@ -159,9 +157,11 @@ export function createSharePointTools(): ToolDefinition[] {
           required: true,
         },
       },
-      execute: async (params): Promise<ToolResult> => {
+      execute: async (params, ctx): Promise<ToolResult> => {
         try {
-          const result = await readSharePointDocument(params.file_path as string);
+          const result = await readSharePointDocument(params.file_path as string, {
+            agentRole: ctx.agentRole,
+          });
           return {
             success: true,
             data: {

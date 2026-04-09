@@ -68,12 +68,8 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
       'generate_word_doc',
       'web_fetch',
     ],
-    cto: [
-      'get_platform_health',
-      'query_logs',
-      'check_pr_status',
-      'create_github_issue',
-    ],
+    /** Grant/registry pins are merged before _universal in getAlwaysLoadedTools('cto'). */
+    cto: ['get_platform_health', 'get_github_pr_status', 'create_github_issue'],
     cfo: [
       'query_financials',
       'query_costs',
@@ -107,6 +103,7 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
       'pause_agent',
       'resume_agent',
     ],
+    'global-admin': [],
     'vp-design': [
       // Pinned before CORE_PINNED_TOOLS: model tool-caps (e.g. 25–40) can fill with core pins only and
       // skip retrieval entirely — then invoke_web_build never reaches the LLM and “build an app” stalls.
@@ -162,11 +159,37 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
   },
 };
 
+const GRANT_PRELUDE = ['grant_tool_access', 'revoke_tool_access'] as const;
+
+/** Registry approval path for CTO — must stay ahead of universal pins under tight model tool caps. */
+const CTO_REGISTRY_PRELUDE = [
+  ...GRANT_PRELUDE,
+  'list_tool_requests',
+  'review_tool_request',
+  'register_tool',
+  'list_registered_tools',
+] as const;
+
 export function getAlwaysLoadedTools(role?: CompanyAgentRole): Set<string> {
-  return new Set([
-    ...ALWAYS_LOADED._universal,
-    ...(role ? ALWAYS_LOADED.roles[role] ?? [] : []),
-  ]);
+  if (!role) {
+    return new Set(ALWAYS_LOADED._universal);
+  }
+
+  const rolePins = ALWAYS_LOADED.roles[role] ?? [];
+
+  if (role === 'cto') {
+    return new Set([
+      ...CTO_REGISTRY_PRELUDE,
+      ...ALWAYS_LOADED._universal,
+      ...rolePins,
+    ]);
+  }
+
+  if (role === 'chief-of-staff' || role === 'global-admin') {
+    return new Set([...GRANT_PRELUDE, ...ALWAYS_LOADED._universal, ...rolePins]);
+  }
+
+  return new Set([...ALWAYS_LOADED._universal, ...rolePins]);
 }
 
 export const TOOL_CATEGORY_HINT = [

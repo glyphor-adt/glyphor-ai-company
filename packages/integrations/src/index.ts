@@ -192,6 +192,7 @@ export {
   listSharePointFiles,
   readSharePointDocument,
   createSharePointPage,
+  resolveSharePointGraphToken,
   markdownToPdf,
   type SharePointSyncOptions,
   type SharePointSyncResult,
@@ -200,6 +201,7 @@ export {
   type SharePointSearchOptions,
   type SharePointDocument,
   type DocxConvertOptions,
+  type ResolvedSharePointGraphToken,
 } from './sharepoint/index.js';
 
 // Web search (OpenAI Responses API + web_search_preview; OPENAI_API_KEY only)

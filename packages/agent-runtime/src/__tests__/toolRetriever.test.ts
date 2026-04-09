@@ -62,6 +62,44 @@ describe('toolRetriever', () => {
     expect(result.trace.modelCap).toBe(20);
   });
 
+  it('keeps grant_tool_access in CTO tool bundle when the model cap leaves no retrieval slots', async () => {
+    const retriever = new ToolRetriever();
+    const tools: ToolDeclaration[] = [
+      makeTool('grant_tool_access', 'Grant an existing tool to another agent.'),
+      ...Array.from({ length: 80 }, (_, index) =>
+        makeTool(`filler_${index}`, `Filler tool ${index}`),
+      ),
+    ];
+
+    const result = await retriever.retrieve(tools, {
+      model: 'gpt-5-nano',
+      role: 'cto',
+      taskContext: 'vp-design needs vercel deployment logs tool',
+    });
+
+    const names = result.tools.map((t) => t.name);
+    expect(names).toContain('grant_tool_access');
+  });
+
+  it('loads CTO grant_tool_access before universal pins when tool cap is severe', async () => {
+    const retriever = new ToolRetriever();
+    const tools: ToolDeclaration[] = [
+      makeTool('grant_tool_access', 'Grant an existing tool to another agent.'),
+      makeTool('save_memory', 'Save a memory entry.'),
+      makeTool('recall_memories', 'Recall memories.'),
+      makeTool('send_agent_message', 'Message another agent.'),
+    ];
+
+    const result = await retriever.retrieve(tools, {
+      model: 'gpt-5-nano',
+      role: 'cto',
+      maxTools: 3,
+      taskContext: 'unblock vp-design on Vercel',
+    });
+
+    expect(result.tools.map((t) => t.name)).toContain('grant_tool_access');
+  });
+
   it('applies defer_loading for native tool-search capable models', async () => {
     const retriever = new ToolRetriever();
 

@@ -1,7 +1,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { createHash } from 'node:crypto';
 import { inflateRawSync } from 'node:zlib';
-import { getM365Token } from '../credentials/m365Router.js';
+import { getM365Token, type M365Operation } from '../credentials/m365Router.js';
 import { getAgenticGraphToken } from '../agent365/index.js';
 import { logMicrosoftWriteAudit } from '../audit.js';
 import {
@@ -64,6 +64,75 @@ function encodeSiteId(siteId: string): string {
  */
 function encodeDriveId(driveId: string): string {
   return encodeURIComponent(driveId).replace(/%21/g, '!');
+}
+
+/** Opt-in app-only Graph when Agent365 is enabled but agentic token cannot be acquired. */
+function allowAppOnlySharePointFallback(): boolean {
+  return (
+    process.env.ALLOW_APP_ONLY_SHAREPOINT_FALLBACK === 'true'
+    || process.env.ALLOW_APP_ONLY_SHAREPOINT_UPLOAD_FALLBACK === 'true'
+  );
+}
+
+type SharePointGraphOperation = Extract<
+  M365Operation,
+  'read_sharepoint' | 'write_sharepoint' | 'search_sharepoint'
+>;
+
+export interface ResolvedSharePointGraphToken {
+  token: string;
+  identityType: 'agent365' | 'app-only-graph';
+  /** True when Agent365 was on and we used app-only after agentic failed. */
+  fallbackUsed: boolean;
+  agentRole?: string;
+}
+
+/**
+ * Prefer Agent365 agent-attributed Graph tokens when `agentRole` is set and Agent365 is enabled.
+ * Daemon / sync callers omit `agentRole` and use AZURE_FILES (or AZURE_*) app-only credentials only.
+ */
+export async function resolveSharePointGraphToken(
+  operation: SharePointGraphOperation,
+  agentRole?: string,
+): Promise<ResolvedSharePointGraphToken> {
+  if (!agentRole?.trim()) {
+    return {
+      token: await getM365Token(operation),
+      identityType: 'app-only-graph',
+      fallbackUsed: false,
+    };
+  }
+
+  const role = agentRole.trim();
+  const agenticToken = await getAgenticGraphToken(role);
+  if (agenticToken) {
+    console.log(`[SharePoint] Using agentic user token for ${operation} (${role})`);
+    return {
+      token: agenticToken,
+      identityType: 'agent365',
+      fallbackUsed: false,
+      agentRole: role,
+    };
+  }
+
+  const agent365On = process.env.AGENT365_ENABLED === 'true';
+  if (agent365On && !allowAppOnlySharePointFallback()) {
+    throw new Error(
+      `SharePoint ${operation} requires Agent365 identity for ${role}. `
+      + 'Set ALLOW_APP_ONLY_SHAREPOINT_FALLBACK=true (or ALLOW_APP_ONLY_SHAREPOINT_UPLOAD_FALLBACK=true) only as a deliberate exception.',
+    );
+  }
+
+  if (agent365On) {
+    console.warn(`[SharePoint] Falling back to app-only token for ${operation} (${role})`);
+  }
+
+  return {
+    token: await getM365Token(operation),
+    identityType: 'app-only-graph',
+    fallbackUsed: agent365On,
+    agentRole: role,
+  };
 }
 
 export async function syncSharePointKnowledge(
@@ -1377,23 +1446,9 @@ async function resolveUploadTarget(
   const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
-  // Prefer agent-attributed token (idtyp=user → shows agent name in SharePoint).
-  // App-only fallback is explicit opt-in because it collapses the agent boundary.
   const agentRole = options?.agentRole;
-  const agenticToken = agentRole ? await getAgenticGraphToken(agentRole) : null;
-  const allowAppOnlyFallback = process.env.ALLOW_APP_ONLY_SHAREPOINT_UPLOAD_FALLBACK === 'true';
-  if (!agenticToken && agentRole && !allowAppOnlyFallback) {
-    throw new Error(
-      `SharePoint upload requires Agent365 identity for ${agentRole}. ` +
-      'Set ALLOW_APP_ONLY_SHAREPOINT_UPLOAD_FALLBACK=true only as a temporary exception.',
-    );
-  }
-  const token = agenticToken ?? await getM365Token('write_sharepoint');
-  if (agenticToken) {
-    console.log(`[SharePoint] Using agentic user token for ${agentRole}`);
-  } else if (agentRole) {
-    console.warn(`[SharePoint] Falling back to app-only token for ${agentRole} due to explicit override`);
-  }
+  const resolved = await resolveSharePointGraphToken('write_sharepoint', agentRole);
+  const token = resolved.token;
   const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
 
   const folder = options?.folder ?? process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
@@ -1406,9 +1461,9 @@ async function resolveUploadTarget(
     remotePath,
     safeName,
     token,
-    agentRole,
-    identityType: agenticToken ? 'agent365' : 'app-only-graph',
-    fallbackUsed: !agenticToken,
+    agentRole: resolved.agentRole,
+    identityType: resolved.identityType,
+    fallbackUsed: resolved.fallbackUsed,
   };
 }
 
@@ -1479,6 +1534,8 @@ export interface SharePointSearchOptions {
   siteId?: string;
   driveId?: string;
   maxResults?: number;
+  /** When set with Agent365 enabled, Graph calls use the agent identity first. */
+  agentRole?: string;
 }
 
 export interface SharePointDocument {
@@ -1646,7 +1703,7 @@ export async function searchSharePoint(
   const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
-  const token = await getM365Token('search_sharepoint');
+  const { token } = await resolveSharePointGraphToken('search_sharepoint', options?.agentRole);
   const maxResults = options?.maxResults ?? 20;
 
   const searchUrl = `${GRAPH_BASE}/search/query`;
@@ -1719,7 +1776,7 @@ export async function listSharePointFolders(
   const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
-  const token = await getM365Token('read_sharepoint');
+  const { token } = await resolveSharePointGraphToken('read_sharepoint', options?.agentRole);
   const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
   const rootFolder = (process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge').trim();
 
@@ -1740,7 +1797,7 @@ export async function listSharePointFiles(
   const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
-  const token = await getM365Token('read_sharepoint');
+  const { token } = await resolveSharePointGraphToken('read_sharepoint', options?.agentRole);
   const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
   const rootFolder = (process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge').trim();
 
@@ -1795,7 +1852,7 @@ export async function readSharePointDocument(
   const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
-  const token = await getM365Token('read_sharepoint');
+  const { token } = await resolveSharePointGraphToken('read_sharepoint', options?.agentRole);
   const driveId = (options?.driveId ?? process.env.SHAREPOINT_DRIVE_ID ?? await getDefaultDriveId(token, siteId)).trim();
 
   const rootFolder = process.env.SHAREPOINT_ROOT_FOLDER ?? 'Company-Agent-Knowledge';
@@ -1832,7 +1889,12 @@ export async function readSharePointDocument(
   // path was incomplete.
   const fileName = filePath.split('/').pop() ?? filePath;
   try {
-    const searchResults = await searchSharePoint(fileName, { siteId, driveId, maxResults: 5 });
+    const searchResults = await searchSharePoint(fileName, {
+      siteId,
+      driveId,
+      maxResults: 5,
+      agentRole: options?.agentRole,
+    });
     const match = searchResults.find(
       (r: SharePointDocument) => r.name === fileName || r.name.toLowerCase() === fileName.toLowerCase(),
     );
@@ -1860,12 +1922,17 @@ export async function readSharePointDocument(
 export async function createSharePointPage(
   title: string,
   htmlContent: string,
-  options?: { siteId?: string; description?: string; promotionKind?: 'page' | 'newsPost' },
+  options?: {
+    siteId?: string;
+    description?: string;
+    promotionKind?: 'page' | 'newsPost';
+    agentRole?: string;
+  },
 ): Promise<{ id: string; webUrl: string }> {
   const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
-  const token = await getM365Token('write_sharepoint');
+  const { token } = await resolveSharePointGraphToken('write_sharepoint', options?.agentRole);
   const promotionKind = options?.promotionKind ?? 'page';
 
   // Create the page
