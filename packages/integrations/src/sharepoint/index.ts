@@ -74,8 +74,6 @@ type SharePointGraphOperation = Extract<
 export interface ResolvedSharePointGraphToken {
   token: string;
   identityType: 'agent365' | 'app-only-graph';
-  /** True when Agent365 was on and we used app-only after agentic failed. */
-  fallbackUsed: boolean;
   agentRole?: string;
 }
 
@@ -93,7 +91,6 @@ export async function resolveSharePointGraphToken(
     return {
       token: await getM365Token(operation),
       identityType: 'app-only-graph',
-      fallbackUsed: false,
     };
   }
 
@@ -112,7 +109,6 @@ export async function resolveSharePointGraphToken(
   return {
     token: agenticToken,
     identityType: 'agent365',
-    fallbackUsed: false,
     agentRole: role,
   };
 }
@@ -1423,7 +1419,6 @@ async function resolveUploadTarget(
   token: string;
   agentRole?: string;
   identityType: 'agent365' | 'app-only-graph';
-  fallbackUsed: boolean;
 }> {
   const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
@@ -1445,7 +1440,6 @@ async function resolveUploadTarget(
     token,
     agentRole: resolved.agentRole,
     identityType: resolved.identityType,
-    fallbackUsed: resolved.fallbackUsed,
   };
 }
 
@@ -1574,7 +1568,6 @@ export async function uploadToSharePoint(
     workspaceKey: 'glyphor-internal',
     toolName: 'upload_to_sharepoint',
     outcome: 'success',
-    fallbackUsed: target.fallbackUsed,
     targetType: 'sharepoint-drive-item',
     targetId: target.remotePath,
     responseCode: 200,
@@ -1625,7 +1618,6 @@ export async function uploadBinaryToSharePoint(
     workspaceKey: 'glyphor-internal',
     toolName: 'upload_to_sharepoint',
     outcome: 'success',
-    fallbackUsed: target.fallbackUsed,
     targetType: 'sharepoint-drive-item',
     targetId: target.remotePath,
     responseCode: 200,

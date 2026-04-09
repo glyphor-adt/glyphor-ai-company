@@ -4,8 +4,7 @@
  * Enable with env var: GLYPHOR_MCP_ENABLED=true
  * Configure server URLs via env vars:
  *   GLYPHOR_MCP_DATA_URL, GLYPHOR_MCP_MARKETING_URL, GLYPHOR_MCP_ENGINEERING_URL,
- *   GLYPHOR_MCP_DESIGN_URL, GLYPHOR_MCP_FINANCE_URL,
- *   GLYPHOR_MCP_SHAREPOINT_SITES_URL, GLYPHOR_MCP_CODEX_URL
+ *   GLYPHOR_MCP_DESIGN_URL, GLYPHOR_MCP_FINANCE_URL, GLYPHOR_MCP_CODEX_URL
  *
  * Auth: Uses GCP identity tokens for Cloud Run service-to-service authentication.
  * On GCP, tokens are fetched from the metadata server. Locally, uses ADC.
@@ -72,7 +71,6 @@ const GLYPHOR_MCP_SERVERS: Record<string, string> = {
   'mcp_GlyphorLegal': process.env.GLYPHOR_MCP_LEGAL_URL ?? '',
   'mcp_GlyphorHR': process.env.GLYPHOR_MCP_HR_URL ?? '',
   'mcp_GlyphorEmailMarketing': process.env.GLYPHOR_MCP_EMAIL_MARKETING_URL ?? '',
-  'mcp_GlyphorSharePointSites': process.env.GLYPHOR_MCP_SHAREPOINT_SITES_URL ?? '',
   'mcp_Codex': process.env.GLYPHOR_MCP_CODEX_URL ?? '',
 };
 

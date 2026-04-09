@@ -50,7 +50,6 @@ Top-level packages currently present:
 - mcp-hr-server
 - mcp-legal-server
 - mcp-marketing-server
-- mcp-sharepoint-sites
 - mcp-slack-server
 - scheduler
 - shared
@@ -1446,7 +1445,6 @@ Docker build assets currently present:
 - Dockerfile.mcp-hr-server
 - Dockerfile.mcp-legal-server
 - Dockerfile.mcp-marketing-server
-- Dockerfile.mcp-sharepoint-sites
 - Dockerfile.playwright
 - Dockerfile.scheduler
 - Dockerfile.slack-app

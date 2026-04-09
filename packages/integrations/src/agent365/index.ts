@@ -903,7 +903,7 @@ export async function getAgenticGraphToken(agentRole: string): Promise<string | 
     );
     return token;
   } catch (err) {
-    console.warn(`[Agent365] Failed to acquire Graph token for ${agentRole}: ${(err as Error).message}. Falling back to app-only.`);
+    console.warn(`[Agent365] Failed to acquire Graph token for ${agentRole}: ${(err as Error).message}`);
     return null;
   }
 }
