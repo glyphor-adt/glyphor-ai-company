@@ -9,7 +9,8 @@
 
 import { Octokit } from '@octokit/rest';
 
-const ORG = 'glyphor-adt';
+export const GLYPHOR_GITHUB_ORG = 'glyphor-adt';
+const ORG = GLYPHOR_GITHUB_ORG;
 const REPO_CONTEXT_CHAR_LIMIT = 12000;
 
 /** The repos the agents have access to — product repos are separate codebases and not managed here */
@@ -428,6 +429,66 @@ export async function createOrUpdateFile(
     commit_sha: data.commit.sha!,
     path,
     created_or_updated: existing ? 'updated' : 'created',
+  };
+}
+
+/** Create or update binary file contents (images, fonts, etc.) on a branch. */
+export async function createOrUpdateBinaryFile(
+  owner: string,
+  repoName: string,
+  path: string,
+  content: Buffer,
+  branch: string,
+  commitMessage: string,
+): Promise<{
+  commit_sha: string;
+  path: string;
+  created_or_updated: 'created' | 'updated';
+  html_url?: string | null;
+  download_url?: string | null;
+}> {
+  const gh = getGitHubClient();
+  const org = owner.trim();
+  let existingSha: string | undefined;
+  try {
+    const { data } = await gh.repos.getContent({
+      owner: org,
+      repo: repoName,
+      path,
+      ref: branch,
+    });
+    if (!Array.isArray(data) && data.type === 'file') {
+      existingSha = data.sha;
+    }
+  } catch (err: unknown) {
+    if ((err as { status?: number }).status !== 404) throw err;
+  }
+
+  const body: Parameters<typeof gh.repos.createOrUpdateFileContents>[0] = {
+    owner: org,
+    repo: repoName,
+    path,
+    message: commitMessage,
+    content: content.toString('base64'),
+    branch,
+  };
+  if (existingSha) {
+    body.sha = existingSha;
+  }
+
+  const { data } = await gh.repos.createOrUpdateFileContents(body);
+  const meta = data.content;
+  const fileMeta =
+    meta && typeof meta === 'object' && !Array.isArray(meta)
+      ? (meta as { html_url?: string | null; download_url?: string | null })
+      : null;
+
+  return {
+    commit_sha: data.commit.sha!,
+    path,
+    created_or_updated: existingSha ? 'updated' : 'created',
+    html_url: fileMeta?.html_url,
+    download_url: fileMeta?.download_url,
   };
 }
 

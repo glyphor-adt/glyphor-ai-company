@@ -217,6 +217,8 @@ export {
   createCheckRun,
   getFileContents,
   createOrUpdateFile,
+  createOrUpdateBinaryFile,
+  GLYPHOR_GITHUB_ORG,
   createBranch,
   createGitHubPR,
   mergeGitHubPR,

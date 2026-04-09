@@ -247,6 +247,8 @@ const AZURE_FOUNDRY_ALTERNATIVE: Record<string, string[]> = {
 
 /** Optional env vars — services not yet provisioned (informational). */
 const ENV_OPTIONAL: Record<string, string[]> = {
+  'Design assets (GitHub)': ['ASSET_GITHUB_REPO', 'GITHUB_TOKEN'],
+  'Design assets (legacy HTTP)': ['ASSET_SERVICE_URL'],
   'Playwright Screenshot Service': ['PLAYWRIGHT_SERVICE_URL', 'SCREENSHOT_SERVICE_URL'],
   'Storybook': ['STORYBOOK_URL'],
   'Vercel (deploy previews)': ['VERCEL_DEPLOY_HOOK_URL'],

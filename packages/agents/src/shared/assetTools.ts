@@ -1,19 +1,28 @@
 /**
  * Asset Tools — Visual asset generation and management
  *
+ * Storage (upload_asset, list_assets, publish flows):
+ *   - Preferred: commit files into a GitHub repo via ASSET_GITHUB_REPO + ASSET_GITHUB_OWNER + GITHUB_TOKEN.
+ *   - Legacy: HTTP service with POST /upload and GET /list (ASSET_SERVICE_URL).
+ *
  * Tools:
  *   generate_image              — Generate images via Gemini Imagen 4 (GOOGLE_AI_API_KEY / GEMINI_API_KEY)
  *   generate_and_publish_asset  — Generate + store + sync + publish a design asset deliverable
  *   publish_asset_deliverable   — Store + sync + publish an existing asset as a durable deliverable
- *   upload_asset                — Upload to asset storage (GCS)
- *   list_assets                 — List visual assets by category
+ *   upload_asset                — Upload image bytes to GitHub path or legacy asset service
+ *   list_assets                 — List assets in GitHub folder or legacy service
  *   optimize_image              — Compress/optimize for web
  *   generate_favicon_set        — Generate complete favicon/icon set
  */
 
 import type { GlyphorEventBus, ToolDefinition, ToolResult, ToolContext } from '@glyphor/agent-runtime';
 import { GoogleGenAI } from '@google/genai';
-import { uploadToSharePoint } from '@glyphor/integrations';
+import {
+  uploadToSharePoint,
+  createOrUpdateBinaryFile,
+  getGitHubClient,
+  GLYPHOR_GITHUB_ORG,
+} from '@glyphor/integrations';
 import { createDeliverableTools } from './deliverableTools.js';
 import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
 
@@ -32,10 +41,72 @@ const VALID_ASSET_CATEGORIES = [
 
 type AssetCategory = (typeof VALID_ASSET_CATEGORIES)[number];
 
-function getAssetServiceUrl(): string {
-  const url = process.env.ASSET_SERVICE_URL;
-  if (!url) throw new Error('ASSET_SERVICE_URL not configured');
-  return url;
+interface GithubAssetConfig {
+  /** GitHub org / user (e.g. glyphor-adt, glyphor-fuse). */
+  owner: string;
+  repo: string;
+  branch: string;
+  pathPrefix: string;
+}
+
+function resolveGithubAssetConfig(): GithubAssetConfig | null {
+  const repo = process.env.ASSET_GITHUB_REPO?.trim();
+  if (!repo) return null;
+  const owner =
+    process.env.ASSET_GITHUB_OWNER?.trim() ||
+    process.env.ASSET_GITHUB_ORG?.trim() ||
+    GLYPHOR_GITHUB_ORG;
+  return {
+    owner,
+    repo,
+    branch: process.env.ASSET_GITHUB_BRANCH?.trim() || 'main',
+    pathPrefix: (process.env.ASSET_GITHUB_PATH_PREFIX ?? 'public/images/design-assets')
+      .trim()
+      .replace(/^[/\\]+|[/\\]+$/g, ''),
+  };
+}
+
+function getLegacyAssetServiceUrl(): string | null {
+  const url = process.env.ASSET_SERVICE_URL?.trim();
+  return url || null;
+}
+
+function assetStorageNotConfiguredMessage(): string {
+  return (
+    'Asset storage not configured: set ASSET_GITHUB_REPO, optional ASSET_GITHUB_OWNER ' +
+    `(glyphor-adt or glyphor-fuse; defaults to ${GLYPHOR_GITHUB_ORG}), ` +
+    'optional ASSET_GITHUB_BRANCH / ASSET_GITHUB_PATH_PREFIX, and GITHUB_TOKEN with repo contents access, ' +
+    'or set ASSET_SERVICE_URL for legacy HTTP upload service.'
+  );
+}
+
+function basenameOnly(filename: string): string {
+  const trimmed = filename.trim().replace(/^[/\\]+/, '');
+  const parts = trimmed.split(/[/\\]/);
+  const base = parts[parts.length - 1] ?? trimmed;
+  return base || trimmed;
+}
+
+async function fetchImageBuffer(imageUrl: string): Promise<Buffer> {
+  if (/^data:/i.test(imageUrl)) {
+    const match = /^data:[^;]+;base64,(.+)$/i.exec(imageUrl);
+    if (!match) {
+      throw new Error('image_url data URL must be base64-encoded');
+    }
+    return Buffer.from(match[1], 'base64');
+  }
+  if (/^https?:\/\//i.test(imageUrl)) {
+    const res = await fetch(imageUrl, { signal: AbortSignal.timeout(60_000) });
+    if (!res.ok) {
+      throw new Error(`Failed to download image: ${res.status}`);
+    }
+    return Buffer.from(await res.arrayBuffer());
+  }
+  const asB64 = imageUrl.replace(/\s/g, '');
+  if (asB64.length > 64 && /^[a-z0-9+/=_-]+$/i.test(asB64.slice(0, 256))) {
+    return Buffer.from(asB64, 'base64');
+  }
+  throw new Error('image_url must be a data: URL, https URL, or base64 image bytes');
 }
 
 function normalizeMetadata(value: unknown): Record<string, unknown> {
@@ -205,34 +276,72 @@ async function uploadAssetInternal(params: {
   alt_text: string;
 }): Promise<ToolResult> {
   try {
-    const serviceUrl = getAssetServiceUrl();
-
-    const res = await fetch(`${serviceUrl}/upload`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image_url: params.image_url,
-        filename: params.filename,
-        category: params.category,
-        alt_text: params.alt_text,
-      }),
-      signal: AbortSignal.timeout(60_000),
-    });
-
-    if (!res.ok) {
-      return { success: false, error: `Asset upload returned ${res.status}: ${await res.text()}` };
+    const ghConfig = resolveGithubAssetConfig();
+    if (ghConfig) {
+      const buffer = await fetchImageBuffer(params.image_url);
+      const safeName = sanitizeFilename(basenameOnly(params.filename));
+      if (!safeName) {
+        return { success: false, error: 'upload_asset: invalid filename' };
+      }
+      const repoPath = `${ghConfig.pathPrefix}/${params.category}/${safeName}`.replace(/\/{2,}/g, '/');
+      const commit = await createOrUpdateBinaryFile(
+        ghConfig.owner,
+        ghConfig.repo,
+        repoPath,
+        buffer,
+        ghConfig.branch,
+        `chore(assets): add ${params.category} ${safeName}`,
+      );
+      const rawUrl =
+        commit.download_url ??
+        `https://raw.githubusercontent.com/${ghConfig.owner}/${ghConfig.repo}/${ghConfig.branch}/${repoPath}`;
+      const publicSitePath = `/${repoPath}`.replace(/\/{2,}/g, '/');
+      return {
+        success: true,
+        data: {
+          path: rawUrl,
+          html_url: commit.html_url,
+          commit_sha: commit.commit_sha,
+          repo_path: repoPath,
+          public_site_path: publicSitePath,
+          filename: safeName,
+          category: params.category,
+          alt_text: params.alt_text,
+        },
+      };
     }
 
-    const data = await res.json() as Record<string, unknown>;
-    return {
-      success: true,
-      data: {
-        path: data.path ?? `gs://glyphor-company/assets/${params.category}/${params.filename}`,
-        filename: params.filename,
-        category: params.category,
-        alt_text: params.alt_text,
-      },
-    };
+    const serviceUrl = getLegacyAssetServiceUrl();
+    if (serviceUrl) {
+      const res = await fetch(`${serviceUrl.replace(/\/+$/, '')}/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image_url: params.image_url,
+          filename: params.filename,
+          category: params.category,
+          alt_text: params.alt_text,
+        }),
+        signal: AbortSignal.timeout(60_000),
+      });
+
+      if (!res.ok) {
+        return { success: false, error: `Asset upload returned ${res.status}: ${await res.text()}` };
+      }
+
+      const data = await res.json() as Record<string, unknown>;
+      return {
+        success: true,
+        data: {
+          path: data.path ?? `gs://glyphor-company/assets/${params.category}/${params.filename}`,
+          filename: params.filename,
+          category: params.category,
+          alt_text: params.alt_text,
+        },
+      };
+    }
+
+    return { success: false, error: assetStorageNotConfiguredMessage() };
   } catch (err) {
     return { success: false, error: `upload_asset failed: ${(err as Error).message}` };
   }
@@ -641,7 +750,8 @@ export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinit
     // ── upload_asset ───────────────────────────────────────────────────
     {
       name: 'upload_asset',
-      description: 'Upload an image to Glyphor asset storage (GCS).',
+      description:
+        'Upload an image to GitHub (ASSET_GITHUB_REPO + ASSET_GITHUB_OWNER) or legacy ASSET_SERVICE_URL.',
       parameters: {
         image_url: {
           type: 'string',
@@ -680,12 +790,51 @@ export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinit
       },
       execute: async (params): Promise<ToolResult> => {
         try {
-          const serviceUrl = getAssetServiceUrl();
+          const ghConfig = resolveGithubAssetConfig();
+          if (ghConfig) {
+            const gh = getGitHubClient();
+            const category = params.category as string | undefined;
+            const dirPath = category
+              ? `${ghConfig.pathPrefix}/${category}`.replace(/\/{2,}/g, '/')
+              : ghConfig.pathPrefix;
+            const { data } = await gh.repos.getContent({
+              owner: ghConfig.owner,
+              repo: ghConfig.repo,
+              path: dirPath,
+              ref: ghConfig.branch,
+            });
+
+            if (!Array.isArray(data)) {
+              return { success: true, data: { assets: [], total: 0 } };
+            }
+
+            const search = ((params.search as string) ?? '').toLowerCase().trim();
+            const assets = data
+              .filter((item) => item.type === 'file')
+              .filter((item) => !search || item.name.toLowerCase().includes(search))
+              .map((item) => ({
+                filename: item.name,
+                url:
+                  item.download_url ??
+                  `https://raw.githubusercontent.com/${ghConfig.owner}/${ghConfig.repo}/${ghConfig.branch}/${item.path}`,
+                category: category ?? 'mixed',
+                dimensions: 'unknown',
+                upload_date: '',
+              }));
+
+            return { success: true, data: { assets, total: assets.length } };
+          }
+
+          const serviceUrl = getLegacyAssetServiceUrl();
+          if (!serviceUrl) {
+            return { success: false, error: assetStorageNotConfiguredMessage() };
+          }
+
           const query = new URLSearchParams();
           if (params.category) query.set('category', params.category as string);
           if (params.search) query.set('search', params.search as string);
 
-          const res = await fetch(`${serviceUrl}/list?${query.toString()}`, {
+          const res = await fetch(`${serviceUrl.replace(/\/+$/, '')}/list?${query.toString()}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             signal: AbortSignal.timeout(30_000),
@@ -709,7 +858,10 @@ export function createAssetTools(glyphorEventBus?: GlyphorEventBus): ToolDefinit
               total: data.total ?? (data.assets as unknown[])?.length ?? 0,
             },
           };
-        } catch (err) {
+        } catch (err: unknown) {
+          if ((err as { status?: number }).status === 404) {
+            return { success: true, data: { assets: [], total: 0 } };
+          }
           return { success: false, error: `list_assets failed: ${(err as Error).message}` };
         }
       },
