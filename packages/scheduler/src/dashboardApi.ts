@@ -22,6 +22,21 @@ export interface AuthenticatedDashboardUser {
   tenantId: string | null;
 }
 
+/**
+ * Emails always allowed to manage dashboard_users (must match server.ts DASHBOARD_FALLBACK_ADMINS
+ * and client Settings FALLBACK_ADMINS). DB may still label some as viewer — UI treats them as admin.
+ */
+const DASHBOARD_EFFECTIVE_ADMIN_EMAILS = new Set(
+  ['kristina@glyphor.ai', 'andrew@glyphor.ai', 'andrew.zwelling@gmail.com', 'devops@glyphor.ai'].map((e) =>
+    e.toLowerCase(),
+  ),
+);
+
+function isEffectiveDashboardAdmin(user: AuthenticatedDashboardUser): boolean {
+  if (user.role === 'admin') return true;
+  return DASHBOARD_EFFECTIVE_ADMIN_EMAILS.has(user.email.trim().toLowerCase());
+}
+
 interface SkillUploadTaskMapping {
   task_regex: string;
   priority?: number;
@@ -1491,7 +1506,11 @@ export async function handleDashboardApi(
   const segments = apiPath.split('/');
   const tableSlug = segments[0];
   const resourceId = segments[1]; // may be undefined
-  if (tableSlug === 'dashboard-users' && authenticatedUser.role !== 'admin') {
+  if (
+    tableSlug === 'dashboard-users' &&
+    !isEffectiveDashboardAdmin(authenticatedUser) &&
+    method !== 'GET'
+  ) {
     jsonResponse(res, 403, { error: 'Forbidden' });
     return true;
   }

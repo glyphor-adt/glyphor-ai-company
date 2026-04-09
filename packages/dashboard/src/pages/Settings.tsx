@@ -34,7 +34,8 @@ export default function Settings() {
       setUsers(data ?? []);
     } catch (e) {
       console.error('fetchUsers exception:', e);
-      setError('Failed to load users from database');
+      const hint = e instanceof Error ? e.message : 'Failed to load users from database';
+      setError(hint || 'Failed to load users from database');
     }
     setLoading(false);
   }, []);
