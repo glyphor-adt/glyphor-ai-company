@@ -109,6 +109,16 @@ export function resolvePlanningPolicy(input: {
       completionGateMaxRetries: 0,
       completionGateAutoRepairEnabled: false,
     };
+  } else if (input.task === 'work_loop' || input.task === 'proactive' || input.task === 'process_assignments') {
+    // Heartbeat / sweep tasks must see tools from turn 1. A JSON-only planning phase here
+    // often yields long "thinking" loops with zero tool_call rows and huge token burn.
+    policy = {
+      planningMode: 'off',
+      completionGateEnabled: false,
+      planningMaxAttempts: 1,
+      completionGateMaxRetries: 0,
+      completionGateAutoRepairEnabled: false,
+    };
   } else if (STRICT_ROLE_DEFAULTS.has(input.role)) {
     policy = {
       planningMode: 'required',

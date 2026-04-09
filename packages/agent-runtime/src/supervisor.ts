@@ -26,10 +26,16 @@ export class AgentSupervisor {
   constructor(config: SupervisorConfig) {
     const mt = Math.floor(Number(config.maxTurns));
     const safeMax = Number.isFinite(mt) && mt > 0 ? mt : 1;
-    this.config =
-      safeMax === config.maxTurns
-        ? config
-        : { ...config, maxTurns: safeMax };
+    const ms = Math.floor(Number(config.maxStallTurns));
+    const safeStall = Number.isFinite(ms) && ms > 0 ? ms : 6;
+    const tm = Math.floor(Number(config.timeoutMs));
+    const safeTimeout = Number.isFinite(tm) && tm > 0 ? tm : 600_000;
+    this.config = {
+      ...config,
+      maxTurns: safeMax,
+      maxStallTurns: safeStall,
+      timeoutMs: safeTimeout,
+    };
   }
 
   get signal(): AbortSignal {

@@ -13,6 +13,7 @@
 import { ModelClient } from './modelClient.js';
 import { ToolExecutor } from './toolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
+import { applyWorkloadReadsProgressAndStallFloor } from './supervisorWorkloadStallPolicy.js';
 import { extractReasoning } from './reasoning.js';
 import { isOfficeDocument, extractDocumentText } from './documentExtractor.js';
 import type { GlyphorEventBus } from './glyphorEventBus.js';
@@ -500,6 +501,9 @@ export abstract class BaseAgentRunner {
     const completionGateMaxRetries = planningPolicy.completionGateMaxRetries;
     const completionGateAutoRepairEnabled = planningPolicy.completionGateAutoRepairEnabled;
     let runPhase: 'planning' | 'execution' = planningMode === 'off' ? 'execution' : 'planning';
+    if (taskForContext === 'work_loop' || taskForContext === 'proactive' || taskForContext === 'process_assignments') {
+      applyWorkloadReadsProgressAndStallFloor(supervisor.config);
+    }
     let planningAttempts = 0;
     let completionGateRetries = 0;
     let completionGateAutoRepairAttempts = 0;

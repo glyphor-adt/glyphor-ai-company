@@ -44,6 +44,18 @@ describe('planningPolicy', () => {
     expect(policy.completionGateAutoRepairEnabled).toBe(false);
   });
 
+  it('disables planning for work_loop so task runners expose tools from turn 1', () => {
+    const config = createConfig('cto');
+    const policy = resolvePlanningPolicy({
+      role: 'cto',
+      task: 'work_loop',
+      config,
+      taskTierHint: true,
+    });
+    expect(policy.planningMode).toBe('off');
+    expect(policy.completionGateEnabled).toBe(false);
+  });
+
   it('allows env overrides and respects explicit config overrides', () => {
     vi.stubEnv('AGENT_PLANNING_POLICY_JSON', JSON.stringify({
       default: { planningMode: 'auto', completionGateMaxRetries: 1 },
