@@ -1,16 +1,11 @@
 /**
- * Agent Email Registry — Maps agent roles to M365 Shared Mailboxes
+ * Agent Email Registry — Maps agent roles to M365 mailbox UPNs
  *
- * Each agent has a dedicated shared mailbox (FREE, 50 GB each) in the
- * glyphor.ai tenant.  The Graph API uses the mailbox UPN/email as the
- * sender identity:
+ * Each agent has a dedicated shared mailbox in the tenant. Runtime mail uses
+ * Agent365 (MailTools MCP + agentic Graph under that mailbox identity), not
+ * app-only `AZURE_MAIL` Graph clients.
  *
- *   POST /users/{agentEmail}/sendMail
- *   GET  /users/{agentEmail}/mailFolders/inbox/messages
- *
- * Prereqs in Entra:
- *   • Entra app registration (AZURE_MAIL_*) needs Mail.Send + Mail.ReadWrite
- *   • Each shared mailbox created via Exchange admin center or PowerShell
+ * Mailboxes are still created in Exchange (shared mailbox / agentic user as per your setup).
  */
 
 import type { CompanyAgentRole } from '../types.js';

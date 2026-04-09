@@ -22,7 +22,7 @@ import { getAgentBlueprintSpId, getAgentEntraUserId } from '@glyphor/agent-runti
 import type { Agent365ToolBridge } from '@glyphor/integrations';
 import {
   createAgent365Tools as initAgent365Bridge,
-  getM365Token,
+  getAgenticGraphToken,
   logMicrosoftWriteAudit,
   resolveSharePointGraphToken,
 } from '@glyphor/integrations';
@@ -53,12 +53,18 @@ const LIVE_ROLE_M365_ALLOWLISTS: Partial<Record<CompanyAgentRole, readonly strin
 /** SharePoint / OneDrive MCP — loaded for every agent when Agent365 is on (company standard). */
 const AGENT365_ODSP_SERVER = 'mcp_ODSPRemoteServer' as const;
 
-/** Unknown roles get ODSP only; explicit serverFilter still overrides this. */
+/** Mail MCP — loaded with ODSP so inbox/mail flows use Agent365, not Graph fallbacks. */
+const AGENT365_MAIL_SERVER = 'mcp_MailTools' as const;
+
+/** Unknown roles get ODSP + Mail; explicit serverFilter still overrides this. */
 function getDefaultAgent365Servers(agentRole?: string): readonly string[] {
   if (!agentRole) return [];
   const base = [...(LIVE_ROLE_M365_ALLOWLISTS[agentRole as CompanyAgentRole] ?? [])];
   if (!base.includes(AGENT365_ODSP_SERVER)) {
     base.push(AGENT365_ODSP_SERVER);
+  }
+  if (!base.includes(AGENT365_MAIL_SERVER)) {
+    base.push(AGENT365_MAIL_SERVER);
   }
   return [...new Set(base)];
 }
@@ -66,10 +72,6 @@ function getDefaultAgent365Servers(agentRole?: string): readonly string[] {
 // ── Singleton Bridge ─────────────────────────────────────────────
 
 const activeBridges = new Map<string, Agent365ToolBridge>();
-
-function allowAppOnlyMailAttachmentFallback(): boolean {
-  return process.env.ALLOW_APP_ONLY_MAIL_ATTACHMENT_FALLBACK === 'true';
-}
 
 function getBridgeCacheKey(agentRole?: string): string {
   return agentRole ?? '__default__';
@@ -136,20 +138,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
     ?? process.env.AGENT365_AGENTIC_USER_ID;
 
   if (!agentAppInstanceId || !agenticUserId) {
-    console.warn(`[Agent365] No identity found for agent ${agentRole ?? 'unknown'}. Set blueprintSpId/entraUserId in agentIdentities.json or AGENT365_APP_INSTANCE_ID/AGENT365_AGENTIC_USER_ID env vars. Skipping.`);
-    if (agentRole) {
-      const fallbackTools: ToolDefinition[] = [];
-      const fallbackTool = createReadInboxFallback(agentRole as CompanyAgentRole);
-      if (fallbackTool) fallbackTools.push(fallbackTool);
-      const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
-      if (mailbox && allowAppOnlyMailAttachmentFallback()) {
-        fallbackTools.push(createSendEmailWithAttachmentTool(mailbox, agentRole as CompanyAgentRole));
-      }
-      if (fallbackTools.length > 0) {
-        console.log(`[Agent365] Identity missing for ${agentRole}; using Graph fallback tools: ${fallbackTools.map(t => t.name).join(', ')}`);
-        return fallbackTools;
-      }
-    }
+    console.warn(`[Agent365] No identity found for agent ${agentRole ?? 'unknown'}. Set blueprintSpId/entraUserId in agentIdentities.json or AGENT365_APP_INSTANCE_ID/AGENT365_AGENTIC_USER_ID env vars. Skipping (no Graph mail fallbacks).`);
     return [];
   }
 
@@ -171,7 +160,7 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       senderEmail: senderMailbox,
     }, serverFilter);
 
-    // Timeout guard: if MCP init hangs beyond 15s, fall back to core tools only
+    // Timeout guard: if MCP init hangs, fail fast instead of substituting Graph mail tools
     const bridge = await Promise.race([
       bridgePromise,
       new Promise<never>((_, reject) =>
@@ -196,29 +185,13 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
       }
       return mapped;
     });
-    if (agentRole) {
-      const hasInboxReader = tools.some((tool) => tool.name.toLowerCase() === 'read_inbox');
-      if (!hasInboxReader) {
-        const fallbackTool = createReadInboxFallback(agentRole as CompanyAgentRole);
-        if (fallbackTool) {
-          tools.unshift(fallbackTool);
-          console.log(`[Agent365] Added Graph fallback read_inbox for ${agentRole}`);
-        }
-      }
-    }
-
-    // Add reply_email_with_attachments tool — bypasses MCP MailTools for attachments.
-    // The MCP send_email's attachmentUris and reply_to_email both fail with file attachments.
-    // Downloads from SharePoint use Agent365 agentic Graph; sendMail still uses AZURE_MAIL when fallback is enabled.
+    // reply_email_with_attachments: MCP send_email / reply_to_email cannot attach SharePoint files.
+    // Download uses agentic Graph; sendMail uses the same agentic Graph token (no app-only mail).
     if (agentRole) {
       const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
       if (mailbox) {
-        if (allowAppOnlyMailAttachmentFallback()) {
-          tools.push(createSendEmailWithAttachmentTool(mailbox, agentRole as CompanyAgentRole));
-          console.log(`[Agent365] Added reply_email_with_attachments fallback for ${agentRole} (${mailbox})`);
-        } else {
-          console.log(`[Agent365] reply_email_with_attachments disabled for ${agentRole}; app-only mail fallback not allowed`);
-        }
+        tools.push(createSendEmailWithAttachmentTool(mailbox, agentRole as CompanyAgentRole));
+        console.log(`[Agent365] Added reply_email_with_attachments for ${agentRole} (${mailbox})`);
       }
     }
 
@@ -226,144 +199,12 @@ export async function createAgent365McpTools(agentRoleOrServerFilter?: string | 
     console.log(`[Agent365] Initialized ${tools.length} MCP tools`);
     return tools;
   } catch (err) {
-    console.error('[Agent365] Failed to initialize MCP bridge (falling back to core tools):', (err as Error).message);
-    if (agentRole) {
-      const fallbackTools: ToolDefinition[] = [];
-      const fallbackTool = createReadInboxFallback(agentRole as CompanyAgentRole);
-      if (fallbackTool) fallbackTools.push(fallbackTool);
-      const mailbox = AGENT_EMAIL_MAP[agentRole as CompanyAgentRole]?.email;
-      if (mailbox && allowAppOnlyMailAttachmentFallback()) {
-        fallbackTools.push(createSendEmailWithAttachmentTool(mailbox, agentRole as CompanyAgentRole));
-      }
-      if (fallbackTools.length > 0) {
-        console.log(`[Agent365] MCP init failed for ${agentRole}; using Graph fallback tools: ${fallbackTools.map(t => t.name).join(', ')}`);
-        return fallbackTools;
-      }
-    }
+    console.error('[Agent365] Failed to initialize MCP bridge:', (err as Error).message);
     return [];
   }
 }
 
-function createReadInboxFallback(agentRole: CompanyAgentRole): ToolDefinition | null {
-  const mailbox = AGENT_EMAIL_MAP[agentRole]?.email;
-  if (!mailbox) return null;
-
-  return {
-    name: 'read_inbox',
-    description: 'Fallback inbox reader via Microsoft Graph when Agent365 MailTools inbox listing is unavailable.',
-    parameters: {
-      limit: {
-        type: 'number',
-        description: 'Max messages to return (default: 10, max: 50).',
-        required: false,
-      },
-      from_filter: {
-        type: 'string',
-        description: 'Optional sender filter (substring match).',
-        required: false,
-      },
-      include_read: {
-        type: 'boolean',
-        description: 'Include read messages. Default false.',
-        required: false,
-      },
-      mark_as_read: {
-        type: 'boolean',
-        description: 'Mark unread returned messages as read. Default false.',
-        required: false,
-      },
-    },
-    execute: async (params, ctx) => {
-      try {
-        const token = await getM365Token('agent365_mail_read_inbox');
-        const limitRaw = typeof params.limit === 'number' ? params.limit : 10;
-        const limit = Math.max(1, Math.min(50, Math.floor(limitRaw)));
-        const includeRead = params.include_read === true;
-        const markAsRead = params.mark_as_read === true;
-        const fromFilter = typeof params.from_filter === 'string' ? params.from_filter.trim() : '';
-
-        const query = new URLSearchParams({
-          $top: String(limit),
-          $select: 'id,subject,from,receivedDateTime,bodyPreview,isRead,hasAttachments',
-          $orderby: 'receivedDateTime desc',
-        });
-
-        const filters: string[] = [];
-        if (!includeRead) filters.push('isRead eq false');
-        if (fromFilter) filters.push(`contains(from/emailAddress/address, '${fromFilter.replace(/'/g, "''")}')`);
-        if (filters.length > 0) query.set('$filter', filters.join(' and '));
-
-        const response = await fetch(
-          `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox)}/mailFolders/inbox/messages?${query.toString()}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          },
-        );
-
-        if (!response.ok) {
-          const text = await response.text();
-          return { success: false, error: `Graph read_inbox fallback failed (${response.status}): ${text.slice(0, 300)}` };
-        }
-
-        interface GraphMessage {
-          id: string;
-          subject: string;
-          from?: { emailAddress?: { address?: string; name?: string } };
-          receivedDateTime: string;
-          bodyPreview?: string;
-          isRead?: boolean;
-          hasAttachments?: boolean;
-        }
-
-        const payload = (await response.json()) as { value?: GraphMessage[] };
-        const messages = (payload.value ?? []).map((message) => ({
-          id: message.id,
-          subject: message.subject ?? '(no subject)',
-          from: message.from?.emailAddress?.address ?? '',
-          fromName: message.from?.emailAddress?.name ?? '',
-          receivedAt: message.receivedDateTime,
-          preview: message.bodyPreview ?? '',
-          isRead: message.isRead ?? false,
-          hasAttachments: message.hasAttachments ?? false,
-        }));
-
-        if (markAsRead) {
-          const unreadIds = messages.filter((m) => !m.isRead).map((m) => m.id);
-          if (unreadIds.length > 0) {
-            await Promise.all(
-              unreadIds.map((id) =>
-                fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(id)}`, {
-                  method: 'PATCH',
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ isRead: true }),
-                }),
-              ),
-            );
-          }
-        }
-
-        return {
-          success: true,
-          data: {
-            mailbox,
-            count: messages.length,
-            messages,
-          },
-        };
-      } catch (err) {
-        return { success: false, error: `Graph read_inbox fallback failed: ${(err as Error).message}` };
-      }
-    },
-  };
-}
-
-// ── Email with Attachments (Graph API bypass) ────────────────────
+// ── Email with Attachments (agentic Graph sendMail) ─────────────────
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 
@@ -453,7 +294,7 @@ async function downloadSharePointFileForAttachment(
 
 /**
  * Create a tool that sends email with file attachments from SharePoint.
- * Downloads files via Agent365 agentic Graph; sends via Graph API (AZURE_MAIL) when fallback is enabled.
+ * Downloads and sends via the agent's Agent365 agentic Graph token (same identity as MailTools).
  */
 function createSendEmailWithAttachmentTool(senderMailbox: string, agentRole?: CompanyAgentRole): ToolDefinition {
   return {
@@ -495,15 +336,18 @@ function createSendEmailWithAttachmentTool(senderMailbox: string, agentRole?: Co
     },
     execute: async (params, ctx) => {
       try {
-        if (!allowAppOnlyMailAttachmentFallback()) {
+        const role = (agentRole ?? ctx.agentRole) as CompanyAgentRole | undefined;
+        if (!role) {
+          return { success: false, error: 'reply_email_with_attachments requires agent context' };
+        }
+        const mailToken = await getAgenticGraphToken(role);
+        if (!mailToken) {
           return {
             success: false,
             error:
-              'reply_email_with_attachments is disabled by default because it uses app-only Graph mail send. ' +
-              'Use Agent365 MailTools for normal mail writes, or set ALLOW_APP_ONLY_MAIL_ATTACHMENT_FALLBACK=true only as an explicit exception.',
+              'Could not acquire agentic Graph token for mail send. Ensure Agent365 is enabled and this agent has blueprintSpId/entraUserId configured.',
           };
         }
-        const role = agentRole ?? ctx.agentRole;
         // Accept both array and comma-separated string
         let filePaths: string[];
         if (Array.isArray(params.file_paths)) {
@@ -577,8 +421,6 @@ function createSendEmailWithAttachmentTool(senderMailbox: string, agentRole?: Co
           saveToSentItems: true,
         };
 
-        // Send via Graph API using AZURE_MAIL credentials
-        const mailToken = await getM365Token('agent365_mail_send');
         const response = await fetch(
           `${GRAPH_BASE}/users/${encodeURIComponent(senderMailbox)}/sendMail`,
           {
@@ -595,14 +437,14 @@ function createSendEmailWithAttachmentTool(senderMailbox: string, agentRole?: Co
           const text = await response.text();
           console.error(`[reply_email_with_attachments] Send failed (${response.status}): ${text.slice(0, 500)}`);
           await logMicrosoftWriteAudit({
-            agentRole: agentRole ?? 'system',
+            agentRole: role,
             action: 'mail.send_attachments',
             resource: `users/${senderMailbox}/sendMail`,
-            identityType: 'app-only-graph',
+            identityType: 'agent365',
             workspaceKey: 'glyphor-internal',
             toolName: 'reply_email_with_attachments',
             outcome: 'failure',
-            fallbackUsed: true,
+            fallbackUsed: false,
             targetType: 'mailbox',
             targetId: senderMailbox,
             responseCode: response.status,
@@ -614,14 +456,14 @@ function createSendEmailWithAttachmentTool(senderMailbox: string, agentRole?: Co
         const fileNames = attachments.map((a) => a.name).join(', ');
         console.log(`[reply_email_with_attachments] SUCCESS: sent to ${toStr} with ${fileNames}`);
         await logMicrosoftWriteAudit({
-          agentRole: agentRole ?? 'system',
+          agentRole: role,
           action: 'mail.send_attachments',
           resource: `users/${senderMailbox}/sendMail`,
-          identityType: 'app-only-graph',
+          identityType: 'agent365',
           workspaceKey: 'glyphor-internal',
           toolName: 'reply_email_with_attachments',
           outcome: 'success',
-          fallbackUsed: true,
+          fallbackUsed: false,
           targetType: 'mailbox',
           targetId: senderMailbox,
           responseCode: response.status,

@@ -11,7 +11,7 @@
 
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import { AGENT_EMAIL_MAP } from '@glyphor/agent-runtime';
-import { getM365Token } from '@glyphor/integrations';
+import { getAgenticGraphToken } from '@glyphor/integrations';
 
 /**
  * Poll only dedicated inbox triage/admin roles.
@@ -52,18 +52,6 @@ function isLowSignalTeamsPing(message: { subject?: string | null }): boolean {
  * Returns which agents have new messages so the heartbeat can wake them.
  */
 export async function checkAgentInboxes(): Promise<InboxCheckResult> {
-  let token: string;
-  try {
-    token = await getM365Token('agent365_mail_read_inbox');
-  } catch (err) {
-    return {
-      checked: 0,
-      withMail: [],
-      errors: [`Failed to acquire mail token: ${(err as Error).message}`],
-      skippedInvalidMailboxes: [],
-    };
-  }
-
   const result: InboxCheckResult = { checked: 0, withMail: [], errors: [], skippedInvalidMailboxes: [] };
 
   // Check all inboxes in parallel (lightweight HEAD-style queries)
@@ -76,6 +64,14 @@ export async function checkAgentInboxes(): Promise<InboxCheckResult> {
 
     const entry = AGENT_EMAIL_MAP[role];
     if (!entry) return;
+
+    const token = await getAgenticGraphToken(role);
+    if (!token) {
+      result.errors.push(
+        `${role} (${entry.email}): No Agent365 agentic Graph token — check AGENT365_ENABLED and agent identity (blueprintSpId / entraUserId).`,
+      );
+      return;
+    }
 
     try {
       const params = new URLSearchParams({

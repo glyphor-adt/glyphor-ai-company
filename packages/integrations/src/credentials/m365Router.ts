@@ -9,10 +9,11 @@
  * App registrations:
  *   1. glyphor-teams-channels  → ChannelMessage.Send
  *   2. glyphor-teams-bot       → Bot Framework
- *   3. glyphor-mail            → Mail.Send (shared mailbox)
- *   4. glyphor-files           → Sites.Selected
- *   5. glyphor-users           → User.Read.All
- *   6. glyphor-directory       → Directory.ReadWrite.All, Group.ReadWrite.All, Application.Read.All
+ *   3. glyphor-files           → Sites.Selected
+ *   4. glyphor-users           → User.Read.All
+ *   5. glyphor-directory       → Directory.ReadWrite.All, Group.ReadWrite.All, Application.Read.All
+ *
+ * Agent mail send/read uses Agent365 (agentic Graph + MailTools MCP), not these apps.
  */
 
 import { ConfidentialClientApplication } from '@azure/msal-node';
@@ -21,10 +22,6 @@ export type M365Operation =
   | 'post_to_channel'
   | 'post_to_teams'
   | 'send_teams_dm'
-  | 'agent365_mail_send'
-  | 'agent365_mail_send_emergency'
-  | 'agent365_mail_read_inbox'
-  | 'agent365_mail_reply'
   | 'read_excel'
   | 'write_excel'
   | 'read_sharepoint'
@@ -56,10 +53,6 @@ const OPERATION_TO_APP: Record<M365Operation, string> = {
   post_to_channel: 'AZURE_TEAMS_CHANNEL',
   post_to_teams: 'AZURE_TEAMS_CHANNEL',
   send_teams_dm: 'AZURE_TEAMS_BOT',
-  agent365_mail_send: 'AZURE_MAIL',
-  agent365_mail_send_emergency: 'AZURE_MAIL',
-  agent365_mail_read_inbox: 'AZURE_MAIL',
-  agent365_mail_reply: 'AZURE_MAIL',
   read_excel: 'AZURE_FILES',
   write_excel: 'AZURE_FILES',
   read_sharepoint: 'AZURE_FILES',

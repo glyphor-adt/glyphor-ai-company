@@ -476,19 +476,6 @@ export function createM365AdminTools(memory: CompanyMemoryStore): ToolDefinition
           results.teams_channels = { status: 'error', detail: (err as Error).message };
         }
 
-        // 4. Test mail
-        try {
-          const token = await graphToken('agent365_mail_send');
-          const res = await fetch('https://graph.microsoft.com/v1.0/users?$top=1&$select=id', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          results.mail_token = res.ok
-            ? { status: 'ok', detail: 'Mail token acquired successfully' }
-            : { status: 'degraded', detail: `Token works but limited: ${res.status}` };
-        } catch (err) {
-          results.mail_token = { status: 'error', detail: (err as Error).message };
-        }
-
         const allOk = Object.values(results).every((r) => {
           const s = (r as { status: string }).status;
           return s === 'ok' || s === 'skipped';
