@@ -20,6 +20,7 @@ import { VP_DESIGN_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPDesignTools } from './tools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
@@ -294,7 +295,7 @@ Do not call github_push_files, github_create_pull_request, github_merge_pull_req
     default:
       initialMessage = params.message || 'Provide a design quality and system status summary.';
   }
-  const agentCfg = await loadAgentConfig('vp-design', { temperature: 0.4, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('vp-design', { temperature: 0.4, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `vp-design-${task}-${today}`,
@@ -302,7 +303,7 @@ Do not call github_push_files, github_create_pull_request, github_merge_pull_req
     systemPrompt: VP_DESIGN_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     // Allow multi-minute invoke_web_build; companyAgentRunner uses min(config, ON_DEMAND_* timeout).
     timeoutMs: 960_000,

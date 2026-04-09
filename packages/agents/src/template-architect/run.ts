@@ -11,6 +11,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { TEMPLATE_ARCHITECT_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createTemplateArchitectTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
@@ -83,12 +84,12 @@ export async function runTemplateArchitect(params: TemplateArchitectRunParams = 
     default:
       initialMessage = params.message || 'Assist with template architecture as directed.';
   }
-  const agentCfg = await loadAgentConfig('template-architect', { temperature: 0.35, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('template-architect', { temperature: 0.35, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `ryan-${task}-${today}`, role: 'template-architect',
     systemPrompt: TEMPLATE_ARCHITECT_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
+    tools, maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns), maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
   };

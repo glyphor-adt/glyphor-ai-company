@@ -11,6 +11,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { FRONTEND_ENGINEER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createFrontendEngineerTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
@@ -115,12 +116,12 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
     default:
       initialMessage = params.message || 'Assist with frontend implementation as directed.';
   }
-  const agentCfg = await loadAgentConfig('frontend-engineer', { temperature: 0.7, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('frontend-engineer', { temperature: 0.7, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `ava-${task}-${today}`, role: 'frontend-engineer',
     systemPrompt: FRONTEND_ENGINEER_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 960_000, temperature: agentCfg.temperature,
+    tools, maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns), maxStallTurns: 3, timeoutMs: 960_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
   };

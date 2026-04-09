@@ -11,6 +11,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { COMPETITIVE_INTEL_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCompetitiveIntelTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -63,12 +64,12 @@ export async function runCompetitiveIntel(params: CompetitiveIntelRunParams = {}
     default:
       initialMessage = params.message || 'Run a competitive intelligence scan.';
   }
-  const agentCfg = await loadAgentConfig('competitive-intel', { temperature: 0.2, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('competitive-intel', { temperature: 0.2, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `daniel-${task}-${today}`, role: 'competitive-intel',
     systemPrompt: COMPETITIVE_INTEL_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
+    tools, maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns), maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
   };

@@ -12,6 +12,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { QUALITY_ENGINEER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createQualityEngineerTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -77,12 +78,12 @@ export async function runQualityEngineer(params: QualityEngineerRunParams = {}) 
     default:
       initialMessage = params.message || 'Run a QA analysis on recent builds.';
   }
-  const agentCfg = await loadAgentConfig('quality-engineer', { temperature: 0.2, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('quality-engineer', { temperature: 0.2, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `sam-${task}-${today}`, role: 'quality-engineer',
     systemPrompt: QUALITY_ENGINEER_SYSTEM_PROMPT,
-    model: agentCfg.model, tools, maxTurns: agentCfg.maxTurns,
+    model: agentCfg.model, tools, maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,

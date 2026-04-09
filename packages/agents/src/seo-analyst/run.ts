@@ -11,6 +11,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { SEO_ANALYST_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createSeoAnalystTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -68,12 +69,12 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
     default:
       initialMessage = params.message || 'Run an SEO analysis.';
   }
-  const agentCfg = await loadAgentConfig('seo-analyst', { temperature: 0.2, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('seo-analyst', { temperature: 0.2, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `lisa-${task}-${today}`, role: 'seo-analyst',
     systemPrompt: SEO_ANALYST_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
+    tools, maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns), maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
   };

@@ -39,6 +39,7 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createResearchTools } from '../shared/researchTools.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createGithubFromTemplateTools, createGithubPushFilesTools, createGithubPullRequestTools, createVercelProjectTools, createCloudflarePreviewTools } from '@glyphor/integrations';
 
 export interface CoSRunParams {
@@ -491,7 +492,7 @@ ${lifecycleContext}`;
     systemPrompt,
     model: agentCfg.model,
     tools,
-    maxTurns: task === 'orchestrate' || task === 'strategic_planning' || task === 'on_demand' || task === 'heartbeat_response' ? 25 : agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: task === 'orchestrate' || task === 'strategic_planning' || task === 'on_demand' || task === 'heartbeat_response' ? 10 : 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,

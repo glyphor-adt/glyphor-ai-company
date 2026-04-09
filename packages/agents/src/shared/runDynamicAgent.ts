@@ -16,6 +16,7 @@ import { systemQuery } from '@glyphor/shared/db';
 import { isCanonicalKeepRole } from '@glyphor/shared';
 import { createMemoryTools } from './memoryTools.js';
 import { createRunDeps, loadAgentConfig } from './createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from './reactiveTurnBudget.js';
 import { createRunner } from './createRunner.js';
 import { createEventTools } from './eventTools.js';
 import { createGraphTools } from './graphTools.js';
@@ -116,10 +117,11 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
 
   const toolExecutor = new ToolExecutor(tools);
 
-  const agentCfg = await loadAgentConfig(role, {
-    temperature: agentRow.temperature ?? 0.3,
-    maxTurns: agentRow.max_turns ?? 10,
-  });
+  const agentCfg = await loadAgentConfig(
+    role,
+    { temperature: agentRow.temperature ?? 0.3, maxTurns: agentRow.max_turns ?? 10 },
+    task,
+  );
 
   const today = new Date().toISOString().split('T')[0];
   const initialMessage = message || `You have been activated for task: ${task}. Review your pending assignments and messages, then proceed.`;
@@ -130,7 +132,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
     systemPrompt,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,

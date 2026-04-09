@@ -12,6 +12,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { DEVOPS_ENGINEER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createDevOpsEngineerTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -84,12 +85,12 @@ export async function runDevOpsEngineer(params: DevOpsEngineerRunParams = {}) {
     default:
       initialMessage = params.message || 'Analyze infrastructure for optimization opportunities.';
   }
-  const agentCfg = await loadAgentConfig('devops-engineer', { temperature: 0.2, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('devops-engineer', { temperature: 0.2, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `jordan-${task}-${today}`, role: 'devops-engineer',
     systemPrompt: DEVOPS_ENGINEER_SYSTEM_PROMPT,
-    model: agentCfg.model, tools, maxTurns: agentCfg.maxTurns,
+    model: agentCfg.model, tools, maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,

@@ -19,6 +19,7 @@ import { CFO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCFOTools } from './tools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -126,7 +127,7 @@ Steps:
     systemPrompt: CFO_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,

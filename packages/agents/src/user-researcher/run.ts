@@ -11,6 +11,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { USER_RESEARCHER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createUserResearcherTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -65,12 +66,12 @@ export async function runUserResearcher(params: UserResearcherRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a user behavior analysis.';
   }
-  const agentCfg = await loadAgentConfig('user-researcher', { temperature: 0.3, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('user-researcher', { temperature: 0.3, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `priya-${task}-${today}`, role: 'user-researcher',
     systemPrompt: USER_RESEARCHER_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
+    tools, maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns), maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
   };

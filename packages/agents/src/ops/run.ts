@@ -20,6 +20,7 @@ import { OPS_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createOpsTools } from './tools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -221,7 +222,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, doctr
     default:
       initialMessage = params.message || 'Provide a current system status summary.';
   }
-  const agentCfg = await loadAgentConfig('ops', { temperature: 0.2, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('ops', { temperature: 0.2, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `ops-${task}-${today}`,
@@ -229,7 +230,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, doctr
     systemPrompt: OPS_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,

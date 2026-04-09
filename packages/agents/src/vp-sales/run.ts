@@ -19,6 +19,7 @@ import { VP_SALES_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPSalesTools } from './tools.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createPeerCoordinationTools } from '../shared/peerCoordinationTools.js';
@@ -111,7 +112,7 @@ Steps:
     default:
       initialMessage = params.message || 'Provide a sales analysis and pipeline summary.';
   }
-  const agentCfg = await loadAgentConfig('vp-sales', { temperature: 0.3, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('vp-sales', { temperature: 0.3, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `vps-${task}-${today}`,
@@ -119,7 +120,7 @@ Steps:
     systemPrompt: VP_SALES_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,

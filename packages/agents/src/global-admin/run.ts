@@ -16,6 +16,7 @@ import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createOpsExtensionTools } from '../shared/opsExtensionTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
@@ -77,7 +78,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a quick access health check across all managed GCP projects.';
   }
-  const agentCfg = await loadAgentConfig('global-admin', { temperature: 0.2, maxTurns: 12 });
+  const agentCfg = await loadAgentConfig('global-admin', { temperature: 0.2, maxTurns: 12 }, task);
 
   const config: AgentConfig = {
     id: `morgan-${task}-${today}`,
@@ -85,7 +86,7 @@ export async function runGlobalAdmin(params: GlobalAdminRunParams = {}) {
     systemPrompt: GLOBAL_ADMIN_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,

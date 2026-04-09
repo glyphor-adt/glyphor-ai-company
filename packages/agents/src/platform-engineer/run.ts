@@ -18,6 +18,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { PLATFORM_ENGINEER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createPlatformEngineerTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -109,7 +110,7 @@ Steps:
     default:
       initialMessage = params.message || 'Run a health check on all platform services.';
   }
-  const agentCfg = await loadAgentConfig('platform-engineer', { temperature: 0.2, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('platform-engineer', { temperature: 0.2, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `alex-${task}-${today}`,
@@ -117,7 +118,7 @@ Steps:
     systemPrompt: PLATFORM_ENGINEER_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,

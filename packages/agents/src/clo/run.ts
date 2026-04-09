@@ -20,6 +20,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { CLO_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createCollectiveIntelligenceTools } from '../shared/collectiveIntelligenceTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -118,7 +119,7 @@ IMPORTANT: Only assert findings about live product features (e.g. footer links, 
     default:
       initialMessage = params.message || 'Provide a legal health summary covering current compliance status, pending legal items, and any regulatory developments requiring attention.';
   }
-  const agentCfg = await loadAgentConfig('clo', { temperature: 0.3, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('clo', { temperature: 0.3, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `clo-${task}-${today}`,
@@ -126,7 +127,7 @@ IMPORTANT: Only assert findings about live product features (e.g. footer links, 
     systemPrompt: CLO_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,

@@ -11,6 +11,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { DESIGN_CRITIC_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createDesignCriticTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
@@ -73,12 +74,12 @@ export async function runDesignCritic(params: DesignCriticRunParams = {}) {
     default:
       initialMessage = params.message || 'Critique and review design quality as directed.';
   }
-  const agentCfg = await loadAgentConfig('design-critic', { temperature: 0.25, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('design-critic', { temperature: 0.25, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `sofia-${task}-${today}`, role: 'design-critic',
     systemPrompt: DESIGN_CRITIC_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
+    tools, maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns), maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
   };

@@ -15,6 +15,7 @@ import { createGraphTools } from '../shared/graphTools.js';
 import { createToolGrantTools } from '../shared/toolGrantTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
@@ -72,7 +73,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     default:
       initialMessage = params.message || 'Review Teams channels and user access for any issues.';
   }
-  const agentCfg = await loadAgentConfig('m365-admin', { temperature: 0.2, maxTurns: 12 });
+  const agentCfg = await loadAgentConfig('m365-admin', { temperature: 0.2, maxTurns: 12 }, task);
 
   const config: AgentConfig = {
     id: `riley-${task}-${today}`,
@@ -80,7 +81,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
     systemPrompt: M365_ADMIN_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,

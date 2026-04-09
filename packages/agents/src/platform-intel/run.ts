@@ -19,6 +19,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { PLATFORM_INTEL_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createPlatformIntelTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
@@ -132,7 +133,7 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
     systemPrompt: PLATFORM_INTEL_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns,
     timeoutMs: consolidationMode ? 420_000 : 600_000,
     temperature: agentCfg.temperature,

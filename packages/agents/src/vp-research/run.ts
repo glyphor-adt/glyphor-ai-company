@@ -11,6 +11,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { VP_RESEARCH_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createVPResearchTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createTeamOrchestrationTools } from '../shared/teamOrchestrationTools.js';
@@ -144,7 +145,7 @@ Return structured JSON with keys: findings (object), analystBriefs (array of { a
 
   const agentCfg = await loadAgentConfig('vp-research', {
     temperature: 0.3, maxTurns,
-  });
+  }, task);
 
   const config: AgentConfig = {
     id: `sophia-${task}-${today}-${Date.now()}`,
@@ -152,7 +153,7 @@ Return structured JSON with keys: findings (object), analystBriefs (array of { a
     systemPrompt: VP_RESEARCH_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     timeoutMs: 600_000,  // 10 min — QC + gap-filling takes time
     temperature: agentCfg.temperature,

@@ -11,6 +11,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { MARKET_RESEARCH_ANALYST_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createMarketResearchAnalystTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
@@ -73,7 +74,7 @@ export async function runMarketResearchAnalyst(params: MarketResearchAnalystRunP
 
   const agentCfg = await loadAgentConfig('market-research-analyst', {
     temperature: 0.2, maxTurns,
-  });
+  }, task);
 
   const config: AgentConfig = {
     id: `daniel-mra-${task}-${today}-${Date.now()}`,
@@ -81,7 +82,7 @@ export async function runMarketResearchAnalyst(params: MarketResearchAnalystRunP
     systemPrompt: MARKET_RESEARCH_ANALYST_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     timeoutMs: 600_000,
     temperature: agentCfg.temperature,

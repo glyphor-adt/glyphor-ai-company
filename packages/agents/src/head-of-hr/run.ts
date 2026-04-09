@@ -19,6 +19,7 @@ import { createAccessAuditTools } from '../shared/accessAuditTools.js';
 import { createAgentDirectoryTools } from '../shared/agentDirectoryTools.js';
 import { createEntraHRTools } from '../shared/entraHRTools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
@@ -83,7 +84,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     default:
       initialMessage = params.message || 'Run a quick workforce health check across all active agents.';
   }
-  const agentCfg = await loadAgentConfig('head-of-hr', { temperature: 0.3, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('head-of-hr', { temperature: 0.3, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `jasmine-${task}-${today}`,
@@ -91,7 +92,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
     systemPrompt: HEAD_OF_HR_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
-    maxTurns: agentCfg.maxTurns,
+    maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
     maxStallTurns: 3,
     timeoutMs: 300_000,
     temperature: agentCfg.temperature,

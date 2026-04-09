@@ -11,6 +11,7 @@ import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { UI_UX_DESIGNER_SYSTEM_PROMPT } from './systemPrompt.js';
 import { createUiUxDesignerTools } from './tools.js';
 import { createRunDeps, loadAgentConfig } from '../shared/createRunDeps.js';
+import { effectiveMaxTurnsForReactiveTask } from '../shared/reactiveTurnBudget.js';
 import { createRunner } from '../shared/createRunner.js';
 import { createGraphTools } from '../shared/graphTools.js';
 import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
@@ -95,12 +96,12 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
     default:
       initialMessage = params.message || 'Assist with design system work as directed.';
   }
-  const agentCfg = await loadAgentConfig('ui-ux-designer', { temperature: 0.7, maxTurns: 15 });
+  const agentCfg = await loadAgentConfig('ui-ux-designer', { temperature: 0.7, maxTurns: 15 }, task);
 
   const config: AgentConfig = {
     id: `leo-${task}-${today}`, role: 'ui-ux-designer',
     systemPrompt: UI_UX_DESIGNER_SYSTEM_PROMPT, model: agentCfg.model,
-    tools, maxTurns: agentCfg.maxTurns, maxStallTurns: 3, timeoutMs: 960_000, temperature: agentCfg.temperature,
+    tools, maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns), maxStallTurns: 3, timeoutMs: 960_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
   };
