@@ -12,6 +12,7 @@ import { ModelClient, detectProvider } from './modelClient.js';
 import { ToolExecutor } from './toolExecutor.js';
 import { loadDynamicToolDeclarations } from './dynamicToolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
+import { applyWorkloadReadsProgressAndStallFloor } from './supervisorWorkloadStallPolicy.js';
 import { extractReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
 import { isOfficeDocument, extractDocumentText } from './documentExtractor.js';
 import type { GlyphorEventBus } from './glyphorEventBus.js';
@@ -1962,11 +1963,10 @@ export class CompanyAgentRunner {
         } else if (isTaskTier) {
           supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, TASK_TIER_MAX_TURNS);
           supervisor.config.timeoutMs = Math.min(supervisor.config.timeoutMs, TASK_TIER_TIMEOUT_MS);
-          // Task-tier agents must produce write-side progress (files, memory)
-          // to avoid burning tokens on repeated failing reads. Reads alone
-          // don't count — only mutations reset the stall counter.
-          supervisor.config.readsAsProgress = false;
-          supervisor.config.maxStallTurns = Math.max(supervisor.config.maxStallTurns, 5);
+          applyWorkloadReadsProgressAndStallFloor(supervisor.config);
+        } else if (task === 'process_assignments') {
+          // Same stall headroom as task tier; keep agent-config maxTurns/timeout (sweeps can be long).
+          applyWorkloadReadsProgressAndStallFloor(supervisor.config);
         } else if (usesThinking) {
           // Thinking-enabled scheduled tasks: ensure at least 10 min
           supervisor.config.timeoutMs = Math.max(supervisor.config.timeoutMs, SCHEDULED_THINKING_TIMEOUT_MS);

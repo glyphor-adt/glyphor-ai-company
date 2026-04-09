@@ -19,6 +19,8 @@ const REACTIVE_TASK_IDS = new Set<string>([
   'orchestrate',
   'strategic_planning',
   'process_directive',
+  /** CMO / marketing assignment sweeps — same tool-chain depth as work_loop. */
+  'process_assignments',
 ]);
 
 export function isReactiveAgentTask(task: string | undefined): boolean {
