@@ -1,0 +1,87 @@
+# On CI failure, dispatch to Glyphor scheduler → Cloud Tasks → worker → agent (default vp-design / Mia).
+#
+# Repository secrets (Settings → Secrets):
+#   GLYPHOR_CI_HEAL_URL   — e.g. https://YOUR-SCHEDULER-HOST/webhook/ci-heal
+#   GLYPHOR_CI_HEAL_SECRET — same value as Cloud Run CI_HEAL_WEBHOOK_SECRET (Bearer token)
+#
+# Cloud Run (glyphor-scheduler): set CI_HEAL_WEBHOOK_SECRET (Secret Manager recommended).
+# Optional: CI_HEAL_AGENT_ROLE — default vp-design; use cto for engineering-only triage.
+
+name: CI self-heal dispatch
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+jobs:
+  dispatch-heal:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Respect skip flags in commit message
+        id: skip
+        env:
+          COMMIT_MSG: ${{ github.event.workflow_run.head_commit.message }}
+        run: |
+          if echo "$COMMIT_MSG" | grep -qiF '[skip ci heal]' || echo "$COMMIT_MSG" | grep -qiF '[skip-ci-heal]'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Collect failed-job context and dispatch
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          HEAL_URL: ${{ secrets.GLYPHOR_CI_HEAL_URL }}
+          HEAL_SECRET: ${{ secrets.GLYPHOR_CI_HEAL_SECRET }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HEAL_URL:-}" ] || [ -z "${HEAL_SECRET:-}" ]; then
+            echo "::notice::GLYPHOR_CI_HEAL_URL / GLYPHOR_CI_HEAL_SECRET not set — CI self-heal skipped."
+            exit 0
+          fi
+
+          REPO="${{ github.event.workflow_run.head_repository.full_name }}"
+          RUN_ID="${{ github.event.workflow_run.id }}"
+
+          gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs" > jobs.json
+
+          FAILED_JOBS=$(jq '[.jobs[] | select(.conclusion=="failure") | {name: .name, conclusion: .conclusion, html_url: .html_url}]' jobs.json -c)
+
+          LOG_JSON=$(jq -n '""')
+          if gh run view "${RUN_ID}" --repo "${REPO}" --log-failed 2>/dev/null | tail -n 120 | head -c 14000 > /tmp/heal-logs.txt; then
+            LOG_JSON=$(jq -Rs . < /tmp/heal-logs.txt)
+          fi
+
+          PAYLOAD=$(jq -n \
+            --arg repository "${REPO}" \
+            --argjson workflow_run_id "${RUN_ID}" \
+            --arg workflow_name "${{ github.event.workflow_run.name }}" \
+            --arg html_url "${{ github.event.workflow_run.html_url }}" \
+            --arg head_branch "${{ github.event.workflow_run.head_branch }}" \
+            --arg head_sha "${{ github.event.workflow_run.head_sha }}" \
+            --argjson failed_jobs "${FAILED_JOBS}" \
+            --argjson log_excerpt "${LOG_JSON}" \
+            '{repository: $repository, workflow_run_id: $workflow_run_id, workflow_name: $workflow_name, html_url: $html_url, head_branch: $head_branch, head_sha: $head_sha, failed_jobs: $failed_jobs, log_excerpt: $log_excerpt}')
+
+          HTTP_CODE=$(curl -sS -o /tmp/heal-response.json -w '%{http_code}' -X POST "${HEAL_URL}" \
+            -H "Authorization: Bearer ${HEAL_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "${PAYLOAD}" \
+            --max-time 60) || true
+
+          cat /tmp/heal-response.json || true
+          echo
+          echo "HTTP ${HTTP_CODE}"
+
+          if [ "${HTTP_CODE}" != "200" ] && [ "${HTTP_CODE}" != "202" ]; then
+            echo "::error::CI self-heal dispatch failed (HTTP ${HTTP_CODE})"
+            exit 1
+          fi

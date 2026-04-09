@@ -104,6 +104,7 @@ import { evaluatePlanningGateHealth } from './planningGateMonitor.js';
 import { evaluateTrustQuality } from './trustQualityMonitor.js';
 import { handleTriangulatedChat } from './triangulationEndpoint.js';
 import { enqueueDeepDiveExecution, executeWorkerAgentRun, executeWorkerDeepDiveExecution, isWorkerQueueConfigured } from './workerQueue.js';
+import { dispatchCiHealAgent, parseCiHealPayload, verifyCiHealBearer } from './ciHealWebhook.js';
 import { processDailyAutonomyAdjustments } from '@glyphor/shared';
 import {
   handleFounderRejection,
@@ -512,6 +513,7 @@ function classifySchedulerRoute(pathname: string, method: string): SchedulerRout
     pathname === GRAPH_CHAT_WEBHOOK_PATH ||
     pathname === '/webhook/stripe' ||
     pathname === '/webhook/docusign' ||
+    pathname === '/webhook/ci-heal' ||
     pathname === '/oauth/canva/callback' ||
     /^\/directives\/(approve|reject)\/[a-f0-9]+$/.test(pathname)
   ) {
@@ -3109,6 +3111,41 @@ const server = createServer(async (req, res) => {
       }
 
       json(res, result.status, result.body);
+      return;
+    }
+
+    // CI failure → enqueue agent self-heal (GitHub Actions; Bearer CI_HEAL_WEBHOOK_SECRET)
+    if (method === 'POST' && url === '/webhook/ci-heal') {
+      if (!process.env.CI_HEAL_WEBHOOK_SECRET?.trim()) {
+        json(res, 503, { error: 'CI heal webhook not configured' });
+        return;
+      }
+      const rawBody = await readBody(req);
+      if (!verifyCiHealBearer(getHeaderString(req.headers.authorization))) {
+        json(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+      const payload = parseCiHealPayload(rawBody);
+      if (!payload) {
+        json(res, 400, { error: 'Invalid JSON payload' });
+        return;
+      }
+      try {
+        const result = await dispatchCiHealAgent(payload);
+        if (!result.ok) {
+          const status = result.error === 'Worker queue not configured' ? 503 : 500;
+          json(res, status, { ok: false, error: result.error });
+          return;
+        }
+        if ('deduped' in result && result.deduped) {
+          json(res, 200, { ok: true, deduped: true });
+          return;
+        }
+        json(res, 202, { ok: true, runId: result.runId });
+      } catch (err) {
+        console.error('[CiHeal] dispatch failed', err);
+        json(res, 500, { ok: false, error: err instanceof Error ? err.message : String(err) });
+      }
       return;
     }
 

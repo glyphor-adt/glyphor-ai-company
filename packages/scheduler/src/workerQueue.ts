@@ -146,6 +146,33 @@ export interface WorkerAgentExecutionPayload {
   directiveId?: string;
 }
 
+/** Enqueue an agent run on the worker via Cloud Tasks (non-blocking; survives long executions). */
+export async function enqueueWorkerAgentExecute(metadata: WorkerAgentExecutionPayload): Promise<void> {
+  if (!WORKER_URL || !WORKER_SERVICE_ACCOUNT) {
+    throw new Error('Worker Cloud Tasks dispatch is not configured. Set WORKER_URL and WORKER_SERVICE_ACCOUNT.');
+  }
+
+  await client.createTask({
+    parent: QUEUE_AGENT_RUNS,
+    task: {
+      httpRequest: {
+        url: `${WORKER_URL}/run`,
+        httpMethod: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: Buffer.from(
+          JSON.stringify({
+            taskType: 'agent_execute',
+            metadata,
+          }),
+        ).toString('base64'),
+        oidcToken: {
+          serviceAccountEmail: WORKER_SERVICE_ACCOUNT,
+        },
+      },
+    },
+  });
+}
+
 export async function executeWorkerAgentRun(
   payload: WorkerAgentExecutionPayload,
 ): Promise<RouteResult> {

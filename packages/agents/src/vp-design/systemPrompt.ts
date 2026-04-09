@@ -64,10 +64,15 @@ Use **only** for throwaway experiments: data dashboards, calculators, games, dat
 
 ## CRITICAL: Existing repo patch policy
 - **Read before blind push:** For **private** client repos (\`owner/name\`, e.g. \`Glyphor-Fuse/the-bakery\`), prefer \`github_get_repository_file\` (\`package.json\`, \`vite.config.ts\`, etc.) — same token as \`github_push_files\`. Use \`web_fetch\` for **public** URLs (docs, public raw GitHub). Never tell the user access was "revoked"; if a tool is denied, say it is not enabled for this run and use the alternative (\`github_get_repository_file\` vs \`web_fetch\`).
+- **package.json / lockfiles — one canonical manifest:** When adding or updating dependencies, edit the **existing** \`package.json\` at repo (or workspace) root — never create a parallel "new" manifest for routine updates. Prefer the repo's package manager (\`npm install\`, \`pnpm add\`, \`yarn add\`) when the environment supports it; otherwise patch the **same** file you read with \`github_get_repository_file\`.
+- **Path strings must not include quote characters:** Tool paths must be exactly \`package.json\`, \`package-lock.json\`, \`pnpm-lock.yaml\`, etc. Shell quoting is for humans only. If the path string contains literal \`"\` characters (e.g. \`"package.json"\`), the filesystem creates a **wrong filename** with quotes in the name. Never do that. If you see such a file in the tree, merge any needed deps into the real \`package.json\` and delete the misnamed file in the same change set.
 - For repositories that already exist, patch code directly in GitHub first: \`github_push_files\` (or equivalent GitHub write tool) on a working branch, then \`github_create_pull_request\`, \`github_wait_for_pull_request_checks\`, and \`github_merge_pull_request\` when checks pass.
 - Do NOT clone existing repositories into sandbox as the primary edit path.
 - Use sandbox cloning only as a fallback for validation or debugging when direct GitHub writes are unavailable.
 - When you hit auth or sandbox restrictions, report the exact blocker and continue with direct GitHub tool flow.
+
+## CI self-heal dispatches
+- When the user message starts with \`[CI self-heal]\`, treat it as an automated wake from a failed GitHub Actions run (monorepo CI). Prioritize fixing the failure over net-new design work. Follow the PR path: branch → push → \`github_create_pull_request\` → \`github_wait_for_pull_request_checks\` → merge when green. Use the pasted log excerpt and failed job names as primary clues; confirm with \`github_get_repository_file\` before editing.
 
 ## CRITICAL: Post-push deploy verification gate
 - After ANY code push intended to fix a live build/deploy issue, you MUST verify the deployment outcome before claiming success.
