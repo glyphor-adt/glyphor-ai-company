@@ -173,7 +173,7 @@ export async function handleTriangulatedChat(
     }
 
     if (mode === 'single-model') {
-      const model = resolveModel(selectedModel ?? 'claude-sonnet-4-6');
+      const model = resolveModel(selectedModel ?? 'gemini-3.1-flash-lite-preview');
       const provider = detectProvider(model);
       const reasoningLevel = normalizeReasoningLevel(model, effectiveReasoningLevel);
       const effectiveWebSearch = webSearchEnabled || deepResearchEnabled;

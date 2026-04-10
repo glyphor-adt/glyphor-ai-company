@@ -109,7 +109,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // Source: https://platform.claude.com/docs/en/docs/about-claude/pricing (verified 2026-02-26)
   // RETIRED (Mar 26 2026): claude-opus-4-6 — cost prohibitive ($5/$25 per MTok). Kept for pricing lookups.
   { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6 (retired)', provider: 'anthropic', tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: false, verifier: false },
-  { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: true  },
+  { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6 (deprecated)', provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: false, verifier: true  },
   { id: 'claude-sonnet-4-5',      label: 'Claude Sonnet 4.5',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: false },
   { id: 'claude-haiku-4-5',        label: 'Claude Haiku 4.5',       provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: false },
 
@@ -168,6 +168,8 @@ export const DEPRECATED_MODELS: Record<string, string> = {
   'claude-opus-4-6-20260205':   'claude-sonnet-4-5',
   'claude-opus-4-6':            'claude-sonnet-4-5',
   'claude-sonnet-4-6-20260217': 'gpt-5.4-mini',
+  /** Cost policy: Vertex Claude Sonnet → Gemini Flash-Lite API (same tier as getTierModel('default')). */
+  'claude-sonnet-4-6':          'gemini-3.1-flash-lite-preview',
 };
 
 // ─── Default models by purpose ───────────────────────────────

@@ -677,7 +677,7 @@ export function createWebBuildTools(): ToolDefinition[] {
           type: 'boolean',
           description:
             'Set to true for iteration rounds (design-critic feedback). ' +
-            'Routes to claude-sonnet-4-6 for faster, cheaper repairs.',
+            'Routes to gemini-3.1-flash-lite-preview (or code_generation tier) for repairs.',
           required: false,
         },
         repair_context: {

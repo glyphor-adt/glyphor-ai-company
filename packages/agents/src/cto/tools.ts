@@ -1628,7 +1628,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         },
         model: {
           type: 'string',
-          description: 'New model name (e.g. "gemini-3.1-pro-preview", "gpt-5-mini", "claude-sonnet-4-6")',
+          description: 'New model name (e.g. "gemini-3.1-flash-lite-preview", "gpt-5.4-mini", "model-router")',
           required: false,
         },
         temperature: {

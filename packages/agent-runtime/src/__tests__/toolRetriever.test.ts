@@ -109,7 +109,7 @@ describe('toolRetriever', () => {
     ];
 
     const result = await retriever.retrieve(tools, {
-      model: 'claude-sonnet-4-6',
+      model: 'gpt-5.4-mini',
       role: 'cto',
       taskContext: 'get revenue numbers for this quarter',
     });

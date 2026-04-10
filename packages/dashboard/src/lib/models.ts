@@ -67,7 +67,6 @@ export const MODELS: ModelOption[] = [
   { value: 'o4-mini-deep-research', label: 'o4-mini Deep Research', provider: 'openai', inputPer1M: 1.10, outputPer1M: 4.40 },
 
   // ── Anthropic ──
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', provider: 'anthropic', inputPer1M: 3.00, outputPer1M: 15.0 },
   { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5', provider: 'anthropic', inputPer1M: 3.00, outputPer1M: 15.0 },
   { value: 'claude-haiku-4-5',  label: 'Claude Haiku 4.5',  provider: 'anthropic', inputPer1M: 1.00, outputPer1M: 5.00 },
 
@@ -121,7 +120,7 @@ export function normalizeReasoningLevel(modelValue: string, requested?: Reasonin
 }
 
 /** Verification models available for reasoning engine config */
-export const VERIFICATION_MODELS = ['gpt-5.4-mini', 'gpt-5-mini', 'claude-sonnet-4-6'] as const;
+export const VERIFICATION_MODELS = ['gpt-5.4-mini', 'gpt-5-mini', 'gemini-3.1-flash-lite-preview'] as const;
 
 /** Check if a model value is recognized. Unrecognized = likely deprecated. */
 export function isKnownModel(value: string): boolean {
