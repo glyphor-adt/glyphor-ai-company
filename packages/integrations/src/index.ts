@@ -58,6 +58,8 @@ export {
   type FormattedTeamsMessage,
 } from './teams/messageFormatter.js';
 
+export { resolveSchedulerPublicBaseUrl } from './teams/schedulerPublicUrl.js';
+
 // Chat Subscription Manager (Graph change notifications)
 export {
   ChatSubscriptionManager,

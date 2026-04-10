@@ -30,6 +30,7 @@ import {
   GraphCalendarClient,
   buildFounderDirectory,
   A365TeamsChatClient,
+  resolveSchedulerPublicBaseUrl,
   type AdaptiveCard,
 } from '@glyphor/integrations';
 import {
@@ -2729,7 +2730,12 @@ export function createOrchestrationTools(
         }
 
         // 2. Generate approval tokens (URL fallback) and send Adaptive Card with inline buttons
-        const baseUrl = process.env.PUBLIC_URL ?? process.env.SERVICE_URL ?? '';
+        const baseUrl = resolveSchedulerPublicBaseUrl();
+        if (!baseUrl) {
+          console.warn(
+            '[CoS] Set PUBLIC_URL, SERVICE_URL, or SCHEDULER_URL so directive approve/reject links are absolute HTTPS URLs.',
+          );
+        }
         let approveUrl = `${baseUrl}/directives/approve/`;
         let rejectUrl = `${baseUrl}/directives/reject/`;
 
@@ -2771,12 +2777,26 @@ export function createOrchestrationTools(
           }
           const a365ForDirectives = A365TeamsChatClient.fromEnv('chief-of-staff');
           const founderDirForDm = buildFounderDirectory();
+          const recipientContact = founderDirForDm[notify as 'kristina' | 'andrew'];
+          const recipientUpn = recipientContact?.email
+            ?? (notify === 'kristina' ? 'kristina@glyphor.ai' : 'andrew@glyphor.ai');
 
-          let cardSent = false;
+          let directiveDelivered = false;
 
-          // 1) Graph app credentials → DM as Glyphor app (optional; needs TEAMS_USER_*_ID)
-          try {
-            if (graphClientForCard) {
+          // 1) A365 Adaptive Card first — same stack as send_dm; does not require TEAMS_USER_* graph user IDs
+          if (a365ForDirectives) {
+            try {
+              const chatId = await a365ForDirectives.createOrGetOneOnOneChat(recipientUpn, undefined, 'chief-of-staff');
+              await a365ForDirectives.postChatAdaptiveCard(chatId, card, 'chief-of-staff', 'Sarah Chen');
+              directiveDelivered = true;
+            } catch (a365CardErr) {
+              console.warn('[CoS] A365 adaptive card DM failed:', (a365CardErr as Error).message);
+            }
+          }
+
+          // 2) Graph app credentials → DM as Glyphor app (optional; needs TEAMS_USER_*_ID)
+          if (!directiveDelivered && graphClientForCard) {
+            try {
               const { TeamsDirectMessageClient } = await import('@glyphor/integrations');
               const dmClient = TeamsDirectMessageClient.fromEnv(graphClientForCard);
               if (dmClient) {
@@ -2785,40 +2805,45 @@ export function createOrchestrationTools(
                   card,
                   'Sarah Chen',
                 );
-                cardSent = true;
+                directiveDelivered = true;
               }
+            } catch (cardErr) {
+              console.warn('[CoS] Graph app card DM failed:', (cardErr as Error).message);
             }
-          } catch (cardErr) {
-            console.warn('[CoS] Graph app card DM failed, trying A365 agent card:', (cardErr as Error).message);
           }
 
-          // 2) Same path as send_dm: Sarah’s agent identity + Graph chat message API (Adaptive Card attachment)
-          if (!cardSent && a365ForDirectives) {
+          // 3) A365 markdown with clickable [Approve]/[Reject] links (HTML via markdownToTeamsHtml)
+          if (!directiveDelivered && a365ForDirectives) {
             try {
-              const recipientContact = founderDirForDm[notify as 'kristina' | 'andrew'];
-              const recipientUpn = recipientContact?.email
-                ?? (notify === 'kristina' ? 'kristina@glyphor.ai' : 'andrew@glyphor.ai');
+              const agentList = targetAgents.join(', ');
+              const deadlineLine = dueDate ? `\nSuggested deadline: ${dueDate}` : '';
+              const md =
+                `**PROPOSED DIRECTIVE:** ${title}\n\n` +
+                `**Why:** ${proposalReason}\n` +
+                `**Scope:** ${agentList}\n` +
+                `**Priority:** ${priority} | **Category:** ${category}${deadlineLine}\n\n` +
+                `[✓ Approve](${approveUrl}) · [✕ Reject](${rejectUrl})`;
               const chatId = await a365ForDirectives.createOrGetOneOnOneChat(recipientUpn, undefined, 'chief-of-staff');
-              await a365ForDirectives.postChatAdaptiveCard(chatId, card, 'chief-of-staff', 'Sarah Chen');
-              cardSent = true;
-            } catch (a365CardErr) {
-              console.warn('[CoS] A365 adaptive card DM failed, falling back to plain text:', (a365CardErr as Error).message);
+              await a365ForDirectives.postChatMessage(chatId, md, 'chief-of-staff');
+              directiveDelivered = true;
+            } catch (mdErr) {
+              console.warn('[CoS] A365 markdown directive DM failed:', (mdErr as Error).message);
             }
           }
 
-          // 3) Last resort: plain text with links (no card rendering)
-          if (!cardSent) {
+          // 4) Last resort: send_dm (markdown links — clickable in Teams)
+          if (!directiveDelivered) {
             const sendDmTool = tools.find(t => t.name === 'send_dm');
             if (sendDmTool) {
               const agentList = targetAgents.join(', ');
               const deadlineLine = dueDate ? `\nSuggested deadline: ${dueDate}` : '';
               const dmMessage =
-                `PROPOSED DIRECTIVE: ${title}\n\n` +
-                `Why: ${proposalReason}\n` +
-                `Scope: ${agentList}\n` +
-                `Priority: ${priority} | Category: ${category}${deadlineLine}\n\n` +
-                `✓ Approve: ${approveUrl}\n` +
-                `✕ Reject: ${rejectUrl}`;
+                `**PROPOSED DIRECTIVE:** ${title}\n\n` +
+                `**Why:** ${proposalReason}\n` +
+                `**Scope:** ${agentList}\n` +
+                `**Priority:** ${priority} | **Category:** ${category}${deadlineLine}\n\n` +
+                `[✓ Approve](${approveUrl})\n` +
+                `[✕ Reject](${rejectUrl})`;
               await sendDmTool.execute({ recipient: notify, message: dmMessage }, ctx);
             }
           }
