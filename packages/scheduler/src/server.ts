@@ -506,6 +506,14 @@ function appendCorsHeaders(req: IncomingMessage, headers: Record<string, string>
   return headers;
 }
 
+/** GET endpoints that mirror classifySchedulerRoute "authenticated-user" and must skip the inline admin-only gate. */
+function isAdminViewerReadableGet(urlPath: string, method: string): boolean {
+  if (method !== 'GET') return false;
+  if (/^\/admin\/agents\/[^/]+\/capacity$/.test(urlPath)) return true;
+  if (urlPath === '/admin/commitments' || urlPath === '/admin/commitments/pending') return true;
+  return false;
+}
+
 function classifySchedulerRoute(pathname: string, method: string): SchedulerRouteClass | null {
   if (pathname === '/health' || pathname === '/') return 'public';
   if (method === 'OPTIONS') return 'public';
@@ -536,6 +544,19 @@ function classifySchedulerRoute(pathname: string, method: string): SchedulerRout
 
   if (pathname.startsWith('/admin/metrics')) {
     return method === 'GET' ? 'authenticated-user' : 'admin-only';
+  }
+
+  // Authority / commitment registry: read-only GETs for Governance UI — any dashboard login (viewer+).
+  // Mutations (PUT capacity, approve/reject commitments) stay admin-only via the broad /admin/ rule below.
+  if (
+    method === 'GET'
+    && (
+      /^\/admin\/agents\/[^/]+\/capacity$/.test(pathname)
+      || pathname === '/admin/commitments'
+      || pathname === '/admin/commitments/pending'
+    )
+  ) {
+    return 'authenticated-user';
   }
 
   if (
@@ -6544,7 +6565,11 @@ const server = createServer(async (req, res) => {
     if (await handleGovernanceApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Admin ABAC API (/admin/abac/*) ────────────────────────────
-    if (url.startsWith('/admin/') && !(url.startsWith('/admin/metrics') && method === 'GET')) {
+    if (
+      url.startsWith('/admin/')
+      && !(url.startsWith('/admin/metrics') && method === 'GET')
+      && !isAdminViewerReadableGet(url, method)
+    ) {
       if (!(await requireDashboardUser(req, res, { admin: true }))) return;
     }
     if (await handleAbacAdminApi(req, res, url, queryString ?? '', method)) return;
