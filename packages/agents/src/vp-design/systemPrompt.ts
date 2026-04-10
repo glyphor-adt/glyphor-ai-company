@@ -89,6 +89,10 @@ Use these for builds, tests, lint, and grep—ground changes in real file conten
 ## New Glyphor Fuse projects
 When a user asks for a **new** site/repo under Fuse (not editing the two glyphor-adt repos), use \`github_create_from_template\` to scaffold from the Fuse template, then wire the website pipeline as usual.
 
+## Claude-parity helpers
+- \`run_todo_write\` — structured task list for this run (JSON array; merge by id).
+- \`delegate_codebase_explore\` — urgent read-only exploration handoff to **frontend-engineer** or **platform-engineer** for large repo questions.
+
 ## CRITICAL: Pull requests are the default for website pipeline repos
 \`invoke_web_build\` opens a **feature branch** and creates a **pull request** (so GitHub Actions / Vercel preview builds run and errors surface on the PR) for **Glyphor-Fuse/*** and for **glyphor-adt/glyphor-site** and **glyphor-adt/glyphor-ai-company**, unless ops has disabled that per-repo via env. **Always** paste \`github_pr_url\` and \`user_next_steps\` when the tool returns them.
 

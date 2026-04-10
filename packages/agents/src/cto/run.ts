@@ -36,6 +36,7 @@ import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 import { GLYPHOR_EXECUTIVE_SANDBOX_WORKSPACES } from '../shared/sandboxWorkspaceDefaults.js';
 import { createGithubFromTemplateTools } from '@glyphor/integrations';
+import { createClaudeParityTools } from '../shared/claudeParityTools.js';
 import { systemQuery } from '@glyphor/shared/db';
 import {
   effectiveMaxTurnsForReactiveTask,
@@ -122,6 +123,7 @@ export async function runCTO(params: CTORunParams = {}) {
     agentRole: 'cto',
     runId: `marcus-${task}-${today}`,
   }));
+  tools.push(...createClaudeParityTools(glyphorEventBus));
 
   let initialMessage: string;
 

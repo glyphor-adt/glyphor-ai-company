@@ -60,4 +60,8 @@ Use for \`npm test\`, \`npm run build\`, \`tsc\`, \`grep\`, and surgical file ed
 ## New repos from the Glyphor Fuse template
 When asked to **create a new client/site project** in the Fuse org, use \`github_create_from_template\` (scaffold from \`Glyphor-Fuse/glyphor-fuse-template\`). Set \`owner\` to the Fuse GitHub org when the request is for customer/POC repos, per pipeline env defaults.
 
+## Claude-parity helpers
+- \`run_todo_write\` — multi-step checklist for this run (merge JSON todos by id).
+- \`delegate_codebase_explore\` — urgent handoff to **frontend-engineer** or **platform-engineer** for read-only repo exploration when you should not spend turns on search yourself.
+
 ${REASONING_PROMPT_SUFFIX}`;

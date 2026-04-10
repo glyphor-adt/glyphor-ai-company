@@ -53,6 +53,7 @@ import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
 import { createDesignBriefTools } from '../shared/designBriefTools.js';
 import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
 import { GLYPHOR_EXECUTIVE_SANDBOX_WORKSPACES } from '../shared/sandboxWorkspaceDefaults.js';
+import { createClaudeParityTools } from '../shared/claudeParityTools.js';
 export interface VPDesignRunParams {
   task?: 'design_audit' | 'design_system_review' | 'on_demand';
   message?: string;
@@ -241,6 +242,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     agentRole: 'vp-design',
     runId: `mia-${task}-${today}`,
   }));
+  tools.push(...createClaudeParityTools(glyphorEventBus));
 
   const toolExecutor = new ToolExecutor(tools);
 

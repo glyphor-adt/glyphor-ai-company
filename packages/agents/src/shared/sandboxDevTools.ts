@@ -34,6 +34,7 @@
  */
 
 import type { ToolDefinition, ToolResult, ToolContext } from '@glyphor/agent-runtime';
+import { buildTool } from '@glyphor/agent-runtime';
 import {
   createSandboxSession,
   type SandboxSession,
@@ -287,9 +288,9 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
     },
   };
 
-  // ─── Tool 2: sandbox_file_read ─────────────────────────────────────────────
+  // ─── Tool 2: sandbox_file_read (parallel-safe reads — Claude Code parity) ─
 
-  const sandboxFileRead: ToolDefinition = {
+  const sandboxFileRead = buildTool({
     name: 'sandbox_file_read',
     description:
       'Read the contents of a file from the sandboxed development environment. ' +
@@ -304,7 +305,10 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
         required: true,
       },
     },
-    async execute(params: Record<string, unknown>): Promise<ToolResult> {
+    isReadOnly: true,
+    isConcurrencySafe: true,
+    timeoutMs: 120_000,
+    execute: async (params: Record<string, unknown>): Promise<ToolResult> => {
       const filePath = String(params.path ?? '').trim();
       if (!filePath) {
         return { success: false, error: 'path is required' };
@@ -334,7 +338,7 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
         };
       }
     },
-  };
+  });
 
   // ─── Tool 3: sandbox_file_write ────────────────────────────────────────────
 
