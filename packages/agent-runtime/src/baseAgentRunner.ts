@@ -485,7 +485,7 @@ export abstract class BaseAgentRunner {
     let totalThinkingTokens = 0;
     let totalCachedInputTokens = 0;
     let actualModelUsed: string | undefined;
-    let actualProviderUsed: 'gemini' | 'openai' | 'anthropic' | undefined;
+    let actualProviderUsed: 'gemini' | 'openai' | 'anthropic' | 'deepseek' | undefined;
     let microCompactionCount = 0;
     let microCompactionOccurred = false;
     let latestMicroCompactionSummary: string | undefined;
@@ -2076,7 +2076,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
     cachedInputTokens = 0,
     routing?: Pick<RoutingDecision, 'routingRule' | 'capabilities' | 'model'> & Pick<AgentExecutionResult, 'modelRoutingReason' | 'subtaskComplexity'>,
     actualModel?: string,
-    actualProvider?: 'gemini' | 'openai' | 'anthropic',
+    actualProvider?: 'gemini' | 'openai' | 'anthropic' | 'deepseek',
   ): AgentExecutionResult {
     const stats = supervisor.stats;
     const estimatedCost = estimateCost(routing?.model ?? config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens);

@@ -9,7 +9,7 @@ import type { ConversationTurn, ToolDeclaration } from '../types.js';
 
 // ─── Provider Identification ─────────────────────────────────
 
-export type ModelProvider = 'gemini' | 'openai' | 'anthropic';
+export type ModelProvider = 'gemini' | 'openai' | 'anthropic' | 'deepseek';
 export type ReasoningLevel = 'none' | 'standard' | 'deep';
 export type ModelReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 export type ModelVerbosity = 'low' | 'medium' | 'high';
@@ -53,6 +53,8 @@ export interface UnifiedRequestMetadata {
   runId?: string;
   assignmentId?: string;
   turnNumber?: number;
+  /** Optional tenant for cloud credit ledger rows */
+  tenantId?: string;
 }
 
 // ─── Unified Request ─────────────────────────────────────────

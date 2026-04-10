@@ -216,6 +216,7 @@ export {
   EXEC_CHAT_MODEL,
   ROLE_COST_TIER,
   getModel,
+  getBedrockInferenceId,
   getSelectableModels,
   getSelectableModelsByProvider,
   getVerifierModels,

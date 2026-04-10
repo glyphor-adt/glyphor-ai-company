@@ -1,13 +1,108 @@
 import type { ModelRoutingMetadata } from '../providers/types.js';
 import { inferCapabilities, type RoutingContext } from './inferCapabilities.js';
 import { inferDomainRouting } from './domainRouter.js';
-import { resolveModel as canonicalizeModelSlug } from '@glyphor/shared';
-import { DEEP_DIVE_VERIFICATION_MODELS, DEFAULT_AGENT_MODEL, REASONING_VERIFICATION_MODELS } from '@glyphor/shared/models';
+import {
+  MODEL_CONFIG,
+  getTierModel,
+  resolveModel as canonicalizeModelSlug,
+  type ConfigModelTier,
+} from '@glyphor/shared';
+import { DEFAULT_AGENT_MODEL } from '@glyphor/shared/models';
 import { systemQuery } from '@glyphor/shared/db';
+import { getRemainingCredits, type CreditCloud } from '../credits/ledger.js';
 
 const DEFAULT_MODEL = DEFAULT_AGENT_MODEL;
-const ECONOMY_MODEL = DEEP_DIVE_VERIFICATION_MODELS[0] ?? DEFAULT_MODEL;
-const HIGH_MODEL = REASONING_VERIFICATION_MODELS[1] ?? DEFAULT_MODEL;
+const ECONOMY_MODEL = getTierModel('fast');
+const HIGH_MODEL = getTierModel('high');
+
+const MIN_CLOUD_CREDIT_USD = 50;
+const CREDIT_ROUTE_ORDER: CreditCloud[] = ['aws', 'azure', 'gcp'];
+
+function inferConfigTierFromModel(model: string): ConfigModelTier | null {
+  const tiers = MODEL_CONFIG.tiers as Record<ConfigModelTier, string>;
+  for (const key of Object.keys(tiers) as ConfigModelTier[]) {
+    if (tiers[key] === model) return key;
+  }
+  return null;
+}
+
+function inferRoutingFamily(model: string): string {
+  if (model.startsWith('claude-')) return 'anthropic';
+  if (model.startsWith('deepseek-')) return 'deepseek';
+  if (model.startsWith('gemini-')) return 'gemini';
+  if (model.startsWith('gpt-') || /^o[134](-|$)/.test(model) || model.startsWith('model-router')) return 'openai';
+  return 'unknown';
+}
+
+const TIER_CREDIT_OPTIONS: Record<
+  ConfigModelTier,
+  Array<{ cloud: CreditCloud; model: string }>
+> = {
+  fast: [{ cloud: 'gcp', model: getTierModel('fast') }],
+  default: [{ cloud: 'gcp', model: getTierModel('default') }],
+  high: [
+    { cloud: 'aws', model: 'claude-sonnet-4-6' },
+    { cloud: 'azure', model: 'gpt-5.4-mini' },
+    { cloud: 'gcp', model: 'gemini-3.1-flash-lite-preview' },
+  ],
+  max: [
+    { cloud: 'aws', model: 'claude-opus-4-6' },
+    { cloud: 'azure', model: 'gpt-5.4' },
+    { cloud: 'gcp', model: 'gemini-3.1-pro-preview' },
+  ],
+  reasoning: [
+    { cloud: 'aws', model: 'deepseek-r1' },
+    { cloud: 'azure', model: 'o4-mini' },
+    { cloud: 'gcp', model: 'gemini-3.1-pro-preview' },
+  ],
+};
+
+async function applyCreditAwareRouting<T extends ModelRoutingMetadata & { model: string }>(decision: T): Promise<T> {
+  const tier = inferConfigTierFromModel(decision.model);
+  if (!tier) return decision;
+
+  const options = TIER_CREDIT_OPTIONS[tier];
+  if (!options || options.length <= 1) return decision;
+
+  const credits = await Promise.all(CREDIT_ROUTE_ORDER.map((c) => getRemainingCredits(c)));
+  const creditMap: Record<CreditCloud, number> = {
+    aws: credits[0] ?? 0,
+    azure: credits[1] ?? 0,
+    gcp: credits[2] ?? 0,
+  };
+
+  const sorted = [...options].sort((a, b) => {
+    const diff = creditMap[b.cloud] - creditMap[a.cloud];
+    if (diff !== 0) return diff;
+    return CREDIT_ROUTE_ORDER.indexOf(a.cloud) - CREDIT_ROUTE_ORDER.indexOf(b.cloud);
+  });
+
+  for (const opt of sorted) {
+    if (creditMap[opt.cloud] >= MIN_CLOUD_CREDIT_USD) {
+      console.log(
+        JSON.stringify({
+          tier,
+          family: inferRoutingFamily(opt.model),
+          chosen_cloud: opt.cloud,
+          credits_remaining: creditMap,
+        }),
+      );
+      return { ...decision, model: canonicalizeModelSlug(opt.model) } as T;
+    }
+  }
+
+  const fallback = sorted[sorted.length - 1];
+  console.log(
+    JSON.stringify({
+      tier,
+      family: inferRoutingFamily(fallback.model),
+      chosen_cloud: fallback.cloud,
+      credits_remaining: creditMap,
+      note: 'below_threshold_fallback',
+    }),
+  );
+  return { ...decision, model: canonicalizeModelSlug(fallback.model) } as T;
+}
 
 const CODE_INTENSIVE_ROLES = new Set([
   'platform-engineer',
@@ -368,6 +463,10 @@ export async function resolveModelConfig(
     if (normalized !== decision.model) {
       decision = { ...decision, model: normalized };
     }
+  }
+
+  if (decision.model !== '__deterministic__') {
+    decision = await applyCreditAwareRouting(decision);
   }
 
   return decision;

@@ -17,7 +17,7 @@
 
 // ─── Provider type ───────────────────────────────────────────
 
-export type ModelProvider = 'gemini' | 'openai' | 'anthropic';
+export type ModelProvider = 'gemini' | 'openai' | 'anthropic' | 'deepseek';
 export type ReasoningLevel = 'none' | 'standard' | 'deep';
 
 export interface ReasoningSupport {
@@ -32,7 +32,9 @@ export type ModelTier =
   | 'standard'    // daily-driver, good quality/cost balance
   | 'economy'     // cheap, fast, for high-volume work
   | 'reasoning'   // o-series / thinking models
-  | 'specialized'; // embedding, realtime, image — not for general chat
+  | 'specialized' // embedding, realtime, image — not for general chat
+  | 'max'         // <1% highest-stakes turns (e.g. Claude Opus on Bedrock)
+  | 'code';       // code-optimized (e.g. DeepSeek V3.x on Bedrock)
 
 // ─── Model definition ───────────────────────────────────────
 
@@ -55,6 +57,10 @@ export interface ModelDef {
   selectable: boolean;
   /** If true, this model can be used as a cross-model verifier */
   verifier: boolean;
+  /** Cloud where primary inference is billed (routing / credits). */
+  cloud?: 'aws' | 'azure' | 'gcp';
+  /** Amazon Bedrock foundation model or cross-region inference profile ID. */
+  bedrockId?: string;
 }
 
 // ─── The canonical model list ────────────────────────────────
@@ -104,14 +110,18 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'o3-deep-research',       label: 'o3 Deep Research',       provider: 'openai',    tier: 'specialized', inputPer1M: 2.00,  outputPer1M: 8.00,  thinkingPer1M: 8.00, cachedInputDiscount: 0.25, contextWindowTokens: 200_000, selectable: false, verifier: false },
   { id: 'o4-mini-deep-research',  label: 'o4-mini Deep Research',  provider: 'openai',    tier: 'specialized', inputPer1M: 1.10,  outputPer1M: 4.40,  thinkingPer1M: 4.40, cachedInputDiscount: 0.25, contextWindowTokens: 200_000, selectable: false, verifier: false },
 
-  // ── Anthropic ──────────────────────────────────────────────
-  // Anthropic cache read = 10% of input price. Cache creation = 125% of input price (amortized, treated as full price).
-  // Source: https://platform.claude.com/docs/en/docs/about-claude/pricing (verified 2026-02-26)
-  // RETIRED (Mar 26 2026): claude-opus-4-6 — cost prohibitive ($5/$25 per MTok). Kept for pricing lookups.
-  { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6 (retired)', provider: 'anthropic', tier: 'flagship',  inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: false, verifier: false },
-  { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6 (deprecated)', provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: false, verifier: true  },
-  { id: 'claude-sonnet-4-5',      label: 'Claude Sonnet 4.5',      provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: false },
-  { id: 'claude-haiku-4-5',        label: 'Claude Haiku 4.5',       provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: false },
+  // ── Anthropic (Amazon Bedrock only — no direct Anthropic API) ───────────
+  // Inference profile IDs: verify in Bedrock console / https://docs.aws.amazon.com/bedrock/
+  // Anthropic cache read = 10% of input price (same as API pricing baseline).
+  { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6 (Bedrock)', provider: 'anthropic', tier: 'max',       inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: true,  cloud: 'aws', bedrockId: 'us.anthropic.claude-opus-4-6' },
+  { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6 (Bedrock)', provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: true,  cloud: 'aws', bedrockId: 'us.anthropic.claude-sonnet-4-6' },
+  { id: 'claude-sonnet-4-5',      label: 'Claude Sonnet 4.5 (deprecated)', provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: false, verifier: false },
+  { id: 'claude-haiku-4-5',       label: 'Claude Haiku 4.5 (Bedrock)', provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: false, cloud: 'aws', bedrockId: 'us.anthropic.claude-haiku-4-5' },
+
+  // ── DeepSeek (Amazon Bedrock) ─────────────────────────────────────────────
+  // Pricing approximate — align with AWS Bedrock pricing for your region.
+  { id: 'deepseek-r1',            label: 'DeepSeek R1 (Bedrock)',    provider: 'deepseek',    tier: 'reasoning', inputPer1M: 0.58,  outputPer1M: 1.68,  contextWindowTokens: 128_000, selectable: true,  verifier: false, cloud: 'aws', bedrockId: 'us.deepseek.r1-v1:0' },
+  { id: 'deepseek-v3-2',          label: 'DeepSeek V3.2 (Bedrock)',   provider: 'deepseek',    tier: 'code',      inputPer1M: 0.58,  outputPer1M: 1.68,  contextWindowTokens: 128_000, selectable: true,  verifier: false, cloud: 'aws', bedrockId: 'deepseek.v3.2' },
 
   // ── Specialized (not selectable for general agent assignment) ─
   { id: 'gemini-embedding-001',       label: 'Gemini Embedding',       provider: 'gemini',    tier: 'specialized', inputPer1M: 0.15, outputPer1M: 0,    selectable: false, verifier: false },
@@ -164,12 +174,10 @@ export const DEPRECATED_MODELS: Record<string, string> = {
   'claude-3-5-haiku-latest':    'claude-sonnet-4-5',
   'claude-3-opus-20240229':     'claude-sonnet-4-5',
   'claude-3-haiku-20240307':    'claude-sonnet-4-5',
-  'claude-opus-4-20250514':     'claude-sonnet-4-5',
-  'claude-opus-4-6-20260205':   'claude-sonnet-4-5',
-  'claude-opus-4-6':            'claude-sonnet-4-5',
-  'claude-sonnet-4-6-20260217': 'gpt-5.4-mini',
-  /** Cost policy: Vertex Claude Sonnet → Gemini Flash-Lite API (same tier as getTierModel('default')). */
-  'claude-sonnet-4-6':          'gemini-3.1-flash-lite-preview',
+  'claude-opus-4-20250514':     'claude-sonnet-4-6',
+  'claude-opus-4-6-20260205':   'claude-opus-4-6',
+  'claude-sonnet-4-5':          'claude-sonnet-4-6',
+  'claude-sonnet-4-6-20260217': 'claude-sonnet-4-6',
 };
 
 // ─── Default models by purpose ───────────────────────────────
@@ -232,10 +240,15 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'o3-deep-research':       ['gpt-5.4', 'o3'],
   'o4-mini-deep-research':  ['o4-mini', 'gpt-5.4-mini'],
 
-  // Anthropic primary → try Gemini first (GCP-resident), then cheapest OpenAI
-  'claude-sonnet-4-6':      ['gemini-3.1-flash-lite-preview', 'gpt-5.4'],
-  'claude-sonnet-4-5':      ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
+  // Anthropic (Bedrock) primary → same-provider Haiku, then Gemini workhorse
+  'claude-sonnet-4-6':      ['claude-haiku-4-5', 'gemini-3.1-flash-lite-preview'],
+  'claude-opus-4-6':        ['claude-sonnet-4-6', 'gemini-3.1-pro-preview'],
+  'claude-sonnet-4-5':      ['claude-sonnet-4-6', 'gemini-3.1-flash-lite-preview'],
   'claude-haiku-4-5':       ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
+
+  // DeepSeek (Bedrock) → V3.2 then Gemini Pro
+  'deepseek-r1':            ['deepseek-v3-2', 'gemini-3.1-pro-preview'],
+  'deepseek-v3-2':          ['gemini-3.1-pro-preview', 'gemini-3.1-flash-lite-preview'],
 };
 
 /**
@@ -308,10 +321,14 @@ export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> =
   'o3-deep-research':       ['o3', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
   'o4-mini-deep-research':  ['o4-mini', 'gpt-5-mini-2025-08-07'],
 
-  // Anthropic
-  'claude-sonnet-4-6':      ['claude-sonnet-4-5'],
-  'claude-sonnet-4-5':      ['claude-haiku-4-5'],
+  // Anthropic / Bedrock — stay on AWS while possible
+  'claude-opus-4-6':        ['claude-sonnet-4-6'],
+  'claude-sonnet-4-6':      ['claude-haiku-4-5'],
+  'claude-sonnet-4-5':      ['claude-sonnet-4-6'],
   'claude-haiku-4-5':       [],
+
+  'deepseek-r1':            ['deepseek-v3-2'],
+  'deepseek-v3-2':          [],
 };
 
 // ─── Cross-model verifier mapping ────────────────────────────
@@ -352,9 +369,13 @@ export const VERIFIER_MAP: Record<string, string> = {
   'o4-mini-deep-research':  'gemini-3.1-flash-lite-preview',
 
   // Claude primary → Gemini verifier (GCP-native, cheap)
+  'claude-opus-4-6':        'gemini-3.1-flash-lite-preview',
   'claude-sonnet-4-6':      'gemini-3.1-flash-lite-preview',
   'claude-sonnet-4-5':      'gemini-3.1-flash-lite-preview',
   'claude-haiku-4-5':       'gemini-2.5-flash-lite',
+
+  'deepseek-r1':            'gemini-3.1-flash-lite-preview',
+  'deepseek-v3-2':          'gemini-3.1-flash-lite-preview',
 };
 
 // ─── Deep dive research models ──────────────────────────────
@@ -403,6 +424,7 @@ export function getSelectableModelsByProvider(): Record<ModelProvider, ModelDef[
     gemini:    models.filter(m => m.provider === 'gemini'),
     openai:    models.filter(m => m.provider === 'openai'),
     anthropic: models.filter(m => m.provider === 'anthropic'),
+    deepseek:  models.filter(m => m.provider === 'deepseek'),
   };
 }
 
@@ -436,8 +458,14 @@ export function detectProvider(model: string): ModelProvider {
   if (model.startsWith('gemini-')) return 'gemini';
   if (model === 'model-router' || model.startsWith('model-router')) return 'openai';
   if (model.startsWith('gpt-') || /^o[134](-|$)/.test(model)) return 'openai';
+  if (model.startsWith('deepseek-')) return 'deepseek';
   if (model.startsWith('claude-')) return 'anthropic';
   throw new Error(`Unknown model provider for "${model}"`);
+}
+
+/** Bedrock inference profile or foundation model ID for this logical model, if any. */
+export function getBedrockInferenceId(modelId: string): string | undefined {
+  return getModel(modelId)?.bedrockId;
 }
 
 /**
@@ -475,6 +503,7 @@ export function getVerifierFor(primaryModel: string): string {
   if (primaryModel.startsWith('gemini-')) return 'gpt-5-mini';
   if (primaryModel.startsWith('gpt-') || /^o[134](-|$)/.test(primaryModel)) return 'gemini-3.1-flash-lite-preview';
   if (primaryModel.startsWith('claude-')) return 'gpt-5.4-mini';
+  if (primaryModel.startsWith('deepseek-')) return 'gemini-3.1-flash-lite-preview';
 
   return 'gpt-5.4-mini';
 }
@@ -526,6 +555,7 @@ const PROVIDER_DEFAULT_CONTEXT_WINDOWS: Record<ModelProvider, number> = {
   gemini:    1_000_000,
   openai:    128_000,
   anthropic: 200_000,
+  deepseek:  128_000,
 };
 
 /**
@@ -540,7 +570,7 @@ export function getContextWindow(modelId: string): number {
     const provider = detectProvider(resolved);
     return PROVIDER_DEFAULT_CONTEXT_WINDOWS[provider];
   } catch {
-    return 128_000; // Safe fallback
+    return 128_000;
   }
 }
 
@@ -552,6 +582,7 @@ export function getProviderLabel(provider: ModelProvider): string {
     case 'gemini': return 'Google Gemini';
     case 'openai': return 'OpenAI';
     case 'anthropic': return 'Anthropic';
+    case 'deepseek': return 'DeepSeek';
   }
 }
 
@@ -581,6 +612,10 @@ export function getReasoningSupport(modelId: string): ReasoningSupport {
 
   if (model.startsWith('claude-')) {
     return { levels: ['none', 'deep'], defaultLevel: 'deep' };
+  }
+
+  if (model.startsWith('deepseek-')) {
+    return { levels: ['none', 'standard', 'deep'], defaultLevel: 'deep' };
   }
 
   return { levels: ['none', 'standard'], defaultLevel: 'standard' };

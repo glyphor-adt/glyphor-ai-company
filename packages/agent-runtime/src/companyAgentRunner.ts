@@ -1379,7 +1379,7 @@ export class CompanyAgentRunner {
     /** Sum of estimateModelCost per LLM response (correct when routing changes model mid-run). */
     let totalLlmCostUsd = 0;
     let actualModelUsed: string | undefined;
-    let actualProviderUsed: 'gemini' | 'openai' | 'anthropic' | undefined;
+    let actualProviderUsed: 'gemini' | 'openai' | 'anthropic' | 'deepseek' | undefined;
 
     // ─── CONTEXT MANAGEMENT STATE ────────────────────────────────
     const reactiveState: ReactiveCompactionState = createReactiveState();
@@ -3731,7 +3731,7 @@ ${input.output}`;
     compactionCount = 0,
     compactionSummary?: string,
     actualModel?: string,
-    actualProvider?: 'gemini' | 'openai' | 'anthropic',
+    actualProvider?: 'gemini' | 'openai' | 'anthropic' | 'deepseek',
     /** Sum of per-call estimateModelCost (set when main loop tracked usage). If omitted, falls back to single-model estimate on totals. */
     instrumentedLlmCostUsd?: number,
   ): AgentExecutionResult {

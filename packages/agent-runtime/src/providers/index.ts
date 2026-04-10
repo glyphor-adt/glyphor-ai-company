@@ -1,31 +1,26 @@
 /**
  * Provider Factory — Creates and caches provider adapters.
- *
- * Usage:
- *   const factory = new ProviderFactory(config);
- *   const adapter = factory.get('gemini');
- *   const response = await adapter.generate(request);
  */
 
 export { type ModelProvider, type UnifiedModelRequest, type UnifiedModelResponse, type UnifiedToolCall, type UnifiedUsageMetadata, type ImageResponse, type ProviderAdapter } from './types.js';
 export { GeminiAdapter, type GeminiAdapterConfig } from './gemini.js';
 export { OpenAIAdapter } from './openai.js';
-export { AnthropicAdapter } from './anthropic.js';
+export { BedrockAnthropicAdapter } from './bedrockAnthropic.js';
+export { BedrockDeepSeekAdapter } from './bedrockDeepseek.js';
+export { isBedrockEnabled, getBedrockRegion } from './bedrockClient.js';
 
 import type { ModelProvider, ProviderAdapter } from './types.js';
 import { GeminiAdapter, type GeminiAdapterConfig } from './gemini.js';
 import { OpenAIAdapter } from './openai.js';
+import { BedrockAnthropicAdapter } from './bedrockAnthropic.js';
+import { BedrockDeepSeekAdapter } from './bedrockDeepseek.js';
+import { isBedrockEnabled } from './bedrockClient.js';
 
 export interface ProviderFactoryConfig {
   geminiApiKey?: string;
-  /** Azure Foundry endpoint, e.g. https://my-resource.openai.azure.com */
   azureFoundryEndpoint?: string;
-  /** Azure Foundry API key. When set with azureFoundryEndpoint, routes OpenAI calls through Azure. */
   azureFoundryApi?: string;
-  /** Azure Foundry API version (default: 2025-04-01-preview) */
   azureFoundryApiVersion?: string;
-  /** Direct Anthropic API key. */
-  anthropicApiKey?: string;
 }
 
 export class ProviderFactory {
@@ -60,7 +55,6 @@ export class ProviderFactory {
         return new GeminiAdapter({ apiKey: directGeminiKey });
       }
       case 'openai': {
-        // Azure OpenAI / Foundry only — direct OpenAI is disabled by policy.
         const azureEndpoint =
           this.config.azureFoundryEndpoint?.trim() ||
           process.env.AZURE_FOUNDRY_ENDPOINT?.trim() ||
@@ -88,7 +82,20 @@ export class ProviderFactory {
         });
       }
       case 'anthropic': {
-        throw new Error('Direct Anthropic provider calls are disabled by policy. Use non-Claude models for agent execution.');
+        if (!isBedrockEnabled()) {
+          throw new Error(
+            'Claude requires Amazon Bedrock — set BEDROCK_ENABLED=true, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION',
+          );
+        }
+        return new BedrockAnthropicAdapter();
+      }
+      case 'deepseek': {
+        if (!isBedrockEnabled()) {
+          throw new Error(
+            'DeepSeek requires Amazon Bedrock — set BEDROCK_ENABLED=true, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION',
+          );
+        }
+        return new BedrockDeepSeekAdapter();
       }
     }
   }

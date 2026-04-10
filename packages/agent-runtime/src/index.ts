@@ -13,7 +13,7 @@ export { TaskRunner } from './taskRunner.js';
 export { ModelClient, detectProvider } from './modelClient.js';
 export type { ModelClientConfig, ModelProvider, ImageResponse } from './modelClient.js';
 // Provider adapters
-export { ProviderFactory, GeminiAdapter, OpenAIAdapter, AnthropicAdapter } from './providers/index.js';
+export { ProviderFactory, GeminiAdapter, OpenAIAdapter, BedrockAnthropicAdapter, BedrockDeepSeekAdapter, isBedrockEnabled } from './providers/index.js';
 export type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, UnifiedToolCall, UnifiedUsageMetadata, StructuredOutputSpec, ModelRoutingMetadata, UnifiedRequestMetadata } from './providers/types.js';
 export { AgentSupervisor } from './supervisor.js';
 export {

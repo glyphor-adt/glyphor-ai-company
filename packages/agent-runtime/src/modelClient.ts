@@ -7,10 +7,13 @@
  * The provider is determined by the model name prefix:
  *   - gemini-*    → Google Gemini (@google/genai)
  *   - gpt-*, o1-*, o3-*, o4-* → OpenAI (openai)
- *   - claude-*    → Anthropic (@anthropic-ai/sdk)
+ *   - claude-*    → Amazon Bedrock (Anthropic Messages API)
+ *   - deepseek-*  → Amazon Bedrock (DeepSeek)
  */
 
 import { ProviderFactory, type ProviderFactoryConfig, type GeminiAdapter } from './providers/index.js';
+import { isBedrockEnabled } from './providers/bedrockClient.js';
+import { inferBillingCloud, recordUsage } from './credits/ledger.js';
 import type { ModelProvider, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './providers/types.js';
 import { getFallbackChain, getProviderLocalFallbackChain, resolveModel } from '@glyphor/shared/models';
 import { getTierModel } from '@glyphor/shared';
@@ -39,8 +42,9 @@ export function detectProvider(model: string): ModelProvider {
   if (model.startsWith('deep-research-')) return 'gemini';
   if (model === 'model-router' || model.startsWith('model-router')) return 'openai';
   if (model.startsWith('gpt-') || /^o[134](-|$)/.test(model)) return 'openai';
+  if (model.startsWith('deepseek-')) return 'deepseek';
   if (model.startsWith('claude-')) return 'anthropic';
-  throw new Error(`Unknown model provider for "${model}". Expected prefix: gemini-, deep-research-, gpt-, o1/o3/o4, model-router, or claude-`);
+  throw new Error(`Unknown model provider for "${model}". Expected prefix: gemini-, deep-research-, gpt-, o1/o3/o4, model-router, deepseek-, or claude-`);
 }
 
 /** Detect quota/rate-limit errors across all providers. */
@@ -135,13 +139,15 @@ export class ModelClient {
       }
     }
 
-    const isBlockedRequestedModel = ModelClient.BLOCKED_PROVIDER_PREFIXES.some((prefix) => requestedModel.startsWith(prefix));
+    const isBlockedRequestedModel =
+      ModelClient.BLOCKED_PROVIDER_PREFIXES.some((prefix) => requestedModel.startsWith(prefix))
+      && !isBedrockEnabled();
     const effectiveRequestedModel = isBlockedRequestedModel
       ? ModelClient.DETERMINISTIC_FALLBACK_MODEL
       : requestedModel;
     if (isBlockedRequestedModel) {
       console.warn(
-        `[ModelClient] Direct Anthropic execution is disabled; remapping ${requestedModel} -> ${effectiveRequestedModel}`,
+        `[ModelClient] Claude requires Bedrock; remapping ${requestedModel} -> ${effectiveRequestedModel}`,
       );
       request = { ...request, model: effectiveRequestedModel };
     }
@@ -158,8 +164,9 @@ export class ModelClient {
         : effectiveScope === 'same-provider'
           ? getProviderLocalFallbackChain(effectiveRequestedModel, agentRole)
           : getFallbackChain(effectiveRequestedModel, agentRole);
+    const allowClaude = isBedrockEnabled();
     const modelsToTry = [effectiveRequestedModel, ...fallbackChain].filter(
-      (modelId, idx, arr) => !modelId.startsWith('claude-') && arr.indexOf(modelId) === idx,
+      (modelId, idx, arr) => (allowClaude || !modelId.startsWith('claude-')) && arr.indexOf(modelId) === idx,
     );
     if (modelsToTry.length === 0) {
       throw new Error('No eligible models remain after applying provider policy constraints.');
@@ -229,6 +236,13 @@ export class ModelClient {
                   input_tokens: result.usageMetadata.inputTokens,
                   output_tokens: result.usageMetadata.outputTokens,
                 });
+                void recordUsage(
+                  inferBillingCloud(currentModel),
+                  currentModel,
+                  result.usageMetadata.inputTokens,
+                  result.usageMetadata.outputTokens,
+                  request.metadata?.tenantId,
+                );
                 return result;
               } catch (err) {
                 attemptSpan.fail(err);

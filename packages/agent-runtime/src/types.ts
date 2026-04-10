@@ -423,7 +423,7 @@ export interface AgentExecutionResult {
   /** Actual model used after fallback resolution. */
   actualModel?: string;
   /** Actual provider used after fallback resolution. */
-  actualProvider?: 'gemini' | 'openai' | 'anthropic';
+  actualProvider?: 'gemini' | 'openai' | 'anthropic' | 'deepseek';
   abortReason?: string;
   error?: string;
   reasoning?: ReasoningEnvelope;
