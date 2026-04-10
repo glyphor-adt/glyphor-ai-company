@@ -9,12 +9,7 @@ import {
   pauseDepartment,
 } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
-
-function json(res: ServerResponse, status: number, data: unknown): void {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(data));
-}
+import { writeJson } from './httpJson.js';
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -81,26 +76,27 @@ export async function handleDepartmentAdminApi(
   if (!url.startsWith('/admin/departments')) return false;
 
   const params = new URLSearchParams(queryString);
+  const send = (status: number, data: unknown) => writeJson(res, status, data, req);
 
   try {
     if (method === 'GET' && url === '/admin/departments') {
       const tenantId = await getTenantId(params);
       const data = await listDepartmentsWithStatus(tenantId);
-      json(res, 200, data);
+      send( 200, data);
       return true;
     }
 
     if (method === 'GET' && url === '/admin/departments/active') {
       const tenantId = await getTenantId(params);
       const data = await listActiveDepartments(tenantId);
-      json(res, 200, data);
+      send( 200, data);
       return true;
     }
 
     if (method === 'GET' && url === '/admin/departments/recommendations') {
       const tenantId = await getTenantId(params);
       const data = await getExpansionRecommendations(tenantId);
-      json(res, 200, data);
+      send( 200, data);
       return true;
     }
 
@@ -108,7 +104,7 @@ export async function handleDepartmentAdminApi(
     if (templatesMatch && method === 'GET') {
       const departmentId = decodeURIComponent(templatesMatch[1]);
       const data = await listDepartmentTemplates(departmentId);
-      json(res, 200, data);
+      send( 200, data);
       return true;
     }
 
@@ -126,7 +122,7 @@ export async function handleDepartmentAdminApi(
           ? String(body.activatedByHumanId ?? body.activated_by_human_id).trim()
           : undefined,
       });
-      json(res, 200, result);
+      send( 200, result);
       return true;
     }
 
@@ -140,7 +136,7 @@ export async function handleDepartmentAdminApi(
         departmentId,
         typeof (body.updatedBy ?? body.updated_by) === 'string' ? String(body.updatedBy ?? body.updated_by).trim() : 'admin',
       );
-      json(res, 200, result);
+      send( 200, result);
       return true;
     }
 
@@ -149,13 +145,13 @@ export async function handleDepartmentAdminApi(
       const tenantId = await getTenantId(params);
       const departmentId = decodeURIComponent(detailMatch[1]);
       const data = await getDepartmentDetail(tenantId, departmentId);
-      json(res, 200, data);
+      send( 200, data);
       return true;
     }
 
     return false;
   } catch (err) {
-    json(res, 500, { error: err instanceof Error ? err.message : String(err) });
+    send( 500, { error: err instanceof Error ? err.message : String(err) });
     return true;
   }
 }

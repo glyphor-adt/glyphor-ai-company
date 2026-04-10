@@ -15,16 +15,9 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { systemQuery } from '@glyphor/shared/db';
+import { writeJson } from './httpJson.js';
 
 /* ── Helpers ──────────────────────────────────────────────── */
-
-function json(res: ServerResponse, status: number, data: unknown) {
-  res.writeHead(status, {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  });
-  res.end(JSON.stringify(data));
-}
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -49,6 +42,7 @@ export async function handleEvalApi(
   const path = url.slice('/api/eval/'.length); // e.g. "fleet", "agent/cto/trend", "findings/uuid/resolve"
   const segments = path.split('/');
   const params = new URLSearchParams(_queryString ?? '');
+  const send = (status: number, data: unknown) => writeJson(res, status, data, req);
 
   try {
     // ── GET /api/eval/fleet ──────────────────────────────────
@@ -132,7 +126,7 @@ export async function handleEvalApi(
         )
         ORDER BY a.performance_score ASC NULLS LAST
       `);
-      json(res, 200, rows);
+      send( 200, rows);
       return true;
     }
 
@@ -163,7 +157,7 @@ export async function handleEvalApi(
         `, [agentId]),
       ]);
 
-      json(res, 200, { trend, promptVersions });
+      send( 200, { trend, promptVersions });
       return true;
     }
 
@@ -185,7 +179,7 @@ export async function handleEvalApi(
         GROUP BY challenger_prompt_version, baseline_prompt_version
         ORDER BY last_run DESC
       `, [agentId]);
-      json(res, 200, rows);
+      send( 200, rows);
       return true;
     }
 
@@ -200,7 +194,7 @@ export async function handleEvalApi(
         WHERE agent_id = $1
         ORDER BY resolved_at IS NULL DESC, severity ASC, detected_at DESC
       `, [agentId]);
-      json(res, 200, rows);
+      send( 200, rows);
       return true;
     }
 
@@ -233,7 +227,7 @@ export async function handleEvalApi(
         expired: rows.filter(r => r.freshness === 'expired').length,
       };
 
-      json(res, 200, { summary, entries: rows });
+      send( 200, { summary, entries: rows });
       return true;
     }
 
@@ -253,7 +247,7 @@ export async function handleEvalApi(
         GROUP BY agent_id
         ORDER BY avg_cost_usd DESC NULLS LAST
       `);
-      json(res, 200, rows.length > 0 ? rows : null);
+      send( 200, rows.length > 0 ? rows : null);
       return true;
     }
 
@@ -265,9 +259,9 @@ export async function handleEvalApi(
         [findingId],
       );
       if (updated.length === 0) {
-        json(res, 404, { error: 'Finding not found or already resolved' });
+        send( 404, { error: 'Finding not found or already resolved' });
       } else {
-        json(res, 200, { ok: true, id: updated[0] });
+        send( 200, { ok: true, id: updated[0] });
       }
       return true;
     }
@@ -280,9 +274,9 @@ export async function handleEvalApi(
         [shadowId],
       );
       if (updated.length === 0) {
-        json(res, 404, { error: 'Shadow run not found or not pending' });
+        send( 404, { error: 'Shadow run not found or not pending' });
       } else {
-        json(res, 200, { ok: true, id: updated[0] });
+        send( 200, { ok: true, id: updated[0] });
       }
       return true;
     }
@@ -361,7 +355,7 @@ export async function handleEvalApi(
         ),
       ]);
 
-      json(res, 200, {
+      send( 200, {
         avg_score: scoreData[0]?.avg_score ?? null,
         eval_count: scoreData[0]?.eval_count ?? 0,
         problem_tools: problemTools,
@@ -378,7 +372,7 @@ export async function handleEvalApi(
         `SELECT * FROM agent_prediction_accuracy WHERE agent_id = $1`,
         [agentId],
       );
-      json(res, 200, rows[0] ?? null);
+      send( 200, rows[0] ?? null);
       return true;
     }
 
@@ -393,7 +387,7 @@ export async function handleEvalApi(
          LIMIT 20`,
         [agentId],
       );
-      json(res, 200, rows);
+      send( 200, rows);
       return true;
     }
 
@@ -410,17 +404,17 @@ export async function handleEvalApi(
           [agentId],
         ),
       ]);
-      json(res, 200, { as_upstream: asUpstream, as_downstream: asDownstream });
+      send( 200, { as_upstream: asUpstream, as_downstream: asDownstream });
       return true;
     }
 
     // No match within /api/eval/*
-    json(res, 404, { error: `Unknown eval endpoint: ${path}` });
+    send( 404, { error: `Unknown eval endpoint: ${path}` });
     return true;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[EvalDashboard] Error handling ${method} /api/eval/${path}:`, message);
-    json(res, 500, { error: message });
+    send( 500, { error: message });
     return true;
   }
 }

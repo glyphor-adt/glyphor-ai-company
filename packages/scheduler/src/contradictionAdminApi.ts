@@ -1,11 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
-
-function json(res: ServerResponse, status: number, data: unknown): void {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(data));
-}
+import { writeJson } from './httpJson.js';
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -28,6 +23,7 @@ export function createContradictionAdminApi(memory: CompanyMemoryStore) {
 
     const ci = memory.getCollectiveIntelligence();
     const params = new URLSearchParams(queryString);
+    const send = (status: number, data: unknown) => writeJson(res, status, data, req);
 
     try {
       if (method === 'GET' && url === '/admin/contradictions') {
@@ -39,7 +35,7 @@ export function createContradictionAdminApi(memory: CompanyMemoryStore) {
           page: Number(params.get('page') ?? '1'),
           pageSize: Number(params.get('pageSize') ?? '50'),
         });
-        json(res, 200, result);
+        send( 200, result);
         return true;
       }
 
@@ -47,10 +43,10 @@ export function createContradictionAdminApi(memory: CompanyMemoryStore) {
       if (method === 'GET' && detailMatch) {
         const contradiction = await ci.getContradictionDetail(decodeURIComponent(detailMatch[1]));
         if (!contradiction) {
-          json(res, 404, { error: 'Contradiction not found' });
+          send( 404, { error: 'Contradiction not found' });
           return true;
         }
-        json(res, 200, contradiction);
+        send( 200, contradiction);
         return true;
       }
 
@@ -68,7 +64,7 @@ export function createContradictionAdminApi(memory: CompanyMemoryStore) {
           throw new Error('winnerFactId and reason are required');
         }
         await ci.resolveContradictionByHuman(decodeURIComponent(resolveMatch[1]), winnerFactId, reason, resolvedBy);
-        json(res, 200, { success: true });
+        send( 200, { success: true });
         return true;
       }
 
@@ -82,13 +78,13 @@ export function createContradictionAdminApi(memory: CompanyMemoryStore) {
             ? body.humanId.trim()
             : 'human_admin';
         await ci.dismissContradiction(decodeURIComponent(dismissMatch[1]), reason, resolvedBy);
-        json(res, 200, { success: true });
+        send( 200, { success: true });
         return true;
       }
 
       return false;
     } catch (err) {
-      json(res, 500, { error: err instanceof Error ? err.message : String(err) });
+      send( 500, { error: err instanceof Error ? err.message : String(err) });
       return true;
     }
   };

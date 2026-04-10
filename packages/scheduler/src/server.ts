@@ -151,29 +151,10 @@ import {
   replayRuntimeEventsBySeq,
   resolveRuntimeCursorFromEventId,
 } from './runtimeEventStore.js';
+import { appendCorsHeaders, corsHeadersFor } from './corsHeaders.js';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const oidcClient = new OAuth2Client();
-const DEFAULT_CORS_ORIGIN = (process.env.DASHBOARD_URL?.trim() || 'https://dashboard.glyphor.com').replace(/\/$/, '');
-const TRUSTED_CORS_ORIGINS = new Set<string>(
-  [
-    ...((process.env.CORS_ALLOWED_ORIGINS ?? '')
-      .split(',')
-      .map((origin) => origin.trim())
-      .filter((origin) => origin.length > 0)),
-    process.env.DASHBOARD_URL?.trim(),
-    process.env.PUBLIC_URL?.trim(),
-    process.env.SERVICE_URL?.trim(),
-    DEFAULT_CORS_ORIGIN,
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:3000',
-    // Prod Cloud Run dashboard (browser calls scheduler `/admin/*` directly; must match firebase CANONICAL host pair)
-    'https://glyphor-dashboard-610179349713.us-central1.run.app',
-  ].filter((origin): origin is string => Boolean(origin && origin.length > 0))
-    .map((origin) => origin.replace(/\/$/, '')),
-);
 
 type SchedulerRouteClass =
   | 'public'
@@ -487,23 +468,6 @@ function getRequestOrigin(req: IncomingMessage): string | null {
   if (!host) return null;
   const proto = forwardedProto ?? 'https';
   return `${proto}://${host}`;
-}
-
-function getCorsOrigin(req: IncomingMessage): string | null {
-  const originHeader = getHeaderString(req.headers.origin)?.trim();
-  if (!originHeader) return null;
-  const normalizedOrigin = originHeader.replace(/\/$/, '');
-  if (TRUSTED_CORS_ORIGINS.has(normalizedOrigin)) return normalizedOrigin;
-  return null;
-}
-
-function appendCorsHeaders(req: IncomingMessage, headers: Record<string, string>): Record<string, string> {
-  const origin = getCorsOrigin(req);
-  if (origin) {
-    headers['Access-Control-Allow-Origin'] = origin;
-    headers['Vary'] = 'Origin';
-  }
-  return headers;
 }
 
 /** GET endpoints that mirror classifySchedulerRoute "authenticated-user" and must skip the inline admin-only gate. */
@@ -3181,6 +3145,24 @@ const server = createServer(async (req, res) => {
   const dashboardUser = authContext.dashboardUser;
 
   try {
+    // CORS preflight — first so cross-origin dashboard fetches always get Allow-Origin on OPTIONS.
+    if (method === 'OPTIONS') {
+      const ch = corsHeadersFor(req);
+      if (!Object.keys(ch).length) {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+      res.writeHead(204, {
+        ...ch,
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+        'Access-Control-Max-Age': '86400',
+      });
+      res.end();
+      return;
+    }
+
     // Health check
     if (url === '/health' || url === '/') {
       const cache = getRedisCache();
@@ -4254,19 +4236,6 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // CORS preflight
-    if (method === 'OPTIONS') {
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Max-Age': '86400',
-      });
-      res.end();
-      return;
-    }
-
     // Graph Chat webhook — receives change notifications for /chats/getAllMessages
     if (url === GRAPH_CHAT_WEBHOOK_PATH) {
       // Graph sends GET with validationToken query param during subscription creation
@@ -4350,8 +4319,7 @@ const server = createServer(async (req, res) => {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-        'Vary': 'Origin',
+        ...corsHeadersFor(req),
       });
 
       if (!sessionId) {
@@ -4457,8 +4425,7 @@ const server = createServer(async (req, res) => {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+        ...corsHeadersFor(req),
       });
 
       const heartbeat = setInterval(() => {
@@ -5293,8 +5260,7 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/json',
           'Content-Disposition': `attachment; filename="analysis-${id}.json"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(exportAnalysisJSON(record));
       } else if (format === 'pptx') {
@@ -5302,8 +5268,7 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
           'Content-Disposition': `attachment; filename="analysis-${id}.pptx"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(buffer);
       } else if (format === 'docx') {
@@ -5311,16 +5276,14 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'Content-Disposition': `attachment; filename="analysis-${id}.docx"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(buffer);
       } else {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="analysis-${id}.md"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(exportAnalysisMarkdown(record));
       }
@@ -5436,8 +5399,7 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/json',
           'Content-Disposition': `attachment; filename="simulation-${id}.json"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(exportSimulationJSON(record));
       } else if (format === 'pptx') {
@@ -5445,8 +5407,7 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
           'Content-Disposition': `attachment; filename="simulation-${id}.pptx"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(buffer);
       } else if (format === 'docx') {
@@ -5454,16 +5415,14 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'Content-Disposition': `attachment; filename="simulation-${id}.docx"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(buffer);
       } else {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="simulation-${id}.md"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(exportSimulationMarkdown(record));
       }
@@ -5546,16 +5505,14 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/json',
           'Content-Disposition': `attachment; filename="cot-${id}.json"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(exportCotJSON(record));
       } else {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="cot-${id}.md"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(exportCotMarkdown(record));
       }
@@ -5812,8 +5769,7 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/json',
           'Content-Disposition': `attachment; filename="deep-dive-${ddId}.json"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(exportDeepDiveJSON(record));
       } else if (format === 'pptx') {
@@ -5821,8 +5777,7 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
           'Content-Disposition': `attachment; filename="deep-dive-${ddId}.pptx"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(buffer);
       } else if (format === 'docx') {
@@ -5830,16 +5785,14 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'Content-Disposition': `attachment; filename="deep-dive-${ddId}.docx"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(buffer);
       } else {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="deep-dive-${ddId}.md"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(exportDeepDiveMarkdown(record));
       }
@@ -5938,8 +5891,7 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
           'Content-Disposition': `attachment; filename="strategy-${id}.pptx"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(buffer);
       } else if (format === 'docx') {
@@ -5947,8 +5899,7 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'Content-Disposition': `attachment; filename="strategy-${id}.docx"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(buffer);
       } else {
@@ -5957,8 +5908,7 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, {
           'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="strategy-${id}.md"`,
-          'Access-Control-Allow-Origin': getCorsOrigin(req) ?? DEFAULT_CORS_ORIGIN,
-          'Vary': 'Origin',
+          ...corsHeadersFor(req),
         });
         res.end(md);
       }

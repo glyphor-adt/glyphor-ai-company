@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { systemQuery } from '@glyphor/shared/db';
+import { writeJson } from './httpJson.js';
 import type {
   GovernanceAction,
   GovernanceAccessIssue,
@@ -31,14 +32,6 @@ const ACCESS_SEVERITY_ORDER: Record<GovernanceAccessIssue['severity'], number> =
   medium: 2,
   low: 3,
 };
-
-function jsonResponse(res: ServerResponse, status: number, data: unknown) {
-  res.writeHead(status, {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  });
-  res.end(JSON.stringify(data));
-}
 
 function toNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -1151,7 +1144,7 @@ async function getAccessPosture(): Promise<GovernanceAccessPosture> {
 }
 
 export async function handleGovernanceApi(
-  _req: IncomingMessage,
+  req: IncomingMessage,
   res: ServerResponse,
   url: string,
   queryString: string,
@@ -1159,8 +1152,10 @@ export async function handleGovernanceApi(
 ): Promise<boolean> {
   if (!url.startsWith('/api/governance/')) return false;
 
+  const send = (status: number, data: unknown) => writeJson(res, status, data, req);
+
   if (method !== 'GET') {
-    jsonResponse(res, 405, { error: 'Method not allowed' });
+    send(405, { error: 'Method not allowed' });
     return true;
   }
 
@@ -1170,34 +1165,34 @@ export async function handleGovernanceApi(
   try {
     switch (resource) {
       case 'action-queue':
-        jsonResponse(res, 200, await getActionQueue());
+        send( 200, await getActionQueue());
         return true;
       case 'changelog': {
         const days = Number.parseInt(params.get('days') ?? '7', 10);
-        jsonResponse(res, 200, await getChangeLog(Number.isFinite(days) ? days : 7));
+        send( 200, await getChangeLog(Number.isFinite(days) ? days : 7));
         return true;
       }
       case 'risk-summary':
-        jsonResponse(res, 200, await getRiskSummary());
+        send( 200, await getRiskSummary());
         return true;
       case 'trust-map':
-        jsonResponse(res, 200, await getTrustMap());
+        send( 200, await getTrustMap());
         return true;
       case 'least-privilege':
       case 'least-privilege-analysis':
-        jsonResponse(res, 200, await getLeastPrivilege());
+        send( 200, await getLeastPrivilege());
         return true;
       case 'access-posture':
-        jsonResponse(res, 200, await getAccessPosture());
+        send( 200, await getAccessPosture());
         return true;
       default:
-        jsonResponse(res, 404, { error: `Unknown governance API resource: ${resource}` });
+        send( 404, { error: `Unknown governance API resource: ${resource}` });
         return true;
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[GovernanceApi] ${resource} failed:`, message);
-    jsonResponse(res, 500, { error: message });
+    send( 500, { error: message });
     return true;
   }
 }

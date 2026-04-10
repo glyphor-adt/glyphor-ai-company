@@ -6,12 +6,7 @@ import {
   type HandoffContractStatus,
 } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
-
-function json(res: ServerResponse, status: number, data: unknown): void {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(data));
-}
+import { writeJson } from './httpJson.js';
 
 async function resolveAgentKey(agentKey: string): Promise<string | null> {
   const rows = await systemQuery<{ role: string }>(
@@ -22,7 +17,7 @@ async function resolveAgentKey(agentKey: string): Promise<string | null> {
 }
 
 export async function handleHandoffContractAdminApi(
-  _req: IncomingMessage,
+  req: IncomingMessage,
   res: ServerResponse,
   url: string,
   queryString: string,
@@ -31,6 +26,7 @@ export async function handleHandoffContractAdminApi(
   if (method !== 'GET') return false;
 
   const params = new URLSearchParams(queryString);
+  const send = (status: number, data: unknown) => writeJson(res, status, data, req);
 
   if (url === '/admin/contracts') {
     const page = Math.max(1, Number(params.get('page') ?? '1'));
@@ -53,7 +49,7 @@ export async function handleHandoffContractAdminApi(
       pageSize,
     );
 
-    json(res, 200, {
+    send( 200, {
       page,
       pageSize,
       total: result.total,
@@ -64,7 +60,7 @@ export async function handleHandoffContractAdminApi(
 
   if (url === '/admin/contracts/pending') {
     const result = await listContracts({ status: 'issued' }, 1, 200);
-    json(res, 200, { total: result.total, contracts: result.contracts });
+    send( 200, { total: result.total, contracts: result.contracts });
     return true;
   }
 
@@ -76,7 +72,7 @@ export async function handleHandoffContractAdminApi(
        ORDER BY COALESCE(sla_breached_at, deadline) ASC`,
       [],
     );
-    json(res, 200, rows);
+    send( 200, rows);
     return true;
   }
 
@@ -85,7 +81,7 @@ export async function handleHandoffContractAdminApi(
     const agentKey = decodeURIComponent(agentMatch[1]);
     const canonicalAgent = await resolveAgentKey(agentKey);
     if (!canonicalAgent) {
-      json(res, 404, { error: `Agent not found: ${agentKey}` });
+      send( 404, { error: `Agent not found: ${agentKey}` });
       return true;
     }
 
@@ -96,7 +92,7 @@ export async function handleHandoffContractAdminApi(
        ORDER BY issued_at DESC`,
       [canonicalAgent],
     );
-    json(res, 200, { agentId: canonicalAgent, total: rows.length, contracts: rows });
+    send( 200, { agentId: canonicalAgent, total: rows.length, contracts: rows });
     return true;
   }
 
@@ -116,7 +112,7 @@ export async function handleHandoffContractAdminApi(
     [contractId],
   );
 
-  json(res, 200, {
+  send( 200, {
     contract,
     validationResult,
     auditTrail,

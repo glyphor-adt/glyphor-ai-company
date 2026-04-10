@@ -147,6 +147,16 @@ function estimateCost(model: string, inputTokens: number, outputTokens: number, 
   return estimateModelCost(model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens);
 }
 
+/** Prefer provider-reported `actualModel` for pricing; otherwise the model id we requested. */
+function resolvePricingModelForCall(
+  actualModel: string | undefined,
+  requestedModel: string,
+  configDefaultModel: string,
+): string {
+  const req = requestedModel === '__deterministic__' ? configDefaultModel : requestedModel;
+  return actualModel?.trim() ? actualModel : req;
+}
+
 function summarizeRunOutput(output: string | null, fallback: string): string {
   if (!output) return fallback;
   const normalized = output.replace(/\s+/g, ' ').trim();
@@ -176,10 +186,15 @@ async function persistRunMetricsAuditLog(entry: {
   outputTokens: number;
   thinkingTokens: number;
   cachedInputTokens: number;
+  /** When set, per-call-summed LLM cost (preferred over single-model estimate). */
+  estimatedCostUsd?: number;
   /** Defaults to agent.run.completed */
   auditAction?: string;
 }): Promise<void> {
   try {
+    const costUsd = entry.estimatedCostUsd !== undefined
+      ? entry.estimatedCostUsd
+      : estimateCost(entry.model, entry.inputTokens, entry.outputTokens, entry.thinkingTokens, entry.cachedInputTokens);
     await systemQuery(
       `INSERT INTO activity_log (
          agent_role,
@@ -207,7 +222,7 @@ async function persistRunMetricsAuditLog(entry: {
         entry.outputTokens,
         entry.thinkingTokens,
         entry.cachedInputTokens,
-        estimateCost(entry.model, entry.inputTokens, entry.outputTokens, entry.thinkingTokens, entry.cachedInputTokens),
+        costUsd,
         new Date().toISOString(),
       ],
     );
@@ -1361,6 +1376,8 @@ export class CompanyAgentRunner {
     let totalOutputTokens = 0;
     let totalThinkingTokens = 0;
     let totalCachedInputTokens = 0;
+    /** Sum of estimateModelCost per LLM response (correct when routing changes model mid-run). */
+    let totalLlmCostUsd = 0;
     let actualModelUsed: string | undefined;
     let actualProviderUsed: 'gemini' | 'openai' | 'anthropic' | undefined;
 
@@ -1915,6 +1932,7 @@ export class CompanyAgentRunner {
             undefined,
             actualModelUsed,
             actualProviderUsed,
+            0,
           );
       }
       if (preCheck.context) {
@@ -2089,6 +2107,16 @@ export class CompanyAgentRunner {
                   lastTextOutput = synthResponse.text;
                   totalInputTokens += synthResponse.usageMetadata.inputTokens;
                   totalOutputTokens += synthResponse.usageMetadata.outputTokens;
+                  totalThinkingTokens += synthResponse.usageMetadata.thinkingTokens ?? 0;
+                  totalCachedInputTokens += synthResponse.usageMetadata.cachedInputTokens ?? 0;
+                  const synthPriceModel = resolvePricingModelForCall(synthResponse.actualModel, synthModel, config.model);
+                  totalLlmCostUsd += estimateCost(
+                    synthPriceModel,
+                    synthResponse.usageMetadata.inputTokens,
+                    synthResponse.usageMetadata.outputTokens,
+                    synthResponse.usageMetadata.thinkingTokens ?? 0,
+                    synthResponse.usageMetadata.cachedInputTokens ?? 0,
+                  );
                 }
                 if (synthResponse.compactionCount) {
                   compactionCount += synthResponse.compactionCount;
@@ -2115,6 +2143,7 @@ export class CompanyAgentRunner {
           return this.buildResult(
             config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
             0, undefined, actualModelUsed, actualProviderUsed,
+            totalLlmCostUsd,
           );
         }
 
@@ -2456,6 +2485,18 @@ Rules:
           totalOutputTokens += response.usageMetadata.outputTokens;
           totalThinkingTokens += response.usageMetadata.thinkingTokens ?? 0;
           totalCachedInputTokens += response.usageMetadata.cachedInputTokens ?? 0;
+          const mainCallPricingModel = resolvePricingModelForCall(
+            response.actualModel,
+            modelForGenerate,
+            config.model,
+          );
+          totalLlmCostUsd += estimateCost(
+            mainCallPricingModel,
+            response.usageMetadata.inputTokens,
+            response.usageMetadata.outputTokens,
+            response.usageMetadata.thinkingTokens ?? 0,
+            response.usageMetadata.cachedInputTokens ?? 0,
+          );
           actualModelUsed = response.actualModel ?? routedModel.model;
           actualProviderUsed = response.actualProvider;
 
@@ -2520,6 +2561,7 @@ Rules:
               config, 'aborted', lastTextOutput, history, supervisor,
               errMsg, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
               0, undefined, actualModelUsed, actualProviderUsed,
+              totalLlmCostUsd,
             );
           }
 
@@ -2576,6 +2618,13 @@ Rules:
                 totalOutputTokens += response.usageMetadata.outputTokens;
                 totalThinkingTokens += response.usageMetadata.thinkingTokens ?? 0;
                 totalCachedInputTokens += response.usageMetadata.cachedInputTokens ?? 0;
+                totalLlmCostUsd += estimateCost(
+                  resolvePricingModelForCall(response.actualModel, routedModel.model, config.model),
+                  response.usageMetadata.inputTokens,
+                  response.usageMetadata.outputTokens,
+                  response.usageMetadata.thinkingTokens ?? 0,
+                  response.usageMetadata.cachedInputTokens ?? 0,
+                );
                 actualModelUsed = response.actualModel ?? routedModel.model;
                 actualProviderUsed = response.actualProvider;
                 resetReactiveState(reactiveState);
@@ -2732,6 +2781,7 @@ Rules:
                   config, 'aborted', lastTextOutput, history, supervisor,
                   progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
                   0, undefined, actualModelUsed, actualProviderUsed,
+                  totalLlmCostUsd,
                 );
               }
               iterResult = await iter.next();
@@ -2784,6 +2834,7 @@ Rules:
                 config, 'aborted', lastTextOutput, history, supervisor,
                 progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
                 0, undefined, actualModelUsed, actualProviderUsed,
+                totalLlmCostUsd,
               );
             }
           }
@@ -2898,6 +2949,7 @@ Return ONLY strict JSON with:
                 config, 'aborted', lastTextOutput, history, supervisor,
                 'planner_failed_to_produce_valid_plan', totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
                 compactionCount, compactionSummary, actualModelUsed, actualProviderUsed,
+                totalLlmCostUsd,
               );
             }
 
@@ -3025,7 +3077,16 @@ Return ONLY strict JSON with:
               actionReceipts,
               signal: supervisor.signal,
               verifyModelTier: planningPolicy.completionGateVerifyModelTier,
+              configDefaultModel: config.model,
             });
+            if (completionGate.billable) {
+              const b = completionGate.billable;
+              totalInputTokens += b.input;
+              totalOutputTokens += b.output;
+              totalThinkingTokens += b.thinking;
+              totalCachedInputTokens += b.cached;
+              totalLlmCostUsd += estimateCost(b.model, b.input, b.output, b.thinking, b.cached);
+            }
             completionGatePassed = completionGate.meets;
             completionGateMissing = completionGate.missingCriteria;
             if (completionGate.meets) {
@@ -3412,6 +3473,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
         compactionSummary,
         actualModelUsed,
         actualProviderUsed,
+        totalLlmCostUsd,
       );
       if (reasoningResult) {
         result.reasoningMeta = {
@@ -3452,6 +3514,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
         outputTokens: totalOutputTokens,
         thinkingTokens: totalThinkingTokens,
         cachedInputTokens: totalCachedInputTokens,
+        estimatedCostUsd: result.estimatedCostUsd,
       });
       void learnFromAgentRun({
         result,
@@ -3520,6 +3583,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
         compactionSummary,
         actualModelUsed,
         actualProviderUsed,
+        totalLlmCostUsd,
       );
       errResult.executionPlanMeta = {
         mode: planningMode,
@@ -3545,7 +3609,12 @@ Continue execution, call tools as needed, and return only when all criteria are 
     actionReceipts: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }>;
     signal: AbortSignal;
     verifyModelTier?: PlanningModelTier;
-  }): Promise<{ meets: boolean; missingCriteria: string[] }> {
+    configDefaultModel: string;
+  }): Promise<{
+    meets: boolean;
+    missingCriteria: string[];
+    billable?: { model: string; input: number; output: number; thinking: number; cached: number };
+  }> {
     try {
       const toolEvidence = input.actionReceipts
         .map((receipt, idx) => `${idx + 1}. ${receipt.tool} (${receipt.result}): ${receipt.output}`)
@@ -3571,8 +3640,9 @@ Candidate output:
 ${input.output}`;
 
       const verifyTier = input.verifyModelTier ?? 'default';
+      const verifyModelId = getTierModel(verifyTier);
       const response = await this.modelClient.generate({
-        model: getTierModel(verifyTier),
+        model: verifyModelId,
         systemInstruction: 'You are a strict task verifier. Reply with JSON only.',
         contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
         source: 'scheduled',
@@ -3593,7 +3663,15 @@ ${input.output}`;
       const missingCriteria = Array.isArray(parsed.missing_criteria)
         ? parsed.missing_criteria.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
         : [];
-      return { meets, missingCriteria };
+      const pricingModel = resolvePricingModelForCall(response.actualModel, verifyModelId, input.configDefaultModel);
+      const billable = {
+        model: pricingModel,
+        input: response.usageMetadata.inputTokens,
+        output: response.usageMetadata.outputTokens,
+        thinking: response.usageMetadata.thinkingTokens ?? 0,
+        cached: response.usageMetadata.cachedInputTokens ?? 0,
+      };
+      return { meets, missingCriteria, billable };
     } catch {
       // Fail-open to avoid deadlocking runs if verifier parsing/model call fails.
       return { meets: true, missingCriteria: [] };
@@ -3654,9 +3732,13 @@ ${input.output}`;
     compactionSummary?: string,
     actualModel?: string,
     actualProvider?: 'gemini' | 'openai' | 'anthropic',
+    /** Sum of per-call estimateModelCost (set when main loop tracked usage). If omitted, falls back to single-model estimate on totals. */
+    instrumentedLlmCostUsd?: number,
   ): AgentExecutionResult {
     const stats = supervisor.stats;
-    const estimatedCost = estimateCost(routing?.model ?? config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens);
+    const estimatedCost = instrumentedLlmCostUsd !== undefined
+      ? instrumentedLlmCostUsd
+      : estimateCost(routing?.model ?? config.model, inputTokens, outputTokens, thinkingTokens, cachedInputTokens);
     const dashboardChatEmbeds = extractDashboardChatEmbedsFromHistory(history);
     return {
       agentId: config.id,

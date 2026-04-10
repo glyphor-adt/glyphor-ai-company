@@ -10,12 +10,7 @@ import {
   type CapacityTier,
   type CommitmentRegistryStatus,
 } from '@glyphor/shared';
-
-function json(res: ServerResponse, status: number, data: unknown): void {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(data));
-}
+import { writeJson } from './httpJson.js';
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -65,6 +60,7 @@ export async function handleCapacityAdminApi(
   if (!url.startsWith('/admin/')) return false;
 
   const params = new URLSearchParams(queryString);
+  const send = (status: number, data: unknown) => writeJson(res, status, data, req);
 
   try {
     const agentCapacityMatch = url.match(/^\/admin\/agents\/([^/]+)\/capacity$/);
@@ -72,10 +68,10 @@ export async function handleCapacityAdminApi(
       const agentId = decodeURIComponent(agentCapacityMatch[1]);
       const config = await getAgentCapacityConfig(agentId);
       if (!config) {
-        json(res, 404, { error: `Capacity config not found for ${agentId}` });
+        send( 404, { error: `Capacity config not found for ${agentId}` });
         return true;
       }
-      json(res, 200, config);
+      send( 200, config);
       return true;
     }
 
@@ -96,7 +92,7 @@ export async function handleCapacityAdminApi(
           ? body.metadata as Record<string, unknown>
           : {},
       });
-      json(res, 200, updated);
+      send( 200, updated);
       return true;
     }
 
@@ -110,7 +106,7 @@ export async function handleCapacityAdminApi(
         page: Number(params.get('page') ?? '1'),
         pageSize: Number(params.get('pageSize') ?? '50'),
       });
-      json(res, 200, result);
+      send( 200, result);
       return true;
     }
 
@@ -119,7 +115,7 @@ export async function handleCapacityAdminApi(
         Number(params.get('page') ?? '1'),
         Number(params.get('pageSize') ?? '100'),
       );
-      json(res, 200, result);
+      send( 200, result);
       return true;
     }
 
@@ -135,7 +131,7 @@ export async function handleCapacityAdminApi(
         throw new Error('approverHumanId is required');
       }
       const updated = await approveCommitment(decodeURIComponent(approveMatch[1]), approverHumanId);
-      json(res, 200, updated);
+      send( 200, updated);
       return true;
     }
 
@@ -148,7 +144,7 @@ export async function handleCapacityAdminApi(
         throw new Error('approverHumanId and reason are required');
       }
       const updated = await rejectCommitment(decodeURIComponent(rejectMatch[1]), approverHumanId, reason);
-      json(res, 200, updated);
+      send( 200, updated);
       return true;
     }
 
@@ -160,13 +156,13 @@ export async function handleCapacityAdminApi(
         throw new Error('reason is required');
       }
       const updated = await reverseCommitment(decodeURIComponent(reverseMatch[1]), reason);
-      json(res, 200, updated);
+      send( 200, updated);
       return true;
     }
 
     return false;
   } catch (err) {
-    json(res, 500, { error: err instanceof Error ? err.message : String(err) });
+    send( 500, { error: err instanceof Error ? err.message : String(err) });
     return true;
   }
 }

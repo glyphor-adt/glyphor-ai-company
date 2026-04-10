@@ -1,12 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TemporalKnowledgeGraph } from '@glyphor/agent-runtime';
 import { EmbeddingClient } from '@glyphor/company-memory';
-
-function json(res: ServerResponse, status: number, data: unknown): void {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(data));
-}
+import { writeJson } from './httpJson.js';
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -49,6 +44,7 @@ export async function handleTemporalKnowledgeGraphAdminApi(
   if (!url.startsWith('/admin/kg')) return false;
 
   const params = new URLSearchParams(queryString);
+  const send = (status: number, data: unknown) => writeJson(res, status, data, req);
 
   try {
     const graph = getGraphClient();
@@ -59,7 +55,7 @@ export async function handleTemporalKnowledgeGraphAdminApi(
         nameSearch: params.get('name') ?? params.get('q') ?? undefined,
         limit: parseLimit(params.get('limit'), 50),
       }, 'system');
-      json(res, 200, { total: entities.length, entities });
+      send( 200, { total: entities.length, entities });
       return true;
     }
 
@@ -67,7 +63,7 @@ export async function handleTemporalKnowledgeGraphAdminApi(
       const body = JSON.parse(await readBody(req)) as Record<string, unknown>;
       const agentId = typeof body.agentId === 'string' ? body.agentId.trim() : '';
       if (!agentId) {
-        json(res, 400, { error: 'agentId is required' });
+        send( 400, { error: 'agentId is required' });
         return true;
       }
 
@@ -80,25 +76,25 @@ export async function handleTemporalKnowledgeGraphAdminApi(
           : {},
         agentId,
       );
-      json(res, 201, entity);
+      send( 201, entity);
       return true;
     }
 
     if (method === 'GET' && url === '/admin/kg/stats') {
       const stats = await graph.getStats('system');
-      json(res, 200, stats);
+      send( 200, stats);
       return true;
     }
 
     if (method === 'GET' && url === '/admin/kg/search') {
       const query = params.get('q');
       if (!query) {
-        json(res, 400, { error: 'q is required' });
+        send( 400, { error: 'q is required' });
         return true;
       }
       const entityTypes = parseCsv(params.get('types'));
       const results = await graph.semanticSearch(query, entityTypes.length > 0 ? entityTypes : undefined, parseLimit(params.get('limit'), 10), 'system');
-      json(res, 200, { total: results.length, results });
+      send( 200, { total: results.length, results });
       return true;
     }
 
@@ -107,7 +103,7 @@ export async function handleTemporalKnowledgeGraphAdminApi(
       const entityId = decodeURIComponent(historyMatch[1]);
       const entity = await graph.getEntityById(entityId);
       const history = await graph.getEntityHistory(entityId);
-      json(res, 200, { entity, history });
+      send( 200, { entity, history });
       return true;
     }
 
@@ -116,7 +112,7 @@ export async function handleTemporalKnowledgeGraphAdminApi(
       const entityId = decodeURIComponent(graphMatch[1]);
       const edgeTypes = parseCsv(params.get('edgeTypes'));
       const traversal = await graph.traverseGraph(entityId, edgeTypes, Math.max(1, Math.min(3, Number(params.get('maxDepth') ?? '3'))), 'system');
-      json(res, 200, traversal);
+      send( 200, traversal);
       return true;
     }
 
@@ -124,13 +120,13 @@ export async function handleTemporalKnowledgeGraphAdminApi(
     if (method === 'GET' && detailMatch) {
       const entityId = decodeURIComponent(detailMatch[1]);
       const detail = await graph.getEntityDetail(entityId, 'system');
-      json(res, 200, detail);
+      send( 200, detail);
       return true;
     }
 
     return false;
   } catch (err) {
-    json(res, 500, { error: err instanceof Error ? err.message : String(err) });
+    send( 500, { error: err instanceof Error ? err.message : String(err) });
     return true;
   }
 }

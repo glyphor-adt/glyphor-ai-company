@@ -101,6 +101,17 @@ export default function EnterpriseKpiDashboard() {
       const json = await apiCall<EnterpriseKpiSnapshot>(
         `/admin/metrics/enterprise-kpi-snapshot?window=${windowDays}`,
       );
+      if (
+        !json
+        || typeof json !== 'object'
+        || typeof (json as EnterpriseKpiSnapshot).generatedAt !== 'string'
+        || typeof (json as EnterpriseKpiSnapshot).windowDays !== 'number'
+      ) {
+        throw new Error(
+          'Enterprise KPI response was missing fields (expected generatedAt, windowDays). '
+          + 'Confirm the scheduler is deployed with GET /admin/metrics/enterprise-kpi-snapshot.',
+        );
+      }
       setData(json);
     } catch (err) {
       setData(null);

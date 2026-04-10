@@ -1,12 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { getAgentDisclosureConfig } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
-
-function json(res: ServerResponse, status: number, data: unknown): void {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(data));
-}
+import { writeJson } from './httpJson.js';
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -32,18 +27,19 @@ export async function handleDisclosureAdminApi(
   queryString: string,
   method: string,
 ): Promise<boolean> {
+  const send = (status: number, data: unknown) => writeJson(res, status, data, req);
   const agentConfigMatch = url.match(/^\/admin\/agents\/([^/]+)\/disclosure$/);
   if (agentConfigMatch) {
     const agentKey = decodeURIComponent(agentConfigMatch[1]);
     const canonicalAgentId = await resolveAgentKey(agentKey);
     if (!canonicalAgentId) {
-      json(res, 404, { error: `Agent not found: ${agentKey}` });
+      send( 404, { error: `Agent not found: ${agentKey}` });
       return true;
     }
 
     if (method === 'GET') {
       const config = await getAgentDisclosureConfig(canonicalAgentId);
-      json(res, 200, config);
+      send( 200, config);
       return true;
     }
 
@@ -74,7 +70,7 @@ export async function handleDisclosureAdminApi(
         ],
       );
 
-      json(res, 200, {
+      send( 200, {
         agentId: row.agent_id,
         disclosureLevel: row.disclosure_level,
         emailSignatureTemplate: row.email_signature_template,
@@ -85,7 +81,7 @@ export async function handleDisclosureAdminApi(
       return true;
     }
 
-    json(res, 405, { error: `Unsupported method for ${url}: ${method}` });
+    send( 405, { error: `Unsupported method for ${url}: ${method}` });
     return true;
   }
 
@@ -135,7 +131,7 @@ export async function handleDisclosureAdminApi(
     values,
   );
 
-  json(res, 200, {
+  send( 200, {
     page,
     pageSize,
     total: countRows[0]?.count ?? 0,

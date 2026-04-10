@@ -11,12 +11,7 @@ import {
   type DailyAutonomyAdjustment,
 } from '@glyphor/shared';
 import type { AgentNotifier } from './agentNotifier.js';
-
-function json(res: ServerResponse, status: number, data: unknown): void {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(data));
-}
+import { writeJson } from './httpJson.js';
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -79,26 +74,27 @@ export async function handleAutonomyAdminApi(
   if (!url.startsWith('/admin/autonomy')) return false;
 
   const params = new URLSearchParams(queryString);
+  const send = (status: number, data: unknown) => writeJson(res, status, data, req);
 
   try {
     if (method === 'GET' && url === '/admin/autonomy') {
       const department = asOptionalString(params.get('department'));
       const level = asOptionalLevel(params.get('level'), 'level');
       const overview = await listAutonomyOverview({ department, level });
-      json(res, 200, overview);
+      send( 200, overview);
       return true;
     }
 
     if (method === 'GET' && url === '/admin/autonomy/cohort-benchmarks') {
       const benchmarks = await getAutonomyCohortBenchmarks();
-      json(res, 200, benchmarks);
+      send( 200, benchmarks);
       return true;
     }
 
     if (method === 'POST' && url === '/admin/autonomy/evaluate-daily') {
       const changes = await processDailyAutonomyAdjustments();
       await notifyAutonomyChanges(agentNotifier, changes);
-      json(res, 200, { success: true, changed: changes.length, changes });
+      send( 200, { success: true, changed: changes.length, changes });
       return true;
     }
 
@@ -106,7 +102,7 @@ export async function handleAutonomyAdminApi(
     if (agentMatch && method === 'GET') {
       const agentId = decodeURIComponent(agentMatch[1]);
       const detail = await getAutonomyAgentDetail(agentId);
-      json(res, 200, detail);
+      send( 200, detail);
       return true;
     }
 
@@ -121,7 +117,7 @@ export async function handleAutonomyAdminApi(
         reason: asOptionalString(body.reason),
       });
       const evaluation = await evaluateAutonomyLevel(agentId);
-      json(res, 200, { config: updated, evaluation });
+      send( 200, { config: updated, evaluation });
       return true;
     }
 
@@ -135,7 +131,7 @@ export async function handleAutonomyAdminApi(
         reason: asOptionalString(body.reason),
       });
       const evaluation = await evaluateAutonomyLevel(agentId);
-      json(res, 200, { config: updated, evaluation });
+      send( 200, { config: updated, evaluation });
       return true;
     }
 
@@ -149,13 +145,13 @@ export async function handleAutonomyAdminApi(
         reason: asOptionalString(body.reason),
       });
       const evaluation = await evaluateAutonomyLevel(agentId);
-      json(res, 200, { config: updated, evaluation });
+      send( 200, { config: updated, evaluation });
       return true;
     }
 
     return false;
   } catch (err) {
-    json(res, 500, { error: err instanceof Error ? err.message : String(err) });
+    send( 500, { error: err instanceof Error ? err.message : String(err) });
     return true;
   }
 }

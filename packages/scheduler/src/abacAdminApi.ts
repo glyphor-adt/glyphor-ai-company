@@ -8,12 +8,7 @@ import {
 } from '@glyphor/agent-runtime';
 import type { AbacPermission, DataClassificationLevel } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
-
-function json(res: ServerResponse, status: number, data: unknown): void {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(data));
-}
+import { writeJson } from './httpJson.js';
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -65,6 +60,7 @@ export async function handleAbacAdminApi(
 
   const path = url.slice('/admin/abac/'.length);
   const params = new URLSearchParams(queryString);
+  const send = (status: number, data: unknown) => writeJson(res, status, data, req);
 
   try {
     if (method === 'GET' && path === 'policies') {
@@ -93,7 +89,7 @@ export async function handleAbacAdminApi(
          ORDER BY ar.name ASC, p.mcp_domain ASC, p.priority DESC, p.created_at DESC`,
         values,
       );
-      json(res, 200, rows);
+      send( 200, rows);
       return true;
     }
 
@@ -115,7 +111,7 @@ export async function handleAbacAdminApi(
          RETURNING *`,
         [agentRoleId, mcpDomain, resourceType, classificationLevel, permission, Number.isFinite(priority) ? priority : 0, new Date().toISOString(), new Date().toISOString()],
       );
-      json(res, 201, created);
+      send( 201, created);
       return true;
     }
 
@@ -158,7 +154,7 @@ export async function handleAbacAdminApi(
       values.push(policyId);
 
       if (updates.length === 1) {
-        json(res, 400, { error: 'No policy fields provided for update' });
+        send( 400, { error: 'No policy fields provided for update' });
         return true;
       }
 
@@ -170,9 +166,9 @@ export async function handleAbacAdminApi(
         values,
       );
       if (!updated) {
-        json(res, 404, { error: 'Policy not found' });
+        send( 404, { error: 'Policy not found' });
       } else {
-        json(res, 200, updated);
+        send( 200, updated);
       }
       return true;
     }
@@ -180,7 +176,7 @@ export async function handleAbacAdminApi(
     if (policyMatch && method === 'DELETE') {
       const policyId = decodeURIComponent(policyMatch[1]);
       await systemQuery('DELETE FROM abac_policies WHERE id = $1', [policyId]);
-      json(res, 200, { success: true, id: policyId });
+      send( 200, { success: true, id: policyId });
       return true;
     }
 
@@ -192,7 +188,7 @@ export async function handleAbacAdminApi(
           ? body.agent_role.trim()
           : '';
       if (!agentRole) {
-        json(res, 400, { error: 'agentRole is required' });
+        send( 400, { error: 'agentRole is required' });
         return true;
       }
 
@@ -203,7 +199,7 @@ export async function handleAbacAdminApi(
         : await resolveClassificationLevel(mcpDomain, resourceType);
 
       const result = await testAgentPermissionByRole(agentRole, mcpDomain, resourceType, classification.classificationLevel);
-      json(res, 200, {
+      send( 200, {
         mcpDomain,
         resourceType,
         classificationLevel: classification.classificationLevel,
@@ -248,7 +244,7 @@ export async function handleAbacAdminApi(
         values,
       );
 
-      json(res, 200, {
+      send( 200, {
         page,
         pageSize,
         total: countRows[0]?.count ?? 0,
@@ -257,10 +253,10 @@ export async function handleAbacAdminApi(
       return true;
     }
 
-    json(res, 404, { error: `Unknown ABAC admin endpoint: ${path}` });
+    send( 404, { error: `Unknown ABAC admin endpoint: ${path}` });
     return true;
   } catch (err) {
-    json(res, 500, { error: err instanceof Error ? err.message : String(err) });
+    send( 500, { error: err instanceof Error ? err.message : String(err) });
     return true;
   }
 }

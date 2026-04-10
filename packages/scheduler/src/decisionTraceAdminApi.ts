@@ -10,12 +10,8 @@ import {
   type DecisionTraceQueryFilters,
 } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
-
-function json(res: ServerResponse, status: number, data: unknown): void {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(data));
-}
+import { applyCorsToResponse } from './corsHeaders.js';
+import { writeJson } from './httpJson.js';
 
 async function resolveAgentKey(agentKey: string): Promise<string | null> {
   const rows = await systemQuery<{ role: string }>(
@@ -110,10 +106,14 @@ async function getDecisionExplanation(trace: DecisionTraceEntry, modelClient: Mo
   return explanation;
 }
 
-async function loadDecisionOr404(traceId: string, res: ServerResponse): Promise<DecisionTraceEntry | null> {
+async function loadDecisionOr404(
+  traceId: string,
+  res: ServerResponse,
+  req: IncomingMessage,
+): Promise<DecisionTraceEntry | null> {
   const trace = await getDecisionTraceById(traceId);
   if (!trace) {
-    json(res, 404, { error: `Decision trace not found: ${traceId}` });
+    writeJson(res, 404, { error: `Decision trace not found: ${traceId}` }, req);
     return null;
   }
   return trace;
@@ -141,7 +141,7 @@ function buildFilters(params: URLSearchParams, overrides?: Partial<DecisionTrace
 }
 
 export async function handleDecisionTraceAdminApi(
-  _req: IncomingMessage,
+  req: IncomingMessage,
   res: ServerResponse,
   url: string,
   queryString: string,
@@ -151,11 +151,12 @@ export async function handleDecisionTraceAdminApi(
   if (method !== 'GET') return false;
 
   const params = new URLSearchParams(queryString);
+  const send = (status: number, data: unknown) => writeJson(res, status, data, req);
 
   if (url === '/admin/decisions') {
     const filters = buildFilters(params);
     const result = await queryDecisionTrace(filters);
-    json(res, 200, {
+    send(200, {
       page: filters.page,
       pageSize: filters.pageSize,
       total: result.total,
@@ -169,13 +170,13 @@ export async function handleDecisionTraceAdminApi(
     const agentKey = decodeURIComponent(agentMatch[1]);
     const canonicalAgent = await resolveAgentKey(agentKey);
     if (!canonicalAgent) {
-      json(res, 404, { error: `Agent not found: ${agentKey}` });
+      send( 404, { error: `Agent not found: ${agentKey}` });
       return true;
     }
 
     const filters = buildFilters(params, { agentId: canonicalAgent });
     const result = await queryDecisionTrace(filters);
-    json(res, 200, {
+    send( 200, {
       agentId: canonicalAgent,
       page: filters.page,
       pageSize: filters.pageSize,
@@ -190,7 +191,7 @@ export async function handleDecisionTraceAdminApi(
     const taskId = decodeURIComponent(taskMatch[1]);
     const filters = buildFilters(params, { taskId });
     const result = await queryDecisionTrace(filters);
-    json(res, 200, {
+    send( 200, {
       taskId,
       page: filters.page,
       pageSize: filters.pageSize,
@@ -203,11 +204,11 @@ export async function handleDecisionTraceAdminApi(
   const explainMatch = url.match(/^\/admin\/decisions\/([^/]+)\/explain$/);
   if (explainMatch) {
     const traceId = decodeURIComponent(explainMatch[1]);
-    const trace = await loadDecisionOr404(traceId, res);
+    const trace = await loadDecisionOr404(traceId, res, req);
     if (!trace) return true;
 
     const explanation = await getDecisionExplanation(trace, options.modelClient);
-    json(res, 200, {
+    send( 200, {
       id: trace.id,
       auditLogId: trace.auditLog.id,
       explanation,
@@ -219,12 +220,12 @@ export async function handleDecisionTraceAdminApi(
   const exportMatch = url.match(/^\/admin\/decisions\/([^/]+)\/export$/);
   if (exportMatch) {
     const traceId = decodeURIComponent(exportMatch[1]);
-    const trace = await loadDecisionOr404(traceId, res);
+    const trace = await loadDecisionOr404(traceId, res, req);
     if (!trace) return true;
 
     const format = (params.get('format') ?? 'json').toLowerCase();
     if (format !== 'json' && format !== 'pdf') {
-      json(res, 400, { error: `Unsupported export format: ${format}` });
+      send(400, { error: `Unsupported export format: ${format}` });
       return true;
     }
 
@@ -232,6 +233,7 @@ export async function handleDecisionTraceAdminApi(
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Disposition', `attachment; filename="decision-trace-${trace.id}.json"`);
+      applyCorsToResponse(res, req);
       res.end(JSON.stringify(trace, null, 2));
       return true;
     }
@@ -243,6 +245,7 @@ export async function handleDecisionTraceAdminApi(
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="decision-trace-${trace.id}.pdf"`);
+    applyCorsToResponse(res, req);
     res.end(pdf);
     return true;
   }
@@ -251,9 +254,9 @@ export async function handleDecisionTraceAdminApi(
   if (!detailMatch) return false;
 
   const traceId = decodeURIComponent(detailMatch[1]);
-  const trace = await loadDecisionOr404(traceId, res);
+  const trace = await loadDecisionOr404(traceId, res, req);
   if (!trace) return true;
 
-  json(res, 200, trace);
+  send(200, trace);
   return true;
 }
