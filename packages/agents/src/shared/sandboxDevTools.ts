@@ -43,10 +43,25 @@ import {
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-export interface SandboxDevToolsConfig {
+/** One checkout inside the E2B sandbox (multi-repo = Claude-Code–style multi-root). */
+export interface SandboxWorkspaceSpec {
+  /** Stable id passed as \`workspace_id\` on sandbox tools (e.g. \`glyphor-ai-company\`). */
+  id: string;
   /** GitHub org/repo (e.g., 'glyphor-adt/glyphor-ai-company'). */
   repo: string;
   /** Branch to clone. Defaults to 'main'. */
+  branch?: string;
+}
+
+export interface SandboxDevToolsConfig {
+  /**
+   * Multiple repos in one run — each tool call must pass \`workspace_id\` (or omit when only one workspace).
+   * Prefer this for Marcus/Mia so they can work in glyphor-ai-company and glyphor-site like a Claude agent.
+   */
+  workspaces?: SandboxWorkspaceSpec[];
+  /** Single-repo shorthand — converted to one workspace with id \`default\`. */
+  repo?: string;
+  /** Branch when using \`repo\` shorthand. Defaults to 'main'. */
   branch?: string;
   /** Agent role (for audit + git user identity). */
   agentRole: string;
@@ -68,6 +83,16 @@ export interface SandboxDevToolsConfig {
   signal?: AbortSignal;
 }
 
+function normalizeWorkspaces(config: SandboxDevToolsConfig): SandboxWorkspaceSpec[] {
+  if (config.workspaces && config.workspaces.length > 0) {
+    return config.workspaces;
+  }
+  if (config.repo) {
+    return [{ id: 'default', repo: config.repo, branch: config.branch }];
+  }
+  throw new Error('[sandboxDevTools] Provide workspaces[] or repo for sandbox tools.');
+}
+
 const DEFAULT_MAX_READ = 2 * 1024 * 1024;   // 2 MB
 const DEFAULT_MAX_WRITE = 1 * 1024 * 1024;  // 1 MB
 
@@ -77,7 +102,7 @@ const DEFAULT_MAX_WRITE = 1 * 1024 * 1024;  // 1 MB
  * Creates a lazy-initialized session holder. The sandbox is only provisioned
  * on the first tool call, avoiding cost when tools are registered but unused.
  */
-function createLazySession(config: SandboxDevToolsConfig) {
+function createLazySession(binding: SandboxSessionConfig) {
   let session: SandboxSession | null = null;
   let sessionPromise: Promise<SandboxSession> | null = null;
 
@@ -85,13 +110,7 @@ function createLazySession(config: SandboxDevToolsConfig) {
     if (session?.isAlive()) return session;
 
     if (!sessionPromise) {
-      sessionPromise = createSandboxSession({
-        repo: config.repo,
-        branch: config.branch,
-        agentRole: config.agentRole,
-        runId: config.runId,
-        signal: config.signal,
-      }).then(s => {
+      sessionPromise = createSandboxSession(binding).then(s => {
         session = s;
         sessionPromise = null;
         return s;
@@ -107,6 +126,36 @@ function createLazySession(config: SandboxDevToolsConfig) {
   return { getSession };
 }
 
+function workspaceIdHelp(workspaces: SandboxWorkspaceSpec[], multi: boolean): string {
+  const ids = workspaces.map(w => w.id).join(', ');
+  if (!multi) {
+    return `workspace_id is optional (defaults to "${workspaces[0]?.id ?? 'default'}").`;
+  }
+  return `workspace_id is REQUIRED. Valid values: ${ids}. Use glyphor-ai-company for the monorepo (agents, scheduler, dashboard) and glyphor-site for the public marketing site.`;
+}
+
+function resolveWorkspaceId(
+  params: Record<string, unknown>,
+  workspaces: SandboxWorkspaceSpec[],
+): { ok: true; id: string } | { ok: false; error: string } {
+  const multi = workspaces.length > 1;
+  const raw = typeof params.workspace_id === 'string' ? params.workspace_id.trim() : '';
+  const ids = new Set(workspaces.map(w => w.id));
+  if (multi) {
+    if (!raw) {
+      return { ok: false, error: `workspace_id is required. Valid: ${[...ids].join(', ')}` };
+    }
+    if (!ids.has(raw)) {
+      return { ok: false, error: `Unknown workspace_id "${raw}". Valid: ${[...ids].join(', ')}` };
+    }
+    return { ok: true, id: raw };
+  }
+  if (raw && !ids.has(raw)) {
+    return { ok: false, error: `Unknown workspace_id "${raw}". Valid: ${[...ids].join(', ')}` };
+  }
+  return { ok: true, id: raw || workspaces[0]!.id };
+}
+
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
 export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefinition[] {
@@ -116,7 +165,46 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
     maxFileWriteBytes = DEFAULT_MAX_WRITE,
   } = config;
 
-  const { getSession } = createLazySession(config);
+  const workspaces = normalizeWorkspaces(config);
+  const multi = workspaces.length > 1;
+  const wsHelp = workspaceIdHelp(workspaces, multi);
+
+  const sessionById = new Map<string, ReturnType<typeof createLazySession>>();
+  for (const ws of workspaces) {
+    sessionById.set(
+      ws.id,
+      createLazySession({
+        repo: ws.repo,
+        branch: ws.branch,
+        agentRole: config.agentRole,
+        runId: `${config.runId}-${ws.id}`,
+        signal: config.signal,
+      }),
+    );
+  }
+
+  async function resolveSession(params: Record<string, unknown>): Promise<
+    { ok: true; session: SandboxSession; workspaceId: string } | { ok: false; error: string }
+  > {
+    const resolved = resolveWorkspaceId(params, workspaces);
+    if (!resolved.ok) return { ok: false, error: resolved.error };
+    const holder = sessionById.get(resolved.id);
+    if (!holder) return { ok: false, error: `No sandbox session for workspace ${resolved.id}` };
+    try {
+      const session = await holder.getSession();
+      return { ok: true, session, workspaceId: resolved.id };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  const workspaceParam = {
+    workspace_id: {
+      type: 'string',
+      description: wsHelp,
+      required: false,
+    },
+  } as const;
 
   // ─── Tool 1: sandbox_shell ─────────────────────────────────────────────────
 
@@ -128,8 +216,10 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
       'Use this for: running tests, installing dependencies, building code, checking git status, ' +
       'running linters, searching code, and any development task. ' +
       'The working directory defaults to the project root. ' +
-      'Commands run in an isolated container — nothing affects the host or production.',
+      'Commands run in an isolated container — nothing affects the host or production. ' +
+      wsHelp,
     parameters: {
+      ...workspaceParam,
       command: {
         type: 'string',
         description: 'The shell command to execute (e.g., "npm test", "git diff", "grep -r TODO src/")',
@@ -146,7 +236,7 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
         required: false,
       },
     },
-    async execute(params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
+    async execute(params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> {
       const command = String(params.command ?? '').trim();
       if (!command) {
         return { success: false, error: 'command is required' };
@@ -164,7 +254,9 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
       }
 
       try {
-        const session = await getSession();
+        const rs = await resolveSession(params);
+        if (!rs.ok) return { success: false, error: rs.error };
+        const { session, workspaceId } = rs;
         const cwd = params.working_directory
           ? `${session.projectDir}/${String(params.working_directory)}`
           : undefined;
@@ -177,6 +269,7 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
         return {
           success: result.exitCode === 0,
           data: {
+            workspace_id: workspaceId,
             stdout: result.stdout,
             stderr: result.stderr,
             exit_code: result.exitCode,
@@ -201,8 +294,10 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
     description:
       'Read the contents of a file from the sandboxed development environment. ' +
       'Path is relative to the project root (e.g., "src/index.ts", "package.json"). ' +
-      'Can read any file in the repo checkout — no path restrictions.',
+      'Can read any file in the repo checkout — no path restrictions. ' +
+      wsHelp,
     parameters: {
+      ...workspaceParam,
       path: {
         type: 'string',
         description: 'File path relative to project root',
@@ -216,7 +311,9 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
       }
 
       try {
-        const session = await getSession();
+        const rs = await resolveSession(params);
+        if (!rs.ok) return { success: false, error: rs.error };
+        const { session, workspaceId } = rs;
         const content = await session.readFile(filePath);
 
         if (Buffer.byteLength(content, 'utf8') > maxFileReadBytes) {
@@ -228,7 +325,7 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
 
         return {
           success: true,
-          data: { path: filePath, content, size_bytes: Buffer.byteLength(content, 'utf8') },
+          data: { workspace_id: workspaceId, path: filePath, content, size_bytes: Buffer.byteLength(content, 'utf8') },
         };
       } catch (err) {
         return {
@@ -247,8 +344,10 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
       'Create or overwrite a file in the sandboxed development environment. ' +
       'Path is relative to the project root. Parent directories are created automatically. ' +
       'Use this for creating new files or replacing entire file contents. ' +
-      'For surgical edits to existing files, prefer sandbox_file_edit.',
+      'For surgical edits to existing files, prefer sandbox_file_edit. ' +
+      wsHelp,
     parameters: {
+      ...workspaceParam,
       path: {
         type: 'string',
         description: 'File path relative to project root',
@@ -276,11 +375,13 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
       }
 
       try {
-        const session = await getSession();
+        const rs = await resolveSession(params);
+        if (!rs.ok) return { success: false, error: rs.error };
+        const { session, workspaceId } = rs;
         await session.writeFile(filePath, content);
         return {
           success: true,
-          data: { path: filePath, size_bytes: Buffer.byteLength(content, 'utf8') },
+          data: { workspace_id: workspaceId, path: filePath, size_bytes: Buffer.byteLength(content, 'utf8') },
           filesWritten: 1,
         };
       } catch (err) {
@@ -301,8 +402,10 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
       'Finds an exact string match of old_string and replaces it with new_string. ' +
       'The old_string must match EXACTLY (including whitespace and indentation). ' +
       'If old_string is empty, the new_string is appended to the file. ' +
-      'Only replaces the FIRST occurrence. For multiple replacements, call multiple times.',
+      'Only replaces the FIRST occurrence. For multiple replacements, call multiple times. ' +
+      wsHelp,
     parameters: {
+      ...workspaceParam,
       path: {
         type: 'string',
         description: 'File path relative to project root',
@@ -329,7 +432,9 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
       }
 
       try {
-        const session = await getSession();
+        const rs = await resolveSession(params);
+        if (!rs.ok) return { success: false, error: rs.error };
+        const { session, workspaceId } = rs;
 
         // Read current content
         const content = await session.readFile(filePath);
@@ -341,6 +446,7 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
           return {
             success: true,
             data: {
+              workspace_id: workspaceId,
               path: filePath,
               action: 'appended',
               bytes_added: Buffer.byteLength(newString, 'utf8'),
@@ -381,6 +487,7 @@ export function createSandboxDevTools(config: SandboxDevToolsConfig): ToolDefini
         return {
           success: true,
           data: {
+            workspace_id: workspaceId,
             path: filePath,
             action: 'replaced',
             line: content.slice(0, index).split('\n').length,

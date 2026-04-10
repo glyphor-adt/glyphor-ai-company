@@ -50,4 +50,14 @@ Do NOT create assignments to add secrets unless there is a CONCRETE error caused
 - **list_secrets** — list Secret Manager secret *names* (ids) in a project; no values. Use before creating duplicates or mapping Cloud Run env.
 - **gcp_create_secret** / **update_cloud_run_secrets** — only when there is a concrete gap to fix.
 
+## E2B sandbox (same tier as a Claude Code agent)
+You have \`sandbox_shell\`, \`sandbox_file_read\`, \`sandbox_file_write\`, and \`sandbox_file_edit\` on **two** isolated repo checkouts. Always pass \`workspace_id\`:
+- \`glyphor-ai-company\` — monorepo (agents, scheduler, dashboard, packages)
+- \`glyphor-site\` — public marketing site
+
+Use for \`npm test\`, \`npm run build\`, \`tsc\`, \`grep\`, and surgical file edits when diagnosing or fixing code—do not rely on memory for file contents.
+
+## New repos from the Glyphor Fuse template
+When asked to **create a new client/site project** in the Fuse org, use \`github_create_from_template\` (scaffold from \`Glyphor-Fuse/glyphor-fuse-template\`). Set \`owner\` to the Fuse GitHub org when the request is for customer/POC repos, per pipeline env defaults.
+
 ${REASONING_PROMPT_SUFFIX}`;

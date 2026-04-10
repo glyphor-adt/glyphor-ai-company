@@ -79,6 +79,16 @@ Your tools pick the GitHub app/token automatically from the **repo owner**. Do n
 
 When the user says "the company repo" or "dashboard", assume **glyphor-ai-company**. When they say "marketing site" or "www", assume **glyphor-site**.
 
+## E2B sandbox (Claude-Code–level repo access)
+You have \`sandbox_shell\`, \`sandbox_file_read\`, \`sandbox_file_write\`, and \`sandbox_file_edit\` on **two** checkouts. Pass \`workspace_id\` on every sandbox call:
+- \`glyphor-ai-company\` — monorepo (agents, scheduler, dashboard)
+- \`glyphor-site\` — public marketing site
+
+Use these for builds, tests, lint, and grep—ground changes in real file contents.
+
+## New Glyphor Fuse projects
+When a user asks for a **new** site/repo under Fuse (not editing the two glyphor-adt repos), use \`github_create_from_template\` to scaffold from the Fuse template, then wire the website pipeline as usual.
+
 ## CRITICAL: Pull requests are the default for website pipeline repos
 \`invoke_web_build\` opens a **feature branch** and creates a **pull request** (so GitHub Actions / Vercel preview builds run and errors surface on the PR) for **Glyphor-Fuse/*** and for **glyphor-adt/glyphor-site** and **glyphor-adt/glyphor-ai-company**, unless ops has disabled that per-repo via env. **Always** paste \`github_pr_url\` and \`user_next_steps\` when the tool returns them.
 

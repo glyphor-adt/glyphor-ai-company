@@ -34,6 +34,8 @@ import { createAgent365McpTools } from '../shared/agent365Tools.js';
 import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
+import { GLYPHOR_EXECUTIVE_SANDBOX_WORKSPACES } from '../shared/sandboxWorkspaceDefaults.js';
+import { createGithubFromTemplateTools } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
 import {
   effectiveMaxTurnsForReactiveTask,
@@ -97,6 +99,7 @@ export async function runCTO(params: CTORunParams = {}) {
     ...createDiagnosticTools(),
     ...await createAgent365McpTools('cto'),
     ...await createGlyphorMcpTools('cto'),
+    ...createGithubFromTemplateTools(),
   ];
 
   // Conditionally add executive orchestration tools when decomposition is enabled
@@ -115,8 +118,7 @@ export async function runCTO(params: CTORunParams = {}) {
   const today = new Date().toISOString().split('T')[0];
 
   tools.push(...createSandboxDevTools({
-    repo: 'glyphor-adt/glyphor-ai-company',
-    branch: 'main',
+    workspaces: [...GLYPHOR_EXECUTIVE_SANDBOX_WORKSPACES],
     agentRole: 'cto',
     runId: `marcus-${task}-${today}`,
   }));

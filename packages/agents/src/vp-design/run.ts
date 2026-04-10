@@ -52,6 +52,7 @@ import { createWebBuildPlannerTools } from '../shared/webBuildPlannerTools.js';
 import { createQuickDemoWebAppTools } from '../shared/quickDemoAppTools.js';
 import { createDesignBriefTools } from '../shared/designBriefTools.js';
 import { createSandboxDevTools } from '../shared/sandboxDevTools.js';
+import { GLYPHOR_EXECUTIVE_SANDBOX_WORKSPACES } from '../shared/sandboxWorkspaceDefaults.js';
 export interface VPDesignRunParams {
   task?: 'design_audit' | 'design_system_review' | 'on_demand';
   message?: string;
@@ -234,15 +235,12 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
   console.log(`[VP-Design] Task=${task}: loaded ${tools.length} tools (landingBuildMode=${enforceLandingBuildMode})`);
 
   const today = new Date().toISOString().split('T')[0];
-  const enableSandboxOnDemand = process.env.VP_DESIGN_ENABLE_SANDBOX_ON_DEMAND === 'true';
-  if (!isChat || enableSandboxOnDemand) {
-    tools.push(...createSandboxDevTools({
-      repo: 'glyphor-adt/glyphor-ai-company',
-      branch: 'main',
-      agentRole: 'vp-design',
-      runId: `mia-${task}-${today}`,
-    }));
-  }
+  // Claude-Code–parity: E2B sandbox for both monorepo + marketing site on every task (chat included).
+  tools.push(...createSandboxDevTools({
+    workspaces: [...GLYPHOR_EXECUTIVE_SANDBOX_WORKSPACES],
+    agentRole: 'vp-design',
+    runId: `mia-${task}-${today}`,
+  }));
 
   const toolExecutor = new ToolExecutor(tools);
 
