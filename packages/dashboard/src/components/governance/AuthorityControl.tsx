@@ -261,8 +261,8 @@ export default function AuthorityControl({
                 title={capacityFetchError ? 'Capacity API unavailable' : 'No capacity config returned'}
                 description={
                   capacityFetchError
-                    ? `${capacityFetchError} On production, confirm /api/admin/* routes to the scheduler and you are signed in. If the API returns 404, the dashboard proxy may be missing for /api/admin/agents/*/capacity.`
-                    : 'The scheduler returned no capacity row for this agent (unexpected after auto-provision). Try Refresh or check the Network tab for GET /api/admin/agents/{role}/capacity.'
+                    ? `${capacityFetchError} On production, admin requests go to the scheduler host (path /admin/agents/…/capacity). Check Network: 401 means re-auth; a CORS error means the scheduler must allow this dashboard origin.`
+                    : 'The scheduler returned no capacity row for this agent (unexpected after auto-provision). Try Refresh or check the Network tab for GET …/admin/agents/{role}/capacity.'
                 }
               />
             </div>

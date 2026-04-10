@@ -5,6 +5,7 @@ import AccessControl from '../components/governance/AccessControl';
 import AutonomyDashboard from '../components/governance/AutonomyDashboard';
 import AuthorityControl from '../components/governance/AuthorityControl';
 import ReliabilityDashboard from '../components/governance/ReliabilityDashboard';
+import EnterpriseKpiDashboard from '../components/governance/EnterpriseKpiDashboard';
 import ToolView from '../components/governance/ToolView';
 import ModelAdmin from './ModelAdmin';
 import {
@@ -691,7 +692,15 @@ async function apiCallWithTimeout<T = unknown>(path: string, options: RequestIni
   }
 }
 
-const VALID_TABS: GovernanceSurface[] = ['tool-view', 'access-control', 'authority', 'autonomy', 'reliability', 'models'];
+const VALID_TABS: GovernanceSurface[] = [
+  'tool-view',
+  'access-control',
+  'authority',
+  'autonomy',
+  'reliability',
+  'enterprise-kpis',
+  'models',
+];
 const HIDDEN_AUTHORITY_STATUSES = new Set(['retired', 'inactive', 'deleted']);
 
 export default function Governance() {
@@ -1113,6 +1122,7 @@ export default function Governance() {
           { key: 'authority', label: 'Authority' },
           { key: 'autonomy', label: 'Autonomy' },
           { key: 'reliability', label: 'Reliability' },
+          { key: 'enterprise-kpis', label: 'Enterprise KPIs' },
           { key: 'models', label: 'Models' },
         ]}
         active={activeTab}
@@ -1187,6 +1197,12 @@ export default function Governance() {
       {activeTab === 'reliability' && (
         <div id="reliability">
           <ReliabilityDashboard />
+        </div>
+      )}
+
+      {activeTab === 'enterprise-kpis' && (
+        <div id="enterprise-kpis">
+          <EnterpriseKpiDashboard />
         </div>
       )}
 

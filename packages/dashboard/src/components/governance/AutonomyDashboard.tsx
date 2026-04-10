@@ -247,7 +247,7 @@ export default function AutonomyDashboard({ isAdmin, currentUserEmail }: Autonom
         title={loadError ? 'Could not load autonomy data' : 'No autonomy profiles available'}
         description={
           loadError
-            ? `${loadError} Confirm GET /api/admin/autonomy reaches the scheduler (same host rules as other /admin routes). Empty list with no error means no active company_agents rows.`
+            ? `${loadError} Admin requests use the scheduler /admin/autonomy route (see Network). Empty list with no error means no active company_agents rows.`
             : 'Per-agent autonomy is computed from company_agents plus metrics (trust, gate pass, golden eval). If you expect agents here, check that active agents exist and /admin/autonomy returns 200.'
         }
       />

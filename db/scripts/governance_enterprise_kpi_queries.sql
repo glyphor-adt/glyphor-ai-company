@@ -1,6 +1,10 @@
 -- ============================================================================
 -- Governance / enterprise KPI checklist — ad-hoc queries against Postgres
 -- ============================================================================
+-- Dashboard: Governance → Enterprise KPIs tab calls the scheduler
+--   GET /admin/metrics/enterprise-kpi-snapshot?window=30
+-- (same aggregates as below, for a quick UI snapshot).
+--
 -- Run in psql, Metabase, Cloud SQL Studio, or CI after setting variables below.
 --
 --   \set window_days 30

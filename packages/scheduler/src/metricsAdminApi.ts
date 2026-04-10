@@ -1003,6 +1003,414 @@ export async function getAgentOpsMetrics(windowDays: 7 | 30 | 90): Promise<{
   };
 }
 
+/** Aggregates SQL checklist KPIs from `db/scripts/governance_enterprise_kpi_queries.sql` for the dashboard. */
+export async function getEnterpriseKpiSnapshot(windowDays: 7 | 30 | 90): Promise<{
+  windowDays: number;
+  generatedAt: string;
+  proactivity: {
+    enabledSchedules: number;
+    disabledSchedules: number;
+    lastScheduleTriggerAt: string | null;
+    runsInWindow: number;
+    runsCompletedInWindow: number;
+    topTasks: Array<{ task: string | null; runs: number }>;
+  } | null;
+  proactivityError?: string;
+  commitments: {
+    pendingApprovalNow: number;
+    byStatusInWindow: Array<{ status: string; count: number }>;
+  } | null;
+  commitmentsError?: string;
+  circuitBreaker: {
+    haltActive: boolean;
+    haltLevel: number | null;
+    haltReason: string | null;
+    triggeredAt: string | null;
+    triggeredBy: string | null;
+  } | null;
+  circuitBreakerError?: string;
+  auditTrail: {
+    agentRunEventsInWindow: number;
+    runsWithPlanManifest: number;
+    runsInWindow: number;
+    decisionTracesInWindow: number | null;
+  } | null;
+  auditTrailError?: string;
+  knowledge: {
+    worldModelOldestUpdateAt: string | null;
+    worldModelNewestUpdateAt: string | null;
+    contradictionsByStatus: Array<{ status: string; count: number }> | null;
+    unresolvedContradictions: number | null;
+  } | null;
+  knowledgeError?: string;
+  handoffs: {
+    byStatusInWindow: Array<{ status: string; count: number }>;
+    escalatedInWindow: number;
+  } | null;
+  handoffsError?: string;
+  coordination: {
+    chiefOfStaffRunsInWindow: number;
+    workAssignmentsInWindow: number;
+  } | null;
+  coordinationError?: string;
+  resilience: {
+    completionGateAutoRepairTriggersInWindow: number;
+    completionGateFailedEventsInWindow: number;
+    completionGatePassedEventsInWindow: number;
+  } | null;
+  resilienceError?: string;
+  goldenEval: {
+    total: number;
+    passed: number;
+    passRate: number | null;
+    byRole: Array<{ agentRole: string; total: number; passed: number; passRate: number }>;
+  } | null;
+  goldenEvalError?: string;
+}> {
+  const generatedAt = new Date().toISOString();
+  const intervalDays = windowDays;
+
+  let proactivity: {
+    enabledSchedules: number;
+    disabledSchedules: number;
+    lastScheduleTriggerAt: string | null;
+    runsInWindow: number;
+    runsCompletedInWindow: number;
+    topTasks: Array<{ task: string | null; runs: number }>;
+  } | null = null;
+  let proactivityError: string | undefined;
+
+  try {
+    const [schedRows, runAgg, taskTop] = await Promise.all([
+      systemQuery<{ enabled: number; disabled: number; last_triggered: string | null }>(
+        `SELECT
+           COUNT(*) FILTER (WHERE enabled)::int AS enabled,
+           COUNT(*) FILTER (WHERE NOT enabled)::int AS disabled,
+           MAX(last_triggered_at)::text AS last_triggered
+         FROM agent_schedules`,
+        [],
+      ),
+      systemQuery<{ total: number; completed: number }>(
+        `SELECT
+           COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE status = 'completed')::int AS completed
+         FROM agent_runs
+         WHERE started_at >= NOW() - ($1::int * INTERVAL '1 day')`,
+        [intervalDays],
+      ),
+      systemQuery<{ task: string | null; runs: number }>(
+        `SELECT task, COUNT(*)::int AS runs
+         FROM agent_runs
+         WHERE started_at >= NOW() - ($1::int * INTERVAL '1 day')
+         GROUP BY task
+         ORDER BY runs DESC
+         LIMIT 8`,
+        [intervalDays],
+      ),
+    ]);
+    const s = schedRows[0];
+    const r = runAgg[0];
+    proactivity = {
+      enabledSchedules: s?.enabled ?? 0,
+      disabledSchedules: s?.disabled ?? 0,
+      lastScheduleTriggerAt: s?.last_triggered ?? null,
+      runsInWindow: r?.total ?? 0,
+      runsCompletedInWindow: r?.completed ?? 0,
+      topTasks: (taskTop ?? []).map((row) => ({ task: row.task, runs: row.runs })),
+    };
+  } catch (err) {
+    proactivityError = err instanceof Error ? err.message : String(err);
+  }
+
+  let commitments: {
+    pendingApprovalNow: number;
+    byStatusInWindow: Array<{ status: string; count: number }>;
+  } | null = null;
+  let commitmentsError: string | undefined;
+  try {
+    const [pendingRows, byStatus] = await Promise.all([
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM commitment_registry WHERE status = 'pending_approval'`,
+        [],
+      ),
+      systemQuery<{ status: string; count: string }>(
+        `SELECT status::text, COUNT(*)::text AS count
+         FROM commitment_registry
+         WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+         GROUP BY status`,
+        [intervalDays],
+      ),
+    ]);
+    commitments = {
+      pendingApprovalNow: Number(pendingRows[0]?.count ?? 0),
+      byStatusInWindow: (byStatus ?? []).map((row) => ({
+        status: row.status,
+        count: Number(row.count),
+      })),
+    };
+  } catch (err) {
+    commitmentsError = err instanceof Error ? err.message : String(err);
+  }
+
+  let circuitBreaker: {
+    haltActive: boolean;
+    haltLevel: number | null;
+    haltReason: string | null;
+    triggeredAt: string | null;
+    triggeredBy: string | null;
+  } | null = null;
+  let circuitBreakerError: string | undefined;
+  try {
+    const cfgRows = await systemQuery<{ key: string; value: string }>(
+      `SELECT key, value FROM system_config WHERE key LIKE 'circuit_breaker_%'`,
+      [],
+    );
+    const m = new Map(cfgRows.map((r) => [r.key, r.value]));
+    const active = (m.get('circuit_breaker_halt_active') ?? '').toLowerCase() === 'true';
+    const levelRaw = m.get('circuit_breaker_halt_level');
+    const level = levelRaw != null && levelRaw !== '' ? Number(levelRaw) : null;
+    circuitBreaker = {
+      haltActive: active,
+      haltLevel: Number.isFinite(level) ? level : null,
+      haltReason: m.get('circuit_breaker_halt_reason') ?? null,
+      triggeredAt: m.get('circuit_breaker_halt_triggered_at') ?? null,
+      triggeredBy: m.get('circuit_breaker_halt_triggered_by') ?? null,
+    };
+  } catch (err) {
+    circuitBreakerError = err instanceof Error ? err.message : String(err);
+  }
+
+  let auditTrail: {
+    agentRunEventsInWindow: number;
+    runsWithPlanManifest: number;
+    runsInWindow: number;
+    decisionTracesInWindow: number | null;
+  } | null = null;
+  let auditTrailError: string | undefined;
+  try {
+    const [evRows, planRows, runCount, dtRows] = await Promise.all([
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM agent_run_events
+         WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')`,
+        [intervalDays],
+      ),
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM agent_runs
+         WHERE started_at >= NOW() - ($1::int * INTERVAL '1 day')
+           AND plan_manifest IS NOT NULL`,
+        [intervalDays],
+      ),
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM agent_runs
+         WHERE started_at >= NOW() - ($1::int * INTERVAL '1 day')`,
+        [intervalDays],
+      ),
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM decision_traces
+         WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')`,
+        [intervalDays],
+      ).catch(() => [{ count: '0' }]),
+    ]);
+    auditTrail = {
+      agentRunEventsInWindow: Number(evRows[0]?.count ?? 0),
+      runsWithPlanManifest: Number(planRows[0]?.count ?? 0),
+      runsInWindow: Number(runCount[0]?.count ?? 0),
+      decisionTracesInWindow: Number(dtRows[0]?.count ?? 0),
+    };
+  } catch (err) {
+    auditTrailError = err instanceof Error ? err.message : String(err);
+  }
+
+  let knowledge: {
+    worldModelOldestUpdateAt: string | null;
+    worldModelNewestUpdateAt: string | null;
+    contradictionsByStatus: Array<{ status: string; count: number }> | null;
+    unresolvedContradictions: number | null;
+  } | null = null;
+  let knowledgeError: string | undefined;
+  try {
+    const [wmRows, cxRows, unRows] = await Promise.all([
+      systemQuery<{ oldest: string | null; newest: string | null }>(
+        `SELECT MIN(updated_at)::text AS oldest, MAX(updated_at)::text AS newest FROM agent_world_model`,
+        [],
+      ),
+      systemQuery<{ status: string; count: string }>(
+        `SELECT status::text, COUNT(*)::text AS count FROM kg_contradictions GROUP BY status`,
+        [],
+      ).catch(() => [] as { status: string; count: string }[]),
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM kg_contradictions WHERE status = 'detected'`,
+        [],
+      ).catch(() => [{ count: '0' }]),
+    ]);
+    const wm = wmRows[0];
+    knowledge = {
+      worldModelOldestUpdateAt: wm?.oldest ?? null,
+      worldModelNewestUpdateAt: wm?.newest ?? null,
+      contradictionsByStatus: (cxRows ?? []).map((r) => ({ status: r.status, count: Number(r.count) })),
+      unresolvedContradictions: Number(unRows[0]?.count ?? 0),
+    };
+  } catch (err) {
+    knowledgeError = err instanceof Error ? err.message : String(err);
+  }
+
+  let handoffs: {
+    byStatusInWindow: Array<{ status: string; count: number }>;
+    escalatedInWindow: number;
+  } | null = null;
+  let handoffsError: string | undefined;
+  try {
+    const [byStatus, esc] = await Promise.all([
+      systemQuery<{ status: string; count: string }>(
+        `SELECT status::text, COUNT(*)::text AS count
+         FROM agent_handoff_contracts
+         WHERE issued_at >= NOW() - ($1::int * INTERVAL '1 day')
+         GROUP BY status`,
+        [intervalDays],
+      ),
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count
+         FROM agent_handoff_contracts
+         WHERE issued_at >= NOW() - ($1::int * INTERVAL '1 day')
+           AND status = 'escalated'`,
+        [intervalDays],
+      ),
+    ]);
+    handoffs = {
+      byStatusInWindow: (byStatus ?? []).map((r) => ({ status: r.status, count: Number(r.count) })),
+      escalatedInWindow: Number(esc[0]?.count ?? 0),
+    };
+  } catch (err) {
+    handoffsError = err instanceof Error ? err.message : String(err);
+  }
+
+  let coordination: {
+    chiefOfStaffRunsInWindow: number;
+    workAssignmentsInWindow: number;
+  } | null = null;
+  let coordinationError: string | undefined;
+  try {
+    const [cosRows, waRows] = await Promise.all([
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM agent_runs
+         WHERE agent_id = 'chief-of-staff'
+           AND started_at >= NOW() - ($1::int * INTERVAL '1 day')`,
+        [intervalDays],
+      ),
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM work_assignments
+         WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')`,
+        [intervalDays],
+      ).catch(() => [{ count: '0' }]),
+    ]);
+    coordination = {
+      chiefOfStaffRunsInWindow: Number(cosRows[0]?.count ?? 0),
+      workAssignmentsInWindow: Number(waRows[0]?.count ?? 0),
+    };
+  } catch (err) {
+    coordinationError = err instanceof Error ? err.message : String(err);
+  }
+
+  let resilience: {
+    completionGateAutoRepairTriggersInWindow: number;
+    completionGateFailedEventsInWindow: number;
+    completionGatePassedEventsInWindow: number;
+  } | null = null;
+  let resilienceError: string | undefined;
+  try {
+    const [ar, fail, pass] = await Promise.all([
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM agent_run_events
+         WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+           AND event_type = 'completion_gate_auto_repair_triggered'`,
+        [intervalDays],
+      ),
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM agent_run_events
+         WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+           AND event_type = 'completion_gate_failed'`,
+        [intervalDays],
+      ),
+      systemQuery<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM agent_run_events
+         WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+           AND event_type = 'completion_gate_passed'`,
+        [intervalDays],
+      ),
+    ]);
+    resilience = {
+      completionGateAutoRepairTriggersInWindow: Number(ar[0]?.count ?? 0),
+      completionGateFailedEventsInWindow: Number(fail[0]?.count ?? 0),
+      completionGatePassedEventsInWindow: Number(pass[0]?.count ?? 0),
+    };
+  } catch (err) {
+    resilienceError = err instanceof Error ? err.message : String(err);
+  }
+
+  let goldenEval: {
+    total: number;
+    passed: number;
+    passRate: number | null;
+    byRole: Array<{ agentRole: string; total: number; passed: number; passRate: number }>;
+  } | null = null;
+  let goldenEvalError: string | undefined;
+  try {
+    const [fleet, byRole] = await Promise.all([
+      systemQuery<{ total: number; passed: number }>(
+        `SELECT
+           COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE r.score = 'PASS')::int AS passed
+         FROM agent_eval_results r
+         JOIN agent_eval_scenarios s ON s.id = r.scenario_id
+         WHERE r.run_date >= NOW() - ($1::int * INTERVAL '1 day')
+           AND s.scenario_name ILIKE 'golden:%'
+           AND r.tenant_id = $2::uuid`,
+        [intervalDays, SYSTEM_EVAL_TENANT_ID],
+      ),
+      listGoldenEvalPassRatesByRole(windowDays),
+    ]);
+    const f = fleet[0];
+    const total = f?.total ?? 0;
+    const passed = f?.passed ?? 0;
+    goldenEval = {
+      total,
+      passed,
+      passRate: total > 0 ? Number((passed / total).toFixed(4)) : null,
+      byRole: (byRole ?? []).map((row) => ({
+        agentRole: row.agentRole,
+        total: row.total,
+        passed: row.passed,
+        passRate: row.passRate,
+      })),
+    };
+  } catch (err) {
+    goldenEvalError = err instanceof Error ? err.message : String(err);
+  }
+
+  return {
+    windowDays,
+    generatedAt,
+    proactivity,
+    proactivityError,
+    commitments,
+    commitmentsError,
+    circuitBreaker,
+    circuitBreakerError,
+    auditTrail,
+    auditTrailError,
+    knowledge,
+    knowledgeError,
+    handoffs,
+    handoffsError,
+    coordination,
+    coordinationError,
+    resilience,
+    resilienceError,
+    goldenEval,
+    goldenEvalError,
+  };
+}
+
 export async function handleMetricsAdminApi(
   req: IncomingMessage,
   res: ServerResponse,
@@ -1197,6 +1605,12 @@ export async function handleMetricsAdminApi(
     if (normalizedUrl === '/admin/metrics/agent-ops') {
       const windowDays = parseWindow(params.get('window'), 7);
       json(res, 200, await getAgentOpsMetrics(windowDays));
+      return true;
+    }
+
+    if (normalizedUrl === '/admin/metrics/enterprise-kpi-snapshot') {
+      const windowDays = parseWindow(params.get('window'));
+      json(res, 200, await getEnterpriseKpiSnapshot(windowDays));
       return true;
     }
 

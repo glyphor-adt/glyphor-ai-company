@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, SectionHeader, Skeleton } from '../ui';
-import { apiCall, buildApiHeaders, IS_PROD_DASHBOARD_HOST, SCHEDULER_URL } from '../../lib/firebase';
+import { apiCall, buildApiHeaders, CANONICAL_SCHEDULER_URL, IS_PROD_DASHBOARD_HOST, SCHEDULER_URL } from '../../lib/firebase';
 
 interface FleetLeaderMetric {
   agentId: string;
@@ -194,20 +194,19 @@ interface PlanningGateHealthPayload {
   };
 }
 
-const CANONICAL_SCHEDULER_BASE = 'https://glyphor-scheduler-610179349713.us-central1.run.app';
-
 function candidateMetricPaths(path: string): string[] {
   if (path.startsWith('/admin/')) {
-    return IS_PROD_DASHBOARD_HOST ? [`/api${path}`] : [path, `/api${path}`];
+    // Prefer `/admin/*` on scheduler; `/api/admin/*` on dashboard origin is the CRUD API (wrong handler).
+    return [path, `/api${path}`];
   }
   return [path];
 }
 
 function metricFallbackBases(): string[] {
   if (IS_PROD_DASHBOARD_HOST) {
-    return [window.location.origin];
+    return [window.location.origin, CANONICAL_SCHEDULER_URL.trim()].filter(Boolean);
   }
-  return [window.location.origin, (SCHEDULER_URL ?? '').trim(), CANONICAL_SCHEDULER_BASE]
+  return [window.location.origin, (SCHEDULER_URL ?? '').trim(), CANONICAL_SCHEDULER_URL]
     .map((base) => base.trim())
     .filter(Boolean);
 }

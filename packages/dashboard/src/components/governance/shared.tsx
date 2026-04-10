@@ -4,7 +4,14 @@ import { Card } from '../ui';
 import { DISPLAY_NAME_MAP, ROLE_DEPARTMENT, ROLE_TIER, ROLE_TITLE } from '../../lib/types';
 import { LIVE_ROSTER_ORDER } from '../../lib/liveRoster';
 
-export type GovernanceSurface = 'tool-view' | 'access-control' | 'authority' | 'autonomy' | 'reliability' | 'models';
+export type GovernanceSurface =
+  | 'tool-view'
+  | 'access-control'
+  | 'authority'
+  | 'autonomy'
+  | 'reliability'
+  | 'enterprise-kpis'
+  | 'models';
 export type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info' | 'good' | 'warning';
 

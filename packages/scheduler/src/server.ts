@@ -169,6 +169,8 @@ const TRUSTED_CORS_ORIGINS = new Set<string>(
     'http://localhost:3000',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:3000',
+    // Prod Cloud Run dashboard (browser calls scheduler `/admin/*` directly; must match firebase CANONICAL host pair)
+    'https://glyphor-dashboard-610179349713.us-central1.run.app',
   ].filter((origin): origin is string => Boolean(origin && origin.length > 0))
     .map((origin) => origin.replace(/\/$/, '')),
 );

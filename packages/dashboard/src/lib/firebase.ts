@@ -109,7 +109,8 @@ export async function buildApiHeaders(headers?: HeadersInit): Promise<Record<str
 }
 
 const LEGACY_SCHEDULER_HOST = 'glyphor-scheduler-v55622rp6q-uc.a.run.app';
-const CANONICAL_SCHEDULER_URL = 'https://glyphor-scheduler-610179349713.us-central1.run.app';
+/** Scheduler origin — admin routes live here (`/admin/*`), not on the dashboard service. */
+export const CANONICAL_SCHEDULER_URL = 'https://glyphor-scheduler-610179349713.us-central1.run.app';
 const PROD_DASHBOARD_HOST = 'glyphor-dashboard-610179349713.us-central1.run.app';
 const BROWSER_AUTH_STORAGE_KEY = 'glyphor-auth';
 
@@ -128,17 +129,23 @@ const API_URL = IS_PROD_DASHBOARD_HOST
   ? ''
   : normalizeSchedulerUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_SCHEDULER_URL);
 
+/**
+ * Same-origin `/api/*` on the prod dashboard host is the dashboard CRUD API (`dashboardApi.ts`).
+ * Rewriting `/admin/*` to `/api/admin/*` makes the first path segment `admin` → 404 Unknown API resource.
+ * So on prod dashboard, scheduler admin routes must use the scheduler origin + `/admin/...` (browser CORS
+ * must allow the dashboard origin — see scheduler `CORS_ALLOWED_ORIGINS` / `DASHBOARD_URL`).
+ */
 function resolveApiPath(path: string): string {
   const normalized = path.startsWith('/') ? path : `/${path}`;
-  if (IS_PROD_DASHBOARD_HOST && normalized.startsWith('/admin/')) {
-    return `/api${normalized}`;
-  }
   return normalized;
 }
 
 export async function apiCall<T = any>(path: string, options: RequestInit = {}): Promise<T> {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  const useSchedulerForAdmin = IS_PROD_DASHBOARD_HOST && normalized.startsWith('/admin/');
+  const baseUrl = useSchedulerForAdmin ? CANONICAL_SCHEDULER_URL : API_URL;
   const resolvedPath = resolveApiPath(path);
-  const res = await fetch(`${API_URL}${resolvedPath}`, {
+  const res = await fetch(`${baseUrl}${resolvedPath}`, {
     ...options,
     headers: await buildApiHeaders(options.headers),
   });
