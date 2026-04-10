@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, SectionHeader, Skeleton } from '../ui';
-import { apiCall, buildApiHeaders, CANONICAL_SCHEDULER_URL, IS_PROD_DASHBOARD_HOST, SCHEDULER_URL } from '../../lib/firebase';
+import { apiCall, buildApiHeaders, CANONICAL_SCHEDULER_URL, isDashboardSchedulerSplitHost, SCHEDULER_URL } from '../../lib/firebase';
 
 interface FleetLeaderMetric {
   agentId: string;
@@ -203,7 +203,7 @@ function candidateMetricPaths(path: string): string[] {
 }
 
 function metricFallbackBases(): string[] {
-  if (IS_PROD_DASHBOARD_HOST) {
+  if (isDashboardSchedulerSplitHost()) {
     return [window.location.origin, CANONICAL_SCHEDULER_URL.trim()].filter(Boolean);
   }
   return [window.location.origin, (SCHEDULER_URL ?? '').trim(), CANONICAL_SCHEDULER_URL]

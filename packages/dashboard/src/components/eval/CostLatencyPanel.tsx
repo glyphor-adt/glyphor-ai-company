@@ -48,10 +48,11 @@ export default function CostLatencyPanel() {
           Cost &amp; Latency Tracking
         </h3>
         <p className="text-sm text-txt-muted leading-relaxed">
-          Not yet instrumented. Add <code className="text-[#00E0FF]/70">total_tokens</code>,{' '}
-          <code className="text-[#00E0FF]/70">duration_ms</code>, and{' '}
-          <code className="text-[#00E0FF]/70">estimated_cost_usd</code> to{' '}
-          <code className="text-[#00E0FF]/70">agent_runs</code> to enable this panel.
+          No qualifying runs in the last 30 days: the API needs <code className="text-[#00E0FF]/70">input_tokens</code>{' '}
+          (plus output/thinking), <code className="text-[#00E0FF]/70">duration_ms</code>, and{' '}
+          <code className="text-[#00E0FF]/70">estimated_cost_usd</code> populated on{' '}
+          <code className="text-[#00E0FF]/70">agent_runs</code>. If the Fleet API was misrouted, fix prod dashboard → scheduler routing for{' '}
+          <code className="text-[#00E0FF]/70">/api/eval/*</code> first.
         </p>
       </div>
     );

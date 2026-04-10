@@ -121,29 +121,77 @@ function normalizeSchedulerUrl(rawValue: string | undefined): string {
   return value;
 }
 
-export const IS_PROD_DASHBOARD_HOST =
-  typeof window !== 'undefined'
-  && window.location.hostname === PROD_DASHBOARD_HOST;
-
-const API_URL = IS_PROD_DASHBOARD_HOST
-  ? ''
-  : normalizeSchedulerUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_SCHEDULER_URL);
+/** Hostname only — accepts `dashboard.example.com` or `https://dashboard.example.com/path`. */
+function parseDashboardHostEntry(raw: string): string {
+  const t = raw.trim();
+  if (!t) return '';
+  try {
+    if (t.includes('://')) {
+      return new URL(t).hostname;
+    }
+  } catch {
+    // fall through
+  }
+  return t.split('/')[0] ?? t;
+}
 
 /**
- * Same-origin `/api/*` on the prod dashboard host is the dashboard CRUD API (`dashboardApi.ts`).
- * Rewriting `/admin/*` to `/api/admin/*` makes the first path segment `admin` → 404 Unknown API resource.
- * So on prod dashboard, scheduler admin routes must use the scheduler origin + `/admin/...` (browser CORS
- * must allow the dashboard origin — see scheduler `CORS_ALLOWED_ORIGINS` / `DASHBOARD_URL`).
+ * True when the SPA is served from a dashboard-only host: same-origin `/api/*` is dashboard CRUD,
+ * so `/admin/*`, `/api/eval/*`, and `/api/governance/*` must be sent to the scheduler origin.
+ * Matches the canonical Cloud Run hostname, any `glyphor-dashboard-*.*.run.app` deployment,
+ * and optional comma-separated `VITE_DASHBOARD_HOSTNAME` (hostnames or full origins).
+ */
+export function isDashboardSchedulerSplitHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  if (h === PROD_DASHBOARD_HOST) return true;
+  const extra = (import.meta.env.VITE_DASHBOARD_HOSTNAME ?? '')
+    .split(',')
+    .map((s: string) => parseDashboardHostEntry(s))
+    .filter(Boolean);
+  if (extra.includes(h)) return true;
+  // e.g. glyphor-dashboard-<project>.us-central1.run.app (redeploys / new project ids)
+  if (/^glyphor-dashboard-[a-z0-9-]+\.[a-z0-9.-]+\.run\.app$/i.test(h)) return true;
+  return false;
+}
+
+/** Alias for split-dashboard detection (same semantics as isDashboardSchedulerSplitHost at first paint). */
+export const IS_PROD_DASHBOARD_HOST =
+  typeof window !== 'undefined' && isDashboardSchedulerSplitHost();
+
+function getDashboardCrudApiBaseUrl(): string {
+  if (typeof window !== 'undefined' && isDashboardSchedulerSplitHost()) {
+    return '';
+  }
+  return normalizeSchedulerUrl(import.meta.env.VITE_API_URL || import.meta.env.VITE_SCHEDULER_URL);
+}
+
+/**
+ * Same-origin `/api/*` on the prod dashboard host is the dashboard CRUD API (`dashboardApi.ts` table routes).
+ * Paths handled by the scheduler must not hit that layer — e.g. `/api/eval/*` would be parsed as table `eval`
+ * → 404 Unknown API resource. So on prod dashboard, use the scheduler origin for:
+ *   - `/admin/*` (admin APIs)
+ *   - `/api/eval/*` (Fleet, eval dashboard — `evalDashboard.ts`)
+ *   - `/api/governance/*` (governance JSON API — `handleGovernanceApi`)
+ * CORS: scheduler must allow this dashboard origin (`CORS_ALLOWED_ORIGINS` / `DASHBOARD_URL`).
  */
 function resolveApiPath(path: string): string {
   const normalized = path.startsWith('/') ? path : `/${path}`;
   return normalized;
 }
 
+function isSchedulerHostedPath(normalizedPath: string): boolean {
+  return (
+    normalizedPath.startsWith('/admin/')
+    || normalizedPath.startsWith('/api/eval/')
+    || normalizedPath.startsWith('/api/governance/')
+  );
+}
+
 export async function apiCall<T = any>(path: string, options: RequestInit = {}): Promise<T> {
   const normalized = path.startsWith('/') ? path : `/${path}`;
-  const useSchedulerForAdmin = IS_PROD_DASHBOARD_HOST && normalized.startsWith('/admin/');
-  const baseUrl = useSchedulerForAdmin ? CANONICAL_SCHEDULER_URL : API_URL;
+  const useScheduler = isDashboardSchedulerSplitHost() && isSchedulerHostedPath(normalized);
+  const baseUrl = useScheduler ? CANONICAL_SCHEDULER_URL : getDashboardCrudApiBaseUrl();
   const resolvedPath = resolveApiPath(path);
   const res = await fetch(`${baseUrl}${resolvedPath}`, {
     ...options,
@@ -173,4 +221,6 @@ export async function apiCall<T = any>(path: string, options: RequestInit = {}):
 
 export { AUTH_EXPIRED_EVENT };
 
-export const SCHEDULER_URL = normalizeSchedulerUrl((import.meta.env.VITE_SCHEDULER_URL as string) ?? API_URL);
+export const SCHEDULER_URL = normalizeSchedulerUrl(
+  (import.meta.env.VITE_SCHEDULER_URL as string) ?? getDashboardCrudApiBaseUrl(),
+);
