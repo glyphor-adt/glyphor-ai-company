@@ -64,6 +64,7 @@ import { WakeRouter } from './wakeRouter.js';
 import { DataSyncScheduler } from './dataSyncScheduler.js';
 import { HeartbeatManager } from './heartbeat.js';
 import { AgentNotifier } from './agentNotifier.js';
+import { relayUrgentFounderReplyIfNeeded } from './urgentFounderRelay.js';
 import { runEconomicsGuardrailNotify } from './economicsGuardrailNotify.js';
 import { handleDashboardApi } from './dashboardApi.js';
 import type { AuthenticatedDashboardUser } from './dashboardApi.js';
@@ -1153,7 +1154,11 @@ const agentExecutor = async (
       conversationHistory,
     });
   } else if (agentRole === 'cfo') {
-    return runCFO({ task: (task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand'), message, conversationHistory });
+    return runCFO({
+      task: (task as 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand' | 'urgent_message_response'),
+      message,
+      conversationHistory,
+    });
   } else if (agentRole === 'cpo') {
     return runCPO({ task: (task as 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand'), message, conversationHistory });
   } else if (agentRole === 'cmo') {
@@ -2888,6 +2893,16 @@ const trackedAgentExecutor = async (
       agentNotifier.processAgentOutput(agentRole, result.output)
         .then(n => { if (n > 0) console.log(`[AgentNotifier] ${agentRole} sent ${n} notification(s)`); })
         .catch(err => console.error(`[AgentNotifier] Error processing ${agentRole}:`, err));
+      void relayUrgentFounderReplyIfNeeded({
+        task,
+        agentRole,
+        inputMessage: inputMsg,
+        output: result.output,
+        payload,
+        agentNotifier,
+      }).then(n => {
+        if (n > 0) console.log(`[urgentFounderRelay] ${agentRole} delivered ${n} founder notification(s)`);
+      }).catch(err => console.error(`[urgentFounderRelay] ${agentRole}:`, err));
     }
 
     return result;

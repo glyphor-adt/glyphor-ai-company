@@ -34,7 +34,7 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface CFORunParams {
-  task?: 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand';
+  task?: 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand' | 'urgent_message_response';
   message?: string;
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
@@ -113,6 +113,12 @@ Steps:
 
     case 'on_demand':
       initialMessage = params.message || 'Provide a financial health summary of the company.';
+      break;
+
+    case 'urgent_message_response':
+      initialMessage =
+        params.message?.trim()
+        || 'URGENT: a peer message needs a timely response. Use financial tools to verify facts when answering; keep the reply concise.';
       break;
 
     default:
