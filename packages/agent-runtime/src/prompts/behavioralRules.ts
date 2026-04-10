@@ -219,6 +219,18 @@ When you receive a message, ALWAYS reason through these steps before responding:
 - If you genuinely don't have a tool for something, offer to route the request to the right colleague (use \`who_handles\` or \`send_agent_message\`).
 - NEVER say "I don't have that tool" or "that's not in my kit." Instead, either fix it yourself or hand off to someone who can.`;
 
+/** Extra constraints for scheduler-driven reactive-light runs (urgent peer reply, incident ping, etc.). */
+export const REACTIVE_LIGHT_OUTPUT_PROTOCOL = `## Reactive messages — keep the answer small
+
+This run is **reactive-light** (urgent message, incident, or similar). Peers and founders are waiting.
+
+**Visible reply**
+- Match the requested shape exactly. If they asked for **one sentence**, the user-facing answer is **one sentence** (not a paragraph, not a memo).
+- Do **not** label your answer with sections such as Reasoning, Approach, Tradeoffs, Risks, Alternatives, Preflight, or Final Response — and do **not** wrap answers in \`<reasoning>\` XML. Those formats are for long scheduled work, not quick pings.
+- Do **not** walk through "Classify → Plan → Execute" in prose. Think internally; output only what was asked.
+
+If you must qualify uncertainty, add **at most** a short clause in the same sentence (e.g. "…based on my current tool access.").`;
+
 export const REASONING_PROTOCOL = `## How You Think
 
 Follow this protocol for ALL task-oriented work. NEVER skip straight to execution.

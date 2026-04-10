@@ -96,6 +96,7 @@ import {
   EXTERNAL_COMMUNICATION_PROTOCOL,
   TEAMS_COMMUNICATION_PROTOCOL,
   INSTRUCTION_ECHO_PROTOCOL,
+  REACTIVE_LIGHT_OUTPUT_PROTOCOL,
   WORK_ASSIGNMENTS_PROTOCOL,
   ALWAYS_ON_PROTOCOL,
   COLLABORATION_PROTOCOL,
@@ -819,10 +820,11 @@ function buildSystemPrompt(
 
     const useChatStyleProtocols = isOnDemand || reactiveLightPrompt;
 
-    // For on_demand chat (and reactive-light scheduled tasks), replace the heavy
-    // REASONING_PROMPT_SUFFIX with a chat-appropriate data honesty rule. We keep
-    // anti-hallucination constraints but drop the XML reasoning block requirement.
-    if (useChatStyleProtocols && effectivePrompt.includes('Data Honesty')) {
+    // For on_demand chat (and reactive-light scheduled tasks), drop the XML
+    // <reasoning> block requirement from the role prompt. Strip whenever chat-style
+    // protocols apply — do not require a "Data Honesty" substring (DB prompt overrides
+    // may omit it while still embedding REASONING_PROMPT_SUFFIX).
+    if (useChatStyleProtocols) {
       effectivePrompt = effectivePrompt.replace(REASONING_PROMPT_SUFFIX, '');
     }
 
@@ -876,6 +878,10 @@ function buildSystemPrompt(
           parts.push(buildDynamicExecutiveOrchestrationProtocol(role, orchestrationConfig));
           components.push('dynamic_orchestration');
         }
+      }
+      if (reactiveLightPrompt && !isOnDemand) {
+        parts.push(REACTIVE_LIGHT_OUTPUT_PROTOCOL);
+        components.push('reactive_light_output');
       }
     } else {
       parts.push(REASONING_PROTOCOL);

@@ -7,7 +7,7 @@ This document maps **how Glyphor classifies work** (scheduler `task`, `requestSo
 The **reactive-light** row is implemented in `packages/agent-runtime/src/taskClassPolicy.ts` and wired as follows:
 
 - **`REACTIVE_LIGHT_TASKS`** — `urgent_message_response`, `incident_response`, `event_message_sent`.
-- **Prompts** — For these tasks, `CompanyAgentRunner` passes `reactiveLightPrompt` into `buildSystemPrompt`, which applies the same **chat-light** protocol stack as dashboard chat (and strips the XML `<reasoning>` suffix when the role prompt includes it). Full KB + department context stay loaded (unlike pure `on_demand`). Executives also receive `EXECUTIVE_ORCHESTRATION_PROTOCOL` (and dynamic orchestration when applicable).
+- **Prompts** — For these tasks, `CompanyAgentRunner` passes `reactiveLightPrompt` into `buildSystemPrompt`, which applies the same **chat-light** protocol stack as dashboard chat, **strips** `REASONING_PROMPT_SUFFIX` (XML `<reasoning>`) from the role prompt whenever chat-style protocols apply, and appends **`REACTIVE_LIGHT_OUTPUT_PROTOCOL`** so the visible reply stays minimal (no Approach/Tradeoffs-style sections). Full KB + department context stay loaded (unlike pure `on_demand`). Executives also receive `EXECUTIVE_ORCHESTRATION_PROTOCOL` (and dynamic orchestration when applicable).
 - **Tool pre-execution value gate** — `ToolContext.schedulerTask` is set to the scheduler task name; the executor skips the pre-exec value gate for reactive-light tasks by default. Set **`TOOL_VALUE_GATE_REACTIVE_LIGHT=enforce`** to keep the gate on for those tasks.
 - **Exports** — `isReactiveLightTask`, `REACTIVE_LIGHT_TASKS`, `shouldSkipValueGateForReactiveLightTask` from `@glyphor/agent-runtime`.
 
@@ -15,8 +15,8 @@ The **reactive-light** row is implemented in `packages/agent-runtime/src/taskCla
 
 | Task class | Typical `task` values | `requestSource` | Reasoning / prompt stack | Planning (JSON phase) | Gates to remember |
 |------------|----------------------|-----------------|---------------------------|------------------------|-------------------|
-| **Interactive chat** | `on_demand` | `on_demand` | Chat protocols; heavy `REASONING_PROMPT_SUFFIX` **stripped** when prompt contains Data Honesty block (`companyAgentRunner.ts` → `buildSystemPrompt`) | **Off** (`planningPolicy.ts`) | Value gate **skipped** for chat unless `TOOL_VALUE_GATE_ON_DEMAND=enforce` (`toolExecutor.ts`) |
-| **Reactive / urgent** | `urgent_message_response`, `incident_response`, `event_message_sent` | `scheduled` | Full **`REASONING_PROTOCOL`** + data grounding; **not** chat-light | **Off** (tools from turn 1) | Pre-exec **value gate** applies to writes / non-autonomous tools; `send_*` often **SOFT_GATE** (`actionRiskClassifier.ts`) |
+| **Interactive chat** | `on_demand` | `on_demand` | Chat protocols; `REASONING_PROMPT_SUFFIX` **stripped** whenever chat-style protocols apply (`buildSystemPrompt`) | **Off** (`planningPolicy.ts`) | Value gate **skipped** for chat unless `TOOL_VALUE_GATE_ON_DEMAND=enforce` (`toolExecutor.ts`) |
+| **Reactive / urgent** | `urgent_message_response`, `incident_response`, `event_message_sent` | `scheduled` | Same **chat-light** stack as dashboard chat (`CHAT_*` protocols) + **`REACTIVE_LIGHT_OUTPUT_PROTOCOL`**; **not** full `REASONING_PROTOCOL` | **Off** (tools from turn 1) | Pre-exec value gate **skipped** by default (`shouldSkipValueGateForReactiveLightTask`); set `TOOL_VALUE_GATE_REACTIVE_LIGHT=enforce` to tighten |
 | **Heartbeat / sweeps** | `heartbeat_response`, `work_loop`, `proactive`, `process_assignments`, `agent365_mail_triage` | `scheduled` | Full task protocols as above | **Off** | Same as reactive; stall policy tuned for tool-first runs (`supervisorWorkloadStallPolicy.ts`) |
 | **Scheduled content / SEO** | `weekly_content_planning`, `generate_content`, `seo_analysis`, … | `scheduled` | Full task protocols | **Off** (hard override via `SCHEDULED_TOOL_EXECUTION_TASKS`) | Planning forced off so models do not burn turns on JSON-only plans |
 | **Implement-style (strict roles)** | e.g. `implement_component` | `scheduled` | Full task protocols | **Required** + completion gate for roles in `STRICT_ROLE_DEFAULTS` (`planningPolicy.ts`) | Stricter planning/verification path |
@@ -43,11 +43,11 @@ The **reactive-light** row is implemented in `packages/agent-runtime/src/taskCla
 | Explore agent (read-only, fast) | Not a separate agent type; **read-only tools** + `classifyActionRisk` → **AUTONOMOUS** tier where applicable |
 | Simple fix vs multi-file feature | **`resolvePlanningPolicy`** by `task` + role; strict roles get **required** planning |
 
-## Known tension: urgent + full reasoning protocol
+## Reactive-light vs full scheduled work
 
-`urgent_message_response` already has **planning off** so the supervisor does not stall on a JSON plan. The run still uses **scheduled** `requestSource`, so it receives the **full** `REASONING_PROTOCOL` (orient / preflight / scenarios) and, when the merged prompt includes it, the **XML reasoning** suffix—unless we add a dedicated **urgent-light** branch (same idea as chat stripping in `buildSystemPrompt`).
+`urgent_message_response` (and other `REACTIVE_LIGHT_TASKS`) use **planning off** and **`reactiveLightPrompt`** in `buildSystemPrompt`, so they get the **chat-light** protocol stack plus **`REACTIVE_LIGHT_OUTPUT_PROTOCOL`** to discourage long Approach/Tradeoffs-style answers. They still use `requestSource` **scheduled** for model routing; that does not re-enable the heavy `REASONING_PROTOCOL` block in the system prompt.
 
-**Outbound comms** (`send_agent_message`, `send_teams_dm`) remain subject to the **pre-execution value gate** unless confidence/ratio thresholds are met or policy is adjusted—orthogonal to planning.
+**Outbound comms** (`send_agent_message`, `send_teams_dm`) use the same tool gates as other scheduled runs unless `TOOL_VALUE_GATE_REACTIVE_LIGHT` is set to `enforce`.
 
 ## Tunable knobs (ops)
 
