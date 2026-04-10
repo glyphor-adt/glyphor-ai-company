@@ -18,6 +18,8 @@ interface AuthorityControlProps {
   agents: Agent[];
   selectedAgentId: string;
   capacityConfig: AgentCapacityConfig | null;
+  /** Set when GET /admin/agents/:id/capacity fails (e.g. 404 proxy, 401, scheduler down). */
+  capacityFetchError?: string | null;
   pendingCommitments: CommitmentRegistryEntry[];
   pendingCommitmentTotal: number;
   agentCommitments: CommitmentRegistryEntry[];
@@ -151,6 +153,7 @@ export default function AuthorityControl({
   agents,
   selectedAgentId,
   capacityConfig,
+  capacityFetchError = null,
   pendingCommitments,
   pendingCommitmentTotal,
   agentCommitments,
@@ -255,8 +258,12 @@ export default function AuthorityControl({
           ) : !capacityConfig ? (
             <div className="mt-5">
               <EmptyState
-                title="No capacity config returned"
-                description="The scheduler did not return a capacity policy for the selected agent."
+                title={capacityFetchError ? 'Capacity API unavailable' : 'No capacity config returned'}
+                description={
+                  capacityFetchError
+                    ? `${capacityFetchError} On production, confirm /api/admin/* routes to the scheduler and you are signed in. If the API returns 404, the dashboard proxy may be missing for /api/admin/agents/*/capacity.`
+                    : 'The scheduler returned no capacity row for this agent (unexpected after auto-provision). Try Refresh or check the Network tab for GET /api/admin/agents/{role}/capacity.'
+                }
               />
             </div>
           ) : (

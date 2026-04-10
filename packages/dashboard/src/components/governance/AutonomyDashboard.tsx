@@ -82,6 +82,7 @@ export default function AutonomyDashboard({ isAdmin, currentUserEmail }: Autonom
   const [refreshTick, setRefreshTick] = useState(0);
   const [overview, setOverview] = useState<AutonomyOverviewItem[]>([]);
   const [benchmarks, setBenchmarks] = useState<AutonomyCohortBenchmark[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [detail, setDetail] = useState<AutonomyAgentDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -104,8 +105,15 @@ export default function AutonomyDashboard({ isAdmin, currentUserEmail }: Autonom
           apiCall<AutonomyCohortBenchmark[]>('/admin/autonomy/cohort-benchmarks'),
         ]);
         if (cancelled) return;
+        setLoadError(null);
         setOverview(Array.isArray(overviewRaw) ? overviewRaw : []);
         setBenchmarks(Array.isArray(benchmarksRaw) ? benchmarksRaw : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : String(err));
+          setOverview([]);
+          setBenchmarks([]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -236,8 +244,12 @@ export default function AutonomyDashboard({ isAdmin, currentUserEmail }: Autonom
   if (!overview.length) {
     return (
       <EmptyState
-        title="No autonomy profiles available"
-        description="Autonomy scores will appear here once agents have trust history and autonomy config records."
+        title={loadError ? 'Could not load autonomy data' : 'No autonomy profiles available'}
+        description={
+          loadError
+            ? `${loadError} Confirm GET /api/admin/autonomy reaches the scheduler (same host rules as other /admin routes). Empty list with no error means no active company_agents rows.`
+            : 'Per-agent autonomy is computed from company_agents plus metrics (trust, gate pass, golden eval). If you expect agents here, check that active agents exist and /admin/autonomy returns 200.'
+        }
       />
     );
   }

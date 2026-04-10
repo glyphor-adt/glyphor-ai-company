@@ -717,6 +717,7 @@ export default function Governance() {
   const [busyDecisionId, setBusyDecisionId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [capacityConfig, setCapacityConfig] = useState<AgentCapacityConfig | null>(null);
+  const [capacityFetchError, setCapacityFetchError] = useState<string | null>(null);
   const [authorityLoading, setAuthorityLoading] = useState(false);
   const [savingCapacity, setSavingCapacity] = useState(false);
   const [busyCommitmentId, setBusyCommitmentId] = useState<string | null>(null);
@@ -816,17 +817,23 @@ export default function Governance() {
   const refreshSelectedAuthority = useCallback(async (agentId: string) => {
     if (!agentId) {
       setCapacityConfig(null);
+      setCapacityFetchError(null);
       setAgentCommitments([]);
       setAgentCommitmentTotal(0);
       return;
     }
 
     const encodedAgentId = encodeURIComponent(agentId);
+    let capacityErr: string | null = null;
     const [capacityRaw, commitmentsRaw] = await Promise.all([
-      apiCallWithTimeout(`/admin/agents/${encodedAgentId}/capacity`).catch(() => null),
+      apiCallWithTimeout(`/admin/agents/${encodedAgentId}/capacity`).catch((err: unknown) => {
+        capacityErr = err instanceof Error ? err.message : String(err);
+        return null;
+      }),
       apiCallWithTimeout(`/admin/commitments?agent=${encodedAgentId}&pageSize=20`).catch(() => null),
     ]);
 
+    setCapacityFetchError(capacityErr);
     setCapacityConfig(normalizeAgentCapacity(capacityRaw));
     const normalizedCommitments = normalizeCommitments(commitmentsRaw);
     setAgentCommitments(normalizedCommitments.items);
@@ -1151,6 +1158,7 @@ export default function Governance() {
             agents={authorityAgents}
             selectedAgentId={selectedAgentId}
             capacityConfig={capacityConfig}
+            capacityFetchError={capacityFetchError}
             pendingCommitments={pendingCommitments}
             pendingCommitmentTotal={pendingCommitmentTotal}
             agentCommitments={agentCommitments}
