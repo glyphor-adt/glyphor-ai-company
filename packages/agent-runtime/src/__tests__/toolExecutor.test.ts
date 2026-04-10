@@ -546,4 +546,34 @@ describe('ToolExecutor', () => {
     expect(result.success).toBe(true);
     expect(webBuildTool.execute).toHaveBeenCalledOnce();
   });
+
+  it('skips pre-exec value gate for reactive-light scheduler tasks (urgent_message_response)', async () => {
+    mockGrantedTools('invoke_web_build');
+    vi.stubEnv('TOOL_VALUE_GATE_CONFIDENCE_THRESHOLD', '0.99');
+    const webBuildTool: ToolDefinition = {
+      name: 'invoke_web_build',
+      description: 'Build a web app',
+      parameters: {
+        brief: { type: 'string', description: 'Build brief', required: true },
+        tier: { type: 'string', description: 'Build tier', required: true },
+      },
+      execute: vi.fn().mockResolvedValue({ success: true, data: { ok: true } }),
+    };
+
+    const executor = new ToolExecutor([webBuildTool]);
+    const result = await executor.execute(
+      'invoke_web_build',
+      { brief: 'Weather app', tier: 'prototype' },
+      buildContext({
+        assignmentId: undefined,
+        directiveId: undefined,
+        requestSource: 'scheduled',
+        schedulerTask: 'urgent_message_response',
+      }),
+    );
+
+    vi.unstubAllEnvs();
+    expect(result.success).toBe(true);
+    expect(webBuildTool.execute).toHaveBeenCalledOnce();
+  });
 });

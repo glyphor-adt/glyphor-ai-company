@@ -224,6 +224,8 @@ export interface ToolContext {
    * the tool pre-execution value gate uses this to treat user-directed runs as higher-confidence.
    */
   requestSource?: 'on_demand' | 'scheduled' | 'heartbeat' | 'wake' | 'a2a';
+  /** Scheduler task name (e.g. `urgent_message_response`) — used for task-class policy (value gate, prompt tier). */
+  schedulerTask?: string;
   /** Per-tool retrieval metadata from ToolRetriever, keyed by tool name. */
   retrievalMetadata?: ToolRetrievalMetadataMap;
   /**

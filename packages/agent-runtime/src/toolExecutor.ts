@@ -40,6 +40,7 @@ import { enforceCapacityTier, executeCommitment, getTierModel, type CapacityEnfo
 import { recordToolCall, detectToolSource } from './toolReputationTracker.js';
 import { applyPatchToGitHub } from './patchHarness.js';
 import { extractPredictionRecords, persistPredictionRecords } from './predictionJournal.js';
+import { isReactiveLightTask, shouldSkipValueGateForReactiveLightTask } from './taskClassPolicy.js';
 import {
   DisclosureRequiredError,
   applyDisclosurePolicy,
@@ -1428,8 +1429,16 @@ export class ToolExecutor {
       const skipPreExecValueGateForChat =
         context.requestSource === 'on_demand' && !VALUE_GATE_ENFORCE_ON_DEMAND;
 
+      const skipPreExecValueGateForReactiveLight =
+        context.schedulerTask != null
+        && isReactiveLightTask(context.schedulerTask)
+        && shouldSkipValueGateForReactiveLightTask();
+
+      const skipPreExecValueGate =
+        skipPreExecValueGateForChat || skipPreExecValueGateForReactiveLight;
+
       if (
-        !skipPreExecValueGateForChat
+        !skipPreExecValueGate
         && (WRITE_TOOL_SET.has(toolName) || riskAssessment.level !== 'AUTONOMOUS')
       ) {
         const gate = evaluateActionValue(toolName, params, estimatedCost, context);

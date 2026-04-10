@@ -67,6 +67,7 @@ import {
 import { calculateContextBudget, type ContextBudget } from './context/contextBudget.js';
 import { getContextWindow } from '@glyphor/shared';
 import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.js';
+import { isReactiveLightTask } from './taskClassPolicy.js';
 import { maybeConsolidate } from './memory/consolidationTrigger.js';
 import { ConcurrentToolExecutor, shouldUseConcurrentExecution, type ToolCallEntry } from './concurrentToolExecutor.js';
 import type { PolicyLimitsCache } from './policyLimits.js';
@@ -769,6 +770,8 @@ function buildSystemPrompt(
   hasDelegatedDirective = false,
   model?: string,
   doctrineContext?: string | null,
+  /** Chat-light protocols + strip XML reasoning (scheduled urgent / incident paths). */
+  reactiveLightPrompt = false,
 ): string {
   try {
     const knowledgeDir = join(__dirname, '../../company-knowledge');
@@ -813,10 +816,12 @@ function buildSystemPrompt(
     // instead of the code-defined prompt
     let effectivePrompt = dynamicBrief ?? existingPrompt;
 
-    // For on_demand chat, replace the heavy REASONING_PROMPT_SUFFIX with
-    // a chat-appropriate data honesty rule. We keep anti-hallucination
-    // constraints but drop the XML reasoning block requirement.
-    if (isOnDemand && effectivePrompt.includes('Data Honesty')) {
+    const useChatStyleProtocols = isOnDemand || reactiveLightPrompt;
+
+    // For on_demand chat (and reactive-light scheduled tasks), replace the heavy
+    // REASONING_PROMPT_SUFFIX with a chat-appropriate data honesty rule. We keep
+    // anti-hallucination constraints but drop the XML reasoning block requirement.
+    if (useChatStyleProtocols && effectivePrompt.includes('Data Honesty')) {
       effectivePrompt = effectivePrompt.replace(REASONING_PROMPT_SUFFIX, '');
     }
 
@@ -852,10 +857,9 @@ function buildSystemPrompt(
     parts.push(CONVERSATION_MODE);
     components.push('conversation_mode');
 
-    // For on_demand chat, use a lightweight reasoning protocol focused on
-    // intent classification and tool planning, plus chat-specific data
-    // honesty rules to prevent hallucination.
-    if (isOnDemand) {
+    // For on_demand chat and reactive-light urgent paths, use lightweight reasoning
+    // protocols. Executives on reactive-light still get orchestration addenda below.
+    if (useChatStyleProtocols) {
       parts.push(CHAT_REASONING_PROTOCOL);
       parts.push(CHAT_DATA_HONESTY);
       parts.push(ACTION_HONESTY_PROTOCOL);
@@ -864,6 +868,14 @@ function buildSystemPrompt(
       parts.push(TEAMS_COMMUNICATION_PROTOCOL);
       parts.push(INSTRUCTION_ECHO_PROTOCOL);
       components.push('chat_protocols');
+      if (reactiveLightPrompt && !isOnDemand && EXECUTIVE_ROLES.has(role)) {
+        parts.push(EXECUTIVE_ORCHESTRATION_PROTOCOL);
+        components.push('exec_orchestration');
+        if (orchestrationConfig?.can_decompose && hasDelegatedDirective) {
+          parts.push(buildDynamicExecutiveOrchestrationProtocol(role, orchestrationConfig));
+          components.push('dynamic_orchestration');
+        }
+      }
     } else {
       parts.push(REASONING_PROTOCOL);
       parts.push(DATA_GROUNDING_PROTOCOL);
@@ -2165,6 +2177,7 @@ Rules:
         try {
           // Task-level thinking override
           const isOnDemand = task === 'on_demand';
+          const reactiveLightPrompt = isReactiveLightTask(task);
 
           // ─── SMART TOOL GATING (on_demand / task) ────────────────
           // on_demand: strip tools late to force a text wrap-up before timeout.
@@ -2364,6 +2377,7 @@ Rules:
                 hasDelegatedDirective,
                 modelForGenerate,
                 doctrineContext,
+                reactiveLightPrompt,
               );
           let effectiveThinking = routedModel.reasoningEffort === 'minimal' ? false : config.thinkingEnabled;
           if (isTaskTier) {
@@ -2643,6 +2657,7 @@ Rules:
               assignmentId: config.assignmentId,
               directiveId: config.directiveId,
               requestSource,
+              schedulerTask: task,
               retrievalMetadata: lastRetrievalTrace
                 ? buildCompanyRetrievalMetadataMap(lastRetrievalTrace)
                 : undefined,

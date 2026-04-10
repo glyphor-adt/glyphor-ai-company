@@ -1,5 +1,10 @@
 export { CompanyAgentRunner, promptCache } from './companyAgentRunner.js';
 export type { AgentMemoryStore, AgentProfileData, RunDependencies, SkillContext, SkillFeedback } from './companyAgentRunner.js';
+export {
+  REACTIVE_LIGHT_TASKS,
+  isReactiveLightTask,
+  shouldSkipValueGateForReactiveLightTask,
+} from './taskClassPolicy.js';
 // Classified runners (orchestrator / task split)
 export { BaseAgentRunner } from './baseAgentRunner.js';
 export type { ClassifiedRunDependencies } from './baseAgentRunner.js';
