@@ -66,7 +66,8 @@ import {
 } from './context/reactiveCompaction.js';
 import { calculateContextBudget, type ContextBudget } from './context/contextBudget.js';
 import { getContextWindow } from '@glyphor/shared';
-import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.js';
+import { resolvePlanningPolicy, describeFastPathReason, type PlanningModelTier } from './planningPolicy.js';
+import { countMutatingToolsFromNames } from './complianceManifest.js';
 import { isReactiveLightTask } from './taskClassPolicy.js';
 import { maybeConsolidate } from './memory/consolidationTrigger.js';
 import { ConcurrentToolExecutor, shouldUseConcurrentExecution, type ToolCallEntry } from './concurrentToolExecutor.js';
@@ -1938,6 +1939,7 @@ export class CompanyAgentRunner {
     let completionGatePassed = false;
     let completionGateMissing: string[] = [];
     let executionPlanObjective: string | undefined;
+    let planManifest: Record<string, unknown> | null = null;
     let acceptanceCriteria = extractAcceptanceCriteriaFromMessage(initialMessage);
     const summaryFirstCompactionEnabled = isSummaryFirstCompactionEnabled();
     const composeHistoryForModel = (
@@ -2845,6 +2847,13 @@ Rules:
             const parsedPlan = parseExecutionPlan(response.text);
             if (parsedPlan) {
               executionPlanObjective = parsedPlan.objective;
+              planManifest = {
+                objective: parsedPlan.objective ?? null,
+                acceptance_criteria: parsedPlan.acceptanceCriteria,
+                execution_steps: parsedPlan.executionSteps,
+                verification_steps: parsedPlan.verificationSteps,
+                planning_mode: planningMode,
+              };
               acceptanceCriteria = Array.from(new Set([
                 ...acceptanceCriteria,
                 ...parsedPlan.acceptanceCriteria,
@@ -3419,6 +3428,14 @@ Continue execution, call tools as needed, and return only when all criteria are 
         completionGatePassed: (completionGateEnabled && acceptanceCriteria.length > 0) ? completionGatePassed : undefined,
         missingCriteria: completionGateMissing.length > 0 ? completionGateMissing : undefined,
       };
+      result.planManifest = planManifest;
+      result.fastPathReason = describeFastPathReason(task, planningMode) ?? undefined;
+      result.mutatingToolCalls = countMutatingToolsFromNames(
+        actionReceipts.filter((r) => r.result === 'success').map((r) => r.tool),
+      );
+      if (completionGateEnabled && acceptanceCriteria.length > 0) {
+        result.completionGatePassedFlag = completionGatePassed;
+      }
       await persistRunMetricsAuditLog({
         agentRole: config.role,
         taskId: config.assignmentId ?? extractTaskFromConfigId(config.id),

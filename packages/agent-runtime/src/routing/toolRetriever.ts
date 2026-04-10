@@ -464,7 +464,14 @@ export class ToolRetriever {
       else if (corePinSet.has(pinnedName)) corePinNames.push(pinnedName);
     }
 
-    const remainingSlots = Math.max(0, modelCap - pinnedTools.length);
+    const maxSemanticSlots = Math.max(
+      1,
+      Number.parseInt(process.env.AGENT_TOOL_RETRIEVER_MAX_SEMANTIC_SLOTS?.trim() ?? '', 10) || 32,
+    );
+    const remainingSlots = Math.min(
+      Math.max(0, modelCap - pinnedTools.length),
+      maxSemanticSlots,
+    );
 
     if (remainingSlots === 0) {
       const noSearchTools = this.applyDeferredLoading(
@@ -488,7 +495,11 @@ export class ToolRetriever {
     }
 
     const queryEmbedding = vectorizeText(request.taskContext);
-    const candidateWindow = Math.min(this.entries.length, Math.max(remainingSlots * 4, 25));
+    const maxCandidateWindow = Math.max(
+      25,
+      Number.parseInt(process.env.AGENT_TOOL_RETRIEVER_CANDIDATE_WINDOW?.trim() ?? '', 10) || 120,
+    );
+    const candidateWindow = Math.min(this.entries.length, Math.max(remainingSlots * 4, 25), maxCandidateWindow);
 
     const bm25Results = this.bm25.search(request.taskContext, candidateWindow);
     const vectorResults = this.entries

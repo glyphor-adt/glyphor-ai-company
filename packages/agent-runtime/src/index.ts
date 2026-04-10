@@ -23,7 +23,20 @@ export {
   WORKLOAD_WRAP_UP_TASKS,
 } from './supervisorWorkloadStallPolicy.js';
 export { enqueueWorkloadContinuationWakeIfBudgetHit } from './continuationWake.js';
-export { ToolExecutor, isToolBlocked, invalidateBlockCache, isToolGranted, invalidateGrantCache, loadGrantedToolNames } from './toolExecutor.js';
+export {
+  ToolExecutor,
+  isToolBlocked,
+  invalidateBlockCache,
+  isToolGranted,
+  invalidateGrantCache,
+  loadGrantedToolNames,
+  isLikelyReadOnlyTool,
+} from './toolExecutor.js';
+export {
+  recordAgentRunCompleted,
+  recordDriftDetectionCycle,
+  recordTrustDeltaApplied,
+} from './otelMetrics.js';
 // Concurrent tool execution — parallel dispatch for safe tools
 export { ConcurrentToolExecutor, classifyToolConcurrency, shouldUseConcurrentExecution } from './concurrentToolExecutor.js';
 export type { ToolCallEntry, ConcurrentToolResult, ConcurrentBatchStats, TrackedToolStatus } from './concurrentToolExecutor.js';

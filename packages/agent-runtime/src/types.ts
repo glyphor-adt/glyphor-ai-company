@@ -387,6 +387,18 @@ export interface DashboardChatEmbed {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// CONTEXT COMPLIANCE (audit trail — not full prompt dumps)
+// ═══════════════════════════════════════════════════════════════════
+
+export interface ContextManifestEntry {
+  source: string;
+  policy?: string;
+  chars_estimate: number;
+  turn?: number;
+  meta?: Record<string, unknown>;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // EXECUTION RESULT
 // ═══════════════════════════════════════════════════════════════════
 
@@ -452,6 +464,16 @@ export interface AgentExecutionResult {
     completionGatePassed?: boolean;
     missingCriteria?: string[];
   };
+  /** Structured plan JSON when the planner produced a parseable execution plan. */
+  planManifest?: Record<string, unknown> | null;
+  /** Audit entries for context injections (source, policy, char estimates — not raw text). */
+  contextManifest?: ContextManifestEntry[];
+  /** When planning is off, documents why (e.g. on_demand, heartbeat). */
+  fastPathReason?: string | null;
+  /** Count of tool calls classified as mutating (non-read-only). */
+  mutatingToolCalls?: number;
+  /** Denormalized completion gate outcome when gate was enabled. */
+  completionGatePassedFlag?: boolean;
   compactionOccurred?: boolean;
   compactionCount?: number;
   compactionSummary?: string;

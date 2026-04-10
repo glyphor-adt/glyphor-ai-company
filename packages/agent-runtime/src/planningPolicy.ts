@@ -1,6 +1,36 @@
 import type { AgentConfig, CompanyAgentRole } from './types.js';
 import { SCHEDULED_TOOL_EXECUTION_TASKS } from './supervisorWorkloadStallPolicy.js';
 
+/**
+ * When planning is off, documents why (for agent_runs.fast_path_reason / observability).
+ */
+export function describeFastPathReason(
+  task: string,
+  planningMode: 'off' | 'auto' | 'required',
+): string | null {
+  if (planningMode !== 'off') return null;
+  if (task === 'on_demand') return 'on_demand_chat';
+  if (
+    task === 'work_loop'
+    || task === 'proactive'
+    || task === 'process_assignments'
+    || task === 'urgent_message_response'
+    || task === 'incident_response'
+    || task === 'event_message_sent'
+    || task === 'heartbeat_response'
+    || task === 'agent365_mail_triage'
+    || task === 'weekly_content_planning'
+    || task === 'generate_content'
+    || task === 'seo_analysis'
+    || task === 'content_planning_cycle'
+  ) {
+    return SCHEDULED_TOOL_EXECUTION_TASKS.has(task)
+      ? 'scheduled_content_tools_first'
+      : 'reactive_or_sweep_tools_first';
+  }
+  return 'default_policy';
+}
+
 export type PlanningModelTier = 'fast' | 'default' | 'high';
 
 export interface EffectivePlanningPolicy {

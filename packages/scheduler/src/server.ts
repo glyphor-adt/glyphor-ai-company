@@ -22,6 +22,7 @@ import {
   issueContract,
   promptCache,
   WorkflowOrchestrator,
+  recordAgentRunCompleted,
 } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncSharePointKnowledge, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding } from '@glyphor/integrations';
@@ -2093,6 +2094,11 @@ async function ensureAgentRunsRoutingSchema(): Promise<void> {
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS estimated_cost_usd DOUBLE PRECISION');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS compaction_count INT DEFAULT 0');
       await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS result_summary TEXT');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS plan_manifest JSONB');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS context_manifest JSONB');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS fast_path_reason TEXT');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS mutating_tool_calls INT');
+      await safeSchemaChange('ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS completion_gate_passed BOOLEAN');
       await safeSchemaChange(`
         CREATE TABLE IF NOT EXISTS agent_run_events (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2745,6 +2751,45 @@ const trackedAgentExecutor = async (
             runId,
           ],
         );
+      }
+
+      try {
+        await systemQuery(
+          `UPDATE agent_runs SET
+             plan_manifest = $1::jsonb,
+             context_manifest = $2::jsonb,
+             fast_path_reason = $3,
+             mutating_tool_calls = $4,
+             completion_gate_passed = $5
+           WHERE id = $6`,
+          [
+            (result as { planManifest?: unknown }).planManifest != null
+              ? JSON.stringify((result as { planManifest?: unknown }).planManifest)
+              : null,
+            (result as { contextManifest?: unknown }).contextManifest != null
+              ? JSON.stringify((result as { contextManifest?: unknown }).contextManifest)
+              : null,
+            (result as { fastPathReason?: string | null }).fastPathReason ?? null,
+            (result as { mutatingToolCalls?: number }).mutatingToolCalls ?? null,
+            (result as { completionGatePassedFlag?: boolean }).completionGatePassedFlag ?? null,
+            runId,
+          ],
+        );
+      } catch (err) {
+        console.warn('[Scheduler] Compliance manifest columns update skipped:', (err as Error).message);
+      }
+
+      try {
+        const rs = result?.status ?? 'completed';
+        recordAgentRunCompleted({
+          status: rs === 'error' ? 'error' : rs,
+          role: agentRole,
+          task,
+          planningMode: result?.executionPlanMeta?.mode,
+          mutatingToolCalls: result?.mutatingToolCalls,
+        });
+      } catch (err) {
+        console.warn('[Scheduler] OTel run metrics skipped:', (err as Error).message);
       }
 
       try {

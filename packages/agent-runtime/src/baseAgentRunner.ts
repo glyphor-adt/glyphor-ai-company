@@ -11,7 +11,7 @@
  */
 
 import { ModelClient } from './modelClient.js';
-import { ToolExecutor } from './toolExecutor.js';
+import { ToolExecutor, isLikelyReadOnlyTool } from './toolExecutor.js';
 import { AgentSupervisor } from './supervisor.js';
 import {
   applyWorkloadReadsProgressAndStallFloor,
@@ -72,7 +72,8 @@ import {
 } from './context/postCompactInjector.js';
 import { startTraceSpan } from './telemetry/tracing.js';
 import { extractAcceptanceCriteriaFromMessage, parseExecutionPlan } from './executionPlanning.js';
-import { resolvePlanningPolicy, type PlanningModelTier } from './planningPolicy.js';
+import { resolvePlanningPolicy, describeFastPathReason, type PlanningModelTier } from './planningPolicy.js';
+import { ContextManifestAccumulator } from './complianceManifest.js';
 import { runDeterministicPreCheck } from './routing/index.js';
 import { buildToolTaskContext, getToolRetriever, type ToolRetrieverTrace } from './routing/toolRetriever.js';
 import type { RoutingDecision } from './routing/index.js';
@@ -517,6 +518,20 @@ export abstract class BaseAgentRunner {
     let completionGateMissing: string[] = [];
     let executionPlanObjective: string | undefined;
     let acceptanceCriteria = extractAcceptanceCriteriaFromMessage(initialMessage);
+    const contextManifestAcc = new ContextManifestAccumulator();
+    const fastPathReason = describeFastPathReason(taskForContext, planningMode);
+    let planManifest: Record<string, unknown> | null = null;
+    let mutatingToolCalls = 0;
+    const applyCompliance = (r: AgentExecutionResult): AgentExecutionResult => {
+      r.contextManifest = contextManifestAcc.snapshot();
+      r.fastPathReason = fastPathReason;
+      r.planManifest = planManifest;
+      r.mutatingToolCalls = mutatingToolCalls;
+      if (completionGateEnabled && acceptanceCriteria.length > 0) {
+        r.completionGatePassedFlag = completionGatePassed;
+      }
+      return r;
+    };
     const traceAuditLogIds = new Set<string>();
     const traceTaskId = config.assignmentId ?? config.id;
     let reactIterationCounter = 0;
@@ -666,7 +681,7 @@ export abstract class BaseAgentRunner {
         history,
       });
       if (!preCheck.shouldCallLLM) {
-           return this.buildResult(
+           return applyCompliance(this.buildResult(
              config,
              'skipped_precheck',
              null,
@@ -678,7 +693,7 @@ export abstract class BaseAgentRunner {
           totalThinkingTokens,
           totalCachedInputTokens,
             buildRoutingSummary(),
-          );
+          ));
       }
       if (preCheck.context) {
         history.push({ role: 'user', content: preCheck.context, timestamp: Date.now() });
@@ -725,6 +740,7 @@ export abstract class BaseAgentRunner {
     if (sharedMemory && safeDeps.sharedMemoryLoader) {
       const memPrompt = safeDeps.sharedMemoryLoader.formatForPrompt(sharedMemory);
       if (memPrompt) {
+        contextManifestAcc.push({ source: 'shared_memory', policy: 'background', content: memPrompt });
         history.push({ role: 'user', content: `[CONTEXT — Background information for reference. Do NOT respond to this message; wait for your task instruction.]
 
 ${memPrompt}`, timestamp: Date.now() });
@@ -764,9 +780,21 @@ ${memPrompt}`, timestamp: Date.now() });
             `[JITSelector] ${config.role}: candidates=${jitContext.selectionMeta.candidateCount}, selected=${jitContext.selectionMeta.selectedCount}, by_source=${JSON.stringify(jitContext.selectionMeta.selectedBySource)}, freshness=${JSON.stringify(jitContext.selectionMeta.selectedFreshness)}`,
           );
         }
+        const jitBlock = `[CONTEXT — Background information for reference. Do NOT respond to this message; wait for your task instruction.]\n\n# Task-Relevant Context (JIT Retrieved)\n\n${jitSections.join('\n\n')}`;
+        contextManifestAcc.push({
+          source: 'jit_retrieval',
+          policy: 'task_scoped',
+          content: jitBlock,
+          meta: jitContext.selectionMeta
+            ? {
+                candidateCount: jitContext.selectionMeta.candidateCount,
+                selectedCount: jitContext.selectionMeta.selectedCount,
+              }
+            : undefined,
+        });
         history.push({
           role: 'user',
-          content: `[CONTEXT — Background information for reference. Do NOT respond to this message; wait for your task instruction.]\n\n# Task-Relevant Context (JIT Retrieved)\n\n${jitSections.join('\n\n')}`,
+          content: jitBlock,
           timestamp: Date.now(),
         });
       }
@@ -820,7 +848,7 @@ ${memPrompt}`, timestamp: Date.now() });
               console.warn(`[${this.archetype}Runner] Failed to capture value-gate decision trace for ${config.role}:`, (err as Error).message);
             });
           }
-          return this.buildResult(config, 'aborted', `Value gate: ${valueAssessment.reasoning}`, history, supervisor, 'value_gate_abort', totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary());
+          return applyCompliance(this.buildResult(config, 'aborted', `Value gate: ${valueAssessment.reasoning}`, history, supervisor, 'value_gate_abort', totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary()));
         }
       } catch (err) {
         console.warn(`[${this.archetype}Runner] Value gate failed for ${config.role}:`, (err as Error).message);
@@ -852,7 +880,14 @@ ${memPrompt}`, timestamp: Date.now() });
             }
             skillParts.push('');
           }
-          history.push({ role: 'user', content: `[CONTEXT — Your skill playbooks for reference. Do NOT respond to this message; wait for your task instruction.]\n\n${skillParts.join('\n')}`, timestamp: Date.now() });
+          const skillBlock = `[CONTEXT — Your skill playbooks for reference. Do NOT respond to this message; wait for your task instruction.]\n\n${skillParts.join('\n')}`;
+          contextManifestAcc.push({
+            source: 'skill_context',
+            policy: 'playbook',
+            content: skillBlock,
+            meta: { skills: skillCtx.skills.map((s) => s.name) },
+          });
+          history.push({ role: 'user', content: skillBlock, timestamp: Date.now() });
         }
       } catch (err) {
         console.warn(`[${this.archetype}Runner] Skill context load failed for ${config.role}:`, (err as Error).message);
@@ -889,7 +924,7 @@ ${memPrompt}`, timestamp: Date.now() });
             abortReason: check.reason,
             runId: config.dbRunId ?? config.id,
           });
-          return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary());
+          return applyCompliance(this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, check.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary()));
         }
 
         // ── Context injector ────────────────────────────────────
@@ -897,6 +932,12 @@ ${memPrompt}`, timestamp: Date.now() });
           try {
             const injected = await config.contextInjector(turnNumber, history);
             if (injected) {
+              contextManifestAcc.push({
+                source: 'context_injector',
+                policy: 'turn_callback',
+                content: injected,
+                turn: turnNumber,
+              });
               history.push({ role: 'user', content: injected, timestamp: Date.now() });
             }
           } catch { /* non-critical */ }
@@ -1060,6 +1101,18 @@ Rules:
               });
               effectiveTools = retrieval.tools;
               lastRetrievalTrace = retrieval.trace;
+              contextManifestAcc.push({
+                source: 'tool_retrieval',
+                policy: 'semantic_bm25_vector',
+                chars_estimate: 1,
+                turn: turnNumber,
+                meta: {
+                  totalCandidates: retrieval.trace.totalCandidates,
+                  pinned: retrieval.trace.pinnedTools.length,
+                  semantic: retrieval.trace.retrievedTools.length,
+                  modelCap: retrieval.trace.modelCap,
+                },
+              });
 
               if (turnNumber === 1 || turnNumber % 3 === 0) {
                 console.log(
@@ -1151,7 +1204,7 @@ Rules:
         } catch (error) {
           modelTurnSpan.fail(error, {});
           if (supervisor.isAborted) {
-            return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary());
+            return applyCompliance(this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary()));
           }
 
           // ── Reactive compaction: retry with tighter budget on context overflow ──
@@ -1233,6 +1286,7 @@ Rules:
                   files_written: toolResult.filesWritten ?? 0,
                   memory_keys_written: toolResult.memoryKeysWritten ?? 0,
                 });
+                if (!isLikelyReadOnlyTool(call.name)) mutatingToolCalls += 1;
                 return toolResult;
               } catch (toolError) {
                 toolTurnSpan.fail(toolError, {});
@@ -1279,7 +1333,7 @@ Rules:
 
             const progressCheck = supervisor.recordToolResult(call.name, result);
             if (!progressCheck.ok) {
-               return this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary());
+               return applyCompliance(this.buildResult(config, 'aborted', lastTextOutput, history, supervisor, progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary()));
             }
           }
           continue;
@@ -1293,6 +1347,13 @@ Rules:
             const parsedPlan = parseExecutionPlan(response.text);
             if (parsedPlan) {
               executionPlanObjective = parsedPlan.objective;
+              planManifest = {
+                objective: parsedPlan.objective ?? null,
+                acceptance_criteria: parsedPlan.acceptanceCriteria,
+                execution_steps: parsedPlan.executionSteps,
+                verification_steps: parsedPlan.verificationSteps,
+                planning_mode: planningMode,
+              };
               acceptanceCriteria = Array.from(new Set([
                 ...acceptanceCriteria,
                 ...parsedPlan.acceptanceCriteria,
@@ -1326,7 +1387,7 @@ Return ONLY strict JSON with:
             }
 
             if (planningMode === 'required') {
-              return this.buildResult(
+              return applyCompliance(this.buildResult(
                 config,
                 'aborted',
                 null,
@@ -1338,7 +1399,7 @@ Return ONLY strict JSON with:
                 totalThinkingTokens,
                 totalCachedInputTokens,
                 buildRoutingSummary(),
-              );
+              ));
             }
 
             runPhase = 'execution';
@@ -1710,7 +1771,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
               totalTurns: supervisor.stats.turnCount,
               elapsedMs: supervisor.stats.elapsedMs,
             });
-            const guardResult = this.buildResult(
+            const guardResult = applyCompliance(this.buildResult(
               config,
               'aborted',
               lastTextOutput,
@@ -1724,7 +1785,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
               buildRoutingSummary(),
               actualModelUsed,
               actualProviderUsed,
-            );
+            ));
             guardResult.actions = actionReceipts;
             return guardResult;
           }
@@ -1814,7 +1875,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
         elapsedMs: supervisor.stats.elapsedMs,
       });
 
-      const result = this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary(), actualModelUsed, actualProviderUsed);
+      const result = applyCompliance(this.buildResult(config, 'completed', lastTextOutput, history, supervisor, undefined, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary(), actualModelUsed, actualProviderUsed));
       result.actions = actionReceipts;
       result.executionPlanMeta = {
         mode: planningMode,
@@ -1954,7 +2015,7 @@ Continue execution, call tools as needed, and return only when all criteria are 
       return result;
     } catch (error) {
       emitEvent({ type: 'agent_error', agentId: config.id, error: (error as Error).message, turnNumber: supervisor.stats.turnCount });
-      const errResult = this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary(), actualModelUsed, actualProviderUsed);
+      const errResult = applyCompliance(this.buildResult(config, supervisor.isAborted ? 'aborted' : 'error', lastTextOutput, history, supervisor, (error as Error).message, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, buildRoutingSummary(), actualModelUsed, actualProviderUsed));
       errResult.actions = actionReceipts;
       errResult.executionPlanMeta = {
         mode: planningMode,

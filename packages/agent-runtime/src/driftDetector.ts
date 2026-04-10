@@ -15,6 +15,7 @@
 
 import { systemQuery } from '@glyphor/shared/db';
 import type { TrustScorer } from './trustScorer.js';
+import { recordDriftDetectionCycle } from './otelMetrics.js';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -115,6 +116,8 @@ export class DriftDetector {
     } catch (err) {
       result.errors.push(`Detection cycle failed: ${(err as Error).message}`);
     }
+
+    recordDriftDetectionCycle(result);
 
     return result;
   }

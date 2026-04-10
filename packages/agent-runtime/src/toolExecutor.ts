@@ -287,6 +287,11 @@ function isReadOnlyTool(name: string): boolean {
   return READ_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
+/** Exported for compliance metrics — same heuristic as planning-phase read-only gate. */
+export function isLikelyReadOnlyTool(name: string): boolean {
+  return isReadOnlyTool(name);
+}
+
 function extractCounterparty(params: Record<string, unknown>): string | null {
   const candidateKeys = [
     'externalCounterparty', 'counterparty', 'vendor', 'customer', 'recipient', 'to',

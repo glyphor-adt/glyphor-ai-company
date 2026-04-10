@@ -8,6 +8,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import type { RedisCache } from './redisCache.js';
 import type { DecisionTier } from './types.js';
+import { recordTrustDeltaApplied } from './otelMetrics.js';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -164,6 +165,8 @@ export class TrustScorer {
     if (this.cache) {
       await this.cache.del(`trust:${agentRole}`);
     }
+
+    recordTrustDeltaApplied(delta.source);
 
     return {
       agentRole,
