@@ -10,6 +10,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
 import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../lib/firebase';
+import { postAgentPauseResume } from '../lib/agentPauseResume';
 import { MODELS, VERIFICATION_MODELS, getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 import {
   DISPLAY_NAME_MAP,
@@ -171,8 +172,26 @@ export default function AgentProfile() {
   const [qaPriority, setQaPriority] = useState<'normal' | 'high' | 'urgent' | 'low'>('normal');
   const [qaSubmitting, setQaSubmitting] = useState(false);
   const [qaResult, setQaResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [headerPauseResumeError, setHeaderPauseResumeError] = useState('');
+  const [headerPauseResumeBusy, setHeaderPauseResumeBusy] = useState(false);
   const navigate = useNavigate();
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const runHeaderPauseResume = useCallback(async (action: 'pause' | 'resume') => {
+    if (!agent) return;
+    setHeaderPauseResumeError('');
+    setHeaderPauseResumeBusy(true);
+    try {
+      const r = await postAgentPauseResume(action, agent.role || agent.id, buildApiHeaders);
+      if (!r.ok) {
+        setHeaderPauseResumeError(r.error);
+        return;
+      }
+      setAgent((prev) => prev ? { ...prev, status: action === 'pause' ? 'paused' : 'active' } : prev);
+    } finally {
+      setHeaderPauseResumeBusy(false);
+    }
+  }, [agent]);
 
   const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -293,6 +312,7 @@ export default function AgentProfile() {
       </Link>
 
       {/* Header */}
+      <div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="group relative">
@@ -353,39 +373,29 @@ export default function AgentProfile() {
             <GradientButton
               variant="warning"
               size="md"
-              onClick={async () => {
-                const agentRef = agent.role || agent.id;
-                const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, {
-                  method: 'POST',
-                  headers: await buildApiHeaders(),
-                });
-                if (!resp.ok) return;
-                setAgent((prev) => prev ? { ...prev, status: 'paused' } : prev);
-              }}
+              disabled={headerPauseResumeBusy}
+              onClick={() => runHeaderPauseResume('pause')}
             >
-              Pause
+              {headerPauseResumeBusy ? '…' : 'Pause'}
             </GradientButton>
           ) : agent.status === 'paused' ? (
             <GradientButton
               variant="approve"
               size="md"
-              onClick={async () => {
-                const agentRef = agent.role || agent.id;
-                const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, {
-                  method: 'POST',
-                  headers: await buildApiHeaders(),
-                });
-                if (!resp.ok) return;
-                setAgent((prev) => prev ? { ...prev, status: 'active' } : prev);
-              }}
+              disabled={headerPauseResumeBusy}
+              onClick={() => runHeaderPauseResume('resume')}
             >
-              Resume
+              {headerPauseResumeBusy ? '…' : 'Resume'}
             </GradientButton>
           ) : null}
           <GradientButton variant="reject" size="md" onClick={() => setShowDelete(true)}>
             Delete
           </GradientButton>
         </div>
+      </div>
+      {headerPauseResumeError ? (
+        <p className="mt-2 text-sm text-prism-critical" role="alert">{headerPauseResumeError}</p>
+      ) : null}
       </div>
 
       {/* Delete confirmation */}
@@ -1812,6 +1822,8 @@ function SettingsTab({
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [savedPrompt, setSavedPrompt] = useState(false);
   const [promptExpanded, setPromptExpanded] = useState(false);
+  const [pauseResumeError, setPauseResumeError] = useState('');
+  const [pauseResumeBusy, setPauseResumeBusy] = useState(false);
 
   // Reasoning config state
   const [reasoningEnabled, setReasoningEnabled] = useState(false);
@@ -1999,23 +2011,33 @@ function SettingsTab({
   };
 
   const handlePause = async () => {
-    const agentRef = agent.role || agent.id;
-    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, {
-      method: 'POST',
-      headers: await buildApiHeaders(),
-    });
-    if (!resp.ok) return;
-    onUpdate((prev) => prev ? { ...prev, status: 'paused' } : prev);
+    setPauseResumeError('');
+    setPauseResumeBusy(true);
+    try {
+      const r = await postAgentPauseResume('pause', agent.role || agent.id, buildApiHeaders);
+      if (!r.ok) {
+        setPauseResumeError(r.error);
+        return;
+      }
+      onUpdate((prev) => prev ? { ...prev, status: 'paused' } : prev);
+    } finally {
+      setPauseResumeBusy(false);
+    }
   };
 
   const handleResume = async () => {
-    const agentRef = agent.role || agent.id;
-    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, {
-      method: 'POST',
-      headers: await buildApiHeaders(),
-    });
-    if (!resp.ok) return;
-    onUpdate((prev) => prev ? { ...prev, status: 'active' } : prev);
+    setPauseResumeError('');
+    setPauseResumeBusy(true);
+    try {
+      const r = await postAgentPauseResume('resume', agent.role || agent.id, buildApiHeaders);
+      if (!r.ok) {
+        setPauseResumeError(r.error);
+        return;
+      }
+      onUpdate((prev) => prev ? { ...prev, status: 'active' } : prev);
+    } finally {
+      setPauseResumeBusy(false);
+    }
   };
 
   const toneFormalityLabel = (v: number) =>
@@ -2141,16 +2163,19 @@ function SettingsTab({
           <h3 className="text-sm font-semibold uppercase tracking-wider text-txt-primary">Model & Budget</h3>
           <div className="flex items-center gap-2">
             {agent.status === 'active' ? (
-              <GradientButton variant="warning" onClick={handlePause}>
-                Pause Agent
+              <GradientButton variant="warning" disabled={pauseResumeBusy} onClick={handlePause}>
+                {pauseResumeBusy ? '…' : 'Pause Agent'}
               </GradientButton>
             ) : agent.status === 'paused' ? (
-              <GradientButton variant="approve" onClick={handleResume}>
-                Resume Agent
+              <GradientButton variant="approve" disabled={pauseResumeBusy} onClick={handleResume}>
+                {pauseResumeBusy ? '…' : 'Resume Agent'}
               </GradientButton>
             ) : null}
           </div>
         </div>
+        {pauseResumeError ? (
+          <p className="mb-3 text-sm text-prism-critical" role="alert">{pauseResumeError}</p>
+        ) : null}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <label className="space-y-1">

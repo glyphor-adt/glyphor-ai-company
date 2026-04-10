@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../lib/firebase';
+import { postAgentPauseResume } from '../lib/agentPauseResume';
 import { getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 import {
   DISPLAY_NAME_MAP,
@@ -64,6 +65,7 @@ export default function AgentSettings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [pauseResumeBusy, setPauseResumeBusy] = useState(false);
   const [allAgents, setAllAgents] = useState<AgentRow[]>([]);
   const [managerRole, setManagerRole] = useState('');
 
@@ -274,32 +276,34 @@ export default function AgentSettings() {
 
   const handlePause = async () => {
     if (!agent) return;
-    const agentRef = agent.role || agent.id;
-    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/pause`, {
-      method: 'POST',
-      headers: await buildApiHeaders(),
-    });
-    if (!resp.ok) {
-      const result = await resp.json().catch(() => ({}));
-      setSaveError(typeof result?.error === 'string' ? result.error : `Pause failed (${resp.status})`);
-      return;
+    setSaveError('');
+    setPauseResumeBusy(true);
+    try {
+      const r = await postAgentPauseResume('pause', agent.role || agent.id, buildApiHeaders);
+      if (!r.ok) {
+        setSaveError(r.error);
+        return;
+      }
+      setAgent((prev) => prev ? { ...prev, status: 'paused' } : prev);
+    } finally {
+      setPauseResumeBusy(false);
     }
-    setAgent((prev) => prev ? { ...prev, status: 'paused' } : prev);
   };
 
   const handleResume = async () => {
     if (!agent) return;
-    const agentRef = agent.role || agent.id;
-    const resp = await fetch(`${SCHEDULER_URL}/agents/${encodeURIComponent(agentRef)}/resume`, {
-      method: 'POST',
-      headers: await buildApiHeaders(),
-    });
-    if (!resp.ok) {
-      const result = await resp.json().catch(() => ({}));
-      setSaveError(typeof result?.error === 'string' ? result.error : `Resume failed (${resp.status})`);
-      return;
+    setSaveError('');
+    setPauseResumeBusy(true);
+    try {
+      const r = await postAgentPauseResume('resume', agent.role || agent.id, buildApiHeaders);
+      if (!r.ok) {
+        setSaveError(r.error);
+        return;
+      }
+      setAgent((prev) => prev ? { ...prev, status: 'active' } : prev);
+    } finally {
+      setPauseResumeBusy(false);
     }
-    setAgent((prev) => prev ? { ...prev, status: 'active' } : prev);
   };
 
   const handleDelete = async () => {
@@ -438,12 +442,12 @@ export default function AgentSettings() {
             <h2 className="text-lg font-semibold text-txt-primary">Agent Settings</h2>
             <div className="flex items-center gap-2">
               {agent.status === 'active' ? (
-                <GradientButton variant="warning" onClick={handlePause}>
-                  Pause
+                <GradientButton variant="warning" onClick={handlePause} disabled={pauseResumeBusy}>
+                  {pauseResumeBusy ? '…' : 'Pause'}
                 </GradientButton>
               ) : agent.status === 'paused' ? (
-                <GradientButton variant="approve" onClick={handleResume}>
-                  Resume
+                <GradientButton variant="approve" onClick={handleResume} disabled={pauseResumeBusy}>
+                  {pauseResumeBusy ? '…' : 'Resume'}
                 </GradientButton>
               ) : null}
               <GradientButton variant="reject" onClick={handleDelete}>
@@ -451,6 +455,10 @@ export default function AgentSettings() {
               </GradientButton>
             </div>
           </div>
+
+          {saveError ? (
+            <p className="mb-4 text-sm text-prism-critical" role="alert">{saveError}</p>
+          ) : null}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <label className="space-y-1">
@@ -512,7 +520,6 @@ export default function AgentSettings() {
           </div>
 
           <div className="mt-4 flex items-center justify-end gap-3">
-            {saveError && <span className="text-sm text-prism-critical">{saveError}</span>}
             <GradientButton variant="primary" size="md" onClick={handleSave} disabled={saving}>
               {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Changes'}
             </GradientButton>
