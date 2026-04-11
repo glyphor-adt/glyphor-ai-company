@@ -8,6 +8,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { Activity, type ConversationReference } from '@microsoft/agents-activity';
 import { AgentApplication, CloudAdapter, MemoryStorage, TurnContext, TurnState, authorizeJWT } from '@microsoft/agents-hosting';
 import type { AuthConfiguration, Request as AgentHostingRequest } from '@microsoft/agents-hosting';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
@@ -1050,6 +1051,46 @@ function blockedRuntimeResult(role: string): AgentExecutionResult {
   } as AgentExecutionResult;
 }
 
+function formatTeamsBotDmReply(result: AgentExecutionResult | void | undefined): string {
+  if (result && typeof result === 'object' && (result as AgentExecutionResult).error) {
+    return `I encountered an error: ${(result as AgentExecutionResult).error}`;
+  }
+  const out = result && typeof result === 'object' ? (result as AgentExecutionResult).output : undefined;
+  if (typeof out === 'string' && out.trim()) {
+    return out.replace(/<reasoning>[\s\S]*?<\/reasoning>\s*/g, '').trim();
+  }
+  return "I've completed the task but have nothing specific to report.";
+}
+
+/**
+ * Routes Teams bot DMs to a company agent. Optional prefixes: @mia / vp-design, @maya / cmo,
+ * @sarah / cos / chief-of-staff, @marcus / cto. Default role: TEAMS_BOT_DM_AGENT_ROLE or chief-of-staff.
+ */
+function resolveTeamsBotDmAgentRole(rawText: string): { role: CompanyAgentRole; userMessage: string } {
+  const t = rawText.trim();
+  const env = process.env.TEAMS_BOT_DM_AGENT_ROLE?.trim();
+  const fallback: CompanyAgentRole =
+    env && isLiveRuntimeRole(env) ? env : 'chief-of-staff';
+
+  if (/^(?:@?(?:mia|vp-design))\s*[:\-]?\s*/i.test(t)) {
+    const userMessage = t.replace(/^(?:@?(?:mia|vp-design))\s*[:\-]?\s*/i, '').trim();
+    return { role: 'vp-design', userMessage: userMessage || t };
+  }
+  if (/^(?:@?(?:maya|cmo))\s*[:\-]?\s*/i.test(t)) {
+    const userMessage = t.replace(/^(?:@?(?:maya|cmo))\s*[:\-]?\s*/i, '').trim();
+    return { role: 'cmo', userMessage: userMessage || t };
+  }
+  if (/^(?:@?(?:sarah|cos|chief-of-staff))\s*[:\-]?\s*/i.test(t)) {
+    const userMessage = t.replace(/^(?:@?(?:sarah|cos|chief-of-staff))\s*[:\-]?\s*/i, '').trim();
+    return { role: 'chief-of-staff', userMessage: userMessage || t };
+  }
+  if (/^(?:@?marcus|cto)\s*[:\-]?\s*/i.test(t)) {
+    const userMessage = t.replace(/^(?:@?marcus|cto)\s*[:\-]?\s*/i, '').trim();
+    return { role: 'cto', userMessage: userMessage || t };
+  }
+  return { role: fallback, userMessage: t };
+}
+
 const agentExecutor = async (
   agentRole: CompanyAgentRole,
   task: string,
@@ -1316,6 +1357,15 @@ let ensureDecisionApprovalsSchemaPromise: Promise<void> | null = null;
 let agent365DecisionAppSingleton: AgentApplication<TurnState> | null = null;
 let agent365DecisionAdapterSingleton: CloudAdapter | null = null;
 let agent365DecisionAuthConfigSingleton: AuthConfiguration | null = null;
+
+/** Set after `trackedAgentExecutor` init — used by Teams bot text DM handler. */
+let teamsBotAgentDispatch:
+  | ((
+      agentRole: CompanyAgentRole,
+      task: string,
+      payload: Record<string, unknown>,
+    ) => Promise<AgentExecutionResult | void>)
+  | undefined;
 
 function capitalizeFounder(founder: FounderKey): string {
   return founder === 'kristina' ? 'Kristina' : 'Andrew';
@@ -2000,6 +2050,69 @@ function getAgent365DecisionApp(): { adapter: CloudAdapter; app: AgentApplicatio
       return '';
     },
   );
+
+  // Inbound plain-text DMs to the Teams bot (Agent 365) — previously only adaptive cards / install were handled.
+  const botAppId = authConfig.clientId?.trim();
+  if (!botAppId) {
+    console.error('[TeamsBotDM] Missing clientId on auth config; inbound DM handler not registered.');
+  } else {
+  app.onMessage(
+    async (context) => {
+      const a = context.activity;
+      if (a.type !== 'message') return Promise.resolve(false);
+      const text = typeof a.text === 'string' ? a.text.trim() : '';
+      if (!text) return Promise.resolve(false);
+      return Promise.resolve(true);
+    },
+    async (context, _state) => {
+      const raw = context.activity.text?.trim() ?? '';
+      if (!raw) return;
+
+      const dispatch = teamsBotAgentDispatch;
+      if (!dispatch) {
+        await context.sendActivity('Bot is still initializing; please retry in a moment.');
+        return;
+      }
+
+      let ref: ConversationReference;
+      try {
+        ref = Activity.fromObject(context.activity as object).getConversationReference();
+      } catch (e) {
+        console.error('[TeamsBotDM] getConversationReference failed:', (e as Error).message);
+        await context.sendActivity('Sorry, I could not read this conversation.');
+        return;
+      }
+
+      const { role, userMessage } = resolveTeamsBotDmAgentRole(raw);
+      console.log(`[TeamsBotDM] ${role} ← user message (${raw.length} chars)`);
+
+      await context.sendActivity('Working on that…');
+
+      void (async () => {
+        try {
+          const result = await dispatch(role, 'on_demand', {
+            message: `[Teams bot DM]\n${userMessage}`,
+            source: 'teams_bot_dm',
+          });
+          const reply = formatTeamsBotDmReply(result);
+          await adapter.continueConversation(botAppId, ref, async (ctx) => {
+            await ctx.sendActivity(reply);
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error('[TeamsBotDM] Agent run failed:', msg);
+          try {
+            await adapter.continueConversation(botAppId, ref, async (ctx) => {
+              await ctx.sendActivity(`Sorry, something went wrong: ${msg}`);
+            });
+          } catch (sendErr) {
+            console.error('[TeamsBotDM] continueConversation failed:', (sendErr as Error).message);
+          }
+        }
+      })();
+    },
+  );
+  }
 
   agent365DecisionAdapterSingleton = adapter;
   agent365DecisionAppSingleton = app;
@@ -3027,6 +3140,8 @@ const trackedAgentExecutor = async (
     throw err;
   }
 };
+
+teamsBotAgentDispatch = trackedAgentExecutor;
 
 const router = new EventRouter(trackedAgentExecutor, decisionQueue);
 const wakeRouter = new WakeRouter(trackedAgentExecutor);

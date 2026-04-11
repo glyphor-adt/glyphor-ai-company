@@ -13,6 +13,7 @@
     "lint": "echo 'no linter configured yet'"
   },
   "dependencies": {
+    "@microsoft/agents-activity": "1.3.1",
     "@microsoft/agents-hosting": "^1.3.1",
     "@glyphor/agent-runtime": "*",
     "@glyphor/agents": "*",
