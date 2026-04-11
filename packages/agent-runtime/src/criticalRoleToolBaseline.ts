@@ -115,10 +115,11 @@ const OPS_BASELINE = [
 ] as const;
 
 const BASELINE_BY_ROLE: ReadonlyMap<string, ReadonlySet<string>> = new Map([
-  ['vp-design', new Set(VP_DESIGN_BASELINE)],
-  ['chief-of-staff', new Set(CHIEF_OF_STAFF_BASELINE)],
-  ['cto', new Set(CTO_BASELINE)],
-  ['ops', new Set(OPS_BASELINE)],
+  // `Set<string>` per entry — avoids TS inferring incompatible Set<literal> unions for `new Map([...])`.
+  ['vp-design', new Set<string>([...VP_DESIGN_BASELINE])],
+  ['chief-of-staff', new Set<string>([...CHIEF_OF_STAFF_BASELINE])],
+  ['cto', new Set<string>([...CTO_BASELINE])],
+  ['ops', new Set<string>([...OPS_BASELINE])],
 ]);
 
 export function isCriticalBaselineTool(agentRole: string, toolName: string): boolean {
