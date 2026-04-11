@@ -243,8 +243,15 @@ export const filterChipActiveAllClassName = cn(filterChipButtonBaseClassName, 'b
 
 /* ─── Status Dot ──────────────────────────── */
 export function StatusDot({ status }: { status: string }) {
+  const s = String(status ?? '').toLowerCase();
   const bg =
-    status === 'active' ? 'bg-prism-fill-2' : status === 'idle' ? 'bg-prism-elevated' : 'bg-prism-moderate';
+    s === 'active'
+      ? 'bg-prism-fill-2'
+      : s === 'paused'
+        ? 'bg-amber-500'
+        : s === 'idle'
+          ? 'bg-prism-elevated'
+          : 'bg-prism-moderate';
   return <span className={`inline-block h-2 w-2 rounded-full ${bg}`} />;
 }
 

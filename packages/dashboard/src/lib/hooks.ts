@@ -33,7 +33,7 @@ export function useAgents() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const agents = await apiCall<Agent[]>('/api/agents');
+      const agents = await apiCall<Agent[]>('/api/agents?include_paused=true');
       setData(filterCanonicalKeepRoster(agents ?? []));
     } catch {
       setData([]);

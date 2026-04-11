@@ -127,6 +127,7 @@ function buildLiveRosterWhereClause(
   tableName: string,
   nextParamIndex: number,
   hasExistingWhere: boolean,
+  options?: { includePausedCompanyAgents?: boolean },
 ): { clause: string; values: unknown[] } {
   const roleColumn = LIVE_ROSTER_FILTER_COLUMNS[tableName];
   if (!roleColumn) {
@@ -134,8 +135,11 @@ function buildLiveRosterWhereClause(
   }
 
   if (tableName === 'company_agents') {
+    const statusClause = options?.includePausedCompanyAgents
+      ? `status IN ('active', 'paused')`
+      : `status = 'active'`;
     return {
-      clause: `${hasExistingWhere ? ' AND' : ' WHERE'} status = 'active' AND ${roleColumn} = ANY($${nextParamIndex}::text[])`,
+      clause: `${hasExistingWhere ? ' AND' : ' WHERE'} ${statusClause} AND ${roleColumn} = ANY($${nextParamIndex}::text[])`,
       values: [LIVE_ROSTER_ROLE_LIST],
     };
   }
@@ -1916,6 +1920,9 @@ export async function handleDashboardApi(
 
     // ── GET ─────────────────────────────────────────────────────
     if (method === 'GET') {
+      const includePausedAgents = params.get('include_paused') === 'true';
+      params.delete('include_paused');
+
       if (tableName === 'chat_messages') {
         const chatColumns = await getTableColumns(tableName);
         filterQueryParamsByColumns(params, chatColumns);
@@ -1927,6 +1934,7 @@ export async function handleDashboardApi(
           tableName,
           enforceChatMessageOwnership ? 3 : 2,
           true,
+          { includePausedCompanyAgents: includePausedAgents },
         );
         const sql = enforceChatMessageOwnership
           ? `SELECT * FROM ${tableName} WHERE id = $1 AND user_id = $2${liveRosterById.clause}`
@@ -1989,6 +1997,7 @@ export async function handleDashboardApi(
         tableName,
         values.length + 1,
         Boolean(where || extraWhere || decisionProposerFilter),
+        { includePausedCompanyAgents: includePausedAgents },
       );
       values.push(...liveRosterWhere.values);
 

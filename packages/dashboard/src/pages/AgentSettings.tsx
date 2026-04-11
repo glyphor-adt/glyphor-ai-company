@@ -147,7 +147,7 @@ export default function AgentSettings() {
       }
 
       try {
-        const agents = await apiCall<AgentRow[]>('/api/agents?order=display_name.asc');
+        const agents = await apiCall<AgentRow[]>('/api/agents?include_paused=true&order=display_name.asc');
         setAllAgents(Array.isArray(agents) ? agents : []);
       } catch {
         setAllAgents([]);

@@ -30,6 +30,14 @@ async function main(): Promise<void> {
   );
   console.log('--- live roster (status=active, canonical roles) ---');
   console.log(JSON.stringify(live.rows, null, 2));
+
+  const cto = await pool.query(
+    `SELECT role, status, display_name, name, department, tenant_id::text, updated_at
+     FROM company_agents
+     WHERE role = 'cto'`,
+  );
+  console.log('--- CTO row (any status) ---');
+  console.log(JSON.stringify(cto.rows, null, 2));
 }
 
 main()

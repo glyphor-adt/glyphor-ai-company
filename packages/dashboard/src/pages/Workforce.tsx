@@ -315,7 +315,7 @@ export default function Workforce() {
                   <Card className={`${orgChartCardClass(density === 'compact')} flex flex-col items-center justify-center gap-1.5 text-center`}>
                     <p className="text-xs font-medium text-txt-muted">Sarah / Chief of Staff</p>
                     <p className="text-[10px] leading-snug text-txt-faint">
-                      No active <span className="font-mono">chief-of-staff</span> row in the roster. Add the agent or set status to active.
+                      No <span className="font-mono">chief-of-staff</span> row in the roster (or role is retired/deleted). Add the agent or restore the role.
                     </p>
                     <Link
                       to="/agents/new"

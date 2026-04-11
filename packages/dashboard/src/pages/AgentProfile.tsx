@@ -1873,7 +1873,7 @@ function SettingsTab({
 
   useEffect(() => {
     (async () => {
-      const agentsData = await apiCall('/api/agents?order=display_name.asc').catch(() => []);
+      const agentsData = await apiCall('/api/agents?include_paused=true&order=display_name.asc').catch(() => []);
       setAllAgents(Array.isArray(agentsData) ? (agentsData as AgentRow[]) : []);
     })();
   }, []);
