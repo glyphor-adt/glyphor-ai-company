@@ -148,12 +148,6 @@ export { PostHogClient } from './posthog/index.js';
 // Google Search Console
 export { SearchConsoleClient } from './search-console/index.js';
 
-// OpenAI billing
-export { queryOpenAICosts, syncOpenAIBilling } from './openai/index.js';
-
-// Anthropic billing
-export { queryAnthropicUsage, syncAnthropicBilling } from './anthropic/index.js';
-
 // Platform audit logging
 export {
   auditedFetch,

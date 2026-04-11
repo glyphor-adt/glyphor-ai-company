@@ -36,7 +36,6 @@ async function main(): Promise<void> {
     azureFoundryEndpoint: env('AZURE_FOUNDRY_ENDPOINT') ?? env('AZURE_OPENAI_ENDPOINT'),
     azureFoundryApi: env('AZURE_FOUNDRY_API') ?? env('AZURE_OPENAI_API_KEY'),
     azureFoundryApiVersion: env('AZURE_FOUNDRY_API_VERSION') ?? env('AZURE_OPENAI_API_VERSION'),
-    anthropicApiKey: env('ANTHROPIC_API_KEY'),
   });
 
   const rows: AuditRow[] = [];

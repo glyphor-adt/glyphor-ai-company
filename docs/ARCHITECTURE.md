@@ -815,8 +815,6 @@ The scheduler server in packages/scheduler/src/server.ts exposes the following r
 | POST | /sync/stripe | Stripe sync job | Trusted caller (no bearer) |
 | POST | /sync/gcp-billing | GCP billing sync job | Trusted caller (no bearer) |
 | POST | /sync/mercury | Mercury banking sync job | Trusted caller (no bearer) |
-| POST | /sync/openai-billing | OpenAI billing sync job | Trusted caller (no bearer) |
-| POST | /sync/anthropic-billing | Anthropic billing sync job | Trusted caller (no bearer) |
 | POST | /sync/sharepoint-knowledge | SharePoint knowledge sync job | Trusted caller (no bearer) |
 | POST | /sync/governance | Governance IAM sync job | Trusted caller (no bearer) |
 | GET | /oauth/canva/callback | Canva OAuth callback | OAuth callback code flow |

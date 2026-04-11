@@ -18,12 +18,12 @@ export interface BedrockInvokeResult {
 
 let cachedClient: BedrockRuntimeClient | null = null;
 
+/**
+ * Bedrock is on when BEDROCK_ENABLED=true.
+ * Credentials: optional IAM keys in env, or the SDK default chain (aws login, ~/.aws/credentials, SSO, AWS_PROFILE).
+ */
 export function isBedrockEnabled(): boolean {
-  return (
-    process.env.BEDROCK_ENABLED === 'true'
-    && !!process.env.AWS_ACCESS_KEY_ID?.trim()
-    && !!process.env.AWS_SECRET_ACCESS_KEY?.trim()
-  );
+  return process.env.BEDROCK_ENABLED === 'true';
 }
 
 export function getBedrockRegion(): string {

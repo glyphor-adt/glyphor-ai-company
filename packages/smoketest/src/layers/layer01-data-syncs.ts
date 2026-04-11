@@ -83,45 +83,9 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
-  // T1.5 — Billing Syncs (OpenAI + Anthropic)
+  // T1.5 — SharePoint Knowledge Sync
   tests.push(
-    await runTest('T1.5', 'Billing Syncs', async () => {
-      const endpoints = [
-        { name: 'OpenAI', path: '/sync/openai-billing' },
-        { name: 'Anthropic', path: '/sync/anthropic-billing' },
-      ];
-      const results: string[] = [];
-      for (const ep of endpoints) {
-        try {
-          const res = await httpPost<{ success: boolean }>(
-            `${config.schedulerUrl}${ep.path}`,
-            {},
-          );
-          if (res.ok && (res.data as Record<string, unknown>)?.success) {
-            results.push(`${ep.name}: OK`);
-          } else {
-            results.push(`${ep.name}: ${res.status}`);
-          }
-        } catch (err) {
-          if (err instanceof Error) {
-            const msg = err.message.toLowerCase();
-            const isTimeoutAbort = err.name === 'AbortError' || msg.includes('aborted') || msg.includes('timeout');
-            if (isTimeoutAbort) {
-              results.push(`${ep.name}: timeout`);
-              continue;
-            }
-          }
-          throw err;
-        }
-      }
-      const okCount = results.filter(r => r.includes('OK')).length;
-      return `Billing syncs: ${results.join(', ')} (${okCount}/${endpoints.length} OK)`;
-    }),
-  );
-
-  // T1.6 — SharePoint Knowledge Sync
-  tests.push(
-    await runTest('T1.6', 'SharePoint Knowledge Sync', async () => {
+    await runTest('T1.5', 'SharePoint Knowledge Sync', async () => {
       const res = await httpPost<{ success: boolean; error?: string }>(
         `${config.schedulerUrl}/sync/sharepoint-knowledge`,
         {},

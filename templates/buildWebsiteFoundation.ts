@@ -18,9 +18,17 @@
  * Required env:
  *   GOOGLE_AI_API_KEY / GEMINI_API_KEY — Gemini API key
  *   UX_ENGINEER_MODEL — defaults to gemini-3.1-pro-preview (override for cost savings)
+ * For Claude models: BEDROCK_ENABLED=true, AWS_REGION, and AWS credentials (IAM or default chain).
  */
 
-import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import {
+  invokeBedrockModel,
+  isBedrockEnabled,
+  type ToolContext,
+  type ToolDefinition,
+  type ToolResult,
+} from '@glyphor/agent-runtime';
+import { getBedrockInferenceId } from '@glyphor/shared';
 
 // ─── Model Config ─────────────────────────────────────────────────────────────
 
@@ -448,44 +456,40 @@ async function callGemini(
   return { content: normalized };
 }
 
-// ─── Anthropic API Helpers (kept as fallback for non-Gemini models) ───────────
+// ─── Claude via Amazon Bedrock (same Messages shape as direct API; no ANTHROPIC_API_KEY) ─
 
-function getAnthropicApiKey(): string {
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key) throw new Error('ANTHROPIC_API_KEY is not configured.');
-  return key;
-}
+type MessageContentBlock = {
+  type: string;
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: unknown;
+};
 
-async function callAnthropic(
+async function callBedrockClaude(
   messages: Array<{ role: string; content: unknown }>,
   model: string,
-  signal?: AbortSignal,
-): Promise<{ content: Array<{ type: string; text?: string; id?: string; name?: string; input?: unknown }> }> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': getAnthropicApiKey(),
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'output-128k-2025-02-19',  // 128K output token beta
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: MAX_TOKENS,
-      system: UX_ENGINEER_SYSTEM_PROMPT,
-      tools: MCP_LOOKUP_TOOLS,
-      tool_choice: { type: 'auto' },
-      messages,
-    }),
-    signal,
-  });
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Anthropic API error (${response.status}): ${err.slice(0, 500)}`);
+): Promise<{ content: MessageContentBlock[] }> {
+  if (!isBedrockEnabled()) {
+    throw new Error(
+      'UX_ENGINEER_MODEL is a Claude model but Bedrock is off. Set BEDROCK_ENABLED=true, AWS_REGION, and AWS credentials.',
+    );
   }
-
-  return response.json() as Promise<{ content: Array<{ type: string; text?: string; id?: string; name?: string; input?: unknown }> }>;
+  const bedrockModelId = getBedrockInferenceId(model) ?? model;
+  const body: Record<string, unknown> = {
+    anthropic_version: 'bedrock-2023-05-31',
+    max_tokens: MAX_TOKENS,
+    system: UX_ENGINEER_SYSTEM_PROMPT,
+    tools: MCP_LOOKUP_TOOLS,
+    tool_choice: { type: 'auto' },
+    messages,
+  };
+  const { bodyJson } = await invokeBedrockModel(bedrockModelId, JSON.stringify(body));
+  const content = bodyJson.content;
+  if (!Array.isArray(content)) {
+    throw new Error('Bedrock Claude response missing content array');
+  }
+  return { content: content as MessageContentBlock[] };
 }
 
 // Minimal MCP tool executor — calls the real shadcn/aceternity MCP tools
@@ -569,7 +573,7 @@ async function runBuildLoop(
   let output: BuildOutput | null = null;
 
   while (toolRounds <= MAX_TOOL_ROUNDS) {
-    const callFn = model.startsWith('gemini') ? callGemini : callAnthropic;
+    const callFn = model.startsWith('gemini') ? callGemini : callBedrockClaude;
     const response = await callFn(messages, model, ctx.abortSignal);
     const content = response.content ?? [];
 

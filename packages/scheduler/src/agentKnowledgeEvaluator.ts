@@ -114,7 +114,6 @@ export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Pro
     }
 
     const judgeClient = new ModelClient({      geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-      anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     });
 
     const agentSummaries = new Map<string, AgentKnowledgeEvalReport['agents'][number]>();

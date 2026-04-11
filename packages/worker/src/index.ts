@@ -126,7 +126,6 @@ async function getDeepDiveEngine() {
     ]).then(([agentRuntime, scheduler]) => {
       const modelClient = new agentRuntime.ModelClient({
         geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-        anthropicApiKey: process.env.ANTHROPIC_API_KEY,
       });
       return new scheduler.DeepDiveEngine(modelClient);
     });

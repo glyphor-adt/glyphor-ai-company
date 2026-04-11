@@ -16,9 +16,7 @@ const execFile = promisify(execFileCallback);
  * Fallback path: E2B microVM if hosted shell is unavailable or blocked by org
  * allowlist / network policy.
  *
- * OpenAI hosted-shell admin keys (if used), checked in order:
- *   OPENAI_ADMIN_KEY_WEB_BUILD
- *   OPENAI_ADMIN_KEY_COMPANY
+ * OpenAI hosted shell (if used): OPENAI_API_KEY or OPENAI_HOSTED_SHELL_KEY.
  *
  * E2B envs:
  *   E2B_API_KEY
@@ -463,8 +461,8 @@ async function createTarball(sourceDir: string, tarPath: string): Promise<void> 
 }
 
 function getOpenAIKey(): string | null {
-  return process.env.OPENAI_ADMIN_KEY_WEB_BUILD?.trim()
-    || process.env.OPENAI_ADMIN_KEY_COMPANY?.trim()
+  return process.env.OPENAI_API_KEY?.trim()
+    || process.env.OPENAI_HOSTED_SHELL_KEY?.trim()
     || null;
 }
 

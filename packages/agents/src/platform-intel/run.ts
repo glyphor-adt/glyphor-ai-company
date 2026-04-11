@@ -43,7 +43,6 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
 
   const modelClient = new ModelClient({
     geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   });
 
   const task = params.task ?? 'on_demand';

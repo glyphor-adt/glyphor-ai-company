@@ -1,5 +1,6 @@
 /**
- * Anthropic Claude via Amazon Bedrock (InvokeModel) — no api.anthropic.com.
+ * Anthropic Claude via Amazon Bedrock (InvokeModel) — no api.anthropic.com and no ANTHROPIC_API_KEY.
+ * Auth is AWS only (default credential chain: aws login, SSO, ~/.aws, IAM keys).
  */
 
 import { getBedrockInferenceId } from '@glyphor/shared';

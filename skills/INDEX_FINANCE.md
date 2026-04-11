@@ -19,10 +19,8 @@
 | Stripe | 12:00 AM | `/sync/stripe` | MRR, churn, subscriptions, invoices |
 | GCP BigQuery | 1:00 AM | `/sync/gcp-billing` | Cloud Run/SQL/Tasks/Storage costs by service |
 | Mercury | 2:00 AM | `/sync/mercury` | Bank balance, cash flow, vendor subscriptions |
-| OpenAI | 3:00 AM | `/sync/openai-billing` | API usage and billing by model |
-| Anthropic | 3:00 AM | `/sync/anthropic-billing` | Claude API usage and billing |
 
-All sync to the `financials` table in Cloud SQL. Nadia's morning run depends on these completing successfully overnight.
+All sync to the `financials` table in Cloud SQL. LLM usage for GPT models is billed via **Azure AI Foundry** (see cost tools / Azure exports); Claude is on **Amazon Bedrock** (AWS Cost and Usage). Nadia's morning run depends on these completing successfully overnight.
 
 **Tool files:**
 - `revenueTools.ts` — 6 tools: MRR breakdown, Stripe subscriptions/invoices, churn, forecasts, LTV

@@ -84,7 +84,7 @@ export class ProviderFactory {
       case 'anthropic': {
         if (!isBedrockEnabled()) {
           throw new Error(
-            'Claude requires Amazon Bedrock — set BEDROCK_ENABLED=true, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION',
+            'Claude uses Amazon Bedrock only (no Anthropic API key). Set BEDROCK_ENABLED=true and AWS_REGION; authenticate with aws login / SSO or IAM keys; optional AWS_PROFILE',
           );
         }
         return new BedrockAnthropicAdapter();
@@ -92,7 +92,7 @@ export class ProviderFactory {
       case 'deepseek': {
         if (!isBedrockEnabled()) {
           throw new Error(
-            'DeepSeek requires Amazon Bedrock — set BEDROCK_ENABLED=true, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION',
+            'DeepSeek uses Amazon Bedrock. Set BEDROCK_ENABLED=true and AWS_REGION; authenticate with aws login / SSO or IAM keys; optional AWS_PROFILE',
           );
         }
         return new BedrockDeepSeekAdapter();

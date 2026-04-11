@@ -25,7 +25,7 @@ import {
   recordAgentRunCompleted,
 } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncOpenAIBilling, syncAnthropicBilling, syncSharePointKnowledge, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncSharePointKnowledge, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { assertWorkAssignmentDispatchAllowed, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
@@ -3009,7 +3009,6 @@ const heartbeatManager = new HeartbeatManager(
 
 const strategyModelClient = new ModelClient({
   geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
 });
 const analysisEngine = new AnalysisEngine(strategyModelClient);
 const simulationEngine = new SimulationEngine(strategyModelClient);
@@ -3421,127 +3420,6 @@ const server = createServer(async (req, res) => {
           'UPDATE data_sync_status SET last_failure_at=$1, last_error=$2, consecutive_failures=$3, status=$4, updated_at=$5 WHERE id=$6',
           [new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString(), 'mercury'],
         );
-        json(res, 500, { success: false, error: message });
-      }
-      return;
-    }
-
-    // OpenAI billing sync endpoint — syncs per-product keys
-    if (method === 'POST' && url === '/sync/openai-billing') {
-      try {
-        const webBuildEnv = 'OPENAI_ADMIN_KEY_WEB_BUILD';
-        const legacyWebBuildEnv = `OPENAI_ADMIN_KEY_${'FU' + 'SE'}`;
-        const productKeys: Array<{ product: string; key: string }> = [];
-        // Per-product keys: legacy web-build, pulse, company
-        if (process.env[webBuildEnv]) productKeys.push({ product: 'web-build', key: process.env[webBuildEnv] });
-        if (process.env[legacyWebBuildEnv]) productKeys.push({ product: 'web-build', key: process.env[legacyWebBuildEnv] });
-        if (process.env.OPENAI_ADMIN_KEY_PULSE) productKeys.push({ product: 'pulse', key: process.env.OPENAI_ADMIN_KEY_PULSE });
-        if (process.env.OPENAI_ADMIN_KEY_COMPANY) productKeys.push({ product: 'glyphor-ai-company', key: process.env.OPENAI_ADMIN_KEY_COMPANY });
-        // Fallback: single key defaults to 'pulse'
-        if (productKeys.length === 0 && process.env.OPENAI_ADMIN_KEY) {
-          productKeys.push({ product: 'pulse', key: process.env.OPENAI_ADMIN_KEY });
-        }
-        if (productKeys.length === 0) throw new Error('No OPENAI_ADMIN_KEY_* configured');
-
-        const results: Record<string, { synced: number; models: number } | { error: string }> = {};
-        const errors: string[] = [];
-        // Deduplicate: if multiple products share the same key, call API once and reuse results
-        const keyToProducts = new Map<string, string[]>();
-        for (const { product, key } of productKeys) {
-          const existing = keyToProducts.get(key);
-          if (existing) existing.push(product);
-          else keyToProducts.set(key, [product]);
-        }
-        for (const [key, products] of keyToProducts) {
-          try {
-            const result = await syncOpenAIBilling(key, products[0]);
-            for (const product of products) results[product] = result;
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            for (const product of products) {
-              results[product] = { error: msg };
-              errors.push(`${product}: ${msg}`);
-            }
-          }
-        }
-        const anySuccess = Object.values(results).some((r) => !('error' in r));
-        if (anySuccess) {
-          await systemQuery(
-            'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, last_error=$4, updated_at=$5 WHERE id=$6',
-            [new Date().toISOString(), 0, errors.length > 0 ? 'partial' : 'ok', errors.length > 0 ? errors.join('; ') : null, new Date().toISOString(), 'openai-billing'],
-          );
-        } else {
-          const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['openai-billing']);
-          const failures = (current?.consecutive_failures ?? 0) + 1;
-          await systemQuery(
-            'UPDATE data_sync_status SET last_failure_at=$1, last_error=$2, consecutive_failures=$3, status=$4, updated_at=$5 WHERE id=$6',
-            [new Date().toISOString(), errors.join('; '), failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString(), 'openai-billing'],
-          );
-        }
-        json(res, anySuccess ? 200 : 500, { success: anySuccess, products: results, errors: errors.length > 0 ? errors : undefined });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        json(res, 500, { success: false, error: message });
-      }
-      return;
-    }
-
-    // Anthropic billing sync endpoint — syncs per-product keys
-    if (method === 'POST' && url === '/sync/anthropic-billing') {
-      try {
-        const webBuildEnv = 'ANTHROPIC_ADMIN_KEY_WEB_BUILD';
-        const legacyWebBuildEnv = `ANTHROPIC_ADMIN_KEY_${'FU' + 'SE'}`;
-        const productKeys: Array<{ product: string; key: string }> = [];
-        // Per-product keys: legacy web-build, pulse, company
-        if (process.env[webBuildEnv]) productKeys.push({ product: 'web-build', key: process.env[webBuildEnv] });
-        if (process.env[legacyWebBuildEnv]) productKeys.push({ product: 'web-build', key: process.env[legacyWebBuildEnv] });
-        if (process.env.ANTHROPIC_ADMIN_KEY_PULSE) productKeys.push({ product: 'pulse', key: process.env.ANTHROPIC_ADMIN_KEY_PULSE });
-        if (process.env.ANTHROPIC_ADMIN_KEY_COMPANY) productKeys.push({ product: 'glyphor-ai-company', key: process.env.ANTHROPIC_ADMIN_KEY_COMPANY });
-        // Fallback: single key defaults to 'glyphor-ai-company'
-        if (productKeys.length === 0) {
-          const fallback = process.env.ANTHROPIC_ADMIN_KEY ?? process.env.ANTHROPIC_API_KEY;
-          if (fallback) productKeys.push({ product: 'glyphor-ai-company', key: fallback });
-        }
-        if (productKeys.length === 0) throw new Error('No Anthropic admin billing keys configured');
-
-        const results: Record<string, { synced: number; models: number } | { error: string }> = {};
-        const errors: string[] = [];
-        // Deduplicate: if multiple products share the same key, call API once and reuse results
-        const keyToProducts = new Map<string, string[]>();
-        for (const { product, key } of productKeys) {
-          const existing = keyToProducts.get(key);
-          if (existing) existing.push(product);
-          else keyToProducts.set(key, [product]);
-        }
-        for (const [key, products] of keyToProducts) {
-          try {
-            const result = await syncAnthropicBilling(key, products[0]);
-            for (const product of products) results[product] = result;
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            for (const product of products) {
-              results[product] = { error: msg };
-              errors.push(`${product}: ${msg}`);
-            }
-          }
-        }
-        const anySuccess = Object.values(results).some((r) => !('error' in r));
-        if (anySuccess) {
-          await systemQuery(
-            'UPDATE data_sync_status SET last_success_at=$1, consecutive_failures=$2, status=$3, last_error=$4, updated_at=$5 WHERE id=$6',
-            [new Date().toISOString(), 0, errors.length > 0 ? 'partial' : 'ok', errors.length > 0 ? errors.join('; ') : null, new Date().toISOString(), 'anthropic-billing'],
-          );
-        } else {
-          const [current] = await systemQuery<{ consecutive_failures: number }>('SELECT consecutive_failures FROM data_sync_status WHERE id=$1', ['anthropic-billing']);
-          const failures = (current?.consecutive_failures ?? 0) + 1;
-          await systemQuery(
-            'UPDATE data_sync_status SET last_failure_at=$1, last_error=$2, consecutive_failures=$3, status=$4, updated_at=$5 WHERE id=$6',
-            [new Date().toISOString(), errors.join('; '), failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString(), 'anthropic-billing'],
-          );
-        }
-        json(res, anySuccess ? 200 : 500, { success: anySuccess, products: results, errors: errors.length > 0 ? errors : undefined });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
         json(res, 500, { success: false, error: message });
       }
       return;

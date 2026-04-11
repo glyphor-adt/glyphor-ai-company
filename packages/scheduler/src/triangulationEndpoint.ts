@@ -4,7 +4,7 @@ import { buildTriangulationContext, triangulate } from '@glyphor/agent-runtime';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import type { RedisCache } from '@glyphor/agent-runtime';
 import { detectProvider, estimateModelCost, normalizeReasoningLevel, resolveModel } from '@glyphor/shared';
-import type { TriangulationModelSelection } from '@glyphor/shared';
+import type { ModelProvider, TriangulationModelSelection } from '@glyphor/shared';
 import type { ReasoningLevel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { buildGitHubRepoContext, searchWeb, searchResultsToContext } from '@glyphor/integrations';
@@ -67,7 +67,7 @@ type OraMode = 'triangulated' | 'single-model';
 interface SingleModelRun {
   mode: 'single-model';
   model: string;
-  provider: 'gemini' | 'openai' | 'anthropic';
+  provider: ModelProvider;
   durationMs: number;
   thinkingEnabled: boolean;
   reasoningLevel: ReasoningLevel;

@@ -55,7 +55,6 @@ export async function evaluateHandoff(handoffId: string): Promise<void> {
   if (!upstreamOutput || !downstreamOutput) return;
 
   const modelClient = new ModelClient({    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   });
 
   try {

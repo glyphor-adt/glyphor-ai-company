@@ -161,20 +161,6 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     enabled: true,
   },
   {
-    id: 'sync-openai-billing',
-    schedule: '0 9 * * *',     // 9:00 UTC = 3:00 AM CT, daily
-    timezone: 'UTC',
-    endpoint: '/sync/openai-billing',
-    enabled: true,
-  },
-  {
-    id: 'sync-anthropic-billing',
-    schedule: '0 9 * * *',     // 9:00 UTC = 3:00 AM CT, daily
-    timezone: 'UTC',
-    endpoint: '/sync/anthropic-billing',
-    enabled: true,
-  },
-  {
     id: 'sync-sharepoint-knowledge',
     schedule: '0 10 * * *',    // 10:00 UTC = 4:00 AM CT, daily
     timezone: 'UTC',

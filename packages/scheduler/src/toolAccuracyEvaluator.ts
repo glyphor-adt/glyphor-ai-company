@@ -104,7 +104,6 @@ export async function evaluateToolAccuracy(
   }));
 
   const judgeClient = new ModelClient({    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   });
 
   const response = await judgeClient.generate({
