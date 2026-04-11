@@ -6,6 +6,9 @@
  * Reports directly to founders, not through Sarah Chen.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner,
   ModelClient,
@@ -46,7 +49,7 @@ export async function runCLO(params: CLORunParams = {}) {
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'clo', params.task ?? 'on_demand');
   const eventBus = new EventBus();

@@ -4,6 +4,9 @@
  * Reports to Marcus Reeves (CTO). Monitors platform health.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner,
   ModelClient,
@@ -42,7 +45,7 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'platform-engineer', params.task ?? 'on_demand');
   const eventBus = new EventBus();

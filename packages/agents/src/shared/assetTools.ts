@@ -6,7 +6,7 @@
  *   - Legacy: HTTP service with POST /upload and GET /list (ASSET_SERVICE_URL).
  *
  * Tools:
- *   generate_image              — Generate images via Gemini Imagen 4 (GOOGLE_AI_API_KEY / GEMINI_API_KEY)
+ *   generate_image              — Generate images via Gemini Imagen 4 (GOOGLE_AI_API_KEY from Secret Manager in prod)
  *   generate_and_publish_asset  — Generate + store + sync + publish a design asset deliverable
  *   publish_asset_deliverable   — Store + sync + publish an existing asset as a durable deliverable
  *   upload_asset                — Upload image bytes to GitHub path or legacy asset service
@@ -16,6 +16,7 @@
  */
 
 import type { GlyphorEventBus, ToolDefinition, ToolResult, ToolContext } from '@glyphor/agent-runtime';
+import { getGoogleAiApiKey } from '@glyphor/shared';
 import { GoogleGenAI } from '@google/genai';
 import {
   uploadToSharePoint,
@@ -172,7 +173,7 @@ function resolveSharePointReferenceFileName(filename: string, override?: string)
 }
 
 function resolveGeminiApiKeyForImages(): string | null {
-  return process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_AI_API_KEY?.trim() || null;
+  return getGoogleAiApiKey() ?? null;
 }
 
 /** Map legacy DALL-E size strings to Imagen aspect ratios. */

@@ -14,6 +14,9 @@
  * Videos are NEVER included unless the user explicitly requests them.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import { ModelClient } from '@glyphor/agent-runtime';
 
@@ -270,7 +273,7 @@ export function createWebBuildPlannerTools(): ToolDefinition[] {
 
         try {
           const modelClient = new ModelClient({
-            geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+            geminiApiKey: getGoogleAiApiKey(),
           });
 
           const response = await modelClient.generate({

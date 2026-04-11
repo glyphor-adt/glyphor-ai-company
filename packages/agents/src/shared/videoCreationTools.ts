@@ -1,4 +1,5 @@
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
+import { getGoogleAiApiKey } from '@glyphor/shared';
 import { GoogleGenAI } from '@google/genai';
 import { Storage } from '@google-cloud/storage';
 
@@ -7,7 +8,7 @@ type VideoJobContext = {
 };
 
 function resolveGeminiApiKey(): string | null {
-  return process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY ?? null;
+  return getGoogleAiApiKey() ?? null;
 }
 
 function resolveBucketName(): string {

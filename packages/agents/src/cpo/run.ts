@@ -4,6 +4,9 @@
  * Executes the CPO agent for usage analysis, competitive intel, and product strategy.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner,
   ModelClient,
@@ -48,7 +51,7 @@ export async function runCPO(params: CPORunParams = {}) {
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'cpo', params.task ?? 'on_demand');
   const eventBus = new EventBus();

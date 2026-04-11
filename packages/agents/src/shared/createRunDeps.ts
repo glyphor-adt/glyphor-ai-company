@@ -4,6 +4,9 @@
  * context for all agent runners.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import { systemQuery } from '@glyphor/shared/db';
 import type { GlyphorEventBus, RunDependencies, AgentProfileData, CompanyAgentRole, SkillContext, SkillFeedback } from '@glyphor/agent-runtime';
 import type { ClassifiedRunDependencies } from '@glyphor/agent-runtime';
@@ -224,7 +227,7 @@ export function createRunDeps(
   const graphReader: KnowledgeGraphReader | null = memory.getGraphReader();
 
   // Build shared memory infrastructure for classified runners
-  const embeddingClient = new EmbeddingClient(process.env.GOOGLE_AI_API_KEY!);
+  const embeddingClient = new EmbeddingClient(getGoogleAiApiKey()!);
   if (!graphReader) {
     console.warn('[createRunDeps] Knowledge graph reader unavailable (GOOGLE_AI_API_KEY may be missing from CompanyMemoryStore). L3 semantic memory will be skipped, but world models and episodes still work.');
   }
@@ -237,7 +240,7 @@ export function createRunDeps(
 
   // Context distiller — compresses raw JIT results into focused briefings
   const distillerModelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const contextDistiller = new ContextDistiller(distillerModelClient, cache);
 
@@ -260,7 +263,7 @@ export function createRunDeps(
     const config = await ReasoningEngine.loadConfig(agentRole, cache);
     if (!config || !config.enabled) return null;
     const modelClient = new ModelClient({
-      geminiApiKey: process.env.GOOGLE_AI_API_KEY,    });
+      geminiApiKey: getGoogleAiApiKey(),    });
     return new ReasoningEngine(modelClient, config, cache);
   };
 

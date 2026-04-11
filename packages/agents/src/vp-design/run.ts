@@ -5,6 +5,9 @@
  * design system governance, and output quality management.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner,
   ModelClient,
@@ -80,7 +83,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'vp-design', params.task ?? 'on_demand');
   const eventBus = new EventBus();

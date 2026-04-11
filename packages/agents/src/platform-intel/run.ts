@@ -25,6 +25,7 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createDiagnosticTools } from '../shared/diagnosticTools.js';
 import { createSharePointTools } from '../shared/sharepointTools.js';
 import { createAgent365McpTools } from '../shared/agent365Tools.js';
+import { getGoogleAiApiKey } from '@glyphor/shared';
 import { PLATFORM_INTEL_CONFIG } from './config.js';
 
 export interface PlatformIntelRunParams {
@@ -42,7 +43,7 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
 
   const task = params.task ?? 'on_demand';

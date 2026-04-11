@@ -5,6 +5,7 @@
  * with thought signatures for function call replay.
  */
 
+import { getGoogleAiApiKey, googleAiMissingKeyMessage } from '@glyphor/shared';
 import { GoogleGenAI } from '@google/genai';
 import type { ConversationTurn } from '../types.js';
 import type { ProviderAdapter, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './types.js';
@@ -194,8 +195,8 @@ export class GeminiAdapter implements ProviderAdapter {
       const genClient = this.client as any;
       if (typeof genClient.models?.generateVideos !== 'function') {
         // Fallback: use the REST API directly for video generation
-        const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error('No Google AI API key for video generation');
+        const apiKey = getGoogleAiApiKey();
+        if (!apiKey) throw new Error(googleAiMissingKeyMessage('Video generation'));
 
         const model = 'veo-3.1-generate';
         const response = await fetch(

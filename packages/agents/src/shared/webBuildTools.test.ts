@@ -50,6 +50,15 @@ describe('webBuildTools website pipeline replacement', () => {
             one_sentence_memory: 'Acme launches faster.',
             aesthetic_direction: 'Editorial boldness',
             product_type: 'marketing_page',
+            suggested_repo_slug: 'acme-launch',
+            component_inventory: [{ name: 'hero', priority: 1, interaction_intent: 'x', motion_intent: 'y' }],
+            asset_manifest: { images: [], videos: [] },
+            quality_contract: {
+              required_breakpoints: [1440],
+              required_checks: [],
+              max_iteration_rounds: 3,
+            },
+            missing_fields: [],
           };
         case 'github_create_from_template':
           return { full_name: 'Glyphor-Fuse/acme-launch', owner: 'Glyphor-Fuse', repo: 'acme-launch' };
@@ -127,6 +136,15 @@ describe('webBuildTools website pipeline replacement', () => {
             one_sentence_memory: 'Pilot turns prompts into operations.',
             aesthetic_direction: 'Bold minimal',
             product_type: 'web_application',
+            suggested_repo_slug: 'pilot-ops',
+            component_inventory: [{ name: 'hero', priority: 1, interaction_intent: 'x', motion_intent: 'y' }],
+            asset_manifest: { images: [], videos: [] },
+            quality_contract: {
+              required_breakpoints: [1440],
+              required_checks: [],
+              max_iteration_rounds: 3,
+            },
+            missing_fields: [],
           };
         case 'github_create_from_template':
           return { full_name: 'Glyphor-Fuse/pilot-ops', owner: 'Glyphor-Fuse', repo: 'pilot-ops' };
@@ -196,6 +214,15 @@ describe('webBuildTools website pipeline replacement', () => {
             one_sentence_memory: 'Pilot turns prompts into operations.',
             aesthetic_direction: 'Bold minimal',
             product_type: 'web_application',
+            suggested_repo_slug: 'pilot-ops',
+            component_inventory: [{ name: 'hero', priority: 1, interaction_intent: 'x', motion_intent: 'y' }],
+            asset_manifest: { images: [], videos: [] },
+            quality_contract: {
+              required_breakpoints: [1440],
+              required_checks: [],
+              max_iteration_rounds: 3,
+            },
+            missing_fields: [],
           };
         case 'build_website_foundation':
           return {

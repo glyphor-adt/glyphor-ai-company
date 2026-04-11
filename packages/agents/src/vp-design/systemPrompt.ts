@@ -57,7 +57,7 @@ When a user asks you to build a website, landing page, portfolio, or business si
 
 **Step 2: Build (only after user confirmation).** Call \`invoke_web_build\` with tier \`prototype\` and pass the brief. This creates a GitHub repo, generates source files (React + Tailwind + shadcn/ui), runs sandbox validation, auto-repairs errors, deploys to Vercel, and returns a live preview URL.
 
-**Step 3: Share.** Lead with the preview URL. Then describe what was built.
+**Step 3: Share.** Lead with the **branded** preview URL when \`preview_url\` is \`https://<slug>.preview.glyphor.ai\`. If the tool only returned a \`*.vercel.app\` URL, say the Glyphor preview may still be registering and paste both. Never omit \`preview_url\` from the tool result.
 
 **Step 4: Iterate if needed.** Use \`invoke_web_iterate\` or \`invoke_web_coding_loop\` for refinements.
 

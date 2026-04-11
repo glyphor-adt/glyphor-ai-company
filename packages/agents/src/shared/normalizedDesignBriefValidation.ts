@@ -28,6 +28,8 @@ export interface ValidatedNormalizedDesignBrief {
     max_iteration_rounds: number;
   };
   missing_fields: string[];
+  /** Kebab-case base name; caller appends unique suffix for GitHub/Vercel. */
+  suggested_repo_slug: string;
 }
 
 export function validateNormalizedDesignBriefPayload(
@@ -111,6 +113,20 @@ export function validateNormalizedDesignBriefPayload(
     errors.push('missing_fields must be an array of strings');
   }
 
+  const suggestedRaw = o.suggested_repo_slug;
+  let suggested_repo_slug = '';
+  if (typeof suggestedRaw !== 'string' || !suggestedRaw.trim()) {
+    errors.push('suggested_repo_slug must be a non-empty kebab-case string');
+  } else {
+    suggested_repo_slug = suggestedRaw.trim().toLowerCase();
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(suggested_repo_slug)) {
+      errors.push('suggested_repo_slug must use lowercase letters, digits, and hyphens only');
+    }
+    if (suggested_repo_slug.length < 3 || suggested_repo_slug.length > 48) {
+      errors.push('suggested_repo_slug must be 3–48 characters');
+    }
+  }
+
   if (errors.length > 0) return { ok: false, errors };
 
   const value: ValidatedNormalizedDesignBrief = {
@@ -124,6 +140,7 @@ export function validateNormalizedDesignBriefPayload(
     asset_manifest: am as ValidatedNormalizedDesignBrief['asset_manifest'],
     quality_contract: qc as ValidatedNormalizedDesignBrief['quality_contract'],
     missing_fields: mf as string[],
+    suggested_repo_slug,
   };
 
   return { ok: true, value };

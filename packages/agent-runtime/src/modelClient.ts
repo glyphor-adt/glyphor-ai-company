@@ -16,7 +16,7 @@ import { isBedrockEnabled } from './providers/bedrockClient.js';
 import { inferBillingCloud, recordUsage } from './credits/ledger.js';
 import type { ModelProvider, UnifiedModelRequest, UnifiedModelResponse, ImageResponse } from './providers/types.js';
 import { getFallbackChain, getProviderLocalFallbackChain, resolveModel } from '@glyphor/shared/models';
-import { getTierModel } from '@glyphor/shared';
+import { getGoogleAiApiKey, getTierModel, googleAiMissingKeyMessage } from '@glyphor/shared';
 import { startTraceSpan } from './telemetry/tracing.js';
 import {
   categorizeError,
@@ -374,9 +374,9 @@ export class ModelClient {
   }
 
   private getGeminiApiKey(): string {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || '';
+    const apiKey = getGoogleAiApiKey() ?? '';
     if (!apiKey) {
-      throw new Error('Missing GEMINI_API_KEY or GOOGLE_AI_API_KEY for Gemini Deep Research calls.');
+      throw new Error(googleAiMissingKeyMessage('Gemini Deep Research'));
     }
     return apiKey;
   }

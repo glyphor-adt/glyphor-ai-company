@@ -5,6 +5,9 @@
  * Implements the IMemoryBus interface from @glyphor/agent-runtime.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import { systemQuery, tenantQuery } from '@glyphor/shared/db';
 import { Storage } from '@google-cloud/storage';
 import { EmbeddingClient } from './embeddingClient.js';
@@ -52,7 +55,7 @@ export class CompanyMemoryStore implements IMemoryBus {
   constructor(config: CompanyMemoryConfig) {
     this.storage = new Storage({ projectId: config.gcpProjectId });
     this.bucketName = config.gcsBucket;
-    const geminiKey = config.geminiApiKey ?? process.env.GOOGLE_AI_API_KEY;
+    const geminiKey = config.geminiApiKey ?? getGoogleAiApiKey();
     this.embeddingClient = geminiKey ? new EmbeddingClient(geminiKey) : null;
   }
 

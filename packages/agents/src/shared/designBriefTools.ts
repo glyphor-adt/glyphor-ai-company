@@ -1,5 +1,5 @@
 import { ModelClient, type ToolContext, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
-import { getTierModel } from '@glyphor/shared';
+import { getGoogleAiApiKey, getTierModel } from '@glyphor/shared';
 import { validateNormalizedDesignBriefPayload } from './normalizedDesignBriefValidation.js';
 
 interface ComponentSpec {
@@ -34,6 +34,8 @@ interface NormalizedDesignBrief {
     max_iteration_rounds: number;
   };
   missing_fields: string[];
+  /** Kebab-case; pipeline always appends a unique suffix for new GitHub repos. */
+  suggested_repo_slug: string;
 }
 
 interface ModelEnhancedBrief {
@@ -44,6 +46,8 @@ interface ModelEnhancedBrief {
   aesthetic_direction?: string;
   product_type?: NormalizedDesignBrief['product_type'];
   section_candidates?: string[];
+  /** Kebab-case repo slug; pipeline appends a unique suffix for GitHub/Vercel. */
+  suggested_repo_slug?: string;
 }
 
 const PROMPT_NORMALIZER_MODEL = process.env.USER_PROMPT_NORMALIZER_MODEL?.trim() || getTierModel('default');
@@ -59,7 +63,8 @@ Return ONLY valid JSON with this exact shape and keys:
   "one_sentence_memory": "string",
   "aesthetic_direction": "string",
   "product_type": "marketing_page | web_application | fullstack_application",
-  "section_candidates": ["string"]
+  "section_candidates": ["string"],
+  "suggested_repo_slug": "string"
 }
 
 Rules:
@@ -68,7 +73,8 @@ Rules:
 - If prompt is short, infer practical defaults from the actual domain in the prompt.
 - Never inject platform-specific marketing copy unless user asked for that platform.
 - If CTA style hints are provided (outline, ghost, text-only, light fill), reflect that in aesthetic_direction.
-- section_candidates should be 3-8 concise ids in snake_case.`;
+- section_candidates should be 3-8 concise ids in snake_case.
+- suggested_repo_slug: REQUIRED. Kebab-case (lowercase letters, digits, hyphens only), 3–48 chars. Invent a distinctive, topic-specific name for this project (e.g. sunlit-barn-play, coastal-dental-smile-lab). Never use generic tokens alone: website, landing, page, site, app, project, demo, test.`;
 
 const DEFAULT_COMPONENTS: ComponentSpec[] = [
   {
@@ -129,6 +135,42 @@ function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+/** URL-safe repo slug segment (before unique suffix is appended). */
+function slugifyForRepoSlug(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+    .slice(0, 48);
+}
+
+const GENERIC_REPO_SLUG_BANNED = /^(website|landing|site|page|web|app|project|demo|test|client|customer)(-[a-z0-9]+)?$/;
+
+function deriveFallbackRepoSlug(directiveText: string, oneSentenceMemory: string): string {
+  const source = oneSentenceMemory.trim() || directiveText.trim();
+  const words = source
+    .replace(/[^a-zA-Z0-9\s-]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 1)
+    .slice(0, 6)
+    .join(' ');
+  const base = slugifyForRepoSlug(words || 'glyphor-site');
+  return base.length >= 6 ? base : `${base}-experience`.slice(0, 48);
+}
+
+function resolveSuggestedRepoSlug(
+  directiveText: string,
+  oneSentenceMemory: string,
+  enhanced: ModelEnhancedBrief | null,
+): string {
+  const fromModel = enhanced?.suggested_repo_slug ? slugifyForRepoSlug(enhanced.suggested_repo_slug) : '';
+  if (fromModel.length >= 6 && !GENERIC_REPO_SLUG_BANNED.test(fromModel)) {
+    return fromModel;
+  }
+  return deriveFallbackRepoSlug(directiveText, oneSentenceMemory);
+}
+
 function extractQuoted(text: string): string | null {
   const match = text.match(/"([^"]+)"/);
   return match?.[1] ? normalizeWhitespace(match[1]) : null;
@@ -173,7 +215,7 @@ function inferProductType(text: string, explicit?: string): NormalizedDesignBrie
 
 function createPromptNormalizerModelClient(): ModelClient {
   return new ModelClient({
-    geminiApiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
     azureFoundryEndpoint: process.env.AZURE_FOUNDRY_ENDPOINT,
     azureFoundryApi: process.env.AZURE_FOUNDRY_API,
     azureFoundryApiVersion: process.env.AZURE_FOUNDRY_API_VERSION,
@@ -250,6 +292,7 @@ async function enhanceBriefWithModel(
       aesthetic_direction: asNonEmptyString(parsed.aesthetic_direction),
       product_type: productType,
       section_candidates: normalizeSectionCandidates(parsed.section_candidates),
+      suggested_repo_slug: asNonEmptyString(parsed.suggested_repo_slug),
     };
   } catch {
     return null;
@@ -392,6 +435,8 @@ export function createDesignBriefTools(): ToolDefinition[] {
         }
         if (!extractAfterLabel(directiveText, ['visual direction', 'aesthetic direction'])) missingFields.push('aesthetic_direction');
 
+        const suggestedRepoSlug = resolveSuggestedRepoSlug(directiveText, oneSentenceMemory, enhanced);
+
         const normalized: NormalizedDesignBrief = {
           audience_persona: audiencePersona,
           primary_conversion_action: primaryConversion,
@@ -407,6 +452,7 @@ export function createDesignBriefTools(): ToolDefinition[] {
             max_iteration_rounds: 3,
           },
           missing_fields: missingFields,
+          suggested_repo_slug: suggestedRepoSlug,
         };
 
         const validated = validateNormalizedDesignBriefPayload(normalized);

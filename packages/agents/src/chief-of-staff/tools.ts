@@ -16,7 +16,7 @@ import {
 } from '@glyphor/agent-runtime';
 import type { GlyphorEventBus } from '@glyphor/agent-runtime';
 import { markOutcomeRevised, markOutcomeAccepted } from '@glyphor/agent-runtime';
-import { assertBatchWorkAssignmentsDeduped, assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
+import { getGoogleAiApiKey, assertBatchWorkAssignmentsDeduped, assertWorkAssignmentDispatchAllowed } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { CompanyMemoryStore, SharedMemoryLoader, WorldModelUpdater, EmbeddingClient } from '@glyphor/company-memory';
 import type { KnowledgeGraphReader } from '@glyphor/company-memory';
@@ -2341,7 +2341,7 @@ export function createOrchestrationTools(
             'SELECT assigned_to, task_type FROM work_assignments WHERE id = $1', [assignmentId]) as any[];
 
           if (assignmentData?.assigned_to) {
-            const embeddingClient = new EmbeddingClient(process.env.GOOGLE_AI_API_KEY!);
+            const embeddingClient = new EmbeddingClient(getGoogleAiApiKey()!);
             const sharedMemLoader = new SharedMemoryLoader(embeddingClient, graphReader ?? null, getRedisCache());
             const updater = new WorldModelUpdater(sharedMemLoader);
 

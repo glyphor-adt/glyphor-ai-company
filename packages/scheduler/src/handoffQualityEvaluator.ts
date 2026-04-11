@@ -4,7 +4,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
-import { getTierModel } from '@glyphor/shared';
+import { getGoogleAiApiKey, getTierModel } from '@glyphor/shared';
 import { ModelClient } from '@glyphor/agent-runtime';
 
 const LOG_PREFIX = '[HandoffQualityEvaluator]';
@@ -54,7 +54,7 @@ export async function evaluateHandoff(handoffId: string): Promise<void> {
 
   if (!upstreamOutput || !downstreamOutput) return;
 
-  const modelClient = new ModelClient({    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+  const modelClient = new ModelClient({    geminiApiKey: getGoogleAiApiKey(),
   });
 
   try {

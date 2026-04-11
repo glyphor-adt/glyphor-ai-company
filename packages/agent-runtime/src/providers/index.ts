@@ -9,6 +9,8 @@ export { BedrockAnthropicAdapter } from './bedrockAnthropic.js';
 export { BedrockDeepSeekAdapter } from './bedrockDeepseek.js';
 export { isBedrockEnabled, getBedrockRegion } from './bedrockClient.js';
 
+import { getGoogleAiApiKey, googleAiMissingKeyMessage } from '@glyphor/shared';
+
 import type { ModelProvider, ProviderAdapter } from './types.js';
 import { GeminiAdapter, type GeminiAdapterConfig } from './gemini.js';
 import { OpenAIAdapter } from './openai.js';
@@ -45,12 +47,11 @@ export class ProviderFactory {
       case 'gemini': {
         const directGeminiKey = (
           this.config.geminiApiKey
-          ?? process.env.GOOGLE_AI_API_KEY
-          ?? process.env.GEMINI_API_KEY
+          ?? getGoogleAiApiKey()
         )?.trim();
 
         if (!directGeminiKey) {
-          throw new Error('Gemini not configured — set GOOGLE_AI_API_KEY or GEMINI_API_KEY');
+          throw new Error(googleAiMissingKeyMessage('Gemini not configured'));
         }
         return new GeminiAdapter({ apiKey: directGeminiKey });
       }

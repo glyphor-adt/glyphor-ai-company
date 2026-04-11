@@ -7,6 +7,9 @@
  * downstream signals captured in the task_run_outcomes table.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import { systemQuery } from '@glyphor/shared/db';
 import { getRedisCache, TrustScorer } from '@glyphor/agent-runtime';
 import { incrementDownstreamDefects } from '@glyphor/agent-runtime';
@@ -163,7 +166,7 @@ export async function evaluateBatch(): Promise<BatchEvalResult> {
     // Update world models and trust scores for each agent that had outcomes evaluated
     try {
       const agentRoles = [...new Set(outcomes.map(o => o.agent_role))];
-      const embeddingClient = new EmbeddingClient(process.env.GOOGLE_AI_API_KEY!);
+      const embeddingClient = new EmbeddingClient(getGoogleAiApiKey()!);
       const sharedMemory = new SharedMemoryLoader(embeddingClient, null, cache);
       const worldModelUpdater = new WorldModelUpdater(sharedMemory);
       const trustScorer = new TrustScorer(cache);

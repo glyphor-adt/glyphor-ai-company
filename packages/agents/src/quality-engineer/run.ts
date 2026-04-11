@@ -3,6 +3,9 @@
  * Reports to Marcus Reeves (CTO). QA and testing.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,
   ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
@@ -35,7 +38,7 @@ export async function runQualityEngineer(params: QualityEngineerRunParams = {}) 
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'quality-engineer', params.task ?? 'on_demand');
   const eventBus = new EventBus();

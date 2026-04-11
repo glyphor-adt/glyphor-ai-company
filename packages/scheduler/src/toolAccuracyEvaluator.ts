@@ -8,7 +8,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
-import { getTierModel } from '@glyphor/shared';
+import { getGoogleAiApiKey, getTierModel } from '@glyphor/shared';
 import { ModelClient } from '@glyphor/agent-runtime';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ export async function evaluateToolAccuracy(
     how_selected: t.retrieval_method,
   }));
 
-  const judgeClient = new ModelClient({    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+  const judgeClient = new ModelClient({    geminiApiKey: getGoogleAiApiKey(),
   });
 
   const response = await judgeClient.generate({

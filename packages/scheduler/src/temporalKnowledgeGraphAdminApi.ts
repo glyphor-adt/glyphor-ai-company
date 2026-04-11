@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TemporalKnowledgeGraph } from '@glyphor/agent-runtime';
 import { EmbeddingClient } from '@glyphor/company-memory';
+import { getGoogleAiApiKey, googleAiMissingKeyMessage } from '@glyphor/shared';
 import { writeJson } from './httpJson.js';
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -16,10 +17,11 @@ let graphClientSingleton: TemporalKnowledgeGraph | null = null;
 
 function getGraphClient(): TemporalKnowledgeGraph {
   if (graphClientSingleton) return graphClientSingleton;
-  if (!process.env.GOOGLE_AI_API_KEY) {
-    throw new Error('GOOGLE_AI_API_KEY is required for temporal knowledge graph embeddings');
+  const googleKey = getGoogleAiApiKey();
+  if (!googleKey) {
+    throw new Error(googleAiMissingKeyMessage('Temporal knowledge graph embeddings'));
   }
-  graphClientSingleton = new TemporalKnowledgeGraph(new EmbeddingClient(process.env.GOOGLE_AI_API_KEY));
+  graphClientSingleton = new TemporalKnowledgeGraph(new EmbeddingClient(googleKey));
   return graphClientSingleton;
 }
 

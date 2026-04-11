@@ -4,7 +4,7 @@
  */
 
 import { ModelClient, type ToolContext, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
-import { getSpecialized } from '@glyphor/shared';
+import { getGoogleAiApiKey, getSpecialized } from '@glyphor/shared';
 
 /** Override with `QUICK_DEMO_WEB_MODEL`; default is centralized Codex (Azure Foundry). */
 const QUICK_DEMO_MODEL = process.env.QUICK_DEMO_WEB_MODEL?.trim() || getSpecialized('quick_demo_web');
@@ -22,7 +22,7 @@ Rules:
 
 function createQuickDemoModelClient(): ModelClient {
   return new ModelClient({
-    geminiApiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
     azureFoundryEndpoint: process.env.AZURE_FOUNDRY_ENDPOINT,
     azureFoundryApi: process.env.AZURE_FOUNDRY_API,
     azureFoundryApiVersion: process.env.AZURE_FOUNDRY_API_VERSION,

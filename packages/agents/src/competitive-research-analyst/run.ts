@@ -2,6 +2,9 @@
  * Competitive Research Analyst (Lena Park) — Runner
  * Reports to Sarah Chen (Chief of Staff). Competitive intelligence research.
  */
+
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,
   ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
@@ -37,7 +40,7 @@ export async function runCompetitiveResearchAnalyst(params: CompetitiveResearchA
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'competitive-research-analyst', params.task ?? 'on_demand');
   const eventBus = new EventBus();

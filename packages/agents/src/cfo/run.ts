@@ -4,6 +4,9 @@
  * Executes the CFO agent for cost monitoring, financial reports, and budget analysis.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner,
   ModelClient,
@@ -48,7 +51,7 @@ export async function runCFO(params: CFORunParams = {}) {
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'cfo', params.task ?? 'on_demand');
   const eventBus = new EventBus();

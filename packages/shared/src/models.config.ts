@@ -72,7 +72,7 @@ export const MODEL_CONFIG = {
       type: 'gemini-api' as const,
       listEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models',
       authHeader:   'x-goog-api-key',
-      secretEnvVar: 'GEMINI_API_KEY',
+      secretEnvVar: 'GOOGLE_AI_API_KEY',
       owns: ['gemini-', 'imagen-', 'deep-research-'],
       docsUrl: 'https://ai.google.dev/gemini-api/docs/models',
     },

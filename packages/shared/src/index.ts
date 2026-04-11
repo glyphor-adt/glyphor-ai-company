@@ -259,6 +259,12 @@ export type {
   TriangulationResult,
 } from './triangulation.js';
 
+export {
+  GCP_SECRET_NAME_GOOGLE_AI_API_KEY,
+  getGoogleAiApiKey,
+  googleAiMissingKeyMessage,
+} from './googleAiEnv.js';
+
 export type {
   GovernanceActionSeverity,
   GovernanceActionType,

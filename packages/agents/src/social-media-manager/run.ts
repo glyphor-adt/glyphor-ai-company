@@ -2,6 +2,9 @@
  * Social Media Manager (Kai Johnson) — Runner
  * Reports to Maya Brooks (CMO). Social media scheduling and analytics.
  */
+
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,
   ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
@@ -32,7 +35,7 @@ export async function runSocialMediaManager(params: SocialMediaManagerRunParams 
   const memory = new CompanyMemoryStore({
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
   });
-  const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY });
+  const modelClient = new ModelClient({ geminiApiKey: getGoogleAiApiKey() });
   const runner = createRunner(modelClient, 'social-media-manager', params.task ?? 'on_demand');
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({});

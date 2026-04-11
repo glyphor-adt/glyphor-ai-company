@@ -2,6 +2,9 @@
  * VP of Research & Intelligence (Sophia Lin) — Runner
  * Reports to Sarah Chen (Chief of Staff). Manages the research team.
  */
+
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,
   ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
@@ -59,7 +62,7 @@ export async function runVPResearch(params: VPResearchRunParams = {}) {
     gcpProjectId: process.env.GCP_PROJECT_ID,
   });
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'vp-research', params.task ?? 'on_demand');
   const eventBus = new EventBus();

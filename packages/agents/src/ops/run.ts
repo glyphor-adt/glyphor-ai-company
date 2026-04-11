@@ -5,6 +5,9 @@
  * and produces status reports for Sarah's briefings.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner,
   ModelClient,
@@ -44,7 +47,7 @@ export async function runOps(params: OpsRunParams = {}) {
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'ops', params.task ?? 'on_demand');
   const eventBus = new EventBus();

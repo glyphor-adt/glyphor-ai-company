@@ -1,6 +1,6 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { getModel } from '@glyphor/shared/models';
-import { getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
+import { getGoogleAiApiKey, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
 import { runCFO, runCMO, runCTO, runChiefOfStaff, runVPResearch } from '@glyphor/agents';
 import { getRedisCache, ModelClient, type AgentExecutionResult } from '@glyphor/agent-runtime';
 
@@ -113,7 +113,7 @@ export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Pro
       return report;
     }
 
-    const judgeClient = new ModelClient({      geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    const judgeClient = new ModelClient({      geminiApiKey: getGoogleAiApiKey(),
     });
 
     const agentSummaries = new Map<string, AgentKnowledgeEvalReport['agents'][number]>();

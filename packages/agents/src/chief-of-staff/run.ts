@@ -5,6 +5,9 @@
  * Can be invoked via Cloud Scheduler cron or direct HTTP request.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner,
   ModelClient,
@@ -181,7 +184,7 @@ export async function runChiefOfStaff(params: CoSRunParams = {}) {
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'chief-of-staff', params.task ?? 'on_demand');
   const eventBus = new EventBus();

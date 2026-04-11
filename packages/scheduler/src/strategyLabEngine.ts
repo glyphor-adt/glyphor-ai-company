@@ -15,7 +15,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
-import { getTierModel, getSpecialized } from '@glyphor/shared';
+import { getGoogleAiApiKey, getTierModel, getSpecialized, googleAiMissingKeyMessage } from '@glyphor/shared';
 import type { ModelClient } from '@glyphor/agent-runtime';
 import type { AgentExecutionResult, CompanyAgentRole } from '@glyphor/agent-runtime';
 import { WorkflowOrchestrator } from '@glyphor/agent-runtime';
@@ -2099,9 +2099,9 @@ List all sources referenced, with URLs where available.`;
   }
 
   private getGeminiApiKey(): string {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || '';
+    const apiKey = getGoogleAiApiKey() ?? '';
     if (!apiKey) {
-      throw new Error('Missing GEMINI_API_KEY or GOOGLE_AI_API_KEY for Deep Research interactions.');
+      throw new Error(googleAiMissingKeyMessage('Deep Research'));
     }
     return apiKey;
   }

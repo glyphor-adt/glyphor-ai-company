@@ -3,6 +3,9 @@
  * Reports to Sarah Chen (Chief of Staff). Manages agent onboarding, workforce audits, and agent lifecycle.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,
   ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
@@ -38,7 +41,7 @@ export async function runHeadOfHR(params: HeadOfHRRunParams = {}) {
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'head-of-hr', params.task ?? 'on_demand');
   const eventBus = new EventBus();

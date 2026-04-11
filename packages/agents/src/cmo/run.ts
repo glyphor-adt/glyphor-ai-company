@@ -4,6 +4,9 @@
  * Executes the CMO agent for content planning, generation, and brand management.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner,
   ModelClient,
@@ -68,7 +71,7 @@ export async function runCMO(params: CMORunParams = {}) {
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'cmo', params.task ?? 'on_demand');
   const eventBus = new EventBus();

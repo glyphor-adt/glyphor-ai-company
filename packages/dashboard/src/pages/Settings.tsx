@@ -27,6 +27,9 @@ export default function Settings() {
     isFallbackAdmin
     || users.some(u => u.email.trim().toLowerCase() === userEmail && u.role === 'admin')
   );
+  /** Viewer rows can open Settings to self-promote; others get no UI (not in dashboard_users). */
+  const selfRow = users.find(u => u.email.trim().toLowerCase() === userEmail);
+  const canOpenSettings = isAdmin || selfRow?.role === 'viewer';
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -100,19 +103,30 @@ export default function Settings() {
     }
   };
 
-  if (!isAdmin && !loading) {
+  if (!canOpenSettings && !loading) {
     return (
       <div>
-        <SectionHeader title="Settings" subtitle={`You don't have admin access to manage users. Logged in as: ${user?.email ?? 'unknown'}`} />
+        <SectionHeader
+          title="Settings"
+          subtitle={`You don't have access to this page. Your account may not be in the authorized list yet. Logged in as: ${user?.email ?? 'unknown'}`}
+        />
       </div>
     );
   }
 
   return (
     <div>
-      <SectionHeader title="Settings" subtitle="Manage who can access the dashboard" />
+      <SectionHeader
+        title="Settings"
+        subtitle={
+          isAdmin
+            ? 'Manage who can access the dashboard'
+            : 'Promote your account to admin to manage users and use admin-only APIs'
+        }
+      />
 
-      {/* Add User Form */}
+      {/* Add User Form — admins only (server rejects POST for viewers) */}
+      {isAdmin && (
       <Card className="mb-6">
         <h3 className="text-sm font-semibold text-txt-primary mb-3">Add User</h3>
         <div className="flex flex-wrap items-end gap-3">
@@ -158,6 +172,7 @@ export default function Settings() {
         </div>
         {error && <p className="mt-2 text-xs text-prism-critical">{error}</p>}
       </Card>
+      )}
 
       {/* Users List */}
       <Card>
@@ -196,10 +211,12 @@ export default function Settings() {
                           ? 'Promote your account to admin (required for Fleet / eval APIs)'
                           : isSelf && u.role === 'admin'
                             ? 'Ask another admin to demote you if needed'
-                            : undefined
+                            : !isSelf && !isAdmin
+                              ? 'Only admins can change other users'
+                              : undefined
                       }
                       onClick={() => toggleRole(u)}
-                      disabled={isSelf && u.role === 'admin'}
+                      disabled={(isSelf && u.role === 'admin') || (!isSelf && !isAdmin)}
                       className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                         u.role === 'admin'
                           ? 'bg-cyan/15 text-cyan'

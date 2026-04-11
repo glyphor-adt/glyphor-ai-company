@@ -12,7 +12,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
-import { getTierModel } from '@glyphor/shared';
+import { getGoogleAiApiKey, getTierModel } from '@glyphor/shared';
 import { getRedisCache, ModelClient } from '@glyphor/agent-runtime';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -330,7 +330,7 @@ async function distillAndPromote(candidates: PromotionCandidate[]): Promise<numb
   }).join('\n');
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
 
   const response = await modelClient.generate({

@@ -27,7 +27,7 @@ import {
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
 import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncSharePointKnowledge, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
-import { assertWorkAssignmentDispatchAllowed, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
+import { assertWorkAssignmentDispatchAllowed, getGoogleAiApiKey, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { verifyUserAccessToken } from '@glyphor/shared/auth';
 import { EventRouter } from './eventRouter.js';
@@ -3027,7 +3027,7 @@ const heartbeatManager = new HeartbeatManager(
 );
 
 const strategyModelClient = new ModelClient({
-  geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+  geminiApiKey: getGoogleAiApiKey(),
 });
 const analysisEngine = new AnalysisEngine(strategyModelClient);
 const simulationEngine = new SimulationEngine(strategyModelClient);

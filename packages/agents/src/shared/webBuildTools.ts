@@ -2,7 +2,7 @@ import path from 'node:path';
 import { ModelClient, type ConversationTurn, type ToolContext, type ToolDeclaration, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import { createCloudflarePreviewTools, createGithubFromTemplateTools, createGithubPullRequestTools, createGithubPushFilesTools, createVercelProjectTools } from '@glyphor/integrations';
-import { MODEL_CONFIG } from '@glyphor/shared';
+import { getGoogleAiApiKey, MODEL_CONFIG } from '@glyphor/shared';
 import { createDesignBriefTools } from './designBriefTools.js';
 import { runSandboxBuild } from './sandboxBuildValidator.js';
 import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
@@ -123,7 +123,7 @@ function assertValidWebsiteFileMap(files: Record<string, unknown>): void {
   if (nonEmptyKeys.length === 0) {
     throw new Error(
       'build_website_foundation returned an empty `files` map — no generated code to push. '
-        + 'Check GOOGLE_AI_API_KEY / GEMINI_API_KEY, timeouts, and runtime logs.',
+        + 'Check GCP Secret Manager secret google-ai-api-key (mounted as GOOGLE_AI_API_KEY), timeouts, and runtime logs.',
     );
   }
   for (const req of REQUIRED_FOUNDATION_FILES) {
@@ -204,9 +204,9 @@ async function generateImagesFromManifest(
   _ctx: ToolContext,
 ): Promise<Record<string, string>> {
   const { ModelClient: MC } = await import('@glyphor/agent-runtime');
-  const geminiKey = (process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
+  const geminiKey = (getGoogleAiApiKey() || '').trim();
   if (!geminiKey) {
-    console.warn('[WebBuild:Images] GOOGLE_AI_API_KEY / GEMINI_API_KEY not set — skipping image generation');
+    console.warn('[WebBuild:Images] GOOGLE_AI_API_KEY not set (use Secret Manager google-ai-api-key in prod) — skipping image generation');
     return {};
   }
   const modelClient = new MC({ geminiApiKey: geminiKey });
@@ -274,7 +274,7 @@ async function generateVideosFromManifest(
 ): Promise<Record<string, string>> {
   const { ModelClient: MC } = await import('@glyphor/agent-runtime');
   const modelClient = new MC({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
 
   const items = manifest.slice(0, MAX_VIDEO_MANIFEST_ITEMS);
@@ -1152,8 +1152,13 @@ async function executeWebBuild(
       ctx,
     );
   } else {
-    const projectBaseName = slugifyProjectName(extractProjectNameCandidate(params.brief, brand)) || `website-${buildUniqueSuffix()}`;
-    const repoCandidates = [projectBaseName, `${projectBaseName}-${buildUniqueSuffix()}`];
+    const suggestedSlug = pickString(normalizedBrief as Record<string, unknown>, 'suggested_repo_slug');
+    const baseFromBrief = suggestedSlug ? slugifyProjectName(suggestedSlug) : '';
+    const fallbackBase = slugifyProjectName(extractProjectNameCandidate(params.brief, brand)) || 'site';
+    const base = baseFromBrief.length >= 3 ? baseFromBrief : fallbackBase;
+    const uniqueTail = buildUniqueSuffix();
+    const projectBaseName = `${base}-${uniqueTail}`.slice(0, 100);
+    const repoCandidates = [projectBaseName, `${base}-${buildUniqueSuffix()}-${uniqueTail}`.slice(0, 100)];
     let lastError: Error | null = null;
     let provisioned = false;
 
@@ -1423,18 +1428,50 @@ async function executeWebBuild(
     } catch (mediaErr) {
       console.warn(`[WebBuild] Media push failed (non-blocking): ${(mediaErr as Error).message}`);
     }
-  } else if (imageManifest.length > 0) {
+  }
+
+  // If Vercel was slow, first Cloudflare registration may have skipped. Retry so preview.glyphor.ai is returned.
+  let previewRegistrationEffective: Record<string, unknown> = previewRegistration as Record<string, unknown>;
+  let previewEffective = preview;
+  const brandedFromReg = pickString(previewRegistrationEffective, 'preview_url');
+  if (!brandedFromReg?.includes('preview.glyphor.ai')) {
+    try {
+      const previewRetry = await waitForPreviewUrl(project, ctx);
+      if (previewRetry.is_ready && previewRetry.preview_url) {
+        const reg = await executeWebsitePipelineTool<Record<string, unknown>>(
+          project.isExisting || params.tier === 'iterate' ? 'cloudflare_update_preview' : 'cloudflare_register_preview',
+          {
+            project_slug: project.projectSlug,
+            vercel_deployment_url: previewRetry.preview_url,
+            github_repo_url: `https://github.com/${project.repoFullName}`,
+            project_name: project.projectName,
+          },
+          ctx,
+        );
+        const merged = asRecord(reg);
+        if (pickString(merged, 'preview_url')?.includes('preview.glyphor.ai')) {
+          previewRegistrationEffective = merged;
+          previewEffective = previewRetry;
+          console.log('[WebBuild] Branded preview URL registered on retry after deploy/media.');
+        }
+      }
+    } catch (e) {
+      console.warn(`[WebBuild] Branded preview retry skipped: ${(e as Error).message}`);
+    }
+  }
+
+  if (imageManifest.length > 0 && Object.keys(imageFiles).length === 0) {
     if (isMarketingBuild) {
       throw new Error(
         'Marketing build blocked: all media generations failed (0 images generated). '
-        + 'Check GOOGLE_AI_API_KEY or GEMINI_API_KEY (Gemini Imagen).',
+        + 'Check GCP Secret Manager secret google-ai-api-key (Gemini Imagen via GOOGLE_AI_API_KEY).',
       );
     }
     console.warn(`[WebBuild:Images] ⚠️ All media generations failed. Site will have broken media refs.`);
   }
 
   let githubPrUrl: string | undefined;
-  let deployUrl = preview.preview_url;
+  let deployUrl = previewEffective.preview_url;
   let production: Record<string, unknown> | null = null;
   let pullRequest: Record<string, unknown> | null = null;
   let merge: Record<string, unknown> | null = null;
@@ -1488,7 +1525,7 @@ async function executeWebBuild(
   const repositoryHint = useFeatureBranch
     ? [
         `Generated website code was pushed to branch "${project.branch}" in ${project.repoFullName}.`,
-        ...(!preview.is_ready ? [`Preview URL exists but Vercel still reports state "${preview.state}".`] : []),
+        ...(!previewEffective.is_ready ? [`Preview URL exists but Vercel still reports state "${previewEffective.state}".`] : []),
         githubPrUrl
           ? `Open this pull request to review and merge into main: ${githubPrUrl}`
           : 'A pull request was created toward main — open it from the GitHub repo if you do not see new files on the default branch.',
@@ -1496,7 +1533,7 @@ async function executeWebBuild(
       ].join(' ')
     : [
         `Generated website code was committed on "${project.branch}" in ${project.repoFullName}.`,
-        ...(!preview.is_ready ? [`Preview URL exists but Vercel still reports state "${preview.state}".`] : []),
+        ...(!previewEffective.is_ready ? [`Preview URL exists but Vercel still reports state "${previewEffective.state}".`] : []),
         'No feature branch or pull request was opened (standard POC flow). Open the repo default branch to see the generated app.',
       ].join(' ');
 
@@ -1507,24 +1544,24 @@ async function executeWebBuild(
         githubPrUrl ? `1) Open the PR: ${githubPrUrl}` : `1) Open GitHub and create/find the PR from branch "${project.branch}" → main.`,
         `2) Or browse the branch: ${githubBranchUrl}`,
         '3) `main` may still show the template until you merge — that is expected.',
-        ...(!preview.is_ready
-          ? [`4) Preview URL exists but is still provisioning (state: ${preview.state}). Re-check in 1-3 minutes.`]
+        ...(!previewEffective.is_ready
+          ? [`4) Preview URL exists but is still provisioning (state: ${previewEffective.state}). Re-check in 1-3 minutes.`]
           : []),
       ].join('\n')
     : [
         'Where to see the new code:',
         `1) Browse branch "${project.branch}": ${githubBranchUrl}`,
-        `2) Preview: ${pickString(previewRegistration, 'preview_url') ?? preview.preview_url ?? '(see preview_url in result)'}`,
-        ...(!preview.is_ready
-          ? [`3) Preview is still provisioning (state: ${preview.state}). Re-check in 1-3 minutes.`]
+        `2) Preview: ${pickString(previewRegistrationEffective, 'preview_url') ?? previewEffective.preview_url ?? '(see preview_url in result)'}`,
+        ...(!previewEffective.is_ready
+          ? [`3) Preview is still provisioning (state: ${previewEffective.state}). Re-check in 1-3 minutes.`]
           : []),
       ].join('\n');
 
   return {
     project_id: project.repoFullName,
-    preview_url: pickString(previewRegistration, 'preview_url') ?? preview.preview_url,
-    preview_ready: preview.is_ready,
-    preview_state: preview.state,
+    preview_url: pickString(previewRegistrationEffective, 'preview_url') ?? previewEffective.preview_url,
+    preview_ready: previewEffective.is_ready,
+    preview_state: previewEffective.state,
     deploy_url: deployUrl,
     github_pr_url: githubPrUrl,
     source_branch: project.branch,
@@ -1548,10 +1585,10 @@ async function executeWebBuild(
       vercel: {
         project_id: project.vercelProjectId ?? null,
         project_name: project.projectName,
-        preview,
+        preview: previewEffective,
         production,
       },
-      cloudflare: previewRegistration,
+      cloudflare: previewRegistrationEffective,
     },
     agent_trace: {
       pipeline: [
@@ -2190,7 +2227,7 @@ COLOR COMPOSITION PROTOCOL (MANDATORY):
 - Use only one dominant accent family; secondary accent usage should be sparse and purposeful.
 - Headlines and body copy must stay high-contrast on all surfaces; do not sacrifice readability for mood.
 
-IMAGE GENERATION (Gemini Imagen 4 only — GOOGLE_AI_API_KEY / GEMINI_API_KEY):
+IMAGE GENERATION (Gemini Imagen 4 only — requires GOOGLE_AI_API_KEY from GCP Secret Manager secret google-ai-api-key):
 Every page needs imagery. Include image_manifest in your output for all images.
 - Prompts MUST be art-directed: [Subject] [Context] [Lighting] [Materials] [Mood] [Style].
 - Keep imagery cohesive: consistent mood/lighting/style across all prompts.
@@ -2220,6 +2257,15 @@ IMAGE BUDGET CONTRACT (HARD):
 3. Do not invent extra image paths later in sections/cards.
 4. Reuse assets across sections (gallery/testimonials) instead of adding new files.
 5. If you need more visuals than budget allows, repeat existing paths intentionally.
+
+IMAGE RENDERING (HARD BAN — common failure mode):
+- NEVER use a colored/empty box or paragraph whose only content is prose describing what an image "would" show.
+- NEVER put long descriptive copy in the hero image area — use <img src="/images/filename.ext" alt="…" className="…" /> (or background-image: url(/images/...)) matching image_manifest.
+- The pipeline generates binary files from image_manifest; text placeholders break production.
+
+SECTION COMPLETENESS (MARKETING):
+- Every section must render real copy, lists, pricing, or media — no empty shells.
+- If a section has a heading, include substantive body content below it.
 
 VIDEO HERO (Veo 3.1):
 - Use when it strengthens the concept and user intent (especially if intake/brief selects video).
@@ -2545,7 +2591,7 @@ interface WebsiteFoundationOutput {
 
 function createWebsiteFoundationModelClient(): ModelClient {
   return new ModelClient({
-    geminiApiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
     azureFoundryEndpoint: process.env.AZURE_FOUNDRY_ENDPOINT,
     azureFoundryApi: process.env.AZURE_FOUNDRY_API,
     azureFoundryApiVersion: process.env.AZURE_FOUNDRY_API_VERSION,

@@ -4,6 +4,9 @@
  * Executes the VP Sales agent for pipeline reviews, market sizing, and sales analysis.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner,
   ModelClient,
@@ -44,7 +47,7 @@ export async function runVPSales(params: VPSalesRunParams = {}) {
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'vp-sales', params.task ?? 'on_demand');
   const eventBus = new EventBus();

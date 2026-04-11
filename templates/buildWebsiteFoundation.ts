@@ -15,8 +15,8 @@
  * Add to: packages/agents/src/shared/webBuildTools.ts
  * Register in: packages/agents/src/shared/createRunDeps.ts tool list
  *
- * Required env:
- *   GOOGLE_AI_API_KEY / GEMINI_API_KEY — Gemini API key
+ * Required at runtime: env GOOGLE_AI_API_KEY (from GCP Secret Manager secret `google-ai-api-key` on Cloud Run).
+ *   Do not commit API keys; legacy alias GEMINI_API_KEY is still read if set locally.
  *   UX_ENGINEER_MODEL — defaults to gemini-3.1-pro-preview (override for cost savings)
  * For Claude models: BEDROCK_ENABLED=true, AWS_REGION, and AWS credentials (IAM or default chain).
  */
@@ -28,7 +28,7 @@ import {
   type ToolDefinition,
   type ToolResult,
 } from '@glyphor/agent-runtime';
-import { getBedrockInferenceId } from '@glyphor/shared';
+import { getBedrockInferenceId, getGoogleAiApiKey, googleAiMissingKeyMessage } from '@glyphor/shared';
 
 // ─── Model Config ─────────────────────────────────────────────────────────────
 
@@ -152,6 +152,16 @@ IMAGE BUDGET CONTRACT:
 IMAGE MANIFEST PROMPTS:
 Format each prompt as: [Subject] [Context] [Lighting] [Materials] [Mood] [Style]
 Keep imagery cohesive — consistent lighting and mood across all images.
+
+IMAGE RENDERING (HARD BAN — common failure mode):
+- NEVER use a colored/empty box, card, or paragraph whose only content is a prose description of what an image "would" show.
+- NEVER put long descriptive copy where a visual belongs (e.g. "Child petting a rabbit…" as body text in the hero image area).
+- Every marketing visual MUST be a real <img src="/images/filename.ext" alt="…" className="…" /> (or background-image with url(/images/...)) that matches image_manifest.
+- Hero and gallery sections must show actual imagery via those paths — the pipeline generates binary files from image_manifest; placeholders break production.
+
+SECTION COMPLETENESS (MARKETING):
+- Every section in App.tsx must render real copy, lists, pricing rows, or media — no empty shells or min-h placeholders with no content.
+- If a section has a heading, it must have substantive body content below (not a single sentence repeated).
 
 FILE CONTRACT (Write ALL of these with COMPLETE content):
 
@@ -366,8 +376,8 @@ interface BuildOutput {
 // ─── Gemini API Helpers ───────────────────────────────────────────────────────
 
 function getGeminiApiKey(): string {
-  const key = (process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
-  if (!key) throw new Error('GOOGLE_AI_API_KEY / GEMINI_API_KEY is not configured.');
+  const key = getGoogleAiApiKey();
+  if (!key) throw new Error(googleAiMissingKeyMessage('build_website_foundation'));
   return key;
 }
 

@@ -69,7 +69,7 @@ const ASSIGNMENTS: AssignmentSeed[] = [
     priority: 'urgent',
     blocking: true,
     dependsOn: [],
-    task: 'Verify and mount GITHUB_TOKEN, VERCEL_TOKEN, PULSE_SERVICE_KEY, AZURE_FOUNDRY_* (or AZURE_OPENAI_*), GOOGLE_AI_API_KEY, CLOUDFLARE_API_TOKEN on glyphor-scheduler. Validate API connectivity and required IAM roles.',
+    task: 'Verify and mount GITHUB_TOKEN, VERCEL_TOKEN, PULSE_SERVICE_KEY, AZURE_FOUNDRY_* (or AZURE_OPENAI_*), GOOGLE_AI_API_KEY (from GCP Secret Manager secret google-ai-api-key), CLOUDFLARE_API_TOKEN on glyphor-scheduler. Validate API connectivity and required IAM roles.',
     deliverable: 'All required secrets exist in Secret Manager, mounted on glyphor-scheduler, and externally validated via health/API checks.',
     acceptanceTest: 'inspect_cloud_run_service confirms mounted secrets; each credential test returns valid response.',
   },

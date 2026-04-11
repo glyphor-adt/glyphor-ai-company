@@ -8,7 +8,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { ModelClient } from './modelClient.js';
 import { getActivePrompt, getPromptVersion, getCurrentVersionNumber } from './activePromptResolver.js';
-import { getSpecialized } from '@glyphor/shared';
+import { getGoogleAiApiKey, getSpecialized } from '@glyphor/shared';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -58,7 +58,7 @@ export async function runShadow(
 
   // Generate outputs in parallel using a lightweight LLM call (not full runner)
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
 
   const [baselineResult, challengerResult] = await Promise.all([

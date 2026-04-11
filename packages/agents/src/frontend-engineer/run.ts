@@ -2,6 +2,9 @@
  * Frontend Engineer (Ava Chen) — Runner
  * Reports to Mia Tanaka (VP Design). Tailwind components, accessibility, performance.
  */
+
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,
   ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
@@ -51,7 +54,7 @@ export async function runFrontendEngineer(params: FrontendEngineerRunParams = {}
   const memory = new CompanyMemoryStore({
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
   });
-  const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY });
+  const modelClient = new ModelClient({ geminiApiKey: getGoogleAiApiKey() });
   const runner = createRunner(modelClient, 'frontend-engineer', params.task ?? 'on_demand');
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({});

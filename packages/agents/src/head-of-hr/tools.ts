@@ -5,7 +5,7 @@
 
 import type { ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
-import { getTierModel } from '@glyphor/shared';
+import { getGoogleAiApiKey, getTierModel } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 
 const DEFAULT_AGENT_MODEL = getTierModel('default');
@@ -558,9 +558,9 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const name = params.name as string;
         const desc = params.appearance_description as string;
 
-        const apiKey = process.env.GOOGLE_AI_API_KEY;
+        const apiKey = getGoogleAiApiKey();
         if (!apiKey) {
-          return { success: false, error: 'GOOGLE_AI_API_KEY not set — cannot generate avatar.' };
+          return { success: false, error: 'Google AI API key not configured (GCP Secret Manager google-ai-api-key → GOOGLE_AI_API_KEY).' };
         }
 
         const { GoogleGenAI } = await import('@google/genai');
@@ -820,9 +820,9 @@ export function createHeadOfHRTools(memory: CompanyMemoryStore): ToolDefinition[
         const department = (params.department as string) || 'General';
         const agentName = (params.name as string) || role;
 
-        const apiKey = process.env.GOOGLE_AI_API_KEY;
+        const apiKey = getGoogleAiApiKey();
         if (!apiKey) {
-          return { success: false, error: 'GOOGLE_AI_API_KEY not set — cannot enrich profile.' };
+          return { success: false, error: 'Google AI API key not configured (GCP Secret Manager google-ai-api-key → GOOGLE_AI_API_KEY).' };
         }
 
         const { GoogleGenAI } = await import('@google/genai');

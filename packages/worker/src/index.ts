@@ -2,7 +2,7 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { systemQuery } from '@glyphor/shared/db';
 import { checkDbHealth } from '@glyphor/shared/db';
-import { isCanonicalKeepRole } from '@glyphor/shared';
+import { getGoogleAiApiKey, isCanonicalKeepRole } from '@glyphor/shared';
 import { OAuth2Client } from 'google-auth-library';
 import type { CompanyAgentRole, ConversationAttachment, ConversationTurn } from '@glyphor/agent-runtime';
 import type { RouteResult } from '@glyphor/scheduler';
@@ -125,7 +125,7 @@ async function getDeepDiveEngine() {
       import('@glyphor/scheduler'),
     ]).then(([agentRuntime, scheduler]) => {
       const modelClient = new agentRuntime.ModelClient({
-        geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+        geminiApiKey: getGoogleAiApiKey(),
       });
       return new scheduler.DeepDiveEngine(modelClient);
     });

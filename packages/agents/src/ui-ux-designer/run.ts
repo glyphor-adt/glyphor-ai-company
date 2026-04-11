@@ -2,6 +2,9 @@
  * UI/UX Designer (Leo Vargas) — Runner
  * Reports to Mia Tanaka (VP Design). Component specs and design system work.
  */
+
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,
   ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
@@ -40,7 +43,7 @@ export async function runUiUxDesigner(params: UiUxDesignerRunParams = {}) {
   const memory = new CompanyMemoryStore({
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company', gcpProjectId: process.env.GCP_PROJECT_ID,
   });
-  const modelClient = new ModelClient({ geminiApiKey: process.env.GOOGLE_AI_API_KEY });
+  const modelClient = new ModelClient({ geminiApiKey: getGoogleAiApiKey() });
   const runner = createRunner(modelClient, 'ui-ux-designer', params.task ?? 'on_demand');
   const eventBus = new EventBus();
   const glyphorEventBus = new GlyphorEventBus({});

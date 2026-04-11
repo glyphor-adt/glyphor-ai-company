@@ -13,7 +13,7 @@ import {
 } from '@glyphor/agent-runtime';
 import { CompanyMemoryStore } from '@glyphor/company-memory';
 import { systemQuery } from '@glyphor/shared/db';
-import { isCanonicalKeepRole } from '@glyphor/shared';
+import { getGoogleAiApiKey, isCanonicalKeepRole } from '@glyphor/shared';
 import { createMemoryTools } from './memoryTools.js';
 import { createRunDeps, loadAgentConfig } from './createRunDeps.js';
 import { effectiveMaxTurnsForReactiveTask } from './reactiveTurnBudget.js';
@@ -89,7 +89,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
   const systemPrompt = brief?.system_prompt || `You are ${agentRow.display_name || agentRow.name}, ${agentRow.title}. Department: ${agentRow.department}. Reports to: ${agentRow.reports_to}. Complete tasks thoroughly and report your findings.`;
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
 
   const runner = createRunner(modelClient, role as any, task);

@@ -37,6 +37,54 @@ function isEffectiveDashboardAdmin(user: AuthenticatedDashboardUser): boolean {
   return DASHBOARD_EFFECTIVE_ADMIN_EMAILS.has(user.email.trim().toLowerCase());
 }
 
+/**
+ * Matches `server.ts` `loadDashboardUserByEmail`: founder allowlist stays admin even if `dashboard_users.role` is still `viewer`.
+ */
+function effectiveDashboardRoleFromDb(email: string, dbRole: string): 'admin' | 'viewer' {
+  const normalized = email.trim().toLowerCase();
+  if (dbRole === 'admin') return 'admin';
+  if (DASHBOARD_EFFECTIVE_ADMIN_EMAILS.has(normalized)) return 'admin';
+  return 'viewer';
+}
+
+function applyEffectiveDashboardUserRoles(rows: Record<string, unknown>[]): void {
+  for (const r of rows) {
+    const em = typeof r.email === 'string' ? r.email : '';
+    const raw = typeof r.role === 'string' ? r.role : 'viewer';
+    r.role = effectiveDashboardRoleFromDb(em, raw);
+  }
+}
+
+/** Viewer may PATCH only their own row, only { role: 'admin' }, only from viewer → admin. */
+async function assertDashboardSelfPromotionAllowed(
+  authenticatedUser: AuthenticatedDashboardUser,
+  resourceId: string | undefined,
+  body: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!resourceId) {
+    return { ok: false, error: 'Self-promotion requires a row id' };
+  }
+  const keys = Object.keys(body);
+  if (keys.length !== 1 || keys[0] !== 'role' || body.role !== 'admin') {
+    return { ok: false, error: 'Only { "role": "admin" } is allowed for self-promotion' };
+  }
+  const rows = await systemQuery<{ id: string; email: string; role: string }>(
+    'SELECT id, email, role FROM dashboard_users WHERE id = $1',
+    [resourceId],
+  );
+  if (rows.length === 0) {
+    return { ok: false, error: 'User row not found' };
+  }
+  const row = rows[0];
+  if (row.email.trim().toLowerCase() !== authenticatedUser.email.trim().toLowerCase()) {
+    return { ok: false, error: 'Only admins can change other users' };
+  }
+  if (row.role !== 'viewer') {
+    return { ok: false, error: 'Self-promotion only applies to viewer accounts' };
+  }
+  return { ok: true };
+}
+
 interface SkillUploadTaskMapping {
   task_regex: string;
   priority?: number;
@@ -1506,13 +1554,15 @@ export async function handleDashboardApi(
   const segments = apiPath.split('/');
   const tableSlug = segments[0];
   const resourceId = segments[1]; // may be undefined
-  if (
-    tableSlug === 'dashboard-users' &&
-    !isEffectiveDashboardAdmin(authenticatedUser) &&
-    method !== 'GET'
-  ) {
-    jsonResponse(res, 403, { error: 'Forbidden' });
-    return true;
+  if (tableSlug === 'dashboard-users' && !isEffectiveDashboardAdmin(authenticatedUser)) {
+    if (method === 'GET') {
+      // any authenticated dashboard user may list (for Settings)
+    } else if (method === 'PATCH' && resourceId) {
+      // self-promotion validated in PATCH branch (viewer → admin on own row only)
+    } else {
+      jsonResponse(res, 403, { error: 'Forbidden' });
+      return true;
+    }
   }
 
   const tableName = TABLE_MAP[tableSlug];
@@ -1889,7 +1939,11 @@ export async function handleDashboardApi(
         if (rows.length === 0) {
           jsonResponse(res, 404, { error: 'Not found' });
         } else {
-          jsonResponse(res, 200, rows[0]);
+          const row = rows[0] as Record<string, unknown>;
+          if (tableName === 'dashboard_users') {
+            applyEffectiveDashboardUserRoles([row]);
+          }
+          jsonResponse(res, 200, row);
         }
         return true;
       }
@@ -1955,6 +2009,9 @@ export async function handleDashboardApi(
         const effectiveOrder = order || DEFAULT_ORDER[tableName] || '';
         const sql = `SELECT ${select} FROM ${tableName}${where}${extraWhere}${decisionProposerFilter}${liveRosterWhere.clause}${effectiveOrder}${limit || ' LIMIT 200'}`;
         const rows = await systemQuery(sql, values);
+        if (tableName === 'dashboard_users') {
+          applyEffectiveDashboardUserRoles(rows as Record<string, unknown>[]);
+        }
         jsonResponse(res, 200, rows);
       }
       return true;
@@ -2040,6 +2097,14 @@ export async function handleDashboardApi(
         return true;
       }
 
+      if (tableName === 'dashboard_users' && !isEffectiveDashboardAdmin(authenticatedUser)) {
+        const promo = await assertDashboardSelfPromotionAllowed(authenticatedUser, resourceId, body);
+        if (!promo.ok) {
+          jsonResponse(res, 403, { error: promo.error });
+          return true;
+        }
+      }
+
       const setClauses = keys.map((k, i) => `${sanitizeIdentifier(k)} = $${i + 1}`);
       const vals: unknown[] = keys.map(k => {
         const v = body[k];
@@ -2057,13 +2122,20 @@ export async function handleDashboardApi(
         }
         sql += ' RETURNING *';
         const rows = await systemQuery(sql, vals);
-        jsonResponse(res, 200, rows[0] ?? { success: true });
+        const out = (rows[0] ?? { success: true }) as Record<string, unknown>;
+        if (tableName === 'dashboard_users' && out && 'email' in out) {
+          applyEffectiveDashboardUserRoles([out]);
+        }
+        jsonResponse(res, 200, out);
       } else {
         // PATCH /api/table?filters...
         const { where, values: filterVals } = parseQueryParams(params, vals.length + 1);
         vals.push(...filterVals);
         const sql = `UPDATE ${tableName} SET ${setClauses.join(', ')}${where} RETURNING *`;
         const rows = await systemQuery(sql, vals);
+        if (tableName === 'dashboard_users') {
+          applyEffectiveDashboardUserRoles(rows as Record<string, unknown>[]);
+        }
         jsonResponse(res, 200, rows);
       }
       return true;

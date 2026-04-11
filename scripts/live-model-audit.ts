@@ -1,4 +1,5 @@
 import { ModelClient } from '../packages/agent-runtime/src/modelClient.js';
+import { getGoogleAiApiKey } from '../packages/shared/src/googleAiEnv.js';
 import { SUPPORTED_MODELS } from '../packages/shared/src/models.js';
 
 interface AuditRow {
@@ -32,7 +33,7 @@ function truncate(input: string, max = 260): string {
 
 async function main(): Promise<void> {
   const client = new ModelClient({
-    geminiApiKey: env('GOOGLE_AI_API_KEY') ?? env('GEMINI_API_KEY'),
+    geminiApiKey: getGoogleAiApiKey(),
     azureFoundryEndpoint: env('AZURE_FOUNDRY_ENDPOINT') ?? env('AZURE_OPENAI_ENDPOINT'),
     azureFoundryApi: env('AZURE_FOUNDRY_API') ?? env('AZURE_OPENAI_API_KEY'),
     azureFoundryApiVersion: env('AZURE_FOUNDRY_API_VERSION') ?? env('AZURE_OPENAI_API_VERSION'),

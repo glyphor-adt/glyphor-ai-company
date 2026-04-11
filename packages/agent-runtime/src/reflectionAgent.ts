@@ -10,7 +10,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
-import { getSpecialized } from '@glyphor/shared';
+import { getGoogleAiApiKey, getSpecialized } from '@glyphor/shared';
 import { isValidUUID } from './uuidUtils.js';
 import { ModelClient } from './modelClient.js';
 import { getActivePrompt } from './activePromptResolver.js';
@@ -131,7 +131,7 @@ export async function reflect(
   const context = buildReflectionContext(prompt, run, evaluations, reflections);
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
 
   try {

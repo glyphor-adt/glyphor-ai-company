@@ -3,6 +3,9 @@
  * Reports to Marcus Reeves (CTO). Manages Microsoft 365 tenant, Teams, email, and calendar.
  */
 
+import { getGoogleAiApiKey } from '@glyphor/shared';
+
+
 import {
   CompanyAgentRunner, ModelClient, AgentSupervisor,
   ToolExecutor, EventBus, GlyphorEventBus, type AgentConfig,
@@ -34,7 +37,7 @@ export async function runM365Admin(params: M365AdminRunParams = {}) {
   });
 
   const modelClient = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
   const runner = createRunner(modelClient, 'm365-admin', params.task ?? 'on_demand');
   const eventBus = new EventBus();

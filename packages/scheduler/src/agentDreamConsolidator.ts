@@ -18,7 +18,7 @@
  */
 
 import { systemQuery } from '@glyphor/shared/db';
-import { getTierModel } from '@glyphor/shared';
+import { getGoogleAiApiKey, getTierModel } from '@glyphor/shared';
 import { ModelClient, getRedisCache } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole } from '@glyphor/agent-runtime';
 import { recordRunEvent } from '@glyphor/agent-runtime';
@@ -306,7 +306,7 @@ async function extractPatterns(
   outcomes: RunOutcomePattern[],
 ): Promise<ExtractedPatterns> {
   const client = new ModelClient({
-    geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+    geminiApiKey: getGoogleAiApiKey(),
   });
 
   const runSummaries = runs.map(r => ({

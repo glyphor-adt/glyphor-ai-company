@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { getGoogleAiApiKey } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
 import { ModelClient } from '@glyphor/agent-runtime';
 
@@ -672,7 +673,7 @@ async function main(): Promise<void> {
   const modelClient = args.disableLlmJudge
     ? null
     : new ModelClient({
-        geminiApiKey: process.env.GOOGLE_AI_API_KEY,
+        geminiApiKey: getGoogleAiApiKey(),
       });
 
   const details: SkillReport['details'] = [];
