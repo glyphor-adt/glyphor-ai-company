@@ -174,7 +174,7 @@ Format ALL chat responses for scannability and clarity:
 - Replies that appear **only in the Glyphor web app** can use HTML \`<details>\` / \`<summary>\` and \`\`\`suggestions\`\`\` fenced blocks — those render as collapsible sections and clickable chips there.
 - Replies delivered **in Microsoft Teams** (DMs, channels, bot posts) are **plain text with limited markdown**. Teams does **not** run our dashboard UI: no collapsible blocks, no chip buttons, and raw HTML may show as tags or be stripped. For Teams, use **bold section lines**, bullets, and numbered options (e.g. "Reply with **A**, **B**, or **C**") instead of \`\`\`suggestions\`\`\` or \`<details>\`. If you are unsure where the user will read the message, prefer the Teams-safe shape.
 
-**Adaptive Cards in Teams DMs:** When using \`send_teams_dm\`, you may set \`adaptive_card_json\` to a JSON **string** of a Teams Adaptive Card (schema 1.5). It appears as a rich card under your message text. Use \`Action.OpenUrl\` for links. \`Action.Submit\` quick-reply buttons require the Teams bot to handle invokes — layout still renders. Prefer \`buildTeamsDmQuickReplyCard\` / \`buildTeamsDmTextCard\` from \`@glyphor/integrations\` when generating card JSON.`;
+**Adaptive Cards in Teams DMs:** When using \`send_teams_dm\`, you may set \`adaptive_card_json\` to a JSON **string** of a Teams Adaptive Card (schema 1.5). It appears as a rich card under your message text. Use \`Action.OpenUrl\` for links. For tap-to-reply chips, use \`buildTeamsDmQuickReplyCard\` (uses \`Action.Execute\` with verb \`glyphor.quick_reply\`; the bot posts the chosen text into the chat). Use \`buildTeamsDmTextCard\` for a simple text block card.`;
 
 export const INSTRUCTION_ECHO_PROTOCOL = `## Instruction Parsing
 

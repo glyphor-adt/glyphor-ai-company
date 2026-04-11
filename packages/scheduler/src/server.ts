@@ -25,7 +25,7 @@ import {
   recordAgentRunCompleted,
 } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncSharePointKnowledge, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncSharePointKnowledge, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding, GLYPHOR_TEAMS_QUICK_REPLY_VERB } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { assertWorkAssignmentDispatchAllowed, getGoogleAiApiKey, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
@@ -1984,6 +1984,20 @@ function getAgent365DecisionApp(): { adapter: CloudAdapter; app: AgentApplicatio
     'customer_approval.reject',
     async (_context, _state, action) => {
       return await handleCustomerApprovalAction(action.data?.approval_id ?? '', 'rejected');
+    },
+  );
+
+  // DM quick-reply buttons from `buildTeamsDmQuickReplyCard` (Action.Execute + msteams.text)
+  app.adaptiveCards.actionExecute<{ data?: { msteams?: { text?: string }; glyphor_quick_reply?: boolean } }>(
+    GLYPHOR_TEAMS_QUICK_REPLY_VERB,
+    async (context, _state, action) => {
+      const text =
+        typeof action.data?.msteams?.text === 'string' ? action.data.msteams.text.trim() : '';
+      if (!text) {
+        return 'Could not read that quick reply.';
+      }
+      await context.sendActivity(text);
+      return '';
     },
   );
 

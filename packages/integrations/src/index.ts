@@ -10,6 +10,7 @@ export {
   formatDirectiveProposalCard,
   buildTeamsDmQuickReplyCard,
   buildTeamsDmTextCard,
+  GLYPHOR_TEAMS_QUICK_REPLY_VERB,
   type BriefingCardData,
   type DecisionCardData,
   type AlertCardData,

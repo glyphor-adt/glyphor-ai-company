@@ -579,17 +579,20 @@ export function formatDirectiveProposalCard(data: DirectiveProposalCardData): Ad
 
 // ─── DM COMPOSABLE CARDS (Graph chat + send_teams_dm) ───────────
 
+/** Verb for `Action.Execute` quick-reply buttons; must match scheduler `actionExecute` handler. */
+export const GLYPHOR_TEAMS_QUICK_REPLY_VERB = 'glyphor.quick_reply' as const;
+
 export interface TeamsDmQuickReplyItem {
   /** Button label */
   title: string;
-  /** Text payload for Action.Submit (Teams/bot must handle invokes for taps to post a message) */
+  /** Text echoed into the chat when the user taps the button (via bot handler) */
   value: string;
 }
 
 /**
  * Rich layout + horizontal quick-reply buttons for Teams DMs.
  * Prefer together with `message` text in `send_teams_dm` so users see narrative + card.
- * Action.Submit requires a bot endpoint to echo choices into chat; layout still renders without it.
+ * Uses `Action.Execute` with {@link GLYPHOR_TEAMS_QUICK_REPLY_VERB} so the Teams bot can post the chosen text.
  */
 export function buildTeamsDmQuickReplyCard(input: {
   title?: string;
@@ -617,8 +620,9 @@ export function buildTeamsDmQuickReplyCard(input: {
       type: 'ActionSet',
       actions: input.choices.map(
         (c): AdaptiveCardAction => ({
-          type: 'Action.Submit',
+          type: 'Action.Execute',
           title: c.title,
+          verb: GLYPHOR_TEAMS_QUICK_REPLY_VERB,
           data: { msteams: { text: c.value }, glyphor_quick_reply: true },
         }),
       ),
