@@ -46,6 +46,34 @@ export function useAgents() {
   return { data, loading, refresh };
 }
 
+/**
+ * Full `company_agents` rows for Workforce org chart (all roles that are active/paused),
+ * not only the canonical 8 executives — so ICs with `reports_to` / department show under execs.
+ */
+export function useWorkforceAgents() {
+  const [data, setData] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const agents = await apiCall<Agent[]>(
+        '/api/agents?include_paused=true&include_org_chart=true',
+      );
+      setData(agents ?? []);
+    } catch {
+      setData([]);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { data, loading, refresh };
+}
+
 /* ─── Decisions ───────────────────────────── */
 export function useDecisions() {
   const q = useQuery<Decision>('decisions', 'created_at', false);

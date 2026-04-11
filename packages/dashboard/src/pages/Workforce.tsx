@@ -1,5 +1,5 @@
 import { useState, type DragEvent } from 'react';
-import { useAgents } from '../lib/hooks';
+import { useWorkforceAgents } from '../lib/hooks';
 import { SCHEDULER_URL, buildApiHeaders } from '../lib/firebase';
 import { DISPLAY_NAME_MAP, AGENT_META, ROLE_MANAGER_OVERRIDES, type Agent } from '../lib/types';
 import {
@@ -60,7 +60,7 @@ function orgChartAvatarSize(compact: boolean) {
 }
 
 export default function Workforce() {
-  const { data: agents, loading, refresh } = useAgents();
+  const { data: agents, loading, refresh } = useWorkforceAgents();
   const [view, setView] = useState<ViewMode>('org-chart');
   const [density, setDensity] = useState<DensityMode>('compact');
   const [tab, setTab] = useState<Tab>('overview');

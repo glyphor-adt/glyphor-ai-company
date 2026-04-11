@@ -127,7 +127,7 @@ function buildLiveRosterWhereClause(
   tableName: string,
   nextParamIndex: number,
   hasExistingWhere: boolean,
-  options?: { includePausedCompanyAgents?: boolean },
+  options?: { includePausedCompanyAgents?: boolean; orgChartFullRoster?: boolean },
 ): { clause: string; values: unknown[] } {
   const roleColumn = LIVE_ROSTER_FILTER_COLUMNS[tableName];
   if (!roleColumn) {
@@ -135,6 +135,13 @@ function buildLiveRosterWhereClause(
   }
 
   if (tableName === 'company_agents') {
+    // Workforce org chart: all ICs + execs (any role), not only canonical 8 — so reports_to / department edges resolve.
+    if (options?.orgChartFullRoster) {
+      return {
+        clause: `${hasExistingWhere ? ' AND' : ' WHERE'} status IN ('active', 'paused')`,
+        values: [],
+      };
+    }
     const statusClause = options?.includePausedCompanyAgents
       ? `status IN ('active', 'paused')`
       : `status = 'active'`;
@@ -1922,6 +1929,8 @@ export async function handleDashboardApi(
     if (method === 'GET') {
       const includePausedAgents = params.get('include_paused') === 'true';
       params.delete('include_paused');
+      const includeOrgChart = params.get('include_org_chart') === 'true';
+      params.delete('include_org_chart');
 
       if (tableName === 'chat_messages') {
         const chatColumns = await getTableColumns(tableName);
@@ -1934,7 +1943,10 @@ export async function handleDashboardApi(
           tableName,
           enforceChatMessageOwnership ? 3 : 2,
           true,
-          { includePausedCompanyAgents: includePausedAgents },
+          {
+            includePausedCompanyAgents: includePausedAgents,
+            orgChartFullRoster: includeOrgChart,
+          },
         );
         const sql = enforceChatMessageOwnership
           ? `SELECT * FROM ${tableName} WHERE id = $1 AND user_id = $2${liveRosterById.clause}`
@@ -1997,7 +2009,10 @@ export async function handleDashboardApi(
         tableName,
         values.length + 1,
         Boolean(where || extraWhere || decisionProposerFilter),
-        { includePausedCompanyAgents: includePausedAgents },
+        {
+          includePausedCompanyAgents: includePausedAgents,
+          orgChartFullRoster: includeOrgChart,
+        },
       );
       values.push(...liveRosterWhere.values);
 

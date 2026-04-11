@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useAgents } from '../lib/hooks';
+import { useWorkforceAgents } from '../lib/hooks';
 import { DISPLAY_NAME_MAP, AGENT_META, ROLE_TITLE, ROLE_DEPARTMENT, ROLE_TIER, AGENT_SKILLS } from '../lib/types';
 import { LIVE_ROSTER_ORDER } from '../lib/liveRoster';
 import { AgentAvatar, Card, StatusDot, Skeleton } from '../components/ui';
@@ -7,7 +7,7 @@ import { AgentAvatar, Card, StatusDot, Skeleton } from '../components/ui';
 const HIDDEN_ROSTER_STATUSES = new Set(['retired', 'inactive', 'deleted']);
 
 export default function AgentsList() {
-  const { data: agents, loading } = useAgents();
+  const { data: agents, loading } = useWorkforceAgents();
   const visibleAgents = agents.filter((a) => !HIDDEN_ROSTER_STATUSES.has(String(a.status ?? '').toLowerCase()));
 
   const activeCount = visibleAgents.filter((a) => a.status === 'active').length;
