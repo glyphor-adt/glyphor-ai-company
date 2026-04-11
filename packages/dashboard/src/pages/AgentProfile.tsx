@@ -278,8 +278,12 @@ export default function AgentProfile() {
   if (!agent) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3">
-        <p className="text-sm text-txt-faint">Agent not found</p>
-        <Link to="/agents" className="text-sm text-cyan hover:underline">← All Agents</Link>
+        <p className="text-base font-medium text-txt-secondary">Agent not found</p>
+        <p className="max-w-md text-center text-sm text-txt-muted">
+          No row in <code className="rounded bg-raised px-1.5 py-0.5 text-[11px]">company_agents</code> for{' '}
+          <code className="rounded bg-raised px-1.5 py-0.5 text-[11px]">{agentId}</code>. Check Workforce or seed agents for your tenant.
+        </p>
+        <Link to="/app/internal/workforce" className="text-sm text-cyan hover:underline">← Workforce</Link>
       </div>
     );
   }
@@ -307,8 +311,8 @@ export default function AgentProfile() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <Link to="/agents" className="inline-flex items-center gap-1 text-sm text-txt-muted transition-colors hover:text-cyan">
-        <span>‹</span> All Agents
+      <Link to="/app/internal/workforce" className="inline-flex items-center gap-1 text-sm text-txt-muted transition-colors hover:text-cyan">
+        <span>‹</span> Workforce
       </Link>
 
       {/* Header */}
@@ -2049,8 +2053,8 @@ function SettingsTab({
 
   return (
     <div className="space-y-6">
-      {/* Identity */}
-      {profile && (
+      {/* Identity — DB-backed agent_profiles; optional row per agent */}
+      {profile ? (
         <Card>
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-txt-primary">Personality & Voice</h3>
 
@@ -2104,6 +2108,20 @@ function SettingsTab({
               <InnerCard className="mt-1.5"><pre className="whitespace-pre-wrap text-sm leading-relaxed text-txt-secondary">{profile.voice_sample}</pre></InnerCard>
             </div>
           )}
+        </Card>
+      ) : (
+        <Card className="border border-dashed border-border">
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-txt-primary">Personality & Voice</h3>
+          <p className="text-sm text-txt-secondary">
+            This section only shows <strong className="font-medium text-txt-primary">enriched</strong> fields stored in{' '}
+            <code className="rounded bg-raised px-1.5 py-0.5 text-[11px]">agent_profiles</code>. There is no row for{' '}
+            <code className="rounded bg-raised px-1.5 py-0.5 text-[11px]">{agent.role}</code> yet — that does{' '}
+            <span className="font-medium text-txt-primary">not</span> mean the agent is missing: Mia can still run (Teams, scheduler, etc.)
+            using code-defined prompts and the Overview &quot;Soul&quot; copy when present.
+          </p>
+          <p className="mt-2 text-[12px] text-txt-muted">
+            To backfill this block, use Head of HR tools or seed <code className="rounded bg-raised px-1 py-0.5 text-[10px]">agent_profiles</code> for this role.
+          </p>
         </Card>
       )}
 
