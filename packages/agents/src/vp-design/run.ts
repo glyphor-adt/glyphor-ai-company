@@ -65,6 +65,8 @@ export interface VPDesignRunParams {
 
 const LANDING_PAGE_INTENT_PATTERN = /(landing\s*page|homepage|home\s*page|marketing\s*site|website|web\s*page|build\s+.*(landing|site|page)|create\s+.*(landing|site|page))/i;
 const REPO_FIX_INTENT_PATTERN = /(fix|patch|bug|error|deploy|deployment|vercel|github|repo|pull\s*request|pr\b|index\.css|tailwind|failed\s*build|build\s*failed)/i;
+/** Only treat as hotfix when the user is clearly debugging an existing pipeline — not when they mention Vercel/GitHub in a net-new site brief. */
+const REPO_FIX_HOTFIX_PATTERN = /(fix|patch|repair|regress|hotfix|bug|error|failed|broken|broken\s*build|build\s*failed|pr\s*#?\d|pull\s*request|merge conflict|ci failed|action failed|workflow failed|cannot deploy|won't deploy|doesn't deploy|index\.css|tailwind)/i;
 
 function isLandingPageRequest(message?: string): boolean {
   const text = String(message ?? '').trim();
@@ -73,7 +75,11 @@ function isLandingPageRequest(message?: string): boolean {
 
 function isRepoFixRequest(message?: string): boolean {
   const text = String(message ?? '').trim();
-  return text.length > 0 && REPO_FIX_INTENT_PATTERN.test(text);
+  if (!text) return false;
+  if (isLandingPageRequest(message)) {
+    return REPO_FIX_HOTFIX_PATTERN.test(text);
+  }
+  return REPO_FIX_INTENT_PATTERN.test(text);
 }
 
 export async function runVPDesign(params: VPDesignRunParams = {}) {
@@ -308,7 +314,8 @@ Do not call github_push_files, github_create_pull_request, github_merge_pull_req
     model: agentCfg.model,
     tools,
     maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
-    maxStallTurns: 3,
+    // Chat deploy chains often pause on long tools; 3 was too easy to hit "stalled" before recovery.
+    maxStallTurns: task === 'on_demand' ? 5 : 3,
     // Allow multi-minute invoke_web_build; companyAgentRunner uses min(config, ON_DEMAND_* timeout).
     timeoutMs: 960_000,
     temperature: agentCfg.temperature,

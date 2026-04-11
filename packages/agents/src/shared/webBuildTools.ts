@@ -1157,12 +1157,21 @@ async function executeWebBuild(
     const fallbackBase = slugifyProjectName(extractProjectNameCandidate(params.brief, brand)) || 'site';
     const base = baseFromBrief.length >= 3 ? baseFromBrief : fallbackBase;
     const uniqueTail = buildUniqueSuffix();
-    const projectBaseName = `${base}-${uniqueTail}`.slice(0, 100);
-    const repoCandidates = [projectBaseName, `${base}-${buildUniqueSuffix()}-${uniqueTail}`.slice(0, 100)];
+    // Prefer a stable repo name when normalize_design_brief returns suggested_repo_slug — otherwise
+    // every invoke_web_build creates Glyphor-Fuse/<base>-<random6> and users get dozens of repos for one product.
+    const repoCandidates: string[] = [];
+    if (baseFromBrief.length >= 3) {
+      repoCandidates.push(base.slice(0, 100));
+    }
+    repoCandidates.push(
+      `${base}-${uniqueTail}`.slice(0, 100),
+      `${base}-${buildUniqueSuffix()}-${uniqueTail}`.slice(0, 100),
+    );
+    const uniqueRepoCandidates = [...new Set(repoCandidates)];
     let lastError: Error | null = null;
     let provisioned = false;
 
-    for (const candidate of repoCandidates) {
+    for (const candidate of uniqueRepoCandidates) {
       try {
         let workProject = buildSyntheticProjectRef(candidate, params);
         const useFeatureBranch = repoUsesWebsitePullRequestWorkflow(workProject.repoFullName);

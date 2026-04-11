@@ -49,10 +49,10 @@ export function createQuickDemoWebAppTools(): ToolDefinition[] {
     {
       name: 'quick_demo_web_app',
       description:
-        'Generate a self-contained React web app as a single file — fast path for dashboards, demos, calculators, data visualizations, and simple tools. '
-        + 'Produces a complete working app with mock data, charts, and styling in under 2 minutes. '
-        + '**Use this as the default for simple "build me X" requests in chat.** '
-        + 'For multi-file projects that need a hosted preview URL, use plan_website_build + github_push_files instead.',
+        'Generate a self-contained HTML demo as a single file — fast path for throwaway calculators, tiny data viz, or when the user explicitly says they want a local/offline preview only. '
+        + '**Do NOT use for marketing sites, landing pages, or "build my website" — those require plan_website_build + invoke_web_build (repo + Vercel/preview URL).** '
+        + 'Microsoft Teams and most chat clients cannot run interactive HTML from this tool; pasting HTML in chat is not a substitute for a deployed preview. '
+        + 'If deployment is blocked, fix or document the blocker — do not replace the pipeline with chat HTML.',
       parameters: {
         description: {
           type: 'string',

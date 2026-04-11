@@ -236,6 +236,16 @@ async function persistRunMetricsAuditLog(entry: {
  *  Dashboard/client may need a matching HTTP timeout for long builds. Override: ON_DEMAND_SUPERVISOR_TIMEOUT_MS.
  */
 const ON_DEMAND_MAX_TURNS = 16;
+/** Web build / deploy chains (plan → push → CI → Vercel → logs → fix → retry) need many tool turns.
+ *  Default chat cap (16) caused vp-design to lose tools mid-recovery. Override: ON_DEMAND_WEB_PIPELINE_MAX_TURNS (max 50).
+ */
+const ON_DEMAND_WEB_PIPELINE_MAX_TURNS = Math.max(
+  ON_DEMAND_MAX_TURNS,
+  Math.min(
+    50,
+    Number.parseInt(process.env.ON_DEMAND_WEB_PIPELINE_MAX_TURNS ?? '50', 10) || 50,
+  ),
+);
 const ON_DEMAND_SUPERVISOR_TIMEOUT_MS = Math.max(120_000, Number(process.env.ON_DEMAND_SUPERVISOR_TIMEOUT_MS ?? '960000'));
 const ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS = Math.max(120_000, Number(process.env.ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS ?? '960000'));
 /** When the model returns tool calls with no visible text, chat UIs show only a spinner until /run completes — inject this first. */
@@ -251,7 +261,8 @@ function onDemandToolGating(role: string): {
   penultimateElapsedLow: number;
 } {
   if (ON_DEMAND_WEB_PIPELINE_ROLES.has(role)) {
-    return { maxToolTurn: 14, elapsedStripRatio: 0.92, penultimateElapsedLow: 0.82 };
+    // Stay below ON_DEMAND_WEB_PIPELINE_MAX_TURNS so the model still gets a penultimate warning + final turn(s).
+    return { maxToolTurn: 48, elapsedStripRatio: 0.95, penultimateElapsedLow: 0.88 };
   }
   return { maxToolTurn: 6, elapsedStripRatio: 0.55, penultimateElapsedLow: 0.45 };
 }
@@ -2019,7 +2030,15 @@ export class CompanyAgentRunner {
       const usesThinking = chatNeedsThinking || THINKING_ENABLED_TASKS.has(task) || (config.thinkingEnabled && !THINKING_DISABLED_TASKS.has(task) && !isTaskTier);
       {
         if (task === 'on_demand') {
-          supervisor.config.maxTurns = Math.min(supervisor.config.maxTurns, ON_DEMAND_MAX_TURNS);
+          const webPipeline = ON_DEMAND_WEB_PIPELINE_ROLES.has(config.role);
+          const onDemandTurnCap = webPipeline ? ON_DEMAND_WEB_PIPELINE_MAX_TURNS : ON_DEMAND_MAX_TURNS;
+          // company_agents.max_turns is often 15–28; without a floor, Math.min(15, 32) stayed 15 and
+          // deploy recoveries never got the web-pipeline budget.
+          const webFloor = webPipeline ? ON_DEMAND_WEB_PIPELINE_MAX_TURNS : 0;
+          supervisor.config.maxTurns = Math.min(
+            Math.max(supervisor.config.maxTurns, webFloor),
+            onDemandTurnCap,
+          );
           supervisor.config.timeoutMs = Math.min(
             supervisor.config.timeoutMs,
             chatNeedsThinking ? ON_DEMAND_THINKING_SUPERVISOR_TIMEOUT_MS : ON_DEMAND_SUPERVISOR_TIMEOUT_MS,
