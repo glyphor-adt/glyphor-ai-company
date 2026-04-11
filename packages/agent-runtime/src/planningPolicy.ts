@@ -132,6 +132,9 @@ export function resolvePlanningPolicy(input: {
   taskTierHint?: boolean;
 }): EffectivePlanningPolicy {
   let policy: EffectivePlanningPolicy;
+  // Interactive dashboard chat: default `off` keeps latency low; visible plan + clarifying
+  // questions come from CHAT_REASONING_PROTOCOL. Use AGENT_PLANNING_POLICY_JSON
+  // `tasks.on_demand` if you want internal JSON planning phases instead.
   if (input.task === 'on_demand') {
     policy = {
       planningMode: 'off',

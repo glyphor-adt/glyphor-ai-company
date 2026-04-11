@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useAgents } from '../lib/hooks';
 import { formatDashboardContent } from '../lib/formatDashboardContent';
 import ChatMarkdown from '../components/ChatMarkdown';
@@ -36,6 +36,11 @@ interface GroupMessage {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function streamingAckPlaceholder(agentRole: string): string {
+  const name = DISPLAY_NAME_MAP[agentRole] ?? agentRole;
+  return `Got it — ${name} is working on your request. Bigger tasks can take several minutes; you will see updates here as they land.`;
 }
 
 const AGENT_SPEAKER_LABELS = Array.from(
@@ -185,6 +190,11 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleSuggestionClick = useCallback((text: string) => {
+    setInput(text);
+    queueMicrotask(() => inputRef.current?.focus());
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const historyLoaded = useRef(false);
 
@@ -457,7 +467,9 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
           try {
             const event = JSON.parse(line.slice(6));
             if (event.type === 'run_started') {
-              const runStartedMessage = `Working with ${DISPLAY_NAME_MAP[agentRole] ?? agentRole}...`;
+              const runStartedMessage = typeof event.message === 'string' && event.message.trim().length > 0
+                ? event.message
+                : streamingAckPlaceholder(agentRole);
               streamContent = runStartedMessage;
               if (streamId) {
                 setMessages((prev) => prev.map((m) => m.streamId === streamId ? { ...m, content: runStartedMessage } : m));
@@ -612,7 +624,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
       const placeholder: GroupMessage = {
         role: 'agent',
         agentRole,
-        content: '',
+        content: streamingAckPlaceholder(agentRole),
         timestamp: new Date(),
         streamId,
       };
@@ -660,7 +672,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
       const placeholder: GroupMessage = {
         role: 'agent',
         agentRole,
-        content: '',
+        content: streamingAckPlaceholder(agentRole),
         timestamp: new Date(),
         streamId,
       };
@@ -974,7 +986,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                   </div>
                 )}
                 {msg.role === 'agent' || msg.role === 'founder' ? (
-                  <ChatMarkdown>{msg.content}</ChatMarkdown>
+                  <ChatMarkdown onSuggestionClick={handleSuggestionClick}>{msg.content}</ChatMarkdown>
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 )}

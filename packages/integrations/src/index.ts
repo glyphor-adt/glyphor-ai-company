@@ -8,12 +8,15 @@ export {
   formatAlertCard,
   formatNotificationCard,
   formatDirectiveProposalCard,
+  buildTeamsDmQuickReplyCard,
+  buildTeamsDmTextCard,
   type BriefingCardData,
   type DecisionCardData,
   type AlertCardData,
   type NotificationCardData,
   type NotificationType,
   type DirectiveProposalCardData,
+  type TeamsDmQuickReplyItem,
 } from './teams/adaptiveCards.js';
 
 // Graph API Teams client (primary integration)

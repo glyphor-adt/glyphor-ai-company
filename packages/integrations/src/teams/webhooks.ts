@@ -43,6 +43,19 @@ export interface TeamsWebhookPayload {
   }>;
 }
 
+export type AdaptiveCardAction =
+  | { type: 'Action.OpenUrl'; title: string; url: string }
+  | { type: 'Action.Submit'; title: string; data: unknown }
+  | { type: 'Action.Execute'; title: string; verb: string; data?: unknown; id?: string };
+
+export type AdaptiveCardElement =
+  | { type: 'TextBlock'; text: string; size?: string; weight?: string; color?: string; wrap?: boolean; spacing?: string; separator?: boolean }
+  | { type: 'Image'; url: string; size?: string; altText?: string; horizontalAlignment?: string; spacing?: string }
+  | { type: 'ColumnSet'; columns: Array<{ type: 'Column'; width: string; items: AdaptiveCardElement[] }> }
+  | { type: 'FactSet'; facts: Array<{ title: string; value: string }> }
+  | { type: 'Container'; items: AdaptiveCardElement[]; style?: string; bleed?: boolean; separator?: boolean }
+  | { type: 'ActionSet'; actions: AdaptiveCardAction[]; horizontalAlignment?: string; spacing?: string };
+
 export interface AdaptiveCard {
   $schema: 'http://adaptivecards.io/schemas/adaptive-card.json';
   type: 'AdaptiveCard';
@@ -50,15 +63,3 @@ export interface AdaptiveCard {
   body: AdaptiveCardElement[];
   actions?: AdaptiveCardAction[];
 }
-
-export type AdaptiveCardElement =
-  | { type: 'TextBlock'; text: string; size?: string; weight?: string; color?: string; wrap?: boolean; spacing?: string; separator?: boolean }
-  | { type: 'Image'; url: string; size?: string; altText?: string; horizontalAlignment?: string; spacing?: string }
-  | { type: 'ColumnSet'; columns: Array<{ type: 'Column'; width: string; items: AdaptiveCardElement[] }> }
-  | { type: 'FactSet'; facts: Array<{ title: string; value: string }> }
-  | { type: 'Container'; items: AdaptiveCardElement[]; style?: string; bleed?: boolean; separator?: boolean };
-
-export type AdaptiveCardAction =
-  | { type: 'Action.OpenUrl'; title: string; url: string }
-  | { type: 'Action.Submit'; title: string; data: unknown }
-  | { type: 'Action.Execute'; title: string; verb: string; data?: unknown; id?: string };

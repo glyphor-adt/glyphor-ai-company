@@ -521,6 +521,11 @@ export default function OraChat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSuggestionClick = useCallback((text: string) => {
+    setInput(text);
+    queueMicrotask(() => textareaRef.current?.focus());
+  }, []);
   const menuRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const sendingRef = useRef(false);
@@ -1288,7 +1293,7 @@ export default function OraChat() {
                 </div>
               ) : msg.content ? (
                 <>
-                  <ChatMarkdown>{msg.content}</ChatMarkdown>
+                  <ChatMarkdown onSuggestionClick={handleSuggestionClick}>{msg.content}</ChatMarkdown>
                   {msg.role === 'assistant' && msg.metadata?.triangulation?.reasoning && (
                     <ReasoningPanel reasoning={msg.metadata.triangulation.reasoning} />
                   )}

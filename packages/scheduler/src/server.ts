@@ -4340,6 +4340,25 @@ const server = createServer(async (req, res) => {
           status: 'running',
         }, 'turn_started');
 
+        // Emit acknowledgment before persisting the user message so the client is not blocked on DB I/O.
+        await emitAndRecord({
+          type: 'run_started',
+          runId: normalized.runId,
+          agentRole: normalized.agentRole,
+          conversationId: normalized.conversationId,
+          status: 'running',
+          phase: 'delegation',
+          message: 'Got your request — working on it. This may take a few minutes; you will see updates here as they land.',
+        }, 'run_started');
+
+        await emitAndRecord({
+          type: 'status',
+          runId: normalized.runId,
+          phase: 'delegation',
+          status: 'running',
+          message: 'Working on your request…',
+        }, 'status');
+
         if (normalized.persistTranscript) {
           await persistDashboardChatMessage({
             agentRole: normalized.agentRole,
@@ -4352,24 +4371,6 @@ const server = createServer(async (req, res) => {
             metadata: { runId: normalized.runId, streaming: true },
           });
         }
-
-        await emitAndRecord({
-          type: 'run_started',
-          runId: normalized.runId,
-          agentRole: normalized.agentRole,
-          conversationId: normalized.conversationId,
-          status: 'running',
-          phase: 'delegation',
-          message: `Delegating to ${normalized.agentRole}...`,
-        }, 'run_started');
-
-        await emitAndRecord({
-          type: 'status',
-          runId: normalized.runId,
-          phase: 'delegation',
-          status: 'running',
-          message: `Delegating to ${normalized.agentRole}...`,
-        }, 'status');
 
         const result = await executeWorkerAgentRun({
           runId: normalized.runId,

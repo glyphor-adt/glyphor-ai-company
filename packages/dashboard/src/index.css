@@ -1364,6 +1364,65 @@ html:not(.dark) .chat-input-inner.chat-composer-glass {
   border-top: 1px solid var(--color-border);
   margin: 1em 0;
 }
+/* Blockquotes — callouts for options / “does this match?” (Claude-like emphasis) */
+.prose-chat blockquote {
+  margin: 0.75em 0;
+  padding: 0.65em 1em;
+  border-left: 3px solid var(--cyan);
+  background: rgba(6, 130, 162, 0.08);
+  border-radius: 0 8px 8px 0;
+  color: var(--color-txt-secondary);
+}
+.prose-chat blockquote p {
+  margin-bottom: 0.4em;
+}
+.prose-chat blockquote p:last-child {
+  margin-bottom: 0;
+}
+.dark .prose-chat blockquote {
+  background: rgba(0, 200, 220, 0.07);
+}
+/* Collapsible sections — native <details> (sanitized HTML in markdown) */
+.prose-chat details {
+  margin: 0.85em 0;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.35em 0.65em 0.65em;
+  background: rgba(255, 255, 255, 0.03);
+}
+.dark .prose-chat details {
+  background: rgba(255, 255, 255, 0.04);
+}
+.prose-chat summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95em;
+  color: var(--color-txt-primary);
+  list-style: none;
+  padding: 0.25em 0;
+  user-select: none;
+}
+.prose-chat summary::-webkit-details-marker {
+  display: none;
+}
+.prose-chat summary::before {
+  content: '';
+  display: inline-block;
+  width: 0.35em;
+  height: 0.35em;
+  margin-right: 0.5em;
+  border-right: 2px solid var(--color-txt-muted);
+  border-bottom: 2px solid var(--color-txt-muted);
+  transform: rotate(-45deg) translateY(-0.05em);
+  vertical-align: middle;
+  transition: transform 0.15s ease;
+}
+.prose-chat details[open] summary::before {
+  transform: rotate(45deg) translateY(-0.05em);
+}
+.prose-chat details > *:not(summary) {
+  margin-top: 0.5em;
+}
 /* Tables */
 .prose-chat table {
   width: 100%;

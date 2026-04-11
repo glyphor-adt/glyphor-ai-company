@@ -523,6 +523,44 @@ export class A365TeamsChatClient {
    * Post an Adaptive Card to a 1:1 chat as the agent identity (Graph API).
    * Use this when MCP PostMessage cannot attach cards — matches {@link GraphTeamsClient} DM card shape.
    */
+  /**
+   * Post HTML message body + optional Adaptive Card in one Graph message.
+   * Use when you want narrative text above a card (plans, quick-reply chips in Teams).
+   */
+  async postChatMessageWithOptionalAdaptiveCard(
+    chatId: string,
+    markdownContent: string,
+    card: AdaptiveCard,
+    agentRole?: string,
+    agentDisplayName?: string,
+  ): Promise<void> {
+    const role = agentRole ?? this.defaultAgentRole;
+    const agentAppInstanceId = (role ? getAgentBlueprintSpId(role) : null)
+      ?? process.env.AGENT365_APP_INSTANCE_ID;
+    const agenticUserId = (role ? getAgentEntraUserId(role) : null)
+      ?? process.env.AGENT365_AGENTIC_USER_ID;
+
+    if (!agentAppInstanceId || !agenticUserId) {
+      throw new Error(
+        `[A365Teams] Agent identity not configured for adaptive card DM (${role ?? 'unknown'}).`,
+      );
+    }
+
+    const token = await this.tokenProvider.getAgenticUserToken(
+      this.tenantId,
+      agentAppInstanceId,
+      agenticUserId,
+      ['https://graph.microsoft.com/.default'],
+    );
+
+    const htmlBase = markdownToTeamsHtml(markdownContent);
+    const htmlContent = agentDisplayName
+      ? `<b>${agentDisplayName}</b><br/>${htmlBase}<br/><attachment id="adaptiveCard"></attachment>`
+      : `${htmlBase}<br/><attachment id="adaptiveCard"></attachment>`;
+
+    await this.postGraphChatAdaptiveMessage(chatId, htmlContent, card, token);
+  }
+
   async postChatAdaptiveCard(
     chatId: string,
     card: AdaptiveCard,
@@ -548,10 +586,19 @@ export class A365TeamsChatClient {
       ['https://graph.microsoft.com/.default'],
     );
 
-    const url = `https://graph.microsoft.com/v1.0/chats/${encodeURIComponent(chatId)}/messages`;
     const htmlContent = agentDisplayName
       ? `<b>${agentDisplayName}</b><br/><attachment id="adaptiveCard"></attachment>`
       : '<attachment id="adaptiveCard"></attachment>';
+    await this.postGraphChatAdaptiveMessage(chatId, htmlContent, card, token);
+  }
+
+  private async postGraphChatAdaptiveMessage(
+    chatId: string,
+    htmlContent: string,
+    card: AdaptiveCard,
+    token: string,
+  ): Promise<void> {
+    const url = `https://graph.microsoft.com/v1.0/chats/${encodeURIComponent(chatId)}/messages`;
     const body = {
       body: {
         contentType: 'html',

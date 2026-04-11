@@ -577,6 +577,83 @@ export function formatDirectiveProposalCard(data: DirectiveProposalCardData): Ad
   };
 }
 
+// ─── DM COMPOSABLE CARDS (Graph chat + send_teams_dm) ───────────
+
+export interface TeamsDmQuickReplyItem {
+  /** Button label */
+  title: string;
+  /** Text payload for Action.Submit (Teams/bot must handle invokes for taps to post a message) */
+  value: string;
+}
+
+/**
+ * Rich layout + horizontal quick-reply buttons for Teams DMs.
+ * Prefer together with `message` text in `send_teams_dm` so users see narrative + card.
+ * Action.Submit requires a bot endpoint to echo choices into chat; layout still renders without it.
+ */
+export function buildTeamsDmQuickReplyCard(input: {
+  title?: string;
+  summaryMarkdown: string;
+  choices: TeamsDmQuickReplyItem[];
+}): AdaptiveCard {
+  const body: AdaptiveCardElement[] = [];
+  if (input.title) {
+    body.push({
+      type: 'TextBlock',
+      text: input.title,
+      weight: 'bolder',
+      size: 'medium',
+      wrap: true,
+    });
+  }
+  body.push({
+    type: 'TextBlock',
+    text: input.summaryMarkdown,
+    wrap: true,
+  });
+
+  if (input.choices.length > 0) {
+    body.push({
+      type: 'ActionSet',
+      actions: input.choices.map(
+        (c): AdaptiveCardAction => ({
+          type: 'Action.Submit',
+          title: c.title,
+          data: { msteams: { text: c.value }, glyphor_quick_reply: true },
+        }),
+      ),
+    });
+  }
+
+  return {
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    type: 'AdaptiveCard',
+    version: '1.5',
+    body,
+  };
+}
+
+/** Minimal card: one TextBlock (e.g. facts or a short plan). */
+export function buildTeamsDmTextCard(text: string, title?: string): AdaptiveCard {
+  const body: AdaptiveCardElement[] = [];
+  if (title) {
+    body.push({
+      type: 'TextBlock',
+      text: title,
+      weight: 'bolder',
+      size: 'medium',
+      wrap: true,
+    });
+  }
+  body.push({ type: 'TextBlock', text, wrap: true });
+  return {
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    type: 'AdaptiveCard',
+    version: '1.5',
+    body,
+  };
+}
+
 // ─── UTILS ──────────────────────────────────────────────────────
 
 function capitalize(s: string): string {

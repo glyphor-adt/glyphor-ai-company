@@ -26,6 +26,7 @@ import { AGENT_EMAIL_MAP, type CompanyAgentRole } from '@glyphor/agent-runtime';
 import {
   GraphTeamsClient,
   A365TeamsChatClient,
+  type AdaptiveCard,
 } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
 
@@ -165,6 +166,28 @@ function extractMessageText(message: Record<string, unknown>): string {
   return '';
 }
 
+/** Parse optional Adaptive Card JSON from tool params (object or JSON string). */
+function parseAdaptiveCardParam(raw: unknown): AdaptiveCard | null {
+  if (raw === undefined || raw === null) return null;
+  let obj: unknown;
+  if (typeof raw === 'string') {
+    try {
+      obj = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  } else if (typeof raw === 'object') {
+    obj = raw;
+  } else {
+    return null;
+  }
+  const c = obj as Record<string, unknown>;
+  if (c.type !== 'AdaptiveCard') return null;
+  const ver = c.version;
+  if (ver !== '1.5' && ver !== '1.4' && ver !== '1.3') return null;
+  return obj as AdaptiveCard;
+}
+
 /**
  * Create Teams DM tools. The sender name is resolved at execution time
  * from `ctx.agentRole`, so no constructor-time role is needed.
@@ -194,7 +217,8 @@ export function createDmTools(): ToolDefinition[] {
         'Accepts a founder name (kristina, andrew), an agent role slug ' +
         '(e.g. cto, vp-design), a display name (e.g. "Marcus Reeves"), ' +
         'or an email address. Use for urgent updates, questions, or ' +
-        'follow-ups that need immediate attention.',
+        'follow-ups that need immediate attention. ' +
+        'Optional `adaptive_card_json` attaches a Teams Adaptive Card (schema 1.5) below the message text.',
       parameters: {
         recipient: {
           type: 'string',
@@ -207,6 +231,14 @@ export function createDmTools(): ToolDefinition[] {
           type: 'string',
           description: 'Message content (supports markdown bold/italic)',
           required: true,
+        },
+        adaptive_card_json: {
+          type: 'string',
+          description:
+            'Optional. JSON **string** of a Teams Adaptive Card: type "AdaptiveCard", version "1.5", body array. ' +
+            'Rendered as a rich attachment under the message. Prefer Action.OpenUrl for links. ' +
+            'Action.Submit buttons need a bot to handle invokes. Build with buildTeamsDmQuickReplyCard / buildTeamsDmTextCard from @glyphor/integrations or hand-author JSON.',
+          required: false,
         },
       },
       execute: async (params, ctx): Promise<ToolResult> => {
@@ -268,7 +300,25 @@ export function createDmTools(): ToolDefinition[] {
           try {
             const chatId = await a365Client.createOrGetOneOnOneChat(email, senderEmail);
 
-            await a365Client.postChatMessage(chatId, params.message as string, role);
+            const card = parseAdaptiveCardParam(params.adaptive_card_json);
+            if (typeof params.adaptive_card_json === 'string' && params.adaptive_card_json.trim().length > 0) {
+              if (!card) {
+                return {
+                  success: false,
+                  error:
+                    'adaptive_card_json must parse to JSON with type "AdaptiveCard", version "1.5" (or 1.4), and a body array.',
+                };
+              }
+              await a365Client.postChatMessageWithOptionalAdaptiveCard(
+                chatId,
+                params.message as string,
+                card,
+                role,
+                agentEntry?.displayName,
+              );
+            } else {
+              await a365Client.postChatMessage(chatId, params.message as string, role);
+            }
 
             // Log for dedup tracking
             try {

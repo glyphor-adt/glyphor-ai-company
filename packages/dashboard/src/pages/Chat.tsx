@@ -43,6 +43,12 @@ interface ChatMessageMetadata {
   dashboardChatEmbeds?: DashboardChatEmbed[];
 }
 
+/** Shown the instant a run starts streaming, before the first SSE frame (avoids a blank assistant bubble). */
+function streamingAckPlaceholder(agentRole: string): string {
+  const name = DISPLAY_NAME_MAP[agentRole] ?? agentRole;
+  return `Got it — ${name} is working on your request. Bigger tasks can take several minutes; you will see updates here as they land.`;
+}
+
 interface Message {
   role: 'user' | 'agent';
   content: string;
@@ -638,6 +644,11 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleSuggestionClick = useCallback((text: string) => {
+    setInput(text);
+    queueMicrotask(() => inputRef.current?.focus());
+  }, []);
+
   const selectedRoleRef = useRef(selectedRole);
   useEffect(() => {
     selectedRoleRef.current = selectedRole;
@@ -995,7 +1006,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
             if (eventType === 'run_started') {
               const runStartedMessage = typeof payload.message === 'string' && payload.message.trim().length > 0
                 ? payload.message
-                : `${DISPLAY_NAME_MAP[targetRole] ?? targetRole} is working on this...`;
+                : streamingAckPlaceholder(isMentioned ? role : targetRole);
               streamContent = runStartedMessage;
               if (selectedRoleRef.current === targetRole) {
                 setMessages((prev) => prev.map((m) => m.streamId === streamId ? { ...m, content: runStartedMessage } : m));
@@ -1538,13 +1549,13 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                       const textAfter = content.slice(htmlStart + matchStr.length).trim();
                       return (
                         <>
-                          {textBefore && <ChatMarkdown>{textBefore}</ChatMarkdown>}
+                          {textBefore && <ChatMarkdown onSuggestionClick={handleSuggestionClick}>{textBefore}</ChatMarkdown>}
                           <HtmlArtifactPreview html={htmlContent} />
-                          {textAfter && <ChatMarkdown>{textAfter}</ChatMarkdown>}
+                          {textAfter && <ChatMarkdown onSuggestionClick={handleSuggestionClick}>{textAfter}</ChatMarkdown>}
                         </>
                       );
                     }
-                    return <ChatMarkdown>{content}</ChatMarkdown>;
+                    return <ChatMarkdown onSuggestionClick={handleSuggestionClick}>{content}</ChatMarkdown>;
                   })()
                 ) : (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
