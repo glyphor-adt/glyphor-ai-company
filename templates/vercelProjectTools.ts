@@ -26,6 +26,33 @@ function getTeamId(): string | undefined {
   return process.env.VERCEL_TEAM_ID?.trim() || undefined;
 }
 
+function readVercelErrorMessage(data: unknown): string {
+  if (!data || typeof data !== 'object') return '';
+  const root = data as Record<string, unknown>;
+  const nested = root.error;
+  if (nested && typeof nested === 'object') {
+    const msg = (nested as Record<string, unknown>).message;
+    if (typeof msg === 'string' && msg.trim().length > 0) return msg.trim();
+  }
+  const direct = root.message;
+  if (typeof direct === 'string' && direct.trim().length > 0) return direct.trim();
+  return '';
+}
+
+function shouldRetryWithoutTeamScope(status: number, method: string, data: unknown): boolean {
+  const message = readVercelErrorMessage(data);
+  if (status === 400 && /install\s+the\s+github\s+integration\s+first/i.test(message)) {
+    return true;
+  }
+
+  const normalizedMethod = method.trim().toUpperCase();
+  if (normalizedMethod === 'GET' && (status === 403 || status === 404)) {
+    return true;
+  }
+
+  return false;
+}
+
 async function vercelRequest(
   path: string,
   method: string,
@@ -34,27 +61,40 @@ async function vercelRequest(
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const token = getVercelToken();
   const teamId = getTeamId();
-  const url = new URL(`${VERCEL_API}${path}`);
-  if (teamId) url.searchParams.set('teamId', teamId);
 
-  const response = await fetch(url.toString(), {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    signal,
-  });
+  const send = async (includeTeamId: boolean): Promise<{ ok: boolean; status: number; data: unknown }> => {
+    const url = new URL(`${VERCEL_API}${path}`);
+    if (includeTeamId && teamId) {
+      url.searchParams.set('teamId', teamId);
+    }
 
-  let data: unknown;
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
+    const response = await fetch(url.toString(), {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal,
+    });
+
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    return { ok: response.ok, status: response.status, data };
+  };
+
+  const primary = await send(true);
+  if (primary.ok || !teamId || !shouldRetryWithoutTeamScope(primary.status, method, primary.data)) {
+    return primary;
   }
 
-  return { ok: response.ok, status: response.status, data };
+  const fallback = await send(false);
+  return fallback.ok ? fallback : primary;
 }
 
 export function createVercelProjectTools(): ToolDefinition[] {
@@ -135,6 +175,15 @@ export function createVercelProjectTools(): ToolDefinition[] {
           if (!ok) {
             const err = data as Record<string, unknown>;
             const message = String(err?.error?.message ?? 'Unknown Vercel error');
+            if (status === 400 && /install\s+the\s+github\s+integration\s+first/i.test(message)) {
+              return {
+                success: false,
+                error:
+                  `Vercel API error (400): ${message} `
+                  + `Verify Vercel Team Settings > Integrations > GitHub for ${githubOrg}, `
+                  + 'then ensure the Vercel app has repository access before retrying.',
+              };
+            }
             return {
               success: false,
               error: `Vercel API error (${status}): ${message}`,
