@@ -475,6 +475,8 @@ function isAdminViewerReadableGet(urlPath: string, method: string): boolean {
   if (method !== 'GET') return false;
   if (/^\/admin\/agents\/[^/]+\/capacity$/.test(urlPath)) return true;
   if (urlPath === '/admin/commitments' || urlPath === '/admin/commitments/pending') return true;
+  if (urlPath === '/admin/autonomy' || urlPath === '/admin/autonomy/cohort-benchmarks') return true;
+  if (/^\/admin\/autonomy\/[^/]+$/.test(urlPath)) return true;
   return false;
 }
 
@@ -518,6 +520,18 @@ function classifySchedulerRoute(pathname: string, method: string): SchedulerRout
       /^\/admin\/agents\/[^/]+\/capacity$/.test(pathname)
       || pathname === '/admin/commitments'
       || pathname === '/admin/commitments/pending'
+    )
+  ) {
+    return 'authenticated-user';
+  }
+
+  // Autonomy overview: read-only GETs for Governance → Autonomy tab (viewer+). PUT/promote/demote stay admin-only.
+  if (
+    method === 'GET'
+    && (
+      pathname === '/admin/autonomy'
+      || pathname === '/admin/autonomy/cohort-benchmarks'
+      || /^\/admin\/autonomy\/[^/]+$/.test(pathname)
     )
   ) {
     return 'authenticated-user';
