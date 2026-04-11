@@ -157,6 +157,7 @@ export default function AgentProfile() {
   const location = useLocation();
   const [tab, setTab] = useState<Tab>('overview');
   const [agent, setAgent] = useState<AgentRow | null>(null);
+  const [loadError, setLoadError] = useState<string>('');
   const [profile, setProfile] = useState<AgentProfile | null>(null);
   const [brief, setBrief] = useState<AgentBrief | null>(null);
   const [directReports, setDirectReports] = useState<AgentRow[]>([]);
@@ -227,33 +228,44 @@ export default function AgentProfile() {
     if (!agentId) return;
     (async () => {
       setLoading(true);
-      // Load agent + profile in parallel
-      let agentRows = await apiCall<AgentRow[]>('/api/company_agents?role=' + encodeURIComponent(agentId));
-      if (!agentRows || (Array.isArray(agentRows) && agentRows.length === 0)) {
-        agentRows = await apiCall<AgentRow[]>('/api/company_agents?id=' + encodeURIComponent(agentId));
-      }
-      const agentData = Array.isArray(agentRows) ? agentRows[0] ?? null : agentRows;
+      setLoadError('');
+      try {
+        // Load agent + profile in parallel.
+        let agentRows = await apiCall<AgentRow[]>('/api/company_agents?role=' + encodeURIComponent(agentId));
+        if (!agentRows || (Array.isArray(agentRows) && agentRows.length === 0)) {
+          agentRows = await apiCall<AgentRow[]>('/api/company_agents?id=' + encodeURIComponent(agentId));
+        }
+        const agentData = Array.isArray(agentRows) ? agentRows[0] ?? null : agentRows;
 
-      let profileData: AgentProfile | null = null;
-      let briefData: AgentBrief | null = null;
-      let reportsData: AgentRow[] = [];
-      if (agentData) {
-        const role = agentData.role;
-        const [p, b, r] = await Promise.all([
-          apiCall<AgentProfile[]>('/api/agent_profiles?agent_id=' + encodeURIComponent(role)),
-          apiCall<AgentBrief[]>('/api/agent_briefs?agent_id=' + encodeURIComponent(role)),
-          apiCall<AgentRow[]>('/api/company_agents?reports_to=' + encodeURIComponent(role) + '&order=created_at.asc'),
-        ]);
-        profileData = (Array.isArray(p) ? p[0] : p) as AgentProfile | null;
-        briefData = (Array.isArray(b) ? b[0] : b) as AgentBrief | null ?? null;
-        reportsData = (r as AgentRow[]) ?? [];
-      }
+        let profileData: AgentProfile | null = null;
+        let briefData: AgentBrief | null = null;
+        let reportsData: AgentRow[] = [];
+        if (agentData) {
+          const role = agentData.role;
+          const [p, b, r] = await Promise.all([
+            apiCall<AgentProfile[]>('/api/agent_profiles?agent_id=' + encodeURIComponent(role)),
+            apiCall<AgentBrief[]>('/api/agent_briefs?agent_id=' + encodeURIComponent(role)),
+            apiCall<AgentRow[]>('/api/company_agents?reports_to=' + encodeURIComponent(role) + '&order=created_at.asc'),
+          ]);
+          profileData = (Array.isArray(p) ? p[0] : p) as AgentProfile | null;
+          briefData = (Array.isArray(b) ? b[0] : b) as AgentBrief | null ?? null;
+          reportsData = (r as AgentRow[]) ?? [];
+        }
 
-      setAgent(agentData as AgentRow | null);
-      setProfile(profileData);
-      setBrief(briefData);
-      setDirectReports(reportsData);
-      setLoading(false);
+        setAgent(agentData as AgentRow | null);
+        setProfile(profileData);
+        setBrief(briefData);
+        setDirectReports(reportsData);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setLoadError(message || 'Failed to load agent profile.');
+        setAgent(null);
+        setProfile(null);
+        setBrief(null);
+        setDirectReports([]);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [agentId]);
 
@@ -276,6 +288,16 @@ export default function AgentProfile() {
   }
 
   if (!agent) {
+    if (loadError) {
+      return (
+        <div className="flex h-64 flex-col items-center justify-center gap-3">
+          <p className="text-base font-medium text-txt-secondary">Could not load agent profile</p>
+          <p className="max-w-2xl text-center text-sm text-txt-muted">{loadError}</p>
+          <Link to="/app/internal/workforce" className="text-sm text-cyan hover:underline">← Workforce</Link>
+        </div>
+      );
+    }
+
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3">
         <p className="text-base font-medium text-txt-secondary">Agent not found</p>
