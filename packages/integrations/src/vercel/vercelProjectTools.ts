@@ -1,16 +1,8 @@
 import type { ToolContext, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
-import { getWebsitePipelineOrg, requireWebsitePipelineEnv, resolveWebsitePipelineEnv } from '../websitePipelineEnv.js';
+import { getWebsitePipelineOrg, resolveVercelCredsForGithubOrg } from '../websitePipelineEnv.js';
 
 const VERCEL_API = 'https://api.vercel.com';
 const GITHUB_ORG = getWebsitePipelineOrg();
-
-function getVercelToken(): string {
-  return requireWebsitePipelineEnv('vercel-token');
-}
-
-function getTeamId(): string | undefined {
-  return resolveWebsitePipelineEnv('vercel-team-id');
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -54,15 +46,18 @@ async function vercelRequest(
   method: string,
   body?: Record<string, unknown>,
   signal?: AbortSignal,
+  /** Which GitHub org the Vercel project belongs to (picks token + team). Defaults to Fuse client org. */
+  githubOrgForCreds?: string,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
+  const org = (githubOrgForCreds ?? GITHUB_ORG).trim();
+  const { token, teamId } = resolveVercelCredsForGithubOrg(org);
   const url = new URL(`${VERCEL_API}${path}`);
-  const teamId = getTeamId();
   if (teamId) url.searchParams.set('teamId', teamId);
 
   const response = await fetch(url.toString(), {
     method,
     headers: {
-      Authorization: `Bearer ${getVercelToken()}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -130,6 +125,7 @@ export function createVercelProjectTools(): ToolDefinition[] {
               installCommand: 'npm install',
             },
             ctx.abortSignal,
+            githubOrg,
           );
 
           if (!ok) {
@@ -179,12 +175,18 @@ export function createVercelProjectTools(): ToolDefinition[] {
           description: 'Optional Git branch name to filter deployments.',
           required: false,
         },
+        github_org: {
+          type: 'string',
+          description: `GitHub org for Vercel token/team (ADT vs Fuse). Defaults to ${GITHUB_ORG}.`,
+          required: false,
+        },
       },
       async execute(params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
         const projectName = String(params.project_name ?? '').trim();
         if (!projectName) return { success: false, error: 'project_name is required.' };
         let projectId = String(params.project_id ?? '').trim();
         const branch = String(params.branch ?? '').trim();
+        const githubOrg = String(params.github_org ?? GITHUB_ORG).trim();
 
         try {
           if (!projectId) {
@@ -193,6 +195,7 @@ export function createVercelProjectTools(): ToolDefinition[] {
               'GET',
               undefined,
               ctx.abortSignal,
+              githubOrg,
             );
             if (!projectLookup.ok) {
               return {
@@ -209,7 +212,7 @@ export function createVercelProjectTools(): ToolDefinition[] {
           }
 
           const path = `/v6/deployments?projectId=${encodeURIComponent(projectId)}&limit=5${branch ? `&meta-gitBranch=${encodeURIComponent(branch)}` : ''}`;
-          const { ok, status, data } = await vercelRequest(path, 'GET', undefined, ctx.abortSignal);
+          const { ok, status, data } = await vercelRequest(path, 'GET', undefined, ctx.abortSignal, githubOrg);
           if (!ok) {
             return { success: false, error: `Vercel API error (${status}): could not fetch deployments.` };
           }
@@ -286,12 +289,18 @@ export function createVercelProjectTools(): ToolDefinition[] {
           description: 'Polling interval in seconds. Defaults to 15.',
           required: false,
         },
+        github_org: {
+          type: 'string',
+          description: `GitHub org for Vercel token/team (ADT vs Fuse). Defaults to ${GITHUB_ORG}.`,
+          required: false,
+        },
       },
       async execute(params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
         const projectName = String(params.project_name ?? '').trim();
         if (!projectName) return { success: false, error: 'project_name is required.' };
         let projectId = String(params.project_id ?? '').trim();
         const branch = String(params.branch ?? '').trim();
+        const githubOrg = String(params.github_org ?? GITHUB_ORG).trim();
         const timeoutSeconds = Math.max(30, Number(params.timeout_seconds ?? 420));
         const pollIntervalSeconds = Math.max(5, Number(params.poll_interval_seconds ?? 15));
         const deadline = Date.now() + (timeoutSeconds * 1000);
@@ -303,6 +312,7 @@ export function createVercelProjectTools(): ToolDefinition[] {
               'GET',
               undefined,
               ctx.abortSignal,
+              githubOrg,
             );
             if (!projectLookup.ok) {
               return {
@@ -320,7 +330,7 @@ export function createVercelProjectTools(): ToolDefinition[] {
 
           while (Date.now() < deadline) {
             const path = `/v6/deployments?projectId=${encodeURIComponent(projectId)}&limit=1${branch ? `&meta-gitBranch=${encodeURIComponent(branch)}` : ''}`;
-            const deploymentRes = await vercelRequest(path, 'GET', undefined, ctx.abortSignal);
+            const deploymentRes = await vercelRequest(path, 'GET', undefined, ctx.abortSignal, githubOrg);
             if (!deploymentRes.ok) {
               return { success: false, error: `Vercel API error (${deploymentRes.status}): could not fetch deployments.` };
             }
@@ -395,11 +405,17 @@ export function createVercelProjectTools(): ToolDefinition[] {
           description: 'Vercel project name.',
           required: true,
         },
+        github_org: {
+          type: 'string',
+          description: `GitHub org for Vercel token/team (ADT vs Fuse). Defaults to ${GITHUB_ORG}.`,
+          required: false,
+        },
       },
       async execute(params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
         const projectName = String(params.project_name ?? '').trim();
         if (!projectName) return { success: false, error: 'project_name is required.' };
         let projectId = String(params.project_id ?? '').trim();
+        const githubOrg = String(params.github_org ?? GITHUB_ORG).trim();
 
         try {
           if (!projectId) {
@@ -408,6 +424,7 @@ export function createVercelProjectTools(): ToolDefinition[] {
               'GET',
               undefined,
               ctx.abortSignal,
+              githubOrg,
             );
             if (!projectLookup.ok) {
               return {
@@ -424,7 +441,7 @@ export function createVercelProjectTools(): ToolDefinition[] {
           }
 
           const path = `/v6/deployments?projectId=${encodeURIComponent(projectId)}&target=production&limit=5`;
-          const { ok, status, data } = await vercelRequest(path, 'GET', undefined, ctx.abortSignal);
+          const { ok, status, data } = await vercelRequest(path, 'GET', undefined, ctx.abortSignal, githubOrg);
           if (!ok) {
             return { success: false, error: `Vercel API error (${status}): could not fetch production deployments.` };
           }
@@ -512,11 +529,17 @@ export function createVercelProjectTools(): ToolDefinition[] {
           description: 'Maximum paginated event pages to fetch per endpoint (default: 8, max: 20).',
           required: false,
         },
+        github_org: {
+          type: 'string',
+          description: `GitHub org for Vercel token/team (ADT vs Fuse). Defaults to ${GITHUB_ORG}.`,
+          required: false,
+        },
       },
       async execute(params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
         let deploymentId = String(params.deployment_id ?? '').trim();
         const projectName = String(params.project_name ?? '').trim();
         let projectId = String(params.project_id ?? '').trim();
+        const githubOrg = String(params.github_org ?? GITHUB_ORG).trim();
         const target = String(params.target ?? 'production').trim().toLowerCase() === 'preview'
           ? 'preview'
           : 'production';
@@ -540,6 +563,7 @@ export function createVercelProjectTools(): ToolDefinition[] {
                 'GET',
                 undefined,
                 ctx.abortSignal,
+                githubOrg,
               );
 
               if (!projectLookup.ok) {
@@ -558,7 +582,7 @@ export function createVercelProjectTools(): ToolDefinition[] {
             }
 
             const path = `/v6/deployments?projectId=${encodeURIComponent(projectId)}${target === 'production' ? '&target=production' : ''}&limit=1`;
-            const latestDeployment = await vercelRequest(path, 'GET', undefined, ctx.abortSignal);
+            const latestDeployment = await vercelRequest(path, 'GET', undefined, ctx.abortSignal, githubOrg);
             if (!latestDeployment.ok) {
               return {
                 success: false,
@@ -617,7 +641,7 @@ export function createVercelProjectTools(): ToolDefinition[] {
 
             for (let page = 0; page < maxPages && collected.length < limit; page++) {
               const endpoint = buildEventsPath(endpointBase, perPageLimit, cursor);
-              const response = await vercelRequest(endpoint, 'GET', undefined, ctx.abortSignal);
+              const response = await vercelRequest(endpoint, 'GET', undefined, ctx.abortSignal, githubOrg);
               if (!response.ok || !response.data) break;
 
               fetchedPages += 1;

@@ -16,17 +16,18 @@ export const WEBSITE_PIPELINE_ENV_REQUIREMENTS: readonly EnvRequirement[] = [
   },
   {
     id: 'vercel-token',
-    preferredEnvName: 'VERCEL_API_TOKEN',
-    acceptedEnvNames: ['VERCEL_API_TOKEN', 'FUSE_PREVIEW_VERCEL_TOKEN'],
+    preferredEnvName: 'FUSE_PREVIEW_VERCEL_TOKEN',
+    acceptedEnvNames: ['FUSE_PREVIEW_VERCEL_TOKEN', 'VERCEL_API_TOKEN'],
     recommendedSecretNames: ['fuse-preview-vercel-token'],
-    description: 'Vercel API token for project creation and preview polling.',
+    description:
+      'Fuse client pipeline: prefer FUSE_PREVIEW_VERCEL_TOKEN. glyphor-adt uses VERCEL_API_TOKEN (see resolveVercelCredsForGithubOrg).',
   },
   {
     id: 'vercel-team-id',
-    preferredEnvName: 'VERCEL_TEAM_ID',
-    acceptedEnvNames: ['VERCEL_TEAM_ID', 'FUSE_PREVIEW_VERCEL_TEAM_ID'],
+    preferredEnvName: 'FUSE_PREVIEW_VERCEL_TEAM_ID',
+    acceptedEnvNames: ['FUSE_PREVIEW_VERCEL_TEAM_ID', 'VERCEL_TEAM_ID'],
     recommendedSecretNames: ['fuse-preview-vercel-team-id'],
-    description: 'Vercel team scope for preview projects.',
+    description: 'Vercel team id for Glyphor-Fuse preview projects.',
   },
   {
     id: 'r2-endpoint',
@@ -113,4 +114,46 @@ export function getWebsitePipelineOrg(): string {
 
 export function getWebsitePipelineBucket(): string {
   return getEnvValue('PREVIEWS_R2_BUCKET', 'FUSE_PREVIEWS_R2_BUCKET') || 'glyphor-fuse-storage';
+}
+
+/** Default GitHub org for glyphor-adt flagship repos (Vercel team + token differ from Fuse). */
+export const GLYPHOR_ADT_GITHUB_ORG_DEFAULT = 'glyphor-adt';
+
+function normalizeGithubOrgName(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/**
+ * Pick Vercel API token + teamId for the GitHub org being targeted.
+ * - **glyphor-adt** → `GLYPHOR_ADT_VERCEL_API_TOKEN` then `VERCEL_API_TOKEN` + `VERCEL_ADT_TEAM_ID` / `GLYPHOR_ADT_VERCEL_TEAM_ID`
+ * - **Glyphor-Fuse** (and other client orgs) → `FUSE_PREVIEW_VERCEL_TOKEN` then `VERCEL_API_TOKEN` + Fuse team id
+ *
+ * This avoids using the ADT token against Fuse repos (wrong Vercel team / missing GitHub integration).
+ */
+export function resolveVercelCredsForGithubOrg(githubOrg: string): { token: string; teamId?: string } {
+  const o = normalizeGithubOrgName(githubOrg);
+  const adtOrg = normalizeGithubOrgName(
+    getEnvValue('GLYPHOR_ADT_GITHUB_ORG') ?? GLYPHOR_ADT_GITHUB_ORG_DEFAULT,
+  );
+
+  if (o === adtOrg) {
+    // Prefer GLYPHOR_ADT_* so Cloud Run can mount a different GCP secret than VERCEL_API_TOKEN when both are set.
+    const token = getEnvValue('GLYPHOR_ADT_VERCEL_API_TOKEN', 'VERCEL_API_TOKEN', 'GLYPHOR_ADT_VERCEL_TOKEN');
+    const teamId = getEnvValue('VERCEL_ADT_TEAM_ID', 'GLYPHOR_ADT_VERCEL_TEAM_ID');
+    if (!token) {
+      throw new Error(
+        'glyphor-adt Vercel: set GLYPHOR_ADT_VERCEL_API_TOKEN (or VERCEL_API_TOKEN) for the ADT team token.',
+      );
+    }
+    return { token, teamId };
+  }
+
+  const token = getEnvValue('FUSE_PREVIEW_VERCEL_TOKEN', 'VERCEL_API_TOKEN');
+  const teamId = getEnvValue('FUSE_PREVIEW_VERCEL_TEAM_ID', 'VERCEL_TEAM_ID');
+  if (!token) {
+    throw new Error(
+      'Fuse website pipeline Vercel: set FUSE_PREVIEW_VERCEL_TOKEN (or VERCEL_API_TOKEN) and a team id.',
+    );
+  }
+  return { token, teamId };
 }
