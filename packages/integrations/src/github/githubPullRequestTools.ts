@@ -45,6 +45,28 @@ async function githubRequest(
   return { ok: response.ok, status: response.status, data };
 }
 
+function formatGithubRestError(data: unknown): string {
+  const err = data as Record<string, unknown> | null;
+  const message = String(err?.message ?? 'Unknown GitHub API error');
+  const errors = err?.errors;
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return message;
+  }
+  const details = errors
+    .map((e) => {
+      if (e && typeof e === 'object') {
+        const o = e as Record<string, unknown>;
+        const parts = [o.field, o.message, o.code].filter(
+          (x) => x !== undefined && x !== null && String(x).length > 0,
+        );
+        return parts.length > 0 ? parts.map(String).join(' ') : JSON.stringify(o);
+      }
+      return String(e);
+    })
+    .join('; ');
+  return `${message} | ${details}`;
+}
+
 function classifyCheckState(state: string, conclusion?: string | null): 'success' | 'pending' | 'failure' {
   const normalizedState = state.toLowerCase();
   const normalizedConclusion = (conclusion ?? '').toLowerCase();
@@ -89,10 +111,9 @@ async function getPullRequestStatus(
     signal,
   );
   if (!prResponse.ok) {
-    const err = prResponse.data as Record<string, unknown> | null;
     return {
       success: false,
-      error: `GitHub API error (${prResponse.status}): ${String(err?.message ?? 'Unknown GitHub API error')}`,
+      error: `GitHub API error (${prResponse.status}): ${formatGithubRestError(prResponse.data)}`,
     };
   }
 
@@ -247,7 +268,7 @@ export function createGithubPullRequestTools(): ToolDefinition[] {
             'POST',
             {
               title,
-              head: `${owner}:${headBranch}`,
+              head: headBranch,
               base: baseBranch,
               body: body || undefined,
               draft,
@@ -256,9 +277,7 @@ export function createGithubPullRequestTools(): ToolDefinition[] {
           );
 
           if (!ok) {
-            const err = data as Record<string, unknown> | null;
-            const message = String(err?.message ?? 'Unknown GitHub API error');
-            return { success: false, error: `GitHub API error (${status}): ${message}` };
+            return { success: false, error: `GitHub API error (${status}): ${formatGithubRestError(data)}` };
           }
 
           const pr = data as Record<string, unknown>;
@@ -453,9 +472,7 @@ export function createGithubPullRequestTools(): ToolDefinition[] {
           );
 
           if (!ok) {
-            const err = data as Record<string, unknown> | null;
-            const message = String(err?.message ?? 'Unknown GitHub API error');
-            return { success: false, error: `GitHub API error (${status}): ${message}` };
+            return { success: false, error: `GitHub API error (${status}): ${formatGithubRestError(data)}` };
           }
 
           const merge = data as Record<string, unknown>;
