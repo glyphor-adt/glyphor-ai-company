@@ -82,14 +82,22 @@ export default function Settings() {
   };
 
   const toggleRole = async (targetUser: DashboardUser) => {
-    if (targetUser.email.toLowerCase() === user?.email.toLowerCase()) return;
+    const isSelf = targetUser.email.toLowerCase() === user?.email.toLowerCase();
+    // Allow self-promotion (viewer → admin) so bootstrap accounts can fix a wrong DB row.
+    // Block self-demotion (admin → viewer) to avoid locking yourself out of user management.
+    if (isSelf && targetUser.role === 'admin') return;
     const newRole = targetUser.role === 'admin' ? 'viewer' : 'admin';
-    await apiCall(`/api/dashboard-users/${targetUser.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ role: newRole }),
-    });
-    invalidateAllowedCache();
-    await fetchUsers();
+    setError('');
+    try {
+      await apiCall(`/api/dashboard-users/${targetUser.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: newRole }),
+      });
+      invalidateAllowedCache();
+      await fetchUsers();
+    } catch (err) {
+      setError((err as Error).message);
+    }
   };
 
   if (!isAdmin && !loading) {
@@ -182,13 +190,25 @@ export default function Settings() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
+                      title={
+                        isSelf && u.role === 'viewer'
+                          ? 'Promote your account to admin (required for Fleet / eval APIs)'
+                          : isSelf && u.role === 'admin'
+                            ? 'Ask another admin to demote you if needed'
+                            : undefined
+                      }
                       onClick={() => toggleRole(u)}
-                      disabled={isSelf}
+                      disabled={isSelf && u.role === 'admin'}
                       className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                         u.role === 'admin'
                           ? 'bg-cyan/15 text-cyan'
                           : 'bg-base text-txt-muted'
-                      } ${isSelf ? 'cursor-default' : 'hover:opacity-80'}`}
+                      } ${
+                        isSelf && u.role === 'admin'
+                          ? 'cursor-not-allowed opacity-70'
+                          : 'hover:opacity-80'
+                      }`}
                     >
                       {u.role}
                     </button>

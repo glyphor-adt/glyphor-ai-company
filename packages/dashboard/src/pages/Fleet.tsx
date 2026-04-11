@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { apiCall } from '../lib/firebase';
+import { apiCall, formatGlyphorAuthDenialHint, isGlyphorApiError } from '../lib/firebase';
 import EvalSummaryBar from '../components/eval/EvalSummaryBar';
 import WorldStateFreshnessPanel from '../components/eval/WorldStateFreshnessPanel';
 import EvalFleetGrid from '../components/eval/EvalFleetGrid';
@@ -13,6 +13,7 @@ export default function Fleet() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [agents, setAgents] = useState<FleetAgent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<FleetAgent | null>(null);
+  const [evalAccessError, setEvalAccessError] = useState<string | null>(null);
 
   const filter = searchParams.get('filter');
 
@@ -20,8 +21,15 @@ export default function Fleet() {
     try {
       const rows = await apiCall<FleetAgent[]>('/api/eval/fleet');
       setAgents(rows ?? []);
-    } catch {
+      setEvalAccessError(null);
+    } catch (e) {
       setAgents([]);
+      if (isGlyphorApiError(e) && (e.status === 403 || e.status === 401)) {
+        const hint = formatGlyphorAuthDenialHint(e.authReason);
+        setEvalAccessError(hint ?? e.message);
+      } else {
+        setEvalAccessError(null);
+      }
     }
   }, []);
 
@@ -42,7 +50,16 @@ export default function Fleet() {
   return (
     <div className="min-h-screen text-txt-primary">
       {/* Summary bar — always visible */}
-      <div className="sticky top-0 z-30 p-4 pb-0">
+      <div className="sticky top-0 z-30 p-4 pb-0 space-y-3">
+        {evalAccessError && (
+          <div
+            role="alert"
+            className="rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 shadow-sm"
+          >
+            <p className="font-semibold text-amber-50">Fleet / eval API access denied</p>
+            <p className="mt-1 text-amber-100/90 leading-relaxed">{evalAccessError}</p>
+          </div>
+        )}
         <EvalSummaryBar agents={agents} activeFilter={filter} onFilterChange={handleFilterChange} />
       </div>
 

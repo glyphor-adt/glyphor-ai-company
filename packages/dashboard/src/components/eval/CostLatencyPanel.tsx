@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiCall } from '../../lib/firebase';
+import { apiCall, formatGlyphorAuthDenialHint, isGlyphorApiError } from '../../lib/firebase';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
@@ -19,12 +19,24 @@ interface CostLatencyRow {
 
 export default function CostLatencyPanel() {
   const [data, setData] = useState<CostLatencyRow[] | null | undefined>(undefined);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const rows = await apiCall<CostLatencyRow[] | null>('/api/eval/cost-latency');
       setData(rows);
-    } catch {
+      setAuthError(null);
+    } catch (e) {
+      if (
+        isGlyphorApiError(e)
+        && (e.status === 403 || e.status === 401)
+        && formatGlyphorAuthDenialHint(e.authReason)
+      ) {
+        setAuthError(formatGlyphorAuthDenialHint(e.authReason)!);
+        setData(null);
+        return;
+      }
+      setAuthError(null);
       setData(null);
     }
   }, []);
@@ -38,6 +50,17 @@ export default function CostLatencyPanel() {
   // Loading
   if (data === undefined) {
     return <div className="h-[200px] animate-pulse rounded-xl glass-surface" />;
+  }
+
+  if (authError) {
+    return (
+      <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-6" role="alert">
+        <h3 className="text-sm font-semibold text-amber-50 uppercase tracking-widest mb-2">
+          Cost &amp; Latency Tracking
+        </h3>
+        <p className="text-sm text-amber-100/90 leading-relaxed">{authError}</p>
+      </div>
+    );
   }
 
   // Not instrumented

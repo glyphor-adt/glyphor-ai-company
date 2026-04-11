@@ -43,7 +43,12 @@ export function corsHeadersFor(req: IncomingMessage | undefined): Record<string,
   if (!req) return {};
   const origin = getCorsOrigin(req);
   if (!origin) return {};
-  return { 'Access-Control-Allow-Origin': origin, 'Vary': 'Origin' };
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Vary': 'Origin',
+    // So dashboard (cross-origin fetch to scheduler) can read auth denial diagnostics in apiCall().
+    'Access-Control-Expose-Headers': 'X-Glyphor-Auth-Reason, X-Glyphor-Auth-Result',
+  };
 }
 
 export function appendCorsHeaders(req: IncomingMessage, headers: Record<string, string>): Record<string, string> {

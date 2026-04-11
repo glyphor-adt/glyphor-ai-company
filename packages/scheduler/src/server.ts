@@ -448,10 +448,15 @@ async function loadDashboardUserByEmail(email: string): Promise<AuthenticatedDas
     }
     return null;
   }
+  // Match dashboardApi `isEffectiveDashboardAdmin`: fallback admin emails stay admin even if DB says viewer.
+  let role: 'admin' | 'viewer' = row.role === 'admin' ? 'admin' : 'viewer';
+  if (role === 'viewer' && DASHBOARD_FALLBACK_ADMINS.has(normalizedEmail)) {
+    role = 'admin';
+  }
   return {
     uid: row.id,
     email: row.email.trim().toLowerCase(),
-    role: row.role === 'admin' ? 'admin' : 'viewer',
+    role,
     tenantId: row.tenant_id ?? null,
   };
 }

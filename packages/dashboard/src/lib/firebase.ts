@@ -188,6 +188,41 @@ function isSchedulerHostedPath(normalizedPath: string): boolean {
   );
 }
 
+/** Thrown by {@link apiCall} on non-OK responses; includes scheduler auth diagnostics when present. */
+export class GlyphorApiError extends Error {
+  readonly status: number;
+  /** From `X-Glyphor-Auth-Reason` when the scheduler denies access (see `packages/scheduler/src/server.ts`). */
+  readonly authReason: string | undefined;
+
+  constructor(message: string, status: number, authReason?: string) {
+    super(message);
+    this.name = 'GlyphorApiError';
+    this.status = status;
+    this.authReason = authReason;
+  }
+}
+
+export function isGlyphorApiError(err: unknown): err is GlyphorApiError {
+  return err instanceof GlyphorApiError;
+}
+
+/** User-facing explanation for scheduler `X-Glyphor-Auth-Reason` values. */
+export function formatGlyphorAuthDenialHint(authReason: string | undefined): string | null {
+  if (!authReason) return null;
+  switch (authReason) {
+    case 'admin-required':
+      return 'Fleet and eval APIs require a dashboard admin. Ask an admin to set your role to admin in the dashboard_users table (or add your email to the server fallback admin list).';
+    case 'dashboard-user-not-found':
+      return 'Your account is not in dashboard_users. Ask an admin to add your Firebase email there.';
+    case 'token-verification-failed':
+    case 'missing-bearer':
+    case 'empty-bearer':
+      return 'Sign in again; the API could not verify your session token.';
+    default:
+      return null;
+  }
+}
+
 export async function apiCall<T = any>(path: string, options: RequestInit = {}): Promise<T> {
   const normalized = path.startsWith('/') ? path : `/${path}`;
   const useScheduler = isDashboardSchedulerSplitHost() && isSchedulerHostedPath(normalized);
@@ -198,6 +233,7 @@ export async function apiCall<T = any>(path: string, options: RequestInit = {}):
     headers: await buildApiHeaders(options.headers),
   });
   if (!res.ok) {
+    const authReason = res.headers.get('x-glyphor-auth-reason')?.trim() || undefined;
     let details = '';
     try {
       details = await res.text();
@@ -205,16 +241,27 @@ export async function apiCall<T = any>(path: string, options: RequestInit = {}):
       details = '';
     }
     if (res.status === 401 || res.status === 403) {
-      const message = `${res.status} ${res.statusText} ${details}`.toLowerCase();
-      if (message.includes('bearer token required') || message.includes('unauthorized') || message.includes('token')) {
+      const blob = `${res.status} ${res.statusText} ${details}`.toLowerCase();
+      const isCredentialProblem =
+        authReason === 'missing-bearer'
+        || authReason === 'empty-bearer'
+        || authReason === 'token-verification-failed'
+        || blob.includes('bearer token required')
+        || (blob.includes('unauthorized') && authReason !== 'admin-required' && authReason !== 'dashboard-user-not-found')
+        || (blob.includes('token') && authReason !== 'admin-required' && authReason !== 'dashboard-user-not-found');
+      if (isCredentialProblem) {
         if (typeof window !== 'undefined') {
           window.localStorage.removeItem(BROWSER_AUTH_STORAGE_KEY);
         }
         notifyAuthExpired('api-unauthorized');
       }
     }
+    const hint = formatGlyphorAuthDenialHint(authReason);
     const suffix = details ? ` — ${details}` : '';
-    throw new Error(`API error: ${res.status} ${res.statusText}${suffix}`);
+    const core = hint
+      ? `API error: ${res.status} ${res.statusText}. ${hint}${suffix}`
+      : `API error: ${res.status} ${res.statusText}${suffix}`;
+    throw new GlyphorApiError(core, res.status, authReason);
   }
   return res.json();
 }
