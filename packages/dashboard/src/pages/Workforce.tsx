@@ -93,13 +93,14 @@ export default function Workforce() {
     return null;
   };
 
+  /**
+   * One column per department where we have an active agent for that executive role.
+   * Do not filter by `reports_to`: if e.g. VP Design reports to CTO, they still belong on the chart;
+   * the old filter hid whole columns whenever `resolveManagerRole` was another exec (not CoS).
+   */
   const departmentHeads = DEPARTMENTS
     .map((department) => ({ ...department, agent: agentMap.get(department.role) }))
-    .filter((department): department is (typeof DEPARTMENTS)[number] & { agent: Agent } => Boolean(department.agent))
-    .filter((department) => {
-      const managerRole = resolveManagerRole(department.agent);
-      return managerRole == null || managerRole === 'chief-of-staff';
-    });
+    .filter((department): department is (typeof DEPARTMENTS)[number] & { agent: Agent } => Boolean(department.agent));
   const deptHeadRoles = new Set(departmentHeads.map((department) => department.role));
 
   const executiveAgents = orgAgents.filter((a) => a.role in TITLE_MAP);
@@ -310,7 +311,20 @@ export default function Workforce() {
                     onDragOver={handleManagerDragOver(cos.role)}
                     onDrop={handleManagerDrop(cos.role)}
                   />
-                ) : <Skeleton className={`mx-auto ${density === 'compact' ? 'h-[172px] w-48' : 'h-[188px] w-52'}`} />}
+                ) : (
+                  <Card className={`${orgChartCardClass(density === 'compact')} flex flex-col items-center justify-center gap-1.5 text-center`}>
+                    <p className="text-xs font-medium text-txt-muted">Sarah / Chief of Staff</p>
+                    <p className="text-[10px] leading-snug text-txt-faint">
+                      No active <span className="font-mono">chief-of-staff</span> row in the roster. Add the agent or set status to active.
+                    </p>
+                    <Link
+                      to="/agents/new"
+                      className="text-[10px] font-medium text-cyan hover:underline"
+                    >
+                      + New agent
+                    </Link>
+                  </Card>
+                )}
               </div>
               {(() => {
                 const cosDirects = orgAgents.filter(
