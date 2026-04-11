@@ -99,6 +99,32 @@ describe('ToolExecutor', () => {
     expect(tool.execute).not.toHaveBeenCalled();
   });
 
+  it('allows vp-design github_push_files via critical role baseline when DB grants are incomplete', async () => {
+    vi.mocked(systemQuery).mockImplementation(async (query: string) => {
+      if (query.includes('FROM agent_tool_grants')) {
+        return [{ tool_name: 'save_memory', is_blocked: false }] as never;
+      }
+      return [] as never;
+    });
+
+    const tool: ToolDefinition = {
+      name: 'github_push_files',
+      description: 'Push files',
+      parameters: { repo: { type: 'string', description: 'Repo', required: true } },
+      execute: vi.fn().mockResolvedValue({ success: true, data: { ok: true } }),
+    };
+
+    const executor = new ToolExecutor([tool]);
+    const result = await executor.execute(
+      'github_push_files',
+      { repo: 'x/y' },
+      buildContext({ agentRole: 'vp-design' as any }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(tool.execute).toHaveBeenCalledOnce();
+  });
+
   it('blocks tools that are missing from the active execution grant policy', async () => {
     vi.mocked(systemQuery).mockImplementation(async (query: string) => {
       if (query.includes('FROM agent_tool_grants')) {

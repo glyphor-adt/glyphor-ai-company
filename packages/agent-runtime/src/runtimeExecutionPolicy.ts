@@ -1,5 +1,6 @@
 import { CANONICAL_KEEP_ROSTER, isCanonicalKeepRole } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
+import { getCriticalBaselineToolNames, isCriticalBaselineTool } from './criticalRoleToolBaseline.js';
 import type { CompanyAgentRole, ToolDeclaration } from './types.js';
 
 const EXECUTION_POLICY_CACHE_TTL_MS = 60_000;
@@ -25,6 +26,7 @@ export interface ExecutionAuthorizationDecision {
   reason:
     | 'allowed'
     | 'bootstrap_baseline'
+    | 'critical_baseline'
     | 'role_not_live'
     | 'tool_not_granted'
     | 'emergency_blocked';
@@ -108,6 +110,14 @@ export async function authorizeToolExecution(input: {
       };
     }
 
+    if (isCriticalBaselineTool(agentRole, toolName)) {
+      return {
+        allowed: true,
+        reason: 'critical_baseline',
+        message: `${toolName} is allowed for ${agentRole} via critical role baseline.`,
+      };
+    }
+
     if (policy.hasPolicyRows) {
       return {
         allowed: false,
@@ -115,6 +125,14 @@ export async function authorizeToolExecution(input: {
         message: `Tool ${toolName} is not granted to ${agentRole}.`,
       };
     }
+  }
+
+  if (isCriticalBaselineTool(agentRole, toolName)) {
+    return {
+      allowed: true,
+      reason: 'critical_baseline',
+      message: `${toolName} is allowed for ${agentRole} via critical role baseline.`,
+    };
   }
 
   if (BOOTSTRAP_BASELINE_TOOLS.has(toolName)) {
@@ -145,7 +163,9 @@ export async function loadGrantedToolNamesByPolicy(
 ): Promise<string[]> {
   if (!isLiveRuntimeRole(agentRole)) return [];
   const policy = await loadExecutionPolicy(agentRole);
-  return policy ? Array.from(policy.allowedTools) : [];
+  const fromDb = policy ? Array.from(policy.allowedTools) : [];
+  const baseline = getCriticalBaselineToolNames(agentRole);
+  return [...new Set([...fromDb, ...baseline])];
 }
 
 export async function filterGrantedToolDeclarations(

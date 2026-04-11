@@ -116,9 +116,9 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
   if (isChat) {
     if (enforceLandingBuildMode) {
       // Deterministic brief-first path for net-new landing-page requests.
-      // Excludes direct repo patch tools to prevent drifting into hotfix mode.
-      // Include normalize_design_brief explicitly: skills/prompts require it, and
-      // createWebBuildTools only exposes invoke_* (brief normalization runs inside those).
+      // invoke_web_build still executes child tools (e.g. github_push_files); they must
+      // be registered + granted — omitting them caused "not granted" mid-pipeline.
+      // Model surface: prefer plan/invoke over ad-hoc repo surgery (see system prompt).
       tools = [
         ...createDesignBriefTools(),
         ...createWebBuildPlannerTools(),
@@ -131,6 +131,8 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
         }),
         ...createGithubFromTemplateTools(),
         ...createGithubReadRepositoryFileTools(),
+        ...createGithubPushFilesTools(),
+        ...createGithubPullRequestTools(),
         ...createVercelProjectTools(),
         ...createDeployPreviewTools(),
         ...createScreenshotTools(),

@@ -1424,8 +1424,18 @@ export class CompanyAgentRunner {
             VALUES ${values}
            ON CONFLICT (agent_role, tool_name) DO UPDATE
            SET tenant_id = COALESCE(agent_tool_grants.tenant_id, EXCLUDED.tenant_id),
-               granted_by = EXCLUDED.granted_by,
-               reason = EXCLUDED.reason,
+               granted_by = CASE
+                 WHEN agent_tool_grants.reason IS NOT NULL
+                   AND agent_tool_grants.reason <> 'auto-synced from static tool array'
+                 THEN agent_tool_grants.granted_by
+                 ELSE EXCLUDED.granted_by
+               END,
+               reason = CASE
+                 WHEN agent_tool_grants.reason IS NOT NULL
+                   AND agent_tool_grants.reason <> 'auto-synced from static tool array'
+                 THEN agent_tool_grants.reason
+                 ELSE EXCLUDED.reason
+               END,
                is_active = true,
                expires_at = NULL,
                last_synced_at = NOW(),
