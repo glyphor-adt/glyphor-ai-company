@@ -214,6 +214,90 @@ function sleep(ms: number): Promise<void> {
 export function createGithubPullRequestTools(): ToolDefinition[] {
   return [
     {
+      name: 'github_list_branches',
+      description: 'List branches for an arbitrary GitHub repository in owner/name format. Use this to discover unmerged feature branches without using terminal commands.',
+      parameters: {
+        repo: {
+          type: 'string',
+          description: 'Repository in owner/name format.',
+          required: true,
+        },
+        prefix: {
+          type: 'string',
+          description: 'Optional branch prefix filter (for example: feature/).',
+          required: false,
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of branches to return. Defaults to 100, max 200.',
+          required: false,
+        },
+      },
+      async execute(params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
+        const repoInput = String(params.repo ?? '').trim();
+        const prefix = String(params.prefix ?? '').trim();
+        const limit = Math.max(1, Math.min(200, Number(params.limit ?? 100)));
+
+        if (!repoInput) return { success: false, error: 'repo is required.' };
+
+        try {
+          const { owner, name, fullName } = parseRepoFullName(repoInput);
+          const perPage = Math.min(100, limit);
+          const pages = Math.max(1, Math.ceil(limit / perPage));
+          const branches: Array<Record<string, unknown>> = [];
+
+          for (let page = 1; page <= pages && branches.length < limit; page += 1) {
+            const { ok, status, data } = await githubRequest(
+              fullName,
+              `/repos/${owner}/${name}/branches?per_page=${perPage}&page=${page}`,
+              'GET',
+              undefined,
+              ctx.abortSignal,
+            );
+
+            if (!ok) {
+              return { success: false, error: `GitHub API error (${status}): ${formatGithubRestError(data)}` };
+            }
+
+            const batch = Array.isArray(data) ? data as Array<Record<string, unknown>> : [];
+            if (batch.length === 0) break;
+
+            for (const item of batch) {
+              const branchName = String(item.name ?? '').trim();
+              if (!branchName) continue;
+              if (prefix && !branchName.startsWith(prefix)) continue;
+
+              const commit = (item.commit as Record<string, unknown> | undefined) ?? {};
+              branches.push({
+                name: branchName,
+                protected: Boolean(item.protected),
+                commit_sha: String(commit.sha ?? ''),
+              });
+
+              if (branches.length >= limit) break;
+            }
+
+            if (batch.length < perPage) break;
+          }
+
+          return {
+            success: true,
+            data: {
+              repo: fullName,
+              prefix: prefix || null,
+              total_returned: branches.length,
+              branches,
+            },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to list branches: ${(err as Error).message}`,
+          };
+        }
+      },
+    },
+    {
       name: 'github_create_pull_request',
       description: 'Open a pull request for an arbitrary GitHub repository in owner/name format. Use this to promote website pipeline changes from a working branch to main.',
       parameters: {

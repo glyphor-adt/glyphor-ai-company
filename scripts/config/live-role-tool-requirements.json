@@ -20,6 +20,7 @@
         "list_my_tools",
         "tool_search",
         "invoke_web_coding_loop",
+        "github_list_branches",
         "github_merge_pull_request",
         "github_get_pull_request_status",
         "github_wait_for_pull_request_checks",
