@@ -48,6 +48,8 @@ interface AgentBriefRow {
   skills?: string[] | null;
 }
 
+const UUID_V4_OR_V5_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export default function AgentSettings() {
   const { agentId } = useParams(); // can be UUID or role slug
   const navigate = useNavigate();
@@ -89,10 +91,19 @@ export default function AgentSettings() {
     (async () => {
       setLoading(true);
       setConfiguredSkills([]);
+      const normalizedAgentId = agentId.trim();
+      const encodedAgentId = encodeURIComponent(normalizedAgentId);
       // Try matching by role first (human-readable slug), then by UUID id
-      let data = await apiCall<AgentRow | AgentRow[]>(`/api/company-agents?role=${agentId}`).catch(() => null);
-      if (!data || (Array.isArray(data) && data.length === 0)) {
-        data = await apiCall<AgentRow | AgentRow[]>(`/api/company-agents?id=${agentId}`).catch(() => null);
+      let data = await apiCall<AgentRow | AgentRow[]>(
+        `/api/company-agents?role=${encodedAgentId}&include_paused=true`,
+      ).catch(() => null);
+      if (
+        (!data || (Array.isArray(data) && data.length === 0))
+        && UUID_V4_OR_V5_RE.test(normalizedAgentId)
+      ) {
+        data = await apiCall<AgentRow | AgentRow[]>(
+          `/api/company-agents?id=${encodedAgentId}&include_paused=true`,
+        ).catch(() => null);
       }
       if (data) {
         const a = Array.isArray(data) ? data[0] : data;

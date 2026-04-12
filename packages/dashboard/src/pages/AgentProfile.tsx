@@ -152,6 +152,8 @@ interface ActivityRow {
 
 type Tab = 'overview' | 'performance' | 'memory' | 'skills' | 'world-model' | 'settings';
 
+const UUID_V4_OR_V5_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export default function AgentProfile() {
   const { agentId } = useParams();
   const location = useLocation();
@@ -230,10 +232,19 @@ export default function AgentProfile() {
       setLoading(true);
       setLoadError('');
       try {
+        const normalizedAgentId = agentId.trim();
+        const encodedAgentId = encodeURIComponent(normalizedAgentId);
         // Load agent + profile in parallel.
-        let agentRows = await apiCall<AgentRow[]>('/api/company_agents?role=' + encodeURIComponent(agentId));
-        if (!agentRows || (Array.isArray(agentRows) && agentRows.length === 0)) {
-          agentRows = await apiCall<AgentRow[]>('/api/company_agents?id=' + encodeURIComponent(agentId));
+        let agentRows = await apiCall<AgentRow[]>(
+          '/api/company_agents?role=' + encodedAgentId + '&include_paused=true',
+        );
+        if (
+          (!agentRows || (Array.isArray(agentRows) && agentRows.length === 0))
+          && UUID_V4_OR_V5_RE.test(normalizedAgentId)
+        ) {
+          agentRows = await apiCall<AgentRow[]>(
+            '/api/company_agents?id=' + encodedAgentId + '&include_paused=true',
+          );
         }
         const agentData = Array.isArray(agentRows) ? agentRows[0] ?? null : agentRows;
 
