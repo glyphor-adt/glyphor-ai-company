@@ -499,7 +499,7 @@ resource "google_cloud_run_v2_service" "scheduler" {
 
   template {
     service_account = google_service_account.glyphor.email
-    timeout         = "900s"
+    timeout         = "1800s"
 
     vpc_access {
       connector = google_vpc_access_connector.glyphor.id
@@ -840,7 +840,7 @@ resource "google_cloud_run_v2_service" "worker" {
 
   template {
     service_account = google_service_account.worker.email
-    timeout         = "900s"
+    timeout         = "1800s"
 
     vpc_access {
       connector = google_vpc_access_connector.glyphor.id
