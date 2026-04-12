@@ -119,6 +119,24 @@ async function vercelRequest(
   return primary;
 }
 
+async function resolveProjectByName(
+  projectName: string,
+  signal: AbortSignal | undefined,
+  githubOrgForCreds: string,
+): Promise<Record<string, unknown> | null> {
+  const lookup = await vercelRequest(
+    `/v9/projects/${encodeURIComponent(projectName)}`,
+    'GET',
+    undefined,
+    signal,
+    githubOrgForCreds,
+  );
+  if (!lookup.ok || !lookup.data || typeof lookup.data !== 'object') {
+    return null;
+  }
+  return lookup.data as Record<string, unknown>;
+}
+
 export function createVercelProjectTools(): ToolDefinition[] {
   return [
     {
@@ -185,6 +203,26 @@ export function createVercelProjectTools(): ToolDefinition[] {
                   + 'then ensure the Vercel app has repository access before retrying.',
               };
             }
+
+            const duplicateProject = status === 409
+              || /already\s+exists|already\s+in\s+use|already\s+been\s+taken|already\s+linked/i.test(message);
+            if (duplicateProject) {
+              const existing = await resolveProjectByName(projectName, ctx.abortSignal, githubOrg);
+              if (existing) {
+                const existingName = String(existing.name ?? projectName);
+                return {
+                  success: true,
+                  data: {
+                    project_id: String(existing.id ?? ''),
+                    project_name: existingName,
+                    preview_domain: `${existingName}.vercel.app`,
+                    project_url: `https://vercel.com/dashboard/${existingName}`,
+                    github_repo: `${githubOrg}/${repoName}`,
+                  },
+                };
+              }
+            }
+
             return {
               success: false,
               error: `Vercel API error (${status}): ${message}`,

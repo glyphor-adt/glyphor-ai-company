@@ -232,6 +232,8 @@ describe('webBuildTools website pipeline replacement', () => {
             design_plan: { sections: [{ id: 'hero' }, { id: 'cta' }] },
             image_manifest: [],
           };
+        case 'vercel_create_project':
+          return { project_id: 'vercel-existing', project_name: 'pilot-ops' };
         case 'github_push_files':
           return { commit_sha: 'iter123', branch_url: 'https://github.com/Glyphor-Fuse/pilot-ops/tree/main' };
         case 'vercel_get_preview_url':

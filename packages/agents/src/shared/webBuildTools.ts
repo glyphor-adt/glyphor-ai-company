@@ -1141,6 +1141,22 @@ async function executeWebBuild(
     if (!useFeatureBranch) {
       project = { ...project, branch: 'main' };
     }
+
+    const ensuredVercel = await executeWebsitePipelineTool<Record<string, unknown>>(
+      'vercel_create_project',
+      {
+        repo_name: project.repoName,
+        project_name: project.projectName,
+        github_org: project.owner,
+      },
+      ctx,
+    );
+    project = {
+      ...project,
+      projectName: pickString(ensuredVercel, 'project_name') ?? project.projectName,
+      vercelProjectId: pickString(ensuredVercel, 'project_id') ?? project.vercelProjectId,
+    };
+
     foundation = await executeWebsitePipelineTool<Record<string, unknown>>(
       'build_website_foundation',
       {
@@ -1603,7 +1619,7 @@ async function executeWebBuild(
       pipeline: [
         'normalize_design_brief',
         'build_website_foundation',
-        ...(project.isExisting ? [] : ['github_create_from_template', 'vercel_create_project']),
+        ...(project.isExisting ? ['vercel_create_project'] : ['github_create_from_template', 'vercel_create_project']),
         'github_push_files',
         'vercel_get_preview_url',
         project.isExisting || params.tier === 'iterate' ? 'cloudflare_update_preview' : 'cloudflare_register_preview',
