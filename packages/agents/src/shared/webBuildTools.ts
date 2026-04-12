@@ -1291,6 +1291,22 @@ async function executeWebBuild(
       },
       ctx,
     );
+
+    const pullRequest = useFeatureBranch
+      ? await executeWebsitePipelineTool<Record<string, unknown>>(
+          'github_create_pull_request',
+          {
+            repo: project.repoFullName,
+            head_branch: project.branch,
+            base_branch: 'main',
+            title: options.prTitle ?? buildPullRequestTitle(project, params.tier),
+            body: options.prBody ?? buildPullRequestBody(params, project),
+            draft: false,
+          },
+          ctx,
+        )
+      : null;
+
     const preview = await waitForPreviewUrl(project, ctx);
     const previewRegistration = preview.is_ready
       ? await executeWebsitePipelineTool<Record<string, unknown>>(
@@ -1309,7 +1325,7 @@ async function executeWebBuild(
           registration_skipped: true,
           reason: 'Preview deployment not READY yet.',
         };
-    return { push, preview, previewRegistration };
+    return { push, preview, previewRegistration, pullRequest };
   })();
 
   // Track B: Generate images (concurrent, batched at 4)
@@ -1498,25 +1514,11 @@ async function executeWebBuild(
   let githubPrUrl: string | undefined;
   let deployUrl = previewEffective.preview_url;
   let production: Record<string, unknown> | null = null;
-  let pullRequest: Record<string, unknown> | null = null;
+  let pullRequest: Record<string, unknown> | null = deployResult.pullRequest as Record<string, unknown> | null;
   let merge: Record<string, unknown> | null = null;
   let checks: Record<string, unknown> | null = null;
 
-  if (useFeatureBranch) {
-    pullRequest = await executeWebsitePipelineTool<Record<string, unknown>>(
-      'github_create_pull_request',
-      {
-        repo: project.repoFullName,
-        head_branch: project.branch,
-        base_branch: 'main',
-        title: options.prTitle ?? buildPullRequestTitle(project, params.tier),
-        body: options.prBody ?? buildPullRequestBody(params, project),
-        draft: false,
-      },
-      ctx,
-    );
-    githubPrUrl = pickString(pullRequest, 'pr_url');
-  }
+  githubPrUrl = pullRequest ? pickString(pullRequest, 'pr_url') : undefined;
 
   if (params.tier === 'full_build') {
     const prNumber = Number(pullRequest?.pr_number ?? 0);

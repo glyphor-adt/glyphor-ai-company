@@ -117,9 +117,9 @@ describe('webBuildTools website pipeline replacement', () => {
       'github_create_from_template',
       'vercel_create_project',
       'github_push_files',
+      'github_create_pull_request',
       'vercel_get_preview_url',
       'cloudflare_register_preview',
-      'github_create_pull_request',
     ]);
     expect(appendActivity).toHaveBeenCalledOnce();
   }, 20_000);
