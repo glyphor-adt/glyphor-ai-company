@@ -60,6 +60,19 @@ export interface CTORunParams {
   evalMode?: boolean;
 }
 
+function resolveUrgentResponseModel(configuredModel: string, task: string): string {
+  if (task !== 'urgent_message_response') return configuredModel;
+
+  const normalized = configuredModel.trim().toLowerCase();
+  if (!normalized.startsWith('deepseek-')) return configuredModel;
+
+  const bedrockEnabled = String(process.env.BEDROCK_ENABLED ?? '').trim().toLowerCase() === 'true';
+  if (bedrockEnabled) return configuredModel;
+
+  // Keep urgent CTO escalations alive even when Bedrock/DeepSeek is not configured.
+  return 'gemini-3.1-pro-preview';
+}
+
 export async function runCTO(params: CTORunParams = {}) {
   const memory = new CompanyMemoryStore({
     gcsBucket: process.env.GCS_BUCKET || 'glyphor-company',
@@ -173,6 +186,12 @@ Steps:
       initialMessage = params.message || 'Provide a technical status summary of the platform.';
   }
   const agentCfg = await loadAgentConfig('cto', { temperature: 0.3, maxTurns: 15 }, task);
+  const resolvedModel = resolveUrgentResponseModel(agentCfg.model, task);
+  if (resolvedModel !== agentCfg.model) {
+    console.warn(
+      `[CTO] urgent_message_response model override: ${agentCfg.model} -> ${resolvedModel} (BEDROCK_ENABLED is not true)`,
+    );
+  }
   const maxTurns = effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns);
   const timeoutMs = supervisorTimeoutMsForReactiveWorkload(task, 300_000);
 
@@ -180,7 +199,7 @@ Steps:
     id: `cto-${task}-${today}`,
     role: 'cto',
     systemPrompt: CTO_SYSTEM_PROMPT,
-    model: agentCfg.model,
+    model: resolvedModel,
     tools,
     maxTurns,
     maxStallTurns: 3,

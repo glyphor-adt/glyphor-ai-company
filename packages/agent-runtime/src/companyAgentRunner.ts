@@ -1254,13 +1254,16 @@ const ACTION_CLAIM_PATTERNS = [
   /I(?:'ve| have) (?:created|added|generated|built|established)/gi,
   /I(?:'ve| have) (?:deleted|removed|cleared|revoked)/gi,
   /I(?:'ve| have) (?:assigned|granted|dispatched|sent|submitted)/gi,
+  /I(?:'ve| have) (?:messaged|notified|pinged|contacted)/gi,
   /I(?:'ve| have) (?:paged|woken|woke|escalated)/gi,
-  /I(?:'ve| have) also (?:updated|corrected|set|created|deleted|assigned|fixed)/gi,
-  /I just (?:updated|corrected|set|created|deleted|assigned|fixed|paged|woke|escalated)/gi,
+  /I(?:'ve| have) also (?:updated|corrected|set|created|deleted|assigned|fixed|messaged|notified|pinged|contacted|paged|woke|escalated)/gi,
+  /I just (?:updated|corrected|set|created|deleted|assigned|fixed|messaged|notified|pinged|contacted|paged|woke|escalated)/gi,
   // Passive voice — agent describes outcome without owning the verb, equally unsubstantiated
   /(?:has|have) been (?:sent|dispatched|submitted|published|created|updated|deleted|assigned|granted|revoked)/gi,
+  /(?:has|have) been (?:messaged|notified|contacted|pinged)/gi,
   /(?:has|have) been (?:paged|escalated)/gi,
   /(?:was|were) (?:sent|dispatched|submitted|published|created|updated|deleted|assigned|granted)/gi,
+  /(?:was|were) (?:messaged|notified|contacted|pinged)/gi,
   /(?:was|were) (?:paged|escalated)/gi,
   /(?:the (?:email|message|report|document|assignment|draft|record)) (?:has been|was) (?:sent|created|updated|deleted)/gi,
 ];
@@ -1287,7 +1290,8 @@ function hasMatchingAction(
   // New logic: "I sent X" requires a send_/dispatch_/submit_ tool; "I created Y" requires create_/write_ etc.
   const CLAIM_TOOL_MAP: Array<[RegExp, string[]]> = [
     [/sent|dispatched|submitted/i,          ['send_', 'dispatch_', 'submit_', 'post_', 'publish_']],
-    [/paged|woke|woken|escalated/i,         ['send_', 'dispatch_', 'escalate_', 'call_', 'create_']],
+    [/messaged|notified|pinged|contacted/i, ['send_', 'dispatch_', 'reply_']],
+    [/paged|woke|woken|escalated/i,         ['send_', 'dispatch_', 'escalate_', 'call_']],
     [/created|added|generated|built|established/i, ['create_', 'write_', 'insert_', 'add_', 'generate_']],
     [/updated|corrected|changed|modified|adjusted|set/i, ['update_', 'set_', 'modify_', 'patch_', 'edit_']],
     [/deleted|removed|cleared|revoked/i,    ['delete_', 'remove_', 'revoke_', 'clear_']],
