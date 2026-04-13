@@ -111,6 +111,13 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
       'invoke_web_build',
       'invoke_web_iterate',
       'invoke_web_coding_loop',
+      // Keep branch/PR recovery tools always reachable so Mia can unblock GitHub flows
+      // even when sandbox_shell is denied or retrieval budget is tight.
+      'github_list_branches',
+      'github_create_pull_request',
+      'github_get_pull_request_status',
+      'github_wait_for_pull_request_checks',
+      'github_merge_pull_request',
     ],
     'frontend-engineer': [
       'normalize_design_brief',
