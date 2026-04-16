@@ -1172,6 +1172,12 @@ const PLANNING_INTENT_PATTERNS = [
   /What remains[: ]/i,
   /I (?:still )?need to (?:create|prepare|draft|build|generate|send|upload|export|produce|run|call|execute|invoke|use)/i,
   /Next(?:,| step)? I(?:'ll| will| should| need to)/i,
+  /^(?:My plan|Here'?s my plan|Plan of action)[:\s]/im,
+  /Should I proceed/i,
+  /(?:Questions? for you|Before I (?:proceed|begin|start))[:\s]/i,
+  /(?:proceed with defaults|awaiting your (?:input|confirmation|approval|go-ahead))/i,
+  /Request (?:access|permission) to/i,
+  /Once (?:granted|approved|confirmed)/i,
 ];
 
 function containsPlanningIntent(text: string): boolean {
