@@ -2568,6 +2568,9 @@ function mapWorkerRouteResultToExecutionResult(
     actions: routeResult.actions,
     dashboardChatEmbeds: routeResult.dashboardChatEmbeds,
     conversationHistory: [],
+    actualModel: routeResult.actualModel,
+    actualProvider: routeResult.actualProvider as AgentExecutionResult['actualProvider'],
+    estimatedCostUsd: routeResult.estimatedCostUsd,
   };
 }
 
@@ -2939,9 +2942,9 @@ const trackedAgentExecutor = async (
                   estimated_cost_usd = COALESCE($3, estimated_cost_usd)
             WHERE id = $4`,
           [
-            (result as any)?.actualModel ?? null,
-            (result as any)?.actualProvider ?? null,
-            (result as any)?.estimatedCostUsd ?? result?.cost ?? null,
+            (workerResult as any)?.actualModel ?? (result as any)?.actualModel ?? null,
+            (workerResult as any)?.actualProvider ?? (result as any)?.actualProvider ?? null,
+            (workerResult as any)?.estimatedCostUsd ?? result?.cost ?? null,
             runId,
           ],
         );

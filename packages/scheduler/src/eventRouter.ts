@@ -47,6 +47,9 @@ export interface RouteResult {
   thinkingTokens?: number;
   cachedInputTokens?: number;
   cost?: number;
+  actualModel?: string;
+  actualProvider?: string;
+  estimatedCostUsd?: number;
 }
 
 export interface CascadePreview {

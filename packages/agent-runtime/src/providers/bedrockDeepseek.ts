@@ -1,5 +1,7 @@
 /**
- * DeepSeek on Amazon Bedrock (InvokeModel completion format for R1; V3.2 similar).
+ * DeepSeek on Amazon Bedrock.
+ *  - R1: InvokeModel completion format (no tool support).
+ *  - V3.2: OpenAI-compatible messages + tool calling via Bedrock Marketplace.
  */
 
 import { getBedrockInferenceId } from '@glyphor/shared';
@@ -26,28 +28,86 @@ function flattenConversationToDeepSeekR1Prompt(
 }
 
 /**
- * Convert conversation turns to the OpenAI-compatible messages format
- * required by DeepSeek V3.2 on Bedrock Marketplace.
+ * Convert conversation turns to OpenAI-compatible messages with proper
+ * tool_call / tool role handling for DeepSeek V3.2.
  */
 function turnsToMessages(
   systemInstruction: string,
   turns: ConversationTurn[],
-): Array<{ role: string; content: string }> {
-  const messages: Array<{ role: string; content: string }> = [];
+): Array<Record<string, unknown>> {
+  const messages: Array<Record<string, unknown>> = [];
   if (systemInstruction.trim()) {
     messages.push({ role: 'system', content: systemInstruction.trim() });
   }
-  for (const t of turns) {
-    if (t.role === 'user') {
-      messages.push({ role: 'user', content: t.content ?? '' });
-    } else if (t.role === 'assistant') {
-      messages.push({ role: 'assistant', content: t.content ?? '' });
-    } else if (t.role === 'tool_call') {
-      messages.push({ role: 'assistant', content: `[tool ${t.toolName}]` });
-    } else if (t.role === 'tool_result') {
-      messages.push({ role: 'user', content: `[tool result]: ${t.content}` });
+
+  let i = 0;
+  let lastToolCallIds: string[] = [];
+  let toolCallCounter = 0;
+
+  while (i < turns.length) {
+    const t = turns[i];
+    switch (t.role) {
+      case 'user':
+        messages.push({ role: 'user', content: t.content ?? '' });
+        i++;
+        break;
+      case 'assistant':
+        messages.push({ role: 'assistant', content: t.content ?? '' });
+        i++;
+        break;
+      case 'tool_call': {
+        const toolCalls: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> = [];
+        lastToolCallIds = [];
+        while (i < turns.length && turns[i].role === 'tool_call') {
+          const tc = turns[i];
+          const id = `call_${toolCallCounter}_${(tc.toolName ?? '').slice(0, 20)}`.slice(0, 40);
+          toolCallCounter++;
+          lastToolCallIds.push(id);
+          toolCalls.push({
+            id,
+            type: 'function',
+            function: {
+              name: tc.toolName!,
+              arguments: JSON.stringify(tc.toolParams ?? {}),
+            },
+          });
+          i++;
+        }
+        messages.push({ role: 'assistant', content: null, tool_calls: toolCalls });
+        break;
+      }
+      case 'tool_result': {
+        if (lastToolCallIds.length === 0) {
+          const textParts: string[] = [];
+          while (i < turns.length && turns[i].role === 'tool_result') {
+            textParts.push(`[Prior tool result — ${turns[i].toolName ?? 'tool'}]: ${turns[i].content}`);
+            i++;
+          }
+          messages.push({ role: 'user', content: textParts.join('\n\n') });
+          break;
+        }
+        let resultIndex = 0;
+        while (i < turns.length && turns[i].role === 'tool_result') {
+          const tr = turns[i];
+          const toolCallId = resultIndex < lastToolCallIds.length
+            ? lastToolCallIds[resultIndex]
+            : `call_fallback_${resultIndex}_${(tr.toolName ?? '').slice(0, 15)}`.slice(0, 40);
+          const isError = tr.toolResult?.success === false;
+          messages.push({
+            role: 'tool',
+            tool_call_id: toolCallId,
+            content: isError ? `[ERROR] ${tr.content}` : tr.content,
+          });
+          resultIndex++;
+          i++;
+        }
+        break;
+      }
+      default:
+        i++;
     }
   }
+
   // Ensure there's at least one user message
   if (!messages.some((m) => m.role === 'user')) {
     messages.push({ role: 'user', content: '' });
@@ -76,11 +136,25 @@ export class BedrockDeepSeekAdapter implements ProviderAdapter {
 
     // DeepSeek V3.2 — Bedrock Marketplace model uses OpenAI-compatible messages format
     const messages = turnsToMessages(request.systemInstruction, request.contents);
-    const body = {
+
+    // Build OpenAI-compatible tools array
+    const tools = request.tools?.length
+      ? request.tools.map(t => ({
+          type: 'function' as const,
+          function: {
+            name: t.name,
+            description: t.description,
+            parameters: t.parameters,
+          },
+        }))
+      : undefined;
+
+    const body: Record<string, unknown> = {
       messages,
       max_tokens: Math.min(request.maxTokens ?? 4096, 8192),
       temperature: request.temperature ?? 0.5,
       top_p: request.topP ?? 0.9,
+      ...(tools ? { tools } : {}),
     };
     const { bodyJson } = await invokeBedrockModel(bedrockModelId, JSON.stringify(body));
     return this.mapMessagesResponse(bodyJson);
@@ -108,11 +182,26 @@ export class BedrockDeepSeekAdapter implements ProviderAdapter {
   /** Map OpenAI-compatible messages response (DeepSeek V3.2 Marketplace format). */
   private mapMessagesResponse(bodyJson: Record<string, unknown>): UnifiedModelResponse {
     const choices = bodyJson.choices as Array<{
-      message?: { content?: string };
+      message?: {
+        content?: string | null;
+        tool_calls?: Array<{
+          id?: string;
+          type?: string;
+          function?: { name: string; arguments: string };
+        }>;
+      };
       finish_reason?: string;
     }> | undefined;
-    const text = choices?.[0]?.message?.content ?? null;
+    const message = choices?.[0]?.message;
+    const text = message?.content ?? null;
     const finishReason = choices?.[0]?.finish_reason ?? 'stop';
+
+    // Parse tool calls from the response
+    const toolCalls = (message?.tool_calls ?? []).map(tc => ({
+      name: tc.function?.name ?? '',
+      args: JSON.parse(tc.function?.arguments || '{}') as Record<string, unknown>,
+    }));
+
     const usage = bodyJson.usage as {
       prompt_tokens?: number;
       completion_tokens?: number;
@@ -122,13 +211,13 @@ export class BedrockDeepSeekAdapter implements ProviderAdapter {
     const outputTokens = usage?.completion_tokens ?? 0;
     return {
       text,
-      toolCalls: [],
+      toolCalls,
       usageMetadata: {
         inputTokens,
         outputTokens,
         totalTokens: usage?.total_tokens ?? inputTokens + outputTokens,
       },
-      finishReason: finishReason === 'length' ? 'length' : 'stop',
+      finishReason: finishReason === 'tool_calls' ? 'tool_use' : finishReason === 'length' ? 'length' : 'stop',
     };
   }
 }

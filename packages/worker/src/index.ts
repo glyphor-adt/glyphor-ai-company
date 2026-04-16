@@ -329,6 +329,9 @@ async function executeAgentByRole(input: WorkerAgentExecutePayload): Promise<Rou
       thinkingTokens: result?.thinkingTokens,
       cachedInputTokens: result?.cachedInputTokens,
       cost: result?.cost,
+      actualModel: result?.actualModel,
+      actualProvider: result?.actualProvider,
+      estimatedCostUsd: result?.estimatedCostUsd,
     };
     return routeResult;
   } catch (err) {
