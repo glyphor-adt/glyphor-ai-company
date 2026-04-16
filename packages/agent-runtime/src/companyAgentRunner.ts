@@ -2001,6 +2001,21 @@ export class CompanyAgentRunner {
     let executionPlanObjective: string | undefined;
     let planManifest: Record<string, unknown> | null = null;
     let acceptanceCriteria = extractAcceptanceCriteriaFromMessage(initialMessage);
+
+    // ─── PER-STEP EXECUTION TRACKING ─────────────────────────
+    // Tracks which execution plan steps have been completed and the
+    // tools used for each, so structured checkpoints carry accurate
+    // progress when a run is interrupted.
+    let stepTrackerCurrent = 0;  // index into execution_steps the agent is currently working on
+    const stepTrackerCompleted = new Set<number>();
+    const stepTrackerResults: Record<string, { tool: string; summary: string }> = {};
+    const satisfiedCriteriaIndices = new Set<number>();
+    /** Number of execution steps in the plan (0 when no plan). */
+    let stepTrackerTotal = 0;
+    /** Accumulates tools called in the current turn for step-result recording. */
+    let stepTrackerTurnTools: string[] = [];
+    let stepTrackerTurnSummary = '';
+
     const summaryFirstCompactionEnabled = isSummaryFirstCompactionEnabled();
     const composeHistoryForModel = (
       model: string,
@@ -2126,6 +2141,23 @@ export class CompanyAgentRunner {
                   planning_mode: planningMode,
                 };
                 runPhase = 'execution';
+
+                // Restore step tracker from checkpoint
+                stepTrackerTotal = priorCheckpoint.executionPlan.executionSteps.length;
+                for (const idx of priorCheckpoint.completedSteps) {
+                  stepTrackerCompleted.add(idx);
+                }
+                for (const [key, value] of Object.entries(priorCheckpoint.stepResults)) {
+                  stepTrackerResults[key] = value;
+                }
+                for (const idx of priorCheckpoint.satisfiedCriteria) {
+                  satisfiedCriteriaIndices.add(idx);
+                }
+                // Advance current step past completed ones
+                stepTrackerCurrent = 0;
+                while (stepTrackerCurrent < stepTrackerTotal && stepTrackerCompleted.has(stepTrackerCurrent)) {
+                  stepTrackerCurrent++;
+                }
               }
               console.log(
                 `[CompanyAgentRunner] Continuation checkpoint loaded for ${config.role} assignment=${assignmentId} ` +
@@ -2157,10 +2189,10 @@ export class CompanyAgentRunner {
             executionSteps: plan.execution_steps ?? [],
             verificationSteps: plan.verification_steps ?? [],
           } : undefined,
-          completedSteps: [],  // TODO: track step completion in execution loop
-          stepResults: {},
+          completedSteps: Array.from(stepTrackerCompleted),
+          stepResults: { ...stepTrackerResults },
           acceptanceCriteria,
-          satisfiedCriteria: [],  // TODO: track from completion gate
+          satisfiedCriteria: Array.from(satisfiedCriteriaIndices),
           actionReceipts,
           lastOutput: lastTextOutput,
           abortReason,
@@ -2175,6 +2207,10 @@ export class CompanyAgentRunner {
       while (true) {
         turnNumber++;
         emitEvent({ type: 'turn_started', agentId: config.id, turnNumber });
+
+        // Reset per-turn step tracking accumulators
+        stepTrackerTurnTools = [];
+        stepTrackerTurnSummary = '';
 
         // ─── FINAL-TURN DELIVERY NUDGE ────────────────────────────
         // When approaching maxTurns, inject a wrap-up-and-deliver
@@ -2898,6 +2934,10 @@ Rules:
                 ),
                 timestamp: new Date().toISOString(),
               });
+              if (result.success) {
+                stepTrackerTurnTools.push(call.name);
+                stepTrackerTurnSummary = (typeof result.data === 'string' ? result.data : (JSON.stringify(result.data) ?? 'ok')).slice(0, 200);
+              }
 
               emitEvent({
                 type: 'tool_result',
@@ -2955,6 +2995,10 @@ Rules:
               ),
               timestamp: new Date().toISOString(),
             });
+            if (result.success) {
+              stepTrackerTurnTools.push(call.name);
+              stepTrackerTurnSummary = (typeof result.data === 'string' ? result.data : (JSON.stringify(result.data) ?? 'ok')).slice(0, 200);
+            }
 
             emitEvent({
               type: 'tool_result',
@@ -2981,6 +3025,23 @@ Rules:
             }
           }
           } // end if/else concurrent
+
+          // ─── PER-STEP TRACKING ─────────────────────────────────────
+          // After each tool execution turn in execution phase, record
+          // the current step as completed and advance to the next one.
+          if (runPhase === 'execution' && stepTrackerTotal > 0 && stepTrackerTurnTools.length > 0) {
+            if (stepTrackerCurrent < stepTrackerTotal && !stepTrackerCompleted.has(stepTrackerCurrent)) {
+              stepTrackerCompleted.add(stepTrackerCurrent);
+              stepTrackerResults[String(stepTrackerCurrent)] = {
+                tool: stepTrackerTurnTools.join(', '),
+                summary: stepTrackerTurnSummary,
+              };
+            }
+            // Advance to next uncompleted step
+            while (stepTrackerCurrent < stepTrackerTotal && stepTrackerCompleted.has(stepTrackerCurrent)) {
+              stepTrackerCurrent++;
+            }
+          }
 
           // ─── MICROCOMPACT ────────────────────────────────────────
           // After tool execution, truncate older tool results in history
@@ -3060,6 +3121,9 @@ Rules:
               runPhase = 'execution';
               completionGateRetries = 0;
               completionGateMissing = [];
+              // Initialize step tracker from the parsed plan
+              stepTrackerTotal = parsedPlan.executionSteps.length;
+              stepTrackerCurrent = 0;
               history.push({
                 role: 'user',
                 content: `Execution phase begins now. Complete the task using tools and satisfy all acceptance criteria before final response.
@@ -3192,7 +3256,7 @@ Return ONLY strict JSON with:
           if (
             lastTextOutput &&
             actionReceipts.length === 0 &&
-            NARRATION_PATTERNS.some(p => p.test(lastTextOutput)) &&
+            NARRATION_PATTERNS.some(p => p.test(lastTextOutput!)) &&
             !history.some(h => h.content === NARRATION_NUDGE)
           ) {
             console.warn(
@@ -3258,6 +3322,15 @@ Return ONLY strict JSON with:
             }
             completionGatePassed = completionGate.meets;
             completionGateMissing = completionGate.missingCriteria;
+
+            // Track which acceptance criteria are satisfied for checkpoint
+            const missingSet = new Set(completionGate.missingCriteria.map(m => m.toLowerCase().trim()));
+            for (let ci = 0; ci < acceptanceCriteria.length; ci++) {
+              if (!missingSet.has(acceptanceCriteria[ci].toLowerCase().trim())) {
+                satisfiedCriteriaIndices.add(ci);
+              }
+            }
+
             if (completionGate.meets) {
               emitEvent({
                 type: 'completion_gate_passed',
