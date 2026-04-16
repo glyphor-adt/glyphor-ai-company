@@ -32,8 +32,13 @@ export function getBedrockRegion(): string {
 
 export function getBedrockRuntimeClient(): BedrockRuntimeClient {
   if (cachedClient) return cachedClient;
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim();
   cachedClient = new BedrockRuntimeClient({
     region: getBedrockRegion(),
+    ...(accessKeyId && secretAccessKey
+      ? { credentials: { accessKeyId, secretAccessKey } }
+      : {}),
   });
   return cachedClient;
 }
