@@ -19,6 +19,7 @@ import {
   SCHEDULED_TOOL_EXECUTION_TASKS,
 } from './supervisorWorkloadStallPolicy.js';
 import { enqueueWorkloadContinuationWakeIfBudgetHit } from './continuationWake.js';
+import { saveRunCheckpoint, loadLatestCheckpoint, composeContinuationPrompt } from './runCheckpoint.js';
 import { extractReasoning, REASONING_PROMPT_SUFFIX } from './reasoning.js';
 import { isOfficeDocument, extractDocumentText } from './documentExtractor.js';
 import type { GlyphorEventBus } from './glyphorEventBus.js';
@@ -2083,6 +2084,92 @@ export class CompanyAgentRunner {
 
       const actionReceipts: Array<{ tool: string; params: Record<string, unknown>; result: 'success' | 'error'; output: string; timestamp: string }> = [];
 
+      // ─── CONTINUATION CHECKPOINT INJECTION ─────────────────────
+      // Auto-detect continuation runs and inject prior checkpoint state
+      // so the agent resumes from where it left off instead of re-planning.
+      if (config.continuationCheckpoint) {
+        // Explicit checkpoint provided via config
+        history.push({
+          role: 'user',
+          content: config.continuationCheckpoint,
+          timestamp: Date.now(),
+        });
+        if (runPhase === 'planning') {
+          runPhase = 'execution';
+          console.log(`[CompanyAgentRunner] Continuation checkpoint injected (explicit) for ${config.role} — skipping planning phase`);
+        }
+      } else if (isTaskTier) {
+        // Auto-load: check if there's a prior checkpoint for this assignment
+        const assignmentMatch = initialMessage.match(/assignment_id="([^"]+)"/);
+        const assignmentId = assignmentMatch?.[1] ?? config.assignmentId;
+        if (assignmentId) {
+          try {
+            const priorCheckpoint = await loadLatestCheckpoint(config.role, assignmentId);
+            if (priorCheckpoint) {
+              const continuationPrompt = composeContinuationPrompt(priorCheckpoint);
+              history.push({
+                role: 'user',
+                content: continuationPrompt,
+                timestamp: Date.now(),
+              });
+              if (runPhase === 'planning' && priorCheckpoint.executionPlan) {
+                // Restore plan state from checkpoint
+                executionPlanObjective = priorCheckpoint.executionPlan.objective;
+                acceptanceCriteria = priorCheckpoint.acceptanceCriteria.length > 0
+                  ? priorCheckpoint.acceptanceCriteria
+                  : acceptanceCriteria;
+                planManifest = {
+                  objective: priorCheckpoint.executionPlan.objective ?? null,
+                  acceptance_criteria: priorCheckpoint.acceptanceCriteria,
+                  execution_steps: priorCheckpoint.executionPlan.executionSteps,
+                  verification_steps: priorCheckpoint.executionPlan.verificationSteps,
+                  planning_mode: planningMode,
+                };
+                runPhase = 'execution';
+              }
+              console.log(
+                `[CompanyAgentRunner] Continuation checkpoint loaded for ${config.role} assignment=${assignmentId} ` +
+                `(prior run=${priorCheckpoint.runId}, ${priorCheckpoint.completedSteps.length} steps done, turn ${priorCheckpoint.turnNumber})`,
+              );
+            }
+          } catch (err) {
+            console.warn(`[CompanyAgentRunner] Failed to load continuation checkpoint:`, (err as Error).message);
+          }
+        }
+      }
+
+      // ─── CHECKPOINT SAVER (closure captures loop state) ────────
+      // Saves a structured checkpoint alongside the text-only partial
+      // progress whenever a task-tier run is interrupted.
+      const saveStructuredCheckpoint = async (abortReason: string) => {
+        const assignmentMatch = initialMessage.match(/assignment_id="([^"]+)"/);
+        const assignmentId = assignmentMatch?.[1] ?? config.assignmentId;
+        if (!assignmentId) return;
+
+        const plan = planManifest as { objective?: string; execution_steps?: string[]; verification_steps?: string[] } | null;
+        void saveRunCheckpoint({
+          runId: config.dbRunId ?? config.id,
+          agentRole: config.role,
+          task,
+          assignmentId,
+          executionPlan: plan ? {
+            objective: plan.objective,
+            executionSteps: plan.execution_steps ?? [],
+            verificationSteps: plan.verification_steps ?? [],
+          } : undefined,
+          completedSteps: [],  // TODO: track step completion in execution loop
+          stepResults: {},
+          acceptanceCriteria,
+          satisfiedCriteria: [],  // TODO: track from completion gate
+          actionReceipts,
+          lastOutput: lastTextOutput,
+          abortReason,
+          turnNumber,
+          totalInputTokens,
+          totalOutputTokens,
+        });
+      };
+
       let finalTurnNudgeInjected = false;
 
       while (true) {
@@ -2176,7 +2263,10 @@ export class CompanyAgentRunner {
           if (task === 'on_demand' && !lastTextOutput) {
             lastTextOutput = buildOnDemandAbortOutput(check.reason);
           }
-          if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
+          if (isTaskTier) {
+            await this.savePartialProgress(initialMessage, config, lastTextOutput, history, check.reason ?? 'supervisor_limit', deps);
+            void saveStructuredCheckpoint(check.reason ?? 'supervisor_limit');
+          }
           void enqueueWorkloadContinuationWakeIfBudgetHit({
             agentRole: config.role,
             task,
@@ -2599,7 +2689,10 @@ Rules:
           const errMsg = (error as Error).message ?? String(error);
           console.error(`[CompanyAgentRunner] Model call failed for ${config.id} (model=${routedModel.model}, turn=${turnNumber}): ${errMsg}`);
           if (supervisor.isAborted) {
-            if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, errMsg, deps);
+            if (isTaskTier) {
+              await this.savePartialProgress(initialMessage, config, lastTextOutput, history, errMsg, deps);
+              void saveStructuredCheckpoint(errMsg);
+            }
             return this.buildResult(
               config, 'aborted', lastTextOutput, history, supervisor,
               errMsg, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
@@ -2818,7 +2911,10 @@ Rules:
 
               const progressCheck = supervisor.recordToolResult(call.name, result);
               if (!progressCheck.ok) {
-                if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, progressCheck.reason ?? 'stall_detected', deps);
+                if (isTaskTier) {
+                  await this.savePartialProgress(initialMessage, config, lastTextOutput, history, progressCheck.reason ?? 'stall_detected', deps);
+                  void saveStructuredCheckpoint(progressCheck.reason ?? 'stall_detected');
+                }
                 batchAborted = true;
                 return this.buildResult(
                   config, 'aborted', lastTextOutput, history, supervisor,
@@ -2872,7 +2968,10 @@ Rules:
 
             const progressCheck = supervisor.recordToolResult(call.name, result);
             if (!progressCheck.ok) {
-              if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, progressCheck.reason ?? 'stall_detected', deps);
+              if (isTaskTier) {
+                await this.savePartialProgress(initialMessage, config, lastTextOutput, history, progressCheck.reason ?? 'stall_detected', deps);
+                void saveStructuredCheckpoint(progressCheck.reason ?? 'stall_detected');
+              }
               return this.buildResult(
                 config, 'aborted', lastTextOutput, history, supervisor,
                 progressCheck.reason, totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
@@ -2987,7 +3086,10 @@ Return ONLY strict JSON with:
             }
 
             if (planningMode === 'required') {
-              if (isTaskTier) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, 'planner_failed_to_produce_valid_plan', deps);
+              if (isTaskTier) {
+                await this.savePartialProgress(initialMessage, config, lastTextOutput, history, 'planner_failed_to_produce_valid_plan', deps);
+                void saveStructuredCheckpoint('planner_failed_to_produce_valid_plan');
+              }
               return this.buildResult(
                 config, 'aborted', lastTextOutput, history, supervisor,
                 'planner_failed_to_produce_valid_plan', totalInputTokens, totalOutputTokens, totalThinkingTokens, totalCachedInputTokens, actionReceipts, buildRoutingSummary(),
@@ -3073,6 +3175,30 @@ Return ONLY strict JSON with:
               `[CompanyAgentRunner] Deliverable not produced for ${config.role}: expected ${requestedDeliverable.tool} — nudging.`,
             );
             history.push({ role: 'user', content: nudge, timestamp: Date.now() });
+            continue;
+          }
+
+          // ─── NARRATED-ACTION GUARD ────────────────────────────────
+          // The agent describes completed actions ("I've notified…",
+          // "You're included…", "I checked SharePoint…") without having
+          // called any tools. This is fabrication, not planning.
+          const NARRATION_NUDGE = 'You described actions as if you already performed them, but you did not call any tools to do so. Do NOT narrate actions — CALL THE TOOLS. If you said you notified someone, call the messaging tool. If you said you checked something, call the search/query tool. Execute the actions you described.';
+          const NARRATION_PATTERNS = [
+            /I(?:'ve| have) (?:notified|informed|alerted|contacted|messaged|emailed|briefed|included|added|looped in)/i,
+            /I (?:checked|reviewed|searched|queried|looked into|investigated|diagnosed|confirmed|verified) (?:the |our |your )?(?:sharepoint|teams|database|system|logs|metrics)/i,
+            /you(?:'re| are) (?:included|added|looped) in/i,
+            /I(?:'ve| have) (?:shared|sent|posted|uploaded|published|delivered) (?:the |a |this |your )/i,
+          ];
+          if (
+            lastTextOutput &&
+            actionReceipts.length === 0 &&
+            NARRATION_PATTERNS.some(p => p.test(lastTextOutput)) &&
+            !history.some(h => h.content === NARRATION_NUDGE)
+          ) {
+            console.warn(
+              `[CompanyAgentRunner] Narrated-action detected for ${config.role} with zero tool calls — nudging to execute.`,
+            );
+            history.push({ role: 'user', content: NARRATION_NUDGE, timestamp: Date.now() });
             continue;
           }
 
@@ -3608,7 +3734,30 @@ Continue execution, call tools as needed, and return only when all criteria are 
         }
       }
 
-      if (isTaskTier && supervisor.isAborted) await this.savePartialProgress(initialMessage, config, lastTextOutput, history, (error as Error).message, deps);
+      if (isTaskTier && supervisor.isAborted) {
+        await this.savePartialProgress(initialMessage, config, lastTextOutput, history, (error as Error).message, deps);
+        // Save structured checkpoint for exception aborts (limited state available in catch)
+        const assignmentMatch = initialMessage.match(/assignment_id="([^"]+)"/);
+        const exceptionAssignmentId = assignmentMatch?.[1] ?? config.assignmentId;
+        if (exceptionAssignmentId) {
+          void saveRunCheckpoint({
+            runId: config.dbRunId ?? config.id,
+            agentRole: config.role,
+            task,
+            assignmentId: exceptionAssignmentId,
+            acceptanceCriteria: [],
+            completedSteps: [],
+            stepResults: {},
+            satisfiedCriteria: [],
+            actionReceipts: [],
+            lastOutput: lastTextOutput,
+            abortReason: (error as Error).message,
+            turnNumber: supervisor.stats.turnCount ?? 0,
+            totalInputTokens,
+            totalOutputTokens,
+          });
+        }
+      }
       const errResult = this.buildResult(
         config,
         supervisor.isAborted ? 'aborted' : 'error',

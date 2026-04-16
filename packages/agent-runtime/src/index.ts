@@ -24,6 +24,8 @@ export {
   WORKLOAD_WRAP_UP_TASKS,
 } from './supervisorWorkloadStallPolicy.js';
 export { enqueueWorkloadContinuationWakeIfBudgetHit } from './continuationWake.js';
+export { saveRunCheckpoint, loadLatestCheckpoint, loadCheckpointByRunId, composeContinuationPrompt, cleanupOldCheckpoints } from './runCheckpoint.js';
+export type { RunCheckpoint } from './runCheckpoint.js';
 export {
   ToolExecutor,
   isToolBlocked,

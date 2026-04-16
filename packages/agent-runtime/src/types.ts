@@ -57,6 +57,8 @@ export interface AgentConfig {
   planningModelTier?: 'fast' | 'default' | 'high';
   /** Model tier for the JSON completion-gate verifier (criteria satisfaction check). */
   completionGateVerifyModelTier?: 'fast' | 'default' | 'high';
+  /** Structured continuation context from a prior interrupted run's checkpoint. */
+  continuationCheckpoint?: string;
 }
 
 export type CompanyAgentRole =
