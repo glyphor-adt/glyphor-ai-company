@@ -10,6 +10,7 @@ import {
 import { DEFAULT_AGENT_MODEL } from '@glyphor/shared/models';
 import { systemQuery } from '@glyphor/shared/db';
 import { getRemainingCredits, type CreditCloud } from '../credits/ledger.js';
+import { isBedrockEnabled } from '../providers/bedrockClient.js';
 
 const DEFAULT_MODEL = DEFAULT_AGENT_MODEL;
 const ECONOMY_MODEL = getTierModel('fast');
@@ -64,6 +65,13 @@ async function applyCreditAwareRouting<T extends ModelRoutingMetadata & { model:
   const options = TIER_CREDIT_OPTIONS[tier];
   if (!options || options.length <= 1) return decision;
 
+  // Filter out AWS/Bedrock options when Bedrock is not configured
+  const bedrockAvailable = isBedrockEnabled();
+  const eligibleOptions = bedrockAvailable
+    ? options
+    : options.filter((opt) => opt.cloud !== 'aws');
+  if (eligibleOptions.length === 0) return decision;
+
   const credits = await Promise.all(CREDIT_ROUTE_ORDER.map((c) => getRemainingCredits(c)));
   const creditMap: Record<CreditCloud, number> = {
     aws: credits[0] ?? 0,
@@ -71,7 +79,7 @@ async function applyCreditAwareRouting<T extends ModelRoutingMetadata & { model:
     gcp: credits[2] ?? 0,
   };
 
-  const sorted = [...options].sort((a, b) => {
+  const sorted = [...eligibleOptions].sort((a, b) => {
     const diff = creditMap[b.cloud] - creditMap[a.cloud];
     if (diff !== 0) return diff;
     return CREDIT_ROUTE_ORDER.indexOf(a.cloud) - CREDIT_ROUTE_ORDER.indexOf(b.cloud);

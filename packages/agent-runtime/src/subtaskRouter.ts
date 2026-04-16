@@ -4,6 +4,7 @@ import { resolveModelConfig, type RoutingDecision } from './routing/resolveModel
 import { inferDomainRouting } from './routing/domainRouter.js';
 import { DEFAULT_AGENT_MODEL } from '@glyphor/shared/models';
 import { getSpecialized, getTierModel } from '@glyphor/shared';
+import { isBedrockEnabled } from './providers/bedrockClient.js';
 
 export type SubtaskComplexity = 'trivial' | 'standard' | 'complex' | 'frontier';
 
@@ -39,7 +40,11 @@ export interface SubtaskRoutingDecision {
 const DEFAULT_MODEL = getTierModel('default');
 const FAST_MODEL = getTierModel('fast');
 const HIGH_MODEL = getTierModel('high');
-const CODE_MODEL = getSpecialized('code_generation');
+const _RAW_CODE_MODEL = getSpecialized('code_generation');
+// Fall back to default tier when code_generation model requires Bedrock but it's not enabled
+const CODE_MODEL = _RAW_CODE_MODEL.startsWith('deepseek-') && !isBedrockEnabled()
+  ? DEFAULT_MODEL
+  : _RAW_CODE_MODEL;
 const WORKHORSE_FALLBACK_MODEL = getSpecialized('web_search');
 const COMPLEXITY_RANK: Record<SubtaskComplexity, number> = {
   trivial: 0,

@@ -2,7 +2,8 @@ import path from 'node:path';
 import { ModelClient, type ConversationTurn, type ToolContext, type ToolDeclaration, type ToolDefinition, type ToolResult } from '@glyphor/agent-runtime';
 import type { CompanyMemoryStore } from '@glyphor/company-memory';
 import { createCloudflarePreviewTools, createGithubFromTemplateTools, createGithubPullRequestTools, createGithubPushFilesTools, createVercelProjectTools } from '@glyphor/integrations';
-import { getGoogleAiApiKey, MODEL_CONFIG } from '@glyphor/shared';
+import { getGoogleAiApiKey, MODEL_CONFIG, getTierModel } from '@glyphor/shared';
+import { isBedrockEnabled } from '@glyphor/agent-runtime';
 import { createDesignBriefTools } from './designBriefTools.js';
 import { runSandboxBuild } from './sandboxBuildValidator.js';
 import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
@@ -2143,8 +2144,12 @@ export function createWebBuildTools(memory: CompanyMemoryStore, policy: WebBuild
   return tools;
 }
 
-const DEFAULT_WEBSITE_FOUNDATION_MODEL = MODEL_CONFIG.specialized.code_generation;
-const WEBSITE_FOUNDATION_REPAIR_MODEL = MODEL_CONFIG.specialized.code_generation;
+const _RAW_CODE_GEN_MODEL = MODEL_CONFIG.specialized.code_generation;
+const _SAFE_CODE_GEN_MODEL = _RAW_CODE_GEN_MODEL.startsWith('deepseek-') && !isBedrockEnabled()
+  ? getTierModel('default')
+  : _RAW_CODE_GEN_MODEL;
+const DEFAULT_WEBSITE_FOUNDATION_MODEL = _SAFE_CODE_GEN_MODEL;
+const WEBSITE_FOUNDATION_REPAIR_MODEL = _SAFE_CODE_GEN_MODEL;
 const WEBSITE_FOUNDATION_MAX_TOKENS = 100000;
 const WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS = 4;
 const SANDBOX_MAX_REPAIR_ROUNDS = 3;

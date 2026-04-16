@@ -2530,10 +2530,11 @@ function mapWorkerRouteResultToExecutionResult(
   agentRole: CompanyAgentRole,
   routeResult: Awaited<ReturnType<typeof executeWorkerAgentRun>>,
 ): AgentExecutionResult {
+  const hasError = routeResult.error != null && String(routeResult.error).length > 0;
   const normalizedStatus: AgentExecutionResult['status'] =
     routeResult.status === 'aborted'
       ? 'aborted'
-      : routeResult.status === 'failed' || routeResult.action === 'rejected'
+      : routeResult.status === 'failed' || routeResult.action === 'rejected' || hasError
         ? 'error'
         : 'completed';
 
@@ -2813,9 +2814,12 @@ const trackedAgentExecutor = async (
       : null;
 
     if (runId) {
-      const runStatus = result?.status === 'completed'
-        ? 'completed'
-        : (result?.status === 'error' ? 'failed' : (result?.status ?? 'completed'));
+      const hasResultError = result?.error != null && String(result.error).length > 0;
+      const runStatus = result?.status === 'error' || hasResultError
+        ? 'failed'
+        : result?.status === 'completed'
+          ? 'completed'
+          : (result?.status ?? 'completed');
       const normalizedRunError = runStatus === 'skipped_precheck'
         ? null
         : (result?.error ?? result?.abortReason ?? null);
@@ -2913,7 +2917,8 @@ const trackedAgentExecutor = async (
       }
 
       try {
-        const rs = result?.status ?? 'completed';
+        const rsHasError = result?.error != null && String(result.error).length > 0;
+        const rs = rsHasError ? 'error' : (result?.status ?? 'completed');
         recordAgentRunCompleted({
           status: rs === 'error' ? 'error' : rs,
           role: agentRole,

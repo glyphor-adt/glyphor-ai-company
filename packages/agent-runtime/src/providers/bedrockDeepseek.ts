@@ -25,6 +25,36 @@ function flattenConversationToDeepSeekR1Prompt(
   return `<｜begin_of_sentence｜><|User|>${joined}<|Assistant|>`;
 }
 
+/**
+ * Convert conversation turns to the OpenAI-compatible messages format
+ * required by DeepSeek V3.2 on Bedrock Marketplace.
+ */
+function turnsToMessages(
+  systemInstruction: string,
+  turns: ConversationTurn[],
+): Array<{ role: string; content: string }> {
+  const messages: Array<{ role: string; content: string }> = [];
+  if (systemInstruction.trim()) {
+    messages.push({ role: 'system', content: systemInstruction.trim() });
+  }
+  for (const t of turns) {
+    if (t.role === 'user') {
+      messages.push({ role: 'user', content: t.content ?? '' });
+    } else if (t.role === 'assistant') {
+      messages.push({ role: 'assistant', content: t.content ?? '' });
+    } else if (t.role === 'tool_call') {
+      messages.push({ role: 'assistant', content: `[tool ${t.toolName}]` });
+    } else if (t.role === 'tool_result') {
+      messages.push({ role: 'user', content: `[tool result]: ${t.content}` });
+    }
+  }
+  // Ensure there's at least one user message
+  if (!messages.some((m) => m.role === 'user')) {
+    messages.push({ role: 'user', content: '' });
+  }
+  return messages;
+}
+
 export class BedrockDeepSeekAdapter implements ProviderAdapter {
   readonly provider = 'deepseek' as const;
 
@@ -44,16 +74,16 @@ export class BedrockDeepSeekAdapter implements ProviderAdapter {
       return this.mapCompletionResponse(bodyJson);
     }
 
-    // DeepSeek V3.2 — AWS model card uses deepseek.v3.2 with messages-style in some examples; use prompt completion
-    const prompt = flattenConversationToDeepSeekR1Prompt(request.systemInstruction, request.contents);
+    // DeepSeek V3.2 — Bedrock Marketplace model uses OpenAI-compatible messages format
+    const messages = turnsToMessages(request.systemInstruction, request.contents);
     const body = {
-      prompt,
+      messages,
       max_tokens: Math.min(request.maxTokens ?? 4096, 8192),
       temperature: request.temperature ?? 0.5,
       top_p: request.topP ?? 0.9,
     };
     const { bodyJson } = await invokeBedrockModel(bedrockModelId, JSON.stringify(body));
-    return this.mapCompletionResponse(bodyJson);
+    return this.mapMessagesResponse(bodyJson);
   }
 
   private mapCompletionResponse(bodyJson: Record<string, unknown>): UnifiedModelResponse {
@@ -72,6 +102,33 @@ export class BedrockDeepSeekAdapter implements ProviderAdapter {
         totalTokens: inputTokens + outputTokens,
       },
       finishReason: stopReason === 'length' ? 'length' : 'stop',
+    };
+  }
+
+  /** Map OpenAI-compatible messages response (DeepSeek V3.2 Marketplace format). */
+  private mapMessagesResponse(bodyJson: Record<string, unknown>): UnifiedModelResponse {
+    const choices = bodyJson.choices as Array<{
+      message?: { content?: string };
+      finish_reason?: string;
+    }> | undefined;
+    const text = choices?.[0]?.message?.content ?? null;
+    const finishReason = choices?.[0]?.finish_reason ?? 'stop';
+    const usage = bodyJson.usage as {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      total_tokens?: number;
+    } | undefined;
+    const inputTokens = usage?.prompt_tokens ?? 0;
+    const outputTokens = usage?.completion_tokens ?? 0;
+    return {
+      text,
+      toolCalls: [],
+      usageMetadata: {
+        inputTokens,
+        outputTokens,
+        totalTokens: usage?.total_tokens ?? inputTokens + outputTokens,
+      },
+      finishReason: finishReason === 'length' ? 'length' : 'stop',
     };
   }
 }
