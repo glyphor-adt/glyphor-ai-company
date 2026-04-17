@@ -513,7 +513,7 @@ function LiveRunConsole() {
 
   return (
     <Card>
-      <SectionHeader title="Live Run Console" subtitle="Execute and monitor CZ test runs" />
+      <SectionHeader title="Live Run Console" subtitle="Execute and monitor certification test runs" />
 
       {/* Launch Controls */}
       <div className="flex items-center gap-3 mt-3 flex-wrap">
@@ -794,7 +794,7 @@ export default function CzProtocol() {
       <div>
         <h1 className="text-xl font-semibold text-zinc-100">Certification Protocol</h1>
         <p className="text-sm text-zinc-400 mt-1">
-          Dogfood test runner — 89 tasks across 10 pillars, 19 P0 critical tests, 3 launch gates.
+          Certification test runner — 89 tasks across 10 pillars, 19 P0 critical tests, 3 launch gates.
         </p>
       </div>
 
