@@ -37,7 +37,7 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface CFORunParams {
-  task?: 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand' | 'urgent_message_response';
+  task?: 'daily_cost_check' | 'weekly_financial_summary' | 'on_demand' | 'urgent_message_response' | 'agent365_mail_triage';
   message?: string;
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
@@ -112,6 +112,19 @@ Steps:
 4. Use get_recent_activity to see any finance-related events
 5. Write a comprehensive weekly_summary report
 6. Log the activity`;
+      break;
+
+    case 'agent365_mail_triage':
+      initialMessage = params.message || `Check your email inbox for new messages. Use Agent365 MailTools (mcp_MailTools) to read and process unread emails.
+
+Steps:
+1. List unread emails in your inbox
+2. Prioritize: billing alerts and payment notifications first, then vendor invoices, then internal
+3. For Stripe/billing notifications: verify against get_financials data, flag discrepancies
+4. For vendor invoices: log and archive to SharePoint under /Finance/Invoices/
+5. For cost-related internal messages: respond with financial analysis
+6. Escalate unexpected charges or budget-impacting items to Andrew via create_decision
+7. Log a brief summary of what you processed using log_activity`;
       break;
 
     case 'on_demand':

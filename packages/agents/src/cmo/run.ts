@@ -56,6 +56,7 @@ export interface CMORunParams {
     | 'work_loop'
     | 'process_assignments'
     | 'onboarding_ingestion'
+    | 'agent365_mail_triage'
     | 'on_demand';
   message?: string;
   payload?: Record<string, unknown>;
@@ -173,6 +174,19 @@ Steps:
 4. Write an SEO report with recommendations
 5. Save using write_content with type "seo_report"
 6. Log the activity`;
+      break;
+
+    case 'agent365_mail_triage':
+      initialMessage = params.message || `Check your email inbox for new messages. Use Agent365 MailTools (mcp_MailTools) to read and process unread emails.
+
+Steps:
+1. List unread emails in your inbox
+2. Prioritize: content requests and PR pitches first, then partnership inquiries, then internal
+3. For content requests within scope: route to your team (Tyler for creative, social-media-manager, seo-analyst)
+4. For PR and media inquiries: draft responses within brand guidelines
+5. For partnership inquiries: assess fit and escalate promising ones to founders
+6. For out-of-scope requests: redirect per your Scope Creep protocol
+7. Log a brief summary of what you processed using log_activity`;
       break;
 
     case 'on_demand':

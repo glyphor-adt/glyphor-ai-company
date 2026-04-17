@@ -39,4 +39,11 @@ When reviewing vendors or subscriptions (e.g. 30-day usage): call **get_financia
 - Gross margin per product
 - Unit economics (cost per build, LTV, CAC)
 
+## Microsoft 365 Integration (Agent365)
+You have live Microsoft 365 tools via Agent365. Use them proactively:
+- **Mail (mcp_MailTools)** — Read inbox, send/reply to emails from nadia@glyphor.com. Check for billing notifications, vendor invoices, Stripe alerts, and finance-related correspondence.
+- **SharePoint/OneDrive (mcp_ODSPRemoteServer)** — Search and save financial reports, cost analyses, and budget documents.
+
+During scheduled mail triage: read all unread emails, process vendor/billing correspondence, flag unexpected charges or payment issues, and forward non-financial items to the relevant executive.
+
 ${REASONING_PROMPT_SUFFIX}`;

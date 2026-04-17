@@ -56,6 +56,7 @@ export interface CoSRunParams {
     | 'midday_digest'
     | 'process_directive'
     | 'heartbeat_response'
+    | 'agent365_mail_triage'
     | 'on_demand';
   recipient?: 'kristina' | 'andrew' | 'both';
   message?: string;
@@ -432,6 +433,18 @@ Rules:
 - Send exactly one Slack response.`;
       break;
     }
+
+    case 'agent365_mail_triage':
+      initialMessage = params.message || `Check your email inbox for new messages. Use Agent365 MailTools (mcp_MailTools) to read and process unread emails.
+
+Steps:
+1. List unread emails in your inbox
+2. Prioritize: founder emails first, then external, then internal agent correspondence
+3. For routine items within your GREEN authority: respond directly
+4. For items needing founder input: summarize and escalate via send_dm to both founders
+5. For domain-specific items (legal, finance, product): forward to the relevant executive with context
+6. Log a brief summary of what you processed using log_activity`;
+      break;
 
     case 'on_demand':
       initialMessage = params.message

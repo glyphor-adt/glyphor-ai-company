@@ -39,7 +39,7 @@ import { createCoreTools } from '../shared/coreTools.js';
 import { createGlyphorMcpTools } from '../shared/glyphorMcpTools.js';
 
 export interface CPORunParams {
-  task?: 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand';
+  task?: 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand' | 'agent365_mail_triage';
   message?: string;
   conversationHistory?: ConversationTurn[];
 }
@@ -113,6 +113,19 @@ Steps:
 3. Log the activity
 
 IMPORTANT: Do NOT reference internal engine names — they are not products.`;
+      break;
+
+    case 'agent365_mail_triage':
+      initialMessage = params.message || `Check your email inbox for new messages. Use Agent365 MailTools (mcp_MailTools) to read and process unread emails.
+
+Steps:
+1. List unread emails in your inbox
+2. Prioritize: product feedback and user research first, then competitor alerts, then internal
+3. For product inquiries: respond with current roadmap context
+4. For competitive intelligence: log insights and forward to relevant team members
+5. For internal agent messages about product decisions: provide guidance within your authority
+6. Escalate roadmap-changing requests to founders via create_decision
+7. Log a brief summary of what you processed using log_activity`;
       break;
 
     case 'on_demand':

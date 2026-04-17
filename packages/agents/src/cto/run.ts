@@ -53,6 +53,7 @@ export interface CTORunParams {
     | 'on_demand'
     | 'work_loop'
     | 'proactive'
+    | 'agent365_mail_triage'
     | 'urgent_message_response';
   message?: string;
   conversationHistory?: ConversationTurn[];
@@ -165,6 +166,19 @@ Steps:
 2. Use get_recent_activity for any recent dependency-related events
 3. Analyze and report findings
 4. Log your analysis`;
+      break;
+
+    case 'agent365_mail_triage':
+      initialMessage = params.message || `Check your email inbox for new messages. Use Agent365 MailTools (mcp_MailTools) to read and process unread emails.
+
+Steps:
+1. List unread emails in your inbox
+2. Prioritize: security alerts and infrastructure notifications first, then vendor correspondence, then internal
+3. For infrastructure alerts: assess severity, open incidents if needed
+4. For vendor emails (GCP, AWS, GitHub): process billing notices, respond to support threads
+5. For internal agent messages: respond with technical guidance
+6. Escalate anything requiring founder budget approval via create_decision
+7. Log a brief summary of what you processed using log_activity`;
       break;
 
     case 'on_demand':

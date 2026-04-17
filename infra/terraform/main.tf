@@ -1308,6 +1308,97 @@ resource "google_cloud_scheduler_job" "cmo_content_calendar" {
   depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
 }
 
+# ─── Agent365 Mail Triage (weekday mornings, staggered) ──────
+resource "google_cloud_scheduler_job" "cos_mail_triage" {
+  name      = "cos-mail-triage"
+  schedule  = "0 8 * * 1-5"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "chief-of-staff"
+      task      = "agent365_mail_triage"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+resource "google_cloud_scheduler_job" "cto_mail_triage" {
+  name      = "cto-mail-triage"
+  schedule  = "15 8 * * 1-5"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "cto"
+      task      = "agent365_mail_triage"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+resource "google_cloud_scheduler_job" "cfo_mail_triage" {
+  name      = "cfo-mail-triage"
+  schedule  = "30 8 * * 1-5"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "cfo"
+      task      = "agent365_mail_triage"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+resource "google_cloud_scheduler_job" "cpo_mail_triage" {
+  name      = "cpo-mail-triage"
+  schedule  = "45 8 * * 1-5"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "cpo"
+      task      = "agent365_mail_triage"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+resource "google_cloud_scheduler_job" "cmo_mail_triage" {
+  name      = "cmo-mail-triage"
+  schedule  = "0 9 * * 1-5"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "cmo"
+      task      = "agent365_mail_triage"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
 resource "google_cloud_scheduler_job" "vpcs_health_scoring" {
   name      = "vpcs-health-scoring"
   schedule  = "0 13 * * *"

@@ -40,7 +40,7 @@ export const STANDARD_M365_SERVERS = [
 ] as const;
 
 const LIVE_ROLE_M365_ALLOWLISTS: Partial<Record<CompanyAgentRole, readonly string[]>> = {
-  'chief-of-staff': ['mcp_TeamsServer'],
+  'chief-of-staff': ['mcp_TeamsServer', 'mcp_CalendarTools'],
   'cto': [],
   'cfo': [],
   'cpo': [],
