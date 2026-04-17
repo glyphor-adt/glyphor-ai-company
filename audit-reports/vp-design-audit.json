@@ -1,0 +1,357 @@
+{
+  "role": "vp-design",
+  "timestamp": "2026-04-17T03:13:11.610Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\mia-tanaka.md",
+    "exists": true,
+    "tokenCount": 846,
+    "hasRelationships": true,
+    "hasAuthority": true,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": true,
+    "skillIndicators": [],
+    "knowledgeIndicators": [
+      "percentages"
+    ],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Mia Tanaka — VP Design & Frontend",
+        "tokens": 94,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 150,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 70,
+        "classification": "identity"
+      },
+      {
+        "heading": "Communication Style",
+        "tokens": 93,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 124,
+        "classification": "knowledge"
+      },
+      {
+        "heading": "Your Relationships",
+        "tokens": 115,
+        "classification": "identity"
+      },
+      {
+        "heading": "Authority Boundaries",
+        "tokens": 110,
+        "classification": "identity"
+      },
+      {
+        "heading": "Operating Principles",
+        "tokens": 93,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\vp-design\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 4777,
+    "hasCrisisFabricationRules": true,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "VP_DESIGN_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "elite-design-review",
+        "proficiency": "competent",
+        "category": "design",
+        "tokenCount": 159,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "design-review",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 2172,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "react-bits-pro",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 1254,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "advanced-web-creation",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 162,
+        "isOwnDomain": true,
+        "timesUsed": 2,
+        "successRate": 0
+      },
+      {
+        "slug": "design-system-management",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 1835,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "brand-management",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 1857,
+        "isOwnDomain": true,
+        "timesUsed": 1,
+        "successRate": 1
+      },
+      {
+        "slug": "client-web-creation",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 2104,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "ui-development",
+        "proficiency": "expert",
+        "category": "design",
+        "tokenCount": 1645,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 11188,
+    "crossDomainSkills": [],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": [
+      {
+        "task": "on_demand",
+        "tier": "light",
+        "losesIdentity": true,
+        "losesSkills": true,
+        "losesMemory": true
+      },
+      {
+        "task": "design_audit",
+        "tier": "standard",
+        "losesIdentity": false,
+        "losesSkills": false,
+        "losesMemory": false
+      },
+      {
+        "task": "design_system_review",
+        "tier": "standard",
+        "losesIdentity": false,
+        "losesSkills": false,
+        "losesMemory": false
+      }
+    ]
+  },
+  "tools": {
+    "factoryCount": 31,
+    "estimatedToolCount": 197,
+    "factories": [
+      "createVPDesignTools",
+      "createCollectiveIntelligenceTools",
+      "createGraphTools",
+      "createTeamOrchestrationTools",
+      "createPeerCoordinationTools",
+      "createInitiativeTools",
+      "createSharePointTools",
+      "createAgentCreationTools",
+      "createAgentDirectoryTools",
+      "createFrontendCodeTools",
+      "createScreenshotTools",
+      "createDesignSystemTools",
+      "createAuditTools",
+      "createAssetTools",
+      "createScaffoldTools",
+      "createDeployPreviewTools",
+      "createLogoTools",
+      "createAgent365McpTools",
+      "createGlyphorMcpTools",
+      "createCoreTools",
+      "createWebBuildTools",
+      "createGithubFromTemplateTools",
+      "createGithubPushFilesTools",
+      "createGithubReadRepositoryFileTools",
+      "createGithubPullRequestTools",
+      "createVercelProjectTools",
+      "createWebBuildPlannerTools",
+      "createQuickDemoWebAppTools",
+      "createDesignBriefTools",
+      "createSandboxDevTools",
+      "createClaudeParityTools"
+    ],
+    "hasOrchestrationTools": true,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 197,
+    "blockedByDb": 2
+  },
+  "config": {
+    "runnerType": "TaskRunner",
+    "temperature": 0.7,
+    "maxTurns": 28,
+    "maxTurnsOverrides": {
+      "on_demand": 5
+    },
+    "isExecutive": true,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": true,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [
+      "on_demand",
+      "design_audit",
+      "design_system_review"
+    ],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [
+      "design_audit",
+      "design_system_review"
+    ],
+    "coverageRate": 0
+  },
+  "runs": {
+    "last30Days": {
+      "total": 171,
+      "completed": 120,
+      "aborted": 18,
+      "timedOut": 0,
+      "maxTurnsReached": 4,
+      "avgTurns": 3.9883040935672516,
+      "avgDurationMs": 241720.5029239766,
+      "avgInputTokens": 84951.2865497076,
+      "avgOutputTokens": 406.46198830409355,
+      "estimatedCost30d": 90.07809999999996
+    },
+    "taskBreakdown": {
+      "on_demand": {
+        "count": 93,
+        "completionRate": 0.5913978494623656,
+        "avgTurns": 3.6344086021505375
+      },
+      "proactive": {
+        "count": 74,
+        "completionRate": 0.8378378378378378,
+        "avgTurns": 4.121621621621622
+      },
+      "work_loop": {
+        "count": 2,
+        "completionRate": 0.5,
+        "avgTurns": 6
+      },
+      "urgent_message_response": {
+        "count": 2,
+        "completionRate": 1,
+        "avgTurns": 13.5
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 0,
+      "completed": 0,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": [
+      "design_audit",
+      "design_system_review"
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "P2",
+      "category": "brief",
+      "description": "Brief contains knowledge data (percentages). Move to knowledge base.",
+      "effort": "small"
+    },
+    {
+      "priority": "P2",
+      "category": "context",
+      "description": "Assigned skills total ~11188 tokens. Exceeds recommended 3,000-token skill budget.",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "health",
+      "description": "Completion rate is 70% (target: >80%).",
+      "effort": "small"
+    },
+    {
+      "priority": "P1",
+      "category": "schedule",
+      "description": "Task \"design_audit\" is defined in run.ts but has no cron trigger.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P1",
+      "category": "schedule",
+      "description": "Task \"design_system_review\" is defined in run.ts but has no cron trigger.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "runner",
+      "description": "Has orchestration tools but uses TaskRunner. No active team — strip unused orchestration tools.",
+      "effort": "small"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"design_audit\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"design_system_review\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "tools",
+      "description": "Agent loads 31 tool factories (~155+ tools). Heavy reliance on ToolRetriever quality.",
+      "effort": "medium"
+    }
+  ]
+}

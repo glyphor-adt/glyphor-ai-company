@@ -1,6 +1,6 @@
 {
   "role": "cmo",
-  "timestamp": "2026-03-18T01:42:31.514Z",
+  "timestamp": "2026-04-17T03:13:02.629Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\maya-brooks.md",
     "exists": true,
@@ -31,7 +31,7 @@
       },
       {
         "heading": "Communication Style",
-        "tokens": 140,
+        "tokens": 141,
         "classification": "identity"
       },
       {
@@ -59,11 +59,12 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\cmo\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 1743,
+    "tokenCount": 1981,
     "hasCrisisFabricationRules": true,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
     "exportedConstants": [
+      "CMO_ADDITIONAL_RULES",
       "CMO_SYSTEM_PROMPT"
     ]
   },
@@ -73,9 +74,9 @@
         "slug": "content-creation",
         "proficiency": "expert",
         "category": "marketing",
-        "tokenCount": 4073,
+        "tokenCount": 3992,
         "isOwnDomain": true,
-        "timesUsed": 4,
+        "timesUsed": 0,
         "successRate": 1
       },
       {
@@ -84,7 +85,16 @@
         "category": "marketing",
         "tokenCount": 2040,
         "isOwnDomain": true,
-        "timesUsed": 2,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "sharepoint-site-management",
+        "proficiency": "learning",
+        "category": "operations",
+        "tokenCount": 3399,
+        "isOwnDomain": false,
+        "timesUsed": 0,
         "successRate": 1
       },
       {
@@ -97,21 +107,21 @@
         "successRate": 1
       },
       {
-        "slug": "sharepoint-site-management",
-        "proficiency": "learning",
-        "category": "operations",
-        "tokenCount": 3399,
-        "isOwnDomain": false,
-        "timesUsed": 2,
-        "successRate": 0
-      },
-      {
         "slug": "brand-management",
         "proficiency": "expert",
         "category": "design",
         "tokenCount": 1857,
         "isOwnDomain": false,
-        "timesUsed": 2,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "client-web-creation",
+        "proficiency": "competent",
+        "category": "design",
+        "tokenCount": 2104,
+        "isOwnDomain": false,
+        "timesUsed": 0,
         "successRate": 1
       },
       {
@@ -124,11 +134,12 @@
         "successRate": 1
       }
     ],
-    "totalTokens": 13546,
+    "totalTokens": 15569,
     "crossDomainSkills": [
-      "advanced-web-creation",
       "sharepoint-site-management",
-      "brand-management"
+      "advanced-web-creation",
+      "brand-management",
+      "client-web-creation"
     ],
     "ghostToolRefs": []
   },
@@ -136,8 +147,8 @@
     "taskTypes": []
   },
   "tools": {
-    "factoryCount": 21,
-    "estimatedToolCount": 105,
+    "factoryCount": 20,
+    "estimatedToolCount": 193,
     "factories": [
       "createCMOTools",
       "createCollectiveIntelligenceTools",
@@ -146,8 +157,6 @@
       "createTeamOrchestrationTools",
       "createPeerCoordinationTools",
       "createInitiativeTools",
-      "createAgentCreationTools",
-      "createToolGrantTools",
       "createAgentDirectoryTools",
       "createContentTools",
       "createSeoTools",
@@ -158,15 +167,16 @@
       "createAgent365McpTools",
       "createCoreTools",
       "createGlyphorMcpTools",
-      "createFuseTools",
+      "createWebBuildTools",
+      "createWebsiteIngestionTools",
       "createExecutiveOrchestrationTools"
     ],
     "hasOrchestrationTools": true,
     "hasAgent365": true,
     "hasGlyphorMcp": true,
     "hasSharePoint": true,
-    "grantedByDb": 270,
-    "blockedByDb": 0
+    "grantedByDb": 193,
+    "blockedByDb": 2
   },
   "config": {
     "runnerType": "TaskRunner",
@@ -174,9 +184,9 @@
     "maxTurns": 50,
     "maxTurnsOverrides": {},
     "isExecutive": true,
-    "hasActiveTeamMembers": true,
-    "teamMemberCount": 3,
-    "teamMembersWithRunners": 2,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
     "runnerMismatch": true,
     "temperatureOutlier": false
   },
@@ -188,58 +198,68 @@
   },
   "runs": {
     "last30Days": {
-      "total": 658,
-      "completed": 476,
-      "aborted": 53,
+      "total": 211,
+      "completed": 170,
+      "aborted": 27,
       "timedOut": 0,
-      "maxTurnsReached": 2,
-      "avgTurns": 4.214285714285714,
-      "avgDurationMs": 130499.54559270517,
-      "avgInputTokens": 81642.80547112462,
-      "avgOutputTokens": 1686.501519756839,
-      "estimatedCost30d": 48.644
+      "maxTurnsReached": 0,
+      "avgTurns": 4.018957345971564,
+      "avgDurationMs": 42133.43601895735,
+      "avgInputTokens": 68246.58767772513,
+      "avgOutputTokens": 515.2796208530806,
+      "estimatedCost30d": 140.4106
     },
     "taskBreakdown": {
-      "generate_content": {
-        "count": 25,
-        "completionRate": 0.8,
-        "avgTurns": 5
-      },
-      "weekly_content_planning": {
-        "count": 21,
-        "completionRate": 0.6666666666666666,
-        "avgTurns": 5.904761904761905
-      },
-      "proactive": {
-        "count": 40,
-        "completionRate": 0.675,
-        "avgTurns": 5.325
-      },
-      "work_loop": {
-        "count": 383,
-        "completionRate": 0.6919060052219321,
-        "avgTurns": 4.509138381201044
+      "process_assignments": {
+        "count": 32,
+        "completionRate": 0.5,
+        "avgTurns": 11
       },
       "on_demand": {
-        "count": 185,
-        "completionRate": 0.8,
-        "avgTurns": 2.972972972972973
+        "count": 5,
+        "completionRate": 0.4,
+        "avgTurns": 4.2
       },
-      "content_creation": {
-        "count": 4,
-        "completionRate": 0.5,
-        "avgTurns": 8.5
+      "proactive": {
+        "count": 130,
+        "completionRate": 0.8769230769230769,
+        "avgTurns": 2.5846153846153848
+      },
+      "work_loop": {
+        "count": 21,
+        "completionRate": 0.8095238095238095,
+        "avgTurns": 2.761904761904762
+      },
+      "urgent_message_response": {
+        "count": 5,
+        "completionRate": 0.8,
+        "avgTurns": 7
+      },
+      "generate_content": {
+        "count": 8,
+        "completionRate": 1,
+        "avgTurns": 2.25
+      },
+      "weekly_content_planning": {
+        "count": 8,
+        "completionRate": 0.875,
+        "avgTurns": 3.25
+      },
+      "weekly_report": {
+        "count": 2,
+        "completionRate": 1,
+        "avgTurns": 1
       }
     }
   },
   "assignments": {
     "last30Days": {
-      "received": 27,
-      "completed": 18,
+      "received": 1,
+      "completed": 1,
       "needsRevision": 0,
-      "failed": 3,
-      "avgQualityScore": 92.5,
-      "avgCompletionTimeMs": 13891626.23076923
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 49764533
     },
     "commonFailureModes": []
   },
@@ -252,13 +272,13 @@
     {
       "priority": "P2",
       "category": "skills",
-      "description": "Skill \"advanced-web-creation\" is from another department. Verify this agent uses it or remove.",
+      "description": "Skill \"sharepoint-site-management\" is from another department. Verify this agent uses it or remove.",
       "effort": "trivial"
     },
     {
       "priority": "P2",
       "category": "skills",
-      "description": "Skill \"sharepoint-site-management\" is from another department. Verify this agent uses it or remove.",
+      "description": "Skill \"advanced-web-creation\" is from another department. Verify this agent uses it or remove.",
       "effort": "trivial"
     },
     {
@@ -269,26 +289,26 @@
     },
     {
       "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"client-web-creation\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
       "category": "context",
-      "description": "Assigned skills total ~13546 tokens. Exceeds recommended 3,000-token skill budget.",
+      "description": "Assigned skills total ~15569 tokens. Exceeds recommended 3,000-token skill budget.",
       "effort": "small"
     },
     {
-      "priority": "P1",
-      "category": "health",
-      "description": "Completion rate is 72% (target: >80%).",
-      "effort": "small"
-    },
-    {
-      "priority": "P1",
+      "priority": "P2",
       "category": "runner",
-      "description": "Has orchestration tools but uses TaskRunner. Has 3 team members (2 with runners) — promote to OrchestratorRunner.",
-      "effort": "large"
+      "description": "Has orchestration tools but uses TaskRunner. No active team — strip unused orchestration tools.",
+      "effort": "small"
     },
     {
       "priority": "P2",
       "category": "tools",
-      "description": "Agent loads 21 tool factories (~105+ tools). Heavy reliance on ToolRetriever quality.",
+      "description": "Agent loads 20 tool factories (~100+ tools). Heavy reliance on ToolRetriever quality.",
       "effort": "medium"
     }
   ]

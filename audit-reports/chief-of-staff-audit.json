@@ -1,6 +1,6 @@
 {
   "role": "chief-of-staff",
-  "timestamp": "2026-03-18T01:42:29.803Z",
+  "timestamp": "2026-04-17T03:13:01.556Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sarah-chen.md",
     "exists": true,
@@ -59,7 +59,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\chief-of-staff\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 8236,
+    "tokenCount": 1998,
     "hasCrisisFabricationRules": true,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
@@ -77,16 +77,16 @@
         "category": "leadership",
         "tokenCount": 776,
         "isOwnDomain": false,
-        "timesUsed": 30,
+        "timesUsed": 0,
         "successRate": 1
       },
       {
         "slug": "decision-routing",
-        "proficiency": "expert",
+        "proficiency": "competent",
         "category": "leadership",
         "tokenCount": 2259,
         "isOwnDomain": false,
-        "timesUsed": 30,
+        "timesUsed": 0,
         "successRate": 1
       }
     ],
@@ -112,12 +112,26 @@
         "losesIdentity": false,
         "losesSkills": false,
         "losesMemory": false
+      },
+      {
+        "task": "on_demand",
+        "tier": "light",
+        "losesIdentity": true,
+        "losesSkills": true,
+        "losesMemory": true
+      },
+      {
+        "task": "heartbeat_response",
+        "tier": "standard",
+        "losesIdentity": false,
+        "losesSkills": false,
+        "losesMemory": false
       }
     ]
   },
   "tools": {
-    "factoryCount": 11,
-    "estimatedToolCount": 55,
+    "factoryCount": 18,
+    "estimatedToolCount": 176,
     "factories": [
       "createChiefOfStaffTools",
       "createOrchestrationTools",
@@ -125,18 +139,25 @@
       "createGraphTools",
       "createSharePointTools",
       "createAgentCreationTools",
+      "createAgentManagementTools",
       "createToolGrantTools",
       "createAgentDirectoryTools",
       "createAgent365McpTools",
       "createCoreTools",
-      "createGlyphorMcpTools"
+      "createGlyphorMcpTools",
+      "createResearchTools",
+      "createGithubFromTemplateTools",
+      "createGithubPushFilesTools",
+      "createGithubPullRequestTools",
+      "createVercelProjectTools",
+      "createCloudflarePreviewTools"
     ],
     "hasOrchestrationTools": false,
     "hasAgent365": true,
     "hasGlyphorMcp": true,
     "hasSharePoint": true,
-    "grantedByDb": 168,
-    "blockedByDb": 1
+    "grantedByDb": 176,
+    "blockedByDb": 2
   },
   "config": {
     "runnerType": "OrchestratorRunner",
@@ -147,7 +168,7 @@
     },
     "isExecutive": true,
     "hasActiveTeamMembers": true,
-    "teamMemberCount": 9,
+    "teamMemberCount": 7,
     "teamMembersWithRunners": 7,
     "runnerMismatch": false,
     "temperatureOutlier": false
@@ -155,88 +176,79 @@
   "taskRouting": {
     "taskTypes": [
       "orchestrate",
-      "strategic_planning"
+      "strategic_planning",
+      "on_demand",
+      "heartbeat_response"
     ],
     "coveredBySkillMap": [],
     "uncoveredTaskTypes": [
       "orchestrate",
-      "strategic_planning"
+      "strategic_planning",
+      "heartbeat_response"
     ],
     "coverageRate": 0
   },
   "runs": {
     "last30Days": {
-      "total": 1747,
-      "completed": 1076,
-      "aborted": 119,
+      "total": 653,
+      "completed": 586,
+      "aborted": 11,
       "timedOut": 0,
-      "maxTurnsReached": 0,
-      "avgTurns": 3.5781339439038353,
-      "avgDurationMs": 83705.68288494562,
-      "avgInputTokens": 59904.44762449914,
-      "avgOutputTokens": 1503.1316542644533,
-      "estimatedCost30d": 77.2598
+      "maxTurnsReached": 7,
+      "avgTurns": 3.306278713629403,
+      "avgDurationMs": 40829.13323124043,
+      "avgInputTokens": 51749.53905053599,
+      "avgOutputTokens": 459.34609494640125,
+      "estimatedCost30d": 153.89930000000004
     },
     "taskBreakdown": {
-      "on_demand": {
-        "count": 775,
-        "completionRate": 0.8451612903225807,
-        "avgTurns": 2.5135483870967743
-      },
-      "eod_summary": {
-        "count": 20,
-        "completionRate": 0.85,
-        "avgTurns": 5
-      },
       "orchestrate": {
-        "count": 470,
-        "completionRate": 0.3851063829787234,
-        "avgTurns": 5.648936170212766
+        "count": 483,
+        "completionRate": 0.8778467908902692,
+        "avgTurns": 3.494824016563147
       },
       "proactive": {
-        "count": 278,
-        "completionRate": 0.22661870503597123,
-        "avgTurns": 2.2446043165467624
+        "count": 75,
+        "completionRate": 0.9466666666666667,
+        "avgTurns": 1.8666666666666667
       },
-      "monthly_retrospective": {
-        "count": 1,
-        "completionRate": 1,
-        "avgTurns": 8
+      "on_demand": {
+        "count": 77,
+        "completionRate": 0.987012987012987,
+        "avgTurns": 3.2467532467532467
       },
-      "morning_briefing": {
-        "count": 44,
-        "completionRate": 0.6818181818181818,
-        "avgTurns": 3.159090909090909
-      },
-      "agent365_mail_triage": {
-        "count": 35,
-        "completionRate": 0.8571428571428571,
-        "avgTurns": 4.057142857142857
-      },
-      "weekly_review": {
-        "count": 3,
-        "completionRate": 0.6666666666666666,
+      "eod_summary": {
+        "count": 6,
+        "completionRate": 0.8333333333333334,
         "avgTurns": 4.666666666666667
       },
-      "work_loop": {
-        "count": 121,
-        "completionRate": 0.8016528925619835,
-        "avgTurns": 5.132231404958677
+      "midday_digest": {
+        "count": 5,
+        "completionRate": 1,
+        "avgTurns": 3.4
+      },
+      "morning_briefing": {
+        "count": 5,
+        "completionRate": 0.6,
+        "avgTurns": 5.6
+      },
+      "urgent_message_response": {
+        "count": 2,
+        "completionRate": 1,
+        "avgTurns": 4
       }
     }
   },
   "assignments": {
     "last30Days": {
-      "received": 18,
-      "completed": 16,
+      "received": 1,
+      "completed": 1,
       "needsRevision": 0,
       "failed": 0,
       "avgQualityScore": 0,
-      "avgCompletionTimeMs": -37416799.333333336
+      "avgCompletionTimeMs": 0
     },
-    "commonFailureModes": [
-      "I can't verify this submission yet. I checked linked deliverables for this assignment and found none, so there’s no artifact for me to review. Please resubmit with the actual output attached or published: 1) the product copy manifest entries, 2) the exact PR links, and 3) a short note on what changed so I can review against scope."
-    ]
+    "commonFailureModes": []
   },
   "schedule": {
     "cronJobs": [
@@ -287,7 +299,9 @@
       }
     ],
     "hasScheduleFile": true,
-    "missingCrons": []
+    "missingCrons": [
+      "heartbeat_response"
+    ]
   },
   "recommendations": [
     {
@@ -304,9 +318,9 @@
     },
     {
       "priority": "P1",
-      "category": "health",
-      "description": "Completion rate is 62% (target: >80%).",
-      "effort": "small"
+      "category": "schedule",
+      "description": "Task \"heartbeat_response\" is defined in run.ts but has no cron trigger.",
+      "effort": "trivial"
     },
     {
       "priority": "P2",
@@ -319,6 +333,18 @@
       "category": "routing",
       "description": "Task type \"strategic_planning\" has no matching pattern in task_skill_map.",
       "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"heartbeat_response\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "tools",
+      "description": "Agent loads 18 tool factories (~90+ tools). Heavy reliance on ToolRetriever quality.",
+      "effort": "medium"
     }
   ]
 }

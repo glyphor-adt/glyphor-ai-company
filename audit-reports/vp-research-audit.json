@@ -1,6 +1,6 @@
 {
   "role": "vp-research",
-  "timestamp": "2026-03-18T01:42:47.420Z",
+  "timestamp": "2026-04-17T03:13:13.584Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sophia-lin.md",
     "exists": true,
@@ -49,7 +49,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\vp-research\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 2045,
+    "tokenCount": 829,
     "hasCrisisFabricationRules": false,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
@@ -58,18 +58,8 @@
     ]
   },
   "skills": {
-    "assigned": [
-      {
-        "slug": "research-management",
-        "proficiency": "expert",
-        "category": "research",
-        "tokenCount": 2914,
-        "isOwnDomain": true,
-        "timesUsed": 4,
-        "successRate": 1
-      }
-    ],
-    "totalTokens": 2914,
+    "assigned": [],
+    "totalTokens": 0,
     "crossDomainSkills": [],
     "ghostToolRefs": []
   },
@@ -95,15 +85,35 @@
         "losesIdentity": false,
         "losesSkills": false,
         "losesMemory": false
+      },
+      {
+        "task": "urgent_message_response",
+        "tier": "standard",
+        "losesIdentity": false,
+        "losesSkills": false,
+        "losesMemory": false
+      },
+      {
+        "task": "work_loop",
+        "tier": "task",
+        "losesIdentity": true,
+        "losesSkills": false,
+        "losesMemory": false
+      },
+      {
+        "task": "proactive",
+        "tier": "task",
+        "losesIdentity": true,
+        "losesSkills": false,
+        "losesMemory": false
       }
     ]
   },
   "tools": {
-    "factoryCount": 12,
-    "estimatedToolCount": 60,
+    "factoryCount": 11,
+    "estimatedToolCount": 114,
     "factories": [
       "createVPResearchTools",
-      "createToolGrantTools",
       "createGraphTools",
       "createTeamOrchestrationTools",
       "createPeerCoordinationTools",
@@ -119,18 +129,18 @@
     "hasAgent365": true,
     "hasGlyphorMcp": true,
     "hasSharePoint": true,
-    "grantedByDb": 153,
+    "grantedByDb": 114,
     "blockedByDb": 0
   },
   "config": {
     "runnerType": "OrchestratorRunner",
     "temperature": 0.3,
-    "maxTurns": 50,
+    "maxTurns": 28,
     "maxTurnsOverrides": {},
     "isExecutive": true,
-    "hasActiveTeamMembers": true,
-    "teamMemberCount": 2,
-    "teamMembersWithRunners": 2,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
     "runnerMismatch": false,
     "temperatureOutlier": false
   },
@@ -138,61 +148,57 @@
     "taskTypes": [
       "decompose_research",
       "qc_and_package_research",
-      "follow_up_research"
+      "follow_up_research",
+      "urgent_message_response",
+      "work_loop",
+      "proactive"
     ],
     "coveredBySkillMap": [],
     "uncoveredTaskTypes": [
       "decompose_research",
       "qc_and_package_research",
-      "follow_up_research"
+      "follow_up_research",
+      "urgent_message_response",
+      "work_loop",
+      "proactive"
     ],
     "coverageRate": 0
   },
   "runs": {
     "last30Days": {
-      "total": 130,
-      "completed": 51,
-      "aborted": 20,
+      "total": 8,
+      "completed": 7,
+      "aborted": 1,
       "timedOut": 0,
-      "maxTurnsReached": 5,
-      "avgTurns": 6,
-      "avgDurationMs": 69233.46923076923,
-      "avgInputTokens": 95167.12307692308,
-      "avgOutputTokens": 728.0846153846154,
-      "estimatedCost30d": 3.976199999999998
+      "maxTurnsReached": 0,
+      "avgTurns": 0.875,
+      "avgDurationMs": 38785.5,
+      "avgInputTokens": 12611.625,
+      "avgOutputTokens": 53.375,
+      "estimatedCost30d": 0.9564
     },
     "taskBreakdown": {
-      "proactive": {
-        "count": 30,
-        "completionRate": 0.36666666666666664,
-        "avgTurns": 4.866666666666666
-      },
-      "decompose_research": {
-        "count": 9,
-        "completionRate": 0.6666666666666666,
-        "avgTurns": 1
-      },
-      "qc_and_package_research": {
-        "count": 1,
-        "completionRate": 1,
-        "avgTurns": 3
-      },
       "on_demand": {
-        "count": 9,
-        "completionRate": 0.7777777777777778,
-        "avgTurns": 5
+        "count": 4,
+        "completionRate": 0.75,
+        "avgTurns": 0
+      },
+      "urgent_message_response": {
+        "count": 3,
+        "completionRate": 1,
+        "avgTurns": 2
       },
       "work_loop": {
-        "count": 81,
-        "completionRate": 0.32098765432098764,
-        "avgTurns": 7.1234567901234565
+        "count": 1,
+        "completionRate": 1,
+        "avgTurns": 1
       }
     }
   },
   "assignments": {
     "last30Days": {
-      "received": 4,
-      "completed": 1,
+      "received": 0,
+      "completed": 0,
       "needsRevision": 0,
       "failed": 0,
       "avgQualityScore": 0,
@@ -206,7 +212,8 @@
     "missingCrons": [
       "decompose_research",
       "qc_and_package_research",
-      "follow_up_research"
+      "follow_up_research",
+      "urgent_message_response"
     ]
   },
   "recommendations": [
@@ -218,9 +225,9 @@
     },
     {
       "priority": "P0",
-      "category": "health",
-      "description": "Completion rate is 39% (target: >80%). Agent is failing/aborting frequently.",
-      "effort": "medium"
+      "category": "skills",
+      "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
+      "effort": "small"
     },
     {
       "priority": "P1",
@@ -241,6 +248,12 @@
       "effort": "trivial"
     },
     {
+      "priority": "P1",
+      "category": "schedule",
+      "description": "Task \"urgent_message_response\" is defined in run.ts but has no cron trigger.",
+      "effort": "trivial"
+    },
+    {
       "priority": "P2",
       "category": "routing",
       "description": "Task type \"decompose_research\" has no matching pattern in task_skill_map.",
@@ -256,6 +269,24 @@
       "priority": "P2",
       "category": "routing",
       "description": "Task type \"follow_up_research\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"urgent_message_response\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"work_loop\" has no matching pattern in task_skill_map.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "routing",
+      "description": "Task type \"proactive\" has no matching pattern in task_skill_map.",
       "effort": "trivial"
     }
   ]

@@ -1,6 +1,6 @@
 {
   "role": "cto",
-  "timestamp": "2026-03-18T18:25:16.257Z",
+  "timestamp": "2026-04-17T03:13:04.708Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\marcus-reeves.md",
     "exists": true,
@@ -62,7 +62,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\cto\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 3098,
+    "tokenCount": 1344,
     "hasCrisisFabricationRules": true,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
@@ -78,7 +78,7 @@
         "category": "engineering",
         "tokenCount": 1505,
         "isOwnDomain": true,
-        "timesUsed": 21,
+        "timesUsed": 0,
         "successRate": 1
       },
       {
@@ -87,16 +87,16 @@
         "category": "engineering",
         "tokenCount": 2020,
         "isOwnDomain": true,
-        "timesUsed": 21,
+        "timesUsed": 0,
         "successRate": 1
       },
       {
         "slug": "incident-response",
         "proficiency": "expert",
         "category": "engineering",
-        "tokenCount": 2717,
+        "tokenCount": 2713,
         "isOwnDomain": true,
-        "timesUsed": 26,
+        "timesUsed": 0,
         "successRate": 1
       },
       {
@@ -105,22 +105,32 @@
         "category": "design",
         "tokenCount": 162,
         "isOwnDomain": false,
-        "timesUsed": 17,
+        "timesUsed": 0,
         "successRate": 1
       },
       {
         "slug": "platform-monitoring",
         "proficiency": "expert",
         "category": "engineering",
-        "tokenCount": 2261,
+        "tokenCount": 2257,
         "isOwnDomain": true,
-        "timesUsed": 26,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "client-web-creation",
+        "proficiency": "competent",
+        "category": "design",
+        "tokenCount": 2104,
+        "isOwnDomain": false,
+        "timesUsed": 0,
         "successRate": 1
       }
     ],
-    "totalTokens": 8665,
+    "totalTokens": 10761,
     "crossDomainSkills": [
-      "advanced-web-creation"
+      "advanced-web-creation",
+      "client-web-creation"
     ],
     "ghostToolRefs": []
   },
@@ -128,8 +138,8 @@
     "taskTypes": []
   },
   "tools": {
-    "factoryCount": 17,
-    "estimatedToolCount": 85,
+    "factoryCount": 19,
+    "estimatedToolCount": 195,
     "factories": [
       "createCTOTools",
       "createCollectiveIntelligenceTools",
@@ -146,25 +156,27 @@
       "createAgent365McpTools",
       "createCoreTools",
       "createGlyphorMcpTools",
-      "createFuseTools",
+      "createSandboxDevTools",
+      "createGithubFromTemplateTools",
+      "createClaudeParityTools",
       "createExecutiveOrchestrationTools"
     ],
     "hasOrchestrationTools": true,
     "hasAgent365": true,
     "hasGlyphorMcp": true,
     "hasSharePoint": true,
-    "grantedByDb": 243,
-    "blockedByDb": 0
+    "grantedByDb": 195,
+    "blockedByDb": 47
   },
   "config": {
     "runnerType": "OrchestratorRunner",
     "temperature": 0.3,
-    "maxTurns": 10,
+    "maxTurns": 28,
     "maxTurnsOverrides": {},
     "isExecutive": true,
     "hasActiveTeamMembers": true,
-    "teamMemberCount": 6,
-    "teamMembersWithRunners": 4,
+    "teamMemberCount": 3,
+    "teamMembersWithRunners": 3,
     "runnerMismatch": false,
     "temperatureOutlier": false
   },
@@ -176,53 +188,60 @@
   },
   "runs": {
     "last30Days": {
-      "total": 1430,
-      "completed": 738,
-      "aborted": 130,
+      "total": 746,
+      "completed": 701,
+      "aborted": 19,
       "timedOut": 0,
-      "maxTurnsReached": 42,
-      "avgTurns": 3.2664335664335664,
-      "avgDurationMs": 68773.1958041958,
-      "avgInputTokens": 58444.94265734266,
-      "avgOutputTokens": 1560.9650349650349,
-      "estimatedCost30d": 45.47600000000006
+      "maxTurnsReached": 7,
+      "avgTurns": 1.7024128686327078,
+      "avgDurationMs": 9606.201072386059,
+      "avgInputTokens": 16925.44235924933,
+      "avgOutputTokens": 56.206434316353885,
+      "estimatedCost30d": 74.65220000000002
     },
     "taskBreakdown": {
-      "proactive": {
-        "count": 158,
-        "completionRate": 0.08227848101265822,
-        "avgTurns": 2.170886075949367
-      },
       "platform_health_check": {
-        "count": 257,
-        "completionRate": 0.4669260700389105,
-        "avgTurns": 2.692607003891051
+        "count": 81,
+        "completionRate": 1,
+        "avgTurns": 0
       },
       "on_demand": {
-        "count": 405,
-        "completionRate": 0.654320987654321,
-        "avgTurns": 2.8790123456790124
+        "count": 12,
+        "completionRate": 1,
+        "avgTurns": 4.5
       },
       "work_loop": {
-        "count": 610,
-        "completionRate": 0.5573770491803278,
-        "avgTurns": 4.049180327868853
+        "count": 600,
+        "completionRate": 0.9666666666666667,
+        "avgTurns": 1.455
+      },
+      "proactive": {
+        "count": 22,
+        "completionRate": 0.4090909090909091,
+        "avgTurns": 6.454545454545454
+      },
+      "urgent_message_response": {
+        "count": 22,
+        "completionRate": 0.7272727272727273,
+        "avgTurns": 7.818181818181818
+      },
+      "heartbeat_response": {
+        "count": 9,
+        "completionRate": 0.3333333333333333,
+        "avgTurns": 3.2222222222222223
       }
     }
   },
   "assignments": {
     "last30Days": {
-      "received": 103,
-      "completed": 73,
+      "received": 0,
+      "completed": 0,
       "needsRevision": 0,
-      "failed": 13,
-      "avgQualityScore": 62.5,
-      "avgCompletionTimeMs": 5825472.590909091
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
     },
-    "commonFailureModes": [
-      "Auto-failed: dispatched > 48 hours without execution",
-      "Auto-failed: pending > 24 hours without dispatch"
-    ]
+    "commonFailureModes": []
   },
   "schedule": {
     "cronJobs": [],
@@ -244,20 +263,20 @@
     },
     {
       "priority": "P2",
-      "category": "context",
-      "description": "Assigned skills total ~8665 tokens. Exceeds recommended 3,000-token skill budget.",
-      "effort": "small"
+      "category": "skills",
+      "description": "Skill \"client-web-creation\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
     },
     {
-      "priority": "P0",
-      "category": "health",
-      "description": "Completion rate is 52% (target: >80%). Agent is failing/aborting frequently.",
-      "effort": "medium"
+      "priority": "P2",
+      "category": "context",
+      "description": "Assigned skills total ~10761 tokens. Exceeds recommended 3,000-token skill budget.",
+      "effort": "small"
     },
     {
       "priority": "P2",
       "category": "tools",
-      "description": "Agent loads 17 tool factories (~85+ tools). Heavy reliance on ToolRetriever quality.",
+      "description": "Agent loads 19 tool factories (~95+ tools). Heavy reliance on ToolRetriever quality.",
       "effort": "medium"
     }
   ]

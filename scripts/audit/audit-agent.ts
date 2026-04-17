@@ -741,7 +741,7 @@ export async function auditAgent(role: string): Promise<AgentAuditReport> {
     tiers: { taskTypes: taskTiers },
     tools: {
       factoryCount: runAnalysis.factories.length,
-      estimatedToolCount: runAnalysis.factories.length * 5, // rough average
+      estimatedToolCount: grantedByDb || runAnalysis.factories.length,
       factories: runAnalysis.factories,
       hasOrchestrationTools,
       hasAgent365: runAnalysis.factories.some(f => f.includes('Agent365')),

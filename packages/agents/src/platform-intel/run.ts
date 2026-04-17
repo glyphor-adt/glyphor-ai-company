@@ -29,7 +29,7 @@ import { getGoogleAiApiKey } from '@glyphor/shared';
 import { PLATFORM_INTEL_CONFIG } from './config.js';
 
 export interface PlatformIntelRunParams {
-  task?: 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation' | 'apply_fix_proposal';
+  task?: 'daily_analysis' | 'on_demand' | 'watch_tool_gaps' | 'memory_consolidation' | 'apply_fix_proposal' | 'fleet_audit';
   message?: string;
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
@@ -109,6 +109,19 @@ export async function runPlatformIntel(params: PlatformIntelRunParams = {}) {
     case 'memory_consolidation':
       initialMessage = params.message
         ?? 'Run memory consolidation: recall existing memories, merge duplicates, save only durable consolidated facts. Summarize changes.';
+      break;
+
+    case 'fleet_audit':
+      initialMessage = params.message ?? [
+        `Daily fleet governance audit for ${today}.`,
+        '',
+        '1. Run read_fleet_health() to get current fleet status.',
+        '2. Run watch_tool_gaps() to auto-resolve tool gaps.',
+        '3. Summarize: total agents, health breakdown (healthy/degraded/unhealthy), P0 issues found, and any agents needing attention.',
+        '4. If any P0 issues are found, create an approval_request for each one that requires human intervention.',
+        '',
+        'Keep the summary concise — this is a daily automated check.',
+      ].join('\n');
       break;
 
     case 'on_demand':

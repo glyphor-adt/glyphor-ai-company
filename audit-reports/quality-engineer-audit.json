@@ -1,6 +1,6 @@
 {
   "role": "quality-engineer",
-  "timestamp": "2026-03-18T01:42:44.161Z",
+  "timestamp": "2026-04-17T03:13:10.115Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sam-deluca.md",
     "exists": true,
@@ -44,7 +44,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\quality-engineer\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 679,
+    "tokenCount": 542,
     "hasCrisisFabricationRules": false,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
@@ -53,27 +53,8 @@
     ]
   },
   "skills": {
-    "assigned": [
-      {
-        "slug": "tech-spec-writing",
-        "proficiency": "expert",
-        "category": "engineering",
-        "tokenCount": 1505,
-        "isOwnDomain": true,
-        "timesUsed": 0,
-        "successRate": 1
-      },
-      {
-        "slug": "quality-assurance",
-        "proficiency": "expert",
-        "category": "engineering",
-        "tokenCount": 1775,
-        "isOwnDomain": true,
-        "timesUsed": 0,
-        "successRate": 1
-      }
-    ],
-    "totalTokens": 3280,
+    "assigned": [],
+    "totalTokens": 0,
     "crossDomainSkills": [],
     "ghostToolRefs": []
   },
@@ -81,8 +62,8 @@
     "taskTypes": []
   },
   "tools": {
-    "factoryCount": 7,
-    "estimatedToolCount": 35,
+    "factoryCount": 8,
+    "estimatedToolCount": 8,
     "factories": [
       "createQualityEngineerTools",
       "createGraphTools",
@@ -90,19 +71,20 @@
       "createEngineeringGapTools",
       "createAgent365McpTools",
       "createCoreTools",
-      "createGlyphorMcpTools"
+      "createGlyphorMcpTools",
+      "createSandboxDevTools"
     ],
     "hasOrchestrationTools": false,
     "hasAgent365": true,
     "hasGlyphorMcp": true,
     "hasSharePoint": true,
-    "grantedByDb": 21,
+    "grantedByDb": 0,
     "blockedByDb": 0
   },
   "config": {
     "runnerType": "TaskRunner",
     "temperature": 0.3,
-    "maxTurns": 50,
+    "maxTurns": 28,
     "maxTurnsOverrides": {},
     "isExecutive": false,
     "hasActiveTeamMembers": false,
@@ -119,39 +101,23 @@
   },
   "runs": {
     "last30Days": {
-      "total": 73,
-      "completed": 48,
-      "aborted": 16,
+      "total": 0,
+      "completed": 0,
+      "aborted": 0,
       "timedOut": 0,
       "maxTurnsReached": 0,
-      "avgTurns": 5.301369863013699,
-      "avgDurationMs": 62760.30136986302,
-      "avgInputTokens": 87077.78082191781,
-      "avgOutputTokens": 1012.4657534246576,
-      "estimatedCost30d": 1.2881000000000005
+      "avgTurns": 0,
+      "avgDurationMs": 0,
+      "avgInputTokens": 0,
+      "avgOutputTokens": 0,
+      "estimatedCost30d": 0
     },
-    "taskBreakdown": {
-      "qa_report": {
-        "count": 21,
-        "completionRate": 0.7142857142857143,
-        "avgTurns": 5.190476190476191
-      },
-      "proactive": {
-        "count": 43,
-        "completionRate": 0.627906976744186,
-        "avgTurns": 5.72093023255814
-      },
-      "work_loop": {
-        "count": 9,
-        "completionRate": 0.6666666666666666,
-        "avgTurns": 3.5555555555555554
-      }
-    }
+    "taskBreakdown": {}
   },
   "assignments": {
     "last30Days": {
-      "received": 3,
-      "completed": 3,
+      "received": 0,
+      "completed": 0,
       "needsRevision": 0,
       "failed": 0,
       "avgQualityScore": 0,
@@ -172,10 +138,16 @@
       "effort": "trivial"
     },
     {
-      "priority": "P1",
-      "category": "health",
-      "description": "Completion rate is 66% (target: >80%).",
+      "priority": "P0",
+      "category": "skills",
+      "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
       "effort": "small"
+    },
+    {
+      "priority": "P2",
+      "category": "health",
+      "description": "Zero runs in 30 days. Agent may be broken, unscheduled, or orphaned.",
+      "effort": "medium"
     }
   ]
 }

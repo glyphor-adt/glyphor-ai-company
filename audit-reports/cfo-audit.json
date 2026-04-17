@@ -1,6 +1,6 @@
 {
   "role": "cfo",
-  "timestamp": "2026-03-18T01:42:28.554Z",
+  "timestamp": "2026-04-17T03:13:00.213Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\nadia-okafor.md",
     "exists": true,
@@ -62,7 +62,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\cfo\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 1002,
+    "tokenCount": 951,
     "hasCrisisFabricationRules": true,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
@@ -73,21 +73,21 @@
   "skills": {
     "assigned": [
       {
+        "slug": "financial-reporting",
+        "proficiency": "expert",
+        "category": "finance",
+        "tokenCount": 2467,
+        "isOwnDomain": true,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
         "slug": "budget-monitoring",
         "proficiency": "expert",
         "category": "finance",
         "tokenCount": 814,
         "isOwnDomain": true,
-        "timesUsed": 11,
-        "successRate": 1
-      },
-      {
-        "slug": "financial-reporting",
-        "proficiency": "expert",
-        "category": "finance",
-        "tokenCount": 2484,
-        "isOwnDomain": true,
-        "timesUsed": 10,
+        "timesUsed": 0,
         "successRate": 1
       },
       {
@@ -96,11 +96,11 @@
         "category": "finance",
         "tokenCount": 2241,
         "isOwnDomain": true,
-        "timesUsed": 9,
+        "timesUsed": 0,
         "successRate": 1
       }
     ],
-    "totalTokens": 5539,
+    "totalTokens": 5522,
     "crossDomainSkills": [],
     "ghostToolRefs": []
   },
@@ -108,8 +108,8 @@
     "taskTypes": []
   },
   "tools": {
-    "factoryCount": 14,
-    "estimatedToolCount": 70,
+    "factoryCount": 13,
+    "estimatedToolCount": 131,
     "factories": [
       "createCFOTools",
       "createCollectiveIntelligenceTools",
@@ -117,7 +117,6 @@
       "createSharePointTools",
       "createPeerCoordinationTools",
       "createInitiativeTools",
-      "createToolGrantTools",
       "createAgentDirectoryTools",
       "createRevenueTools",
       "createCostManagementTools",
@@ -130,8 +129,8 @@
     "hasAgent365": true,
     "hasGlyphorMcp": true,
     "hasSharePoint": true,
-    "grantedByDb": 181,
-    "blockedByDb": 0
+    "grantedByDb": 131,
+    "blockedByDb": 47
   },
   "config": {
     "runnerType": "TaskRunner",
@@ -139,8 +138,8 @@
     "maxTurns": 50,
     "maxTurnsOverrides": {},
     "isExecutive": true,
-    "hasActiveTeamMembers": true,
-    "teamMemberCount": 1,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
     "teamMembersWithRunners": 0,
     "runnerMismatch": false,
     "temperatureOutlier": false
@@ -153,53 +152,48 @@
   },
   "runs": {
     "last30Days": {
-      "total": 547,
-      "completed": 366,
-      "aborted": 34,
+      "total": 557,
+      "completed": 542,
+      "aborted": 9,
       "timedOut": 0,
       "maxTurnsReached": 0,
-      "avgTurns": 3.2559414990859232,
-      "avgDurationMs": 59806.83729433273,
-      "avgInputTokens": 51712.06398537477,
-      "avgOutputTokens": 1136.5667276051188,
-      "estimatedCost30d": 17.5054
+      "avgTurns": 1.3824057450628366,
+      "avgDurationMs": 12731.23698384201,
+      "avgInputTokens": 7720.235188509874,
+      "avgOutputTokens": 302.7289048473968,
+      "estimatedCost30d": 23.7374
     },
     "taskBreakdown": {
-      "proactive": {
-        "count": 215,
-        "completionRate": 0.5906976744186047,
-        "avgTurns": 3.911627906976744
+      "work_loop": {
+        "count": 454,
+        "completionRate": 0.9977973568281938,
+        "avgTurns": 1.0220264317180616
       },
-      "on_demand": {
-        "count": 230,
-        "completionRate": 0.7217391304347827,
-        "avgTurns": 2.3347826086956522
+      "proactive": {
+        "count": 93,
+        "completionRate": 0.8494623655913979,
+        "avgTurns": 3.2688172043010755
+      },
+      "urgent_message_response": {
+        "count": 2,
+        "completionRate": 1,
+        "avgTurns": 1
       },
       "daily_cost_check": {
-        "count": 42,
-        "completionRate": 0.6428571428571429,
-        "avgTurns": 3.8333333333333335
-      },
-      "work_loop": {
-        "count": 56,
-        "completionRate": 0.75,
-        "avgTurns": 4.017857142857143
-      },
-      "financial_modeling": {
-        "count": 4,
+        "count": 8,
         "completionRate": 1,
-        "avgTurns": 4.25
+        "avgTurns": 0
       }
     }
   },
   "assignments": {
     "last30Days": {
-      "received": 20,
-      "completed": 18,
+      "received": 0,
+      "completed": 0,
       "needsRevision": 0,
       "failed": 0,
-      "avgQualityScore": 83.83333333333333,
-      "avgCompletionTimeMs": 9852812.176470589
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 0
     },
     "commonFailureModes": []
   },
@@ -218,13 +212,7 @@
     {
       "priority": "P2",
       "category": "context",
-      "description": "Assigned skills total ~5539 tokens. Exceeds recommended 3,000-token skill budget.",
-      "effort": "small"
-    },
-    {
-      "priority": "P1",
-      "category": "health",
-      "description": "Completion rate is 67% (target: >80%).",
+      "description": "Assigned skills total ~5522 tokens. Exceeds recommended 3,000-token skill budget.",
       "effort": "small"
     }
   ]

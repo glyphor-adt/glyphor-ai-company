@@ -1,6 +1,6 @@
 {
   "role": "ops",
-  "timestamp": "2026-03-18T01:42:42.456Z",
+  "timestamp": "2026-04-17T03:13:07.425Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\atlas-vega.md",
     "exists": true,
@@ -91,7 +91,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\ops\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 881,
+    "tokenCount": 581,
     "hasCrisisFabricationRules": true,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
@@ -100,51 +100,19 @@
     ]
   },
   "skills": {
-    "assigned": [
-      {
-        "slug": "incident-response",
-        "proficiency": "expert",
-        "category": "engineering",
-        "tokenCount": 2717,
-        "isOwnDomain": false,
-        "timesUsed": 1,
-        "successRate": 1
-      },
-      {
-        "slug": "platform-monitoring",
-        "proficiency": "expert",
-        "category": "engineering",
-        "tokenCount": 2261,
-        "isOwnDomain": false,
-        "timesUsed": 1,
-        "successRate": 1
-      },
-      {
-        "slug": "system-monitoring",
-        "proficiency": "expert",
-        "category": "operations",
-        "tokenCount": 2272,
-        "isOwnDomain": true,
-        "timesUsed": 1,
-        "successRate": 1
-      }
-    ],
-    "totalTokens": 7250,
-    "crossDomainSkills": [
-      "incident-response",
-      "platform-monitoring"
-    ],
+    "assigned": [],
+    "totalTokens": 0,
+    "crossDomainSkills": [],
     "ghostToolRefs": []
   },
   "tiers": {
     "taskTypes": []
   },
   "tools": {
-    "factoryCount": 10,
-    "estimatedToolCount": 50,
+    "factoryCount": 9,
+    "estimatedToolCount": 158,
     "factories": [
       "createOpsTools",
-      "createToolGrantTools",
       "createCollectiveIntelligenceTools",
       "createGraphTools",
       "createSharePointTools",
@@ -158,18 +126,18 @@
     "hasAgent365": true,
     "hasGlyphorMcp": true,
     "hasSharePoint": true,
-    "grantedByDb": 173,
-    "blockedByDb": 0
+    "grantedByDb": 158,
+    "blockedByDb": 2
   },
   "config": {
     "runnerType": "OrchestratorRunner",
     "temperature": 0.3,
-    "maxTurns": 50,
+    "maxTurns": 28,
     "maxTurnsOverrides": {},
     "isExecutive": true,
-    "hasActiveTeamMembers": true,
-    "teamMemberCount": 1,
-    "teamMembersWithRunners": 1,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
     "runnerMismatch": false,
     "temperatureOutlier": false
   },
@@ -181,73 +149,53 @@
   },
   "runs": {
     "last30Days": {
-      "total": 3343,
-      "completed": 2332,
-      "aborted": 358,
+      "total": 379,
+      "completed": 276,
+      "aborted": 11,
       "timedOut": 0,
       "maxTurnsReached": 0,
-      "avgTurns": 4.157343703260544,
-      "avgDurationMs": 76083.78103499851,
-      "avgInputTokens": 82839.99700867484,
-      "avgOutputTokens": 1239.7930002991325,
-      "estimatedCost30d": 133.59990000000013
+      "avgTurns": 4.408970976253298,
+      "avgDurationMs": 56905.295514511876,
+      "avgInputTokens": 57064.78627968338,
+      "avgOutputTokens": 2060.5540897097626,
+      "estimatedCost30d": 101.28860000000002
     },
     "taskBreakdown": {
-      "health_check": {
-        "count": 1713,
-        "completionRate": 0.7869235259778167,
-        "avgTurns": 4.780502043199066
-      },
-      "freshness_check": {
-        "count": 543,
-        "completionRate": 0.8158379373848987,
-        "avgTurns": 3.0718232044198897
-      },
-      "on_demand": {
-        "count": 77,
-        "completionRate": 0.948051948051948,
-        "avgTurns": 2.324675324675325
-      },
-      "cost_check": {
-        "count": 296,
-        "completionRate": 0.6148648648648649,
-        "avgTurns": 4.783783783783784
-      },
       "proactive": {
-        "count": 110,
-        "completionRate": 0.8,
-        "avgTurns": 5.472727272727273
+        "count": 243,
+        "completionRate": 0.9547325102880658,
+        "avgTurns": 5.251028806584362
       },
       "event_response": {
-        "count": 556,
-        "completionRate": 0.2751798561151079,
-        "avgTurns": 2.9568345323741005
-      },
-      "morning_status": {
-        "count": 20,
-        "completionRate": 0.95,
-        "avgTurns": 3.4
-      },
-      "evening_status": {
-        "count": 20,
-        "completionRate": 0.95,
-        "avgTurns": 4.35
+        "count": 116,
+        "completionRate": 0.22413793103448276,
+        "avgTurns": 2.456896551724138
       },
       "work_loop": {
-        "count": 8,
-        "completionRate": 0.875,
-        "avgTurns": 5.625
+        "count": 10,
+        "completionRate": 0.8,
+        "avgTurns": 4.8
+      },
+      "urgent_message_response": {
+        "count": 7,
+        "completionRate": 1,
+        "avgTurns": 6.285714285714286
+      },
+      "on_demand": {
+        "count": 3,
+        "completionRate": 1,
+        "avgTurns": 6
       }
     }
   },
   "assignments": {
     "last30Days": {
-      "received": 4,
-      "completed": 4,
+      "received": 1,
+      "completed": 1,
       "needsRevision": 0,
       "failed": 0,
       "avgQualityScore": 0,
-      "avgCompletionTimeMs": 2239175.6666666665
+      "avgCompletionTimeMs": 46835
     },
     "commonFailureModes": []
   },
@@ -264,27 +212,15 @@
       "effort": "small"
     },
     {
-      "priority": "P2",
+      "priority": "P0",
       "category": "skills",
-      "description": "Skill \"incident-response\" is from another department. Verify this agent uses it or remove.",
-      "effort": "trivial"
-    },
-    {
-      "priority": "P2",
-      "category": "skills",
-      "description": "Skill \"platform-monitoring\" is from another department. Verify this agent uses it or remove.",
-      "effort": "trivial"
-    },
-    {
-      "priority": "P2",
-      "category": "context",
-      "description": "Assigned skills total ~7250 tokens. Exceeds recommended 3,000-token skill budget.",
+      "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
       "effort": "small"
     },
     {
       "priority": "P1",
       "category": "health",
-      "description": "Completion rate is 70% (target: >80%).",
+      "description": "Completion rate is 73% (target: >80%).",
       "effort": "small"
     }
   ]

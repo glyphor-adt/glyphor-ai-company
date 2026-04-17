@@ -1,0 +1,2943 @@
+{
+  "timestamp": "2026-04-17T03:13:13.723Z",
+  "agentCount": 11,
+  "agents": [
+    {
+      "role": "cfo",
+      "timestamp": "2026-04-17T03:13:00.213Z",
+      "brief": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\nadia-okafor.md",
+        "exists": true,
+        "tokenCount": 883,
+        "hasRelationships": true,
+        "hasAuthority": true,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
+        "containsKnowledgeContent": true,
+        "skillIndicators": [],
+        "knowledgeIndicators": [
+          "dollar amounts",
+          "percentages"
+        ],
+        "duplicateRelationships": [],
+        "sectionBreakdown": [
+          {
+            "heading": "Nadia Okafor — Chief Financial Officer",
+            "tokens": 65,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Identity",
+            "tokens": 118,
+            "classification": "identity"
+          },
+          {
+            "heading": "Personality & Voice",
+            "tokens": 158,
+            "classification": "identity"
+          },
+          {
+            "heading": "Communication Style",
+            "tokens": 133,
+            "classification": "identity"
+          },
+          {
+            "heading": "Core Mission",
+            "tokens": 140,
+            "classification": "knowledge"
+          },
+          {
+            "heading": "Your Relationships",
+            "tokens": 97,
+            "classification": "identity"
+          },
+          {
+            "heading": "Authority Boundaries",
+            "tokens": 71,
+            "classification": "identity"
+          },
+          {
+            "heading": "Operating Principles",
+            "tokens": 103,
+            "classification": "knowledge"
+          }
+        ]
+      },
+      "systemPrompt": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\cfo\\systemPrompt.ts",
+        "exists": true,
+        "tokenCount": 951,
+        "hasCrisisFabricationRules": true,
+        "overlapsWithBrief": 0,
+        "overlapsWithSkills": 0,
+        "exportedConstants": [
+          "CFO_SYSTEM_PROMPT"
+        ]
+      },
+      "skills": {
+        "assigned": [
+          {
+            "slug": "financial-reporting",
+            "proficiency": "expert",
+            "category": "finance",
+            "tokenCount": 2467,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "budget-monitoring",
+            "proficiency": "expert",
+            "category": "finance",
+            "tokenCount": 814,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "revenue-analysis",
+            "proficiency": "expert",
+            "category": "finance",
+            "tokenCount": 2241,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          }
+        ],
+        "totalTokens": 5522,
+        "crossDomainSkills": [],
+        "ghostToolRefs": []
+      },
+      "tiers": {
+        "taskTypes": []
+      },
+      "tools": {
+        "factoryCount": 13,
+        "estimatedToolCount": 131,
+        "factories": [
+          "createCFOTools",
+          "createCollectiveIntelligenceTools",
+          "createGraphTools",
+          "createSharePointTools",
+          "createPeerCoordinationTools",
+          "createInitiativeTools",
+          "createAgentDirectoryTools",
+          "createRevenueTools",
+          "createCostManagementTools",
+          "createCashFlowTools",
+          "createAgent365McpTools",
+          "createCoreTools",
+          "createGlyphorMcpTools"
+        ],
+        "hasOrchestrationTools": false,
+        "hasAgent365": true,
+        "hasGlyphorMcp": true,
+        "hasSharePoint": true,
+        "grantedByDb": 131,
+        "blockedByDb": 47
+      },
+      "config": {
+        "runnerType": "TaskRunner",
+        "temperature": 0.3,
+        "maxTurns": 50,
+        "maxTurnsOverrides": {},
+        "isExecutive": true,
+        "hasActiveTeamMembers": false,
+        "teamMemberCount": 0,
+        "teamMembersWithRunners": 0,
+        "runnerMismatch": false,
+        "temperatureOutlier": false
+      },
+      "taskRouting": {
+        "taskTypes": [],
+        "coveredBySkillMap": [],
+        "uncoveredTaskTypes": [],
+        "coverageRate": 1
+      },
+      "runs": {
+        "last30Days": {
+          "total": 557,
+          "completed": 542,
+          "aborted": 9,
+          "timedOut": 0,
+          "maxTurnsReached": 0,
+          "avgTurns": 1.3824057450628366,
+          "avgDurationMs": 12731.23698384201,
+          "avgInputTokens": 7720.235188509874,
+          "avgOutputTokens": 302.7289048473968,
+          "estimatedCost30d": 23.7374
+        },
+        "taskBreakdown": {
+          "work_loop": {
+            "count": 454,
+            "completionRate": 0.9977973568281938,
+            "avgTurns": 1.0220264317180616
+          },
+          "proactive": {
+            "count": 93,
+            "completionRate": 0.8494623655913979,
+            "avgTurns": 3.2688172043010755
+          },
+          "urgent_message_response": {
+            "count": 2,
+            "completionRate": 1,
+            "avgTurns": 1
+          },
+          "daily_cost_check": {
+            "count": 8,
+            "completionRate": 1,
+            "avgTurns": 0
+          }
+        }
+      },
+      "assignments": {
+        "last30Days": {
+          "received": 0,
+          "completed": 0,
+          "needsRevision": 0,
+          "failed": 0,
+          "avgQualityScore": 0,
+          "avgCompletionTimeMs": 0
+        },
+        "commonFailureModes": []
+      },
+      "schedule": {
+        "cronJobs": [],
+        "hasScheduleFile": false,
+        "missingCrons": []
+      },
+      "recommendations": [
+        {
+          "priority": "P2",
+          "category": "brief",
+          "description": "Brief contains knowledge data (dollar amounts, percentages). Move to knowledge base.",
+          "effort": "small"
+        },
+        {
+          "priority": "P2",
+          "category": "context",
+          "description": "Assigned skills total ~5522 tokens. Exceeds recommended 3,000-token skill budget.",
+          "effort": "small"
+        }
+      ]
+    },
+    {
+      "role": "chief-of-staff",
+      "timestamp": "2026-04-17T03:13:01.556Z",
+      "brief": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sarah-chen.md",
+        "exists": true,
+        "tokenCount": 983,
+        "hasRelationships": true,
+        "hasAuthority": true,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
+        "containsKnowledgeContent": false,
+        "skillIndicators": [],
+        "knowledgeIndicators": [],
+        "duplicateRelationships": [],
+        "sectionBreakdown": [
+          {
+            "heading": "Sarah Chen — Chief of Staff",
+            "tokens": 53,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Identity",
+            "tokens": 74,
+            "classification": "identity"
+          },
+          {
+            "heading": "Personality & Voice",
+            "tokens": 162,
+            "classification": "identity"
+          },
+          {
+            "heading": "Communication Style",
+            "tokens": 132,
+            "classification": "identity"
+          },
+          {
+            "heading": "Core Mission",
+            "tokens": 175,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Relationships",
+            "tokens": 135,
+            "classification": "identity"
+          },
+          {
+            "heading": "Operating Principles",
+            "tokens": 118,
+            "classification": "identity"
+          },
+          {
+            "heading": "Authority & Constraints",
+            "tokens": 138,
+            "classification": "identity"
+          }
+        ]
+      },
+      "systemPrompt": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\chief-of-staff\\systemPrompt.ts",
+        "exists": true,
+        "tokenCount": 1998,
+        "hasCrisisFabricationRules": true,
+        "overlapsWithBrief": 0,
+        "overlapsWithSkills": 0,
+        "exportedConstants": [
+          "CHIEF_OF_STAFF_SYSTEM_PROMPT",
+          "ORCHESTRATION_PROMPT",
+          "STRATEGIC_PLANNING_PROMPT"
+        ]
+      },
+      "skills": {
+        "assigned": [
+          {
+            "slug": "cross-team-coordination",
+            "proficiency": "expert",
+            "category": "leadership",
+            "tokenCount": 776,
+            "isOwnDomain": false,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "decision-routing",
+            "proficiency": "competent",
+            "category": "leadership",
+            "tokenCount": 2259,
+            "isOwnDomain": false,
+            "timesUsed": 0,
+            "successRate": 1
+          }
+        ],
+        "totalTokens": 3035,
+        "crossDomainSkills": [
+          "cross-team-coordination",
+          "decision-routing"
+        ],
+        "ghostToolRefs": []
+      },
+      "tiers": {
+        "taskTypes": [
+          {
+            "task": "orchestrate",
+            "tier": "full",
+            "losesIdentity": false,
+            "losesSkills": false,
+            "losesMemory": false
+          },
+          {
+            "task": "strategic_planning",
+            "tier": "full",
+            "losesIdentity": false,
+            "losesSkills": false,
+            "losesMemory": false
+          },
+          {
+            "task": "on_demand",
+            "tier": "light",
+            "losesIdentity": true,
+            "losesSkills": true,
+            "losesMemory": true
+          },
+          {
+            "task": "heartbeat_response",
+            "tier": "standard",
+            "losesIdentity": false,
+            "losesSkills": false,
+            "losesMemory": false
+          }
+        ]
+      },
+      "tools": {
+        "factoryCount": 18,
+        "estimatedToolCount": 176,
+        "factories": [
+          "createChiefOfStaffTools",
+          "createOrchestrationTools",
+          "createCollectiveIntelligenceTools",
+          "createGraphTools",
+          "createSharePointTools",
+          "createAgentCreationTools",
+          "createAgentManagementTools",
+          "createToolGrantTools",
+          "createAgentDirectoryTools",
+          "createAgent365McpTools",
+          "createCoreTools",
+          "createGlyphorMcpTools",
+          "createResearchTools",
+          "createGithubFromTemplateTools",
+          "createGithubPushFilesTools",
+          "createGithubPullRequestTools",
+          "createVercelProjectTools",
+          "createCloudflarePreviewTools"
+        ],
+        "hasOrchestrationTools": false,
+        "hasAgent365": true,
+        "hasGlyphorMcp": true,
+        "hasSharePoint": true,
+        "grantedByDb": 176,
+        "blockedByDb": 2
+      },
+      "config": {
+        "runnerType": "OrchestratorRunner",
+        "temperature": 0.3,
+        "maxTurns": 50,
+        "maxTurnsOverrides": {
+          "orchestrate": 10
+        },
+        "isExecutive": true,
+        "hasActiveTeamMembers": true,
+        "teamMemberCount": 7,
+        "teamMembersWithRunners": 7,
+        "runnerMismatch": false,
+        "temperatureOutlier": false
+      },
+      "taskRouting": {
+        "taskTypes": [
+          "orchestrate",
+          "strategic_planning",
+          "on_demand",
+          "heartbeat_response"
+        ],
+        "coveredBySkillMap": [],
+        "uncoveredTaskTypes": [
+          "orchestrate",
+          "strategic_planning",
+          "heartbeat_response"
+        ],
+        "coverageRate": 0
+      },
+      "runs": {
+        "last30Days": {
+          "total": 653,
+          "completed": 586,
+          "aborted": 11,
+          "timedOut": 0,
+          "maxTurnsReached": 7,
+          "avgTurns": 3.306278713629403,
+          "avgDurationMs": 40829.13323124043,
+          "avgInputTokens": 51749.53905053599,
+          "avgOutputTokens": 459.34609494640125,
+          "estimatedCost30d": 153.89930000000004
+        },
+        "taskBreakdown": {
+          "orchestrate": {
+            "count": 483,
+            "completionRate": 0.8778467908902692,
+            "avgTurns": 3.494824016563147
+          },
+          "proactive": {
+            "count": 75,
+            "completionRate": 0.9466666666666667,
+            "avgTurns": 1.8666666666666667
+          },
+          "on_demand": {
+            "count": 77,
+            "completionRate": 0.987012987012987,
+            "avgTurns": 3.2467532467532467
+          },
+          "eod_summary": {
+            "count": 6,
+            "completionRate": 0.8333333333333334,
+            "avgTurns": 4.666666666666667
+          },
+          "midday_digest": {
+            "count": 5,
+            "completionRate": 1,
+            "avgTurns": 3.4
+          },
+          "morning_briefing": {
+            "count": 5,
+            "completionRate": 0.6,
+            "avgTurns": 5.6
+          },
+          "urgent_message_response": {
+            "count": 2,
+            "completionRate": 1,
+            "avgTurns": 4
+          }
+        }
+      },
+      "assignments": {
+        "last30Days": {
+          "received": 1,
+          "completed": 1,
+          "needsRevision": 0,
+          "failed": 0,
+          "avgQualityScore": 0,
+          "avgCompletionTimeMs": 0
+        },
+        "commonFailureModes": []
+      },
+      "schedule": {
+        "cronJobs": [
+          {
+            "name": "orchestration-cycle",
+            "schedule": "0 */1 * * *",
+            "task": "orchestrate"
+          },
+          {
+            "name": "briefing-kristina",
+            "schedule": "0 7 * * *",
+            "task": "generate_briefing"
+          },
+          {
+            "name": "briefing-andrew",
+            "schedule": "30 7 * * *",
+            "task": "generate_briefing"
+          },
+          {
+            "name": "midday-digest",
+            "schedule": "0 12 * * 1-5",
+            "task": "midday_digest"
+          },
+          {
+            "name": "eod-summary",
+            "schedule": "0 18 * * 1-5",
+            "task": "generate_briefing"
+          },
+          {
+            "name": "weekly-review",
+            "schedule": "0 9 * * 1",
+            "task": "weekly_review"
+          },
+          {
+            "name": "monthly-retrospective",
+            "schedule": "0 10 1 * *",
+            "task": "monthly_retrospective"
+          },
+          {
+            "name": "strategic-planning",
+            "schedule": "0 14 * * 1",
+            "task": "strategic_planning"
+          },
+          {
+            "name": "escalation-check",
+            "schedule": "0 */6 * * *",
+            "task": "check_escalations"
+          }
+        ],
+        "hasScheduleFile": true,
+        "missingCrons": [
+          "heartbeat_response"
+        ]
+      },
+      "recommendations": [
+        {
+          "priority": "P2",
+          "category": "skills",
+          "description": "Skill \"cross-team-coordination\" is from another department. Verify this agent uses it or remove.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "skills",
+          "description": "Skill \"decision-routing\" is from another department. Verify this agent uses it or remove.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P1",
+          "category": "schedule",
+          "description": "Task \"heartbeat_response\" is defined in run.ts but has no cron trigger.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "routing",
+          "description": "Task type \"orchestrate\" has no matching pattern in task_skill_map.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "routing",
+          "description": "Task type \"strategic_planning\" has no matching pattern in task_skill_map.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "routing",
+          "description": "Task type \"heartbeat_response\" has no matching pattern in task_skill_map.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "tools",
+          "description": "Agent loads 18 tool factories (~90+ tools). Heavy reliance on ToolRetriever quality.",
+          "effort": "medium"
+        }
+      ]
+    },
+    {
+      "role": "cmo",
+      "timestamp": "2026-04-17T03:13:02.629Z",
+      "brief": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\maya-brooks.md",
+        "exists": true,
+        "tokenCount": 997,
+        "hasRelationships": true,
+        "hasAuthority": true,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
+        "containsKnowledgeContent": false,
+        "skillIndicators": [],
+        "knowledgeIndicators": [],
+        "duplicateRelationships": [],
+        "sectionBreakdown": [
+          {
+            "heading": "Maya Brooks — Chief Marketing Officer",
+            "tokens": 80,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Identity",
+            "tokens": 126,
+            "classification": "identity"
+          },
+          {
+            "heading": "Personality & Voice",
+            "tokens": 214,
+            "classification": "identity"
+          },
+          {
+            "heading": "Communication Style",
+            "tokens": 141,
+            "classification": "identity"
+          },
+          {
+            "heading": "Core Mission",
+            "tokens": 151,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Relationships",
+            "tokens": 100,
+            "classification": "identity"
+          },
+          {
+            "heading": "Authority Boundaries",
+            "tokens": 89,
+            "classification": "identity"
+          },
+          {
+            "heading": "Operating Principles",
+            "tokens": 98,
+            "classification": "identity"
+          }
+        ]
+      },
+      "systemPrompt": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\cmo\\systemPrompt.ts",
+        "exists": true,
+        "tokenCount": 1981,
+        "hasCrisisFabricationRules": true,
+        "overlapsWithBrief": 0,
+        "overlapsWithSkills": 0,
+        "exportedConstants": [
+          "CMO_ADDITIONAL_RULES",
+          "CMO_SYSTEM_PROMPT"
+        ]
+      },
+      "skills": {
+        "assigned": [
+          {
+            "slug": "content-creation",
+            "proficiency": "expert",
+            "category": "marketing",
+            "tokenCount": 3992,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "social-media-management",
+            "proficiency": "expert",
+            "category": "marketing",
+            "tokenCount": 2040,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "sharepoint-site-management",
+            "proficiency": "learning",
+            "category": "operations",
+            "tokenCount": 3399,
+            "isOwnDomain": false,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "advanced-web-creation",
+            "proficiency": "expert",
+            "category": "design",
+            "tokenCount": 162,
+            "isOwnDomain": false,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "brand-management",
+            "proficiency": "expert",
+            "category": "design",
+            "tokenCount": 1857,
+            "isOwnDomain": false,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "client-web-creation",
+            "proficiency": "competent",
+            "category": "design",
+            "tokenCount": 2104,
+            "isOwnDomain": false,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "seo-optimization",
+            "proficiency": "expert",
+            "category": "marketing",
+            "tokenCount": 2015,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          }
+        ],
+        "totalTokens": 15569,
+        "crossDomainSkills": [
+          "sharepoint-site-management",
+          "advanced-web-creation",
+          "brand-management",
+          "client-web-creation"
+        ],
+        "ghostToolRefs": []
+      },
+      "tiers": {
+        "taskTypes": []
+      },
+      "tools": {
+        "factoryCount": 20,
+        "estimatedToolCount": 193,
+        "factories": [
+          "createCMOTools",
+          "createCollectiveIntelligenceTools",
+          "createGraphTools",
+          "createSharePointTools",
+          "createTeamOrchestrationTools",
+          "createPeerCoordinationTools",
+          "createInitiativeTools",
+          "createAgentDirectoryTools",
+          "createContentTools",
+          "createSeoTools",
+          "createSocialMediaTools",
+          "createMarketingIntelTools",
+          "createCanvaTools",
+          "createLogoTools",
+          "createAgent365McpTools",
+          "createCoreTools",
+          "createGlyphorMcpTools",
+          "createWebBuildTools",
+          "createWebsiteIngestionTools",
+          "createExecutiveOrchestrationTools"
+        ],
+        "hasOrchestrationTools": true,
+        "hasAgent365": true,
+        "hasGlyphorMcp": true,
+        "hasSharePoint": true,
+        "grantedByDb": 193,
+        "blockedByDb": 2
+      },
+      "config": {
+        "runnerType": "TaskRunner",
+        "temperature": 0.3,
+        "maxTurns": 50,
+        "maxTurnsOverrides": {},
+        "isExecutive": true,
+        "hasActiveTeamMembers": false,
+        "teamMemberCount": 0,
+        "teamMembersWithRunners": 0,
+        "runnerMismatch": true,
+        "temperatureOutlier": false
+      },
+      "taskRouting": {
+        "taskTypes": [],
+        "coveredBySkillMap": [],
+        "uncoveredTaskTypes": [],
+        "coverageRate": 1
+      },
+      "runs": {
+        "last30Days": {
+          "total": 211,
+          "completed": 170,
+          "aborted": 27,
+          "timedOut": 0,
+          "maxTurnsReached": 0,
+          "avgTurns": 4.018957345971564,
+          "avgDurationMs": 42133.43601895735,
+          "avgInputTokens": 68246.58767772513,
+          "avgOutputTokens": 515.2796208530806,
+          "estimatedCost30d": 140.4106
+        },
+        "taskBreakdown": {
+          "process_assignments": {
+            "count": 32,
+            "completionRate": 0.5,
+            "avgTurns": 11
+          },
+          "on_demand": {
+            "count": 5,
+            "completionRate": 0.4,
+            "avgTurns": 4.2
+          },
+          "proactive": {
+            "count": 130,
+            "completionRate": 0.8769230769230769,
+            "avgTurns": 2.5846153846153848
+          },
+          "work_loop": {
+            "count": 21,
+            "completionRate": 0.8095238095238095,
+            "avgTurns": 2.761904761904762
+          },
+          "urgent_message_response": {
+            "count": 5,
+            "completionRate": 0.8,
+            "avgTurns": 7
+          },
+          "generate_content": {
+            "count": 8,
+            "completionRate": 1,
+            "avgTurns": 2.25
+          },
+          "weekly_content_planning": {
+            "count": 8,
+            "completionRate": 0.875,
+            "avgTurns": 3.25
+          },
+          "weekly_report": {
+            "count": 2,
+            "completionRate": 1,
+            "avgTurns": 1
+          }
+        }
+      },
+      "assignments": {
+        "last30Days": {
+          "received": 1,
+          "completed": 1,
+          "needsRevision": 0,
+          "failed": 0,
+          "avgQualityScore": 0,
+          "avgCompletionTimeMs": 49764533
+        },
+        "commonFailureModes": []
+      },
+      "schedule": {
+        "cronJobs": [],
+        "hasScheduleFile": false,
+        "missingCrons": []
+      },
+      "recommendations": [
+        {
+          "priority": "P2",
+          "category": "skills",
+          "description": "Skill \"sharepoint-site-management\" is from another department. Verify this agent uses it or remove.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "skills",
+          "description": "Skill \"advanced-web-creation\" is from another department. Verify this agent uses it or remove.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "skills",
+          "description": "Skill \"brand-management\" is from another department. Verify this agent uses it or remove.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "skills",
+          "description": "Skill \"client-web-creation\" is from another department. Verify this agent uses it or remove.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "context",
+          "description": "Assigned skills total ~15569 tokens. Exceeds recommended 3,000-token skill budget.",
+          "effort": "small"
+        },
+        {
+          "priority": "P2",
+          "category": "runner",
+          "description": "Has orchestration tools but uses TaskRunner. No active team — strip unused orchestration tools.",
+          "effort": "small"
+        },
+        {
+          "priority": "P2",
+          "category": "tools",
+          "description": "Agent loads 20 tool factories (~100+ tools). Heavy reliance on ToolRetriever quality.",
+          "effort": "medium"
+        }
+      ]
+    },
+    {
+      "role": "cpo",
+      "timestamp": "2026-04-17T03:13:03.685Z",
+      "brief": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\elena-vasquez.md",
+        "exists": true,
+        "tokenCount": 1039,
+        "hasRelationships": true,
+        "hasAuthority": true,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
+        "containsKnowledgeContent": false,
+        "skillIndicators": [],
+        "knowledgeIndicators": [],
+        "duplicateRelationships": [],
+        "sectionBreakdown": [
+          {
+            "heading": "Elena Vasquez — Chief Product Officer",
+            "tokens": 73,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Identity",
+            "tokens": 103,
+            "classification": "identity"
+          },
+          {
+            "heading": "Personality & Voice",
+            "tokens": 178,
+            "classification": "identity"
+          },
+          {
+            "heading": "Communication Style",
+            "tokens": 176,
+            "classification": "identity"
+          },
+          {
+            "heading": "Core Mission",
+            "tokens": 163,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Relationships",
+            "tokens": 143,
+            "classification": "identity"
+          },
+          {
+            "heading": "Authority Boundaries",
+            "tokens": 84,
+            "classification": "identity"
+          },
+          {
+            "heading": "Operating Principles",
+            "tokens": 121,
+            "classification": "identity"
+          }
+        ]
+      },
+      "systemPrompt": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\cpo\\systemPrompt.ts",
+        "exists": true,
+        "tokenCount": 710,
+        "hasCrisisFabricationRules": true,
+        "overlapsWithBrief": 0,
+        "overlapsWithSkills": 0,
+        "exportedConstants": [
+          "CPO_SYSTEM_PROMPT"
+        ]
+      },
+      "skills": {
+        "assigned": [
+          {
+            "slug": "user-research",
+            "proficiency": "expert",
+            "category": "product",
+            "tokenCount": 83,
+            "isOwnDomain": false,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "competitive-analysis",
+            "proficiency": "expert",
+            "category": "product",
+            "tokenCount": 85,
+            "isOwnDomain": false,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "roadmap-management",
+            "proficiency": "expert",
+            "category": "product",
+            "tokenCount": 92,
+            "isOwnDomain": false,
+            "timesUsed": 0,
+            "successRate": 1
+          }
+        ],
+        "totalTokens": 260,
+        "crossDomainSkills": [
+          "user-research",
+          "competitive-analysis",
+          "roadmap-management"
+        ],
+        "ghostToolRefs": []
+      },
+      "tiers": {
+        "taskTypes": []
+      },
+      "tools": {
+        "factoryCount": 16,
+        "estimatedToolCount": 138,
+        "factories": [
+          "createCPOTools",
+          "createCollectiveIntelligenceTools",
+          "createGraphTools",
+          "createSharePointTools",
+          "createTeamOrchestrationTools",
+          "createPeerCoordinationTools",
+          "createInitiativeTools",
+          "createAgentCreationTools",
+          "createAgentDirectoryTools",
+          "createProductAnalyticsTools",
+          "createCompetitiveIntelTools",
+          "createSharedCompetitiveIntelTools",
+          "createRoadmapTools",
+          "createAgent365McpTools",
+          "createCoreTools",
+          "createGlyphorMcpTools"
+        ],
+        "hasOrchestrationTools": true,
+        "hasAgent365": true,
+        "hasGlyphorMcp": true,
+        "hasSharePoint": true,
+        "grantedByDb": 138,
+        "blockedByDb": 47
+      },
+      "config": {
+        "runnerType": "OrchestratorRunner",
+        "temperature": 0.3,
+        "maxTurns": 50,
+        "maxTurnsOverrides": {},
+        "isExecutive": true,
+        "hasActiveTeamMembers": false,
+        "teamMemberCount": 0,
+        "teamMembersWithRunners": 0,
+        "runnerMismatch": false,
+        "temperatureOutlier": false
+      },
+      "taskRouting": {
+        "taskTypes": [],
+        "coveredBySkillMap": [],
+        "uncoveredTaskTypes": [],
+        "coverageRate": 1
+      },
+      "runs": {
+        "last30Days": {
+          "total": 122,
+          "completed": 108,
+          "aborted": 10,
+          "timedOut": 0,
+          "maxTurnsReached": 0,
+          "avgTurns": 3.3114754098360657,
+          "avgDurationMs": 45531.639344262294,
+          "avgInputTokens": 39273.81967213115,
+          "avgOutputTokens": 1539.0901639344263,
+          "estimatedCost30d": 34.2329
+        },
+        "taskBreakdown": {
+          "work_loop": {
+            "count": 4,
+            "completionRate": 0.5,
+            "avgTurns": 2
+          },
+          "weekly_usage_analysis": {
+            "count": 8,
+            "completionRate": 0.75,
+            "avgTurns": 3
+          },
+          "proactive": {
+            "count": 108,
+            "completionRate": 0.9074074074074074,
+            "avgTurns": 3.4166666666666665
+          },
+          "on_demand": {
+            "count": 1,
+            "completionRate": 1,
+            "avgTurns": 0
+          },
+          "urgent_message_response": {
+            "count": 1,
+            "completionRate": 1,
+            "avgTurns": 3
+          }
+        }
+      },
+      "assignments": {
+        "last30Days": {
+          "received": 1,
+          "completed": 1,
+          "needsRevision": 0,
+          "failed": 0,
+          "avgQualityScore": 0,
+          "avgCompletionTimeMs": 72875
+        },
+        "commonFailureModes": []
+      },
+      "schedule": {
+        "cronJobs": [],
+        "hasScheduleFile": false,
+        "missingCrons": []
+      },
+      "recommendations": [
+        {
+          "priority": "P2",
+          "category": "skills",
+          "description": "Skill \"user-research\" is from another department. Verify this agent uses it or remove.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "skills",
+          "description": "Skill \"competitive-analysis\" is from another department. Verify this agent uses it or remove.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "skills",
+          "description": "Skill \"roadmap-management\" is from another department. Verify this agent uses it or remove.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "tools",
+          "description": "Agent loads 16 tool factories (~80+ tools). Heavy reliance on ToolRetriever quality.",
+          "effort": "medium"
+        }
+      ]
+    },
+    {
+      "role": "cto",
+      "timestamp": "2026-04-17T03:13:04.708Z",
+      "brief": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\marcus-reeves.md",
+        "exists": true,
+        "tokenCount": 957,
+        "hasRelationships": true,
+        "hasAuthority": true,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
+        "containsKnowledgeContent": true,
+        "skillIndicators": [],
+        "knowledgeIndicators": [
+          "dollar amounts",
+          "percentages"
+        ],
+        "duplicateRelationships": [],
+        "sectionBreakdown": [
+          {
+            "heading": "Marcus Reeves — Chief Technology Officer",
+            "tokens": 78,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Identity",
+            "tokens": 106,
+            "classification": "identity"
+          },
+          {
+            "heading": "Personality & Voice",
+            "tokens": 170,
+            "classification": "identity"
+          },
+          {
+            "heading": "Communication Style",
+            "tokens": 123,
+            "classification": "identity"
+          },
+          {
+            "heading": "Core Mission",
+            "tokens": 158,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Relationships",
+            "tokens": 115,
+            "classification": "identity"
+          },
+          {
+            "heading": "Authority Boundaries",
+            "tokens": 109,
+            "classification": "identity"
+          },
+          {
+            "heading": "Operating Principles",
+            "tokens": 100,
+            "classification": "identity"
+          }
+        ]
+      },
+      "systemPrompt": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\cto\\systemPrompt.ts",
+        "exists": true,
+        "tokenCount": 1344,
+        "hasCrisisFabricationRules": true,
+        "overlapsWithBrief": 0,
+        "overlapsWithSkills": 0,
+        "exportedConstants": [
+          "CTO_SYSTEM_PROMPT"
+        ]
+      },
+      "skills": {
+        "assigned": [
+          {
+            "slug": "tech-spec-writing",
+            "proficiency": "expert",
+            "category": "engineering",
+            "tokenCount": 1505,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "code-review",
+            "proficiency": "expert",
+            "category": "engineering",
+            "tokenCount": 2020,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "incident-response",
+            "proficiency": "expert",
+            "category": "engineering",
+            "tokenCount": 2713,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "advanced-web-creation",
+            "proficiency": "expert",
+            "category": "design",
+            "tokenCount": 162,
+            "isOwnDomain": false,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "platform-monitoring",
+            "proficiency": "expert",
+            "category": "engineering",
+            "tokenCount": 2257,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "client-web-creation",
+            "proficiency": "competent",
+            "category": "design",
+            "tokenCount": 2104,
+            "isOwnDomain": false,
+            "timesUsed": 0,
+            "successRate": 1
+          }
+        ],
+        "totalTokens": 10761,
+        "crossDomainSkills": [
+          "advanced-web-creation",
+          "client-web-creation"
+        ],
+        "ghostToolRefs": []
+      },
+      "tiers": {
+        "taskTypes": []
+      },
+      "tools": {
+        "factoryCount": 19,
+        "estimatedToolCount": 195,
+        "factories": [
+          "createCTOTools",
+          "createCollectiveIntelligenceTools",
+          "createGraphTools",
+          "createSharePointTools",
+          "createTeamOrchestrationTools",
+          "createPeerCoordinationTools",
+          "createInitiativeTools",
+          "createAgentCreationTools",
+          "createToolGrantTools",
+          "createToolRegistryTools",
+          "createAgentDirectoryTools",
+          "createDiagnosticTools",
+          "createAgent365McpTools",
+          "createCoreTools",
+          "createGlyphorMcpTools",
+          "createSandboxDevTools",
+          "createGithubFromTemplateTools",
+          "createClaudeParityTools",
+          "createExecutiveOrchestrationTools"
+        ],
+        "hasOrchestrationTools": true,
+        "hasAgent365": true,
+        "hasGlyphorMcp": true,
+        "hasSharePoint": true,
+        "grantedByDb": 195,
+        "blockedByDb": 47
+      },
+      "config": {
+        "runnerType": "OrchestratorRunner",
+        "temperature": 0.3,
+        "maxTurns": 28,
+        "maxTurnsOverrides": {},
+        "isExecutive": true,
+        "hasActiveTeamMembers": true,
+        "teamMemberCount": 3,
+        "teamMembersWithRunners": 3,
+        "runnerMismatch": false,
+        "temperatureOutlier": false
+      },
+      "taskRouting": {
+        "taskTypes": [],
+        "coveredBySkillMap": [],
+        "uncoveredTaskTypes": [],
+        "coverageRate": 1
+      },
+      "runs": {
+        "last30Days": {
+          "total": 746,
+          "completed": 701,
+          "aborted": 19,
+          "timedOut": 0,
+          "maxTurnsReached": 7,
+          "avgTurns": 1.7024128686327078,
+          "avgDurationMs": 9606.201072386059,
+          "avgInputTokens": 16925.44235924933,
+          "avgOutputTokens": 56.206434316353885,
+          "estimatedCost30d": 74.65220000000002
+        },
+        "taskBreakdown": {
+          "platform_health_check": {
+            "count": 81,
+            "completionRate": 1,
+            "avgTurns": 0
+          },
+          "on_demand": {
+            "count": 12,
+            "completionRate": 1,
+            "avgTurns": 4.5
+          },
+          "work_loop": {
+            "count": 600,
+            "completionRate": 0.9666666666666667,
+            "avgTurns": 1.455
+          },
+          "proactive": {
+            "count": 22,
+            "completionRate": 0.4090909090909091,
+            "avgTurns": 6.454545454545454
+          },
+          "urgent_message_response": {
+            "count": 22,
+            "completionRate": 0.7272727272727273,
+            "avgTurns": 7.818181818181818
+          },
+          "heartbeat_response": {
+            "count": 9,
+            "completionRate": 0.3333333333333333,
+            "avgTurns": 3.2222222222222223
+          }
+        }
+      },
+      "assignments": {
+        "last30Days": {
+          "received": 0,
+          "completed": 0,
+          "needsRevision": 0,
+          "failed": 0,
+          "avgQualityScore": 0,
+          "avgCompletionTimeMs": 0
+        },
+        "commonFailureModes": []
+      },
+      "schedule": {
+        "cronJobs": [],
+        "hasScheduleFile": false,
+        "missingCrons": []
+      },
+      "recommendations": [
+        {
+          "priority": "P2",
+          "category": "brief",
+          "description": "Brief contains knowledge data (dollar amounts, percentages). Move to knowledge base.",
+          "effort": "small"
+        },
+        {
+          "priority": "P2",
+          "category": "skills",
+          "description": "Skill \"advanced-web-creation\" is from another department. Verify this agent uses it or remove.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "skills",
+          "description": "Skill \"client-web-creation\" is from another department. Verify this agent uses it or remove.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "context",
+          "description": "Assigned skills total ~10761 tokens. Exceeds recommended 3,000-token skill budget.",
+          "effort": "small"
+        },
+        {
+          "priority": "P2",
+          "category": "tools",
+          "description": "Agent loads 19 tool factories (~95+ tools). Heavy reliance on ToolRetriever quality.",
+          "effort": "medium"
+        }
+      ]
+    },
+    {
+      "role": "devops-engineer",
+      "timestamp": "2026-04-17T03:13:06.052Z",
+      "brief": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\jordan-hayes.md",
+        "exists": true,
+        "tokenCount": 540,
+        "hasRelationships": true,
+        "hasAuthority": false,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
+        "containsKnowledgeContent": true,
+        "skillIndicators": [],
+        "knowledgeIndicators": [
+          "percentages"
+        ],
+        "duplicateRelationships": [],
+        "sectionBreakdown": [
+          {
+            "heading": "Jordan Hayes — DevOps Engineer",
+            "tokens": 41,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Identity",
+            "tokens": 107,
+            "classification": "identity"
+          },
+          {
+            "heading": "Personality & Voice",
+            "tokens": 234,
+            "classification": "knowledge"
+          },
+          {
+            "heading": "Core Mission",
+            "tokens": 79,
+            "classification": "identity"
+          },
+          {
+            "heading": "Relationships",
+            "tokens": 80,
+            "classification": "identity"
+          }
+        ]
+      },
+      "systemPrompt": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\devops-engineer\\systemPrompt.ts",
+        "exists": true,
+        "tokenCount": 444,
+        "hasCrisisFabricationRules": false,
+        "overlapsWithBrief": 0,
+        "overlapsWithSkills": 0,
+        "exportedConstants": [
+          "DEVOPS_ENGINEER_SYSTEM_PROMPT"
+        ]
+      },
+      "skills": {
+        "assigned": [],
+        "totalTokens": 0,
+        "crossDomainSkills": [],
+        "ghostToolRefs": []
+      },
+      "tiers": {
+        "taskTypes": []
+      },
+      "tools": {
+        "factoryCount": 13,
+        "estimatedToolCount": 13,
+        "factories": [
+          "createDevOpsEngineerTools",
+          "createGraphTools",
+          "createSharePointTools",
+          "createEngineeringGapTools",
+          "createDiagnosticTools",
+          "createAgent365McpTools",
+          "createCoreTools",
+          "createGlyphorMcpTools",
+          "createGithubPushFilesTools",
+          "createGithubPullRequestTools",
+          "createVercelProjectTools",
+          "createCloudflarePreviewTools",
+          "createSandboxDevTools"
+        ],
+        "hasOrchestrationTools": false,
+        "hasAgent365": true,
+        "hasGlyphorMcp": true,
+        "hasSharePoint": true,
+        "grantedByDb": 0,
+        "blockedByDb": 0
+      },
+      "config": {
+        "runnerType": "TaskRunner",
+        "temperature": 0.3,
+        "maxTurns": 28,
+        "maxTurnsOverrides": {},
+        "isExecutive": false,
+        "hasActiveTeamMembers": false,
+        "teamMemberCount": 0,
+        "teamMembersWithRunners": 0,
+        "runnerMismatch": false,
+        "temperatureOutlier": false
+      },
+      "taskRouting": {
+        "taskTypes": [],
+        "coveredBySkillMap": [],
+        "uncoveredTaskTypes": [],
+        "coverageRate": 1
+      },
+      "runs": {
+        "last30Days": {
+          "total": 0,
+          "completed": 0,
+          "aborted": 0,
+          "timedOut": 0,
+          "maxTurnsReached": 0,
+          "avgTurns": 0,
+          "avgDurationMs": 0,
+          "avgInputTokens": 0,
+          "avgOutputTokens": 0,
+          "estimatedCost30d": 0
+        },
+        "taskBreakdown": {}
+      },
+      "assignments": {
+        "last30Days": {
+          "received": 0,
+          "completed": 0,
+          "needsRevision": 0,
+          "failed": 0,
+          "avgQualityScore": 0,
+          "avgCompletionTimeMs": 0
+        },
+        "commonFailureModes": []
+      },
+      "schedule": {
+        "cronJobs": [],
+        "hasScheduleFile": false,
+        "missingCrons": []
+      },
+      "recommendations": [
+        {
+          "priority": "P2",
+          "category": "brief",
+          "description": "Brief contains knowledge data (percentages). Move to knowledge base.",
+          "effort": "small"
+        },
+        {
+          "priority": "P1",
+          "category": "prompt",
+          "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P0",
+          "category": "skills",
+          "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
+          "effort": "small"
+        },
+        {
+          "priority": "P2",
+          "category": "health",
+          "description": "Zero runs in 30 days. Agent may be broken, unscheduled, or orphaned.",
+          "effort": "medium"
+        }
+      ]
+    },
+    {
+      "role": "ops",
+      "timestamp": "2026-04-17T03:13:07.425Z",
+      "brief": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\atlas-vega.md",
+        "exists": true,
+        "tokenCount": 898,
+        "hasRelationships": false,
+        "hasAuthority": false,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
+        "containsKnowledgeContent": true,
+        "skillIndicators": [],
+        "knowledgeIndicators": [
+          "dollar amounts"
+        ],
+        "duplicateRelationships": [],
+        "sectionBreakdown": [
+          {
+            "heading": "Atlas Vega — Operations & System Intelligence",
+            "tokens": 13,
+            "classification": "identity"
+          },
+          {
+            "heading": "Identity",
+            "tokens": 51,
+            "classification": "identity"
+          },
+          {
+            "heading": "Persona",
+            "tokens": 136,
+            "classification": "identity"
+          },
+          {
+            "heading": "Purpose",
+            "tokens": 59,
+            "classification": "identity"
+          },
+          {
+            "heading": "Core Responsibilities",
+            "tokens": 7,
+            "classification": "identity"
+          },
+          {
+            "heading": "1. Agent Health Monitoring",
+            "tokens": 75,
+            "classification": "identity"
+          },
+          {
+            "heading": "2. Data Freshness Monitoring",
+            "tokens": 56,
+            "classification": "identity"
+          },
+          {
+            "heading": "3. Cost Anomaly Detection",
+            "tokens": 51,
+            "classification": "identity"
+          },
+          {
+            "heading": "4. Incident Management",
+            "tokens": 49,
+            "classification": "identity"
+          },
+          {
+            "heading": "5. System Status Reports",
+            "tokens": 53,
+            "classification": "identity"
+          },
+          {
+            "heading": "Key Relationships",
+            "tokens": 113,
+            "classification": "identity"
+          },
+          {
+            "heading": "Operating Guidelines",
+            "tokens": 123,
+            "classification": "identity"
+          },
+          {
+            "heading": "Budget",
+            "tokens": 17,
+            "classification": "knowledge"
+          },
+          {
+            "heading": "Schedule",
+            "tokens": 99,
+            "classification": "identity"
+          }
+        ]
+      },
+      "systemPrompt": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\ops\\systemPrompt.ts",
+        "exists": true,
+        "tokenCount": 581,
+        "hasCrisisFabricationRules": true,
+        "overlapsWithBrief": 0,
+        "overlapsWithSkills": 0,
+        "exportedConstants": [
+          "OPS_SYSTEM_PROMPT"
+        ]
+      },
+      "skills": {
+        "assigned": [],
+        "totalTokens": 0,
+        "crossDomainSkills": [],
+        "ghostToolRefs": []
+      },
+      "tiers": {
+        "taskTypes": []
+      },
+      "tools": {
+        "factoryCount": 9,
+        "estimatedToolCount": 158,
+        "factories": [
+          "createOpsTools",
+          "createCollectiveIntelligenceTools",
+          "createGraphTools",
+          "createSharePointTools",
+          "createDiagnosticTools",
+          "createOpsExtensionTools",
+          "createAgent365McpTools",
+          "createCoreTools",
+          "createGlyphorMcpTools"
+        ],
+        "hasOrchestrationTools": false,
+        "hasAgent365": true,
+        "hasGlyphorMcp": true,
+        "hasSharePoint": true,
+        "grantedByDb": 158,
+        "blockedByDb": 2
+      },
+      "config": {
+        "runnerType": "OrchestratorRunner",
+        "temperature": 0.3,
+        "maxTurns": 28,
+        "maxTurnsOverrides": {},
+        "isExecutive": true,
+        "hasActiveTeamMembers": false,
+        "teamMemberCount": 0,
+        "teamMembersWithRunners": 0,
+        "runnerMismatch": false,
+        "temperatureOutlier": false
+      },
+      "taskRouting": {
+        "taskTypes": [],
+        "coveredBySkillMap": [],
+        "uncoveredTaskTypes": [],
+        "coverageRate": 1
+      },
+      "runs": {
+        "last30Days": {
+          "total": 379,
+          "completed": 276,
+          "aborted": 11,
+          "timedOut": 0,
+          "maxTurnsReached": 0,
+          "avgTurns": 4.408970976253298,
+          "avgDurationMs": 56905.295514511876,
+          "avgInputTokens": 57064.78627968338,
+          "avgOutputTokens": 2060.5540897097626,
+          "estimatedCost30d": 101.28860000000002
+        },
+        "taskBreakdown": {
+          "proactive": {
+            "count": 243,
+            "completionRate": 0.9547325102880658,
+            "avgTurns": 5.251028806584362
+          },
+          "event_response": {
+            "count": 116,
+            "completionRate": 0.22413793103448276,
+            "avgTurns": 2.456896551724138
+          },
+          "work_loop": {
+            "count": 10,
+            "completionRate": 0.8,
+            "avgTurns": 4.8
+          },
+          "urgent_message_response": {
+            "count": 7,
+            "completionRate": 1,
+            "avgTurns": 6.285714285714286
+          },
+          "on_demand": {
+            "count": 3,
+            "completionRate": 1,
+            "avgTurns": 6
+          }
+        }
+      },
+      "assignments": {
+        "last30Days": {
+          "received": 1,
+          "completed": 1,
+          "needsRevision": 0,
+          "failed": 0,
+          "avgQualityScore": 0,
+          "avgCompletionTimeMs": 46835
+        },
+        "commonFailureModes": []
+      },
+      "schedule": {
+        "cronJobs": [],
+        "hasScheduleFile": false,
+        "missingCrons": []
+      },
+      "recommendations": [
+        {
+          "priority": "P2",
+          "category": "brief",
+          "description": "Brief contains knowledge data (dollar amounts). Move to knowledge base.",
+          "effort": "small"
+        },
+        {
+          "priority": "P0",
+          "category": "skills",
+          "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
+          "effort": "small"
+        },
+        {
+          "priority": "P1",
+          "category": "health",
+          "description": "Completion rate is 73% (target: >80%).",
+          "effort": "small"
+        }
+      ]
+    },
+    {
+      "role": "platform-engineer",
+      "timestamp": "2026-04-17T03:13:08.754Z",
+      "brief": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\alex-park.md",
+        "exists": true,
+        "tokenCount": 635,
+        "hasRelationships": true,
+        "hasAuthority": false,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
+        "containsKnowledgeContent": true,
+        "skillIndicators": [],
+        "knowledgeIndicators": [
+          "percentages"
+        ],
+        "duplicateRelationships": [],
+        "sectionBreakdown": [
+          {
+            "heading": "Alex Park — Platform Engineer",
+            "tokens": 41,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Identity",
+            "tokens": 118,
+            "classification": "identity"
+          },
+          {
+            "heading": "Personality & Voice",
+            "tokens": 275,
+            "classification": "knowledge"
+          },
+          {
+            "heading": "Core Mission",
+            "tokens": 108,
+            "classification": "identity"
+          },
+          {
+            "heading": "Relationships",
+            "tokens": 95,
+            "classification": "identity"
+          }
+        ]
+      },
+      "systemPrompt": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\platform-engineer\\systemPrompt.ts",
+        "exists": true,
+        "tokenCount": 317,
+        "hasCrisisFabricationRules": false,
+        "overlapsWithBrief": 0,
+        "overlapsWithSkills": 0,
+        "exportedConstants": [
+          "PLATFORM_ENGINEER_SYSTEM_PROMPT"
+        ]
+      },
+      "skills": {
+        "assigned": [],
+        "totalTokens": 0,
+        "crossDomainSkills": [],
+        "ghostToolRefs": []
+      },
+      "tiers": {
+        "taskTypes": []
+      },
+      "tools": {
+        "factoryCount": 9,
+        "estimatedToolCount": 9,
+        "factories": [
+          "createPlatformEngineerTools",
+          "createGraphTools",
+          "createSharePointTools",
+          "createEngineeringGapTools",
+          "createDiagnosticTools",
+          "createAgent365McpTools",
+          "createCoreTools",
+          "createGlyphorMcpTools",
+          "createSandboxDevTools"
+        ],
+        "hasOrchestrationTools": false,
+        "hasAgent365": true,
+        "hasGlyphorMcp": true,
+        "hasSharePoint": true,
+        "grantedByDb": 0,
+        "blockedByDb": 0
+      },
+      "config": {
+        "runnerType": "TaskRunner",
+        "temperature": 0.3,
+        "maxTurns": 28,
+        "maxTurnsOverrides": {},
+        "isExecutive": false,
+        "hasActiveTeamMembers": false,
+        "teamMemberCount": 0,
+        "teamMembersWithRunners": 0,
+        "runnerMismatch": false,
+        "temperatureOutlier": false
+      },
+      "taskRouting": {
+        "taskTypes": [],
+        "coveredBySkillMap": [],
+        "uncoveredTaskTypes": [],
+        "coverageRate": 1
+      },
+      "runs": {
+        "last30Days": {
+          "total": 0,
+          "completed": 0,
+          "aborted": 0,
+          "timedOut": 0,
+          "maxTurnsReached": 0,
+          "avgTurns": 0,
+          "avgDurationMs": 0,
+          "avgInputTokens": 0,
+          "avgOutputTokens": 0,
+          "estimatedCost30d": 0
+        },
+        "taskBreakdown": {}
+      },
+      "assignments": {
+        "last30Days": {
+          "received": 0,
+          "completed": 0,
+          "needsRevision": 0,
+          "failed": 0,
+          "avgQualityScore": 0,
+          "avgCompletionTimeMs": 0
+        },
+        "commonFailureModes": []
+      },
+      "schedule": {
+        "cronJobs": [],
+        "hasScheduleFile": false,
+        "missingCrons": []
+      },
+      "recommendations": [
+        {
+          "priority": "P2",
+          "category": "brief",
+          "description": "Brief contains knowledge data (percentages). Move to knowledge base.",
+          "effort": "small"
+        },
+        {
+          "priority": "P1",
+          "category": "prompt",
+          "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P0",
+          "category": "skills",
+          "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
+          "effort": "small"
+        },
+        {
+          "priority": "P2",
+          "category": "health",
+          "description": "Zero runs in 30 days. Agent may be broken, unscheduled, or orphaned.",
+          "effort": "medium"
+        }
+      ]
+    },
+    {
+      "role": "quality-engineer",
+      "timestamp": "2026-04-17T03:13:10.115Z",
+      "brief": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sam-deluca.md",
+        "exists": true,
+        "tokenCount": 539,
+        "hasRelationships": true,
+        "hasAuthority": false,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
+        "containsKnowledgeContent": false,
+        "skillIndicators": [],
+        "knowledgeIndicators": [],
+        "duplicateRelationships": [],
+        "sectionBreakdown": [
+          {
+            "heading": "Sam DeLuca — Quality Engineer",
+            "tokens": 41,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Identity",
+            "tokens": 108,
+            "classification": "identity"
+          },
+          {
+            "heading": "Personality & Voice",
+            "tokens": 244,
+            "classification": "identity"
+          },
+          {
+            "heading": "Core Mission",
+            "tokens": 85,
+            "classification": "identity"
+          },
+          {
+            "heading": "Relationships",
+            "tokens": 63,
+            "classification": "identity"
+          }
+        ]
+      },
+      "systemPrompt": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\quality-engineer\\systemPrompt.ts",
+        "exists": true,
+        "tokenCount": 542,
+        "hasCrisisFabricationRules": false,
+        "overlapsWithBrief": 0,
+        "overlapsWithSkills": 0,
+        "exportedConstants": [
+          "QUALITY_ENGINEER_SYSTEM_PROMPT"
+        ]
+      },
+      "skills": {
+        "assigned": [],
+        "totalTokens": 0,
+        "crossDomainSkills": [],
+        "ghostToolRefs": []
+      },
+      "tiers": {
+        "taskTypes": []
+      },
+      "tools": {
+        "factoryCount": 8,
+        "estimatedToolCount": 8,
+        "factories": [
+          "createQualityEngineerTools",
+          "createGraphTools",
+          "createSharePointTools",
+          "createEngineeringGapTools",
+          "createAgent365McpTools",
+          "createCoreTools",
+          "createGlyphorMcpTools",
+          "createSandboxDevTools"
+        ],
+        "hasOrchestrationTools": false,
+        "hasAgent365": true,
+        "hasGlyphorMcp": true,
+        "hasSharePoint": true,
+        "grantedByDb": 0,
+        "blockedByDb": 0
+      },
+      "config": {
+        "runnerType": "TaskRunner",
+        "temperature": 0.3,
+        "maxTurns": 28,
+        "maxTurnsOverrides": {},
+        "isExecutive": false,
+        "hasActiveTeamMembers": false,
+        "teamMemberCount": 0,
+        "teamMembersWithRunners": 0,
+        "runnerMismatch": false,
+        "temperatureOutlier": false
+      },
+      "taskRouting": {
+        "taskTypes": [],
+        "coveredBySkillMap": [],
+        "uncoveredTaskTypes": [],
+        "coverageRate": 1
+      },
+      "runs": {
+        "last30Days": {
+          "total": 0,
+          "completed": 0,
+          "aborted": 0,
+          "timedOut": 0,
+          "maxTurnsReached": 0,
+          "avgTurns": 0,
+          "avgDurationMs": 0,
+          "avgInputTokens": 0,
+          "avgOutputTokens": 0,
+          "estimatedCost30d": 0
+        },
+        "taskBreakdown": {}
+      },
+      "assignments": {
+        "last30Days": {
+          "received": 0,
+          "completed": 0,
+          "needsRevision": 0,
+          "failed": 0,
+          "avgQualityScore": 0,
+          "avgCompletionTimeMs": 0
+        },
+        "commonFailureModes": []
+      },
+      "schedule": {
+        "cronJobs": [],
+        "hasScheduleFile": false,
+        "missingCrons": []
+      },
+      "recommendations": [
+        {
+          "priority": "P1",
+          "category": "prompt",
+          "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P0",
+          "category": "skills",
+          "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
+          "effort": "small"
+        },
+        {
+          "priority": "P2",
+          "category": "health",
+          "description": "Zero runs in 30 days. Agent may be broken, unscheduled, or orphaned.",
+          "effort": "medium"
+        }
+      ]
+    },
+    {
+      "role": "vp-design",
+      "timestamp": "2026-04-17T03:13:11.610Z",
+      "brief": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\mia-tanaka.md",
+        "exists": true,
+        "tokenCount": 846,
+        "hasRelationships": true,
+        "hasAuthority": true,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
+        "containsKnowledgeContent": true,
+        "skillIndicators": [],
+        "knowledgeIndicators": [
+          "percentages"
+        ],
+        "duplicateRelationships": [],
+        "sectionBreakdown": [
+          {
+            "heading": "Mia Tanaka — VP Design & Frontend",
+            "tokens": 94,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Identity",
+            "tokens": 150,
+            "classification": "identity"
+          },
+          {
+            "heading": "Personality & Voice",
+            "tokens": 70,
+            "classification": "identity"
+          },
+          {
+            "heading": "Communication Style",
+            "tokens": 93,
+            "classification": "identity"
+          },
+          {
+            "heading": "Core Mission",
+            "tokens": 124,
+            "classification": "knowledge"
+          },
+          {
+            "heading": "Your Relationships",
+            "tokens": 115,
+            "classification": "identity"
+          },
+          {
+            "heading": "Authority Boundaries",
+            "tokens": 110,
+            "classification": "identity"
+          },
+          {
+            "heading": "Operating Principles",
+            "tokens": 93,
+            "classification": "identity"
+          }
+        ]
+      },
+      "systemPrompt": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\vp-design\\systemPrompt.ts",
+        "exists": true,
+        "tokenCount": 4777,
+        "hasCrisisFabricationRules": true,
+        "overlapsWithBrief": 0,
+        "overlapsWithSkills": 0,
+        "exportedConstants": [
+          "VP_DESIGN_SYSTEM_PROMPT"
+        ]
+      },
+      "skills": {
+        "assigned": [
+          {
+            "slug": "elite-design-review",
+            "proficiency": "competent",
+            "category": "design",
+            "tokenCount": 159,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "design-review",
+            "proficiency": "expert",
+            "category": "design",
+            "tokenCount": 2172,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "react-bits-pro",
+            "proficiency": "expert",
+            "category": "design",
+            "tokenCount": 1254,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "advanced-web-creation",
+            "proficiency": "expert",
+            "category": "design",
+            "tokenCount": 162,
+            "isOwnDomain": true,
+            "timesUsed": 2,
+            "successRate": 0
+          },
+          {
+            "slug": "design-system-management",
+            "proficiency": "expert",
+            "category": "design",
+            "tokenCount": 1835,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "brand-management",
+            "proficiency": "expert",
+            "category": "design",
+            "tokenCount": 1857,
+            "isOwnDomain": true,
+            "timesUsed": 1,
+            "successRate": 1
+          },
+          {
+            "slug": "client-web-creation",
+            "proficiency": "expert",
+            "category": "design",
+            "tokenCount": 2104,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          },
+          {
+            "slug": "ui-development",
+            "proficiency": "expert",
+            "category": "design",
+            "tokenCount": 1645,
+            "isOwnDomain": true,
+            "timesUsed": 0,
+            "successRate": 1
+          }
+        ],
+        "totalTokens": 11188,
+        "crossDomainSkills": [],
+        "ghostToolRefs": []
+      },
+      "tiers": {
+        "taskTypes": [
+          {
+            "task": "on_demand",
+            "tier": "light",
+            "losesIdentity": true,
+            "losesSkills": true,
+            "losesMemory": true
+          },
+          {
+            "task": "design_audit",
+            "tier": "standard",
+            "losesIdentity": false,
+            "losesSkills": false,
+            "losesMemory": false
+          },
+          {
+            "task": "design_system_review",
+            "tier": "standard",
+            "losesIdentity": false,
+            "losesSkills": false,
+            "losesMemory": false
+          }
+        ]
+      },
+      "tools": {
+        "factoryCount": 31,
+        "estimatedToolCount": 197,
+        "factories": [
+          "createVPDesignTools",
+          "createCollectiveIntelligenceTools",
+          "createGraphTools",
+          "createTeamOrchestrationTools",
+          "createPeerCoordinationTools",
+          "createInitiativeTools",
+          "createSharePointTools",
+          "createAgentCreationTools",
+          "createAgentDirectoryTools",
+          "createFrontendCodeTools",
+          "createScreenshotTools",
+          "createDesignSystemTools",
+          "createAuditTools",
+          "createAssetTools",
+          "createScaffoldTools",
+          "createDeployPreviewTools",
+          "createLogoTools",
+          "createAgent365McpTools",
+          "createGlyphorMcpTools",
+          "createCoreTools",
+          "createWebBuildTools",
+          "createGithubFromTemplateTools",
+          "createGithubPushFilesTools",
+          "createGithubReadRepositoryFileTools",
+          "createGithubPullRequestTools",
+          "createVercelProjectTools",
+          "createWebBuildPlannerTools",
+          "createQuickDemoWebAppTools",
+          "createDesignBriefTools",
+          "createSandboxDevTools",
+          "createClaudeParityTools"
+        ],
+        "hasOrchestrationTools": true,
+        "hasAgent365": true,
+        "hasGlyphorMcp": true,
+        "hasSharePoint": true,
+        "grantedByDb": 197,
+        "blockedByDb": 2
+      },
+      "config": {
+        "runnerType": "TaskRunner",
+        "temperature": 0.7,
+        "maxTurns": 28,
+        "maxTurnsOverrides": {
+          "on_demand": 5
+        },
+        "isExecutive": true,
+        "hasActiveTeamMembers": false,
+        "teamMemberCount": 0,
+        "teamMembersWithRunners": 0,
+        "runnerMismatch": true,
+        "temperatureOutlier": false
+      },
+      "taskRouting": {
+        "taskTypes": [
+          "on_demand",
+          "design_audit",
+          "design_system_review"
+        ],
+        "coveredBySkillMap": [],
+        "uncoveredTaskTypes": [
+          "design_audit",
+          "design_system_review"
+        ],
+        "coverageRate": 0
+      },
+      "runs": {
+        "last30Days": {
+          "total": 171,
+          "completed": 120,
+          "aborted": 18,
+          "timedOut": 0,
+          "maxTurnsReached": 4,
+          "avgTurns": 3.9883040935672516,
+          "avgDurationMs": 241720.5029239766,
+          "avgInputTokens": 84951.2865497076,
+          "avgOutputTokens": 406.46198830409355,
+          "estimatedCost30d": 90.07809999999996
+        },
+        "taskBreakdown": {
+          "on_demand": {
+            "count": 93,
+            "completionRate": 0.5913978494623656,
+            "avgTurns": 3.6344086021505375
+          },
+          "proactive": {
+            "count": 74,
+            "completionRate": 0.8378378378378378,
+            "avgTurns": 4.121621621621622
+          },
+          "work_loop": {
+            "count": 2,
+            "completionRate": 0.5,
+            "avgTurns": 6
+          },
+          "urgent_message_response": {
+            "count": 2,
+            "completionRate": 1,
+            "avgTurns": 13.5
+          }
+        }
+      },
+      "assignments": {
+        "last30Days": {
+          "received": 0,
+          "completed": 0,
+          "needsRevision": 0,
+          "failed": 0,
+          "avgQualityScore": 0,
+          "avgCompletionTimeMs": 0
+        },
+        "commonFailureModes": []
+      },
+      "schedule": {
+        "cronJobs": [],
+        "hasScheduleFile": false,
+        "missingCrons": [
+          "design_audit",
+          "design_system_review"
+        ]
+      },
+      "recommendations": [
+        {
+          "priority": "P2",
+          "category": "brief",
+          "description": "Brief contains knowledge data (percentages). Move to knowledge base.",
+          "effort": "small"
+        },
+        {
+          "priority": "P2",
+          "category": "context",
+          "description": "Assigned skills total ~11188 tokens. Exceeds recommended 3,000-token skill budget.",
+          "effort": "small"
+        },
+        {
+          "priority": "P1",
+          "category": "health",
+          "description": "Completion rate is 70% (target: >80%).",
+          "effort": "small"
+        },
+        {
+          "priority": "P1",
+          "category": "schedule",
+          "description": "Task \"design_audit\" is defined in run.ts but has no cron trigger.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P1",
+          "category": "schedule",
+          "description": "Task \"design_system_review\" is defined in run.ts but has no cron trigger.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "runner",
+          "description": "Has orchestration tools but uses TaskRunner. No active team — strip unused orchestration tools.",
+          "effort": "small"
+        },
+        {
+          "priority": "P2",
+          "category": "routing",
+          "description": "Task type \"design_audit\" has no matching pattern in task_skill_map.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "routing",
+          "description": "Task type \"design_system_review\" has no matching pattern in task_skill_map.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "tools",
+          "description": "Agent loads 31 tool factories (~155+ tools). Heavy reliance on ToolRetriever quality.",
+          "effort": "medium"
+        }
+      ]
+    },
+    {
+      "role": "vp-research",
+      "timestamp": "2026-04-17T03:13:13.584Z",
+      "brief": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\sophia-lin.md",
+        "exists": true,
+        "tokenCount": 847,
+        "hasRelationships": true,
+        "hasAuthority": false,
+        "hasAntiPatterns": false,
+        "containsSkillContent": false,
+        "containsKnowledgeContent": false,
+        "skillIndicators": [],
+        "knowledgeIndicators": [],
+        "duplicateRelationships": [],
+        "sectionBreakdown": [
+          {
+            "heading": "Sophia Lin — VP Research & Intelligence",
+            "tokens": 51,
+            "classification": "identity"
+          },
+          {
+            "heading": "Your Identity",
+            "tokens": 122,
+            "classification": "identity"
+          },
+          {
+            "heading": "Personality & Voice",
+            "tokens": 291,
+            "classification": "identity"
+          },
+          {
+            "heading": "Core Mission",
+            "tokens": 108,
+            "classification": "identity"
+          },
+          {
+            "heading": "Skills",
+            "tokens": 101,
+            "classification": "identity"
+          },
+          {
+            "heading": "Relationships",
+            "tokens": 177,
+            "classification": "identity"
+          }
+        ]
+      },
+      "systemPrompt": {
+        "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\vp-research\\systemPrompt.ts",
+        "exists": true,
+        "tokenCount": 829,
+        "hasCrisisFabricationRules": false,
+        "overlapsWithBrief": 0,
+        "overlapsWithSkills": 0,
+        "exportedConstants": [
+          "VP_RESEARCH_SYSTEM_PROMPT"
+        ]
+      },
+      "skills": {
+        "assigned": [],
+        "totalTokens": 0,
+        "crossDomainSkills": [],
+        "ghostToolRefs": []
+      },
+      "tiers": {
+        "taskTypes": [
+          {
+            "task": "decompose_research",
+            "tier": "standard",
+            "losesIdentity": false,
+            "losesSkills": false,
+            "losesMemory": false
+          },
+          {
+            "task": "qc_and_package_research",
+            "tier": "standard",
+            "losesIdentity": false,
+            "losesSkills": false,
+            "losesMemory": false
+          },
+          {
+            "task": "follow_up_research",
+            "tier": "standard",
+            "losesIdentity": false,
+            "losesSkills": false,
+            "losesMemory": false
+          },
+          {
+            "task": "urgent_message_response",
+            "tier": "standard",
+            "losesIdentity": false,
+            "losesSkills": false,
+            "losesMemory": false
+          },
+          {
+            "task": "work_loop",
+            "tier": "task",
+            "losesIdentity": true,
+            "losesSkills": false,
+            "losesMemory": false
+          },
+          {
+            "task": "proactive",
+            "tier": "task",
+            "losesIdentity": true,
+            "losesSkills": false,
+            "losesMemory": false
+          }
+        ]
+      },
+      "tools": {
+        "factoryCount": 11,
+        "estimatedToolCount": 114,
+        "factories": [
+          "createVPResearchTools",
+          "createGraphTools",
+          "createTeamOrchestrationTools",
+          "createPeerCoordinationTools",
+          "createInitiativeTools",
+          "createSharePointTools",
+          "createResearchRepoTools",
+          "createResearchMonitoringTools",
+          "createAgent365McpTools",
+          "createCoreTools",
+          "createGlyphorMcpTools"
+        ],
+        "hasOrchestrationTools": true,
+        "hasAgent365": true,
+        "hasGlyphorMcp": true,
+        "hasSharePoint": true,
+        "grantedByDb": 114,
+        "blockedByDb": 0
+      },
+      "config": {
+        "runnerType": "OrchestratorRunner",
+        "temperature": 0.3,
+        "maxTurns": 28,
+        "maxTurnsOverrides": {},
+        "isExecutive": true,
+        "hasActiveTeamMembers": false,
+        "teamMemberCount": 0,
+        "teamMembersWithRunners": 0,
+        "runnerMismatch": false,
+        "temperatureOutlier": false
+      },
+      "taskRouting": {
+        "taskTypes": [
+          "decompose_research",
+          "qc_and_package_research",
+          "follow_up_research",
+          "urgent_message_response",
+          "work_loop",
+          "proactive"
+        ],
+        "coveredBySkillMap": [],
+        "uncoveredTaskTypes": [
+          "decompose_research",
+          "qc_and_package_research",
+          "follow_up_research",
+          "urgent_message_response",
+          "work_loop",
+          "proactive"
+        ],
+        "coverageRate": 0
+      },
+      "runs": {
+        "last30Days": {
+          "total": 8,
+          "completed": 7,
+          "aborted": 1,
+          "timedOut": 0,
+          "maxTurnsReached": 0,
+          "avgTurns": 0.875,
+          "avgDurationMs": 38785.5,
+          "avgInputTokens": 12611.625,
+          "avgOutputTokens": 53.375,
+          "estimatedCost30d": 0.9564
+        },
+        "taskBreakdown": {
+          "on_demand": {
+            "count": 4,
+            "completionRate": 0.75,
+            "avgTurns": 0
+          },
+          "urgent_message_response": {
+            "count": 3,
+            "completionRate": 1,
+            "avgTurns": 2
+          },
+          "work_loop": {
+            "count": 1,
+            "completionRate": 1,
+            "avgTurns": 1
+          }
+        }
+      },
+      "assignments": {
+        "last30Days": {
+          "received": 0,
+          "completed": 0,
+          "needsRevision": 0,
+          "failed": 0,
+          "avgQualityScore": 0,
+          "avgCompletionTimeMs": 0
+        },
+        "commonFailureModes": []
+      },
+      "schedule": {
+        "cronJobs": [],
+        "hasScheduleFile": false,
+        "missingCrons": [
+          "decompose_research",
+          "qc_and_package_research",
+          "follow_up_research",
+          "urgent_message_response"
+        ]
+      },
+      "recommendations": [
+        {
+          "priority": "P1",
+          "category": "prompt",
+          "description": "System prompt lacks pre-revenue / crisis fabrication guards. Add shared PRE_REVENUE_GUARD.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P0",
+          "category": "skills",
+          "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
+          "effort": "small"
+        },
+        {
+          "priority": "P1",
+          "category": "schedule",
+          "description": "Task \"decompose_research\" is defined in run.ts but has no cron trigger.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P1",
+          "category": "schedule",
+          "description": "Task \"qc_and_package_research\" is defined in run.ts but has no cron trigger.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P1",
+          "category": "schedule",
+          "description": "Task \"follow_up_research\" is defined in run.ts but has no cron trigger.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P1",
+          "category": "schedule",
+          "description": "Task \"urgent_message_response\" is defined in run.ts but has no cron trigger.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "routing",
+          "description": "Task type \"decompose_research\" has no matching pattern in task_skill_map.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "routing",
+          "description": "Task type \"qc_and_package_research\" has no matching pattern in task_skill_map.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "routing",
+          "description": "Task type \"follow_up_research\" has no matching pattern in task_skill_map.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "routing",
+          "description": "Task type \"urgent_message_response\" has no matching pattern in task_skill_map.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "routing",
+          "description": "Task type \"work_loop\" has no matching pattern in task_skill_map.",
+          "effort": "trivial"
+        },
+        {
+          "priority": "P2",
+          "category": "routing",
+          "description": "Task type \"proactive\" has no matching pattern in task_skill_map.",
+          "effort": "trivial"
+        }
+      ]
+    }
+  ],
+  "totalTokenBudget": 69973,
+  "healthSummary": {
+    "healthy": 6,
+    "degraded": 2,
+    "unhealthy": 0,
+    "noData": 3
+  },
+  "criticalIssues": [
+    {
+      "agent": "devops-engineer",
+      "priority": "P0",
+      "category": "skills",
+      "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
+      "effort": "small"
+    },
+    {
+      "agent": "ops",
+      "priority": "P0",
+      "category": "skills",
+      "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
+      "effort": "small"
+    },
+    {
+      "agent": "platform-engineer",
+      "priority": "P0",
+      "category": "skills",
+      "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
+      "effort": "small"
+    },
+    {
+      "agent": "quality-engineer",
+      "priority": "P0",
+      "category": "skills",
+      "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
+      "effort": "small"
+    },
+    {
+      "agent": "vp-research",
+      "priority": "P0",
+      "category": "skills",
+      "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
+      "effort": "small"
+    }
+  ],
+  "bloatedBriefs": [],
+  "zeroSkillAgents": [
+    "devops-engineer",
+    "ops",
+    "platform-engineer",
+    "quality-engineer",
+    "vp-research"
+  ],
+  "runnerMismatches": [
+    {
+      "role": "cmo",
+      "factories": 20
+    },
+    {
+      "role": "vp-design",
+      "factories": 31
+    }
+  ],
+  "temperatureOutliers": [],
+  "unroutedTaskTypes": [
+    {
+      "agent": "chief-of-staff",
+      "task": "orchestrate"
+    },
+    {
+      "agent": "chief-of-staff",
+      "task": "strategic_planning"
+    },
+    {
+      "agent": "chief-of-staff",
+      "task": "heartbeat_response"
+    },
+    {
+      "agent": "vp-design",
+      "task": "design_audit"
+    },
+    {
+      "agent": "vp-design",
+      "task": "design_system_review"
+    },
+    {
+      "agent": "vp-research",
+      "task": "decompose_research"
+    },
+    {
+      "agent": "vp-research",
+      "task": "qc_and_package_research"
+    },
+    {
+      "agent": "vp-research",
+      "task": "follow_up_research"
+    },
+    {
+      "agent": "vp-research",
+      "task": "urgent_message_response"
+    },
+    {
+      "agent": "vp-research",
+      "task": "work_loop"
+    },
+    {
+      "agent": "vp-research",
+      "task": "proactive"
+    }
+  ],
+  "toolHeavyAgents": [
+    {
+      "role": "vp-design",
+      "factories": 31,
+      "estimated": 197
+    },
+    {
+      "role": "cmo",
+      "factories": 20,
+      "estimated": 193
+    },
+    {
+      "role": "cto",
+      "factories": 19,
+      "estimated": 195
+    },
+    {
+      "role": "chief-of-staff",
+      "factories": 18,
+      "estimated": 176
+    },
+    {
+      "role": "cpo",
+      "factories": 16,
+      "estimated": 138
+    }
+  ],
+  "crossDomainSkillIssues": [
+    {
+      "role": "chief-of-staff",
+      "skills": [
+        "cross-team-coordination",
+        "decision-routing"
+      ]
+    },
+    {
+      "role": "cmo",
+      "skills": [
+        "sharepoint-site-management",
+        "advanced-web-creation",
+        "brand-management",
+        "client-web-creation"
+      ]
+    },
+    {
+      "role": "cpo",
+      "skills": [
+        "user-research",
+        "competitive-analysis",
+        "roadmap-management"
+      ]
+    },
+    {
+      "role": "cto",
+      "skills": [
+        "advanced-web-creation",
+        "client-web-creation"
+      ]
+    }
+  ],
+  "allGhostToolRefs": [],
+  "turnLimitIssues": [],
+  "dbOnlyAgents": []
+}

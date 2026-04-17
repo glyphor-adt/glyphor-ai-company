@@ -1,0 +1,240 @@
+{
+  "role": "cpo",
+  "timestamp": "2026-04-17T03:13:03.685Z",
+  "brief": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\elena-vasquez.md",
+    "exists": true,
+    "tokenCount": 1039,
+    "hasRelationships": true,
+    "hasAuthority": true,
+    "hasAntiPatterns": false,
+    "containsSkillContent": false,
+    "containsKnowledgeContent": false,
+    "skillIndicators": [],
+    "knowledgeIndicators": [],
+    "duplicateRelationships": [],
+    "sectionBreakdown": [
+      {
+        "heading": "Elena Vasquez — Chief Product Officer",
+        "tokens": 73,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Identity",
+        "tokens": 103,
+        "classification": "identity"
+      },
+      {
+        "heading": "Personality & Voice",
+        "tokens": 178,
+        "classification": "identity"
+      },
+      {
+        "heading": "Communication Style",
+        "tokens": 176,
+        "classification": "identity"
+      },
+      {
+        "heading": "Core Mission",
+        "tokens": 163,
+        "classification": "identity"
+      },
+      {
+        "heading": "Your Relationships",
+        "tokens": 143,
+        "classification": "identity"
+      },
+      {
+        "heading": "Authority Boundaries",
+        "tokens": 84,
+        "classification": "identity"
+      },
+      {
+        "heading": "Operating Principles",
+        "tokens": 121,
+        "classification": "identity"
+      }
+    ]
+  },
+  "systemPrompt": {
+    "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\cpo\\systemPrompt.ts",
+    "exists": true,
+    "tokenCount": 710,
+    "hasCrisisFabricationRules": true,
+    "overlapsWithBrief": 0,
+    "overlapsWithSkills": 0,
+    "exportedConstants": [
+      "CPO_SYSTEM_PROMPT"
+    ]
+  },
+  "skills": {
+    "assigned": [
+      {
+        "slug": "user-research",
+        "proficiency": "expert",
+        "category": "product",
+        "tokenCount": 83,
+        "isOwnDomain": false,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "competitive-analysis",
+        "proficiency": "expert",
+        "category": "product",
+        "tokenCount": 85,
+        "isOwnDomain": false,
+        "timesUsed": 0,
+        "successRate": 1
+      },
+      {
+        "slug": "roadmap-management",
+        "proficiency": "expert",
+        "category": "product",
+        "tokenCount": 92,
+        "isOwnDomain": false,
+        "timesUsed": 0,
+        "successRate": 1
+      }
+    ],
+    "totalTokens": 260,
+    "crossDomainSkills": [
+      "user-research",
+      "competitive-analysis",
+      "roadmap-management"
+    ],
+    "ghostToolRefs": []
+  },
+  "tiers": {
+    "taskTypes": []
+  },
+  "tools": {
+    "factoryCount": 16,
+    "estimatedToolCount": 138,
+    "factories": [
+      "createCPOTools",
+      "createCollectiveIntelligenceTools",
+      "createGraphTools",
+      "createSharePointTools",
+      "createTeamOrchestrationTools",
+      "createPeerCoordinationTools",
+      "createInitiativeTools",
+      "createAgentCreationTools",
+      "createAgentDirectoryTools",
+      "createProductAnalyticsTools",
+      "createCompetitiveIntelTools",
+      "createSharedCompetitiveIntelTools",
+      "createRoadmapTools",
+      "createAgent365McpTools",
+      "createCoreTools",
+      "createGlyphorMcpTools"
+    ],
+    "hasOrchestrationTools": true,
+    "hasAgent365": true,
+    "hasGlyphorMcp": true,
+    "hasSharePoint": true,
+    "grantedByDb": 138,
+    "blockedByDb": 47
+  },
+  "config": {
+    "runnerType": "OrchestratorRunner",
+    "temperature": 0.3,
+    "maxTurns": 50,
+    "maxTurnsOverrides": {},
+    "isExecutive": true,
+    "hasActiveTeamMembers": false,
+    "teamMemberCount": 0,
+    "teamMembersWithRunners": 0,
+    "runnerMismatch": false,
+    "temperatureOutlier": false
+  },
+  "taskRouting": {
+    "taskTypes": [],
+    "coveredBySkillMap": [],
+    "uncoveredTaskTypes": [],
+    "coverageRate": 1
+  },
+  "runs": {
+    "last30Days": {
+      "total": 122,
+      "completed": 108,
+      "aborted": 10,
+      "timedOut": 0,
+      "maxTurnsReached": 0,
+      "avgTurns": 3.3114754098360657,
+      "avgDurationMs": 45531.639344262294,
+      "avgInputTokens": 39273.81967213115,
+      "avgOutputTokens": 1539.0901639344263,
+      "estimatedCost30d": 34.2329
+    },
+    "taskBreakdown": {
+      "work_loop": {
+        "count": 4,
+        "completionRate": 0.5,
+        "avgTurns": 2
+      },
+      "weekly_usage_analysis": {
+        "count": 8,
+        "completionRate": 0.75,
+        "avgTurns": 3
+      },
+      "proactive": {
+        "count": 108,
+        "completionRate": 0.9074074074074074,
+        "avgTurns": 3.4166666666666665
+      },
+      "on_demand": {
+        "count": 1,
+        "completionRate": 1,
+        "avgTurns": 0
+      },
+      "urgent_message_response": {
+        "count": 1,
+        "completionRate": 1,
+        "avgTurns": 3
+      }
+    }
+  },
+  "assignments": {
+    "last30Days": {
+      "received": 1,
+      "completed": 1,
+      "needsRevision": 0,
+      "failed": 0,
+      "avgQualityScore": 0,
+      "avgCompletionTimeMs": 72875
+    },
+    "commonFailureModes": []
+  },
+  "schedule": {
+    "cronJobs": [],
+    "hasScheduleFile": false,
+    "missingCrons": []
+  },
+  "recommendations": [
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"user-research\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"competitive-analysis\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "skills",
+      "description": "Skill \"roadmap-management\" is from another department. Verify this agent uses it or remove.",
+      "effort": "trivial"
+    },
+    {
+      "priority": "P2",
+      "category": "tools",
+      "description": "Agent loads 16 tool factories (~80+ tools). Heavy reliance on ToolRetriever quality.",
+      "effort": "medium"
+    }
+  ]
+}

@@ -1,10 +1,10 @@
 {
   "role": "platform-engineer",
-  "timestamp": "2026-03-18T01:42:43.357Z",
+  "timestamp": "2026-04-17T03:13:08.754Z",
   "brief": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\company-knowledge\\briefs\\alex-park.md",
     "exists": true,
-    "tokenCount": 632,
+    "tokenCount": 635,
     "hasRelationships": true,
     "hasAuthority": false,
     "hasAntiPatterns": false,
@@ -33,7 +33,7 @@
       },
       {
         "heading": "Core Mission",
-        "tokens": 104,
+        "tokens": 108,
         "classification": "identity"
       },
       {
@@ -46,7 +46,7 @@
   "systemPrompt": {
     "path": "C:\\Users\\KristinaDenney\\source\\repos\\glyphor-ai-company\\packages\\agents\\src\\platform-engineer\\systemPrompt.ts",
     "exists": true,
-    "tokenCount": 496,
+    "tokenCount": 317,
     "hasCrisisFabricationRules": false,
     "overlapsWithBrief": 0,
     "overlapsWithSkills": 0,
@@ -55,27 +55,8 @@
     ]
   },
   "skills": {
-    "assigned": [
-      {
-        "slug": "incident-response",
-        "proficiency": "expert",
-        "category": "engineering",
-        "tokenCount": 2717,
-        "isOwnDomain": true,
-        "timesUsed": 0,
-        "successRate": 1
-      },
-      {
-        "slug": "platform-monitoring",
-        "proficiency": "expert",
-        "category": "engineering",
-        "tokenCount": 2261,
-        "isOwnDomain": true,
-        "timesUsed": 0,
-        "successRate": 1
-      }
-    ],
-    "totalTokens": 4978,
+    "assigned": [],
+    "totalTokens": 0,
     "crossDomainSkills": [],
     "ghostToolRefs": []
   },
@@ -83,8 +64,8 @@
     "taskTypes": []
   },
   "tools": {
-    "factoryCount": 8,
-    "estimatedToolCount": 40,
+    "factoryCount": 9,
+    "estimatedToolCount": 9,
     "factories": [
       "createPlatformEngineerTools",
       "createGraphTools",
@@ -93,19 +74,20 @@
       "createDiagnosticTools",
       "createAgent365McpTools",
       "createCoreTools",
-      "createGlyphorMcpTools"
+      "createGlyphorMcpTools",
+      "createSandboxDevTools"
     ],
     "hasOrchestrationTools": false,
     "hasAgent365": true,
     "hasGlyphorMcp": true,
     "hasSharePoint": true,
-    "grantedByDb": 147,
+    "grantedByDb": 0,
     "blockedByDb": 0
   },
   "config": {
     "runnerType": "TaskRunner",
     "temperature": 0.3,
-    "maxTurns": 50,
+    "maxTurns": 28,
     "maxTurnsOverrides": {},
     "isExecutive": false,
     "hasActiveTeamMembers": false,
@@ -122,48 +104,27 @@
   },
   "runs": {
     "last30Days": {
-      "total": 331,
-      "completed": 166,
-      "aborted": 33,
+      "total": 0,
+      "completed": 0,
+      "aborted": 0,
       "timedOut": 0,
       "maxTurnsReached": 0,
-      "avgTurns": 3.0755287009063443,
-      "avgDurationMs": 66479.96374622357,
-      "avgInputTokens": 29030.123867069487,
-      "avgOutputTokens": 1945.3262839879153,
-      "estimatedCost30d": 3.4469000000000003
+      "avgTurns": 0,
+      "avgDurationMs": 0,
+      "avgInputTokens": 0,
+      "avgOutputTokens": 0,
+      "estimatedCost30d": 0
     },
-    "taskBreakdown": {
-      "proactive": {
-        "count": 33,
-        "completionRate": 0.7272727272727273,
-        "avgTurns": 4.878787878787879
-      },
-      "health_check": {
-        "count": 135,
-        "completionRate": 0.37037037037037035,
-        "avgTurns": 1.962962962962963
-      },
-      "work_loop": {
-        "count": 156,
-        "completionRate": 0.5512820512820513,
-        "avgTurns": 3.6153846153846154
-      },
-      "on_demand": {
-        "count": 7,
-        "completionRate": 0.8571428571428571,
-        "avgTurns": 4
-      }
-    }
+    "taskBreakdown": {}
   },
   "assignments": {
     "last30Days": {
-      "received": 43,
-      "completed": 43,
+      "received": 0,
+      "completed": 0,
       "needsRevision": 0,
       "failed": 0,
       "avgQualityScore": 0,
-      "avgCompletionTimeMs": 984685.5
+      "avgCompletionTimeMs": 0
     },
     "commonFailureModes": []
   },
@@ -186,15 +147,15 @@
       "effort": "trivial"
     },
     {
-      "priority": "P2",
-      "category": "context",
-      "description": "Assigned skills total ~4978 tokens. Exceeds recommended 3,000-token skill budget.",
+      "priority": "P0",
+      "category": "skills",
+      "description": "Agent has ZERO skills assigned. No procedural guidance — model is winging it.",
       "effort": "small"
     },
     {
-      "priority": "P0",
+      "priority": "P2",
       "category": "health",
-      "description": "Completion rate is 50% (target: >80%). Agent is failing/aborting frequently.",
+      "description": "Zero runs in 30 days. Agent may be broken, unscheduled, or orphaned.",
       "effort": "medium"
     }
   ]
