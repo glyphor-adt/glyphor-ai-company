@@ -80,7 +80,7 @@ export interface ResolvedSharePointGraphToken {
 /**
  * Resolve Microsoft Graph tokens for SharePoint operations.
  *
- * - **Agent runs** (`agentRole` set): **Agent365 agentic user token only** — no AZURE_FILES fallback.
+ * - **Agent runs** (`agentRole` set): Prefer Agent365 agentic user token; fall back to app-only `AZURE_FILES` if unavailable.
  * - **System jobs** (no `agentRole`, e.g. scheduled knowledge sync): app-only `AZURE_FILES` via {@link getM365Token}.
  */
 export async function resolveSharePointGraphToken(
@@ -96,21 +96,31 @@ export async function resolveSharePointGraphToken(
 
   const role = agentRole.trim();
   const agenticToken = await getAgenticGraphToken(role);
-  if (!agenticToken) {
-    throw new Error(
-      `SharePoint ${operation} requires an Agent365 Graph token for "${role}". `
-      + 'Set AGENT365_ENABLED=true with AGENT365_CLIENT_ID / AGENT365_CLIENT_SECRET / AGENT365_TENANT_ID, '
-      + 'and ensure agentIdentities.json (or AGENT365_APP_INSTANCE_ID + AGENT365_AGENTIC_USER_ID) '
-      + 'defines blueprintSpId and entraUserId for this role.',
-    );
+  if (agenticToken) {
+    console.log(`[SharePoint] Using agentic user token for ${operation} (${role})`);
+    return {
+      token: agenticToken,
+      identityType: 'agent365',
+      agentRole: role,
+    };
   }
 
-  console.log(`[SharePoint] Using agentic user token for ${operation} (${role})`);
-  return {
-    token: agenticToken,
-    identityType: 'agent365',
-    agentRole: role,
-  };
+  // Agentic token unavailable — fall back to app-only Graph token so the agent
+  // can still search/read SharePoint. Actions are attributed to the app rather
+  // than the individual agent identity, but this is preferable to a hard failure.
+  console.warn(`[SharePoint] Agentic token unavailable for ${role}, falling back to app-only Graph token for ${operation}`);
+  try {
+    return {
+      token: await getM365Token(operation),
+      identityType: 'app-only-graph',
+    };
+  } catch {
+    throw new Error(
+      `SharePoint ${operation} requires a Graph token for "${role}". `
+      + 'Agent365 agentic token failed (check AGENT365 env vars and agentIdentities.json) '
+      + 'and app-only AZURE_FILES fallback also failed (check AZURE_FILES_* env vars).',
+    );
+  }
 }
 
 export async function syncSharePointKnowledge(

@@ -903,7 +903,9 @@ export async function getAgenticGraphToken(agentRole: string): Promise<string | 
     );
     return token;
   } catch (err) {
-    console.warn(`[Agent365] Failed to acquire Graph token for ${agentRole}: ${(err as Error).message}`);
+    const e = err as Error & { response?: { data?: unknown; status?: number } };
+    const detail = e.response?.data ? ` | body=${JSON.stringify(e.response.data).slice(0, 500)}` : '';
+    console.warn(`[Agent365] Failed to acquire Graph token for ${agentRole}: ${e.message}${detail}`);
     return null;
   }
 }

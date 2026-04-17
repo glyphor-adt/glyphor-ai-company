@@ -616,6 +616,9 @@ function estimateConfidence(params: Record<string, unknown>, context: ToolContex
   // Interactive chat: user explicitly invoked the agent — sufficient intent for substantive tools
   // (otherwise confidence stays at 0.4 and TOOL_VALUE_GATE_CONFIDENCE_THRESHOLD 0.6 blocks everything).
   if (context.requestSource === 'on_demand') confidence += 0.25;
+  // Scheduled heartbeat runs have legitimate system-initiated intent — treat like on_demand.
+  // Without this, scheduled runs stay at 0.4 and every write/non-autonomous tool gets blocked.
+  if (context.requestSource === 'scheduled') confidence += 0.25;
   if (typeof params.reason === 'string' && params.reason.trim().length > 10) confidence += 0.15;
   if (typeof params.evidence === 'string' && params.evidence.trim().length > 10) confidence += 0.1;
   return Math.min(1, confidence);
