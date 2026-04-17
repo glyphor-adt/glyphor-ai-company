@@ -84,6 +84,7 @@ import { handleMetricsAdminApi } from './metricsAdminApi.js';
 import { handleTemporalKnowledgeGraphAdminApi } from './temporalKnowledgeGraphAdminApi.js';
 import { HandoffContractMonitor } from './handoffContractMonitor.js';
 import { handleEvalApi } from './evalDashboard.js';
+import { handleCzApi } from './czProtocolApi.js';
 import { verifyPlan } from './planVerifier.js';
 import { consolidateMemory } from './memoryConsolidator.js';
 import {
@@ -541,6 +542,12 @@ function classifySchedulerRoute(pathname: string, method: string): SchedulerRout
     )
   ) {
     return 'authenticated-user';
+  }
+
+  // CZ Protocol: read-only GETs for any dashboard user, mutations admin-only
+  if (pathname.startsWith('/api/cz/')) {
+    if (method === 'GET') return 'authenticated-user';
+    return 'admin-only';
   }
 
   if (
@@ -6542,6 +6549,14 @@ const server = createServer(async (req, res) => {
       if (!(await requireDashboardUser(req, res, { admin: true }))) return;
     }
     if (await handleEvalApi(req, res, url, queryString ?? '', method)) return;
+
+    // ── Customer Zero Protocol API (/api/cz/*) ───────────────
+    if (url.startsWith('/api/cz/')) {
+      if (method !== 'GET') {
+        if (!(await requireDashboardUser(req, res, { admin: true }))) return;
+      }
+    }
+    if (await handleCzApi(req, res, url, queryString ?? '', method)) return;
 
     // ── Governance API (/api/governance/*) ────────────────────────
     if (url.startsWith('/api/governance/')) {

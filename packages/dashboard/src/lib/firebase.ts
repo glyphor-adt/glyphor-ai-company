@@ -185,6 +185,7 @@ function isSchedulerHostedPath(normalizedPath: string): boolean {
     normalizedPath.startsWith('/admin/')
     || normalizedPath.startsWith('/api/eval/')
     || normalizedPath.startsWith('/api/governance/')
+    || normalizedPath.startsWith('/api/cz/')
   );
 }
 
