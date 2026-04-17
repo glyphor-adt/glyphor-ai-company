@@ -25,6 +25,7 @@ import { writeJson } from './httpJson.js';
 import { corsHeadersFor } from './corsHeaders.js';
 import { getGoogleAiApiKey, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
 import { ModelClient, type AgentExecutionResult } from '@glyphor/agent-runtime';
+import { processCzBatchFailures } from './czReflectionBridge.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCPO, runCMO,
   runVPDesign, runVPResearch, runOps,
@@ -397,6 +398,13 @@ async function executeBatch(
     failed: batchFailed,
     total: runRows.length,
   });
+
+  // 6. Trigger self-improvement pipeline for failed agents
+  if (batchFailed > 0) {
+    processCzBatchFailures(batchId).catch((err) => {
+      console.error(`[CzReflection] Pipeline error for batch ${batchId}:`, (err as Error).message);
+    });
+  }
 
   // Close SSE connections for this batch
   const clients = sseClients.get(batchId);
