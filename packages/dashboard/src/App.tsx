@@ -28,7 +28,6 @@ import SmbWork from './pages/SmbWork';
 import SmbApprovals from './pages/SmbApprovals';
 import SmbInsights from './pages/SmbInsights';
 import SmbSettings from './pages/SmbSettings';
-import CzProtocol from './components/governance/CzProtocol';
 import { useAuth } from './lib/auth';
 
 function DashboardEntryGate() {
@@ -151,7 +150,7 @@ export default function App() {
         <Route path="change-requests" element={<ChangeRequests />} />
         <Route path="models" element={<Navigate to="../governance?tab=models" replace />} />
         <Route path="fleet" element={<Fleet />} />
-        <Route path="cz-protocol" element={<CzProtocol />} />
+        <Route path="cz-protocol" element={<Navigate to="../governance?tab=certification" replace />} />
         <Route path="settings" element={<Settings />} />
         <Route path="onboarding" element={<Onboarding />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />

@@ -7,6 +7,7 @@ import AuthorityControl from '../components/governance/AuthorityControl';
 import ReliabilityDashboard from '../components/governance/ReliabilityDashboard';
 import EnterpriseKpiDashboard from '../components/governance/EnterpriseKpiDashboard';
 import ToolView from '../components/governance/ToolView';
+import CzProtocol from '../components/governance/CzProtocol';
 import ModelAdmin from './ModelAdmin';
 import {
   ADMIN_EMAILS,
@@ -700,6 +701,7 @@ const VALID_TABS: GovernanceSurface[] = [
   'reliability',
   'enterprise-kpis',
   'models',
+  'certification',
 ];
 const HIDDEN_AUTHORITY_STATUSES = new Set(['retired', 'inactive', 'deleted']);
 
@@ -1124,6 +1126,7 @@ export default function Governance() {
           { key: 'reliability', label: 'Reliability' },
           { key: 'enterprise-kpis', label: 'Enterprise KPIs' },
           { key: 'models', label: 'Models' },
+          { key: 'certification', label: 'Certification' },
         ]}
         active={activeTab}
         onChange={handleTabChange}
@@ -1209,6 +1212,12 @@ export default function Governance() {
       {activeTab === 'models' && (
         <div id="models">
           <ModelAdmin />
+        </div>
+      )}
+
+      {activeTab === 'certification' && (
+        <div id="certification">
+          <CzProtocol />
         </div>
       )}
     </div>

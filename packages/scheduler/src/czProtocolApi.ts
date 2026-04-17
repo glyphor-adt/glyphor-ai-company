@@ -134,7 +134,7 @@ export async function handleCzApi(
           FROM cz_scores s
           JOIN cz_runs r ON r.id = s.run_id
           WHERE r.task_id = $1
-          ORDER BY s.scored_at DESC
+          ORDER BY s.created_at DESC
           LIMIT $2
         `, [taskId, limit]),
       ]);

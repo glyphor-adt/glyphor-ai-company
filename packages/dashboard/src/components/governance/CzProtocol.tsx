@@ -413,9 +413,23 @@ function LiveRunConsole() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [launchMode, setLaunchMode] = useState<string>('full');
   const [launchSurface, setLaunchSurface] = useState<string>('direct');
+  const [launchPillar, setLaunchPillar] = useState<string>('');
+  const [launchAgent, setLaunchAgent] = useState<string>('');
+  const [launchTaskId, setLaunchTaskId] = useState<string>('');
+  const [tasks, setTasks] = useState<{ id: string; task_number: number; task: string; pillar: string; responsible_agent: string | null }[]>([]);
   const [launching, setLaunching] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const consoleRef = useRef<HTMLDivElement>(null);
+
+  // Fetch tasks for pillar/agent/task selectors
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await apiCall<{ tasks: { id: string; task_number: number; task: string; pillar: string; responsible_agent: string | null }[] }>('/api/cz/tasks');
+        setTasks(data.tasks);
+      } catch { /* ignore — selectors will just be empty */ }
+    })();
+  }, []);
 
   // Fetch recent runs
   const fetchRuns = useCallback(async () => {
@@ -463,13 +477,29 @@ function LiveRunConsole() {
     return () => { es.close(); };
   }, [activeRunId, fetchRuns]);
 
+  // Derived lists for selectors
+  const pillarList = useMemo(() => [...new Set(tasks.map((t) => t.pillar))].sort(), [tasks]);
+  const agentList = useMemo(() => [...new Set(tasks.map((t) => t.responsible_agent).filter(Boolean) as string[])].sort(), [tasks]);
+
   // Launch a new run
   const launchRun = async () => {
     setLaunching(true);
+    setError(null);
     try {
+      const body: Record<string, string> = { mode: launchMode, surface: launchSurface };
+      if (launchMode === 'pillar') {
+        if (!launchPillar) { setError('Select a pillar first'); setLaunching(false); return; }
+        body.pillar = launchPillar;
+      } else if (launchMode === 'canary') {
+        if (!launchAgent) { setError('Select an agent first'); setLaunching(false); return; }
+        body.agent = launchAgent;
+      } else if (launchMode === 'single') {
+        if (!launchTaskId) { setError('Select a task first'); setLaunching(false); return; }
+        body.task_id = launchTaskId;
+      }
       const data = await apiCall<{ batch_id: string }>('/api/cz/runs', {
         method: 'POST',
-        body: JSON.stringify({ mode: launchMode, surface: launchSurface }),
+        body: JSON.stringify(body),
       });
       setSseEvents([]);
       setActiveRunId(data.batch_id);
@@ -486,7 +516,7 @@ function LiveRunConsole() {
       <SectionHeader title="Live Run Console" subtitle="Execute and monitor CZ test runs" />
 
       {/* Launch Controls */}
-      <div className="flex items-center gap-3 mt-3">
+      <div className="flex items-center gap-3 mt-3 flex-wrap">
         <select
           className="bg-zinc-800 text-zinc-200 text-xs px-2 py-1.5 rounded border border-zinc-700"
           value={launchMode}
@@ -498,6 +528,40 @@ function LiveRunConsole() {
           <option value="canary">Canary (by agent)</option>
           <option value="single">Single Task</option>
         </select>
+
+        {launchMode === 'pillar' && (
+          <select
+            className="bg-zinc-800 text-zinc-200 text-xs px-2 py-1.5 rounded border border-zinc-700"
+            value={launchPillar}
+            onChange={(e) => setLaunchPillar(e.target.value)}
+          >
+            <option value="">— select pillar —</option>
+            {pillarList.map((p) => <option key={p} value={p}>{shortPillar(p)}</option>)}
+          </select>
+        )}
+
+        {launchMode === 'canary' && (
+          <select
+            className="bg-zinc-800 text-zinc-200 text-xs px-2 py-1.5 rounded border border-zinc-700"
+            value={launchAgent}
+            onChange={(e) => setLaunchAgent(e.target.value)}
+          >
+            <option value="">— select agent —</option>
+            {agentList.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        )}
+
+        {launchMode === 'single' && (
+          <select
+            className="bg-zinc-800 text-zinc-200 text-xs px-2 py-1.5 rounded border border-zinc-700 max-w-[200px]"
+            value={launchTaskId}
+            onChange={(e) => setLaunchTaskId(e.target.value)}
+          >
+            <option value="">— select task —</option>
+            {tasks.map((t) => <option key={t.id} value={t.id}>#{t.task_number} {t.task.slice(0, 40)}</option>)}
+          </select>
+        )}
+
         <select
           className="bg-zinc-800 text-zinc-200 text-xs px-2 py-1.5 rounded border border-zinc-700"
           value={launchSurface}
@@ -728,7 +792,7 @@ export default function CzProtocol() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-zinc-100">Customer Zero Protocol</h1>
+        <h1 className="text-xl font-semibold text-zinc-100">Certification Protocol</h1>
         <p className="text-sm text-zinc-400 mt-1">
           Dogfood test runner — 89 tasks across 10 pillars, 19 P0 critical tests, 3 launch gates.
         </p>

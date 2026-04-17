@@ -20,7 +20,6 @@ const NAV = [
   { to: 'governance', label: 'Governance', icon: GovernanceIcon },
   { to: 'change-requests', label: 'Change Requests', icon: ChangeRequestIcon },
   { to: 'fleet', label: 'Fleet', icon: FleetIcon },
-  { to: 'cz-protocol', label: 'CZ Protocol', icon: CzIcon },
   { to: 'settings', label: 'Settings', icon: SettingsIcon },
 ] as const;
 

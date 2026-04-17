@@ -11,7 +11,8 @@ export type GovernanceSurface =
   | 'autonomy'
   | 'reliability'
   | 'enterprise-kpis'
-  | 'models';
+  | 'models'
+  | 'certification';
 export type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info' | 'good' | 'warning';
 
