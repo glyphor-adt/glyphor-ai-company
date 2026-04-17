@@ -128,8 +128,23 @@ ALTER TABLE cz_scores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cz_pillar_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cz_launch_gates ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY system_bypass ON cz_tasks FOR ALL TO glyphor_system USING (true);
-CREATE POLICY system_bypass ON cz_runs FOR ALL TO glyphor_system USING (true);
-CREATE POLICY system_bypass ON cz_scores FOR ALL TO glyphor_system USING (true);
-CREATE POLICY system_bypass ON cz_pillar_config FOR ALL TO glyphor_system USING (true);
-CREATE POLICY system_bypass ON cz_launch_gates FOR ALL TO glyphor_system USING (true);
+DO $$ BEGIN
+  CREATE POLICY system_bypass ON cz_tasks FOR ALL TO glyphor_system USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY system_bypass ON cz_runs FOR ALL TO glyphor_system USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY system_bypass ON cz_scores FOR ALL TO glyphor_system USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY system_bypass ON cz_pillar_config FOR ALL TO glyphor_system USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY system_bypass ON cz_launch_gates FOR ALL TO glyphor_system USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
