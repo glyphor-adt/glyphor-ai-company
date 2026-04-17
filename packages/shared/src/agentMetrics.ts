@@ -397,12 +397,9 @@ async function getAssignmentMetrics(agentId: string | null, bounds: WindowBounds
     avgMinutes: roundMetric(asNullableNumber(row?.avg_minutes)),
   };
 
-  // Fallback: some workloads run without writing work_assignments.
-  // In that case, derive reliability counts from agent_runs so dashboards stay populated.
-  if (assignmentMetrics.total > 0) {
-    return assignmentMetrics;
-  }
-
+  // Always query agent_runs to capture all workloads (scheduled runs, event
+  // responses, etc.) that bypass the work_assignments dispatcher.
+  // Return whichever source has higher volume so the dashboard reflects reality.
   const runParams = agentId
     ? [agentId, bounds.start.toISOString(), bounds.end.toISOString()]
     : [bounds.start.toISOString(), bounds.end.toISOString()];
@@ -415,7 +412,7 @@ async function getAssignmentMetrics(agentId: string | null, bounds: WindowBounds
            AVG(EXTRACT(EPOCH FROM (completed_at - started_at)) / 60.0)
              FILTER (WHERE status = 'completed' AND completed_at IS NOT NULL) AS avg_minutes
          FROM agent_runs
-         WHERE agent_role = $1
+         WHERE agent_id = $1
            AND started_at >= $2
            AND started_at < $3`
       : `SELECT
@@ -431,12 +428,15 @@ async function getAssignmentMetrics(agentId: string | null, bounds: WindowBounds
   );
 
   const runRow = runRows[0];
-  return {
+  const runMetrics = {
     total: asNumber(runRow?.total),
     completed: asNumber(runRow?.completed),
     failed: asNumber(runRow?.failed),
     avgMinutes: roundMetric(asNullableNumber(runRow?.avg_minutes)),
   };
+
+  // Return whichever source has more total activity
+  return runMetrics.total >= assignmentMetrics.total ? runMetrics : assignmentMetrics;
 }
 
 async function getEscalationCount(agentId: string | null, bounds: WindowBounds): Promise<number> {

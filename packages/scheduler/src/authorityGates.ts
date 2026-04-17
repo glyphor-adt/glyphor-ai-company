@@ -3,9 +3,19 @@
  *
  * Validates whether an agent action requires approval before execution.
  * Used by the event router and agent tools to enforce the authority model.
+ *
+ * Authority is resolved in order:
+ *   1. Per-agent DB column `company_agents.authority_scope` (green|yellow|red)
+ *   2. Dynamic trust promotion/demotion via `agent_trust_scores`
+ *   3. Hardcoded GREEN/YELLOW/RED action maps (fallback)
  */
 
 import type { CompanyAgentRole, DecisionTier } from '@glyphor/agent-runtime';
+import { systemQuery } from '@glyphor/shared/db';
+
+// ─── Trust thresholds (mirror packages/agent-runtime/src/trustScorer.ts) ────
+const PROMOTION_THRESHOLD = 0.85;
+const DEMOTION_THRESHOLD = 0.4;
 
 export interface AuthorityCheck {
   allowed: boolean;
@@ -109,6 +119,7 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
     'watch_tool_gaps',
     'remediate_tool_gaps',
     'memory_consolidation',
+    'fleet_audit',
   ]),
 };
 
@@ -145,25 +156,91 @@ const RED_ACTIONS = new Set([
 ]);
 
 /**
- * Check whether an agent action is authorized, or requires escalation.
+ * Query the per-agent authority_scope from DB plus their trust score.
+ * Returns null if agent isn't in DB (fallback to hardcoded maps).
  */
-export function checkAuthority(
+async function getAgentAuthorityFromDb(
+  agentRole: string,
+): Promise<{ authorityScope: DecisionTier; trustScore: number; autoPromotionEligible: boolean } | null> {
+  try {
+    const rows = await systemQuery<{
+      authority_scope: string;
+      trust_score: number | null;
+      auto_promotion_eligible: boolean | null;
+    }>(
+      `SELECT ca.authority_scope,
+              ts.trust_score,
+              ts.auto_promotion_eligible
+       FROM company_agents ca
+       LEFT JOIN agent_trust_scores ts ON ts.agent_role = ca.role
+       WHERE ca.role = $1`,
+      [agentRole],
+    );
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    return {
+      authorityScope: (row.authority_scope ?? 'green') as DecisionTier,
+      trustScore: row.trust_score ?? 0.5,
+      autoPromotionEligible: row.auto_promotion_eligible ?? false,
+    };
+  } catch (err) {
+    console.warn('[AuthorityGates] DB lookup failed, falling back to hardcoded maps:', (err as Error).message);
+    return null;
+  }
+}
+
+/**
+ * Apply trust-based promotion/demotion to a base authority tier.
+ * Mirrors TrustScorer.getEffectiveAuthority() but runs in-process.
+ */
+function applyTrustAdjustment(
+  baseTier: DecisionTier,
+  trustScore: number,
+  autoPromotionEligible: boolean,
+): DecisionTier {
+  // Promotion: yellow → green for high-trust agents
+  if (baseTier === 'yellow' && trustScore >= PROMOTION_THRESHOLD && autoPromotionEligible) {
+    return 'green';
+  }
+  // Demotion: green → yellow for low-trust agents
+  if (baseTier === 'green' && trustScore < DEMOTION_THRESHOLD) {
+    return 'yellow';
+  }
+  // red never gets promoted
+  return baseTier;
+}
+
+/**
+ * Check whether an agent action is authorized, or requires escalation.
+ *
+ * Resolution order:
+ *   1. Static overrides (skill_test → always green)
+ *   2. Hardcoded RED/YELLOW action sets (apply regardless of agent's DB scope)
+ *   3. Per-agent DB authority_scope + trust score → effective tier
+ *   4. Hardcoded GREEN action set (fallback if no DB row)
+ *   5. Unknown action → yellow (both founders)
+ */
+export async function checkAuthority(
   agentRole: CompanyAgentRole,
   action: string,
-): AuthorityCheck {
+): Promise<AuthorityCheck> {
   // Dedicated internal task for skill methodology A/B validation.
-  // Keep green-tier so tests can run without founder approval queues.
   if (action === 'skill_test') {
     return { allowed: true, tier: 'green', requiresApproval: false };
   }
 
-  // Check green (fully autonomous)
-  const greenSet = GREEN_ACTIONS[agentRole];
-  if (greenSet?.has(action)) {
-    return { allowed: true, tier: 'green', requiresApproval: false };
+  // Red actions always require both founders, regardless of DB scope.
+  if (RED_ACTIONS.has(action)) {
+    return {
+      allowed: false,
+      tier: 'red',
+      requiresApproval: true,
+      assignTo: ['kristina', 'andrew'],
+      reason: `Action "${action}" requires approval from both founders`,
+    };
   }
 
-  // Check yellow (one founder)
+  // Yellow actions always require one+ founder approval.
   const yellowConfig = YELLOW_ACTIONS[action];
   if (yellowConfig) {
     return {
@@ -175,18 +252,62 @@ export function checkAuthority(
     };
   }
 
-  // Check red (both founders)
-  if (RED_ACTIONS.has(action)) {
-    return {
-      allowed: false,
-      tier: 'red',
-      requiresApproval: true,
-      assignTo: ['kristina', 'andrew'],
-      reason: `Action "${action}" requires approval from both founders`,
-    };
+  // ── DB-driven authority with trust adjustment ──────────────────
+  const dbAuth = await getAgentAuthorityFromDb(agentRole);
+
+  if (dbAuth) {
+    const effectiveTier = applyTrustAdjustment(
+      dbAuth.authorityScope,
+      dbAuth.trustScore,
+      dbAuth.autoPromotionEligible,
+    );
+
+    if (effectiveTier === 'green') {
+      // DB says agent has green scope (or was promoted) — check if action is
+      // in its hardcoded green set *or* if the DB scope explicitly grants it
+      const greenSet = GREEN_ACTIONS[agentRole];
+      if (greenSet?.has(action) || dbAuth.authorityScope === 'green') {
+        return {
+          allowed: true,
+          tier: 'green',
+          requiresApproval: false,
+          reason: dbAuth.trustScore >= PROMOTION_THRESHOLD && dbAuth.authorityScope !== 'green'
+            ? `Trust-promoted (${dbAuth.trustScore.toFixed(2)}) from ${dbAuth.authorityScope} → green`
+            : undefined,
+        };
+      }
+    }
+
+    if (effectiveTier === 'yellow') {
+      return {
+        allowed: false,
+        tier: 'yellow',
+        requiresApproval: true,
+        assignTo: ['kristina', 'andrew'],
+        reason: dbAuth.trustScore < DEMOTION_THRESHOLD && dbAuth.authorityScope === 'green'
+          ? `Trust-demoted (${dbAuth.trustScore.toFixed(2)}) from green → yellow for action "${action}"`
+          : `Agent "${agentRole}" authority_scope is yellow — action "${action}" requires approval`,
+      };
+    }
+
+    if (effectiveTier === 'red') {
+      return {
+        allowed: false,
+        tier: 'red',
+        requiresApproval: true,
+        assignTo: ['kristina', 'andrew'],
+        reason: `Agent "${agentRole}" authority_scope is red — action "${action}" requires approval from both founders`,
+      };
+    }
   }
 
-  // Unknown action — default to yellow, assign to both founders for safety
+  // ── Fallback: hardcoded maps (no DB row for this agent) ────────
+  const greenSet = GREEN_ACTIONS[agentRole];
+  if (greenSet?.has(action)) {
+    return { allowed: true, tier: 'green', requiresApproval: false };
+  }
+
+  // Unknown action — default to yellow for safety
   return {
     allowed: false,
     tier: 'yellow',

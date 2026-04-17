@@ -129,7 +129,7 @@ export class EventRouter {
     }
 
     // Check authority for this action
-    const auth = checkAuthority(event.agentRole, event.task);
+    const auth = await checkAuthority(event.agentRole, event.task);
 
     if (auth.allowed) {
       // Green tier — execute directly
