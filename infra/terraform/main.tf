@@ -1194,6 +1194,66 @@ resource "google_cloud_scheduler_job" "cto_health_check" {
   depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
 }
 
+# ─── CTO: Daily Deployment Summary (weekdays 9am CT) ────────
+resource "google_cloud_scheduler_job" "cto_daily_deploy_summary" {
+  name      = "cto-daily-deploy-summary"
+  schedule  = "0 9 * * 1-5"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "cto"
+      task      = "daily_deployment_summary"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+# ─── CTO: Weekly Infrastructure Audit (Monday 8am CT) ────────
+resource "google_cloud_scheduler_job" "cto_weekly_infra_audit" {
+  name      = "cto-weekly-infra-audit"
+  schedule  = "0 8 * * 1"
+  time_zone = "America/Chicago"
+  region    = var.region
+
+  pubsub_target {
+    topic_name = google_pubsub_topic.agent_tasks.id
+    data = base64encode(jsonencode({
+      agentRole = "cto"
+      task      = "infrastructure_audit"
+      payload   = {}
+    }))
+  }
+
+  depends_on = [google_project_service.apis["cloudscheduler.googleapis.com"]]
+}
+
+# ─── CTO (Marcus) IAM — per-agent SA role bindings ──────────
+# Desired state: run.developer (not admin), scoped pubsub, cloudbuild, logging
+locals {
+  cto_agent_roles = [
+    "roles/run.developer",
+    "roles/pubsub.publisher",
+    "roles/pubsub.subscriber",
+    "roles/secretmanager.secretAccessor",
+    "roles/storage.objectAdmin",
+    "roles/cloudbuild.builds.editor",
+    "roles/logging.viewer",
+    "roles/artifactregistry.reader",
+  ]
+}
+
+resource "google_project_iam_member" "cto_agent_roles" {
+  for_each = toset(local.cto_agent_roles)
+  project  = var.project_id
+  role     = each.value
+  member   = "serviceAccount:${google_service_account.agent_owner["marcus"].email}"
+}
+
 resource "google_cloud_scheduler_job" "cfo_daily_costs" {
   name      = "cfo-daily-costs"
   schedule  = "0 14 * * *"

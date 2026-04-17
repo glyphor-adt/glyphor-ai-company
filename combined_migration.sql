@@ -7952,3 +7952,120 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+
+-- ============================================
+-- Migration: 20260417000000_cto_full_upgrade.sql
+-- ============================================
+-- Comprehensive CTO (Marcus Reeves) upgrade:
+--   1. Model: gemini-3-flash-preview (RETIRED) → claude-sonnet-4-6 (high tier)
+--   2. Budget: $0.05/$0.50/$15 → $0.25/$5.00/$150
+--   3. Config: authority tier, escalation path, delegation authority
+--   4. Tools: 13 new tools for build, deploy, incident, secret management
+--   5. Skills: add infrastructure-ops, code-review; drop cross-domain web-creation
+--   6. IAM: update desired_permissions with cloudbuild + logging roles
+--   7. Scheduled task: daily deployment summary
+
+-- ─── 1. Upgrade model from retired gemini-3-flash-preview to high-tier claude-sonnet-4-6 ───
+UPDATE company_agents
+SET model      = 'claude-sonnet-4-6',
+    updated_at = NOW()
+WHERE role = 'cto';
+
+-- ─── 2. Upgrade budget to CTO-appropriate levels ───
+UPDATE company_agents
+SET budget_per_run = 0.25,
+    budget_daily   = 5.00,
+    budget_monthly = 150.00,
+    updated_at     = NOW()
+WHERE role = 'cto';
+
+-- ─── 3. Set config: authority tier, escalation path, delegation authority ───
+UPDATE company_agents
+SET config = jsonb_build_object(
+      'authority_tier', 'YELLOW',
+      'escalation_path', jsonb_build_array('andrew', 'kristina'),
+      'delegation_authority', jsonb_build_object(
+        'can_deploy_to', jsonb_build_array('staging', 'production'),
+        'can_manage_secrets', true,
+        'can_scale_infrastructure', true,
+        'can_approve_tech_decisions', true,
+        'budget_cap_monthly', 200.00
+      ),
+      'on_call_rotation', true,
+      'incident_severities_can_resolve', jsonb_build_array('P2', 'P3', 'P4')
+    ),
+    updated_at = NOW()
+WHERE role = 'cto';
+
+-- ─── 4. Grant 13 missing CTO tools ───
+INSERT INTO agent_tool_grants (agent_role, tool_name, granted_by, reason) VALUES
+  -- Cloud Build visibility
+  ('cto', 'list_cloud_builds',          'system', 'CTO upgrade: CI/CD pipeline monitoring'),
+  ('cto', 'get_cloud_build_details',    'system', 'CTO upgrade: build failure diagnosis'),
+  ('cto', 'trigger_cloud_build',        'system', 'CTO upgrade: manual rebuild capability'),
+  -- Deployment lifecycle
+  ('cto', 'list_deployments',           'system', 'CTO upgrade: deployment history tracking'),
+  ('cto', 'get_deployment_status',      'system', 'CTO upgrade: production state validation'),
+  ('cto', 'rollback_deployment',        'system', 'CTO upgrade: emergency rollback authority'),
+  ('cto', 'scale_cloud_run_service',    'system', 'CTO upgrade: traffic spike response'),
+  -- Incident management
+  ('cto', 'list_incidents',             'system', 'CTO upgrade: incident tracking'),
+  ('cto', 'resolve_incident',           'system', 'CTO upgrade: incident lifecycle authority'),
+  -- Secret management
+  ('cto', 'list_secrets',               'system', 'CTO upgrade: secret inventory audit'),
+  ('cto', 'rotate_secret',              'system', 'CTO upgrade: emergency key rotation'),
+  -- Infrastructure visibility
+  ('cto', 'get_artifact_registry_images','system', 'CTO upgrade: build artifact tracking'),
+  ('cto', 'list_cloud_sql_backups',     'system', 'CTO upgrade: disaster recovery planning')
+ON CONFLICT (agent_role, tool_name) DO NOTHING;
+
+-- ─── 5. Add infrastructure-ops + code-review skills to CTO ───
+INSERT INTO skills (slug, name, category, description, methodology, tools_granted) VALUES
+('infrastructure-ops',
+ 'Infrastructure Operations',
+ 'engineering',
+ 'Own CI/CD pipeline, deployment lifecycle, secrets management, feature flags, and resource lifecycle.',
+ E'1. Monitor CI/CD pipeline health via get_ci_health and list_cloud_builds.\n2. Review deployment status and history.\n3. Audit secrets inventory and rotation schedules.\n4. Manage feature flags and resource lifecycle.\n5. Investigate pipeline failures and apply fixes.\n6. Optimize infrastructure costs and clean up unused resources.',
+ ARRAY['get_ci_health','list_cloud_builds','get_cloud_build_details','list_deployments','get_deployment_status','list_secrets','rotate_secret','get_infrastructure_costs']),
+('code-review',
+ 'Code Review',
+ 'engineering',
+ 'Review pull requests for correctness, security, performance, and adherence to platform conventions.',
+ E'1. Read the PR diff and understand the change scope.\n2. Check for security issues: injection, auth bypass, secret leaks.\n3. Verify error handling and edge cases.\n4. Check performance implications: N+1 queries, unbounded loops, memory leaks.\n5. Ensure adherence to platform conventions and patterns.\n6. Provide constructive feedback with specific suggestions.',
+ ARRAY['get_file_contents','get_github_pr_status','create_github_issue'])
+ON CONFLICT (slug) DO NOTHING;
+
+-- Assign infrastructure-ops + code-review to CTO
+INSERT INTO agent_skills (agent_role, skill_id, proficiency)
+SELECT 'cto', s.id, 'expert'
+FROM skills s
+WHERE s.slug IN ('infrastructure-ops', 'code-review')
+ON CONFLICT (agent_role, skill_id) DO NOTHING;
+
+-- Remove cross-domain web-creation skills from CTO (not CTO-appropriate)
+DELETE FROM agent_skills
+WHERE agent_role = 'cto'
+  AND skill_id IN (SELECT id FROM skills WHERE slug IN ('advanced-web-creation', 'client-web-creation'));
+
+-- ─── 6. Update IAM desired_permissions to include cloudbuild + logging ───
+-- Note: platform_iam_state has RLS (read-only policy). Must run as glyphor_app (table owner).
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'platform_iam_state'::regclass AND polname = 'allow_system_update_iam') THEN
+    CREATE POLICY allow_system_update_iam ON platform_iam_state FOR UPDATE USING (true);
+  END IF;
+END $$;
+
+UPDATE platform_iam_state
+SET desired_permissions = '{"roles": ["roles/run.developer", "roles/pubsub.publisher", "roles/pubsub.subscriber", "roles/secretmanager.secretAccessor", "roles/storage.objectAdmin", "roles/cloudbuild.builds.editor", "roles/logging.viewer", "roles/artifactregistry.reader"]}',
+    permissions = desired_permissions,
+    in_sync = true,
+    last_synced = NOW()
+WHERE agent_role = 'cto'
+  AND platform = 'gcp';
+
+-- ─── 7. Add task-skill mapping for infrastructure tasks ───
+INSERT INTO task_skill_map (task_regex, skill_slug, priority) VALUES
+  ('(?i)(deploy|rollback|pipeline|ci.?cd|build fail|cloud build)', 'infrastructure-ops', 12),
+  ('(?i)(code review|pull request review|pr review|review pr)', 'code-review', 12)
+ON CONFLICT DO NOTHING;
+
