@@ -274,6 +274,8 @@ function TaskGrid() {
   const [filterPillar, setFilterPillar] = useState<string | null>(null);
   const [filterP0, setFilterP0] = useState(false);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [taskDetail, setTaskDetail] = useState<{ scores: Array<{ passed: boolean; judge_score: number; judge_tier: string; reasoning_trace: string | null; agent_output: string | null; axis_scores: Record<string, number> | null; heuristic_failures: string[] | null; mode: string; started_at: string | null }> } | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -351,7 +353,20 @@ function TaskGrid() {
                   <tr
                     key={t.id}
                     className="border-b border-zinc-800/40 hover:bg-zinc-800/30 cursor-pointer"
-                    onClick={() => setExpandedTask(expandedTask === t.id ? null : t.id)}
+                    onClick={() => {
+                      if (expandedTask === t.id) {
+                        setExpandedTask(null);
+                        setTaskDetail(null);
+                      } else {
+                        setExpandedTask(t.id);
+                        setTaskDetail(null);
+                        setDetailLoading(true);
+                        apiCall<{ task: unknown; scores: Array<{ passed: boolean; judge_score: number; judge_tier: string; reasoning_trace: string | null; agent_output: string | null; axis_scores: Record<string, number> | null; heuristic_failures: string[] | null; mode: string; started_at: string | null }> }>(`/api/cz/tasks/${t.id}`)
+                          .then((d) => setTaskDetail({ scores: d.scores }))
+                          .catch(() => setTaskDetail({ scores: [] }))
+                          .finally(() => setDetailLoading(false));
+                      }
+                    }}
                   >
                     <td className="py-2 pr-2 text-zinc-500 tabular-nums">{t.task_number}</td>
                     <td className="py-2 pr-3 text-zinc-200 max-w-[300px] truncate">{t.task}</td>
@@ -399,6 +414,51 @@ function TaskGrid() {
                             </p>
                           </div>
                         </div>
+                        {/* Latest score detail */}
+                        {detailLoading && <Skeleton className="h-24 mt-3" />}
+                        {!detailLoading && taskDetail && taskDetail.scores.length > 0 && (() => {
+                          const s = taskDetail.scores[0];
+                          return (
+                            <div className="mt-4 space-y-3 border-t border-zinc-800/40 pt-3">
+                              <div className="flex items-center gap-4 text-xs">
+                                <span className="text-zinc-500">Score: <span className={scoreColor(s.judge_score)}>{s.judge_score?.toFixed(1)}</span></span>
+                                <span className="text-zinc-500">Tier: <span className="text-zinc-300">{s.judge_tier}</span></span>
+                                <span className={s.passed ? 'text-emerald-400' : 'text-rose-400'}>{s.passed ? 'PASS' : 'FAIL'}</span>
+                                {s.axis_scores && Object.keys(s.axis_scores).length > 0 && (
+                                  <span className="text-zinc-600">
+                                    {Object.entries(s.axis_scores).map(([k, v]) => `${k}: ${(v * 10).toFixed(0)}`).join(' · ')}
+                                  </span>
+                                )}
+                              </div>
+                              {s.reasoning_trace && (
+                                <div>
+                                  <p className="text-zinc-500 text-[11px] font-medium mb-1">Judge Reasoning</p>
+                                  <p className="text-zinc-400 text-xs">{s.reasoning_trace}</p>
+                                </div>
+                              )}
+                              {s.heuristic_failures && s.heuristic_failures.length > 0 && (
+                                <div>
+                                  <p className="text-zinc-500 text-[11px] font-medium mb-1">Heuristic Failures</p>
+                                  <p className="text-rose-400/80 text-xs">{s.heuristic_failures.join('; ')}</p>
+                                </div>
+                              )}
+                              {s.agent_output && (
+                                <div>
+                                  <p className="text-zinc-500 text-[11px] font-medium mb-1">Agent Output</p>
+                                  <pre className="text-zinc-300 text-xs whitespace-pre-wrap break-words max-h-80 overflow-y-auto border border-zinc-700/40 rounded-lg p-3 bg-zinc-950/60 leading-relaxed">
+                                    {s.agent_output}
+                                  </pre>
+                                </div>
+                              )}
+                              {!s.agent_output && s.judge_tier === 'heuristic' && (
+                                <p className="text-zinc-600 text-xs italic">No agent output — test used heuristic scoring only (no LLM was invoked).</p>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        {!detailLoading && taskDetail && taskDetail.scores.length === 0 && (
+                          <p className="text-zinc-600 text-xs mt-3 italic">No scores recorded for this task yet.</p>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -887,7 +947,7 @@ function LiveRunConsole() {
                     <span className="text-zinc-700">{isExpanded ? '▾' : '▸'}</span>
                   </div>
                   {isExpanded && (
-                    <div className="border-t border-zinc-800/30 p-3 bg-zinc-950/50 text-[10px] space-y-2">
+                    <div className="border-t border-zinc-800/30 p-3 bg-zinc-950/50 text-xs space-y-3">
                       <div className="flex gap-4 text-zinc-500">
                         <span>Pillar: <span className="text-zinc-400">{s.pillar}</span></span>
                         {s.is_p0 && <span className="text-amber-500">P0</span>}
@@ -895,14 +955,14 @@ function LiveRunConsole() {
                       </div>
                       {s.reasoning_trace && (
                         <div>
-                          <span className="text-zinc-600 font-medium">Reasoning:</span>
-                          <p className="text-zinc-400 mt-0.5">{s.reasoning_trace}</p>
+                          <p className="text-zinc-500 font-medium text-[11px] mb-1">Judge Reasoning</p>
+                          <p className="text-zinc-400">{s.reasoning_trace}</p>
                         </div>
                       )}
                       {s.axis_scores && Object.keys(s.axis_scores).length > 0 && (
                         <div>
-                          <span className="text-zinc-600 font-medium">Axis Scores:</span>
-                          <div className="flex gap-3 mt-0.5">
+                          <p className="text-zinc-500 font-medium text-[11px] mb-1">Axis Scores</p>
+                          <div className="flex gap-3">
                             {Object.entries(s.axis_scores).map(([k, v]) => (
                               <span key={k} className={v >= 0.7 ? 'text-emerald-500' : v >= 0.5 ? 'text-amber-500' : 'text-rose-500'}>
                                 {k}: {(v * 10).toFixed(0)}
@@ -913,17 +973,20 @@ function LiveRunConsole() {
                       )}
                       {s.heuristic_failures && s.heuristic_failures.length > 0 && (
                         <div>
-                          <span className="text-zinc-600 font-medium">Failures:</span>
-                          <p className="text-rose-400/80 mt-0.5">{s.heuristic_failures.join('; ')}</p>
+                          <p className="text-zinc-500 font-medium text-[11px] mb-1">Failures</p>
+                          <p className="text-rose-400/80">{s.heuristic_failures.join('; ')}</p>
                         </div>
                       )}
                       {s.agent_output && (
                         <div>
-                          <span className="text-zinc-600 font-medium">Agent Output:</span>
-                          <pre className="text-zinc-400 mt-1 whitespace-pre-wrap break-words max-h-48 overflow-y-auto border border-zinc-800/30 rounded p-2 bg-zinc-900/50">
+                          <p className="text-zinc-500 font-medium text-[11px] mb-1">Agent Output</p>
+                          <pre className="text-zinc-300 whitespace-pre-wrap break-words max-h-96 overflow-y-auto border border-zinc-700/40 rounded-lg p-3 bg-zinc-950/60 leading-relaxed">
                             {s.agent_output}
                           </pre>
                         </div>
+                      )}
+                      {!s.agent_output && s.judge_tier === 'heuristic' && (
+                        <p className="text-zinc-600 italic">No agent output — heuristic scoring only (no LLM invoked).</p>
                       )}
                     </div>
                   )}

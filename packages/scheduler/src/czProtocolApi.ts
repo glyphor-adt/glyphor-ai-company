@@ -27,7 +27,9 @@ import { getGoogleAiApiKey, getTierModel, isCanonicalKeepRole } from '@glyphor/s
 import { ModelClient, type AgentExecutionResult } from '@glyphor/agent-runtime';
 import {
   runChiefOfStaff, runCTO, runCFO, runCPO, runCMO,
-  runVPDesign, runVPResearch, runOps, runDynamicAgent,
+  runVPDesign, runVPResearch, runOps,
+  runCLO, runVPSales, runContentCreator, runSeoAnalyst,
+  runDynamicAgent,
 } from '@glyphor/agents';
 
 /* ── Helpers ──────────────────────────────────────────────── */
@@ -71,6 +73,22 @@ export function broadcastCzRunEvent(batchId: string, event: string, data: unknow
 
 /* ── Agent runners (eval-mode, dry-run) ──────────────────── */
 
+/** Map agent first-names (as stored in cz_tasks.responsible_agent) to canonical role slugs. */
+const AGENT_NAME_TO_ROLE: Record<string, string> = {
+  sarah: 'chief-of-staff',
+  marcus: 'cto',
+  nadia: 'cfo',
+  elena: 'cpo',
+  maya: 'cmo',
+  mia: 'vp-design',
+  rachel: 'vp-sales',
+  atlas: 'ops',
+  victoria: 'clo',
+  tyler: 'content-creator',
+  lisa: 'seo-analyst',
+  kai: 'social-media-manager',
+};
+
 const STATIC_RUNNERS: Record<string, (prompt: string) => Promise<AgentExecutionResult>> = {
   'chief-of-staff': (p) => runChiefOfStaff({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
   cto: (p) => runCTO({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
@@ -80,9 +98,15 @@ const STATIC_RUNNERS: Record<string, (prompt: string) => Promise<AgentExecutionR
   'vp-design': (p) => runVPDesign({ task: 'on_demand', message: p }),
   'vp-research': (p) => runVPResearch({ task: 'on_demand', message: p, maxToolCalls: 0 }),
   ops: (p) => runOps({ task: 'on_demand', message: p }),
+  clo: (p) => runCLO({ task: 'on_demand', message: p }),
+  'vp-sales': (p) => runVPSales({ task: 'on_demand', message: p }),
+  'content-creator': (p) => runContentCreator({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
+  'seo-analyst': (p) => runSeoAnalyst({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
 };
 
-function getAgentRunner(role: string): ((prompt: string) => Promise<AgentExecutionResult>) | null {
+function getAgentRunner(agentNameOrRole: string): ((prompt: string) => Promise<AgentExecutionResult>) | null {
+  // Resolve name → role (e.g. 'sarah' → 'chief-of-staff')
+  const role = AGENT_NAME_TO_ROLE[agentNameOrRole.toLowerCase()] ?? agentNameOrRole;
   if (STATIC_RUNNERS[role]) return STATIC_RUNNERS[role];
   if (!isCanonicalKeepRole(role)) return null;
   // Fall back to dynamic agent runner for DB-defined agents
