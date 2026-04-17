@@ -1,17 +1,22 @@
 /**
  * Customer Zero Protocol API — /api/cz/* endpoints.
  *
+ * Schema: cz_runs is per-task (each row = one task execution in a batch).
+ *   - batch_id groups a set of runs kicked off together
+ *   - cz_scores has one row per cz_run
+ *   - cz_latest_scores view: DISTINCT ON (task_id, mode) with passed, judge_score, judge_tier
+ *
  * Provides:
- *   GET    /api/cz/tasks           – List active tasks (filter: pillar, p0, agent)
- *   GET    /api/cz/tasks/:id       – Task detail + last N scores
- *   POST   /api/cz/tasks           – Create ad-hoc task
- *   PATCH  /api/cz/tasks/:id       – Update / deactivate a task
- *   POST   /api/cz/runs            – Kick off a run (modes: single/pillar/critical/full/canary)
- *   GET    /api/cz/runs            – List runs
- *   GET    /api/cz/runs/:id        – Run status + score
- *   GET    /api/cz/runs/:id/stream – SSE stream for live console
- *   GET    /api/cz/scorecard       – Aggregated pillar pass rates + launch-gate status
- *   GET    /api/cz/drift           – Time-series for drift chart
+ *   GET    /api/cz/tasks              – List active tasks (filter: pillar, p0, agent)
+ *   GET    /api/cz/tasks/:id          – Task detail + last N scores
+ *   POST   /api/cz/tasks              – Create ad-hoc task
+ *   PATCH  /api/cz/tasks/:id          – Update / deactivate a task
+ *   POST   /api/cz/runs               – Kick off a run batch (modes: single/pillar/critical/full/canary)
+ *   GET    /api/cz/runs               – List run batches
+ *   GET    /api/cz/runs/:batchId      – Batch status + per-task scores
+ *   GET    /api/cz/runs/:batchId/stream – SSE stream for live console
+ *   GET    /api/cz/scorecard          – Aggregated pillar pass rates + launch-gate status
+ *   GET    /api/cz/drift              – Time-series for drift chart
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -34,13 +39,19 @@ function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }
 
-/* ── SSE active streams (run_id → Set<ServerResponse>) ──── */
+const VALID_SURFACES = ['direct', 'teams', 'slack'] as const;
+
+function isValidSurface(s: string): boolean {
+  return (VALID_SURFACES as readonly string[]).includes(s);
+}
+
+/* ── SSE active streams (batch_id → Set<ServerResponse>) ── */
 
 const sseClients = new Map<string, Set<ServerResponse>>();
 
-/** Broadcast an SSE event to all listeners for a run. */
-export function broadcastCzRunEvent(runId: string, event: string, data: unknown): void {
-  const clients = sseClients.get(runId);
+/** Broadcast an SSE event to all listeners for a batch. */
+export function broadcastCzRunEvent(batchId: string, event: string, data: unknown): void {
+  const clients = sseClients.get(batchId);
   if (!clients?.size) return;
   const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const res of clients) {
@@ -97,7 +108,10 @@ export async function handleCzApi(
           t.id, t.task_number, t.pillar, t.sub_category, t.task,
           t.acceptance_criteria, t.verification_method,
           t.responsible_agent, t.is_p0, t.created_by, t.created_at,
-          ls.latest_pass, ls.latest_score, ls.latest_judge_tier, ls.latest_run_at
+          ls.passed       AS latest_pass,
+          ls.judge_score  AS latest_score,
+          ls.judge_tier   AS latest_judge_tier,
+          ls.completed_at AS latest_run_at
         FROM cz_tasks t
         LEFT JOIN cz_latest_scores ls ON ls.task_id = t.id
         WHERE ${conditions.join(' AND ')}
@@ -116,10 +130,10 @@ export async function handleCzApi(
       const [taskRows, scoreRows] = await Promise.all([
         systemQuery('SELECT * FROM cz_tasks WHERE id = $1', [taskId]),
         systemQuery(`
-          SELECT s.*, r.mode, r.trigger_type, r.started_at
+          SELECT s.*, r.mode, r.trigger_type, r.started_at, r.surface
           FROM cz_scores s
           JOIN cz_runs r ON r.id = s.run_id
-          WHERE s.task_id = $1
+          WHERE r.task_id = $1
           ORDER BY s.scored_at DESC
           LIMIT $2
         `, [taskId, limit]),
@@ -186,69 +200,84 @@ export async function handleCzApi(
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  RUNS
+    //  RUNS (batch-oriented: each cz_runs row = one task execution)
     // ═══════════════════════════════════════════════════════════
 
     // ── POST /api/cz/runs ────────────────────────────────────
     if (segments[0] === 'runs' && segments.length === 1 && method === 'POST') {
       const body = JSON.parse(await readBody(req));
-      const mode: string = body.mode ?? 'full';
-      const validModes = ['single', 'pillar', 'critical', 'full', 'canary'];
-      if (!validModes.includes(mode)) {
-        send(400, { error: `Invalid mode. Must be one of: ${validModes.join(', ')}` });
+      const triggerType: string = body.mode ?? 'full';
+      const validTriggers = ['single', 'pillar', 'critical', 'full', 'canary'];
+      if (!validTriggers.includes(triggerType)) {
+        send(400, { error: `Invalid mode. Must be one of: ${validTriggers.join(', ')}` });
+        return true;
+      }
+
+      const surface: string = body.surface ?? 'direct';
+      if (!isValidSurface(surface)) {
+        send(400, { error: `Invalid surface. Must be one of: ${VALID_SURFACES.join(', ')}` });
         return true;
       }
 
       // Build task filter based on mode
       let taskFilter = '';
       const filterValues: unknown[] = [];
-      if (mode === 'single') {
+      if (triggerType === 'single') {
         if (!body.task_id) { send(400, { error: 'task_id required for single mode' }); return true; }
         taskFilter = 'AND t.id = $1';
         filterValues.push(body.task_id);
-      } else if (mode === 'pillar') {
+      } else if (triggerType === 'pillar') {
         if (!body.pillar) { send(400, { error: 'pillar required for pillar mode' }); return true; }
         taskFilter = 'AND t.pillar = $1';
         filterValues.push(body.pillar);
-      } else if (mode === 'critical') {
+      } else if (triggerType === 'critical') {
         taskFilter = 'AND t.is_p0 = true';
-      } else if (mode === 'canary') {
+      } else if (triggerType === 'canary') {
         if (!body.agent) { send(400, { error: 'agent required for canary mode' }); return true; }
         taskFilter = 'AND t.responsible_agent = $1';
         filterValues.push(body.agent);
       }
-      // 'full' = no extra filter
 
-      // Count matching tasks
-      const countRows = await systemQuery(`
-        SELECT COUNT(*)::int AS n FROM cz_tasks t WHERE t.active = true ${taskFilter}
+      // Fetch matching tasks
+      const taskRows = await systemQuery(`
+        SELECT t.id FROM cz_tasks t WHERE t.active = true ${taskFilter}
       `, filterValues);
-      const taskCount = countRows[0].n;
-      if (taskCount === 0) {
+      if (!taskRows.length) {
         send(400, { error: 'No matching tasks for this mode/filter' });
         return true;
       }
 
-      // Create the run
+      // Create a batch: one cz_runs row per task, sharing a batch_id
+      const batchId = (await systemQuery("SELECT gen_random_uuid() AS id"))[0].id;
+      const mode = body.orchestrated ? 'orchestrated' : 'solo';
+      const insertValues: unknown[] = [];
+      const placeholders: string[] = [];
+      let pi = 1;
+      for (const task of taskRows) {
+        placeholders.push(`($${pi++}, $${pi++}, $${pi++}, $${pi++}, $${pi++}, $${pi++})`);
+        insertValues.push(batchId, task.id, mode, triggerType, body.triggered_by ?? 'dashboard', surface);
+      }
+
       const runRows = await systemQuery(`
-        INSERT INTO cz_runs (mode, trigger_type, triggered_by, task_count)
-        VALUES ($1, 'manual', 'dashboard', $2)
+        INSERT INTO cz_runs (batch_id, task_id, mode, trigger_type, triggered_by, surface)
+        VALUES ${placeholders.join(', ')}
         RETURNING *
-      `, [mode, taskCount]);
+      `, insertValues);
 
-      const run = runRows[0];
-
-      // In the real implementation, this would dispatch to the judge pipeline.
-      // For now, store the run and let the pipeline pick it up asynchronously.
-      // Emit initial SSE event
-      broadcastCzRunEvent(run.id, 'run_started', {
-        run_id: run.id,
-        mode,
-        task_count: taskCount,
-        started_at: run.started_at,
+      broadcastCzRunEvent(batchId, 'run_started', {
+        batch_id: batchId,
+        trigger_type: triggerType,
+        surface,
+        task_count: runRows.length,
       });
 
-      send(201, { run });
+      send(201, {
+        batch_id: batchId,
+        trigger_type: triggerType,
+        surface,
+        task_count: runRows.length,
+        runs: runRows,
+      });
       return true;
     }
 
@@ -257,56 +286,92 @@ export async function handleCzApi(
       const limit = Math.min(Number(params.get('limit') ?? 20), 100);
       const offset = Math.max(Number(params.get('offset') ?? 0), 0);
 
+      const conditions: string[] = [];
+      const values: unknown[] = [];
+      let idx = 1;
+      if (params.has('surface')) {
+        conditions.push(`r.surface = $${idx++}`);
+        values.push(params.get('surface'));
+      }
+      const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+      values.push(limit, offset);
+
       const rows = await systemQuery(`
         SELECT
-          r.*,
-          (SELECT COUNT(*)::int FROM cz_scores s WHERE s.run_id = r.id AND s.pass = true) AS passed,
-          (SELECT COUNT(*)::int FROM cz_scores s WHERE s.run_id = r.id AND s.pass = false) AS failed
+          r.batch_id,
+          r.trigger_type,
+          r.surface,
+          r.triggered_by,
+          MIN(r.started_at)   AS started_at,
+          MAX(r.completed_at) AS completed_at,
+          COUNT(*)::int AS task_count,
+          COUNT(*) FILTER (WHERE r.status = 'scored')::int AS scored,
+          COUNT(*) FILTER (WHERE r.status = 'failed')::int AS failed,
+          COUNT(*) FILTER (WHERE r.status IN ('queued','running'))::int AS pending,
+          COUNT(*) FILTER (WHERE s.passed = true)::int AS passed_count,
+          COUNT(*) FILTER (WHERE s.passed = false)::int AS failed_count,
+          ROUND(AVG(s.judge_score)::numeric, 2) AS avg_judge_score,
+          CASE
+            WHEN COUNT(*) FILTER (WHERE r.status IN ('queued','running')) > 0 THEN 'running'
+            WHEN COUNT(*) FILTER (WHERE r.status = 'failed') > 0 THEN 'partial'
+            ELSE 'completed'
+          END AS batch_status
         FROM cz_runs r
-        ORDER BY r.started_at DESC
-        LIMIT $1 OFFSET $2
-      `, [limit, offset]);
+        LEFT JOIN cz_scores s ON s.run_id = r.id
+        ${whereClause}
+        GROUP BY r.batch_id, r.trigger_type, r.surface, r.triggered_by
+        ORDER BY MIN(r.started_at) DESC NULLS LAST
+        LIMIT $${idx++} OFFSET $${idx++}
+      `, values);
 
       send(200, { runs: rows });
       return true;
     }
 
-    // ── GET /api/cz/runs/:id ─────────────────────────────────
+    // ── GET /api/cz/runs/:batchId ────────────────────────────
     if (segments[0] === 'runs' && segments.length === 2 && !segments[1]?.includes('stream') && method === 'GET') {
-      const runId = segments[1];
-      if (!isUuid(runId)) { send(400, { error: 'Invalid run ID' }); return true; }
+      const batchId = segments[1];
+      if (!isUuid(batchId)) { send(400, { error: 'Invalid batch ID' }); return true; }
 
-      const [runRows, scoreRows] = await Promise.all([
-        systemQuery('SELECT * FROM cz_runs WHERE id = $1', [runId]),
-        systemQuery(`
-          SELECT s.*, t.task_number, t.pillar, t.task, t.is_p0
-          FROM cz_scores s
-          JOIN cz_tasks t ON t.id = s.task_id
-          WHERE s.run_id = $1
-          ORDER BY t.task_number
-        `, [runId]),
-      ]);
+      const runRows = await systemQuery(`
+        SELECT
+          r.*,
+          t.task_number, t.pillar, t.task, t.is_p0,
+          s.passed, s.judge_score, s.judge_tier, s.axis_scores, s.reasoning_trace
+        FROM cz_runs r
+        JOIN cz_tasks t ON t.id = r.task_id
+        LEFT JOIN cz_scores s ON s.run_id = r.id
+        WHERE r.batch_id = $1
+        ORDER BY t.task_number
+      `, [batchId]);
 
-      if (!runRows.length) { send(404, { error: 'Run not found' }); return true; }
+      if (!runRows.length) { send(404, { error: 'Batch not found' }); return true; }
 
-      const run = runRows[0];
-      const passed = scoreRows.filter((s: { pass: boolean }) => s.pass).length;
-      const failed = scoreRows.filter((s: { pass: boolean }) => !s.pass).length;
+      const passedCount = runRows.filter((r: { passed: boolean | null }) => r.passed === true).length;
+      const failedCount = runRows.filter((r: { passed: boolean | null }) => r.passed === false).length;
+      const pending = runRows.filter((r: { status: string }) => r.status === 'queued' || r.status === 'running').length;
 
-      send(200, { run, scores: scoreRows, summary: { passed, failed, total: scoreRows.length } });
+      send(200, {
+        batch_id: batchId,
+        trigger_type: runRows[0].trigger_type,
+        surface: runRows[0].surface,
+        runs: runRows,
+        summary: { passed: passedCount, failed: failedCount, pending, total: runRows.length },
+      });
       return true;
     }
 
-    // ── GET /api/cz/runs/:id/stream — SSE ────────────────────
+    // ── GET /api/cz/runs/:batchId/stream — SSE ──────────────
     if (segments[0] === 'runs' && segments.length === 3 && segments[2] === 'stream' && method === 'GET') {
-      const runId = segments[1];
-      if (!isUuid(runId)) { send(400, { error: 'Invalid run ID' }); return true; }
+      const batchId = segments[1];
+      if (!isUuid(batchId)) { send(400, { error: 'Invalid batch ID' }); return true; }
 
-      // Verify run exists
-      const runRows = await systemQuery('SELECT id, status FROM cz_runs WHERE id = $1', [runId]);
-      if (!runRows.length) { send(404, { error: 'Run not found' }); return true; }
+      const runRows = await systemQuery(
+        'SELECT batch_id, status FROM cz_runs WHERE batch_id = $1 LIMIT 1',
+        [batchId],
+      );
+      if (!runRows.length) { send(404, { error: 'Batch not found' }); return true; }
 
-      // Set up SSE
       const headers: Record<string, string> = {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -314,24 +379,29 @@ export async function handleCzApi(
         ...corsHeadersFor(req),
       };
       res.writeHead(200, headers);
-      res.write(`event: connected\ndata: ${JSON.stringify({ run_id: runId, status: runRows[0].status })}\n\n`);
 
-      // Register client
-      if (!sseClients.has(runId)) sseClients.set(runId, new Set());
-      sseClients.get(runId)!.add(res);
+      // Check if all runs in batch are terminal
+      const pendingRows = await systemQuery(
+        "SELECT COUNT(*)::int AS n FROM cz_runs WHERE batch_id = $1 AND status IN ('queued','running')",
+        [batchId],
+      );
+      const batchDone = pendingRows[0].n === 0;
+      const batchStatus = batchDone ? 'completed' : 'running';
 
-      // If run is already complete, send final event and close
-      if (runRows[0].status === 'completed' || runRows[0].status === 'failed') {
-        res.write(`event: run_complete\ndata: ${JSON.stringify({ run_id: runId, status: runRows[0].status })}\n\n`);
+      res.write(`event: connected\ndata: ${JSON.stringify({ batch_id: batchId, status: batchStatus })}\n\n`);
+
+      if (batchDone) {
+        res.write(`event: run_complete\ndata: ${JSON.stringify({ batch_id: batchId, status: 'completed' })}\n\n`);
         res.end();
-        sseClients.get(runId)?.delete(res);
         return true;
       }
 
-      // Clean up on close
+      if (!sseClients.has(batchId)) sseClients.set(batchId, new Set());
+      sseClients.get(batchId)!.add(res);
+
       req.on('close', () => {
-        sseClients.get(runId)?.delete(res);
-        if (sseClients.get(runId)?.size === 0) sseClients.delete(runId);
+        sseClients.get(batchId)?.delete(res);
+        if (sseClients.get(batchId)?.size === 0) sseClients.delete(batchId);
       });
 
       return true;
@@ -343,12 +413,16 @@ export async function handleCzApi(
 
     // ── GET /api/cz/scorecard ────────────────────────────────
     if (segments[0] === 'scorecard' && method === 'GET') {
-      // Pillar pass rates from most recent run
+      const surfaceFilter = params.get('surface');
+      const surfaceCondition = surfaceFilter ? 'AND r.surface = $1' : '';
+      const surfaceValues = surfaceFilter ? [surfaceFilter] : [];
+
       const pillarRows = await systemQuery(`
-        WITH latest_run AS (
-          SELECT id FROM cz_runs
-          WHERE status = 'completed'
-          ORDER BY completed_at DESC
+        WITH latest_batch AS (
+          SELECT batch_id FROM cz_runs r
+          WHERE r.status = 'scored' ${surfaceCondition}
+          GROUP BY batch_id
+          ORDER BY MAX(r.completed_at) DESC
           LIMIT 1
         )
         SELECT
@@ -357,21 +431,23 @@ export async function handleCzApi(
           pc.pass_rate_threshold,
           pc.avg_score_threshold,
           pc.is_p0 AS pillar_is_p0,
+          r.surface,
           COUNT(*)::int AS total_tasks,
-          COUNT(*) FILTER (WHERE s.pass = true)::int AS passed,
+          COUNT(*) FILTER (WHERE s.passed = true)::int AS passed,
           ROUND(AVG(s.judge_score)::numeric, 2) AS avg_score,
           ROUND(
-            (COUNT(*) FILTER (WHERE s.pass = true)::float / NULLIF(COUNT(*), 0))::numeric,
+            (COUNT(*) FILTER (WHERE s.passed = true)::float / NULLIF(COUNT(*), 0))::numeric,
             4
           ) AS pass_rate
-        FROM cz_tasks t
-        JOIN cz_scores s ON s.task_id = t.id
-        JOIN latest_run lr ON s.run_id = lr.id
+        FROM cz_runs r
+        JOIN latest_batch lb ON r.batch_id = lb.batch_id
+        JOIN cz_tasks t ON t.id = r.task_id
+        JOIN cz_scores s ON s.run_id = r.id
         LEFT JOIN cz_pillar_config pc ON pc.pillar = t.pillar
         WHERE t.active = true
-        GROUP BY t.pillar, pc.display_order, pc.pass_rate_threshold, pc.avg_score_threshold, pc.is_p0
-        ORDER BY pc.display_order
-      `);
+        GROUP BY t.pillar, pc.display_order, pc.pass_rate_threshold, pc.avg_score_threshold, pc.is_p0, r.surface
+        ORDER BY pc.display_order, r.surface
+      `, surfaceValues);
 
       // Launch gates
       const gateRows = await systemQuery('SELECT * FROM cz_launch_gates ORDER BY display_order');
@@ -387,7 +463,7 @@ export async function handleCzApi(
         description: string;
       }) => {
         const p0Pillars = pillarRows.filter((p: { pillar_is_p0: boolean }) => p.pillar_is_p0);
-        const p0AllPass = p0Pillars.every((p: { pass_rate: number }) => Number(p.pass_rate) >= 1.0);
+        const p0AllPass = p0Pillars.length > 0 && p0Pillars.every((p: { pass_rate: number }) => Number(p.pass_rate) >= 1.0);
         const overallPassRate = pillarRows.length
           ? pillarRows.reduce((sum: number, p: { passed: number }) => sum + p.passed, 0) /
             Math.max(pillarRows.reduce((sum: number, p: { total_tasks: number }) => sum + p.total_tasks, 0), 1)
@@ -420,9 +496,10 @@ export async function handleCzApi(
     // ── GET /api/cz/drift ────────────────────────────────────
     if (segments[0] === 'drift' && method === 'GET') {
       const pillar = params.get('pillar');
+      const surfaceFilter = params.get('surface');
       const days = Math.min(Number(params.get('days') ?? 30), 90);
 
-      const conditions: string[] = ['r.status = \'completed\'', `r.completed_at > NOW() - INTERVAL '${days} days'`];
+      const conditions: string[] = ["r.status = 'scored'", `r.completed_at > NOW() - INTERVAL '${days} days'`];
       const values: unknown[] = [];
       let idx = 1;
 
@@ -430,29 +507,33 @@ export async function handleCzApi(
         conditions.push(`t.pillar = $${idx++}`);
         values.push(pillar);
       }
+      if (surfaceFilter) {
+        conditions.push(`r.surface = $${idx++}`);
+        values.push(surfaceFilter);
+      }
 
       const rows = await systemQuery(`
         SELECT
-          r.id AS run_id,
-          r.completed_at,
-          r.mode,
+          r.batch_id,
+          MAX(r.completed_at) AS completed_at,
+          r.surface,
           t.pillar,
           COUNT(*)::int AS total,
-          COUNT(*) FILTER (WHERE s.pass = true)::int AS passed,
+          COUNT(*) FILTER (WHERE s.passed = true)::int AS passed,
           ROUND(AVG(s.judge_score)::numeric, 2) AS avg_score,
           ROUND(
-            (COUNT(*) FILTER (WHERE s.pass = true)::float / NULLIF(COUNT(*), 0))::numeric,
+            (COUNT(*) FILTER (WHERE s.passed = true)::float / NULLIF(COUNT(*), 0))::numeric,
             4
           ) AS pass_rate
         FROM cz_runs r
         JOIN cz_scores s ON s.run_id = r.id
-        JOIN cz_tasks t ON t.id = s.task_id
+        JOIN cz_tasks t ON t.id = r.task_id
         WHERE ${conditions.join(' AND ')}
-        GROUP BY r.id, r.completed_at, r.mode, t.pillar
-        ORDER BY r.completed_at, t.pillar
+        GROUP BY r.batch_id, r.surface, t.pillar
+        ORDER BY MAX(r.completed_at), t.pillar
       `, values);
 
-      send(200, { series: rows, days, pillar: pillar ?? 'all' });
+      send(200, { series: rows, days, pillar: pillar ?? 'all', surface: surfaceFilter ?? 'all' });
       return true;
     }
 

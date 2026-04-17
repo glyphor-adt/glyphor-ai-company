@@ -26,6 +26,7 @@ const DEPARTMENTS = [
   { label: 'Product', role: 'cpo' },
   { label: 'Finance', role: 'cfo' },
   { label: 'Marketing', role: 'cmo' },
+  { label: 'Legal', role: 'clo' },
   { label: 'Design & Frontend', role: 'vp-design' },
   { label: 'Research & Intelligence', role: 'vp-research' },
   { label: 'Operations & IT', role: 'ops' },
@@ -37,6 +38,7 @@ const TITLE_MAP: Record<string, string> = {
   cpo: 'Chief Product Officer',
   cfo: 'Chief Financial Officer',
   cmo: 'Chief Marketing Officer',
+  clo: 'Chief Legal Officer',
   'vp-design': 'VP Design & Frontend',
   'vp-research': 'VP Research & Intelligence',
   ops: 'Operations & System Intelligence',
@@ -466,7 +468,7 @@ export default function Workforce() {
             {orgAgents
               .filter((a) => a.role in TITLE_MAP)
               .sort((a, b) => {
-                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'vp-customer-success', 'vp-sales', 'vp-design', 'ops'];
+                const order = ['chief-of-staff', 'cto', 'cpo', 'cfo', 'cmo', 'clo', 'vp-design', 'vp-research', 'ops'];
                 return (order.indexOf(a.role) === -1 ? 99 : order.indexOf(a.role)) - (order.indexOf(b.role) === -1 ? 99 : order.indexOf(b.role));
               })
               .map((agent) => {

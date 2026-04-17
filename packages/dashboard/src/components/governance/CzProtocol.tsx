@@ -34,6 +34,7 @@ interface CzPillar {
   passed: number;
   avg_score: number | null;
   pass_rate: number | null;
+  surfaces?: Record<string, { pass_rate: number; avg_score: number; passed: number; total: number }>;
 }
 
 interface CzGate {
@@ -47,26 +48,25 @@ interface CzGate {
 }
 
 interface CzRun {
-  id: string;
-  mode: string;
+  batch_id: string;
   trigger_type: string;
   triggered_by: string | null;
-  status: string;
+  surface: string;
+  batch_status: string;
   task_count: number;
   passed_count: number;
   failed_count: number;
-  overall_pass_rate: number | null;
+  scored: number;
+  pending: number;
   avg_judge_score: number | null;
   started_at: string;
   completed_at: string | null;
-  passed?: number;
-  failed?: number;
 }
 
 interface CzDriftPoint {
-  run_id: string;
+  batch_id: string;
   completed_at: string;
-  mode: string;
+  surface: string;
   pillar: string;
   total: number;
   passed: number;
@@ -94,6 +94,7 @@ const PILLARS_SHORT: Record<string, string> = {
   'Legal Liability': 'Legal',
   'Data Sovereignty': 'Data Sov.',
   'Defending Against Misuse': 'Misuse Defense',
+  'Chat Surface Fidelity': 'Surface',
 };
 
 function shortPillar(p: string): string {
@@ -138,12 +139,15 @@ function Scorecard() {
   const [gates, setGates] = useState<CzGate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [surface, setSurface] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await apiCall<{ pillars: CzPillar[]; gates: CzGate[] }>('/api/cz/scorecard');
+        setLoading(true);
+        const qs = surface ? `?surface=${surface}` : '';
+        const data = await apiCall<{ pillars: CzPillar[]; gates: CzGate[] }>(`/api/cz/scorecard${qs}`);
         if (!cancelled) {
           setPillars(data.pillars);
           setGates(data.gates);
@@ -155,7 +159,7 @@ function Scorecard() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [surface]);
 
   if (loading) return <Card><Skeleton className="h-48" /></Card>;
   if (error) return <Card><p className="text-rose-400 text-sm">{error}</p></Card>;
@@ -165,6 +169,19 @@ function Scorecard() {
   return (
     <Card>
       <SectionHeader title="Scorecard" subtitle="Latest completed run" />
+
+      {/* Surface Toggle */}
+      <div className="flex items-center gap-2 mt-2">
+        {[null, 'direct', 'teams', 'slack'].map((s) => (
+          <button
+            key={s ?? 'all'}
+            className={`text-xs px-2 py-1 rounded ${surface === s ? 'bg-cyan/20 text-cyan' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+            onClick={() => setSurface(s)}
+          >
+            {s ? s.charAt(0).toUpperCase() + s.slice(1) : 'All'}
+          </button>
+        ))}
+      </div>
 
       {!hasPillarData && (
         <p className="text-zinc-500 text-sm mt-2">No completed runs yet. Run a test suite to populate the scorecard.</p>
@@ -395,6 +412,7 @@ function LiveRunConsole() {
   const [sseEvents, setSseEvents] = useState<SseEvent[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [launchMode, setLaunchMode] = useState<string>('full');
+  const [launchSurface, setLaunchSurface] = useState<string>('direct');
   const [launching, setLaunching] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const consoleRef = useRef<HTMLDivElement>(null);
@@ -449,12 +467,12 @@ function LiveRunConsole() {
   const launchRun = async () => {
     setLaunching(true);
     try {
-      const data = await apiCall<{ run: CzRun }>('/api/cz/runs', {
+      const data = await apiCall<{ batch_id: string }>('/api/cz/runs', {
         method: 'POST',
-        body: JSON.stringify({ mode: launchMode }),
+        body: JSON.stringify({ mode: launchMode, surface: launchSurface }),
       });
       setSseEvents([]);
-      setActiveRunId(data.run.id);
+      setActiveRunId(data.batch_id);
       await fetchRuns();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -474,11 +492,20 @@ function LiveRunConsole() {
           value={launchMode}
           onChange={(e) => setLaunchMode(e.target.value)}
         >
-          <option value="full">Full (67 tasks)</option>
+          <option value="full">Full (89 tasks)</option>
           <option value="critical">Critical (P0 only)</option>
           <option value="pillar">By Pillar</option>
           <option value="canary">Canary (by agent)</option>
           <option value="single">Single Task</option>
+        </select>
+        <select
+          className="bg-zinc-800 text-zinc-200 text-xs px-2 py-1.5 rounded border border-zinc-700"
+          value={launchSurface}
+          onChange={(e) => setLaunchSurface(e.target.value)}
+        >
+          <option value="direct">Direct</option>
+          <option value="teams">Teams</option>
+          <option value="slack">Slack</option>
         </select>
         <GradientButton onClick={launchRun} disabled={launching}>
           {launching ? 'Launching...' : 'Run Now'}
@@ -524,34 +551,37 @@ function LiveRunConsole() {
         {!loading && runs.length > 0 && (
           <div className="space-y-2">
             {runs.map((r) => {
-              const passed = r.passed_count ?? r.passed ?? 0;
-              const failed = r.failed_count ?? r.failed ?? 0;
+              const passed = r.passed_count ?? 0;
               const total = r.task_count;
               const rate = total > 0 ? passed / total : 0;
               return (
                 <div
-                  key={r.id}
+                  key={r.batch_id}
                   className="flex items-center gap-3 text-xs border border-zinc-800/40 rounded p-2 hover:bg-zinc-800/20 cursor-pointer"
                   onClick={() => {
-                    if (r.status === 'running') {
+                    if (r.batch_status === 'running') {
                       setSseEvents([]);
-                      setActiveRunId(r.id);
+                      setActiveRunId(r.batch_id);
                     }
                   }}
                 >
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      r.status === 'completed'
+                      r.batch_status === 'completed'
                         ? 'bg-emerald-400'
-                        : r.status === 'running'
+                        : r.batch_status === 'running'
                           ? 'bg-amber-400 animate-pulse'
-                          : r.status === 'failed'
+                          : r.batch_status === 'partial'
                             ? 'bg-rose-400'
                             : 'bg-zinc-600'
                     }`}
                   />
-                  <span className="text-zinc-300 font-medium w-14">{r.mode}</span>
-                  <span className="text-zinc-500">{r.trigger_type}</span>
+                  <span className="text-zinc-300 font-medium w-14">{r.trigger_type}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                    r.surface === 'teams' ? 'bg-indigo-900/40 text-indigo-300' :
+                    r.surface === 'slack' ? 'bg-green-900/40 text-green-300' :
+                    'bg-zinc-700/40 text-zinc-400'
+                  }`}>{r.surface}</span>
                   <span className={`tabular-nums ${passRateColor(rate)}`}>
                     {passed}/{total}
                   </span>
@@ -581,6 +611,7 @@ function DriftChart() {
   const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState(30);
   const [filterPillar, setFilterPillar] = useState<string | null>(null);
+  const [filterSurface, setFilterSurface] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -589,6 +620,7 @@ function DriftChart() {
         setLoading(true);
         const qs = new URLSearchParams({ days: String(days) });
         if (filterPillar) qs.set('pillar', filterPillar);
+        if (filterSurface) qs.set('surface', filterSurface);
         const data = await apiCall<{ series: CzDriftPoint[] }>(`/api/cz/drift?${qs.toString()}`);
         if (!cancelled) setSeries(data.series);
       } catch (e) {
@@ -598,7 +630,7 @@ function DriftChart() {
       }
     })();
     return () => { cancelled = true; };
-  }, [days, filterPillar]);
+  }, [days, filterPillar, filterSurface]);
 
   // Group by pillar for sparklines
   const byPillar = useMemo(() => {
@@ -627,6 +659,16 @@ function DriftChart() {
             onClick={() => setDays(d)}
           >
             {d}d
+          </button>
+        ))}
+        <span className="text-zinc-600 mx-1">|</span>
+        {[null, 'direct', 'teams', 'slack'].map((s) => (
+          <button
+            key={s ?? 'all'}
+            className={`text-xs px-2 py-1 rounded ${filterSurface === s ? 'bg-cyan/20 text-cyan' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+            onClick={() => setFilterSurface(s)}
+          >
+            {s ? s.charAt(0).toUpperCase() + s.slice(1) : 'All'}
           </button>
         ))}
       </div>
@@ -688,7 +730,7 @@ export default function CzProtocol() {
       <div>
         <h1 className="text-xl font-semibold text-zinc-100">Customer Zero Protocol</h1>
         <p className="text-sm text-zinc-400 mt-1">
-          Dogfood test runner — 67 tasks across 9 pillars, 14 P0 critical tests, 3 launch gates.
+          Dogfood test runner — 89 tasks across 10 pillars, 19 P0 critical tests, 3 launch gates.
         </p>
       </div>
 
