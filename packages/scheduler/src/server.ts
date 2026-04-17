@@ -3357,8 +3357,8 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Directive approval/rejection webhooks (GET from Teams card buttons)
-    if (method === 'GET' && url?.startsWith('/directives/')) {
+    // Directive approval/rejection webhooks (GET shows confirm page, POST processes)
+    if ((method === 'GET' || method === 'POST') && url?.startsWith('/directives/')) {
       const handled = await handleDirectiveApproval(url, req, res);
       if (handled) return;
     }

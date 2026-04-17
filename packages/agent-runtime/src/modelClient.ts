@@ -158,12 +158,17 @@ export class ModelClient {
     const fallbackScope = request.fallbackScope ?? 'cross-provider';
     const effectiveScope =
       agentRole === 'ops' ? 'cross-provider' : fallbackScope;
-    const fallbackChain =
+    let fallbackChain =
       effectiveScope === 'none'
         ? []
         : effectiveScope === 'same-provider'
           ? getProviderLocalFallbackChain(effectiveRequestedModel, agentRole)
           : getFallbackChain(effectiveRequestedModel, agentRole);
+    // If same-provider chain is empty, auto-append cross-provider fallbacks
+    // so auth/credential failures on one provider can fall back to another.
+    if (effectiveScope === 'same-provider' && fallbackChain.length === 0) {
+      fallbackChain = getFallbackChain(effectiveRequestedModel, agentRole);
+    }
     const allowClaude = isBedrockEnabled();
     const modelsToTry = [effectiveRequestedModel, ...fallbackChain].filter(
       (modelId, idx, arr) => (allowClaude || !modelId.startsWith('claude-')) && arr.indexOf(modelId) === idx,
@@ -277,8 +282,12 @@ export class ModelClient {
           lastFailureDetail = `[${currentModel}] ${detail}`;
           if (request.signal?.aborted) throw err;
 
-          // Auth errors — non-retryable, stop completely
+          // Auth errors — try next model if available (different provider may have valid creds)
           if (categorized.category === 'auth_failed') {
+            if (modelIdx < modelsToTry.length - 1) {
+              console.warn(`[ModelClient] ${currentModel} auth failed, trying fallback ${modelsToTry[modelIdx + 1]}`);
+              continue;
+            }
             throw new Error(`[${provider}] ${detail} (model: ${currentModel})`);
           }
 

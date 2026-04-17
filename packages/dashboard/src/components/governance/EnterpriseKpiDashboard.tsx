@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Card, SectionHeader, Skeleton } from '../ui';
 import { apiCall } from '../../lib/firebase';
-import { EmptyState, formatDateTime, formatPercent } from './shared';
+import { daysSince, EmptyState, formatDateTime, formatPercent } from './shared';
 
 type WindowDays = 7 | 30 | 90;
 
@@ -69,23 +69,69 @@ interface EnterpriseKpiSnapshot {
   goldenEvalError?: string;
 }
 
+/* ── Health status helpers ── */
+type Health = 'green' | 'yellow' | 'red' | 'neutral';
+
+const healthColors: Record<Health, string> = {
+  green: 'bg-emerald-400',
+  yellow: 'bg-amber-400',
+  red: 'bg-red-400',
+  neutral: 'bg-zinc-500',
+};
+
+const healthBorders: Record<Health, string> = {
+  green: 'border-emerald-500/30',
+  yellow: 'border-amber-500/30',
+  red: 'border-red-500/30',
+  neutral: 'border-zinc-500/20',
+};
+
+function HealthDot({ status }: { status: Health }) {
+  return <span className={`inline-block h-2.5 w-2.5 rounded-full ${healthColors[status]}`} />;
+}
+
+function Headline({ value, unit, sub }: { value: string; unit?: string; sub?: string }) {
+  return (
+    <div className="mt-2 mb-1">
+      <span className="text-2xl font-semibold text-txt-primary">{value}</span>
+      {unit && <span className="ml-1 text-sm text-txt-muted">{unit}</span>}
+      {sub && <p className="mt-0.5 text-[11px] text-txt-muted">{sub}</p>}
+    </div>
+  );
+}
+
 function KpiCard({
   title,
-  subtitle,
+  health = 'neutral',
   children,
   error,
 }: {
   title: string;
-  subtitle?: string;
+  health?: Health;
   children: ReactNode;
   error?: string;
 }) {
   return (
-    <Card className="theme-glass-panel-soft p-4">
-      <SectionHeader title={title} subtitle={error ? `Error: ${error}` : subtitle} />
-      <div className="mt-3 text-sm text-txt-secondary">{error ? <span className="text-prism-critical">{error}</span> : children}</div>
+    <Card className={`theme-glass-panel-soft p-4 border ${healthBorders[health]}`}>
+      <div className="flex items-center gap-2">
+        <HealthDot status={error ? 'red' : health} />
+        <span className="text-[13px] font-medium text-txt-primary">{title}</span>
+      </div>
+      <div className="mt-1 text-sm text-txt-secondary">
+        {error ? <span className="text-prism-critical text-[12px]">{error}</span> : children}
+      </div>
     </Card>
   );
+}
+
+function rateHealth(rate: number, good: number, warn: number): Health {
+  if (rate >= good) return 'green';
+  if (rate >= warn) return 'yellow';
+  return 'red';
+}
+
+function fmtNum(n: number): string {
+  return n >= 1000 ? n.toLocaleString() : String(n);
 }
 
 export default function EnterpriseKpiDashboard() {
@@ -128,12 +174,12 @@ export default function EnterpriseKpiDashboard() {
   if (loading && !data) {
     return (
       <div className="space-y-4">
-        <SectionHeader
-          title="Enterprise KPI snapshot"
-          subtitle="Loading aggregates from the same sources as db/scripts/governance_enterprise_kpi_queries.sql…"
-        />
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-40 w-full" />
+        <SectionHeader title="Enterprise KPIs" subtitle="Loading…" />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <Skeleton key={i} className="h-36 w-full rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -141,7 +187,7 @@ export default function EnterpriseKpiDashboard() {
   if (fetchError) {
     return (
       <EmptyState
-        title="Could not load enterprise KPI snapshot"
+        title="Could not load enterprise KPIs"
         description={`${fetchError} Deploy scheduler with /admin/metrics/enterprise-kpi-snapshot and ensure admin API routing reaches the scheduler.`}
       />
     );
@@ -149,12 +195,41 @@ export default function EnterpriseKpiDashboard() {
 
   const snap = data;
 
+  /* ── Computed KPIs ── */
+  const completionRate = snap?.proactivity && snap.proactivity.runsInWindow > 0
+    ? snap.proactivity.runsCompletedInWindow / snap.proactivity.runsInWindow
+    : null;
+
+  const commitTotal = snap?.commitments?.byStatusInWindow.reduce((s, c) => s + c.count, 0) ?? 0;
+  const commitApproved = snap?.commitments?.byStatusInWindow.find((s) => s.status === 'approved')?.count ?? 0;
+  const approvalRate = commitTotal > 0 ? commitApproved / commitTotal : null;
+
+  const eventsPerRun = snap?.auditTrail && snap.auditTrail.runsInWindow > 0
+    ? snap.auditTrail.agentRunEventsInWindow / snap.auditTrail.runsInWindow
+    : null;
+  const planCoverage = snap?.auditTrail && snap.auditTrail.runsInWindow > 0
+    ? snap.auditTrail.runsWithPlanManifest / snap.auditTrail.runsInWindow
+    : null;
+
+  const knowledgeAgeDays = daysSince(snap?.knowledge?.worldModelNewestUpdateAt);
+
+  const handoffTotal = snap?.handoffs?.byStatusInWindow.reduce((s, h) => s + h.count, 0) ?? 0;
+  const handoffCompleted = snap?.handoffs?.byStatusInWindow.find((s) => s.status === 'completed')?.count ?? 0;
+  const handoffCompletionRate = handoffTotal > 0 ? handoffCompleted / handoffTotal : null;
+
+  const gateTotal = snap?.resilience
+    ? snap.resilience.completionGatePassedEventsInWindow + snap.resilience.completionGateFailedEventsInWindow
+    : 0;
+  const gatePassRate = gateTotal > 0 ? snap!.resilience!.completionGatePassedEventsInWindow / gateTotal : null;
+
+  const goldenRate = snap?.goldenEval?.passRate ?? null;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <SectionHeader
-          title="Enterprise KPI snapshot"
-          subtitle="Operational checklist metrics (schedules, commitments, kill switch, audit volume, knowledge, handoffs, golden eval). Ad-hoc SQL lives in db/scripts/governance_enterprise_kpi_queries.sql."
+          title="Enterprise KPIs"
+          subtitle="Fleet health at a glance — computed from live operational data"
         />
         <div className="flex items-center gap-2">
           {([7, 30, 90] as const).map((d) => (
@@ -185,153 +260,247 @@ export default function EnterpriseKpiDashboard() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {/* ── 1. Proactivity ── */}
         <KpiCard
-          title="1 · Proactivity (schedules & runs)"
-          subtitle="Cron-enabled work vs run volume in window"
+          title="Run Completion Rate"
+          health={completionRate != null ? rateHealth(completionRate, 0.70, 0.50) : 'neutral'}
           error={snap?.proactivityError}
         >
           {snap?.proactivity && (
-            <ul className="space-y-1 text-txt-primary">
-              <li>Enabled schedules: {snap.proactivity.enabledSchedules}</li>
-              <li>Disabled schedules: {snap.proactivity.disabledSchedules}</li>
-              <li>Last schedule trigger: {snap.proactivity.lastScheduleTriggerAt ? formatDateTime(snap.proactivity.lastScheduleTriggerAt) : '—'}</li>
-              <li>Runs in window: {snap.proactivity.runsInWindow} (completed {snap.proactivity.runsCompletedInWindow})</li>
-              <li className="pt-1 text-[11px] text-txt-muted">Top tasks: {snap.proactivity.topTasks.map((t) => `${t.task ?? '(null)'}:${t.runs}`).join(' · ') || '—'}</li>
-            </ul>
+            <>
+              <Headline
+                value={completionRate != null ? formatPercent(completionRate, 1) : '—'}
+                sub={`${fmtNum(snap.proactivity.runsCompletedInWindow)} of ${fmtNum(snap.proactivity.runsInWindow)} runs completed`}
+              />
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-txt-muted">
+                <span>{snap.proactivity.enabledSchedules} schedules active</span>
+                <span>{snap.proactivity.disabledSchedules} disabled</span>
+              </div>
+              {snap.proactivity.topTasks.length > 0 && (
+                <div className="mt-2 space-y-0.5">
+                  {snap.proactivity.topTasks.slice(0, 5).map((t) => {
+                    const pct = snap.proactivity!.runsInWindow > 0
+                      ? (t.runs / snap.proactivity!.runsInWindow) * 100
+                      : 0;
+                    return (
+                      <div key={t.task} className="flex items-center gap-2 text-[11px]">
+                        <div className="h-1.5 rounded-full bg-prism-teal/40" style={{ width: `${Math.max(pct, 2)}%` }} />
+                        <span className="text-txt-muted whitespace-nowrap">{t.task ?? '(null)'}</span>
+                        <span className="text-txt-secondary ml-auto">{fmtNum(t.runs)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </KpiCard>
 
+        {/* ── 2. Commitments ── */}
         <KpiCard
-          title="2 · Commitments & approvals"
-          subtitle="Registry + pending now"
+          title="Commitment Approval Rate"
+          health={snap?.commitments?.pendingApprovalNow ? 'yellow' : approvalRate != null ? rateHealth(approvalRate, 0.80, 0.50) : 'neutral'}
           error={snap?.commitmentsError}
         >
           {snap?.commitments && (
-            <ul className="space-y-1 text-txt-primary">
-              <li>Pending approval (now): {snap.commitments.pendingApprovalNow}</li>
-              <li className="text-[11px] text-txt-muted">
-                In window: {snap.commitments.byStatusInWindow.map((s) => `${s.status}:${s.count}`).join(', ') || '—'}
-              </li>
-            </ul>
+            <>
+              <Headline
+                value={approvalRate != null ? formatPercent(approvalRate, 1) : '—'}
+                sub={`${fmtNum(commitApproved)} approved of ${fmtNum(commitTotal)} total`}
+              />
+              {snap.commitments.pendingApprovalNow > 0 && (
+                <p className="mt-1 text-[12px] font-medium text-amber-400">
+                  {snap.commitments.pendingApprovalNow} pending approval now
+                </p>
+              )}
+              {snap.commitments.pendingApprovalNow === 0 && (
+                <p className="mt-1 text-[11px] text-txt-muted">No items awaiting approval</p>
+              )}
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-txt-muted">
+                {snap.commitments.byStatusInWindow.map((s) => (
+                  <span key={s.status}>{s.status}: {fmtNum(s.count)}</span>
+                ))}
+              </div>
+            </>
           )}
         </KpiCard>
 
+        {/* ── 3. Circuit Breaker ── */}
         <KpiCard
-          title="3 · Circuit breaker (kill switch)"
-          subtitle="Fleet halt from system_config"
+          title="Circuit Breaker"
+          health={snap?.circuitBreaker?.haltActive ? 'red' : 'green'}
           error={snap?.circuitBreakerError}
         >
           {snap?.circuitBreaker && (
-            <ul className="space-y-1 text-txt-primary">
-              <li>Halted: {snap.circuitBreaker.haltActive ? 'yes' : 'no'}</li>
-              <li>Level: {snap.circuitBreaker.haltLevel ?? '—'}</li>
-              <li>Reason: {snap.circuitBreaker.haltReason ?? '—'}</li>
-              <li>By: {snap.circuitBreaker.triggeredBy ?? '—'}</li>
-              <li>At: {snap.circuitBreaker.triggeredAt ? formatDateTime(snap.circuitBreaker.triggeredAt) : '—'}</li>
-            </ul>
+            <>
+              <Headline
+                value={snap.circuitBreaker.haltActive ? 'HALTED' : 'CLEAR'}
+                sub={snap.circuitBreaker.haltActive ? `Level ${snap.circuitBreaker.haltLevel ?? '?'}` : 'Fleet operating normally'}
+              />
+              {snap.circuitBreaker.haltActive && snap.circuitBreaker.haltReason && (
+                <p className="mt-1 text-[12px] text-red-400">{snap.circuitBreaker.haltReason}</p>
+              )}
+              {snap.circuitBreaker.haltActive && snap.circuitBreaker.triggeredBy && (
+                <p className="mt-1 text-[11px] text-txt-muted">
+                  By {snap.circuitBreaker.triggeredBy} · {snap.circuitBreaker.triggeredAt ? formatDateTime(snap.circuitBreaker.triggeredAt) : '—'}
+                </p>
+              )}
+            </>
           )}
         </KpiCard>
 
+        {/* ── 4. Audit Trail Density ── */}
         <KpiCard
-          title="4 · Audit trail density"
-          subtitle="Events, runs, plan manifests, decision traces"
+          title="Audit Trail Density"
+          health={eventsPerRun != null ? (eventsPerRun >= 5 ? 'green' : eventsPerRun >= 2 ? 'yellow' : 'red') : 'neutral'}
           error={snap?.auditTrailError}
         >
           {snap?.auditTrail && (
-            <ul className="space-y-1 text-txt-primary">
-              <li>agent_run_events (window): {snap.auditTrail.agentRunEventsInWindow}</li>
-              <li>agent_runs (window): {snap.auditTrail.runsInWindow}</li>
-              <li>Runs with plan_manifest: {snap.auditTrail.runsWithPlanManifest}</li>
-              <li>decision_traces (window): {snap.auditTrail.decisionTracesInWindow ?? '—'}</li>
-            </ul>
+            <>
+              <Headline
+                value={eventsPerRun != null ? eventsPerRun.toFixed(1) : '—'}
+                unit="events / run"
+                sub={`${fmtNum(snap.auditTrail.agentRunEventsInWindow)} events across ${fmtNum(snap.auditTrail.runsInWindow)} runs`}
+              />
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-txt-muted">
+                <span>Plan coverage: {planCoverage != null ? formatPercent(planCoverage, 1) : '—'}</span>
+                <span>Decision traces: {snap.auditTrail.decisionTracesInWindow != null ? fmtNum(snap.auditTrail.decisionTracesInWindow) : '—'}</span>
+              </div>
+            </>
           )}
         </KpiCard>
 
-        <KpiCard title="5 · Workspace identity" subtitle="M365 / Teams / IAM">
-          <p className="text-[12px] leading-relaxed text-txt-muted">
-            Not summarized in this API. Use your Microsoft write audit view, Graph delivery logs, and{' '}
-            <code className="text-txt-secondary">activity_log</code> for send-as and tool identity checks.
-          </p>
-        </KpiCard>
-
+        {/* ── 5. Knowledge Freshness ── */}
         <KpiCard
-          title="6 · Temporal / knowledge"
-          subtitle="World model freshness & contradictions"
+          title="Knowledge Freshness"
+          health={knowledgeAgeDays != null ? (knowledgeAgeDays <= 7 ? 'green' : knowledgeAgeDays <= 30 ? 'yellow' : 'red') : 'neutral'}
           error={snap?.knowledgeError}
         >
           {snap?.knowledge && (
-            <ul className="space-y-1 text-txt-primary">
-              <li>World model oldest update: {snap.knowledge.worldModelOldestUpdateAt ? formatDateTime(snap.knowledge.worldModelOldestUpdateAt) : '—'}</li>
-              <li>World model newest: {snap.knowledge.worldModelNewestUpdateAt ? formatDateTime(snap.knowledge.worldModelNewestUpdateAt) : '—'}</li>
-              <li>Unresolved contradictions (detected): {snap.knowledge.unresolvedContradictions ?? '—'}</li>
-              <li className="text-[11px] text-txt-muted">
-                By status: {snap.knowledge.contradictionsByStatus?.map((c) => `${c.status}:${c.count}`).join(', ') ?? '—'}
-              </li>
-            </ul>
+            <>
+              <Headline
+                value={knowledgeAgeDays != null ? (knowledgeAgeDays === 0 ? 'Today' : `${knowledgeAgeDays}d`) : '—'}
+                unit={knowledgeAgeDays != null && knowledgeAgeDays > 0 ? 'ago' : undefined}
+                sub="Since last world model update"
+              />
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-txt-muted">
+                <span>Oldest entry: {snap.knowledge.worldModelOldestUpdateAt ? formatDateTime(snap.knowledge.worldModelOldestUpdateAt) : '—'}</span>
+                <span>Contradictions: {snap.knowledge.unresolvedContradictions ?? 0} unresolved</span>
+              </div>
+            </>
           )}
         </KpiCard>
 
+        {/* ── 6. Handoff Contracts ── */}
         <KpiCard
-          title="7 · Handoff contracts"
-          subtitle="Structured handoffs in window"
+          title="Handoff Completion"
+          health={
+            snap?.handoffs?.escalatedInWindow
+              ? 'yellow'
+              : handoffCompletionRate != null
+                ? rateHealth(handoffCompletionRate, 0.70, 0.40)
+                : 'neutral'
+          }
           error={snap?.handoffsError}
         >
           {snap?.handoffs && (
-            <ul className="space-y-1 text-txt-primary">
-              <li>Escalated in window: {snap.handoffs.escalatedInWindow}</li>
-              <li className="text-[11px] text-txt-muted">
-                {snap.handoffs.byStatusInWindow.map((s) => `${s.status}:${s.count}`).join(', ') || '—'}
-              </li>
-            </ul>
+            <>
+              <Headline
+                value={handoffTotal > 0 ? (handoffCompletionRate != null ? formatPercent(handoffCompletionRate, 1) : '—') : '0'}
+                unit={handoffTotal === 0 ? 'handoffs' : undefined}
+                sub={handoffTotal > 0 ? `${fmtNum(handoffCompleted)} completed of ${fmtNum(handoffTotal)}` : 'No handoffs in window'}
+              />
+              {snap.handoffs.escalatedInWindow > 0 && (
+                <p className="mt-1 text-[12px] font-medium text-amber-400">
+                  {snap.handoffs.escalatedInWindow} escalated
+                </p>
+              )}
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-txt-muted">
+                {snap.handoffs.byStatusInWindow.map((s) => (
+                  <span key={s.status}>{s.status}: {fmtNum(s.count)}</span>
+                ))}
+              </div>
+            </>
           )}
         </KpiCard>
 
+        {/* ── 7. Coordination ── */}
         <KpiCard
-          title="8 · Coordination"
-          subtitle="Chief of Staff runs & directive assignments"
+          title="Coordination Efficiency"
+          health={snap?.coordination ? (snap.coordination.workAssignmentsInWindow > 0 ? 'green' : 'yellow') : 'neutral'}
           error={snap?.coordinationError}
         >
           {snap?.coordination && (
-            <ul className="space-y-1 text-txt-primary">
-              <li>chief-of-staff runs (window): {snap.coordination.chiefOfStaffRunsInWindow}</li>
-              <li>work_assignments created (window): {snap.coordination.workAssignmentsInWindow}</li>
-            </ul>
+            <>
+              <Headline
+                value={fmtNum(snap.coordination.chiefOfStaffRunsInWindow)}
+                unit="CoS runs"
+                sub={`Produced ${fmtNum(snap.coordination.workAssignmentsInWindow)} work assignments`}
+              />
+              {snap.coordination.chiefOfStaffRunsInWindow > 0 && (
+                <p className="mt-2 text-[11px] text-txt-muted">
+                  Yield: {(snap.coordination.workAssignmentsInWindow / snap.coordination.chiefOfStaffRunsInWindow * 100).toFixed(1)}% of runs produce assignments
+                </p>
+              )}
+            </>
           )}
         </KpiCard>
 
+        {/* ── 8. Completion Gate Pass Rate ── */}
         <KpiCard
-          title="9 · Resilience (completion gate events)"
-          subtitle="Auto-repair triggers vs pass/fail events"
+          title="Completion Gate Pass Rate"
+          health={gatePassRate != null ? rateHealth(gatePassRate, 0.70, 0.40) : 'neutral'}
           error={snap?.resilienceError}
         >
           {snap?.resilience && (
-            <ul className="space-y-1 text-txt-primary">
-              <li>Auto-repair triggered: {snap.resilience.completionGateAutoRepairTriggersInWindow}</li>
-              <li>Gate failed events: {snap.resilience.completionGateFailedEventsInWindow}</li>
-              <li>Gate passed events: {snap.resilience.completionGatePassedEventsInWindow}</li>
-            </ul>
+            <>
+              <Headline
+                value={gatePassRate != null ? formatPercent(gatePassRate, 1) : (gateTotal === 0 ? '—' : '0%')}
+                sub={gateTotal > 0
+                  ? `${snap.resilience.completionGatePassedEventsInWindow} passed · ${snap.resilience.completionGateFailedEventsInWindow} failed`
+                  : 'No gate events yet — gates are ramping up'}
+              />
+              {snap.resilience.completionGateAutoRepairTriggersInWindow > 0 && (
+                <p className="mt-1 text-[12px] text-prism-teal">
+                  {snap.resilience.completionGateAutoRepairTriggersInWindow} auto-repair triggers
+                </p>
+              )}
+              {snap.resilience.completionGateAutoRepairTriggersInWindow === 0 && gateTotal > 0 && (
+                <p className="mt-1 text-[11px] text-txt-muted">No auto-repairs triggered</p>
+              )}
+            </>
           )}
         </KpiCard>
 
+        {/* ── 9. Golden Eval ── */}
         <KpiCard
-          title="10 · Golden eval (golden:%)"
-          subtitle="Fleet pass rate + per role"
+          title="Golden Eval Pass Rate"
+          health={goldenRate != null ? rateHealth(goldenRate, 0.70, 0.50) : 'neutral'}
           error={snap?.goldenEvalError}
         >
           {snap?.goldenEval && (
-            <div>
-              <p className="text-txt-primary">
-                Fleet: {snap.goldenEval.passed}/{snap.goldenEval.total}
-                {snap.goldenEval.passRate != null ? ` (${formatPercent(snap.goldenEval.passRate, 1)})` : ''}
-              </p>
-              <ul className="mt-2 max-h-32 overflow-y-auto text-[11px] text-txt-muted">
-                {snap.goldenEval.byRole.map((r) => (
-                  <li key={r.agentRole}>
-                    {r.agentRole}: {r.passed}/{r.total} ({formatPercent(r.passRate, 1)})
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <>
+              <Headline
+                value={goldenRate != null ? formatPercent(goldenRate, 1) : '—'}
+                sub={`${fmtNum(snap.goldenEval.passed)} passed of ${fmtNum(snap.goldenEval.total)} evaluations`}
+              />
+              {snap.goldenEval.byRole.length > 0 && (
+                <div className="mt-2 space-y-0.5 max-h-28 overflow-y-auto">
+                  {snap.goldenEval.byRole
+                    .sort((a, b) => a.passRate - b.passRate)
+                    .map((r) => {
+                      const h = rateHealth(r.passRate, 0.70, 0.50);
+                      return (
+                        <div key={r.agentRole} className="flex items-center gap-2 text-[11px]">
+                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${healthColors[h]}`} />
+                          <span className="text-txt-muted truncate">{r.agentRole}</span>
+                          <span className="text-txt-secondary ml-auto tabular-nums">{formatPercent(r.passRate, 0)}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </>
           )}
         </KpiCard>
       </div>
