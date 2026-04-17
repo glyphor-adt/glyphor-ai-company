@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, SectionHeader, Skeleton } from '../ui';
+import { CollapsibleCard } from './shared';
 import { apiCall, buildApiHeaders, CANONICAL_SCHEDULER_URL, isDashboardSchedulerSplitHost, SCHEDULER_URL } from '../../lib/firebase';
 
 interface FleetLeaderMetric {
@@ -907,7 +908,7 @@ export default function ReliabilityDashboard() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <SectionHeader
           title="Reliability Overview"
-          subtitle="Per-agent completion, escalation, contradiction, trust, and compute metrics sourced from the runtime audit trail."
+          subtitle="Fleet completion, escalation, trust, and compute metrics."
         />
         <div className="flex flex-wrap items-center gap-3">
           <label className="text-[12px] text-txt-muted">
@@ -973,11 +974,10 @@ export default function ReliabilityDashboard() {
       </div>
 
       {planningGateHealth ? (
-        <Card>
-          <SectionHeader
-            title="Gate SLO posture"
-            subtitle="Same evaluation as POST /planning-gate/monitor: global thresholds drive incidents; per-role 7d vs 30d anomalies surface here as warnings."
-          />
+        <CollapsibleCard
+          title="Gate SLO Posture"
+          subtitle="Global thresholds and per-role 7d vs 30d anomaly detection"
+        >
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${sloStatusClass}`}>
               {planningGateHealth.status === 'red' ? 'Critical' : planningGateHealth.status === 'yellow' ? 'Watch' : 'Healthy'}
@@ -1019,15 +1019,14 @@ export default function ReliabilityDashboard() {
           ) : (
             <p className="mt-3 text-[12px] text-txt-muted">No per-role SLO or 7d-vs-30d regression flags at current thresholds.</p>
           )}
-        </Card>
+        </CollapsibleCard>
       ) : null}
 
-      <Card>
-        <SectionHeader
-          title="Planning Gate Trend"
-          subtitle="7-day behavior compared against 30-day baseline."
-        />
-        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <CollapsibleCard
+        title="Planning Gate Trend"
+        subtitle="7-day behavior compared against 30-day baseline"
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             title="Gate Pass Rate (7d)"
             value={formatPercent(planningGate7d?.totals.passRate)}
@@ -1087,34 +1086,34 @@ export default function ReliabilityDashboard() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </CollapsibleCard>
 
-      <Card>
-        <SectionHeader
-          title="Stage 3 — Golden eval loop"
-          subtitle="Cron job golden-eval-suite calls POST /agent-evals/run-golden every Wednesday 10:30 UTC. Policy JSON can set planningModelTier and completionGateVerifyModelTier for stronger planning / gate verification; completionGateAutoRepairEnabled adds one corrective pass after a gate miss (see conversion on the Governance scorecard)."
-        />
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+      <CollapsibleCard
+        title="Stage 3 — Golden Eval Loop"
+        subtitle="Weekly golden eval suite and auto-repair conversion tracking"
+        action={
           <button
             type="button"
             disabled={goldenRunBusy || refreshing}
-            onClick={() => void runGoldenSuiteNow()}
+            onClick={(e) => { e.stopPropagation(); void runGoldenSuiteNow(); }}
             className="rounded-lg border border-prism-teal/50 bg-prism-teal/10 px-4 py-2 text-[13px] font-semibold text-prism-teal transition-colors hover:bg-prism-teal/20 disabled:opacity-50"
           >
-            {goldenRunBusy ? 'Running golden suite…' : 'Run golden suite now'}
+            {goldenRunBusy ? 'Running…' : 'Run golden suite'}
           </button>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-3">
           {goldenRunHint ? (
             <span className="max-w-xl text-[11px] text-txt-muted">{goldenRunHint}</span>
           ) : null}
         </div>
-      </Card>
+      </CollapsibleCard>
 
-      <Card>
-        <SectionHeader
-          title="Stage 4 — Fleet quality (autonomy signals)"
-          subtitle="GET /admin/metrics/quality-overview joins planning-gate telemetry with golden eval PASS rates by role (same signals as the Governance Autonomy composite). Per-agent ceilings and optional threshold metadata live under Governance → Autonomy."
-        />
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <CollapsibleCard
+        title="Stage 4 — Fleet Quality"
+        subtitle="Gate pass rates and golden eval results joined by role"
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl theme-glass-panel-soft p-3">
             <p className="text-[11px] uppercase tracking-[0.16em] text-txt-muted">Fleet gate pass</p>
             <p className="mt-1 text-lg font-semibold text-txt-primary">
@@ -1226,13 +1225,12 @@ export default function ReliabilityDashboard() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </CollapsibleCard>
 
-      <Card>
-        <SectionHeader
-          title="Stage 5 — Cost, latency, and quality (joint view)"
-          subtitle="GET /admin/metrics/economics-quality-overview merges agent_runs cost/latency with completion-gate and golden evals. Optional scheduler env guardrails: ECONOMICS_ALERT_MAX_AVG_COST_USD_PER_COMPLETED_RUN, ECONOMICS_ALERT_P95_LATENCY_MINUTES, ECONOMICS_ALERT_MIN_RUN_COMPLETION_RATE, ECONOMICS_ALERT_MIN_GATE_PASS_RATE."
-        />
+      <CollapsibleCard
+        title="Stage 5 — Economics & Quality"
+        subtitle="Cost, latency, and quality metrics with guardrail alerts"
+      >
         {economicsQuality && economicsQuality.alerts.length > 0 ? (
           <div className="mt-4 space-y-2 rounded-xl border border-prism-elevated/40 bg-prism-elevated/10 p-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-prism-elevated">Economics guardrails</p>
@@ -1324,14 +1322,13 @@ export default function ReliabilityDashboard() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </CollapsibleCard>
 
-      <Card>
+      <CollapsibleCard
+        title="Golden Eval Drafts from Gate Misses"
+        subtitle="Draft practice tasks generated from repeated gate failures"
+      >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <SectionHeader
-            title="Golden eval drafts from gate misses"
-            subtitle="When agents often fail the completion gate for the same reason, this lists draft practice tasks. Use Add to eval suite to save New rows automatically, or copy JSON/SQL if you prefer a manual review path."
-          />
           <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:flex-wrap">
             {evalSuggestionsCopyHint ? (
               <span className="text-[11px] text-txt-muted">{evalSuggestionsCopyHint}</span>
@@ -1471,11 +1468,14 @@ export default function ReliabilityDashboard() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </CollapsibleCard>
 
-      <Card>
+      <CollapsibleCard
+        title="Agent Reliability Table"
+        subtitle="Per-agent scorecard with sortable columns"
+        defaultOpen
+      >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <SectionHeader title="Agent Reliability Table" subtitle="Sortable per-agent scorecard with dynamic rows for any number of active agents." />
           <label className="text-[12px] text-txt-muted">
             <span className="mr-2">Department</span>
             <select
@@ -1533,11 +1533,13 @@ export default function ReliabilityDashboard() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </CollapsibleCard>
 
-      <Card>
-        <SectionHeader title="Exception Log" subtitle="Recent escalations requiring human attention, with resolution state and elapsed resolution time when available." />
-        <div className="mt-4 space-y-3">
+      <CollapsibleCard
+        title="Exception Log"
+        subtitle="Recent escalations requiring human attention"
+      >
+        <div className="space-y-3">
           {exceptions.length === 0 ? (
             <p className="text-[13px] text-txt-muted">No escalated tasks were returned.</p>
           ) : exceptions.map((item) => {
@@ -1573,14 +1575,13 @@ export default function ReliabilityDashboard() {
             );
           })}
         </div>
-      </Card>
+      </CollapsibleCard>
 
-      <Card>
-        <SectionHeader
-          title="Planning & Completion Gate"
-          subtitle="Run-level planning and completion-gate telemetry aggregated from runtime ledger events."
-        />
-        <div className="mt-5 overflow-x-auto">
+      <CollapsibleCard
+        title="Planning & Completion Gate"
+        subtitle="Per-role planning and gate telemetry from runtime ledger"
+      >
+        <div className="overflow-x-auto">
           <table className="min-w-full text-left text-[12px] text-txt-secondary">
             <thead>
               <tr className="border-b border-border/70 text-[11px] uppercase tracking-[0.16em] text-txt-muted">
@@ -1616,7 +1617,7 @@ export default function ReliabilityDashboard() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </CollapsibleCard>
     </div>
   );
 }

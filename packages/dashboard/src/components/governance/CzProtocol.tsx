@@ -429,7 +429,7 @@ function LiveRunConsole() {
   const [launchTaskId, setLaunchTaskId] = useState<string>('');
   const [tasks, setTasks] = useState<{ id: string; task_number: number; task: string; pillar: string; responsible_agent: string | null }[]>([]);
   const [launching, setLaunching] = useState(false);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const consoleRef = useRef<HTMLDivElement>(null);
 
   // Fetch tasks for pillar/agent/task selectors
@@ -457,11 +457,12 @@ function LiveRunConsole() {
 
   useEffect(() => { fetchRuns(); }, [fetchRuns]);
 
-  // SSE stream for active run
+  // SSE stream for active run — uses fetch() so we can send Authorization headers
+  // (native EventSource cannot send custom headers → 401 on the scheduler)
   useEffect(() => {
     if (!activeRunId) return;
-    const es = new EventSource(`${CANONICAL_SCHEDULER_URL}/api/cz/runs/${activeRunId}/stream`);
-    eventSourceRef.current = es;
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
 
     const addEvent = (event: string, data: Record<string, unknown>) => {
       setSseEvents((prev) => [...prev, { timestamp: new Date().toISOString(), event, data }]);
@@ -470,22 +471,58 @@ function LiveRunConsole() {
       }
     };
 
-    es.addEventListener('connected', (e) => addEvent('connected', JSON.parse(e.data)));
-    es.addEventListener('task_started', (e) => addEvent('task_started', JSON.parse(e.data)));
-    es.addEventListener('task_scored', (e) => addEvent('task_scored', JSON.parse(e.data)));
-    es.addEventListener('pillar_complete', (e) => addEvent('pillar_complete', JSON.parse(e.data)));
-    es.addEventListener('run_complete', (e) => {
-      addEvent('run_complete', JSON.parse(e.data));
-      es.close();
-      fetchRuns();
-    });
+    (async () => {
+      try {
+        const headers = await buildApiHeaders();
+        const resp = await fetch(
+          `${CANONICAL_SCHEDULER_URL}/api/cz/runs/${activeRunId}/stream`,
+          { headers, signal: ctrl.signal },
+        );
+        if (!resp.ok || !resp.body) {
+          addEvent('error', { message: `SSE stream failed: ${resp.status}` });
+          return;
+        }
 
-    es.onerror = () => {
-      addEvent('error', { message: 'SSE connection lost' });
-      es.close();
-    };
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-    return () => { es.close(); };
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          // Parse SSE frames (event: ... \n data: ... \n\n)
+          const frames = buffer.split('\n\n');
+          buffer = frames.pop() ?? '';
+          for (const frame of frames) {
+            if (!frame.trim()) continue;
+            let eventName = 'message';
+            let eventData = '';
+            for (const line of frame.split('\n')) {
+              if (line.startsWith('event: ')) eventName = line.slice(7);
+              else if (line.startsWith('data: ')) eventData = line.slice(6);
+            }
+            if (!eventData) continue;
+            try {
+              const parsed = JSON.parse(eventData);
+              addEvent(eventName, parsed);
+              if (eventName === 'run_complete') {
+                ctrl.abort();
+                fetchRuns();
+                return;
+              }
+            } catch { /* ignore malformed frames */ }
+          }
+        }
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          addEvent('error', { message: 'SSE connection lost' });
+        }
+      }
+    })();
+
+    return () => { ctrl.abort(); };
   }, [activeRunId, fetchRuns]);
 
   // Derived lists for selectors

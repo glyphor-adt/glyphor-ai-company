@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Card, PageTabs, SectionHeader, Skeleton } from '../components/ui';
 import AccessControl from '../components/governance/AccessControl';
 import AutonomyDashboard from '../components/governance/AutonomyDashboard';
@@ -1014,18 +1014,8 @@ export default function Governance() {
         <div>
           <SectionHeader
             title="Governance Control Plane"
-            subtitle="Tool, authority, autonomy, and access-control surfaces for managing agent execution rights and approvals."
+            subtitle="Agent execution rights, approvals, reliability, and tool health."
           />
-          <Card className="max-w-3xl border-prism-sky/20 bg-prism-sky/5">
-            <p className="text-[13px] text-txt-secondary">
-              Tool-health visibility has been restored inside Governance via Tool View.
-              {' '}
-              <Link to="/operations" className="font-medium text-prism-sky hover:underline">
-                Open Operations
-              </Link>
-              {' '}for audit logs, reliability traces, and scheduler health.
-            </p>
-          </Card>
           <Card className="mt-3 max-w-3xl border-border/70 bg-surface">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-txt-muted">
@@ -1036,7 +1026,7 @@ export default function Governance() {
                   {healthLabel}
                 </span>
                 <span className="text-[11px] text-txt-muted">
-                  Last evaluated: {formatDateTime(planningGateHealth?.evaluatedAt)}
+                  {formatDateTime(planningGateHealth?.evaluatedAt)}
                 </span>
               </div>
               <button
@@ -1060,49 +1050,6 @@ export default function Governance() {
                 <p className="text-[11px] text-txt-muted">Gate Fails</p>
                 <p className="text-lg font-semibold text-txt-primary">{(planningGate?.totals.gateFailEvents ?? 0).toLocaleString()}</p>
               </div>
-            </div>
-            <div className="mt-4 rounded-lg border border-border/60 bg-bg-elevated/30 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-txt-muted">
-                  Stage 3 Scorecard
-                </p>
-                <span className="text-[11px] text-txt-muted">
-                  Updated: {formatDateTime(planningGateStage3?.generatedAt)}
-                </span>
-              </div>
-              <div className="mt-2 grid gap-3 sm:grid-cols-3">
-                <div>
-                  <p className="text-[11px] text-txt-muted">Golden Eval Pass</p>
-                  <p className="text-lg font-semibold text-txt-primary">{formatPct(planningGateStage3?.goldenEval.current.rate)}</p>
-                  <p className="text-[11px] text-txt-muted">
-                    {planningGateStage3?.goldenEval.current.passed ?? 0}/{planningGateStage3?.goldenEval.current.total ?? 0}
-                    {' '}({planningGateStage3?.windowDays ?? 30}d)
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-txt-muted">Auto-Repair Conversion</p>
-                  <p className="text-lg font-semibold text-txt-primary">{formatPct(planningGateStage3?.autoRepair.current.conversionRate)}</p>
-                  <p className="text-[11px] text-txt-muted">
-                    {planningGateStage3?.autoRepair.current.convertedToPass ?? 0}/{planningGateStage3?.autoRepair.current.triggered ?? 0} converted
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-txt-muted">30d Delta (Golden / Repair)</p>
-                  <p className="text-lg font-semibold text-txt-primary">
-                    {formatPct(planningGateStage3?.goldenEval.deltaVs30d)} / {formatPct(planningGateStage3?.autoRepair.deltaVs30d)}
-                  </p>
-                  <p className="text-[11px] text-txt-muted">Positive values indicate improvement</p>
-                </div>
-              </div>
-              <p className="mt-3 text-[11px] text-txt-muted">
-                Top missing criteria:{' '}
-                {planningGateStage3?.topMissingCriteria?.length
-                  ? planningGateStage3.topMissingCriteria
-                    .slice(0, 3)
-                    .map((item) => `${item.criterion} (${item.count})`)
-                    .join(' • ')
-                  : 'No missing-criteria failures in selected window.'}
-              </p>
             </div>
             <p className="mt-3 text-[12px] text-txt-muted">{healthDetail}</p>
           </Card>
