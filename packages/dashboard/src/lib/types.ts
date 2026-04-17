@@ -399,6 +399,7 @@ export const AGENT_META: Record<string, { color: string; icon: string }> = {
   'vp-design':      { color: '#DB2777', icon: 'MdPalette' },
   'vp-research':    { color: '#6D28D9', icon: 'MdManageSearch' },
   ops:              { color: '#EA580C', icon: 'MdMonitorHeart' },
+  clo:              { color: '#4338CA', icon: 'MdGavel' },
   // Sub-team agents
   'platform-engineer':     { color: '#2563EB', icon: 'MdDeveloperBoard' },
   'quality-engineer':      { color: '#2563EB', icon: 'MdBugReport' },
@@ -435,6 +436,7 @@ const _DISPLAY_NAMES: Record<string, string> = {
   'vp-design': 'Mia Tanaka',
   'vp-research': 'Sophia Lin',
   ops: 'Atlas Vega',
+  clo: 'Victoria Chase',
   // Sub-team agents
   'platform-engineer': 'Alex Park',
   'quality-engineer': 'Sam DeLuca',
@@ -476,6 +478,7 @@ for (const [role, displayName] of Object.entries(_DISPLAY_NAMES)) {
 // Department / informal aliases → canonical names
 Object.assign(_ALIASES, {
   operations: 'Atlas Vega',
+  legal: 'Victoria Chase',
   marketing: 'Maya Brooks',
   engineering: 'Marcus Reeves',
   finance: 'Nadia Okafor',
@@ -548,6 +551,12 @@ export const AGENT_SOUL: Record<string, { mission: string; persona: string; tone
     tone: 'calm, methodical, data-driven, clear, diagnostic',
     ethics: 'Never decide what agents should work on — watch and intervene, don\'t orchestrate. Always include impact assessment in alerts. Retry before escalating.',
   },
+  clo: {
+    mission: 'Conduct legal research, draft contracts and policies, monitor regulatory landscape, manage IP protection, and ensure corporate governance readiness for Glyphor\'s pre-launch phase.',
+    persona: 'Former Wilson Sonsini technology transactions partner who combines deep AI/ML law expertise with startup pragmatism. Default mode: "here\'s how we CAN do this safely." Ranks risks by likelihood + business impact. Direct, occasionally dry-humored.',
+    tone: 'direct, pragmatic, plain-English, risk-aware, dry-humored',
+    ethics: 'Legal counsel enables, not blocks. Present risks with likelihood and impact, not just worst-case scenarios. Reserve legalese for actual legal documents — communicate in plain English.',
+  },
 };
 
 /* ── Agent skills / capabilities ── */
@@ -561,6 +570,7 @@ export const AGENT_SKILLS: Record<string, string[]> = {
   'vp-design': ['design-review', 'design-system-management', 'brand-management', 'ui-development', 'advanced-web-creation', 'react-bits-pro'],
   'vp-research': ['research_framing', 'research_quality_control', 'competitive_analysis', 'market_analysis', 'executive_synthesis'],
   ops: ['system-monitoring', 'incident-response', 'platform-monitoring'],
+  clo: ['legal-research', 'contract-review', 'compliance-analysis', 'regulatory-monitoring', 'document-drafting'],
   // Sub-team agents
   'platform-engineer': ['platform-monitoring', 'incident-response'],
   'quality-engineer': ['quality-assurance', 'tech-spec-writing'],
@@ -596,6 +606,7 @@ export const ROLE_TIER: Record<string, string> = {
   'vp-design': 'Executive',
   'vp-research': 'Executive',
   ops: 'Specialist',
+  clo: 'Executive',
   // Sub-team agents
   'platform-engineer': 'Sub-Team',
   'quality-engineer': 'Sub-Team',
@@ -631,6 +642,7 @@ export const ROLE_DEPARTMENT: Record<string, string> = {
   'vp-design': 'Design & Frontend',
   'vp-research': 'Research & Intelligence',
   ops: 'Operations',
+  clo: 'Legal',
   // Sub-team agents
   'platform-engineer': 'Engineering',
   'quality-engineer': 'Engineering',
@@ -806,6 +818,7 @@ export const ROLE_TITLE: Record<string, string> = {
   cpo: 'Chief Product Officer',
   cfo: 'Chief Financial Officer',
   cmo: 'Chief Marketing Officer',
+  clo: 'Chief Legal Officer',
   'vp-sales': 'VP Sales',
   'vp-design': 'VP Design & Frontend',
   'vp-research': 'VP Research & Intelligence',

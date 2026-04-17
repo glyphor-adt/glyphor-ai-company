@@ -23,7 +23,7 @@ images:
 
 # Improved logging and reliability
 options:
-  logging: CLOUD_LOGGING_ONLY
+  logging: GCS_ONLY
   logStreamingOption: STREAM_ON
 
 timeout: '600s'
