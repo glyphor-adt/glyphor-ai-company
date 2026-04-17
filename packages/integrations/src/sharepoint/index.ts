@@ -419,14 +419,18 @@ async function downloadOfficeAsText(
     if (text.length > 50) return text;
   }
 
-  // Strategy 3: Download the raw .docx (it's a ZIP containing XML) and
-  // extract text from the document.xml entry.
+  // Strategy 3: Download the raw file (it's a ZIP) and extract text from XML entries.
   const rawRes = await fetch(`${baseUrl}/content`, {
     headers: { Authorization: `Bearer ${token}` },
     redirect: 'follow',
   });
   if (rawRes.ok) {
     const buf = Buffer.from(await rawRes.arrayBuffer());
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith('.pptx') || lower.endsWith('.ppt')) {
+      const text = extractTextFromPptx(buf);
+      if (text.length > 20) return text;
+    }
     const text = extractTextFromDocx(buf);
     if (text.length > 20) return text;
   }
@@ -526,6 +530,35 @@ function extractTextFromDocx(buffer: Buffer): string {
     : textParts.join('');
 
   return result.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/**
+ * Extract text from a .pptx buffer by parsing slide XML entries for <a:t> tags.
+ * Each slide's text is separated by double newlines.
+ */
+function extractTextFromPptx(buffer: Buffer): string {
+  const slides: { num: number; text: string }[] = [];
+
+  // Scan for slide XML entries: ppt/slides/slide1.xml, slide2.xml, etc.
+  for (let i = 1; i <= 200; i++) {
+    const xml = extractFileFromZip(buffer, `ppt/slides/slide${i}.xml`);
+    if (!xml) break;
+    const xmlStr = xml.toString('utf-8');
+    // Extract text from DrawingML <a:t> tags
+    const texts: string[] = [];
+    const atRegex = /<a:t[^>]*>([^<]+)<\/a:t>/g;
+    let match: RegExpExecArray | null;
+    while ((match = atRegex.exec(xmlStr)) !== null) {
+      const t = match[1].trim();
+      if (t) texts.push(t);
+    }
+    if (texts.length > 0) {
+      slides.push({ num: i, text: texts.join(' ') });
+    }
+  }
+
+  if (slides.length === 0) return '';
+  return slides.map((s) => `[Slide ${s.num}]\n${s.text}`).join('\n\n').trim();
 }
 
 /**

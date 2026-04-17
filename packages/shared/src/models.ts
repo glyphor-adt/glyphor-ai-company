@@ -116,7 +116,7 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6 (Bedrock)', provider: 'anthropic', tier: 'max',       inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: true,  cloud: 'aws', bedrockId: 'us.anthropic.claude-opus-4-6' },
   { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6 (Bedrock)', provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: true,  cloud: 'aws', bedrockId: 'us.anthropic.claude-sonnet-4-6' },
   { id: 'claude-sonnet-4-5',      label: 'Claude Sonnet 4.5 (deprecated)', provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: false, verifier: false },
-  { id: 'claude-haiku-4-5',       label: 'Claude Haiku 4.5 (Bedrock)', provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: false, cloud: 'aws', bedrockId: 'us.anthropic.claude-haiku-4-5' },
+  { id: 'claude-haiku-4-5',       label: 'Claude Haiku 4.5 (retired)', provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: false, verifier: false, cloud: 'aws', bedrockId: 'us.anthropic.claude-haiku-4-5' },
 
   // ── DeepSeek (Amazon Bedrock) ─────────────────────────────────────────────
   // Pricing approximate — align with AWS Bedrock pricing for your region.
@@ -241,10 +241,9 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
   'o4-mini-deep-research':  ['o4-mini', 'gpt-5.4-mini'],
 
   // Anthropic (Bedrock) primary → same-provider Haiku, then Gemini workhorse
-  'claude-sonnet-4-6':      ['claude-haiku-4-5', 'gemini-3.1-flash-lite-preview'],
+  'claude-sonnet-4-6':      ['claude-sonnet-4-5', 'gemini-3.1-flash-lite-preview'],
   'claude-opus-4-6':        ['claude-sonnet-4-6', 'gemini-3.1-pro-preview'],
   'claude-sonnet-4-5':      ['claude-sonnet-4-6', 'gemini-3.1-flash-lite-preview'],
-  'claude-haiku-4-5':       ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
 
   // DeepSeek (Bedrock) → V3.2 then Gemini Pro
   'deepseek-r1':            ['deepseek-v3-2', 'gemini-3.1-pro-preview'],
@@ -323,9 +322,8 @@ export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> =
 
   // Anthropic / Bedrock — stay on AWS while possible
   'claude-opus-4-6':        ['claude-sonnet-4-6'],
-  'claude-sonnet-4-6':      ['claude-haiku-4-5'],
+  'claude-sonnet-4-6':      ['claude-sonnet-4-5'],
   'claude-sonnet-4-5':      ['claude-sonnet-4-6'],
-  'claude-haiku-4-5':       [],
 
   'deepseek-r1':            ['deepseek-v3-2'],
   'deepseek-v3-2':          [],
