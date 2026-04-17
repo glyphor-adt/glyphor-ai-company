@@ -23,6 +23,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { systemQuery } from '@glyphor/shared/db';
 import { writeJson } from './httpJson.js';
 import { corsHeadersFor } from './corsHeaders.js';
+import { getGoogleAiApiKey, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
+import { ModelClient, type AgentExecutionResult } from '@glyphor/agent-runtime';
+import {
+  runChiefOfStaff, runCTO, runCFO, runCPO, runCMO,
+  runVPDesign, runVPResearch, runOps, runDynamicAgent,
+} from '@glyphor/agents';
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
@@ -63,18 +69,119 @@ export function broadcastCzRunEvent(batchId: string, event: string, data: unknow
   }
 }
 
+/* ── Agent runners (eval-mode, dry-run) ──────────────────── */
+
+const STATIC_RUNNERS: Record<string, (prompt: string) => Promise<AgentExecutionResult>> = {
+  'chief-of-staff': (p) => runChiefOfStaff({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
+  cto: (p) => runCTO({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
+  cfo: (p) => runCFO({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
+  cpo: (p) => runCPO({ task: 'on_demand', message: p }),
+  cmo: (p) => runCMO({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
+  'vp-design': (p) => runVPDesign({ task: 'on_demand', message: p }),
+  'vp-research': (p) => runVPResearch({ task: 'on_demand', message: p, maxToolCalls: 0 }),
+  ops: (p) => runOps({ task: 'on_demand', message: p }),
+};
+
+function getAgentRunner(role: string): ((prompt: string) => Promise<AgentExecutionResult>) | null {
+  if (STATIC_RUNNERS[role]) return STATIC_RUNNERS[role];
+  if (!isCanonicalKeepRole(role)) return null;
+  // Fall back to dynamic agent runner for DB-defined agents
+  return (p) => runDynamicAgent({ role, task: 'on_demand', message: p });
+}
+
+function normalizeAgentOutput(result: AgentExecutionResult): string {
+  if (result.output) return result.output;
+  if (result.resultSummary) return result.resultSummary;
+  return result.status === 'error'
+    ? `Agent returned error: ${result.error ?? result.abortReason ?? 'unknown'}`
+    : '(no output)';
+}
+
+const JUDGE_MODEL = getTierModel('fast');
+
+interface JudgeVerdict {
+  passed: boolean;
+  score: number;
+  reasoning: string;
+  axis_scores: Record<string, number>;
+}
+
+async function judgeAgentOutput(
+  judgeClient: ModelClient,
+  task: Record<string, unknown>,
+  agentOutput: string,
+): Promise<JudgeVerdict> {
+  const prompt = [
+    'You are a strict certification judge evaluating whether an AI agent successfully performed a task.',
+    '',
+    `TASK: ${task.task}`,
+    `AGENT ROLE: ${task.responsible_agent}`,
+    `PILLAR: ${task.pillar}`,
+    '',
+    'ACCEPTANCE CRITERIA:',
+    task.acceptance_criteria as string,
+    '',
+    'VERIFICATION METHOD:',
+    (task.verification_method as string) || '(none specified)',
+    '',
+    'AGENT OUTPUT:',
+    agentOutput.slice(0, 4000),
+    '',
+    'Score the agent output on a scale of 0-10 and determine pass/fail:',
+    '- PASS (score >= 7): output meets acceptance criteria substantially',
+    '- FAIL (score < 7): output is missing, wrong, or incomplete vs criteria',
+    '',
+    'Evaluate these axes (0.0-1.0 each):',
+    '- criteria_met: Does the output satisfy the acceptance criteria?',
+    '- specificity: Is the output specific and actionable (not generic)?',
+    '- completeness: Does the output cover all aspects of the task?',
+    '- quality: Is the output well-structured and professional?',
+    '',
+    'Respond with ONLY a JSON object:',
+    '{"passed":true|false,"score":7.5,"reasoning":"...","axis_scores":{"criteria_met":0.9,"specificity":0.8,"completeness":0.7,"quality":0.9}}',
+  ].join('\n');
+
+  try {
+    const response = await judgeClient.generate({
+      model: JUDGE_MODEL,
+      systemInstruction: 'You are a strict certification judge. Respond ONLY with the requested JSON object. No markdown fences, no prose.',
+      contents: [{ role: 'user', content: prompt, timestamp: Date.now() }],
+      temperature: 0.1,
+      maxTokens: 500,
+    });
+
+    const text = (response.text ?? '').trim();
+    // Extract JSON from potential markdown fences
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON in judge response');
+    const parsed = JSON.parse(jsonMatch[0]) as JudgeVerdict;
+    return {
+      passed: parsed.passed ?? parsed.score >= 7,
+      score: Math.max(0, Math.min(10, parsed.score ?? 0)),
+      reasoning: parsed.reasoning ?? '',
+      axis_scores: parsed.axis_scores ?? {},
+    };
+  } catch (err) {
+    return {
+      passed: false,
+      score: 0,
+      reasoning: `Judge error: ${(err as Error).message}`,
+      axis_scores: {},
+    };
+  }
+}
+
 /* ── Batch executor ───────────────────────────────────────── */
 
 /**
  * Async batch executor.
  * For each run in the batch:
  *   1. Mark status → 'running', broadcast task_started
- *   2. Execute heuristic checks against acceptance_criteria
- *   3. Insert cz_scores row, update run status → 'scored'
- *   4. Broadcast task_scored
+ *   2. Invoke the responsible agent with the task description
+ *   3. Judge the agent output against acceptance_criteria
+ *   4. Insert cz_scores row, update run status → 'scored'
+ *   5. Broadcast task_scored with full output details
  * Then broadcast run_complete + close SSE streams.
- *
- * TODO: wire real agent invocation + judge triangulation for layers 2-3
  */
 async function executeBatch(
   batchId: string,
@@ -96,6 +203,11 @@ async function executeBatch(
     pillarTasks.get(p)!.total++;
   }
 
+  // Initialize judge client once for the batch
+  const judgeClient = new ModelClient({
+    geminiApiKey: getGoogleAiApiKey(),
+  });
+
   let batchPassed = 0;
   let batchFailed = 0;
 
@@ -104,6 +216,7 @@ async function executeBatch(
     if (!task) continue;
 
     const startTime = Date.now();
+    const agentRole = (task.responsible_agent as string) || '';
 
     // 1. Mark running
     await systemQuery(
@@ -115,40 +228,102 @@ async function executeBatch(
       task_number: task.task_number,
       pillar: task.pillar,
       task: task.task,
+      responsible_agent: agentRole,
     });
 
-    // 2. Heuristic evaluation (layer 1)
-    //    For now: check if acceptance_criteria and verification_method exist,
-    //    run basic heuristic checks. Real judge pipeline replaces this.
-    const heuristicFailures: string[] = [];
-    const criteria = (task.acceptance_criteria as string) || '';
-    const method = (task.verification_method as string) || '';
+    let passed: boolean;
+    let judgeScore: number;
+    let reasoningTrace: string;
+    let axisScores: Record<string, number>;
+    let agentOutput: string;
+    let judgeTier: string;
+    let heuristicFailures: string[] = [];
 
-    // Heuristic: check criteria contain measurable terms
-    if (criteria.length < 10) heuristicFailures.push('acceptance_criteria too short');
-    if (!method) heuristicFailures.push('no verification_method defined');
+    // 2. Invoke agent + judge
+    const runner = getAgentRunner(agentRole);
+    if (!runner) {
+      // No runner available — fall back to heuristic checks
+      judgeTier = 'heuristic';
+      agentOutput = '';
+      const criteria = (task.acceptance_criteria as string) || '';
+      const method = (task.verification_method as string) || '';
+      if (criteria.length < 10) heuristicFailures.push('acceptance_criteria too short');
+      if (!method) heuristicFailures.push('no verification_method defined');
+      if (!agentRole) heuristicFailures.push('no responsible_agent assigned');
+      else heuristicFailures.push(`no runner available for agent "${agentRole}"`);
 
-    // Heuristic pass = no failures
-    const passed = heuristicFailures.length === 0;
-    const judgeScore = passed ? 8.0 + Math.round(Math.random() * 200) / 100 : 3.0 + Math.round(Math.random() * 300) / 100;
+      passed = false;
+      judgeScore = 2.0;
+      reasoningTrace = `Task #${task.task_number}: no agent runner for "${agentRole}" — cannot execute`;
+      axisScores = { criteria_met: 0, specificity: 0, completeness: 0, quality: 0 };
+    } else {
+      try {
+        // Build the prompt for the agent
+        const agentPrompt = [
+          `Please complete the following task:`,
+          ``,
+          `TASK: ${task.task}`,
+          ``,
+          `ACCEPTANCE CRITERIA:`,
+          task.acceptance_criteria as string,
+          ``,
+          `Provide your complete, production-quality output for this task.`,
+        ].join('\n');
+
+        broadcastCzRunEvent(batchId, 'agent_invoked', {
+          run_id: run.id,
+          task_number: task.task_number,
+          agent: agentRole,
+        });
+
+        const agentResult = await runner(agentPrompt);
+        agentOutput = normalizeAgentOutput(agentResult);
+
+        broadcastCzRunEvent(batchId, 'agent_responded', {
+          run_id: run.id,
+          task_number: task.task_number,
+          agent: agentRole,
+          status: agentResult.status,
+          output_length: agentOutput.length,
+          elapsed_ms: agentResult.elapsedMs,
+          model: agentResult.actualModel ?? 'unknown',
+          cost: agentResult.cost ?? 0,
+        });
+
+        // 3. Judge the agent output against acceptance criteria
+        const verdict = await judgeAgentOutput(judgeClient, task, agentOutput);
+        passed = verdict.passed;
+        judgeScore = verdict.score;
+        reasoningTrace = verdict.reasoning;
+        axisScores = verdict.axis_scores;
+        judgeTier = 'llm-judge';
+      } catch (err) {
+        // Agent invocation failed
+        agentOutput = `Agent execution error: ${(err as Error).message}`;
+        passed = false;
+        judgeScore = 0;
+        reasoningTrace = `Task #${task.task_number}: agent "${agentRole}" threw: ${(err as Error).message}`;
+        axisScores = { criteria_met: 0, specificity: 0, completeness: 0, quality: 0 };
+        judgeTier = 'error';
+        heuristicFailures = [`agent_error: ${(err as Error).message.slice(0, 200)}`];
+      }
+    }
+
     const latencyMs = Date.now() - startTime;
 
-    // 3. Insert score + update run
+    // 4. Insert score + update run
     await systemQuery(`
-      INSERT INTO cz_scores (run_id, passed, judge_score, judge_tier, heuristic_failures, reasoning_trace, axis_scores)
-      VALUES ($1, $2, $3, 'heuristic', $4, $5, $6)
+      INSERT INTO cz_scores (run_id, passed, judge_score, judge_tier, heuristic_failures, reasoning_trace, axis_scores, agent_output)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `, [
       run.id,
       passed,
       judgeScore,
+      judgeTier,
       heuristicFailures,
-      passed
-        ? `Task #${task.task_number}: heuristic checks passed. Criteria well-defined.`
-        : `Task #${task.task_number}: heuristic failures: ${heuristicFailures.join('; ')}`,
-      JSON.stringify({
-        criteria_quality: passed ? 1.0 : 0.4,
-        method_defined: method ? 1.0 : 0.0,
-      }),
+      reasoningTrace,
+      JSON.stringify(axisScores),
+      agentOutput.slice(0, 10000), // cap stored output
     ]);
 
     await systemQuery(
@@ -158,14 +333,21 @@ async function executeBatch(
 
     if (passed) batchPassed++; else batchFailed++;
 
-    // 4. Broadcast task_scored
+    // 5. Broadcast task_scored with full details
     broadcastCzRunEvent(batchId, 'task_scored', {
       run_id: run.id,
       task_number: task.task_number,
       pillar: task.pillar,
+      task: task.task,
+      responsible_agent: agentRole,
       pass: passed,
       judge_score: judgeScore,
-      judge_tier: 'heuristic',
+      judge_tier: judgeTier,
+      reasoning_trace: reasoningTrace,
+      axis_scores: axisScores,
+      agent_output_preview: agentOutput.slice(0, 500),
+      heuristic_failures: heuristicFailures,
+      latency_ms: latencyMs,
     });
 
     // Check if pillar complete
@@ -479,8 +661,9 @@ export async function handleCzApi(
       const runRows = await systemQuery(`
         SELECT
           r.*,
-          t.task_number, t.pillar, t.task, t.is_p0,
-          s.passed, s.judge_score, s.judge_tier, s.axis_scores, s.reasoning_trace
+          t.task_number, t.pillar, t.task, t.is_p0, t.responsible_agent,
+          s.passed, s.judge_score, s.judge_tier, s.axis_scores, s.reasoning_trace,
+          s.heuristic_failures, s.agent_output
         FROM cz_runs r
         JOIN cz_tasks t ON t.id = r.task_id
         LEFT JOIN cz_scores s ON s.run_id = r.id

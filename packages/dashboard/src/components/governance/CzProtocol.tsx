@@ -416,6 +416,25 @@ function TaskGrid() {
    Panel 3: Live Run Console
    ══════════════════════════════════════════════════════════════ */
 
+interface BatchDetailRun {
+  run_id?: string;
+  id?: string;
+  task_number: number;
+  pillar: string;
+  task: string;
+  responsible_agent?: string;
+  is_p0: boolean;
+  status: string;
+  passed: boolean | null;
+  judge_score: number | null;
+  judge_tier: string | null;
+  reasoning_trace: string | null;
+  axis_scores: Record<string, number> | null;
+  agent_output?: string | null;
+  latency_ms?: number | null;
+  heuristic_failures?: string[] | null;
+}
+
 function LiveRunConsole() {
   const [runs, setRuns] = useState<CzRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -431,6 +450,9 @@ function LiveRunConsole() {
   const [launching, setLaunching] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const consoleRef = useRef<HTMLDivElement>(null);
+  const [batchDetail, setBatchDetail] = useState<{ batch_id: string; runs: BatchDetailRun[] } | null>(null);
+  const [batchDetailLoading, setBatchDetailLoading] = useState(false);
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
 
   // Fetch tasks for pillar/agent/task selectors
   useEffect(() => {
@@ -633,22 +655,121 @@ function LiveRunConsole() {
       {sseEvents.length > 0 && (
         <div
           ref={consoleRef}
-          className="mt-3 bg-zinc-950 rounded-lg border border-zinc-800 p-3 max-h-60 overflow-y-auto font-mono text-[11px]"
+          className="mt-3 bg-zinc-950 rounded-lg border border-zinc-800 p-3 max-h-80 overflow-y-auto font-mono text-[11px]"
         >
           {sseEvents.map((evt, i) => {
-            const color =
-              evt.event === 'task_scored'
-                ? (evt.data as { pass?: boolean }).pass
-                  ? 'text-emerald-400'
-                  : 'text-rose-400'
-                : evt.event === 'run_complete'
-                  ? 'text-cyan'
-                  : evt.event === 'error'
-                    ? 'text-rose-400'
-                    : 'text-zinc-400';
+            const ts = new Date(evt.timestamp).toLocaleTimeString();
+            if (evt.event === 'task_started') {
+              return (
+                <div key={i} className="text-zinc-400 leading-relaxed">
+                  <span className="text-zinc-600">{ts}</span>{' '}
+                  <span className="text-blue-400">▶</span>{' '}
+                  <span className="text-zinc-500">#{(evt.data as { task_number?: number }).task_number}</span>{' '}
+                  <span className="text-zinc-300">{(evt.data as { task?: string }).task ?? ''}</span>{' '}
+                  <span className="text-zinc-600">({shortPillar((evt.data as { pillar?: string }).pillar ?? '')})</span>
+                </div>
+              );
+            }
+            if (evt.event === 'task_scored') {
+              const d = evt.data as { task_number?: number; task?: string; pass?: boolean; judge_score?: number; reasoning_trace?: string; heuristic_failures?: string[]; latency_ms?: number; pillar?: string; judge_tier?: string; responsible_agent?: string; agent_output_preview?: string; axis_scores?: Record<string, number> };
+              return (
+                <div key={i} className="leading-relaxed mb-1">
+                  <div className={d.pass ? 'text-emerald-400' : 'text-rose-400'}>
+                    <span className="text-zinc-600">{ts}</span>{' '}
+                    <span>{d.pass ? '✓' : '✗'}</span>{' '}
+                    <span className="text-zinc-500">#{d.task_number}</span>{' '}
+                    <span className={d.pass ? 'text-emerald-300' : 'text-rose-300'}>{d.task ?? ''}</span>{' '}
+                    <span className={scoreColor(d.judge_score ?? null)}>
+                      {d.judge_score?.toFixed(1)}
+                    </span>
+                    {d.judge_tier && <span className="text-zinc-600 ml-1">[{d.judge_tier}]</span>}
+                    {d.latency_ms != null && <span className="text-zinc-600 ml-1">{(d.latency_ms / 1000).toFixed(1)}s</span>}
+                  </div>
+                  {d.reasoning_trace && (
+                    <div className="text-zinc-500 ml-6 text-[10px]">{d.reasoning_trace}</div>
+                  )}
+                  {d.agent_output_preview && (
+                    <div className="text-zinc-600 ml-6 text-[10px] mt-0.5 border-l border-zinc-800 pl-2 max-h-16 overflow-hidden">
+                      {d.agent_output_preview}
+                    </div>
+                  )}
+                  {d.axis_scores && Object.keys(d.axis_scores).length > 0 && (
+                    <div className="text-zinc-600 ml-6 text-[10px] mt-0.5 flex gap-3">
+                      {Object.entries(d.axis_scores).map(([k, v]) => (
+                        <span key={k} className={v >= 0.7 ? 'text-emerald-600' : v >= 0.5 ? 'text-amber-600' : 'text-rose-600'}>
+                          {k}: {(v * 10).toFixed(0)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {d.heuristic_failures && d.heuristic_failures.length > 0 && (
+                    <div className="text-rose-500/70 ml-6 text-[10px]">
+                      failures: {d.heuristic_failures.join('; ')}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            if (evt.event === 'agent_invoked') {
+              const d = evt.data as { task_number?: number; agent?: string };
+              return (
+                <div key={i} className="text-indigo-400/70 leading-relaxed text-[10px] ml-6">
+                  <span className="text-zinc-600">{ts}</span>{' '}
+                  ⚡ invoking <span className="text-indigo-300">{d.agent}</span> for #{d.task_number}…
+                </div>
+              );
+            }
+            if (evt.event === 'agent_responded') {
+              const d = evt.data as { task_number?: number; agent?: string; status?: string; output_length?: number; elapsed_ms?: number; model?: string; cost?: number };
+              return (
+                <div key={i} className="text-indigo-400/70 leading-relaxed text-[10px] ml-6">
+                  <span className="text-zinc-600">{ts}</span>{' '}
+                  ← <span className="text-indigo-300">{d.agent}</span>{' '}
+                  <span className={d.status === 'completed' ? 'text-emerald-600' : 'text-rose-600'}>{d.status}</span>{' '}
+                  {d.output_length != null && <span className="text-zinc-600">{d.output_length} chars</span>}{' '}
+                  {d.elapsed_ms != null && <span className="text-zinc-600">{(d.elapsed_ms / 1000).toFixed(1)}s</span>}{' '}
+                  {d.model && <span className="text-zinc-700">{d.model}</span>}
+                </div>
+              );
+            }
+            if (evt.event === 'pillar_complete') {
+              const d = evt.data as { pillar?: string; passed?: number; total?: number; pass_rate?: number };
+              return (
+                <div key={i} className="text-cyan leading-relaxed border-t border-zinc-800/50 mt-1 pt-1">
+                  <span className="text-zinc-600">{ts}</span>{' '}
+                  <span className="text-cyan">■</span>{' '}
+                  <span className="text-cyan font-medium">{shortPillar(d.pillar ?? '')}</span>{' '}
+                  <span className={passRateColor(d.pass_rate ?? null)}>
+                    {d.passed}/{d.total} ({((d.pass_rate ?? 0) * 100).toFixed(0)}%)
+                  </span>
+                </div>
+              );
+            }
+            if (evt.event === 'run_complete') {
+              const d = evt.data as { passed?: number; failed?: number; total?: number };
+              return (
+                <div key={i} className="text-cyan leading-relaxed border-t border-zinc-700/50 mt-1 pt-1 font-medium">
+                  <span className="text-zinc-600">{ts}</span>{' '}
+                  <span className="text-cyan">✔ Run complete</span>{' '}
+                  <span className="text-emerald-400">{d.passed} passed</span>
+                  {(d.failed ?? 0) > 0 && <span className="text-rose-400"> · {d.failed} failed</span>}
+                  <span className="text-zinc-500"> / {d.total} total</span>
+                </div>
+              );
+            }
+            if (evt.event === 'error') {
+              return (
+                <div key={i} className="text-rose-400 leading-relaxed">
+                  <span className="text-zinc-600">{ts}</span>{' '}
+                  <span>[error]</span>{' '}
+                  {JSON.stringify(evt.data)}
+                </div>
+              );
+            }
+            // Fallback for connected or unknown events
             return (
-              <div key={i} className={`${color} leading-relaxed`}>
-                <span className="text-zinc-600">{new Date(evt.timestamp).toLocaleTimeString()}</span>{' '}
+              <div key={i} className="text-zinc-400 leading-relaxed">
+                <span className="text-zinc-600">{ts}</span>{' '}
                 <span className="text-zinc-500">[{evt.event}]</span>{' '}
                 {JSON.stringify(evt.data)}
               </div>
@@ -675,10 +796,23 @@ function LiveRunConsole() {
                 <div
                   key={r.batch_id}
                   className="flex items-center gap-3 text-xs border border-zinc-800/40 rounded p-2 hover:bg-zinc-800/20 cursor-pointer"
-                  onClick={() => {
+                  onClick={async () => {
                     if (r.batch_status === 'running') {
                       setSseEvents([]);
                       setActiveRunId(r.batch_id);
+                      setBatchDetail(null);
+                    } else {
+                      // Load batch detail for completed/partial runs
+                      setBatchDetailLoading(true);
+                      setExpandedRunId(null);
+                      try {
+                        const data = await apiCall<{ batch_id: string; runs: BatchDetailRun[] }>(`/api/cz/runs/${r.batch_id}`);
+                        setBatchDetail(data);
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : String(e));
+                      } finally {
+                        setBatchDetailLoading(false);
+                      }
                     }
                   }}
                 >
@@ -714,6 +848,91 @@ function LiveRunConsole() {
           </div>
         )}
       </div>
+
+      {/* Batch Detail Drill-Down */}
+      {batchDetailLoading && (
+        <div className="mt-4"><Skeleton className="h-24" /></div>
+      )}
+      {batchDetail && !batchDetailLoading && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+              Run Detail · <span className="text-zinc-500 font-mono">{batchDetail.batch_id.slice(0, 8)}</span>
+            </h4>
+            <button
+              onClick={() => setBatchDetail(null)}
+              className="text-zinc-600 hover:text-zinc-400 text-xs"
+            >✕ close</button>
+          </div>
+          <div className="space-y-1">
+            {(batchDetail.runs ?? []).map((s) => {
+              const rid = s.run_id ?? s.id ?? `${s.task_number}`;
+              const isExpanded = expandedRunId === rid;
+              return (
+                <div key={rid} className="border border-zinc-800/40 rounded">
+                  <div
+                    className="flex items-center gap-2 text-[11px] p-2 cursor-pointer hover:bg-zinc-800/20"
+                    onClick={() => setExpandedRunId(isExpanded ? null : rid)}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${s.passed ? 'bg-emerald-400' : s.passed === false ? 'bg-rose-400' : 'bg-zinc-600'}`} />
+                    <span className="text-zinc-500">#{s.task_number}</span>
+                    <span className="text-zinc-300 flex-1 truncate">{s.task}</span>
+                    {s.responsible_agent && <span className="text-indigo-400/70 text-[10px]">{s.responsible_agent}</span>}
+                    {s.judge_score != null && (
+                      <span className={`tabular-nums ${scoreColor(s.judge_score)}`}>
+                        {s.judge_score.toFixed(1)}
+                      </span>
+                    )}
+                    {s.judge_tier && <span className="text-zinc-600 text-[10px]">[{s.judge_tier}]</span>}
+                    <span className="text-zinc-700">{isExpanded ? '▾' : '▸'}</span>
+                  </div>
+                  {isExpanded && (
+                    <div className="border-t border-zinc-800/30 p-3 bg-zinc-950/50 text-[10px] space-y-2">
+                      <div className="flex gap-4 text-zinc-500">
+                        <span>Pillar: <span className="text-zinc-400">{s.pillar}</span></span>
+                        {s.is_p0 && <span className="text-amber-500">P0</span>}
+                        {s.latency_ms != null && <span>Latency: <span className="text-zinc-400">{(s.latency_ms / 1000).toFixed(1)}s</span></span>}
+                      </div>
+                      {s.reasoning_trace && (
+                        <div>
+                          <span className="text-zinc-600 font-medium">Reasoning:</span>
+                          <p className="text-zinc-400 mt-0.5">{s.reasoning_trace}</p>
+                        </div>
+                      )}
+                      {s.axis_scores && Object.keys(s.axis_scores).length > 0 && (
+                        <div>
+                          <span className="text-zinc-600 font-medium">Axis Scores:</span>
+                          <div className="flex gap-3 mt-0.5">
+                            {Object.entries(s.axis_scores).map(([k, v]) => (
+                              <span key={k} className={v >= 0.7 ? 'text-emerald-500' : v >= 0.5 ? 'text-amber-500' : 'text-rose-500'}>
+                                {k}: {(v * 10).toFixed(0)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {s.heuristic_failures && s.heuristic_failures.length > 0 && (
+                        <div>
+                          <span className="text-zinc-600 font-medium">Failures:</span>
+                          <p className="text-rose-400/80 mt-0.5">{s.heuristic_failures.join('; ')}</p>
+                        </div>
+                      )}
+                      {s.agent_output && (
+                        <div>
+                          <span className="text-zinc-600 font-medium">Agent Output:</span>
+                          <pre className="text-zinc-400 mt-1 whitespace-pre-wrap break-words max-h-48 overflow-y-auto border border-zinc-800/30 rounded p-2 bg-zinc-900/50">
+                            {s.agent_output}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
