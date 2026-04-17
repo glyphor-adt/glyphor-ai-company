@@ -43,7 +43,7 @@ export async function loadRolePlanningQuality(
        FROM agent_run_events e
        INNER JOIN agent_runs ar ON ar.id = e.run_id
        WHERE ar.agent_id = $1
-         AND e.created_at >= NOW() - ($2::int * INTERVAL '1 day')
+         AND e.created_at >= NOW() - (CAST($2 AS int) * INTERVAL '1 day')
          AND e.event_type IN ('planning_phase_started', 'completion_gate_failed', 'completion_gate_passed')
        GROUP BY e.run_id
      )
@@ -80,7 +80,7 @@ export async function loadRoleGoldenEvalPassRate(
      FROM agent_eval_results r
      INNER JOIN agent_eval_scenarios s ON s.id = r.scenario_id
      WHERE r.agent_role = $1
-       AND r.run_date >= NOW() - ($2::int * INTERVAL '1 day')
+       AND r.run_date >= NOW() - (CAST($2 AS int) * INTERVAL '1 day')
        AND s.scenario_name ILIKE 'golden:%'`,
     [agentRole, windowDays],
   );
@@ -102,7 +102,7 @@ export async function listGoldenEvalPassRatesByRole(windowDays: number): Promise
        COUNT(*) FILTER (WHERE r.score = 'PASS')::int AS passed
      FROM agent_eval_results r
      INNER JOIN agent_eval_scenarios s ON s.id = r.scenario_id
-     WHERE r.run_date >= NOW() - ($1::int * INTERVAL '1 day')
+     WHERE r.run_date >= NOW() - (CAST($1 AS int) * INTERVAL '1 day')
        AND s.scenario_name ILIKE 'golden:%'
      GROUP BY r.agent_role
      ORDER BY total DESC, r.agent_role ASC`,

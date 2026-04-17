@@ -554,7 +554,7 @@ async function loadRunMetrics(agentRole: string, since: string): Promise<RunMetr
        AVG(reasoning_confidence) FILTER (WHERE reasoning_confidence IS NOT NULL)::double precision AS avg_confidence_score
      FROM agent_runs
      WHERE agent_id = $1
-       AND started_at >= $2::timestamptz`,
+       AND started_at >= CAST($2 AS timestamptz)`,
     [agentRole, since],
   );
   return rows[0] ?? { total_runs: 0, terminal_runs: 0, completed_runs: 0, avg_confidence_score: null };
@@ -568,7 +568,7 @@ async function loadOutcomeMetrics(agentRole: string, since: string): Promise<Out
        COUNT(*) FILTER (WHERE final_status IN ('flagged_blocker', 'partial_progress', 'aborted'))::int AS escalated_outcomes
      FROM task_run_outcomes
      WHERE agent_role = $1
-       AND created_at >= $2::timestamptz`,
+       AND created_at >= CAST($2 AS timestamptz)`,
     [agentRole, since],
   );
   return rows[0] ?? { total_outcomes: 0, completed_outcomes: 0, escalated_outcomes: 0 };
@@ -596,7 +596,7 @@ async function loadMetrics(agentRole: string): Promise<AutonomyEvaluationMetrics
     safeCount(
       `SELECT COUNT(*)::int AS count
        FROM kg_contradictions
-       WHERE detected_at >= $2::timestamptz
+       WHERE detected_at >= CAST($2 AS timestamptz)
          AND ($1 = fact_a_agent_id OR $1 = fact_b_agent_id)`,
       [agentRole, since],
     ),
@@ -606,7 +606,7 @@ async function loadMetrics(agentRole: string): Promise<AutonomyEvaluationMetrics
          COUNT(*) FILTER (WHERE sla_breached_at IS NOT NULL)::int AS breached_contracts
        FROM agent_handoff_contracts
        WHERE receiving_agent_id = $1
-         AND issued_at >= $2::timestamptz`,
+         AND issued_at >= CAST($2 AS timestamptz)`,
       [agentRole, since],
     ).catch(() => []),
     systemQuery<CountRow>(
@@ -733,26 +733,33 @@ export async function listAutonomyOverview(filters: AutonomyOverviewFilters = {}
     params,
   );
 
-  const items = await Promise.all(agents.map(async (agent) => {
-    const [config, evaluation] = await Promise.all([
-      getAgentAutonomyConfig(agent.role),
-      evaluateAutonomyLevel(agent.role),
-    ]);
+  const results = await Promise.all(agents.map(async (agent): Promise<AutonomyOverviewItem | null> => {
+    try {
+      const [config, evaluation] = await Promise.all([
+        getAgentAutonomyConfig(agent.role),
+        evaluateAutonomyLevel(agent.role),
+      ]);
 
-    return {
-      ...evaluation,
-      displayName: getDisplayName(agent),
-      role: agent.role,
-      title: agent.title,
-      department: agent.department,
-      status: agent.status,
-      maxAllowedLevel: config.maxAllowedLevel,
-      autoPromote: config.autoPromote,
-      autoDemote: config.autoDemote,
-      lastLevelChangeAt: config.lastLevelChangeAt,
-      lastLevelChangeReason: config.lastLevelChangeReason,
-    } satisfies AutonomyOverviewItem;
+      return {
+        ...evaluation,
+        displayName: getDisplayName(agent),
+        role: agent.role,
+        title: agent.title,
+        department: agent.department,
+        status: agent.status,
+        maxAllowedLevel: config.maxAllowedLevel,
+        autoPromote: config.autoPromote,
+        autoDemote: config.autoDemote,
+        lastLevelChangeAt: config.lastLevelChangeAt,
+        lastLevelChangeReason: config.lastLevelChangeReason,
+      } satisfies AutonomyOverviewItem;
+    } catch (err) {
+      console.warn(`[AutonomyOverview] Skipping ${agent.role}: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
   }));
+
+  const items = results.filter((item): item is AutonomyOverviewItem => item !== null);
 
   return items.filter((item) => filters.level == null || item.currentLevel === clampLevel(filters.level));
 }
@@ -1011,35 +1018,42 @@ export async function processDailyAutonomyAdjustments(): Promise<DailyAutonomyAd
   const changes: DailyAutonomyAdjustment[] = [];
 
   for (const row of rows) {
-    const evaluation = await evaluateAutonomyLevel(row.agent_id);
-    const suggestedLevel = evaluation.suggestedLevel;
+    try {
+      const evaluation = await evaluateAutonomyLevel(row.agent_id);
+      const suggestedLevel = evaluation.suggestedLevel;
 
-    if (row.auto_promote && suggestedLevel > row.current_level && suggestedLevel <= row.max_allowed_level) {
-      const toLevel = Math.min(suggestedLevel, row.max_allowed_level);
-      const reason = `Daily autonomy job promoted ${row.agent_id} from ${row.current_level} to ${toLevel} based on threshold fit, composite quality score, and 30-day trust.`;
-      await writeLevelChange(row.agent_id, row.current_level, toLevel, 'auto_promote', 'system', reason, evaluation.metrics);
-      changes.push({
-        agentId: row.agent_id,
-        fromLevel: row.current_level,
-        toLevel,
-        changeType: 'auto_promote',
-        reason,
-        metrics: evaluation.metrics,
-      });
-      continue;
-    }
+      if (row.auto_promote && suggestedLevel > row.current_level && suggestedLevel <= row.max_allowed_level) {
+        const toLevel = Math.min(suggestedLevel, row.max_allowed_level);
+        const reason = `Daily autonomy job promoted ${row.agent_id} from ${row.current_level} to ${toLevel} based on threshold fit, composite quality score, and 30-day trust.`;
+        await writeLevelChange(row.agent_id, row.current_level, toLevel, 'auto_promote', 'system', reason, evaluation.metrics);
+        changes.push({
+          agentId: row.agent_id,
+          fromLevel: row.current_level,
+          toLevel,
+          changeType: 'auto_promote',
+          reason,
+          metrics: evaluation.metrics,
+        });
+        continue;
+      }
 
-    if (row.auto_demote && suggestedLevel < row.current_level) {
-      const reason = `Daily autonomy job demoted ${row.agent_id} from ${row.current_level} to ${suggestedLevel} based on threshold fit, composite quality score, and 30-day trust.`;
-      await writeLevelChange(row.agent_id, row.current_level, suggestedLevel, 'auto_demote', 'system', reason, evaluation.metrics);
-      changes.push({
-        agentId: row.agent_id,
-        fromLevel: row.current_level,
-        toLevel: suggestedLevel,
-        changeType: 'auto_demote',
-        reason,
-        metrics: evaluation.metrics,
-      });
+      if (row.auto_demote && suggestedLevel < row.current_level) {
+        const reason = `Daily autonomy job demoted ${row.agent_id} from ${row.current_level} to ${suggestedLevel} based on threshold fit, composite quality score, and 30-day trust.`;
+        await writeLevelChange(row.agent_id, row.current_level, suggestedLevel, 'auto_demote', 'system', reason, evaluation.metrics);
+        changes.push({
+          agentId: row.agent_id,
+          fromLevel: row.current_level,
+          toLevel: suggestedLevel,
+          changeType: 'auto_demote',
+          reason,
+          metrics: evaluation.metrics,
+        });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      console.warn(`[AutonomyDailyEval] Skipping ${row.agent_id}: ${msg}`);
+      if (stack) console.warn(`[AutonomyDailyEval] Stack: ${stack}`);
     }
   }
 
