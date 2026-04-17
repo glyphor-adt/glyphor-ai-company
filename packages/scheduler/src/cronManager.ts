@@ -136,6 +136,8 @@ export interface DataSyncJob {
   timezone: string;
   endpoint: string;
   enabled: boolean;
+  /** When true, skip this job during the initial startup fireAll() — only fire on cron schedule. */
+  skipOnStartup?: boolean;
 }
 
 export const DATA_SYNC_JOBS: DataSyncJob[] = [
@@ -313,6 +315,7 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     timezone: 'UTC',
     endpoint: '/internal/model-check',
     enabled: true,
+    skipOnStartup: true,        // monthly cadence only — don't fire on every deploy
   },
   // Shadow eval dequeue — pending challenger A/B tests (queueShadowEvaluation → run-pending)
   // Every 6h so work is picked up regularly after batch-eval cycles (02:00 / 14:00 UTC).

@@ -93,9 +93,9 @@ export class DataSyncScheduler {
     }
   }
 
-  /** Fire all enabled sync jobs (used on startup). */
+  /** Fire all enabled sync jobs (used on startup). Jobs with skipOnStartup are excluded. */
   private async fireAll(): Promise<void> {
-    const jobs = getEnabledSyncJobs();
+    const jobs = getEnabledSyncJobs().filter(j => !j.skipOnStartup);
     for (const job of jobs) {
       this.fireEndpoint(job.id, job.endpoint);
     }
