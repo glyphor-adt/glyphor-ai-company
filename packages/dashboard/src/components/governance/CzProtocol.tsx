@@ -184,11 +184,14 @@ function Scorecard() {
       </div>
 
       {!hasPillarData && (
-        <p className="text-zinc-500 text-sm mt-2">No completed runs yet. Run a test suite to populate the scorecard.</p>
+        <div className="mt-4 rounded-lg border border-dashed border-zinc-700/40 bg-zinc-900/30 p-8 text-center">
+          <p className="text-zinc-400 text-sm font-medium">No completed runs yet</p>
+          <p className="text-zinc-600 text-xs mt-1">Execute a test run to populate pillar scores and pass rates</p>
+        </div>
       )}
 
       {hasPillarData && (
-        <div className="grid grid-cols-3 gap-3 mt-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-4">
           {pillars.map((p) => {
             const rate = Number(p.pass_rate ?? 0);
             const score = Number(p.avg_score ?? 0);
@@ -203,15 +206,15 @@ function Scorecard() {
                     : 'border-zinc-700/40 bg-zinc-800/30'
                 }`}
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-medium text-zinc-300">{shortPillar(p.pillar)}</span>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-[11px] font-medium text-zinc-300 truncate">{shortPillar(p.pillar)}</span>
                   {p.pillar_is_p0 && <Badge color="red">P0</Badge>}
                 </div>
-                <div className="flex items-baseline gap-3">
-                  <span className={`text-2xl font-bold tabular-nums ${passRateColor(rate)}`}>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-xl font-bold tabular-nums ${passRateColor(rate)}`}>
                     {(rate * 100).toFixed(0)}%
                   </span>
-                  <span className={`text-sm tabular-nums ${scoreColor(score)}`}>
+                  <span className={`text-xs tabular-nums ${scoreColor(score)}`}>
                     avg {score.toFixed(1)}
                   </span>
                 </div>
@@ -219,6 +222,14 @@ function Scorecard() {
                   {p.passed}/{p.total_tasks} passed
                   {!meetsRate && <span className="text-rose-400 ml-2">below {(Number(p.pass_rate_threshold) * 100).toFixed(0)}%</span>}
                   {!meetsScore && <span className="text-amber-400 ml-2">avg &lt; {Number(p.avg_score_threshold).toFixed(1)}</span>}
+                </div>
+                <div className="w-full h-1 rounded-full bg-zinc-700/40 mt-2">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      rate >= Number(p.pass_rate_threshold) ? 'bg-emerald-500' : rate >= 0.5 ? 'bg-amber-500' : 'bg-rose-500'
+                    }`}
+                    style={{ width: `${Math.max(rate * 100, 2)}%` }}
+                  />
                 </div>
               </div>
             );
@@ -513,7 +524,7 @@ function LiveRunConsole() {
 
   return (
     <Card>
-      <SectionHeader title="Live Run Console" subtitle="Execute and monitor certification test runs" />
+      <SectionHeader title="Run Console" subtitle="Execute and monitor certification test runs" />
 
       {/* Launch Controls */}
       <div className="flex items-center gap-3 mt-3 flex-wrap">
@@ -577,6 +588,11 @@ function LiveRunConsole() {
       </div>
 
       {/* Console Output */}
+      {sseEvents.length === 0 && !activeRunId && (
+        <div className="mt-3 rounded-lg border border-dashed border-zinc-700/40 bg-zinc-950/30 p-8 flex items-center justify-center">
+          <p className="text-zinc-600 text-xs">Click <span className="text-zinc-400 font-medium">Run Now</span> to execute tests — live output will stream here</p>
+        </div>
+      )}
       {sseEvents.length > 0 && (
         <div
           ref={consoleRef}
@@ -790,21 +806,46 @@ function DriftChart() {
 
 export default function CzProtocol() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header + workflow guide */}
       <div>
         <h1 className="text-xl font-semibold text-zinc-100">Certification Protocol</h1>
         <p className="text-sm text-zinc-400 mt-1">
-          Certification test runner — 89 tasks across 10 pillars, 19 P0 critical tests, 3 launch gates.
+          89 tasks across 10 pillars, 19 P0 critical tests, 3 launch gates.
         </p>
+        <div className="flex items-center flex-wrap gap-y-2 mt-4 text-xs">
+          <span className="flex items-center gap-1.5">
+            <span className="w-5 h-5 rounded-full bg-cyan/15 text-cyan flex items-center justify-center font-bold text-[10px]">1</span>
+            <span className="text-cyan">Run tests</span>
+          </span>
+          <span className="text-zinc-700 mx-2">&rarr;</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-500 flex items-center justify-center font-bold text-[10px]">2</span>
+            <span className="text-zinc-500">Review scorecard</span>
+          </span>
+          <span className="text-zinc-700 mx-2">&rarr;</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-500 flex items-center justify-center font-bold text-[10px]">3</span>
+            <span className="text-zinc-500">Check gates</span>
+          </span>
+          <span className="text-zinc-700 mx-2">&rarr;</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-500 flex items-center justify-center font-bold text-[10px]">4</span>
+            <span className="text-zinc-500">Track drift</span>
+          </span>
+        </div>
       </div>
 
+      {/* Step 1: Run tests */}
+      <LiveRunConsole />
+
+      {/* Step 2+3: Scorecard + Launch Gates */}
       <Scorecard />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <LiveRunConsole />
-        <DriftChart />
-      </div>
+      {/* Step 4: Trends over time */}
+      <DriftChart />
 
+      {/* Reference: Full task list */}
       <TaskGrid />
     </div>
   );
