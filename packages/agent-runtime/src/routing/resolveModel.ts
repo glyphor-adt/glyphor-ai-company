@@ -41,6 +41,10 @@ const TIER_CREDIT_OPTIONS: Record<
 > = {
   fast: [{ cloud: 'gcp', model: getTierModel('fast') }],
   default: [{ cloud: 'gcp', model: getTierModel('default') }],
+  standard: [
+    { cloud: 'azure', model: 'model-router' },
+    { cloud: 'gcp', model: 'gemini-3.1-flash-lite-preview' },
+  ],
   high: [
     { cloud: 'aws', model: 'claude-sonnet-4-6' },
     { cloud: 'azure', model: 'gpt-5.4-mini' },
@@ -55,6 +59,11 @@ const TIER_CREDIT_OPTIONS: Record<
     { cloud: 'aws', model: 'deepseek-r1' },
     { cloud: 'azure', model: 'o4-mini' },
     { cloud: 'gcp', model: 'gemini-3.1-pro-preview' },
+  ],
+  code: [
+    { cloud: 'aws', model: 'deepseek-v3-2' },
+    { cloud: 'azure', model: 'gpt-5.4-mini' },
+    { cloud: 'gcp', model: 'gemini-3.1-flash-lite-preview' },
   ],
 };
 
