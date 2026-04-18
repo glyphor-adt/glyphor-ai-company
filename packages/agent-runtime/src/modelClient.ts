@@ -170,9 +170,11 @@ export class ModelClient {
       fallbackChain = getFallbackChain(effectiveRequestedModel, agentRole);
     }
     const allowClaude = isBedrockEnabled();
-    const modelsToTry = [effectiveRequestedModel, ...fallbackChain].filter(
-      (modelId, idx, arr) => (allowClaude || !modelId.startsWith('claude-')) && arr.indexOf(modelId) === idx,
-    );
+    // Resolve all models in the chain through DEPRECATED_MODELS, then dedupe
+    const rawChain = [effectiveRequestedModel, ...fallbackChain];
+    const modelsToTry = rawChain
+      .map(m => resolveModel(m))
+      .filter((m, i, a) => (allowClaude || !m.startsWith('claude-')) && a.indexOf(m) === i);
     if (modelsToTry.length === 0) {
       throw new Error('No eligible models remain after applying provider policy constraints.');
     }

@@ -70,12 +70,8 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // Gemini cached input = 10% of input price (90% off). Thinking tokens billed at output rate.
   // Prices are for prompts ≤200K tokens. >200K prompts cost 2× input and 1.5× output for Pro/Flash models.
   // Rates calibrated against actual GCP billing (Mar 25 2026): 126 runs, $76.39 actual vs $14.97 prior estimate → 5x correction.
-  // RETIRED (Mar 26 2026) for cost: gemini-3-flash-preview, gemini-2.5-flash — kept for pricing / legacy rows.
   { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',  provider: 'gemini',    tier: 'flagship',  inputPer1M: 10.00, outputPer1M: 60.0,  thinkingPer1M: 60.0,  cachedInputDiscount: 0.10, contextWindowTokens: 2_000_000, selectable: true,  verifier: true  },
   { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', tier: 'economy', inputPer1M: 1.25, outputPer1M: 7.50, thinkingPer1M: 7.50, cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: true, verifier: true  },
-  { id: 'gemini-3-flash-preview',  label: 'Gemini 3 Flash (retired)', provider: 'gemini',    tier: 'standard',  inputPer1M: 2.50,  outputPer1M: 15.00, thinkingPer1M: 15.00, cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: false, verifier: false },
-  { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash (retired)', provider: 'gemini', tier: 'standard',  inputPer1M: 1.50,  outputPer1M: 12.50, thinkingPer1M: 12.50, cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: false, verifier: false },
-  { id: 'gemini-2.5-flash-lite',   label: 'Gemini 2.5 Flash Lite', provider: 'gemini',    tier: 'economy',   inputPer1M: 0.50,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: true,  verifier: false },
 
   // ── OpenAI ─────────────────────────────────────────────────
   // GPT-5.x cached input = 10% of input price. o-series cached = 25% of input price.
@@ -99,7 +95,6 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   { id: 'gpt-5-mini-2025-08-07',   label: 'GPT-5 Mini (Aug 2025)',  provider: 'openai',    tier: 'economy',   inputPer1M: 0.25,  outputPer1M: 2.00,  cachedInputDiscount: 0.10, contextWindowTokens: 128_000, selectable: true,  verifier: true  },
   { id: 'gpt-5-nano',             label: 'GPT-5 Nano',             provider: 'openai',    tier: 'economy',   inputPer1M: 0.05,  outputPer1M: 0.40,  cachedInputDiscount: 0.10, contextWindowTokens: 128_000, selectable: true,  verifier: false },
   { id: 'gpt-5.4-mini',            label: 'GPT-5.4 Mini',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.75,  outputPer1M: 4.50,  cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
-  { id: 'gpt-5.4-nano',            label: 'GPT-5.4 Nano',           provider: 'openai',    tier: 'economy',   inputPer1M: 0.20,  outputPer1M: 1.25,  cachedInputDiscount: 0.10, contextWindowTokens: 256_000, selectable: true,  verifier: false },
   // Azure AI Foundry model-router (2025-11-18): Chat Completions only; billing = underlying model picked.
   // https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/model-router
   { id: 'model-router',           label: 'Model Router (Foundry)', provider: 'openai',    tier: 'standard',  inputPer1M: 0.75,  outputPer1M: 4.50,  cachedInputDiscount: 0.10, selectable: true,  verifier: false },
@@ -113,10 +108,8 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // ── Anthropic (Amazon Bedrock only — no direct Anthropic API) ───────────
   // Inference profile IDs: verify in Bedrock console / https://docs.aws.amazon.com/bedrock/
   // Anthropic cache read = 10% of input price (same as API pricing baseline).
-  { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6 (Bedrock)', provider: 'anthropic', tier: 'max',       inputPer1M: 5.00,  outputPer1M: 25.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: true,  cloud: 'aws', bedrockId: 'us.anthropic.claude-opus-4-6' },
+  { id: 'claude-opus-4-7',         label: 'Claude Opus 4.7 (Bedrock)', provider: 'anthropic', tier: 'max',       inputPer1M: 15.00, outputPer1M: 75.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: true,  cloud: 'aws', bedrockId: 'us.anthropic.claude-opus-4-7' },
   { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6 (Bedrock)', provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: true,  verifier: true,  cloud: 'aws', bedrockId: 'us.anthropic.claude-sonnet-4-6' },
-  { id: 'claude-sonnet-4-5',      label: 'Claude Sonnet 4.5 (deprecated)', provider: 'anthropic', tier: 'standard',  inputPer1M: 3.00,  outputPer1M: 15.0,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: false, verifier: false, cloud: 'aws', bedrockId: 'us.anthropic.claude-sonnet-4-5' },
-  { id: 'claude-haiku-4-5',       label: 'Claude Haiku 4.5 (retired)', provider: 'anthropic', tier: 'economy',   inputPer1M: 1.00,  outputPer1M: 5.00,  cachedInputDiscount: 0.10, contextWindowTokens: 200_000, selectable: false, verifier: false, cloud: 'aws', bedrockId: 'us.anthropic.claude-haiku-4-5' },
 
   // ── DeepSeek (Amazon Bedrock) ─────────────────────────────────────────────
   // Pricing approximate — align with AWS Bedrock pricing for your region.
@@ -139,7 +132,34 @@ export const SUPPORTED_MODELS: readonly ModelDef[] = [
 // (Includes removed-from-catalog slugs like gemini-2.5-pro — never call the API with them.)
 
 export const DEPRECATED_MODELS: Record<string, string> = {
-  // Gemini 2.x and older (shutdown June 1, 2026) — default migration target is GPT workhorse
+  // Direct single-hop resolutions — no chains
+  'gpt-4o':                     'model-router',
+  'gpt-4o-mini':                'gpt-5-mini',
+  'gpt-4-turbo':                'gpt-5-mini',
+  'gpt-4':                      'gpt-5-mini',
+  'gpt-3.5-turbo':              'gpt-5-nano',
+  'gpt-4.1-nano':               'gpt-5-nano',
+  'gpt-4.1':                    'gpt-5-mini',
+  'gpt-4.1-mini':               'gpt-5-nano',
+  'gpt-5.4-nano':               'model-router',
+  'gpt-image-1.5-2025-12-16':   'gpt-image-1.5',
+
+  // Anthropic legacy — all single-hop
+  'claude-sonnet-4-5':          'claude-sonnet-4-6',
+  'claude-haiku-4-5':           'gpt-5-nano',
+  'claude-opus-4-6':            'claude-opus-4-7',
+  'claude-3-5-haiku-20241022':  'gpt-5-nano',
+  'claude-3-5-haiku-latest':    'gpt-5-nano',
+  'claude-3-opus-20240229':     'claude-opus-4-7',
+  'claude-3-haiku-20240307':    'gpt-5-nano',
+  'claude-sonnet-4-20250514':   'gpt-5.4-mini',
+  'claude-3-5-sonnet-20241022': 'gpt-5.4-mini',
+  'claude-3-5-sonnet-latest':   'gpt-5.4-mini',
+  'claude-opus-4-20250514':     'claude-opus-4-7',
+  'claude-opus-4-6-20260205':   'claude-opus-4-7',
+  'claude-sonnet-4-6-20260217': 'claude-sonnet-4-6',
+
+  // Gemini legacy
   'gemini-2.0-flash-001':       'gpt-5.4-mini',
   'gemini-2.0-flash':           'gpt-5.4-mini',
   'gemini-2.0-flash-exp':       'gpt-5.4-mini',
@@ -149,35 +169,9 @@ export const DEPRECATED_MODELS: Record<string, string> = {
   'gemini-3.0-flash-preview':   'gpt-5.4-mini',
   'gemini-3-pro-preview':       'gpt-5.4',
   'gemini-2.5-pro':             'gpt-5.4',
-
-  // Gemini retired (cost-prohibitive, Mar 26 2026)
-  'gemini-3-flash-preview':     'gemini-3.1-flash-lite-preview',
+  'gemini-2.5-flash-lite':      'gemini-3.1-flash-lite-preview',
   'gemini-2.5-flash':           'gemini-3.1-flash-lite-preview',
-
-  // OpenAI legacy
-  'gpt-4o':                     'gpt-5-mini',
-  'gpt-4o-mini':                'gpt-5-nano',
-  'gpt-4-turbo':                'gpt-5-mini-2025-08-07',
-  'gpt-4':                      'gpt-5-mini-2025-08-07',
-  'gpt-3.5-turbo':              'gpt-5-nano',
-  'gpt-4.1-nano':               'gpt-5-nano',
-  'gpt-4.1':                    'gpt-5-mini-2025-08-07',
-  'gpt-4.1-mini':               'gpt-5-nano',
-  'gpt-5.4-nano':               'model-router',
-  'gpt-image-1.5-2025-12-16':   'gpt-image-1.5',
-
-  // Anthropic legacy
-  'claude-sonnet-4-20250514':   'gpt-5.4-mini',
-  'claude-3-5-sonnet-20241022': 'gpt-5.4-mini',
-  'claude-3-5-sonnet-latest':   'gpt-5.4-mini',
-  'claude-3-5-haiku-20241022':  'claude-sonnet-4-5',
-  'claude-3-5-haiku-latest':    'claude-sonnet-4-5',
-  'claude-3-opus-20240229':     'claude-sonnet-4-5',
-  'claude-3-haiku-20240307':    'claude-sonnet-4-5',
-  'claude-opus-4-20250514':     'claude-sonnet-4-6',
-  'claude-opus-4-6-20260205':   'claude-opus-4-6',
-  'claude-sonnet-4-5':          'claude-sonnet-4-6',
-  'claude-sonnet-4-6-20260217': 'claude-sonnet-4-6',
+  'gemini-3-flash-preview':     'gemini-3.1-flash-lite-preview',
 };
 
 // ─── Default models by purpose ───────────────────────────────
@@ -208,44 +202,40 @@ export const GRAPHRAG_MODEL = 'model-router';
 // try the next model in the chain. Each chain crosses providers.
 
 export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
-  // Gemini primary → try same-provider tier first, then cheapest cross-provider
-  'gemini-3.1-pro-preview':         ['gemini-3.1-flash-lite-preview', 'gpt-5.4', 'gpt-5.4-mini'],
-  'gemini-3.1-flash-lite-preview':  ['gemini-2.5-flash-lite', 'gpt-5-mini'],
-  'gemini-2.5-flash-lite':          ['gemini-3.1-flash-lite-preview', 'model-router'],
+  // Gemini → cross-provider
+  'gemini-3.1-pro-preview':         ['gpt-5.4', 'gpt-5.4-mini'],
+  'gemini-3.1-flash-lite-preview':  ['gpt-5-mini', 'gpt-5-nano'],
 
-  // OpenAI primary → same-provider first (required for Azure-only: deployments are on one endpoint),
-  // then Gemini as cross-provider fallback.
-  'gpt-5.4':                ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
+  // OpenAI → cross-provider (Gemini as cheapest)
+  'gpt-5.4':                ['gpt-5.4-mini', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.4-pro':            ['gpt-5.4', 'gpt-5.4-mini', 'gemini-3.1-flash-lite-preview'],
-  'gpt-5.4-mini':           ['gpt-5-mini-2025-08-07', 'model-router'],
-  'gpt-5.4-nano':           ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite-preview'],
-  'model-router':           ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5.4-mini':           ['gpt-5-mini', 'model-router'],
+  'model-router':           ['gpt-5.4-mini', 'gpt-5-mini', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.2':                ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
   'gpt-5.2-pro':            ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
-  'gpt-5.3-codex':          ['gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
-  'gpt-5.2-codex':          ['gpt-5.1-codex', 'gpt-5.1', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
-  'gpt-5.1-codex':          ['gpt-5.1', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5.3-codex':          ['gpt-5.2-codex', 'gpt-5.1-codex', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5.2-codex':          ['gpt-5.1-codex', 'gpt-5.1', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5.1-codex':          ['gpt-5.1', 'gpt-5-mini', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.1-codex-mini':     ['gpt-5.1-codex', 'gpt-5-nano', 'gemini-3.1-flash-lite-preview'],
-  'gpt-5.1-codex-max':      ['gpt-5.4', 'gpt-5.1-codex', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
-  'gpt-5-codex':            ['gpt-5.1-codex', 'gpt-5', 'gpt-5-mini-2025-08-07', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5.1-codex-max':      ['gpt-5.4', 'gpt-5.1-codex', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5-codex':            ['gpt-5.1-codex', 'gpt-5', 'gemini-3.1-flash-lite-preview'],
   'gpt-5-pro':              ['gpt-5.4', 'gpt-5.4-mini', 'gemini-3.1-flash-lite-preview'],
   'gpt-5.1':                ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
   'gpt-5':                  ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
-  'gpt-5-mini':             ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash-lite'],
-  'gpt-5-mini-2025-08-07':  ['gemini-3.1-flash-lite-preview', 'gemini-2.5-flash-lite'],
-  'gpt-5-nano':             ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite-preview'],
+  'gpt-5-mini':             ['gemini-3.1-flash-lite-preview', 'gpt-5-nano'],
+  'gpt-5-mini-2025-08-07':  ['gemini-3.1-flash-lite-preview', 'gpt-5-nano'],
+  'gpt-5-nano':             ['gemini-3.1-flash-lite-preview', 'gpt-5-mini'],
   'o3':                     ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
   'o3-pro':                 ['o3', 'gpt-5.4', 'gpt-5.4-mini'],
   'o4-mini':                ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
   'o3-deep-research':       ['gpt-5.4', 'o3'],
   'o4-mini-deep-research':  ['o4-mini', 'gpt-5.4-mini'],
 
-  // Anthropic (Bedrock) primary → same-provider Haiku, then Gemini workhorse
+  // Anthropic (Bedrock) → cross-provider
+  'claude-opus-4-7':        ['claude-sonnet-4-6', 'gemini-3.1-pro-preview'],
   'claude-sonnet-4-6':      ['gemini-3.1-flash-lite-preview', 'gpt-5.4-mini'],
-  'claude-opus-4-6':        ['claude-sonnet-4-6', 'gemini-3.1-pro-preview'],
-  'claude-sonnet-4-5':      ['claude-sonnet-4-6', 'gemini-3.1-flash-lite-preview'],
 
-  // DeepSeek (Bedrock) → V3.2 then Gemini Pro
+  // DeepSeek (Bedrock) → cross-provider
   'deepseek-r1':            ['deepseek-v3-2', 'gemini-3.1-pro-preview'],
   'deepseek-v3-2':          ['gemini-3.1-pro-preview', 'gemini-3.1-flash-lite-preview'],
 };
@@ -255,9 +245,9 @@ export const FALLBACK_CHAINS: Record<string, readonly string[]> = {
  * Temporary mitigation for Gemini tool-schema errors (defer_loading, thought_signature, etc.).
  */
 const OPS_AGENT_FALLBACK_WHEN_ALL_GEMINI: Record<string, readonly string[]> = {
-  'gpt-5.4': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.4': ['gpt-5.4-mini', 'gpt-5-mini'],
   'gpt-5.4-pro': ['gpt-5.4', 'gpt-5.4-mini'],
-  'gpt-5.2': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.2': ['gpt-5.4-mini', 'gpt-5-mini'],
   'gpt-5.2-pro': ['gpt-5.4', 'gpt-5.4-mini'],
   'gpt-5.3-codex': ['gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5.4-mini'],
   'gpt-5.2-codex': ['gpt-5.1-codex', 'gpt-5.4-mini'],
@@ -266,16 +256,15 @@ const OPS_AGENT_FALLBACK_WHEN_ALL_GEMINI: Record<string, readonly string[]> = {
   'gpt-5.1-codex-max': ['gpt-5.4', 'gpt-5.1-codex', 'gpt-5.4-mini'],
   'gpt-5-codex': ['gpt-5.1-codex', 'gpt-5.4-mini'],
   'gpt-5-pro': ['gpt-5.4', 'gpt-5.4-mini'],
-  'gpt-5.1': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
-  'gpt-5': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.1': ['gpt-5.4-mini', 'gpt-5-mini'],
+  'gpt-5': ['gpt-5.4-mini', 'gpt-5-mini'],
   'o3-pro': ['o3', 'gpt-5.4', 'gpt-5.4-mini'],
-  'gpt-5.4-nano': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
-  'gpt-5-nano': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
-  'model-router': ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
+  'gpt-5-nano': ['gpt-5.4-mini', 'gpt-5-mini'],
+  'model-router': ['gpt-5.4-mini', 'gpt-5-mini'],
 };
 
 /** Last resort when no Gemini-free chain can be derived (should be rare). */
-const OPS_AGENT_FALLBACK_DEFAULT: readonly string[] = ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'];
+const OPS_AGENT_FALLBACK_DEFAULT: readonly string[] = ['gpt-5.4-mini', 'gpt-5-mini'];
 
 function getOpsFallbackChainExcludingGemini(model: string): readonly string[] {
   const base = FALLBACK_CHAINS[model] ?? [];
@@ -294,36 +283,33 @@ function getOpsFallbackChainExcludingGemini(model: string): readonly string[] {
 export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> = {
   // Gemini
   'gemini-3.1-pro-preview':        ['gemini-3.1-flash-lite-preview'],
-  'gemini-3.1-flash-lite-preview': ['gemini-2.5-flash-lite'],
-  'gemini-2.5-flash-lite':         ['gemini-3.1-flash-lite-preview'],
+  'gemini-3.1-flash-lite-preview': [],
 
   // OpenAI
-  'gpt-5.4-pro':            ['gpt-5.4', 'gpt-5.2', 'gpt-5-mini-2025-08-07'],
-  'gpt-5.4':                ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
-  'gpt-5.4-mini':           ['gpt-5-mini-2025-08-07', 'model-router'],
-  'gpt-5.4-nano':           ['gpt-5-nano', 'gpt-5-mini-2025-08-07'],
-  'model-router':           ['gpt-5.4-mini', 'gpt-5-mini-2025-08-07'],
-  'gpt-5.2-pro':            ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
-  'gpt-5.2':                ['gpt-5.1', 'gpt-5-mini-2025-08-07'],
-  'gpt-5.3-codex':          ['gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5-mini-2025-08-07'],
-  'gpt-5.2-codex':          ['gpt-5.1-codex', 'gpt-5-mini-2025-08-07'],
-  'gpt-5.1-codex':          ['gpt-5-mini-2025-08-07', 'gpt-5-nano'],
+  'gpt-5.4-pro':            ['gpt-5.4', 'gpt-5.2', 'gpt-5-mini'],
+  'gpt-5.4':                ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini'],
+  'gpt-5.4-mini':           ['gpt-5-mini', 'model-router'],
+  'model-router':           ['gpt-5.4-mini', 'gpt-5-mini'],
+  'gpt-5.2-pro':            ['gpt-5.2', 'gpt-5.1', 'gpt-5-mini'],
+  'gpt-5.2':                ['gpt-5.1', 'gpt-5-mini'],
+  'gpt-5.3-codex':          ['gpt-5.2-codex', 'gpt-5.1-codex', 'gpt-5-mini'],
+  'gpt-5.2-codex':          ['gpt-5.1-codex', 'gpt-5-mini'],
+  'gpt-5.1-codex':          ['gpt-5-mini', 'gpt-5-nano'],
   'gpt-5.1-codex-mini':     ['gpt-5.1-codex', 'gpt-5-nano'],
-  'gpt-5.1-codex-max':      ['gpt-5.4', 'gpt-5.1-codex', 'gpt-5-mini-2025-08-07'],
-  'gpt-5-codex':            ['gpt-5.1-codex', 'gpt-5-mini-2025-08-07'],
-  'gpt-5-pro':              ['gpt-5.4', 'gpt-5.2', 'gpt-5-mini-2025-08-07'],
-  'gpt-5.1':                ['gpt-5-mini-2025-08-07', 'gpt-5-nano'],
-  'gpt-5':                  ['gpt-5-mini-2025-08-07', 'gpt-5-nano'],
-  'o3':                     ['gpt-5.1', 'gpt-5-mini-2025-08-07'],
-  'o3-pro':                 ['o3', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
-  'o4-mini':                ['gpt-5-mini-2025-08-07', 'gpt-5-nano'],
-  'o3-deep-research':       ['o3', 'gpt-5.1', 'gpt-5-mini-2025-08-07'],
-  'o4-mini-deep-research':  ['o4-mini', 'gpt-5-mini-2025-08-07'],
+  'gpt-5.1-codex-max':      ['gpt-5.4', 'gpt-5.1-codex', 'gpt-5-mini'],
+  'gpt-5-codex':            ['gpt-5.1-codex', 'gpt-5-mini'],
+  'gpt-5-pro':              ['gpt-5.4', 'gpt-5.2', 'gpt-5-mini'],
+  'gpt-5.1':                ['gpt-5-mini', 'gpt-5-nano'],
+  'gpt-5':                  ['gpt-5-mini', 'gpt-5-nano'],
+  'o3':                     ['gpt-5.1', 'gpt-5-mini'],
+  'o3-pro':                 ['o3', 'gpt-5.1', 'gpt-5-mini'],
+  'o4-mini':                ['gpt-5-mini', 'gpt-5-nano'],
+  'o3-deep-research':       ['o3', 'gpt-5.1', 'gpt-5-mini'],
+  'o4-mini-deep-research':  ['o4-mini', 'gpt-5-mini'],
 
-  // Anthropic / Bedrock — stay on AWS while possible
-  'claude-opus-4-6':        ['claude-sonnet-4-6'],
-  'claude-sonnet-4-6':      ['claude-opus-4-6'],
-  'claude-sonnet-4-5':      ['claude-sonnet-4-6'],
+  // Anthropic / Bedrock — stay on AWS
+  'claude-opus-4-7':        ['claude-sonnet-4-6'],
+  'claude-sonnet-4-6':      ['claude-opus-4-7'],
 
   'deepseek-r1':            ['deepseek-v3-2'],
   'deepseek-v3-2':          [],
@@ -335,15 +321,13 @@ export const PROVIDER_LOCAL_FALLBACK_CHAINS: Record<string, readonly string[]> =
 
 export const VERIFIER_MAP: Record<string, string> = {
   // Gemini primary → cheapest cross-provider verifier
-  'gemini-3.1-pro-preview':         'gpt-5-mini',
+  'gemini-3.1-pro-preview':        'gpt-5-mini',
   'gemini-3.1-flash-lite-preview': 'gpt-5-nano',
-  'gemini-2.5-flash-lite':         'gpt-5-nano',
 
   // OpenAI primary → Gemini verifier (GCP-native, cheap)
   'gpt-5.4-pro':            'gemini-3.1-flash-lite-preview',
   'gpt-5.4':                'gemini-3.1-flash-lite-preview',
   'gpt-5.4-mini':           'gemini-3.1-flash-lite-preview',
-  'gpt-5.4-nano':           'gemini-2.5-flash-lite',
   'model-router':           'gemini-3.1-flash-lite-preview',
   'gpt-5.2':                'gemini-3.1-flash-lite-preview',
   'gpt-5.2-pro':            'gemini-3.1-flash-lite-preview',
@@ -358,7 +342,7 @@ export const VERIFIER_MAP: Record<string, string> = {
   'gpt-5':                  'gemini-3.1-flash-lite-preview',
   'gpt-5-mini':             'gemini-3.1-flash-lite-preview',
   'gpt-5-mini-2025-08-07':  'gemini-3.1-flash-lite-preview',
-  'gpt-5-nano':             'gemini-2.5-flash-lite',
+  'gpt-5-nano':             'gemini-3.1-flash-lite-preview',
 
   'o3':                     'gemini-3.1-flash-lite-preview',
   'o3-pro':                 'gemini-3.1-flash-lite-preview',
@@ -367,10 +351,8 @@ export const VERIFIER_MAP: Record<string, string> = {
   'o4-mini-deep-research':  'gemini-3.1-flash-lite-preview',
 
   // Claude primary → Gemini verifier (GCP-native, cheap)
-  'claude-opus-4-6':        'gemini-3.1-flash-lite-preview',
+  'claude-opus-4-7':        'gemini-3.1-flash-lite-preview',
   'claude-sonnet-4-6':      'gemini-3.1-flash-lite-preview',
-  'claude-sonnet-4-5':      'gemini-3.1-flash-lite-preview',
-  'claude-haiku-4-5':       'gemini-2.5-flash-lite',
 
   'deepseek-r1':            'gemini-3.1-flash-lite-preview',
   'deepseek-v3-2':          'gemini-3.1-flash-lite-preview',
@@ -433,13 +415,17 @@ export function getVerifierModels(): ModelDef[] {
 
 /**
  * Resolve a model ID — if it's deprecated, return the replacement.
+ * Loops to a fixed point (max 5 hops) to handle any residual chains.
  * If it's current, return as-is. If completely unknown, return the default.
  */
 export function resolveModel(modelId: string): string {
-  // Check deprecated mapping first
-  if (DEPRECATED_MODELS[modelId]) {
-    return DEPRECATED_MODELS[modelId];
+  let current = modelId;
+  for (let i = 0; i < 5; i++) {
+    const next = DEPRECATED_MODELS[current];
+    if (!next || next === current) break;
+    current = next;
   }
+  if (current !== modelId) return current;
   // Check if it's a known current model
   if (SUPPORTED_MODELS.some(m => m.id === modelId)) {
     return modelId;

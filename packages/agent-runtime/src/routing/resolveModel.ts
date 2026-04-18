@@ -47,7 +47,7 @@ const TIER_CREDIT_OPTIONS: Record<
     { cloud: 'gcp', model: 'gemini-3.1-flash-lite-preview' },
   ],
   max: [
-    { cloud: 'aws', model: 'claude-opus-4-6' },
+    { cloud: 'aws', model: 'claude-opus-4-7' },
     { cloud: 'azure', model: 'gpt-5.4' },
     { cloud: 'gcp', model: 'gemini-3.1-pro-preview' },
   ],

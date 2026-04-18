@@ -125,7 +125,7 @@ const TOOL2VEC_PATH_CANDIDATES = [
 
 function getModelCap(model: string): number {
   if (/^gpt-5\.4(?:-|$)/i.test(model)) return 128;
-  if (/^claude-opus-4-6(?:-|$)/i.test(model)) return 128;
+  if (/^claude-opus-4-7(?:-|$)/i.test(model)) return 128;
   if (/^claude-sonnet-4-6(?:-|$)/i.test(model)) return 100;
   if (/^gpt-5-nano(?:-|$)/i.test(model)) return 20;
   if (/^gpt-5-mini(?:-|$)/i.test(model)) return 40;
@@ -133,9 +133,7 @@ function getModelCap(model: string): number {
   if (/^gpt-4\.1-nano(?:-|$)/i.test(model)) return 20;
   if (/^gpt-4\.1-mini(?:-|$)/i.test(model)) return 40;
   if (/^gpt-4\.1(?:-|$)/i.test(model)) return 64;
-  if (/^claude-haiku-4-5(?:-|$)|^claude-3-5-haiku/i.test(model)) return 25;
-  if (/^claude-sonnet-4-5(?:-|$)/i.test(model)) return 64;
-  if (/^gemini-3\.1-flash-lite-preview(?:-|$)|^gemini-2\.5-flash(?:-|$)/i.test(model)) return 25;
+  if (/^gemini-3\.1-flash-lite-preview(?:-|$)/i.test(model)) return 25;
   if (/^gemini-3\.1-pro-preview(?:-|$)|^gemini-2\.5-pro(?:-|$)/i.test(model)) return 64;
   return DEFAULT_CAP;
 }

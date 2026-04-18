@@ -1,12 +1,10 @@
 /**
  * models.config.ts
  * -----------------------------------------------------------------------------
- * THE ONLY FILE YOU EDIT WHEN MODELS CHANGE.
+ * Tier assignments, specialized model paths, and disabled models.
+ * Coordinates with models.ts (canonical catalog) and resolveModel.ts (routing).
  *
- * All model strings in the codebase flow from here.
- * Never hardcode model strings elsewhere.
- *
- * Last reviewed: 2026-04-11
+ * Last reviewed: 2026-04-18
  * -----------------------------------------------------------------------------
  */
 
@@ -20,14 +18,20 @@ export const MODEL_CONFIG = {
     // Most agent work: analysis, drafting, tool use, standard assignments
     default: 'gemini-3.1-flash-lite-preview', // GCP — workhorse
 
+    // Mid-tier: Azure Foundry model-router for balanced quality/cost
+    standard: 'model-router', // Azure Foundry
+
     // High stakes: founder-facing, CoS orchestration, complex reasoning
     high: 'claude-sonnet-4-6', // AWS Bedrock — Claude Sonnet 4.6
 
     // <1% highest-stakes turns (explicit policy / orchestration only)
-    max: 'claude-opus-4-6', // AWS Bedrock — Claude Opus 4.6
+    max: 'claude-opus-4-7', // AWS Bedrock — Claude Opus 4.7
 
     // Long chain-of-thought / math-style reasoning
-    reasoning: 'deepseek-r1', // AWS Bedrock — DeepSeek R1
+    reasoning: 'o4-mini', // Azure Foundry — o4-mini
+
+    // Code-optimized
+    code: 'deepseek-v3-2', // AWS Bedrock — DeepSeek V3.2
   },
 
   // -- Specialized paths -------------------------------------------------------
@@ -37,19 +41,20 @@ export const MODEL_CONFIG = {
     voice:         'gpt-realtime-2025-08-28',            // Azure Foundry
     transcription: 'gpt-4o-transcribe',                  // Azure Foundry
     images:        'gpt-image-1.5',                      // Azure Foundry
-    reflection:    'claude-haiku-4-5',                   // AWS Bedrock — fast self-eval
+    reflection:    'gpt-5-nano',                         // Azure Foundry — fast self-eval
     /** Dashboard `quick_demo_web_app` — single-file HTML; Codex via Azure Foundry */
     quick_demo_web: 'gpt-5.3-codex',
     /** Full web builds — DeepSeek V3.2 primary (Bedrock), Gemini Pro fallback via `fallbacks` */
     code_generation: 'deepseek-v3-2',
     shadow_eval:   'gemini-3.1-flash-lite-preview',
     deep_research: 'deep-research-pro-preview-12-2025',
+    triangulation_judge: 'gpt-5.4',                     // Judge model for triangulation
   },
 
   // -- Fallback chains ---------------------------------------------------------
   fallbacks: {
-    'gemini-3.1-flash-lite-preview': 'gemini-2.5-flash-lite',
-    'gpt-5-nano':                    'gemini-2.5-flash-lite',
+    'gemini-3.1-flash-lite-preview': 'gpt-5-mini',
+    'gpt-5-nano':                    'gemini-3.1-flash-lite-preview',
     'gpt-5.3-codex':                 'gemini-3.1-flash-lite-preview',
     'deepseek-v3-2':                 'gemini-3.1-pro-preview',
   },
@@ -60,9 +65,19 @@ export const MODEL_CONFIG = {
     'gemini-2.0-flash-lite':     true,
     'gemini-3-flash-preview':    true,
     'gemini-2.5-flash':          true,
+    'gemini-2.5-flash-lite':     true,
     'claude-sonnet-4-5':         true,
+    'claude-haiku-4-5':          true,
+    'claude-opus-4-6':           true,
     'claude-sonnet-4-20250514':  true,
-    'gpt-5-mini-2025-08-07':     true,
+  },
+
+  // -- Provider-cloud routing --------------------------------------------------
+  providerRouting: {
+    anthropic: { cloud: 'aws-bedrock' as const },
+    deepseek:  { cloud: 'aws-bedrock' as const },
+    openai:    { cloud: 'azure-foundry' as const },
+    google:    { cloud: 'gcp' as const },
   },
 
   // -- Provider configuration --------------------------------------------------
@@ -77,15 +92,12 @@ export const MODEL_CONFIG = {
       docsUrl: 'https://ai.google.dev/gemini-api/docs/models',
     },
 
-    vertexAI: {
-      type: 'vertex-ai' as const,
-      listEndpoint: 'https://us-central1-aiplatform.googleapis.com/v1/publishers/anthropic/models',
-      authType: 'gcp-adc',
-      gcpProject: 'ai-glyphor-company',
-      gcpRegion:  'us-central1',
-      deprecationsUrl: 'https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/available-models',
-      owns: ['claude-'],
-      docsUrl: 'https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude',
+    bedrock: {
+      type: 'aws-bedrock' as const,
+      authType: 'aws-credentials',
+      region:  'us-east-1',
+      owns: ['claude-', 'deepseek-'],
+      docsUrl: 'https://docs.aws.amazon.com/bedrock/',
     },
 
     azureFoundry: {
@@ -99,10 +111,10 @@ export const MODEL_CONFIG = {
   },
 
   meta: {
-    lastReviewedAt: '2026-04-11T00:00:00Z',
-    nextReviewAt:   '2026-05-11T00:00:00Z',
+    lastReviewedAt: '2026-04-18T00:00:00Z',
+    nextReviewAt:   '2026-05-18T00:00:00Z',
     reviewedBy:     'model-checker-cron',
-    configVersion:  6,
+    configVersion:  7,
   },
 
 } as const;
@@ -122,3 +134,5 @@ export const ALL_ACTIVE_MODELS: string[] = [
   ...Object.values(MODEL_CONFIG.specialized),
   ...Object.values(MODEL_CONFIG.fallbacks),
 ].filter((m) => !isDisabled(m));
+
+export const providerRouting = MODEL_CONFIG.providerRouting;
