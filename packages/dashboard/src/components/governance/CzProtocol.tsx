@@ -1124,6 +1124,45 @@ function DriftChart() {
    ══════════════════════════════════════════════════════════════ */
 
 export default function CzProtocol() {
+  // Determine workflow step based on data availability
+  const [completedSteps, setCompletedSteps] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        // Check if any runs exist (step 1 done)
+        const runsData = await apiCall<{ batches: Array<{ batch_status: string }> }>('/api/cz/runs?limit=1');
+        if (!runsData.batches?.length) { setCompletedSteps(0); return; }
+
+        // Runs exist — step 1 is done
+        const hasCompleted = runsData.batches.some((b) => b.batch_status === 'completed' || b.batch_status === 'scored');
+        if (!hasCompleted) { setCompletedSteps(1); return; }
+
+        // Completed runs exist — scorecard is reviewable (step 2 done)
+        // Check if any launch gate is met (step 3)
+        const scorecard = await apiCall<{ gates: Array<{ met: boolean }> }>('/api/cz/scorecard');
+        const anyGateMet = scorecard.gates?.some((g) => g.met);
+
+        // Check if drift data exists (step 4)
+        const drift = await apiCall<{ series: unknown[] }>('/api/cz/drift?days=30');
+        const hasDrift = (drift.series?.length ?? 0) > 1;
+
+        if (hasDrift && anyGateMet) setCompletedSteps(4);
+        else if (anyGateMet) setCompletedSteps(3);
+        else setCompletedSteps(2);
+      } catch {
+        setCompletedSteps(0);
+      }
+    })();
+  }, []);
+
+  const steps = [
+    { num: 1, label: 'Run tests' },
+    { num: 2, label: 'Review scorecard' },
+    { num: 3, label: 'Check gates' },
+    { num: 4, label: 'Track drift' },
+  ];
+
   return (
     <div className="space-y-8">
       {/* Header + workflow guide */}
@@ -1133,25 +1172,29 @@ export default function CzProtocol() {
           89 tasks across 10 pillars, 19 P0 critical tests, 3 launch gates.
         </p>
         <div className="flex items-center flex-wrap gap-y-2 mt-4 text-xs">
-          <span className="flex items-center gap-1.5">
-            <span className="w-5 h-5 rounded-full bg-cyan/15 text-cyan flex items-center justify-center font-bold text-[10px]">1</span>
-            <span className="text-cyan">Run tests</span>
-          </span>
-          <span className="text-zinc-700 mx-2">&rarr;</span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-500 flex items-center justify-center font-bold text-[10px]">2</span>
-            <span className="text-zinc-500">Review scorecard</span>
-          </span>
-          <span className="text-zinc-700 mx-2">&rarr;</span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-500 flex items-center justify-center font-bold text-[10px]">3</span>
-            <span className="text-zinc-500">Check gates</span>
-          </span>
-          <span className="text-zinc-700 mx-2">&rarr;</span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-500 flex items-center justify-center font-bold text-[10px]">4</span>
-            <span className="text-zinc-500">Track drift</span>
-          </span>
+          {steps.map((step, i) => {
+            const isActive = step.num === completedSteps + 1;
+            const isDone = step.num <= completedSteps;
+            return (
+              <span key={step.num} className="flex items-center">
+                {i > 0 && <span className="text-zinc-700 mx-2">&rarr;</span>}
+                <span className="flex items-center gap-1.5">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
+                    isDone ? 'bg-emerald-500/20 text-emerald-400' :
+                    isActive ? 'bg-cyan/15 text-cyan' :
+                    'bg-zinc-800 text-zinc-500'
+                  }`}>
+                    {isDone ? '✓' : step.num}
+                  </span>
+                  <span className={
+                    isDone ? 'text-emerald-400' :
+                    isActive ? 'text-cyan' :
+                    'text-zinc-500'
+                  }>{step.label}</span>
+                </span>
+              </span>
+            );
+          })}
         </div>
       </div>
 

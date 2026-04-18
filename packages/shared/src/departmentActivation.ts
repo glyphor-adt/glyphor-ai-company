@@ -500,7 +500,8 @@ async function upsertCapacityConfig(db: PoolClient, agentId: string, capacityTie
 async function upsertDisclosureConfig(db: PoolClient, agentId: string, disclosureLevel: DisclosureLevel): Promise<void> {
   await db.query(
     `INSERT INTO agent_disclosure_config (agent_id, disclosure_level, email_signature_template, display_name_suffix, external_commitment_gate, updated_at)
-     VALUES ($1, $2, $3, ' (AI)', true, NOW())
+     SELECT $1, $2, $3, ' (AI)', true, NOW()
+     WHERE EXISTS (SELECT 1 FROM company_agents WHERE role = $1)
      ON CONFLICT (agent_id) DO UPDATE SET
        disclosure_level = EXCLUDED.disclosure_level,
        updated_at = NOW()`,

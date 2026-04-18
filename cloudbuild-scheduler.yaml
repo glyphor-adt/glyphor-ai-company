@@ -38,6 +38,8 @@ steps:
         check glyphor-worker WORKER_OIDC_SERVICE_ACCOUNT_EMAIL
         check glyphor-worker VERCEL_API_TOKEN
         check glyphor-worker VERCEL_TEAM_ID
+        check glyphor-scheduler AWS_ACCESS_KEY_ID
+        check glyphor-scheduler AWS_SECRET_ACCESS_KEY
 
         echo "=== $$ERRORS warning(s) — step is warn-only, deploy continues ==="
         exit 0

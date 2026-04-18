@@ -228,7 +228,8 @@ async function ensureDisclosureConfig(agentId: string): Promise<void> {
   await systemQuery(
     `INSERT INTO agent_disclosure_config
        (agent_id, disclosure_level, email_signature_template, display_name_suffix, external_commitment_gate, updated_at)
-     VALUES ($1,$2,$3,$4,$5,NOW())
+     SELECT $1,$2,$3,$4,$5,NOW()
+     WHERE EXISTS (SELECT 1 FROM company_agents WHERE role = $1)
      ON CONFLICT (agent_id) DO NOTHING`,
     [
       agentId,

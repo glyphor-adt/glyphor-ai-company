@@ -7,6 +7,7 @@ export const CANONICAL_KEEP_ROSTER = [
   'chief-of-staff',
   'cto',
   'cfo',
+  'clo',
   'cpo',
   'cmo',
   'vp-design',

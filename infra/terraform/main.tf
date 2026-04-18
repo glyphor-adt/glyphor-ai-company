@@ -252,6 +252,9 @@ locals {
     "db-readonly-password",
     "firebase-client-email",
     "firebase-private-key",
+    # AWS Bedrock (Claude via AWS) — required for all agent LLM calls
+    "aws-access-key-id",
+    "aws-secret-access-key",
   ]
 
   # db-password is injected explicitly as DB_PASSWORD on Cloud Run services that use Cloud SQL — do not duplicate via dynamic env.
