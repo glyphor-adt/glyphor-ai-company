@@ -17,9 +17,8 @@ import { A365TeamsChatClient } from '@glyphor/integrations';
 import { systemQuery } from '@glyphor/shared/db';
 import { ALL_ACTIVE_MODELS, isDisabled, MODEL_CONFIG } from '@glyphor/shared';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
-import { GoogleAuth } from 'google-auth-library';
 
-type ProviderKey = 'gemini' | 'vertexAI' | 'azureFoundry';
+type ProviderKey = 'gemini' | 'bedrock' | 'azureFoundry';
 
 export interface ModelCheckerResult {
   checkedAt: string;
@@ -32,9 +31,6 @@ export interface ModelCheckerResult {
 }
 
 const secretClient = new SecretManagerServiceClient();
-const gcpAuth = new GoogleAuth({
-  scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-});
 
 function dedupe(values: string[]): string[] {
   return Array.from(new Set(values));
@@ -47,7 +43,7 @@ function providerOwnsModel(provider: ProviderKey, model: string): boolean {
 
 function inferProvider(model: string): ProviderKey | null {
   if (providerOwnsModel('gemini', model)) return 'gemini';
-  if (providerOwnsModel('vertexAI', model)) return 'vertexAI';
+  if (providerOwnsModel('bedrock', model)) return 'bedrock';
   if (providerOwnsModel('azureFoundry', model)) return 'azureFoundry';
   return null;
 }
@@ -57,7 +53,7 @@ async function getSecret(envVar: string): Promise<string> {
   if (fromEnv) return fromEnv;
 
   const secretName = envVar.toLowerCase().replace(/_/g, '-');
-  const projectId = MODEL_CONFIG.providers.vertexAI.gcpProject;
+  const projectId = process.env.GCP_PROJECT_ID ?? 'glyphor-platform';
   const [version] = await secretClient.accessSecretVersion({
     name: `projects/${projectId}/secrets/${secretName}/versions/latest`,
   });
@@ -79,43 +75,26 @@ async function fetchGeminiModels(): Promise<string[]> {
     .filter(Boolean));
 }
 
-async function fetchVertexAnthropicModels(): Promise<string[]> {
-  const cfg = MODEL_CONFIG.providers.vertexAI;
-  const client = await gcpAuth.getClient();
-  const token = await client.getAccessToken();
-  const bearer = typeof token === 'string' ? token : token?.token;
+async function fetchBedrockModels(): Promise<string[]> {
+  // Use AWS SDK to list Bedrock foundation models
+  const region = MODEL_CONFIG.providers.bedrock.region ?? 'us-east-1';
 
-  if (!bearer) {
-    throw new Error('Vertex AI auth token unavailable');
+  try {
+    // Dynamic import — @aws-sdk/client-bedrock may not be installed in all packages
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = await (Function('return import("@aws-sdk/client-bedrock")')() as Promise<any>);
+    const client = new mod.BedrockClient({ region });
+    const response = await client.send(new mod.ListFoundationModelsCommand({}));
+
+    return dedupe(
+      ((response.modelSummaries ?? []) as Array<{ modelId?: string }>)
+        .map((m: { modelId?: string }) => m.modelId ?? '')
+        .filter(Boolean),
+    );
+  } catch {
+    console.warn('[ModelChecker] @aws-sdk/client-bedrock not available; Bedrock model listing skipped');
+    return [];
   }
-
-  const res = await fetch(cfg.listEndpoint, {
-    headers: {
-      Authorization: `Bearer ${bearer}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error(`Vertex AI ${res.status}: ${res.statusText}`);
-  }
-
-  const data = (await res.json()) as {
-    publisherModels?: Array<{ name?: string; versionId?: string; model?: string }>;
-    models?: Array<{ name?: string; versionId?: string; model?: string }>;
-  };
-
-  const source = data.publisherModels ?? data.models ?? [];
-  return dedupe(source
-    .map((m) => {
-      if (m.versionId?.trim()) return m.versionId.trim();
-      if (m.model?.trim()) return m.model.trim();
-      const rawName = m.name?.trim() ?? '';
-      if (!rawName) return '';
-      const parts = rawName.split('/').filter(Boolean);
-      return parts[parts.length - 1] ?? '';
-    })
-    .filter(Boolean));
 }
 
 async function fetchAzureFoundryModels(): Promise<string[]> {
@@ -216,7 +195,7 @@ export async function runModelChecker(): Promise<ModelCheckerResult> {
   const fetchResults: Record<string, { ok: boolean; error?: string; count?: number }> = {};
   const fetchers: Array<[ProviderKey, () => Promise<string[]>]> = [
     ['gemini', fetchGeminiModels],
-    ['vertexAI', fetchVertexAnthropicModels],
+    ['bedrock', fetchBedrockModels],
     ['azureFoundry', fetchAzureFoundryModels],
   ];
 
