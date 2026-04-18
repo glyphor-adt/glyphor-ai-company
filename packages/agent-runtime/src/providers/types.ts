@@ -28,7 +28,7 @@ export interface ModelRoutingMetadata {
   capabilities: string[];
   reasoningEffort?: ModelReasoningEffort;
   verbosity?: ModelVerbosity;
-  claudeEffort?: 'low' | 'medium' | 'high' | 'adaptive';
+  claudeEffort?: 'low' | 'medium' | 'high' | 'xhigh' | 'adaptive';
   claudeThinking?: 'manual' | 'adaptive';
   enableCitations?: boolean;
   enableCompaction?: boolean;
@@ -37,6 +37,8 @@ export interface ModelRoutingMetadata {
   enableCodeExecution?: boolean;
   thinkingLevel?: GeminiThinkingLevel;
   thinkingBudget?: number;
+  /** Total token ceiling for Anthropic agentic loop (Opus 4.7+ only) */
+  taskBudget?: number;
   enableToolSearch?: boolean;
   enableApplyPatch?: boolean;
   a365McpServers?: string[];

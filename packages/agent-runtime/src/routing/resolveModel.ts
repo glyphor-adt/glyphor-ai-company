@@ -5,6 +5,7 @@ import {
   MODEL_CONFIG,
   getTierModel,
   resolveModel as canonicalizeModelSlug,
+  tierDefaults,
   type ConfigModelTier,
 } from '@glyphor/shared';
 import { DEFAULT_AGENT_MODEL } from '@glyphor/shared/models';
@@ -484,6 +485,22 @@ export async function resolveModelConfig(
 
   if (decision.model !== '__deterministic__') {
     decision = await applyCreditAwareRouting(decision);
+  }
+
+  // ── Tier defaults (base layer — agent/per-call overrides win) ──
+  if (decision.model !== '__deterministic__') {
+    const tier = inferConfigTierFromModel(decision.model);
+    if (tier) {
+      const defaults = tierDefaults[tier as keyof typeof tierDefaults];
+      if (defaults) {
+        if (defaults.claudeEffort && !decision.claudeEffort) {
+          decision = { ...decision, claudeEffort: defaults.claudeEffort as ModelRoutingMetadata['claudeEffort'] };
+        }
+        if (defaults.taskBudget && !decision.taskBudget) {
+          decision = { ...decision, taskBudget: defaults.taskBudget };
+        }
+      }
+    }
   }
 
   return decision;

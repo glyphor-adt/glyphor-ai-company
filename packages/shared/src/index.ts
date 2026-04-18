@@ -243,6 +243,7 @@ export {
   getFallback,
   isDisabled,
   ALL_ACTIVE_MODELS,
+  tierDefaults,
 } from './models.config.js';
 export type { ModelTier as ConfigModelTier, SpecializedPath } from './models.config.js';
 

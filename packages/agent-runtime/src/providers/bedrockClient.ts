@@ -97,19 +97,31 @@ export function getBedrockRuntimeClient(): BedrockRuntimeClient {
 
 /**
  * Non-streaming InvokeModel. `modelId` is the Bedrock model or inference profile ID.
+ * `extraHeaders` — for Anthropic beta features on Bedrock, `anthropic-beta` is injected
+ * into the request body as `anthropic_beta` (Bedrock's native mechanism).
  */
 export async function invokeBedrockModel(
   modelId: string,
   body: Uint8Array | string,
-  contentType = 'application/json',
+  extraHeaders?: Record<string, string>,
 ): Promise<BedrockInvokeResult> {
   await ensureBedrockCredentials();
   const client = getBedrockRuntimeClient();
-  const bodyBytes = typeof body === 'string' ? Buffer.from(body, 'utf-8') : Buffer.from(body);
+
+  // Bedrock doesn't support custom HTTP headers on InvokeModel.
+  // For Anthropic beta features, inject into the body as `anthropic_beta`.
+  let bodyBytes: Uint8Array;
+  if (extraHeaders?.['anthropic-beta'] && typeof body === 'string') {
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    parsed.anthropic_beta = extraHeaders['anthropic-beta'].split(',').map(s => s.trim());
+    bodyBytes = Buffer.from(JSON.stringify(parsed), 'utf-8');
+  } else {
+    bodyBytes = typeof body === 'string' ? Buffer.from(body, 'utf-8') : Buffer.from(body);
+  }
   const resp = await client.send(
     new InvokeModelCommand({
       modelId,
-      contentType,
+      contentType: 'application/json',
       accept: 'application/json',
       body: bodyBytes,
     }),

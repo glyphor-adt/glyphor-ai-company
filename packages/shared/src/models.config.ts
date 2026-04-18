@@ -122,6 +122,12 @@ export const MODEL_CONFIG = {
 export type ModelTier       = keyof typeof MODEL_CONFIG.tiers;
 export type SpecializedPath = keyof typeof MODEL_CONFIG.specialized;
 
+/** Per-tier Anthropic defaults — merged as base layer in resolveModelConfig(). */
+export const tierDefaults: Partial<Record<ModelTier, { claudeEffort?: string; taskBudget?: number }>> = {
+  max:  { claudeEffort: 'xhigh', taskBudget: 80_000 },
+  high: { claudeEffort: 'high',  taskBudget: 40_000 },
+};
+
 export const getTierModel   = (tier: ModelTier): string       => MODEL_CONFIG.tiers[tier];
 export const getSpecialized = (path: SpecializedPath): string => MODEL_CONFIG.specialized[path];
 export const getFallback    = (model: string): string | null  =>
