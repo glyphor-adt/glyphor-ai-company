@@ -2054,8 +2054,9 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
           container.env = updatedEnv;
 
-          // PATCH the service
-          const patchRes = await fetch(serviceUrl, {
+          // PATCH the service — use updateMask to only touch env vars, preserving all other config
+          const patchUrl = `${serviceUrl}?updateMask=template.containers`;
+          const patchRes = await fetch(patchUrl, {
             method: 'PATCH',
             headers: {
               Authorization: `Bearer ${token}`,
