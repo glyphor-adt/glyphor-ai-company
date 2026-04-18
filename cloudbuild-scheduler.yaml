@@ -40,6 +40,8 @@ steps:
         check glyphor-worker VERCEL_TEAM_ID
         check glyphor-scheduler AWS_ACCESS_KEY_ID
         check glyphor-scheduler AWS_SECRET_ACCESS_KEY
+        check glyphor-worker AWS_ACCESS_KEY_ID
+        check glyphor-worker AWS_SECRET_ACCESS_KEY
 
         echo "=== $$ERRORS warning(s) — step is warn-only, deploy continues ==="
         exit 0

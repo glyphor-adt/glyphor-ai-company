@@ -1568,14 +1568,15 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
           const currentRevision = revisions[0].name.split('/').pop()!;
           const previousRevision = revisions[1].name.split('/').pop()!;
 
-          // Route 100% traffic to previous revision
+          // Route 100% traffic to previous revision — use updateMask to only change traffic
           const serviceUrl = `https://run.googleapis.com/v2/projects/${projectId}/locations/${region}/services/${serviceName}`;
           const getRes = await fetch(serviceUrl, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const serviceData = await getRes.json() as Record<string, unknown>;
 
-          const patchRes = await fetch(serviceUrl, {
+          const patchUrl = `${serviceUrl}?updateMask=traffic`;
+          const patchRes = await fetch(patchUrl, {
             method: 'PATCH',
             headers: {
               Authorization: `Bearer ${token}`,

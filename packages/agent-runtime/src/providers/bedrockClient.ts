@@ -17,6 +17,7 @@ export interface BedrockInvokeResult {
 }
 
 let cachedClient: BedrockRuntimeClient | null = null;
+let secretManagerCredentials: { accessKeyId: string; secretAccessKey: string } | null = null;
 
 /**
  * Bedrock is on when BEDROCK_ENABLED=true.
@@ -28,6 +29,57 @@ export function isBedrockEnabled(): boolean {
 
 export function getBedrockRegion(): string {
   return process.env.AWS_REGION?.trim() || 'us-east-1';
+}
+
+/**
+ * Attempt to load AWS credentials from GCP Secret Manager as a fallback
+ * when env vars are not available (e.g. wiped by a Cloud Run redeploy).
+ * Uses the REST API with default service account token to avoid extra dependencies.
+ */
+async function loadCredentialsFromSecretManager(): Promise<{ accessKeyId: string; secretAccessKey: string } | null> {
+  if (secretManagerCredentials) return secretManagerCredentials;
+  const projectId = process.env.GCP_PROJECT_ID?.trim();
+  if (!projectId) return null;
+
+  try {
+    // Get access token from GCP metadata server (works on Cloud Run)
+    const tokenRes = await fetch(
+      'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token',
+      { headers: { 'Metadata-Flavor': 'Google' } },
+    );
+    if (!tokenRes.ok) return null;
+    const { access_token } = await tokenRes.json() as { access_token: string };
+
+    const readSecret = async (secretName: string): Promise<string | null> => {
+      const url = `https://secretmanager.googleapis.com/v1/projects/${projectId}/secrets/${secretName}/versions/latest:access`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${access_token}` } });
+      if (!res.ok) return null;
+      const data = await res.json() as { payload?: { data?: string } };
+      return data.payload?.data ? Buffer.from(data.payload.data, 'base64').toString('utf-8').trim() : null;
+    };
+
+    const accessKeyId = await readSecret('aws-access-key-id');
+    const secretAccessKey = await readSecret('aws-secret-access-key');
+    if (accessKeyId && secretAccessKey) {
+      secretManagerCredentials = { accessKeyId, secretAccessKey };
+      console.log('[Bedrock] Loaded AWS credentials from GCP Secret Manager (env vars were missing)');
+      return secretManagerCredentials;
+    }
+  } catch (err) {
+    console.warn('[Bedrock] Failed to load credentials from Secret Manager:', (err as Error).message);
+  }
+  return null;
+}
+
+export async function ensureBedrockCredentials(): Promise<void> {
+  if (process.env.AWS_ACCESS_KEY_ID?.trim() && process.env.AWS_SECRET_ACCESS_KEY?.trim()) return;
+  const creds = await loadCredentialsFromSecretManager();
+  if (creds) {
+    process.env.AWS_ACCESS_KEY_ID = creds.accessKeyId;
+    process.env.AWS_SECRET_ACCESS_KEY = creds.secretAccessKey;
+    // Reset cached client so it picks up new credentials
+    cachedClient = null;
+  }
 }
 
 export function getBedrockRuntimeClient(): BedrockRuntimeClient {
@@ -51,6 +103,7 @@ export async function invokeBedrockModel(
   body: Uint8Array | string,
   contentType = 'application/json',
 ): Promise<BedrockInvokeResult> {
+  await ensureBedrockCredentials();
   const client = getBedrockRuntimeClient();
   const bodyBytes = typeof body === 'string' ? Buffer.from(body, 'utf-8') : Buffer.from(body);
   const resp = await client.send(
@@ -84,6 +137,7 @@ export async function* invokeBedrockModelStream(
   body: Uint8Array | string,
   contentType = 'application/json',
 ): AsyncGenerator<BedrockStreamChunk> {
+  await ensureBedrockCredentials();
   const client = getBedrockRuntimeClient();
   const bodyBytes = typeof body === 'string' ? Buffer.from(body, 'utf-8') : Buffer.from(body);
   const resp = await client.send(

@@ -1,6 +1,17 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-f', 'docker/Dockerfile.worker', '-t', 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest', '.']
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: deploy-worker
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud run services update glyphor-worker \
+          --region=us-central1 \
+          --project=ai-glyphor-company \
+          --image=us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest \
+          --update-secrets="AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest"
 images:
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest'
 options:
