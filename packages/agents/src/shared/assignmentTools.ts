@@ -339,11 +339,15 @@ export function createAssignmentTools(
     {
       name: 'flag_assignment_blocker',
       description:
-        'Flag a work assignment as blocked when your own assignment cannot proceed. Describe what is preventing completion and what you need. Sarah will triage: reassign, escalate to founders, or dispatch another agent to help. Do not flag blockers on assignments owned by other agents; coordinate via send_agent_message or escalate_to_sarah for cross-team issues.',
+        'Flag YOUR OWN work assignment as blocked. Only the assignee can flag their own assignment. ' +
+        'If you cannot act on a teammate\'s blocker, use send_agent_message to them, or escalate_to_sarah ' +
+        'if cross-functional coordination is needed. ' +
+        'Returns success: true even when the flag cannot be applied — check the `flagged` field and ' +
+        'the `next_action` field for what to do instead.',
       parameters: {
         assignment_id: {
           type: 'string',
-          description: 'The assignment UUID',
+          description: 'The assignment UUID — must be one assigned TO YOU. Use read_my_assignments to get yours.',
           required: true,
         },
         blocker_reason: {
@@ -363,50 +367,142 @@ export function createAssignmentTools(
         const blockerReason = params.blocker_reason as string;
         const needType = (params.need_type as string) ?? 'other';
 
+        if (!assignmentId?.trim() || !blockerReason?.trim()) {
+          return {
+            success: false,
+            error: 'assignment_id and blocker_reason are required.',
+          };
+        }
+
         try {
-          // Verify the assignment belongs to this agent
+          // Step 1: look up the assignment
           const [assignment] = await systemQuery(
-            'SELECT id, assigned_to, assigned_by, task_description, directive_id FROM work_assignments WHERE id = $1',
+            'SELECT id, assigned_to, assigned_by, task_description, directive_id, status FROM work_assignments WHERE id = $1',
             [assignmentId],
           );
 
+          // Case A: assignment doesn't exist as an assignment.
+          // Check if the caller confused assignment_id with directive_id.
           if (!assignment) {
-            return { success: false, error: 'Assignment not found' };
-          }
-          if (assignment.assigned_to !== ctx.agentRole) {
-            const owner = assignment.assigned_to as string;
+            const [asDirective] = await systemQuery(
+              'SELECT id, title FROM founder_directives WHERE id = $1',
+              [assignmentId],
+            );
+
+            if (asDirective) {
+              // They passed a directive_id, not an assignment_id
+              const myAssignments = await systemQuery(
+                `SELECT id, task_description FROM work_assignments
+                 WHERE directive_id = $1 AND assigned_to = $2
+                 AND status IN ('pending', 'dispatched', 'in_progress', 'needs_revision')`,
+                [assignmentId, ctx.agentRole],
+              );
+
+              return {
+                success: true,
+                data: {
+                  flagged: false,
+                  reason: 'wrong_id_type',
+                  message: `You passed a directive_id instead of an assignment_id. Directive "${asDirective.title}" has ${myAssignments.length} open assignment(s) for you.`,
+                  next_action: myAssignments.length > 0
+                    ? `Retry with one of these assignment IDs: ${myAssignments.map((a: Record<string, unknown>) => a.id).join(', ')}`
+                    : 'You do not have any open assignments under this directive. Use read_my_assignments to see yours.',
+                  your_open_assignments_for_this_directive: myAssignments.map((a: Record<string, unknown>) => ({
+                    assignment_id: a.id,
+                    title: (a.task_description as string)?.slice(0, 100),
+                  })),
+                },
+              };
+            }
+
+            // Genuine not found: stale ID or fabrication
             return {
-              success: false,
-              error:
-                `Assignment ${assignmentId} is assigned to ${owner}, not ${ctx.agentRole}. ` +
-                `Only the assignee can call flag_assignment_blocker. ` +
-                `Use send_agent_message to ${owner} to coordinate or escalate_to_sarah if cross-functional unblock is needed.`,
+              success: true,
+              data: {
+                flagged: false,
+                reason: 'assignment_not_found',
+                message: `No assignment found with ID "${assignmentId}". This may be stale, completed, or never existed.`,
+                next_action: 'Call read_my_assignments to see your current open assignments.',
+              },
             };
           }
 
-          // Route blocker notification to whoever assigned this work
-          const notifyAgent = (assignment.assigned_by as string) || 'chief-of-staff';
+          // Case B: ownership mismatch — route to the right mechanism
+          if (assignment.assigned_to !== ctx.agentRole) {
+            const owner = assignment.assigned_to as string;
+            const isAlreadyBlocked = assignment.status === 'blocked';
+            const isComplete = assignment.status === 'completed';
 
+            return {
+              success: true,
+              data: {
+                flagged: false,
+                reason: 'not_your_assignment',
+                assignment_owner: owner,
+                assignment_status: assignment.status,
+                message: isComplete
+                  ? `Assignment is already completed by ${owner}. Nothing to flag.`
+                  : isAlreadyBlocked
+                    ? `Assignment is already flagged as blocked by ${owner}. No action needed.`
+                    : `Assignment is owned by ${owner}, not you.`,
+                next_action: isComplete || isAlreadyBlocked
+                  ? 'No action needed.'
+                  : `Use send_agent_message to coordinate with ${owner} directly, or escalate_to_sarah if cross-functional unblock is needed. Do not flag assignments that are not yours.`,
+              },
+            };
+          }
+
+          // Case C: already flagged as blocked — idempotent no-op
+          if (assignment.status === 'blocked') {
+            return {
+              success: true,
+              data: {
+                flagged: false,
+                reason: 'already_blocked',
+                message: `Assignment is already flagged as blocked. No duplicate flag written.`,
+                next_action: 'Wait for triage, or use send_agent_message to Sarah for urgent follow-up.',
+              },
+            };
+          }
+
+          // Case D: already completed — nothing to block
+          if (assignment.status === 'completed') {
+            return {
+              success: true,
+              data: {
+                flagged: false,
+                reason: 'already_completed',
+                message: `Assignment is already completed. Cannot flag a completed assignment as blocked.`,
+                next_action: 'If the completion was wrong, use send_agent_message to Sarah to reopen it.',
+              },
+            };
+          }
+
+          // Case E: the actual work — flag the blocker
+          const notifyAgent = (assignment.assigned_by as string) || 'chief-of-staff';
           const now = new Date().toISOString();
           const title = (assignment.task_description as string)?.slice(0, 80) ?? 'Assignment';
 
-          // Update assignment status to blocked
           await systemQuery(
             'UPDATE work_assignments SET status = $1, blocker_reason = $2, need_type = $3, updated_at = $4 WHERE id = $5',
             ['blocked', blockerReason, needType, now, assignmentId],
           );
 
-          // Send urgent message to the assigner
           await systemQuery(
             `INSERT INTO agent_messages (from_agent, to_agent, thread_id, message, message_type, priority, status, context)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [ctx.agentRole, notifyAgent, crypto.randomUUID(),
-             `BLOCKED: Assignment '${title}'\nReason: ${blockerReason}\nNeed: ${needType}`,
-             'alert', 'urgent', 'pending',
-             JSON.stringify({ assignment_id: assignmentId, directive_id: assignment.directive_id, need_type: needType })],
+            [
+              ctx.agentRole, notifyAgent, crypto.randomUUID(),
+              `BLOCKED: Assignment '${title}'\nReason: ${blockerReason}\nNeed: ${needType}`,
+              'alert', 'urgent', 'pending',
+              JSON.stringify({
+                assignment_id: assignmentId,
+                directive_id: assignment.directive_id,
+                need_type: needType,
+              }),
+            ],
           );
 
-          // Emit alert event (include assigned_by for wake rule routing)
           await glyphorEventBus.emit({
             type: 'assignment.blocked',
             source: ctx.agentRole,
@@ -421,7 +517,6 @@ export function createAssignmentTools(
             priority: 'high',
           });
 
-          // Log to activity_log
           await systemQuery(
             'INSERT INTO activity_log (agent_role, action, summary) VALUES ($1, $2, $3)',
             [ctx.agentRole, 'assignment.blocked', `Blocked on assignment: ${title} — ${blockerReason}`],
@@ -430,13 +525,16 @@ export function createAssignmentTools(
           return {
             success: true,
             data: {
+              flagged: true,
               assignment_id: assignmentId,
               status: 'blocked',
               message: `Blocker flagged. ${notifyAgent === 'chief-of-staff' ? 'Sarah' : notifyAgent} will triage.`,
+              next_action: `Wait for triage. If urgent, send_agent_message to ${notifyAgent}.`,
               written: { assignment_id: assignmentId, status: 'blocked', action: 'flag_blocker' },
             },
           };
         } catch (err) {
+          // Genuine error path — this is a REAL failure
           return { success: false, error: (err as Error).message };
         }
       },
