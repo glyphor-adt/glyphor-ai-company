@@ -30,6 +30,12 @@ import { systemQuery } from '@glyphor/shared/db';
 import { buildSearchableToolDescription } from './toolRegistry.js';
 import type { FormalVerifier } from './formalVerifier.js';
 import { executeDynamicTool } from './dynamicToolExecutor.js';
+import {
+  isCacheEnabled as isToolCacheEnabled,
+  isCacheableReadOnlyTool,
+  lookupCachedResult,
+  rememberToolResult,
+} from './perRunToolCache.js';
 import { abacMiddleware } from './abac.js';
 import { HIGH_STAKES_TOOLS, preCheckTool } from './constitutionalPreCheck.js';
 import type { ConstitutionalGovernor } from './constitutionalGovernor.js';
@@ -1650,6 +1656,39 @@ export class ToolExecutor {
             : LONG_RUNNING_TOOLS.has(toolName) || isMcpTool(toolName) || toolSource === 'mcp'
               ? LONG_TOOL_TIMEOUT_MS
               : DEFAULT_TOOL_TIMEOUT_MS;
+
+    // Per-run cache short-circuit for read-only tools. Feature-flagged via
+    // ENABLE_TOOL_RESULT_CACHE. On a hit, return a compact stub so the
+    // transcript carries ~200B instead of the original multi-KB payload.
+    // Authorization + rate-limit already ran above; we intentionally skip
+    // heavy downstream side effects (evidence, verification, hooks) on a
+    // cache hit — the real result was already processed on the first call.
+    if (isToolCacheEnabled() && isCacheableReadOnlyTool(toolName)) {
+      const cached = lookupCachedResult(context.runId, toolName, params, context.turnNumber);
+      if (cached) {
+        const runToolCounts = this.runToolCounts.get(context.agentId) ?? new Map<string, number>();
+        runToolCounts.set(toolName, (runToolCounts.get(toolName) ?? 0) + 1);
+        this.runToolCounts.set(context.agentId, runToolCounts);
+        void recordRunEvent({
+          runId: context.runId,
+          eventType: 'tool.cached',
+          trigger: 'tool.execute',
+          component: 'toolExecutor',
+          payload: {
+            tool_name: toolName,
+            turn_number: context.turnNumber,
+            same_as_turn: cached.firstSeenTurn,
+            cache_hits: cached.hits,
+          },
+        });
+        console.log(
+          `[ToolCache] HIT ${toolName} agent=${context.agentRole} run=${context.runId ?? '?'} ` +
+          `turn=${context.turnNumber} same_as_turn=${cached.firstSeenTurn} hits=${cached.hits}`,
+        );
+        return cached.stubResult;
+      }
+    }
+
     const executionSpan = startTraceSpan('tool.execute', {
       run_id: context.runId ?? 'unknown',
       assignment_id: context.assignmentId ?? 'none',
@@ -1922,6 +1961,12 @@ export class ToolExecutor {
           error: finalResult.error ?? null,
         },
       });
+
+      // Remember successful read-only results for this run so repeat calls
+      // with identical args return a compact stub. No-op when flag is off
+      // or the tool isn't in the read-only allowlist.
+      rememberToolResult(context.runId, toolName, params, finalResult, context.turnNumber);
+
       return finalResult;
     } catch (error) {
       const failResult: ToolResult = {

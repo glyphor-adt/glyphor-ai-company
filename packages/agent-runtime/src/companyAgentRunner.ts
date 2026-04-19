@@ -801,6 +801,10 @@ function buildSystemPrompt(
   doctrineContext?: string | null,
   /** Chat-light protocols + strip XML reasoning (scheduled urgent / incident paths). */
   reactiveLightPrompt = false,
+  /** Optional output collector. When provided, receives the component list and
+   * token estimate used to assemble the prompt — so callers can persist them
+   * to agent_runs.prompt_components for observability. */
+  out?: { components?: string[]; tokenEstimate?: number },
 ): string {
   try {
     const knowledgeDir = join(__dirname, '../../company-knowledge');
@@ -985,6 +989,10 @@ function buildSystemPrompt(
       prompt_chars: assembled.length,
       prompt_token_estimate: tokenEstimate,
     }));
+    if (out) {
+      out.components = components;
+      out.tokenEstimate = tokenEstimate;
+    }
     return assembled;
   } catch (err) {
     console.warn(`[CompanyAgentRunner] Failed to load knowledge files for ${role}:`, (err as Error).message);
@@ -2535,12 +2543,16 @@ Rules:
 
           if (turnNumber === 1 || turnNumber % 3 === 0) {
             const rawEstimate = Math.ceil(history.reduce((t, h) => t + h.content.length, 0) / 4);
+            const dedupSuffix = composedContext.dedupeStats
+              ? `, dedup_stubbed=${composedContext.dedupeStats.stubbedCount}, ` +
+                `dedup_saved_bytes=${composedContext.dedupeStats.originalBytes - composedContext.dedupeStats.dedupedBytes}`
+              : '';
             console.log(
               `[ContextComposer] ${config.role} turn=${turnNumber}: ` +
               `raw=${history.length} (~${rawEstimate} tok) -> ` +
               `composed=${compressedHistory.length} (~${composedContext.tokenEstimate} tok), ` +
               `dropped_groups=${composedContext.droppedGroups}, dropped_turns=${composedContext.droppedTurns}, ` +
-              `tools=${effectiveTools?.length ?? 0}`,
+              `tools=${effectiveTools?.length ?? 0}${dedupSuffix}`,
             );
           }
 
@@ -2568,6 +2580,7 @@ Rules:
           }
 
           // Select system prompt based on context tier
+          const promptOut: { components?: string[]; tokenEstimate?: number } = {};
           const systemPrompt = isTaskTier
             ? buildTaskTierSystemPrompt(agentProfile, doctrineContext)
             : buildSystemPrompt(
@@ -2584,7 +2597,25 @@ Rules:
                 modelForGenerate,
                 doctrineContext,
                 reactiveLightPrompt,
+                promptOut,
               );
+          // Persist component breakdown on turn 1 so every run has structured
+          // data about what went into its system prompt. Fire-and-forget —
+          // telemetry must never block the turn.
+          if (turnNumber === 1 && promptOut.components && promptOut.components.length > 0) {
+            const runIdForTelemetry = config.dbRunId ?? config.id;
+            if (runIdForTelemetry) {
+              systemQuery(
+                'UPDATE agent_runs SET prompt_components = $1 WHERE id = $2::uuid',
+                [promptOut.components, runIdForTelemetry],
+              ).catch((err: unknown) => {
+                console.warn(
+                  '[PromptComponents] persist failed:',
+                  err instanceof Error ? err.message : String(err),
+                );
+              });
+            }
+          }
           let effectiveThinking = routedModel.reasoningEffort === 'minimal' ? false : config.thinkingEnabled;
           if (isTaskTier) {
             effectiveThinking = false;

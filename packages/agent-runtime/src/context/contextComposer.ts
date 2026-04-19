@@ -7,6 +7,7 @@ import {
   REASONING_STATE_PREFIX,
   SESSION_SUMMARY_PREFIX,
 } from './systemFrame.js';
+import { maybeDedupeToolResults, type DedupeStats } from './toolResultDedup.js';
 
 export interface ContextComposerInput {
   history: ConversationTurn[];
@@ -28,6 +29,7 @@ export interface ContextComposerResult {
   droppedGroups: number;
   clippedTurns: number;
   injectedReasoningState: boolean;
+  dedupeStats?: DedupeStats;
 }
 
 const DEFAULT_MAX_TOKENS = 12_000;
@@ -107,11 +109,23 @@ export function composeModelContext(input: ContextComposerInput): ContextCompose
     : buildReasoningStateTurn(sanitizedHistory);
   const sessionSummaryTurn = buildSessionSummaryTurn(input.sessionSummary);
 
+  // Transcript dedup — replace earlier duplicate tool_result content with
+  // short stubs so the ReAct echo doesn't balloon across turns. Pairs are
+  // preserved (provider APIs require tool_call/tool_result pairing).
+  // Off by default; enable via env. Safe to flip — only affects body of
+  // EARLIER identical calls, not the freshest copy.
+  const dedupEnabled = process.env.ENABLE_TRANSCRIPT_DEDUP === '1'
+    || process.env.ENABLE_TRANSCRIPT_DEDUP === 'true';
+  const { history: deduped, stats: dedupeStats } = maybeDedupeToolResults(
+    sanitizedHistory,
+    dedupEnabled,
+  );
+
   const composedHistory: ConversationTurn[] = [
     frameTurn,
     ...(sessionSummaryTurn ? [sessionSummaryTurn] : []),
     ...(reasoningStateTurn ? [reasoningStateTurn] : []),
-    ...sanitizedHistory,
+    ...deduped,
   ];
 
   const compressed = compressComposedHistory(composedHistory, {
@@ -123,5 +137,6 @@ export function composeModelContext(input: ContextComposerInput): ContextCompose
   return {
     ...compressed,
     injectedReasoningState: !!reasoningStateTurn,
+    dedupeStats: dedupEnabled ? dedupeStats : undefined,
   };
 }

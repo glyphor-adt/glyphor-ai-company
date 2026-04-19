@@ -1,6 +1,9 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-f', 'docker/Dockerfile.worker', '-t', 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    id: push-worker
+    args: ['push', 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest']
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: deploy-worker
     entrypoint: 'bash'
@@ -15,5 +18,5 @@ steps:
 images:
   - 'us-central1-docker.pkg.dev/ai-glyphor-company/glyphor/worker:latest'
 options:
-  logging: CLOUD_LOGGING_ONLY
-  logStreamingOption: STREAM_ON
+  logging: GCS_ONLY
+  logStreamingOption: STREAM_OFF
