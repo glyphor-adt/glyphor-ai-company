@@ -87,43 +87,19 @@ export function createAgentManagementTools(): ToolDefinition[] {
       },
     },
 
-    {
-      name: 'update_agent_status',
-      description:
-        'Set an agent\'s status (active, paused, retired). Use to pause or reactivate agents.',
-      parameters: {
-        role: {
-          type: 'string',
-          description: 'The agent role slug.',
-          required: true,
-        },
-        status: {
-          type: 'string',
-          description: 'New status.',
-          required: true,
-          enum: ['active', 'paused', 'retired'],
-        },
-      },
-      execute: async (params) => {
-        const role = String(params.role ?? '').trim();
-        const status = String(params.status ?? '').trim();
-        if (!role || !status) {
-          return { success: false, error: 'Both role and status are required.' };
-        }
-
-        try {
-          const result = await systemQuery(
-            'UPDATE company_agents SET status = $1, updated_at = NOW() WHERE role = $2 RETURNING role, status',
-            [status, role],
-          );
-          if (!result || result.length === 0) {
-            return { success: false, error: `No agent found with role "${role}".` };
-          }
-          return { success: true, data: `Agent "${role}" status set to "${status}".` };
-        } catch (err) {
-          return { success: false, error: `Failed: ${(err as Error).message}` };
-        }
-      },
-    },
+    // NOTE: `update_agent_status` was intentionally removed from this shared
+    // factory on 2026-04-19. It wrote to company_agents.status with no
+    // protected-role guard, no actor/tenant context, and no activity_log
+    // audit row — making status changes invisible to forensic queries.
+    //
+    // Status changes should now go through:
+    //   - CTO's `update_agent_status` (packages/agents/src/cto/tools.ts) for
+    //     agent-initiated operational changes (writes action='agent.paused'
+    //     or 'agent.resumed' to activity_log with a protected-role guard), or
+    //   - The dashboard POST /agents/:ref/pause|resume endpoints in scheduler
+    //     server.ts, which share the same guard + audit pattern.
+    //
+    // Do not re-add a generic, unaudited update tool here without a guard
+    // and an activity_log write.
   ];
 }

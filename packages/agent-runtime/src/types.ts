@@ -539,7 +539,20 @@ export interface CompanyDecision {
 
 export interface ActivityLogEntry {
   agentRole: CompanyAgentRole;
-  action: 'analysis' | 'decision' | 'alert' | 'content' | 'deploy' | 'briefing' | 'outreach';
+  action:
+    | 'analysis'
+    | 'decision'
+    | 'alert'
+    | 'content'
+    | 'deploy'
+    | 'briefing'
+    | 'outreach'
+    // Agent lifecycle events — forensic-friendly, canonical names for status changes.
+    // Use these via the CTO tool, dashboard pause/resume, or any future path that
+    // mutates company_agents.status so that audit queries catch all writers.
+    | 'agent.paused'
+    | 'agent.resumed'
+    | 'agent.status_changed';
   product?: ProductSlug | 'company';
   summary: string;
   details?: unknown;

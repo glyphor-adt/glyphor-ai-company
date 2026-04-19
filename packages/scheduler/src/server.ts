@@ -5158,15 +5158,79 @@ const server = createServer(async (req, res) => {
     const pauseMatch = url.match(/^\/agents\/([^/]+)\/pause$/);
     if (method === 'POST' && pauseMatch) {
       const agentRef = decodeURIComponent(pauseMatch[1]);
+      const actor = dashboardUser?.email ?? dashboardUser?.uid ?? 'unknown';
+      const actorTenantId = dashboardUser?.tenantId ?? null;
+      let pauseBody: Record<string, unknown> = {};
+      try {
+        const raw = await readBody(req);
+        if (raw && raw.trim().length > 0) pauseBody = JSON.parse(raw) as Record<string, unknown>;
+      } catch { /* ignore invalid JSON body */ }
+      const reason = String(pauseBody.reason ?? 'dashboard_pause').slice(0, 500);
+
+      // Resolve ref -> canonical (role, id, tenant_id) so the guard runs on
+      // the real role and the UPDATE targets one row by id.
+      const [resolved] = await systemQuery<{ role: string; id: string; tenant_id: string | null; status: string }>(
+        'SELECT role, id::text AS id, tenant_id, status FROM company_agents WHERE id::text=$1 OR role=$1 LIMIT 1',
+        [agentRef],
+      );
+      if (!resolved) {
+        json(res, 404, { success: false, error: `Agent not found: ${agentRef}` });
+        return;
+      }
+
+      // Tenant scoping: a user scoped to tenant A may not pause an agent in tenant B.
+      // Dashboard users with null tenantId are treated as global admins (fallback
+      // admin list path) and bypass this check.
+      if (actorTenantId && resolved.tenant_id && actorTenantId !== resolved.tenant_id) {
+        json(res, 403, { success: false, error: 'Cross-tenant status change denied.' });
+        return;
+      }
+
+      // Protected-role guard: pausing the orchestrator or the health watcher
+      // needs founder sign-off, not a dashboard click.
+      const PROTECTED_PAUSE_ROLES = new Set(['chief-of-staff', 'ops']);
+      if (PROTECTED_PAUSE_ROLES.has(resolved.role)) {
+        json(res, 403, {
+          success: false,
+          error: `Cannot pause protected agent "${resolved.role}" from the dashboard. Escalate to founders instead.`,
+          protected: true,
+        });
+        return;
+      }
+
       const [updated] = await systemQuery<{ role: string }>(
-        'UPDATE company_agents SET status=$1, updated_at=$2 WHERE id::text=$3 OR role=$3 RETURNING role',
-        ['paused', new Date().toISOString(), agentRef],
+        'UPDATE company_agents SET status=$1, updated_at=$2 WHERE id=$3 RETURNING role',
+        ['paused', new Date().toISOString(), resolved.id],
       );
       if (!updated) {
         json(res, 404, { success: false, error: `Agent not found: ${agentRef}` });
         return;
       }
-      json(res, 200, { success: true, role: updated.role });
+
+      await systemQuery(
+        `INSERT INTO activity_log (agent_role, action, summary, details, tier, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [
+          updated.role,
+          'agent.paused',
+          `Dashboard pause of ${updated.role} by ${actor}`,
+          JSON.stringify({
+            source: 'dashboard',
+            endpoint: 'POST /agents/:ref/pause',
+            actor,
+            actor_uid: dashboardUser?.uid ?? null,
+            actor_role: dashboardUser?.role ?? null,
+            tenant_id: actorTenantId,
+            agent_id: resolved.id,
+            previous_status: resolved.status,
+            new_status: 'paused',
+            reason,
+          }),
+          'yellow',
+        ],
+      );
+
+      json(res, 200, { success: true, role: updated.role, status: 'paused' });
       return;
     }
 
@@ -5174,15 +5238,62 @@ const server = createServer(async (req, res) => {
     const resumeMatch = url.match(/^\/agents\/([^/]+)\/resume$/);
     if (method === 'POST' && resumeMatch) {
       const agentRef = decodeURIComponent(resumeMatch[1]);
+      const actor = dashboardUser?.email ?? dashboardUser?.uid ?? 'unknown';
+      const actorTenantId = dashboardUser?.tenantId ?? null;
+      let resumeBody: Record<string, unknown> = {};
+      try {
+        const raw = await readBody(req);
+        if (raw && raw.trim().length > 0) resumeBody = JSON.parse(raw) as Record<string, unknown>;
+      } catch { /* ignore invalid JSON body */ }
+      const reason = String(resumeBody.reason ?? 'dashboard_resume').slice(0, 500);
+
+      const [resolved] = await systemQuery<{ role: string; id: string; tenant_id: string | null; status: string }>(
+        'SELECT role, id::text AS id, tenant_id, status FROM company_agents WHERE id::text=$1 OR role=$1 LIMIT 1',
+        [agentRef],
+      );
+      if (!resolved) {
+        json(res, 404, { success: false, error: `Agent not found: ${agentRef}` });
+        return;
+      }
+
+      if (actorTenantId && resolved.tenant_id && actorTenantId !== resolved.tenant_id) {
+        json(res, 403, { success: false, error: 'Cross-tenant status change denied.' });
+        return;
+      }
+
       const [updated] = await systemQuery<{ role: string }>(
-        'UPDATE company_agents SET status=$1, updated_at=$2 WHERE id::text=$3 OR role=$3 RETURNING role',
-        ['active', new Date().toISOString(), agentRef],
+        'UPDATE company_agents SET status=$1, updated_at=$2 WHERE id=$3 RETURNING role',
+        ['active', new Date().toISOString(), resolved.id],
       );
       if (!updated) {
         json(res, 404, { success: false, error: `Agent not found: ${agentRef}` });
         return;
       }
-      json(res, 200, { success: true, role: updated.role });
+
+      await systemQuery(
+        `INSERT INTO activity_log (agent_role, action, summary, details, tier, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [
+          updated.role,
+          'agent.resumed',
+          `Dashboard resume of ${updated.role} by ${actor}`,
+          JSON.stringify({
+            source: 'dashboard',
+            endpoint: 'POST /agents/:ref/resume',
+            actor,
+            actor_uid: dashboardUser?.uid ?? null,
+            actor_role: dashboardUser?.role ?? null,
+            tenant_id: actorTenantId,
+            agent_id: resolved.id,
+            previous_status: resolved.status,
+            new_status: 'active',
+            reason,
+          }),
+          'green',
+        ],
+      );
+
+      json(res, 200, { success: true, role: updated.role, status: 'active' });
       return;
     }
 

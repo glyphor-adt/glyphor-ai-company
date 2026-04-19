@@ -1060,7 +1060,7 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
 
     {
       name: 'update_agent_status',
-      description: 'Change an agent\'s status. Use to reactivate a paused agent, disable a misbehaving one, or re-enable after a fix. Agents paused by Atlas (ops) can be reactivated by setting status to "active".',
+      description: 'Change an agent\'s status. Use to reactivate a paused agent, disable a misbehaving one, or re-enable after a fix. Agents paused by Atlas (ops) can be reactivated by setting status to "active". Pausing chief-of-staff or ops requires founder approval and will be rejected by this tool.',
       parameters: {
         agent_role: {
           type: 'string',
@@ -1083,18 +1083,56 @@ export function createCTOTools(memory: CompanyMemoryStore): ToolDefinition[] {
         try {
           const agentRole = params.agent_role as string;
           const newStatus = params.status as string;
+          const reason = params.reason as string;
 
-          await systemQuery('UPDATE company_agents SET status=$1 WHERE role=$2', [newStatus, agentRole]);
+          // Protected-role guard: pausing the orchestrator or the health watcher
+          // is a founder-level decision, not a CTO unilateral call. Allow
+          // reactivation (status=active) because that's a recovery path.
+          const PROTECTED_STATUS_CHANGE_ROLES = new Set(['chief-of-staff', 'ops']);
+          if (PROTECTED_STATUS_CHANGE_ROLES.has(agentRole) && newStatus !== 'active') {
+            return {
+              success: false,
+              error: `Cannot change status of protected agent "${agentRole}" to "${newStatus}" via update_agent_status. Escalate to founders instead.`,
+            };
+          }
+
+          // Capture previous status so the audit record shows the transition.
+          const [prev] = await systemQuery<{ status: string }>(
+            'SELECT status FROM company_agents WHERE role=$1',
+            [agentRole],
+          );
+          if (!prev) {
+            return { success: false, error: `No agent found with role "${agentRole}".` };
+          }
+          const previousStatus = prev.status;
+
+          await systemQuery('UPDATE company_agents SET status=$1, updated_at=NOW() WHERE role=$2', [newStatus, agentRole]);
+
+          const action =
+            newStatus === 'paused' ? 'agent.paused' :
+            newStatus === 'active' ? 'agent.resumed' :
+            'agent.status_changed';
+          const tier = newStatus === 'paused' ? 'yellow' : 'green';
 
           await memory.appendActivity({
             agentRole: ctx.agentRole,
-            action: 'deploy',
+            action,
+            tier,
             product: 'company',
-            summary: `Agent ${agentRole} set to ${newStatus}: ${params.reason}`,
+            summary: `${ctx.agentRole} changed ${agentRole} status: ${previousStatus} -> ${newStatus}. Reason: ${reason}`,
+            details: {
+              tool: 'update_agent_status',
+              source: 'cto-tool',
+              caller_role: ctx.agentRole,
+              target_role: agentRole,
+              previous_status: previousStatus,
+              new_status: newStatus,
+              reason,
+            },
             createdAt: new Date().toISOString(),
           });
 
-          return { success: true, data: { agentRole, status: newStatus, reason: params.reason } };
+          return { success: true, data: { agentRole, previousStatus, status: newStatus, reason } };
         } catch (err) {
           return { success: false, error: (err as Error).message };
         }
