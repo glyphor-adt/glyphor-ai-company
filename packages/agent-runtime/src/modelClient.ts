@@ -164,10 +164,14 @@ export class ModelClient {
         : effectiveScope === 'same-provider'
           ? getProviderLocalFallbackChain(effectiveRequestedModel, agentRole)
           : getFallbackChain(effectiveRequestedModel, agentRole);
-    // If same-provider chain is empty, auto-append cross-provider fallbacks
-    // so auth/credential failures on one provider can fall back to another.
-    if (effectiveScope === 'same-provider' && fallbackChain.length === 0) {
-      fallbackChain = getFallbackChain(effectiveRequestedModel, agentRole);
+    // Always append cross-provider fallbacks after same-provider chain so that
+    // model-level access errors (e.g. Bedrock "not available for this account")
+    // or provider-wide auth failures can still fall through to another provider.
+    if (effectiveScope === 'same-provider') {
+      const crossProviderChain = getFallbackChain(effectiveRequestedModel, agentRole);
+      const existingSet = new Set([effectiveRequestedModel, ...fallbackChain]);
+      const extraModels = crossProviderChain.filter(m => !existingSet.has(m));
+      fallbackChain = [...fallbackChain, ...extraModels];
     }
     const allowClaude = isBedrockEnabled();
     // Resolve all models in the chain through DEPRECATED_MODELS, then dedupe

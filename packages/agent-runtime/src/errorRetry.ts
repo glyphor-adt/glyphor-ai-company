@@ -62,6 +62,9 @@ export interface CategorizedError {
 const RATE_LIMIT_PATTERN = /429|rate.?limit|quota|resource.?exhausted|too many requests/i;
 const OVERLOADED_PATTERN = /529|overloaded|capacity/i;
 const AUTH_PATTERN = /401|403|token.?revoked|invalid.?key|unauthorized|forbidden/i;
+// Model-level access denial (Bedrock "not available for this account") — NOT a provider-wide auth failure.
+// Classified as client_error so the fallback chain skips this model and tries the next.
+const MODEL_ACCESS_DENIED_PATTERN = /not available for this account|model.?not.?available|access.?not.?granted|model.?access.?denied/i;
 const CONTEXT_OVERFLOW_PATTERN = /context.?length|token.?limit.?exceeded|input.?length.*exceed|prompt.?too.?long/i;
 const TRANSIENT_PATTERN = /ECONNRESET|EPIPE|ETIMEDOUT|socket hang up|network|fetch failed/i;
 const STATUS_CODE_PATTERN = /\b([45]\d{2})\b/;
@@ -76,6 +79,12 @@ export function categorizeError(error: unknown): CategorizedError {
   const message = rawMsg.replace(API_KEY_PATTERN, '[REDACTED]');
   const statusCode = extractStatusCode(error);
   const retryAfterMs = extractRetryAfterMs(error);
+
+  // Model-level access denial (e.g. Bedrock "not available for this account") — treat as
+  // a model-specific client error so the fallback chain skips this model, not the whole provider.
+  if (MODEL_ACCESS_DENIED_PATTERN.test(message)) {
+    return { category: 'client_error', retryable: false, retryAfterMs: null, statusCode: statusCode ?? 403, message, originalError: error };
+  }
 
   // Auth errors are NOT retryable (reauth required)
   if (statusCode === 401 || statusCode === 403 || AUTH_PATTERN.test(message)) {
