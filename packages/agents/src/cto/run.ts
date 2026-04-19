@@ -126,21 +126,25 @@ export async function runCTO(params: CTORunParams = {}) {
     tools.push(...createExecutiveOrchestrationTools('cto', orchConfig, { glyphorEventBus }));
   }
 
-  const toolExecutor = new ToolExecutor(tools, params.dryRun === true);
-
-  eventBus.on('*', (event) => {
-    console.log(`[CTO] ${event.type}`, JSON.stringify(event));
-  });
-
   const task = params.task || 'platform_health_check';
   const today = new Date().toISOString().split('T')[0];
 
+  // IMPORTANT: push all tools BEFORE constructing ToolExecutor.
+  // The constructor snapshots `tools` into a Map — later pushes are ignored,
+  // which is exactly what caused the "Unknown tool: sandbox_file_read" runtime
+  // errors that tripped the fleet circuit breaker on 2026-04-19.
   tools.push(...createSandboxDevTools({
     workspaces: [...GLYPHOR_EXECUTIVE_SANDBOX_WORKSPACES],
     agentRole: 'cto',
     runId: `marcus-${task}-${today}`,
   }));
   tools.push(...createClaudeParityTools(glyphorEventBus));
+
+  const toolExecutor = new ToolExecutor(tools, params.dryRun === true);
+
+  eventBus.on('*', (event) => {
+    console.log(`[CTO] ${event.type}`, JSON.stringify(event));
+  });
 
   let initialMessage: string;
 

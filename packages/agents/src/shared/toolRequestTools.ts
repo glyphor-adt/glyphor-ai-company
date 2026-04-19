@@ -19,6 +19,162 @@ function looksLikeKnowledgeArtifact(value: string): boolean {
   return KNOWLEDGE_ARTIFACT_PATTERN.test(value);
 }
 
+/**
+ * Fuzzy-match guard — finds existing tools that look like duplicates of a
+ * proposed new tool name. Added 2026-04-19 after agents requested 40+ tools
+ * that were duplicates of existing capabilities (sandbox_shell, sandbox_file_read,
+ * read_founder_directives, get_infrastructure_costs, github_*).
+ *
+ * Strategy:
+ *  1. Normalize both sides: lowercase, strip common noise suffixes
+ *     (_v2, _db, _api, _query, _new), strip common verb prefixes where
+ *     the rest is shared (get_, query_, fetch_, read_, list_).
+ *  2. Exact-equal after normalization -> duplicate.
+ *  3. Word-token overlap >= 2 AND the proposed name's "root" is a substring of
+ *     an existing tool's root (or vice-versa) -> duplicate.
+ *  4. Levenshtein distance <= 2 on the raw names -> duplicate (catches typos).
+ */
+const NOISE_SUFFIXES = [
+  '_v2', '_v3', '_db', '_api', '_query', '_new', '_fn', '_request',
+];
+const NOISE_PREFIXES = [
+  'get_', 'query_', 'fetch_', 'read_', 'list_', 'find_', 'lookup_',
+];
+
+function normalizeToolName(name: string): string {
+  let n = name.toLowerCase();
+  for (const s of NOISE_SUFFIXES) if (n.endsWith(s)) n = n.slice(0, -s.length);
+  for (const p of NOISE_PREFIXES) if (n.startsWith(p)) n = n.slice(p.length);
+  return n;
+}
+
+function stem(token: string): string {
+  // Very light English stemmer — enough to make cost/costs, directive/directives,
+  // update/updates/updated collapse together.
+  let t = token;
+  if (t.length > 4 && t.endsWith('ies')) return t.slice(0, -3) + 'y';
+  if (t.length > 4 && (t.endsWith('ing') || t.endsWith('ers'))) return t.slice(0, -3);
+  if (t.length > 3 && (t.endsWith('es') || t.endsWith('ed'))) return t.slice(0, -2);
+  if (t.length > 3 && t.endsWith('s')) return t.slice(0, -1);
+  return t;
+}
+
+function tokenize(name: string): Set<string> {
+  return new Set(
+    name
+      .toLowerCase()
+      .split(/[_\s\-\/]+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 3)
+      .map(stem),
+  );
+}
+
+/** Two tokens "match" if equal, or one contains the other with len >= 4. */
+function tokensMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a))) return true;
+  return false;
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    let current = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const next = Math.min(
+        prev[j] + 1,        // deletion
+        current + 1,        // insertion
+        prev[j - 1] + cost, // substitution
+      );
+      prev[j - 1] = current;
+      current = next;
+    }
+    prev[b.length] = current;
+  }
+  return prev[b.length];
+}
+
+/**
+ * Return up to 5 existing tool names that look like duplicates of the
+ * proposed `toolName` (and its description). Empty = no duplicate detected.
+ * Exported for unit testing.
+ */
+export function findFuzzyDuplicates(
+  toolName: string,
+  description: string,
+  existing: readonly string[],
+): string[] {
+  const normProposed = normalizeToolName(toolName);
+  const tokensProposed = tokenize(toolName);
+  // Add tokens from the description too — some agents name the tool
+  // vaguely (e.g., "grep") but describe it precisely ("search codebase").
+  for (const t of tokenize(description)) tokensProposed.add(t);
+
+  const matches: Array<{ name: string; score: number }> = [];
+
+  for (const candidate of existing) {
+    if (candidate === toolName) continue; // caught by exact-match guard already
+    // Skip MCP-qualified tools — they're namespaced and unlikely to collide.
+    if (candidate.startsWith('mcp_')) continue;
+
+    const normCandidate = normalizeToolName(candidate);
+
+    // Rule 1: exact match after normalization
+    if (normCandidate === normProposed && normProposed.length >= 3) {
+      matches.push({ name: candidate, score: 100 });
+      continue;
+    }
+
+    // Rule 2: Levenshtein distance <= 2 on raw names (typo catch)
+    const rawDist = levenshtein(toolName.toLowerCase(), candidate.toLowerCase());
+    if (rawDist <= 2 && Math.max(toolName.length, candidate.length) >= 6) {
+      matches.push({ name: candidate, score: 90 - rawDist });
+      continue;
+    }
+
+    // Rule 3: substring containment on normalized roots (e.g.,
+    // `founder_directives` contained in `read_founder_directives`)
+    if (
+      normProposed.length >= 6 &&
+      normCandidate.length >= 6 &&
+      (normCandidate.includes(normProposed) || normProposed.includes(normCandidate))
+    ) {
+      matches.push({ name: candidate, score: 80 });
+      continue;
+    }
+
+    // Rule 4: token overlap >= 2 meaningful words
+    const tokensCandidate = tokenize(candidate);
+    let overlap = 0;
+    for (const t of tokensProposed) {
+      for (const c of tokensCandidate) {
+        if (tokensMatch(t, c)) { overlap++; break; }
+      }
+    }
+    if (overlap >= 2) {
+      matches.push({ name: candidate, score: 50 + overlap * 5 });
+    }
+  }
+
+  matches.sort((a, b) => b.score - a.score);
+  // De-dupe and cap.
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of matches) {
+    if (seen.has(m.name)) continue;
+    seen.add(m.name);
+    out.push(m.name);
+    if (out.length >= 5) break;
+  }
+  return out;
+}
+
 const ADMIN_REVIEW_ASSIGNEES = ['cto', 'global-admin'];
 const RESTRICTED_REVIEW_ASSIGNEES = ['kristina', ...ADMIN_REVIEW_ASSIGNEES];
 
@@ -386,6 +542,25 @@ export function createToolRequestTools(): ToolDefinition[] {
           return {
             success: false,
             error: `Tool "${toolName}" already exists. Use grant_tool_access to get access to an existing tool instead.`,
+          };
+        }
+
+        // Fuzzy-match guard: reject requests that look like duplicates of an
+        // existing tool with a different name. Added 2026-04-19 after 40 stale
+        // approved requests were bulk-rejected — most were agents reinventing
+        // sandbox_shell / sandbox_file_read / read_founder_directives because
+        // the CTO sandbox ordering bug was hiding the real tools. This catches
+        // suffix/prefix variants (`_v2`, `get_`, `_db`, `_api`) and near-matches
+        // before they reach the review queue.
+        const fuzzyMatches = findFuzzyDuplicates(toolName, description, getAllKnownTools());
+        if (fuzzyMatches.length > 0) {
+          return {
+            success: false,
+            error:
+              `This looks like a duplicate of existing tool(s): ${fuzzyMatches.slice(0, 5).join(', ')}. ` +
+              `Use list_my_tools / check_tool_access / request_tool_access with the exact existing name. ` +
+              `If you genuinely need different behavior, re-file request_new_tool and explicitly explain ` +
+              `in the justification why the existing tool(s) cannot be used.`,
           };
         }
 
