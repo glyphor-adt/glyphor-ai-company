@@ -54,6 +54,10 @@ const FINANCIAL_SYNCS = [
   { id: 'stripe', label: 'Stripe (Revenue)', endpoint: '/sync/stripe' },
   { id: 'mercury', label: 'Mercury (Banking)', endpoint: '/sync/mercury' },
   { id: 'gcp-billing', label: 'GCP Billing', endpoint: '/sync/gcp-billing' },
+  { id: 'aws-billing', label: 'AWS Bedrock', endpoint: '/sync/aws-billing' },
+  { id: 'azure-billing', label: 'Azure OpenAI', endpoint: '/sync/azure-billing' },
+  { id: 'anthropic-billing', label: 'Anthropic (direct API)', endpoint: '/sync/anthropic-billing' },
+  { id: 'openai-billing', label: 'OpenAI (direct API)', endpoint: '/sync/openai-billing' },
 ];
 
 function useSyncStatus() {

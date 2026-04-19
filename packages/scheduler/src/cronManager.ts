@@ -156,8 +156,36 @@ export const DATA_SYNC_JOBS: DataSyncJob[] = [
     enabled: true,
   },
   {
-    id: 'sync-mercury',
+    id: 'sync-aws-billing',
+    schedule: '15 7 * * *',    // 7:15 UTC = 1:15 AM CT, daily
+    timezone: 'UTC',
+    endpoint: '/sync/aws-billing',
+    enabled: true,
+  },
+  {
+    id: 'sync-azure-billing',
+    schedule: '30 7 * * *',    // 7:30 UTC = 1:30 AM CT, daily
+    timezone: 'UTC',
+    endpoint: '/sync/azure-billing',
+    enabled: true,
+  },
+  {
+    id: 'sync-anthropic-billing',
+    schedule: '45 7 * * *',    // 7:45 UTC = 1:45 AM CT, daily
+    timezone: 'UTC',
+    endpoint: '/sync/anthropic-billing',
+    enabled: true,
+  },
+  {
+    id: 'sync-openai-billing',
     schedule: '0 8 * * *',     // 8:00 UTC = 2:00 AM CT, daily
+    timezone: 'UTC',
+    endpoint: '/sync/openai-billing',
+    enabled: true,
+  },
+  {
+    id: 'sync-mercury',
+    schedule: '30 8 * * *',    // 8:30 UTC = 2:30 AM CT, daily
     timezone: 'UTC',
     endpoint: '/sync/mercury',
     enabled: true,

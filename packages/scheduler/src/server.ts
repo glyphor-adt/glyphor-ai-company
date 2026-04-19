@@ -26,7 +26,7 @@ import {
   recordAgentRunCompleted,
 } from '@glyphor/agent-runtime';
 import type { CompanyAgentRole, AgentExecutionResult, GlyphorEvent, ConversationTurn, ConversationAttachment, WorkflowStatus } from '@glyphor/agent-runtime';
-import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncSharePointKnowledge, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding, GLYPHOR_TEAMS_QUICK_REPLY_VERB } from '@glyphor/integrations';
+import { handleStripeWebhook, syncStripeAll, syncBillingToDB, syncMercuryAll, syncSharePointKnowledge, runGovernanceSync, GraphChatHandler, ChatSubscriptionManager, GraphTeamsClient, getM365Token, A365TeamsChatClient, handleDocuSignWebhook, DEFAULT_SYSTEM_TENANT_ID, buildTeamsInstallProof, canonicalTeamsWorkspaceKey, resolveVerifiedTeamsTenantBinding, GLYPHOR_TEAMS_QUICK_REPLY_VERB, syncOpenAIBilling, syncAnthropicBilling, syncAwsBedrockBilling, syncAzureOpenAiBilling } from '@glyphor/integrations';
 import { SYSTEM_PROMPTS } from '@glyphor/agents';
 import { assertWorkAssignmentDispatchAllowed, getGoogleAiApiKey, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
 import { systemQuery } from '@glyphor/shared/db';
@@ -3634,6 +3634,59 @@ const server = createServer(async (req, res) => {
         await systemQuery(
           'UPDATE data_sync_status SET last_failure_at=$1, last_error=$2, consecutive_failures=$3, status=$4, updated_at=$5 WHERE id=$6',
           [new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString(), 'gcp-billing'],
+        );
+        json(res, 500, { success: false, error: message });
+      }
+      return;
+    }
+
+    // LLM provider billing syncs: OpenAI, Anthropic, AWS Bedrock, Azure OpenAI
+    if (method === 'POST' && (
+      url === '/sync/openai-billing' ||
+      url === '/sync/anthropic-billing' ||
+      url === '/sync/aws-billing' ||
+      url === '/sync/azure-billing'
+    )) {
+      const syncId =
+        url === '/sync/openai-billing'    ? 'openai-billing'    :
+        url === '/sync/anthropic-billing' ? 'anthropic-billing' :
+        url === '/sync/aws-billing'       ? 'aws-billing'       : 'azure-billing';
+      try {
+        let result: { synced: number; models: number };
+        if (url === '/sync/openai-billing') {
+          const key = process.env.OPENAI_ADMIN_KEY;
+          if (!key) throw new Error('OPENAI_ADMIN_KEY not set');
+          result = await syncOpenAIBilling(key, process.env.OPENAI_BILLING_PRODUCT ?? 'glyphor', 30);
+        } else if (url === '/sync/anthropic-billing') {
+          const key = process.env.ANTHROPIC_ADMIN_KEY;
+          if (!key) throw new Error('ANTHROPIC_ADMIN_KEY not set');
+          result = await syncAnthropicBilling(key, process.env.ANTHROPIC_BILLING_PRODUCT ?? 'glyphor', 30);
+        } else if (url === '/sync/aws-billing') {
+          result = await syncAwsBedrockBilling(process.env.AWS_BILLING_PRODUCT ?? 'glyphor', 30);
+        } else {
+          result = await syncAzureOpenAiBilling(process.env.AZURE_BILLING_PRODUCT ?? 'glyphor', 30);
+        }
+        await systemQuery(
+          `INSERT INTO data_sync_status (id, last_success_at, consecutive_failures, status, last_error, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6)
+           ON CONFLICT (id) DO UPDATE SET last_success_at=EXCLUDED.last_success_at,
+             consecutive_failures=0, status='ok', last_error=NULL, updated_at=EXCLUDED.updated_at`,
+          [syncId, new Date().toISOString(), 0, 'ok', null, new Date().toISOString()],
+        );
+        json(res, 200, { success: true, ...result });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const [current] = await systemQuery<{ consecutive_failures: number }>(
+          'SELECT consecutive_failures FROM data_sync_status WHERE id=$1', [syncId],
+        );
+        const failures = (current?.consecutive_failures ?? 0) + 1;
+        await systemQuery(
+          `INSERT INTO data_sync_status (id, last_failure_at, last_error, consecutive_failures, status, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6)
+           ON CONFLICT (id) DO UPDATE SET last_failure_at=EXCLUDED.last_failure_at,
+             last_error=EXCLUDED.last_error, consecutive_failures=EXCLUDED.consecutive_failures,
+             status=EXCLUDED.status, updated_at=EXCLUDED.updated_at`,
+          [syncId, new Date().toISOString(), message, failures, failures >= 3 ? 'failing' : 'stale', new Date().toISOString()],
         );
         json(res, 500, { success: false, error: message });
       }

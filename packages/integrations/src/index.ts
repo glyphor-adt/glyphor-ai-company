@@ -133,6 +133,17 @@ export {
   type CloudBuildLog,
 } from './gcp/index.js';
 
+// Direct-provider LLM billing (OpenAI, Anthropic direct APIs)
+export { queryOpenAICosts, syncOpenAIBilling } from './openai/index.js';
+export type { OpenAICostBucket, OpenAICostsResponse } from './openai/index.js';
+export { queryAnthropicUsage, syncAnthropicBilling } from './anthropic/index.js';
+export type { AnthropicDailyUsage } from './anthropic/index.js';
+
+// Cloud provider cost ingestion (AWS Bedrock, Azure OpenAI)
+export { queryBedrockCosts, syncAwsBedrockBilling } from './aws/index.js';
+export type { AwsBedrockDailyRow } from './aws/index.js';
+export { queryAzureOpenAiCosts, syncAzureOpenAiBilling } from './azure/index.js';
+
 // Mercury banking
 export {
   listAccounts as listMercuryAccounts,
