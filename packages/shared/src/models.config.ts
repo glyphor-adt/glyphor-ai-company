@@ -25,7 +25,10 @@ export const MODEL_CONFIG = {
     high: 'claude-sonnet-4-6', // AWS Bedrock — Claude Sonnet 4.6
 
     // <1% highest-stakes turns (explicit policy / orchestration only)
-    max: 'claude-opus-4-7', // AWS Bedrock — Claude Opus 4.7
+    // NOTE: Opus 4.7 access not granted on this Bedrock account (confirmed 2026-04-19 via
+    // InvokeModel test against us.anthropic.claude-opus-4-7 → permission_error). Falling back
+    // to Sonnet 4.6 until AWS access is provisioned. Revisit when account permissions change.
+    max: 'claude-sonnet-4-6', // AWS Bedrock — Claude Sonnet 4.6 (was claude-opus-4-7)
 
     // Long chain-of-thought / math-style reasoning
     reasoning: 'o4-mini', // Azure Foundry — o4-mini

@@ -552,7 +552,9 @@ export interface ActivityLogEntry {
     // mutates company_agents.status so that audit queries catch all writers.
     | 'agent.paused'
     | 'agent.resumed'
-    | 'agent.status_changed';
+    | 'agent.status_changed'
+    // Scheduler skipped a run for a non-error reason (daily spend cap, etc.).
+    | 'run_skipped';
   product?: ProductSlug | 'company';
   summary: string;
   details?: unknown;

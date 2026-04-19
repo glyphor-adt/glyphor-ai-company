@@ -1,0 +1,5 @@
+# Local diagnostic scripts and query scratchpads.
+# Checked-in .gitignore so the dir itself stays in git but contents are ignored.
+*
+!.gitignore
+!README.md

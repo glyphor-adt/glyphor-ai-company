@@ -2657,6 +2657,45 @@ async function runAutoFailurePipeline(
   }
 }
 
+// ─── Emergency fleet-level spend caps ──────────────────────────────────────
+// Crude circuit breaker while real budget_daily enforcement is designed.
+// Fuse, not a thermostat: values set generously so a normal day never trips.
+// See packages/agent-runtime and company_agents.budget_daily for proper enforcement work.
+const FLEET_DAILY_HARD_CAP_USD = Number(process.env.FLEET_DAILY_HARD_CAP_USD ?? 500);
+const AGENT_DAILY_HARD_CAP_USD = Number(process.env.AGENT_DAILY_HARD_CAP_USD ?? 100);
+const HARD_CAP_BYPASS_TASKS = new Set(['event_response']); // Ops event_response is the investigator; never block it.
+
+async function checkSpendCaps(
+  agentRole: CompanyAgentRole,
+  task: string,
+): Promise<{ exceeded: false } | { exceeded: true; scope: 'fleet' | 'agent'; spentUsd: number; capUsd: number }> {
+  if (HARD_CAP_BYPASS_TASKS.has(task)) return { exceeded: false };
+  try {
+    const [fleet] = await systemQuery<{ total: string | null }>(
+      `SELECT COALESCE(SUM(total_cost_usd), 0)::text AS total
+       FROM agent_runs WHERE started_at >= CURRENT_DATE`,
+    );
+    const fleetTotal = Number(fleet?.total ?? 0);
+    if (fleetTotal >= FLEET_DAILY_HARD_CAP_USD) {
+      return { exceeded: true, scope: 'fleet', spentUsd: fleetTotal, capUsd: FLEET_DAILY_HARD_CAP_USD };
+    }
+    const [agent] = await systemQuery<{ total: string | null }>(
+      `SELECT COALESCE(SUM(total_cost_usd), 0)::text AS total
+       FROM agent_runs WHERE started_at >= CURRENT_DATE AND agent_id = $1`,
+      [agentRole],
+    );
+    const agentTotal = Number(agent?.total ?? 0);
+    if (agentTotal >= AGENT_DAILY_HARD_CAP_USD) {
+      return { exceeded: true, scope: 'agent', spentUsd: agentTotal, capUsd: AGENT_DAILY_HARD_CAP_USD };
+    }
+    return { exceeded: false };
+  } catch (err) {
+    // Fail open: if the query fails, don't block runs — better to overspend once than halt the fleet.
+    console.warn('[Scheduler] checkSpendCaps query failed; allowing run:', (err as Error).message);
+    return { exceeded: false };
+  }
+}
+
 const trackedAgentExecutor = async (
   agentRole: CompanyAgentRole,
   task: string,
@@ -2664,6 +2703,41 @@ const trackedAgentExecutor = async (
 ): Promise<AgentExecutionResult | void> => {
   if (!isLiveRuntimeRole(agentRole)) {
     return blockedRuntimeResult(agentRole);
+  }
+
+  // Emergency spend fuse — blocks new runs once fleet/agent daily cap is reached.
+  const capCheck = await checkSpendCaps(agentRole, task);
+  if (capCheck.exceeded) {
+    const scope = capCheck.scope;
+    const summary = `Skipped run ${agentRole}/${task}: ${scope} daily hard cap reached (spent $${capCheck.spentUsd.toFixed(2)} of $${capCheck.capUsd.toFixed(2)}).`;
+    console.warn('[Scheduler] ' + summary);
+    try {
+      await systemQuery(
+        `INSERT INTO activity_log (agent_role, action, summary, details, tier)
+         VALUES ($1, $2, $3, $4::jsonb, $5)`,
+        [
+          agentRole,
+          'run_skipped',
+          summary,
+          JSON.stringify({
+            source: 'trackedAgentExecutor',
+            reason: `${scope}_budget_cap`,
+            task,
+            spent_usd: capCheck.spentUsd,
+            cap_usd: capCheck.capUsd,
+          }),
+          'red',
+        ],
+      );
+    } catch (logErr) {
+      console.warn('[Scheduler] Failed to write run_skipped activity log:', (logErr as Error).message);
+    }
+    return {
+      output: summary,
+      status: 'error',
+      error: `budget_cap_${scope}`,
+      totalTurns: 0,
+    } as AgentExecutionResult;
   }
 
   const inputMsg = typeof payload?.message === 'string' ? payload.message : null;

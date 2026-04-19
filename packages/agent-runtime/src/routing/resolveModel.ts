@@ -52,7 +52,8 @@ const TIER_CREDIT_OPTIONS: Record<
     { cloud: 'gcp', model: 'gemini-3.1-flash-lite-preview' },
   ],
   max: [
-    { cloud: 'aws', model: 'claude-opus-4-7' },
+    // Opus 4.7 access not granted on this Bedrock account — see models.config.ts.
+    { cloud: 'aws', model: 'claude-sonnet-4-6' },
     { cloud: 'azure', model: 'gpt-5.4' },
     { cloud: 'gcp', model: 'gemini-3.1-pro-preview' },
   ],

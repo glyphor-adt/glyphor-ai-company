@@ -44,6 +44,18 @@ import {
   resolveAssigneeForWorkAssignment,
 } from '../shared/assigneeRouting.js';
 
+/**
+ * Strip one or more leading [ROLE] prefixes from a delegated-directive title so
+ * that re-delegation does not produce nested prefixes like `[CMO] [CMO] [CMO] Foo`.
+ *
+ * Matches any number of leading bracketed uppercase tokens (optionally whitespace-padded)
+ * and returns the remaining title, trimmed. Safe to call on already-clean titles
+ * (idempotent — returns the input trimmed).
+ */
+function stripExistingRolePrefix(title: string): string {
+  return title.replace(/^(?:\s*\[[A-Z][A-Z0-9-]*\]\s*)+/, '').trim();
+}
+
 const INITIATIVE_OWNER_CATEGORY: Record<string, string> = {
   cto: 'engineering',
   cpo: 'product',
@@ -2935,8 +2947,12 @@ export function createOrchestrationTools(
             };
           }
 
-          // 3. Create sub-directive
-          const subTitle = `[${delegatedTo.toUpperCase()}] ${original.title}`;
+          // 3. Create sub-directive.
+          //    Strip any existing [ROLE] prefixes from the parent title before prepending the
+          //    new one — otherwise re-delegation produces nested `[CMO] [CMO] [CMO] Foo` titles
+          //    which poison downstream agents (they spend a full max_turns run trying to parse it).
+          const cleanParentTitle = stripExistingRolePrefix(original.title);
+          const subTitle = `[${delegatedTo.toUpperCase()}] ${cleanParentTitle}`;
           const [subDirective] = await systemQuery(
             `INSERT INTO founder_directives
               (title, description, priority, status, parent_directive_id, delegated_to, delegation_type, delegated_at, delegation_context, created_by)
