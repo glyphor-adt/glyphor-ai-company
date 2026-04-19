@@ -45,6 +45,23 @@ export {
 export type { CanonicalKeepRole } from './canonicalKeepRoster.js';
 
 export {
+  ACTIVE_AGENT_ROLES,
+  RETIRED_AGENT_ROLES,
+  SCAFFOLDED_BUT_UNBUILT_ROLES,
+  ALL_INACTIVE_ROLES,
+  isActiveAgentRole,
+  isRetiredAgentRole,
+  isScaffoldedAgentRole,
+  isInactiveAgentRole,
+} from './activeAgentRoster.js';
+export type {
+  ActiveAgentRole,
+  RetiredAgentRole,
+  ScaffoldedAgentRole,
+  InactiveAgentRole,
+} from './activeAgentRoster.js';
+
+export {
   getAutonomyLevels,
   getAutonomyThresholds,
   getAgentAutonomyConfig,
