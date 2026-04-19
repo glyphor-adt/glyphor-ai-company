@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { MdSearch, MdClose } from 'react-icons/md';
+import { useCallback, useMemo, useState } from 'react';
+import { MdSearch, MdClose, MdFileDownload } from 'react-icons/md';
+import * as XLSX from 'xlsx';
 import { Card, GradientButton, SectionHeader, Skeleton } from '../ui';
 import {
   EmptyState,
@@ -168,10 +169,12 @@ function ToolReputationBoard({
   items,
   activeFilter,
   onOpenSurface,
+  onExportXlsx,
 }: {
   items: EnrichedTool[];
   activeFilter: HealthFilter;
   onOpenSurface: (surface: GovernanceSurface) => void;
+  onExportXlsx: () => void;
 }) {
   const filtered = useMemo(() => {
     if (!activeFilter) return items;
@@ -203,6 +206,12 @@ function ToolReputationBoard({
       <SectionHeader
         title={filterLabel ? `Tool Reputation Board — ${filterLabel} (${filtered.length})` : 'Tool Reputation Board'}
         subtitle="Worst-first view of active tools, combining runtime health with current governance grants."
+        action={
+          <GradientButton variant="neutral" size="sm" onClick={onExportXlsx}>
+            <MdFileDownload className="h-3.5 w-3.5" />
+            Export Excel
+          </GradientButton>
+        }
       />
       <div className="overflow-x-auto">
         <table className="w-full min-w-[980px] text-left text-[12px]">
@@ -615,6 +624,40 @@ export default function ToolView({
 
   const [healthFilter, setHealthFilter] = useState<HealthFilter>(null);
 
+  const handleExportXlsx = useCallback(() => {
+    const rows = activeTools.map((tool) => ({
+      'Tool Name': tool.tool_name,
+      'Display Name': toHumanWords(tool.tool_name),
+      'Platform': getToolPlatformMeta(tool.tool_name).label,
+      'Severity': tool.severity,
+      'Reliability Score': tool.reliability_score != null ? +(tool.reliability_score * 100).toFixed(1) : null,
+      'Success Rate (%)': tool.success_rate != null ? +(tool.success_rate * 100).toFixed(1) : null,
+      'Total Calls': tool.total_calls,
+      'Successful Calls': tool.successful_calls,
+      'Failed Calls': tool.failed_calls,
+      'Timeout Calls': tool.timeout_calls,
+      'Timeout Rate (%)': tool.timeoutRate != null ? +(tool.timeoutRate * 100).toFixed(1) : null,
+      'Avg Latency (ms)': tool.avg_latency_ms != null ? Math.round(tool.avg_latency_ms) : null,
+      'Downstream Defects': tool.downstream_defect_count,
+      'Active Grants': tool.activeGrantCount,
+      'Active': tool.is_active ? 'Yes' : 'No',
+      'Last Used': tool.last_used_at ?? '',
+      'Last Failed': tool.last_failed_at ?? '',
+      'Source': tool.tool_source,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Auto-size columns based on header width + padding
+    ws['!cols'] = Object.keys(rows[0] ?? {}).map((key) => ({
+      wch: Math.max(key.length + 2, 14),
+    }));
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tool Health');
+    XLSX.writeFile(wb, `glyphor-tool-health-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }, [activeTools]);
+
   const telemetryGaps = useMemo(() => {
     const knownTools = new Set(toolReputation.map((tool) => tool.tool_name));
     const grouped = new Map<string, { toolName: string; activeGrantCount: number; nextExpiry: string | null }>();
@@ -662,7 +705,7 @@ export default function ToolView({
         activeFilter={healthFilter}
         onFilter={setHealthFilter}
       />
-      <ToolReputationBoard items={activeTools} activeFilter={healthFilter} onOpenSurface={onOpenSurface} />
+      <ToolReputationBoard items={activeTools} activeFilter={healthFilter} onOpenSurface={onOpenSurface} onExportXlsx={handleExportXlsx} />
       <TelemetryGaps items={telemetryGaps} onOpenSurface={onOpenSurface} />
     </div>
   );
