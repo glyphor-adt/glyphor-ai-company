@@ -1217,12 +1217,15 @@ interface BlockersPayload {
     axis_scores: Record<string, number> | null;
   }>;
   staged_fixes: Array<{
+    id: string;
     agent_id: string;
     version: number;
+    prompt_text: string | null;
     change_summary: string | null;
     source: string;
     created_at: string;
     deployed_at: string | null;
+    retired_at: string | null;
   }>;
 }
 
@@ -1230,6 +1233,9 @@ function BlockersAndPlan() {
   const [data, setData] = useState<BlockersPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedFix, setExpandedFix] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [actionStatus, setActionStatus] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const [expandedFailure, setExpandedFailure] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -1241,6 +1247,63 @@ function BlockersAndPlan() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Shared action wrapper — surfaces success/failure toast and refreshes data.
+  const runAction = useCallback(async (
+    key: string,
+    label: string,
+    op: () => Promise<unknown>,
+  ) => {
+    setPendingAction(key);
+    setActionStatus(null);
+    try {
+      await op();
+      setActionStatus({ kind: 'ok', msg: `${label} succeeded` });
+      load();
+    } catch (e) {
+      setActionStatus({ kind: 'err', msg: `${label} failed: ${e instanceof Error ? e.message : 'unknown error'}` });
+    } finally {
+      setPendingAction(null);
+    }
+  }, [load]);
+
+  const rerunTask = useCallback((taskId: string, taskNumber: number) => runAction(
+    `rerun:${taskId}`,
+    `Re-run task #${taskNumber}`,
+    () => apiCall('/api/cz/runs', {
+      method: 'POST',
+      body: JSON.stringify({ mode: 'single', task_id: taskId, triggered_by: 'dashboard:blockers' }),
+    }),
+  ), [runAction]);
+
+  const promoteFix = useCallback((versionId: string, agent: string, version: number) => {
+    if (!window.confirm(
+      `Promote ${agent} v${version} to production?\n\n` +
+      `This skips the 10-run shadow evaluation gate and deploys the staged prompt immediately. ` +
+      `The currently-deployed version will be retired.`,
+    )) return Promise.resolve();
+    return runAction(
+      `promote:${versionId}`,
+      `Promote ${agent} v${version}`,
+      () => apiCall(`/api/cz/fixes/${versionId}/promote`, {
+        method: 'POST',
+        body: JSON.stringify({ triggered_by: 'dashboard:blockers' }),
+      }),
+    );
+  }, [runAction]);
+
+  const rejectFix = useCallback((versionId: string, agent: string, version: number) => {
+    const reason = window.prompt(`Reject ${agent} v${version}?\n\nOptional reason (logged to activity):`);
+    if (reason === null) return Promise.resolve();
+    return runAction(
+      `reject:${versionId}`,
+      `Reject ${agent} v${version}`,
+      () => apiCall(`/api/cz/fixes/${versionId}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ triggered_by: 'dashboard:blockers', reason }),
+      }),
+    );
+  }, [runAction]);
 
   const passRate = useMemo(() => {
     if (!data) return null;
@@ -1325,6 +1388,23 @@ function BlockersAndPlan() {
 
       {error && <p className="text-rose-400 text-sm mt-3">{error}</p>}
       {loading && !data && <Skeleton className="h-32 mt-3" />}
+      {actionStatus && (
+        <div
+          className={`mt-3 text-xs px-3 py-2 rounded border ${
+            actionStatus.kind === 'ok'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+              : 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+          }`}
+        >
+          {actionStatus.msg}
+          <button
+            className="ml-2 text-zinc-400 hover:text-zinc-200"
+            onClick={() => setActionStatus(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {data && (
         <>
@@ -1516,6 +1596,19 @@ function BlockersAndPlan() {
                               </div>
                             </div>
                           )}
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); rerunTask(f.task_id, f.task_number); }}
+                              disabled={pendingAction === `rerun:${f.task_id}`}
+                              className="px-2 py-1 rounded text-[11px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-50"
+                              title="Queue a fresh run for this task. On failure, the reflection loop will stage a new prompt mutation."
+                            >
+                              {pendingAction === `rerun:${f.task_id}` ? 'Queuing…' : '↻ Re-run task'}
+                            </button>
+                            <span className="text-zinc-600 text-[11px]">
+                              A failed re-run will trigger a new reflection-generated fix within ~24h.
+                            </span>
+                          </div>
                         </div>
                       )}
                     </li>
@@ -1531,28 +1624,96 @@ function BlockersAndPlan() {
               <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">
                 Prompt mutations staged by reflection loop
                 <span className="ml-2 text-zinc-600 normal-case font-normal">
-                  (auto-generated fixes awaiting shadow eval & promotion)
+                  (auto-generated fixes — review &amp; promote, or let shadow eval decide)
                 </span>
               </h3>
               <ul className="space-y-1.5">
-                {data.staged_fixes.map((s, i) => (
-                  <li key={i} className="flex items-start gap-3 text-xs border-b border-zinc-800/40 pb-1.5">
-                    <span className="text-zinc-200 w-24 shrink-0 truncate">{s.agent_id}</span>
-                    <span className="text-zinc-500 w-12 shrink-0 tabular-nums">v{s.version}</span>
-                    <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] ${
-                      s.deployed_at ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'
-                    }`}>
-                      {s.deployed_at ? 'deployed' : 'staged'}
-                    </span>
-                    <span className="text-zinc-400 flex-1 min-w-0 truncate" title={s.change_summary ?? ''}>
-                      {s.change_summary ?? '(no summary)'}
-                    </span>
-                    <span className="text-zinc-600 tabular-nums shrink-0" title={formatStampFull(s.created_at)}>
-                      {formatStamp(s.created_at)}
-                    </span>
-                  </li>
-                ))}
+                {data.staged_fixes.map((s) => {
+                  const isOpen = expandedFix === s.id;
+                  const status =
+                    s.deployed_at ? 'deployed' :
+                    s.retired_at ? 'retired' :
+                    'staged';
+                  const statusClass =
+                    status === 'deployed' ? 'bg-emerald-500/15 text-emerald-300' :
+                    status === 'retired' ? 'bg-zinc-700/40 text-zinc-400 line-through' :
+                    'bg-amber-500/15 text-amber-300';
+                  const actionable = status === 'staged';
+                  return (
+                    <li key={s.id} className="border border-zinc-800/60 rounded-md bg-zinc-900/30">
+                      <div className="flex items-start gap-3 px-3 py-2 text-xs">
+                        <button
+                          onClick={() => setExpandedFix(isOpen ? null : s.id)}
+                          className="flex-1 min-w-0 flex items-start gap-3 text-left hover:bg-zinc-800/20 -mx-1 px-1 rounded"
+                        >
+                          <span className="text-zinc-600 text-[10px] pt-0.5 shrink-0">{isOpen ? '▾' : '▸'}</span>
+                          <span className="text-zinc-200 w-24 shrink-0 truncate">{s.agent_id}</span>
+                          <span className="text-zinc-500 w-12 shrink-0 tabular-nums">v{s.version}</span>
+                          <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] ${statusClass}`}>
+                            {status}
+                          </span>
+                          <span className="text-zinc-400 flex-1 min-w-0 truncate" title={s.change_summary ?? ''}>
+                            {s.change_summary ?? '(no summary)'}
+                          </span>
+                          <span className="text-zinc-600 tabular-nums shrink-0" title={formatStampFull(s.created_at)}>
+                            {formatStamp(s.created_at)}
+                          </span>
+                        </button>
+                        {actionable && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); promoteFix(s.id, s.agent_id, s.version); }}
+                              disabled={pendingAction !== null}
+                              className="px-2 py-1 rounded text-[11px] font-medium bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 disabled:opacity-50"
+                              title="Deploy this prompt mutation now, retiring the current baseline. Skips the 10-run shadow eval gate."
+                            >
+                              {pendingAction === `promote:${s.id}` ? '…' : '✓ Promote'}
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); rejectFix(s.id, s.agent_id, s.version); }}
+                              disabled={pendingAction !== null}
+                              className="px-2 py-1 rounded text-[11px] font-medium bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border border-rose-500/30 disabled:opacity-50"
+                              title="Retire this staged mutation without deploying. The reflection loop may stage a new one after the next failure."
+                            >
+                              {pendingAction === `reject:${s.id}` ? '…' : '✗ Reject'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {isOpen && (
+                        <div className="px-3 pb-3 pt-1 text-xs border-t border-zinc-800/60 space-y-2">
+                          {s.change_summary && (
+                            <div>
+                              <p className="text-zinc-500 mb-1">Change summary</p>
+                              <p className="text-zinc-300 whitespace-pre-wrap">{s.change_summary}</p>
+                            </div>
+                          )}
+                          {s.prompt_text ? (
+                            <div>
+                              <p className="text-zinc-500 mb-1">Proposed prompt (v{s.version})</p>
+                              <pre className="text-zinc-300 bg-black/40 border border-zinc-800 rounded p-2 whitespace-pre-wrap overflow-x-auto max-h-64 overflow-y-auto">
+{s.prompt_text}
+                              </pre>
+                            </div>
+                          ) : (
+                            <p className="text-zinc-600 italic">No prompt text recorded for this version.</p>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
+            </div>
+          )}
+
+          {data.staged_fixes.length === 0 && data.summary.failing > 0 && (
+            <div className="mt-6 text-xs text-zinc-500 border border-zinc-800/60 rounded-md p-3 bg-zinc-900/30">
+              <p className="text-zinc-300">No staged prompt fixes yet.</p>
+              <p className="mt-1">
+                The reflection loop stages a prompt mutation after a batch completes with failures. Re-run the failing tasks above to trigger a fresh analysis,
+                or hand-author a prompt change in the agents package.
+              </p>
             </div>
           )}
 

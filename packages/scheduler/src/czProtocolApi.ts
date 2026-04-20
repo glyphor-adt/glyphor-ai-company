@@ -20,7 +20,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { systemQuery } from '@glyphor/shared/db';
+import { systemQuery, systemTransaction } from '@glyphor/shared/db';
 import { writeJson } from './httpJson.js';
 import { corsHeadersFor } from './corsHeaders.js';
 import { getGoogleAiApiKey, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
@@ -569,12 +569,15 @@ export async function handleCzApi(
         // Staged prompt mutations from CZ reflection that haven't been deployed yet
         systemQuery(`
           SELECT
+            id,
             agent_id,
             version,
+            prompt_text,
             change_summary,
             source,
             created_at,
-            deployed_at
+            deployed_at,
+            retired_at
           FROM agent_prompt_versions
           WHERE source = 'cz_reflection'
             AND created_at > NOW() - INTERVAL '14 days'
@@ -593,6 +596,90 @@ export async function handleCzApi(
         recent_failures: recentFailures,
         staged_fixes: stagedFixes,
       });
+      return true;
+    }
+
+    // ── POST /api/cz/fixes/:id/promote ───────────────────────
+    // Manually promote a staged CZ reflection prompt mutation, skipping the
+    // 10-run shadow eval gate. Retires the currently-deployed version for
+    // the same agent and deploys the challenger atomically.
+    if (segments[0] === 'fixes' && segments.length === 3 && segments[2] === 'promote' && method === 'POST') {
+      const versionId = segments[1];
+      if (!isUuid(versionId)) { send(400, { error: 'Invalid version id' }); return true; }
+      let body: { triggered_by?: string } = {};
+      try { body = JSON.parse(await readBody(req)); } catch { /* optional */ }
+
+      const rows = await systemQuery<{
+        id: string;
+        agent_id: string;
+        tenant_id: string;
+        version: number;
+        deployed_at: string | null;
+        retired_at: string | null;
+      }>(
+        `SELECT id, agent_id, tenant_id, version, deployed_at, retired_at
+         FROM agent_prompt_versions WHERE id = $1`,
+        [versionId],
+      );
+      if (!rows.length) { send(404, { error: 'Version not found' }); return true; }
+      const v = rows[0];
+      if (v.deployed_at) { send(409, { error: 'Already deployed' }); return true; }
+      if (v.retired_at) { send(409, { error: 'Already retired — cannot promote' }); return true; }
+
+      await systemTransaction(async (client) => {
+        // Retire current active baseline for this agent
+        await client.query(
+          `UPDATE agent_prompt_versions
+           SET retired_at = NOW()
+           WHERE tenant_id = $1 AND agent_id = $2
+             AND deployed_at IS NOT NULL AND retired_at IS NULL`,
+          [v.tenant_id, v.agent_id],
+        );
+        // Deploy this challenger (mark as manually force-promoted)
+        await client.query(
+          `UPDATE agent_prompt_versions
+           SET deployed_at = NOW(), source = 'shadow_promoted'
+           WHERE id = $1`,
+          [v.id],
+        );
+      });
+
+      console.log(
+        `[CzBlockers] FORCE-PROMOTED ${v.agent_id} v${v.version} by ${body.triggered_by ?? 'dashboard'}`,
+      );
+      send(200, { ok: true, agent_id: v.agent_id, version: v.version, action: 'promoted' });
+      return true;
+    }
+
+    // ── POST /api/cz/fixes/:id/reject ────────────────────────
+    // Retire a staged CZ reflection prompt mutation without deploying it.
+    if (segments[0] === 'fixes' && segments.length === 3 && segments[2] === 'reject' && method === 'POST') {
+      const versionId = segments[1];
+      if (!isUuid(versionId)) { send(400, { error: 'Invalid version id' }); return true; }
+      let body: { triggered_by?: string; reason?: string } = {};
+      try { body = JSON.parse(await readBody(req)); } catch { /* optional */ }
+
+      const rows = await systemQuery<{
+        id: string; agent_id: string; version: number; deployed_at: string | null; retired_at: string | null;
+      }>(
+        `SELECT id, agent_id, version, deployed_at, retired_at
+         FROM agent_prompt_versions WHERE id = $1`,
+        [versionId],
+      );
+      if (!rows.length) { send(404, { error: 'Version not found' }); return true; }
+      const v = rows[0];
+      if (v.deployed_at) { send(409, { error: 'Already deployed — cannot reject' }); return true; }
+      if (v.retired_at) { send(409, { error: 'Already retired' }); return true; }
+
+      await systemQuery(
+        `UPDATE agent_prompt_versions SET retired_at = NOW() WHERE id = $1`,
+        [v.id],
+      );
+      console.log(
+        `[CzBlockers] REJECTED ${v.agent_id} v${v.version} by ${body.triggered_by ?? 'dashboard'}` +
+        (body.reason ? ` — ${body.reason}` : ''),
+      );
+      send(200, { ok: true, agent_id: v.agent_id, version: v.version, action: 'rejected' });
       return true;
     }
 
