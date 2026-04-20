@@ -474,7 +474,128 @@ export async function handleCzApi(
       return true;
     }
 
-    // ── GET /api/cz/tasks/:id ────────────────────────────────
+    // ── GET /api/cz/blockers ─────────────────────────────────
+    // Aggregated view of failing tasks + recent failure reasoning + any
+    // prompt mutations already staged by the CZ reflection pipeline.
+    // Used by the Blockers & Fix Plan panel on the dashboard.
+    if (segments[0] === 'blockers' && segments.length === 1 && method === 'GET') {
+      const limitRecent = Math.min(Math.max(Number(params.get('limit') ?? 8), 1), 50);
+
+      const [summaryRows, agentRows, pillarRows, recentFailures, stagedFixes] = await Promise.all([
+        // Summary — latest score per task across all surfaces/modes
+        systemQuery(`
+          WITH task_latest AS (
+            SELECT DISTINCT ON (t.id)
+              t.id, t.is_p0, ls.passed, ls.judge_score, ls.completed_at
+            FROM cz_tasks t
+            LEFT JOIN cz_latest_scores ls ON ls.task_id = t.id
+            WHERE t.active = true
+            ORDER BY t.id, ls.completed_at DESC NULLS LAST
+          )
+          SELECT
+            COUNT(*)::int                                                   AS total_tasks,
+            COUNT(*) FILTER (WHERE passed = true)::int                       AS passing,
+            COUNT(*) FILTER (WHERE passed = false)::int                      AS failing,
+            COUNT(*) FILTER (WHERE passed IS NULL)::int                      AS unscored,
+            COUNT(*) FILTER (WHERE is_p0 = true AND passed = false)::int     AS p0_failing,
+            COUNT(*) FILTER (WHERE is_p0 = true)::int                        AS p0_total,
+            AVG(judge_score) FILTER (WHERE judge_score IS NOT NULL)::numeric(4,2) AS avg_score,
+            MAX(completed_at)                                                AS last_run_at
+          FROM task_latest
+        `),
+        // Top agents by failing task count
+        systemQuery(`
+          SELECT
+            COALESCE(t.responsible_agent, 'unassigned') AS agent,
+            COUNT(*)::int                                                    AS total_count,
+            COUNT(*) FILTER (WHERE ls.passed = false)::int                   AS failing_count,
+            COUNT(*) FILTER (WHERE t.is_p0 = true AND ls.passed = false)::int AS p0_failing_count,
+            AVG(ls.judge_score)::numeric(4,2)                                AS avg_score,
+            MAX(ls.completed_at)                                             AS last_run_at
+          FROM cz_tasks t
+          LEFT JOIN cz_latest_scores ls ON ls.task_id = t.id
+          WHERE t.active = true
+          GROUP BY 1
+          HAVING COUNT(*) FILTER (WHERE ls.passed = false) > 0
+          ORDER BY failing_count DESC, p0_failing_count DESC
+          LIMIT 10
+        `),
+        // Top pillars by failing task count
+        systemQuery(`
+          SELECT
+            t.pillar,
+            pc.pass_rate_threshold,
+            pc.avg_score_threshold,
+            COUNT(*)::int                                                 AS total_count,
+            COUNT(*) FILTER (WHERE ls.passed = true)::int                  AS passing_count,
+            COUNT(*) FILTER (WHERE ls.passed = false)::int                 AS failing_count,
+            AVG(ls.judge_score)::numeric(4,2)                              AS avg_score,
+            MAX(ls.completed_at)                                           AS last_run_at
+          FROM cz_tasks t
+          LEFT JOIN cz_latest_scores ls ON ls.task_id = t.id
+          LEFT JOIN cz_pillar_config pc ON pc.pillar = t.pillar
+          WHERE t.active = true
+          GROUP BY t.pillar, pc.pass_rate_threshold, pc.avg_score_threshold
+          HAVING COUNT(*) FILTER (WHERE ls.passed = false) > 0
+          ORDER BY failing_count DESC
+          LIMIT 10
+        `),
+        // Recent distinct failing tasks with judge reasoning — one row per task
+        systemQuery(`
+          SELECT DISTINCT ON (r.task_id)
+            r.task_id,
+            t.task_number,
+            t.task,
+            t.pillar,
+            t.responsible_agent,
+            t.is_p0,
+            r.completed_at,
+            r.surface,
+            r.mode,
+            s.judge_score,
+            s.judge_tier,
+            s.reasoning_trace,
+            s.heuristic_failures,
+            s.axis_scores
+          FROM cz_runs r
+          JOIN cz_scores s ON s.run_id = r.id
+          JOIN cz_tasks t ON t.id = r.task_id
+          WHERE t.active = true
+            AND s.passed = false
+            AND r.completed_at IS NOT NULL
+          ORDER BY r.task_id, r.completed_at DESC
+          LIMIT $1
+        `, [limitRecent]),
+        // Staged prompt mutations from CZ reflection that haven't been deployed yet
+        systemQuery(`
+          SELECT
+            agent_id,
+            version,
+            change_summary,
+            source,
+            created_at,
+            deployed_at
+          FROM agent_prompt_versions
+          WHERE source = 'cz_reflection'
+            AND created_at > NOW() - INTERVAL '14 days'
+          ORDER BY created_at DESC
+          LIMIT 25
+        `),
+      ]);
+
+      send(200, {
+        summary: summaryRows[0] ?? {
+          total_tasks: 0, passing: 0, failing: 0, unscored: 0,
+          p0_failing: 0, p0_total: 0, avg_score: null, last_run_at: null,
+        },
+        top_agents: agentRows,
+        top_pillars: pillarRows,
+        recent_failures: recentFailures,
+        staged_fixes: stagedFixes,
+      });
+      return true;
+    }
+
     if (segments[0] === 'tasks' && segments.length === 2 && method === 'GET') {
       const taskId = segments[1];
       if (!isUuid(taskId)) { send(400, { error: 'Invalid task ID' }); return true; }

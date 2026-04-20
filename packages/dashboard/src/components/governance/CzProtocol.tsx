@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, SectionHeader, Skeleton, Badge, GradientButton, Sparkline } from '../ui';
 import { apiCall, buildApiHeaders, CANONICAL_SCHEDULER_URL } from '../../lib/firebase';
 
@@ -129,6 +129,28 @@ function timeAgo(iso: string | null): string {
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
 }
+
+/** Compact absolute timestamp, e.g. "Apr 20, 4:32p". Use for table cells and task detail rows. */
+function formatStamp(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  const m = d.toLocaleString(undefined, { month: 'short', day: 'numeric' });
+  const t = d.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(' ', '');
+  return `${m} · ${t}`;
+}
+
+/** Full ISO-ish timestamp for tooltips, e.g. "2026-04-20 16:32:45". */
+function formatStampFull(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', second: '2-digit',
+  });
+}
+
 
 /* ══════════════════════════════════════════════════════════════
    Panel 1: Scorecard
@@ -344,14 +366,14 @@ function TaskGrid() {
                 <th className="py-2 pr-2 w-14">Agent</th>
                 <th className="py-2 pr-2 w-10 text-center">P0</th>
                 <th className="py-2 pr-2 w-14 text-right">Score</th>
-                <th className="py-2 w-12 text-center">Pass</th>
+                <th className="py-2 pr-2 w-12 text-center">Pass</th>
+                <th className="py-2 w-28">Last Run</th>
               </tr>
             </thead>
             <tbody>
               {tasks.map((t) => (
-                <>
+                <Fragment key={t.id}>
                   <tr
-                    key={t.id}
                     className="border-b border-zinc-800/40 hover:bg-zinc-800/30 cursor-pointer"
                     onClick={() => {
                       if (expandedTask === t.id) {
@@ -378,7 +400,7 @@ function TaskGrid() {
                     <td className={`py-2 pr-2 text-right tabular-nums ${scoreColor(t.latest_score)}`}>
                       {t.latest_score != null ? Number(t.latest_score).toFixed(1) : '—'}
                     </td>
-                    <td className="py-2 text-center">
+                    <td className="py-2 pr-2 text-center">
                       {t.latest_pass == null ? (
                         <span className="text-zinc-600">—</span>
                       ) : t.latest_pass ? (
@@ -387,10 +409,23 @@ function TaskGrid() {
                         <span className="text-rose-400">✗</span>
                       )}
                     </td>
+                    <td
+                      className="py-2 text-zinc-400 tabular-nums whitespace-nowrap"
+                      title={formatStampFull(t.latest_run_at)}
+                    >
+                      {t.latest_run_at ? (
+                        <span>
+                          {formatStamp(t.latest_run_at)}
+                          <span className="text-zinc-600 ml-1">({timeAgo(t.latest_run_at)})</span>
+                        </span>
+                      ) : (
+                        <span className="text-zinc-600">never</span>
+                      )}
+                    </td>
                   </tr>
                   {expandedTask === t.id && (
                     <tr key={`${t.id}-detail`} className="bg-zinc-900/50">
-                      <td colSpan={7} className="p-3">
+                      <td colSpan={8} className="p-3">
                         <div className="grid grid-cols-2 gap-4 text-xs">
                           <div>
                             <p className="text-zinc-500 mb-1">Acceptance Criteria</p>
@@ -406,8 +441,13 @@ function TaskGrid() {
                           </div>
                           <div>
                             <p className="text-zinc-500 mb-1">Last Run</p>
-                            <p className="text-zinc-300">
-                              {t.latest_run_at ? timeAgo(t.latest_run_at) : 'Never'}
+                            <p className="text-zinc-300" title={formatStampFull(t.latest_run_at)}>
+                              {t.latest_run_at ? (
+                                <>
+                                  {formatStamp(t.latest_run_at)}
+                                  <span className="text-zinc-500 ml-2">({timeAgo(t.latest_run_at)})</span>
+                                </>
+                              ) : 'Never'}
                               {t.latest_judge_tier && (
                                 <span className="text-zinc-500 ml-2">tier: {t.latest_judge_tier}</span>
                               )}
@@ -462,7 +502,7 @@ function TaskGrid() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -901,7 +941,12 @@ function LiveRunConsole() {
                       avg {Number(r.avg_judge_score).toFixed(1)}
                     </span>
                   )}
-                  <span className="text-zinc-600 ml-auto">{timeAgo(r.started_at)}</span>
+                  <span
+                    className="text-zinc-600 ml-auto tabular-nums"
+                    title={formatStampFull(r.started_at)}
+                  >
+                    {formatStamp(r.started_at)} · {timeAgo(r.started_at)}
+                  </span>
                 </div>
               );
             })}
@@ -1120,6 +1165,430 @@ function DriftChart() {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   Blockers & Fix Plan
+   Summarizes failing tasks, top blocking agents/pillars, recent
+   failure reasoning, and any prompt mutations already staged by
+   the reflection bridge (source='cz_reflection').
+   ══════════════════════════════════════════════════════════════ */
+
+interface BlockersPayload {
+  summary: {
+    total_tasks: number;
+    passing: number;
+    failing: number;
+    unscored: number;
+    p0_failing: number;
+    p0_total: number;
+    avg_score: number | null;
+    last_run_at: string | null;
+  };
+  top_agents: Array<{
+    agent: string;
+    total_count: number;
+    failing_count: number;
+    p0_failing_count: number;
+    avg_score: number | null;
+    last_run_at: string | null;
+  }>;
+  top_pillars: Array<{
+    pillar: string;
+    pass_rate_threshold: number | null;
+    avg_score_threshold: number | null;
+    total_count: number;
+    passing_count: number;
+    failing_count: number;
+    avg_score: number | null;
+    last_run_at: string | null;
+  }>;
+  recent_failures: Array<{
+    task_id: string;
+    task_number: number;
+    task: string;
+    pillar: string;
+    responsible_agent: string | null;
+    is_p0: boolean;
+    completed_at: string | null;
+    surface: string | null;
+    mode: string | null;
+    judge_score: number | null;
+    judge_tier: string | null;
+    reasoning_trace: string | null;
+    heuristic_failures: string[] | null;
+    axis_scores: Record<string, number> | null;
+  }>;
+  staged_fixes: Array<{
+    agent_id: string;
+    version: number;
+    change_summary: string | null;
+    source: string;
+    created_at: string;
+    deployed_at: string | null;
+  }>;
+}
+
+function BlockersAndPlan() {
+  const [data, setData] = useState<BlockersPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedFailure, setExpandedFailure] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    apiCall<BlockersPayload>('/api/cz/blockers?limit=10')
+      .then((d) => { setData(d); setError(null); })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load blockers'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const passRate = useMemo(() => {
+    if (!data) return null;
+    const scored = data.summary.passing + data.summary.failing;
+    if (scored === 0) return null;
+    return data.summary.passing / scored;
+  }, [data]);
+
+  // Derive ranked actionable recommendations from top agents + staged fixes
+  const recommendations = useMemo(() => {
+    if (!data) return [] as Array<{ priority: 'P0' | 'High' | 'Med'; title: string; detail: string }>;
+    const recs: Array<{ priority: 'P0' | 'High' | 'Med'; title: string; detail: string }> = [];
+
+    if (data.summary.p0_failing > 0) {
+      recs.push({
+        priority: 'P0',
+        title: `${data.summary.p0_failing} P0 test${data.summary.p0_failing === 1 ? '' : 's'} failing — block launch`,
+        detail: 'Investigate and fix before promoting any shadow prompts. P0 failures gate certification.',
+      });
+    }
+
+    const stagedAgents = new Set(data.staged_fixes.filter((s) => !s.deployed_at).map((s) => s.agent_id));
+    for (const a of data.top_agents.slice(0, 3)) {
+      const hasPlan = stagedAgents.has(a.agent);
+      const priority: 'P0' | 'High' | 'Med' = a.p0_failing_count > 0 ? 'P0' : a.failing_count >= 3 ? 'High' : 'Med';
+      recs.push({
+        priority,
+        title: `${a.agent}: ${a.failing_count} failing${a.p0_failing_count > 0 ? ` (${a.p0_failing_count} P0)` : ''}`,
+        detail: hasPlan
+          ? 'Prompt mutation already staged by reflection loop — review & promote via shadow eval.'
+          : 'No staged fix yet. Re-run failing tasks to trigger reflection, or hand-author a prompt patch.',
+      });
+    }
+
+    for (const p of data.top_pillars.slice(0, 2)) {
+      const threshold = p.pass_rate_threshold != null ? Number(p.pass_rate_threshold) : null;
+      const rate = p.total_count > 0 ? p.passing_count / p.total_count : 0;
+      if (threshold != null && rate < threshold) {
+        recs.push({
+          priority: 'High',
+          title: `Pillar "${p.pillar}" below threshold (${(rate * 100).toFixed(0)}% vs ${(threshold * 100).toFixed(0)}%)`,
+          detail: `${p.failing_count}/${p.total_count} tasks failing. Target the shared scenario pattern, not individual tasks.`,
+        });
+      }
+    }
+
+    if (data.recent_failures.length > 0 && recs.length < 3) {
+      const heuristicCounts: Record<string, number> = {};
+      for (const f of data.recent_failures) {
+        for (const h of f.heuristic_failures ?? []) {
+          heuristicCounts[h] = (heuristicCounts[h] ?? 0) + 1;
+        }
+      }
+      const topHeuristic = Object.entries(heuristicCounts).sort((a, b) => b[1] - a[1])[0];
+      if (topHeuristic && topHeuristic[1] >= 2) {
+        recs.push({
+          priority: 'Med',
+          title: `Recurring heuristic failure: "${topHeuristic[0]}" (${topHeuristic[1]}x)`,
+          detail: 'Common pattern across multiple agents — likely a shared tool, prompt template, or guardrail issue.',
+        });
+      }
+    }
+
+    return recs;
+  }, [data]);
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <SectionHeader
+          title="Blockers & Fix Plan"
+          subtitle="Automated failure analysis with prioritized recommendations."
+        />
+        <button
+          onClick={load}
+          disabled={loading}
+          className="text-xs text-cyan hover:text-cyan/80 disabled:opacity-50"
+        >
+          {loading ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
+
+      {error && <p className="text-rose-400 text-sm mt-3">{error}</p>}
+      {loading && !data && <Skeleton className="h-32 mt-3" />}
+
+      {data && (
+        <>
+          {/* Summary strip */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+            <SummaryStat label="Total" value={String(data.summary.total_tasks)} />
+            <SummaryStat
+              label="Passing"
+              value={`${data.summary.passing}${passRate != null ? ` (${(passRate * 100).toFixed(0)}%)` : ''}`}
+              tone="pos"
+            />
+            <SummaryStat label="Failing" value={String(data.summary.failing)} tone={data.summary.failing > 0 ? 'neg' : 'neutral'} />
+            <SummaryStat
+              label="P0 Failing"
+              value={`${data.summary.p0_failing}/${data.summary.p0_total}`}
+              tone={data.summary.p0_failing > 0 ? 'neg' : 'pos'}
+            />
+            <SummaryStat
+              label="Last Run"
+              value={data.summary.last_run_at ? formatStamp(data.summary.last_run_at) : 'never'}
+              title={formatStampFull(data.summary.last_run_at)}
+            />
+          </div>
+
+          {/* Recommendations */}
+          {recommendations.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Plan to fix — ranked</h3>
+              <ul className="space-y-2">
+                {recommendations.map((r, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm">
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
+                        r.priority === 'P0'
+                          ? 'bg-rose-500/20 text-rose-300'
+                          : r.priority === 'High'
+                            ? 'bg-amber-500/20 text-amber-300'
+                            : 'bg-zinc-700/50 text-zinc-300'
+                      }`}
+                    >
+                      {r.priority}
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-zinc-100">{r.title}</p>
+                      <p className="text-zinc-500 text-xs">{r.detail}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Two-column: Top agents + Top pillars */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div>
+              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Top blocking agents</h3>
+              {data.top_agents.length === 0 ? (
+                <p className="text-xs text-emerald-400">No failing agents. 🎉</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="text-zinc-500 text-left border-b border-zinc-700/40">
+                    <tr>
+                      <th className="py-1.5 pr-2">Agent</th>
+                      <th className="py-1.5 pr-2 text-right">Failing</th>
+                      <th className="py-1.5 pr-2 text-right">P0</th>
+                      <th className="py-1.5 text-right">Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.top_agents.map((a) => (
+                      <tr key={a.agent} className="border-b border-zinc-800/40">
+                        <td className="py-1.5 pr-2 text-zinc-200">{a.agent}</td>
+                        <td className="py-1.5 pr-2 text-right text-rose-400 tabular-nums">
+                          {a.failing_count}/{a.total_count}
+                        </td>
+                        <td className="py-1.5 pr-2 text-right tabular-nums">
+                          {a.p0_failing_count > 0
+                            ? <span className="text-rose-400 font-semibold">{a.p0_failing_count}</span>
+                            : <span className="text-zinc-600">0</span>}
+                        </td>
+                        <td className={`py-1.5 text-right tabular-nums ${scoreColor(a.avg_score)}`}>
+                          {a.avg_score != null ? Number(a.avg_score).toFixed(1) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div>
+              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Top blocking pillars</h3>
+              {data.top_pillars.length === 0 ? (
+                <p className="text-xs text-emerald-400">All pillars passing thresholds.</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="text-zinc-500 text-left border-b border-zinc-700/40">
+                    <tr>
+                      <th className="py-1.5 pr-2">Pillar</th>
+                      <th className="py-1.5 pr-2 text-right">Pass %</th>
+                      <th className="py-1.5 pr-2 text-right">Failing</th>
+                      <th className="py-1.5 text-right">Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.top_pillars.map((p) => {
+                      const rate = p.total_count > 0 ? (p.passing_count / p.total_count) * 100 : 0;
+                      const threshold = p.pass_rate_threshold != null ? Number(p.pass_rate_threshold) * 100 : null;
+                      const belowThreshold = threshold != null && rate < threshold;
+                      return (
+                        <tr key={p.pillar} className="border-b border-zinc-800/40">
+                          <td className="py-1.5 pr-2 text-zinc-200">{shortPillar(p.pillar)}</td>
+                          <td className={`py-1.5 pr-2 text-right tabular-nums ${belowThreshold ? 'text-rose-400' : 'text-zinc-300'}`}>
+                            {rate.toFixed(0)}%{threshold != null && <span className="text-zinc-600"> /{threshold.toFixed(0)}</span>}
+                          </td>
+                          <td className="py-1.5 pr-2 text-right text-rose-400 tabular-nums">
+                            {p.failing_count}/{p.total_count}
+                          </td>
+                          <td className={`py-1.5 text-right tabular-nums ${scoreColor(p.avg_score)}`}>
+                            {p.avg_score != null ? Number(p.avg_score).toFixed(1) : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {/* Recent failure reasoning */}
+          {data.recent_failures.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Recent failures — judge reasoning</h3>
+              <ul className="space-y-2">
+                {data.recent_failures.map((f) => {
+                  const isOpen = expandedFailure === f.task_id;
+                  return (
+                    <li key={f.task_id} className="border border-zinc-800/60 rounded-md bg-zinc-900/30">
+                      <button
+                        className="w-full flex items-start gap-3 p-2.5 text-left hover:bg-zinc-800/30"
+                        onClick={() => setExpandedFailure(isOpen ? null : f.task_id)}
+                      >
+                        <span className="text-zinc-600 tabular-nums text-xs pt-0.5 w-8 shrink-0">#{f.task_number}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-zinc-100 text-sm truncate">{f.task}</p>
+                          <p className="text-zinc-500 text-xs mt-0.5">
+                            {f.responsible_agent ?? '—'} · {shortPillar(f.pillar)}
+                            {f.is_p0 && <span className="text-rose-400 ml-1.5 font-semibold">P0</span>}
+                            {f.surface && f.surface !== 'direct' && <span className="ml-1.5">({f.surface})</span>}
+                            <span className="ml-2 text-zinc-600" title={formatStampFull(f.completed_at)}>
+                              {formatStamp(f.completed_at)}
+                            </span>
+                          </p>
+                        </div>
+                        <span className={`text-sm tabular-nums shrink-0 ${scoreColor(f.judge_score)}`}>
+                          {f.judge_score != null ? Number(f.judge_score).toFixed(1) : '—'}
+                        </span>
+                      </button>
+                      {isOpen && (
+                        <div className="px-3 pb-3 space-y-2 text-xs border-t border-zinc-800/60 pt-2">
+                          {f.heuristic_failures && f.heuristic_failures.length > 0 && (
+                            <div>
+                              <p className="text-zinc-500 mb-1">Heuristic failures</p>
+                              <div className="flex flex-wrap gap-1">
+                                {f.heuristic_failures.map((h, i) => (
+                                  <span key={i} className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">
+                                    {h}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {f.reasoning_trace && (
+                            <div>
+                              <p className="text-zinc-500 mb-1">Judge reasoning ({f.judge_tier ?? 'unknown tier'})</p>
+                              <p className="text-zinc-300 whitespace-pre-wrap">{f.reasoning_trace}</p>
+                            </div>
+                          )}
+                          {f.axis_scores && Object.keys(f.axis_scores).length > 0 && (
+                            <div>
+                              <p className="text-zinc-500 mb-1">Axis breakdown</p>
+                              <div className="flex flex-wrap gap-2">
+                                {Object.entries(f.axis_scores).map(([k, v]) => (
+                                  <span key={k} className="text-zinc-400">
+                                    {k}: <span className={scoreColor(Number(v))}>{Number(v).toFixed(1)}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {/* Staged fixes from reflection bridge */}
+          {data.staged_fixes.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">
+                Prompt mutations staged by reflection loop
+                <span className="ml-2 text-zinc-600 normal-case font-normal">
+                  (auto-generated fixes awaiting shadow eval & promotion)
+                </span>
+              </h3>
+              <ul className="space-y-1.5">
+                {data.staged_fixes.map((s, i) => (
+                  <li key={i} className="flex items-start gap-3 text-xs border-b border-zinc-800/40 pb-1.5">
+                    <span className="text-zinc-200 w-24 shrink-0 truncate">{s.agent_id}</span>
+                    <span className="text-zinc-500 w-12 shrink-0 tabular-nums">v{s.version}</span>
+                    <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] ${
+                      s.deployed_at ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'
+                    }`}>
+                      {s.deployed_at ? 'deployed' : 'staged'}
+                    </span>
+                    <span className="text-zinc-400 flex-1 min-w-0 truncate" title={s.change_summary ?? ''}>
+                      {s.change_summary ?? '(no summary)'}
+                    </span>
+                    <span className="text-zinc-600 tabular-nums shrink-0" title={formatStampFull(s.created_at)}>
+                      {formatStamp(s.created_at)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {data.summary.failing === 0 && data.summary.p0_failing === 0 && (
+            <p className="text-emerald-400 text-sm mt-4">No blockers. All scored tasks passing.</p>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  tone = 'neutral',
+  title,
+}: {
+  label: string;
+  value: string;
+  tone?: 'pos' | 'neg' | 'neutral';
+  title?: string;
+}) {
+  const color =
+    tone === 'pos' ? 'text-emerald-300' :
+    tone === 'neg' ? 'text-rose-300' :
+    'text-zinc-100';
+  return (
+    <div className="border border-zinc-800/60 rounded-md px-3 py-2 bg-zinc-900/30" title={title}>
+      <p className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className={`text-sm font-semibold tabular-nums mt-0.5 ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
    Main Page
    ══════════════════════════════════════════════════════════════ */
 
@@ -1203,6 +1672,9 @@ export default function CzProtocol() {
 
       {/* Step 2+3: Scorecard + Launch Gates */}
       <Scorecard />
+
+      {/* Blockers & Fix Plan — failure analysis + prioritized recommendations */}
+      <BlockersAndPlan />
 
       {/* Step 4: Trends over time */}
       <DriftChart />

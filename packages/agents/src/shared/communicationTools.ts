@@ -78,6 +78,43 @@ async function getValidRoles(): Promise<Set<string>> {
   }
 }
 
+/**
+ * Validate that `toAgent` is an active role in company_agents.
+ * Uses the 5-min cache, but falls back to a direct DB lookup when the cache
+ * rejects the role — this avoids false "Unknown agent" errors from stale
+ * cache state (the root cause of the 2026-04-20 chief-of-staff message loop).
+ */
+async function ensureAgentRoleActive(
+  toAgent: string,
+  requestedAgent: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const validRoles = await getValidRoles();
+  if (validRoles.size === 0 || validRoles.has(toAgent)) {
+    return { ok: true };
+  }
+  // Cache rejected — double-check against the DB before failing.
+  const [row] = await systemQuery<{ role: string; status: string }>(
+    'SELECT role, status FROM company_agents WHERE role = $1 LIMIT 1',
+    [toAgent],
+  );
+  if (!row) {
+    return {
+      ok: false,
+      error: `Unknown agent: ${requestedAgent}. Agent not found or not active.`,
+    };
+  }
+  if (String(row.status).toLowerCase() !== 'active') {
+    return {
+      ok: false,
+      error: `Agent ${toAgent} exists but is ${row.status}. Cannot deliver messages.`,
+    };
+  }
+  // Role is valid but was missing from the cache — invalidate so the next
+  // call picks it up.
+  _validRolesCache = null;
+  return { ok: true };
+}
+
 /* ── Factory ──────────────────────────────── */
 
 export function createCommunicationTools(
@@ -140,9 +177,9 @@ export function createCommunicationTools(
             error: 'Founders are not agent role recipients for send_agent_message. Use founder notify blocks (to="kristina"|"andrew"|"both") or escalate_to_sarah for founder-input blockers.',
           };
         }
-        const validRoles = await getValidRoles();
-        if (validRoles.size > 0 && !validRoles.has(toAgent)) {
-          return { success: false, error: `Unknown agent: ${requestedAgent}. Agent not found or not active.` };
+        const roleCheck = await ensureAgentRoleActive(toAgent, requestedAgent);
+        if (!roleCheck.ok) {
+          return { success: false, error: roleCheck.error };
         }
         if (!checkMessageRate(fromAgent)) {
           return { success: false, error: `Rate limit exceeded (${MESSAGE_RATE_LIMIT}/hr)` };
@@ -272,9 +309,9 @@ export function createCommunicationTools(
           return { success: false, error: 'Cannot create a peer work request for yourself' };
         }
 
-        const validRoles = await getValidRoles();
-        if (validRoles.size > 0 && !validRoles.has(toAgent)) {
-          return { success: false, error: `Unknown agent: ${requestedAgent}. Agent not found or not active.` };
+        const roleCheck = await ensureAgentRoleActive(toAgent, requestedAgent);
+        if (!roleCheck.ok) {
+          return { success: false, error: roleCheck.error };
         }
 
         const priority = (params.priority as string) ?? 'normal';

@@ -1116,7 +1116,12 @@ export class ToolExecutor {
     if (riskAssessment.level === 'HARD_GATE') {
       const blockedResult: ToolResult = {
         success: false,
-        error: `Tool ${toolName} requires approval before execution.`,
+        error:
+          `Tool ${toolName} exists and is registered, but requires founder approval before execution (HARD_GATE). ` +
+          'This is NOT a missing tool. Do NOT call request_new_tool or request_tool_access. ' +
+          'Either: (a) use an alternative non-gated tool to accomplish the same goal, ' +
+          '(b) emit an insight/decision describing what you would do and stop, or ' +
+          '(c) ask the founder via send_agent_message before retrying.',
         filesWritten: 0,
         memoryKeysWritten: 0,
         riskLevel: riskAssessment.level,
@@ -1213,7 +1218,11 @@ export class ToolExecutor {
         if (disclosureResult.requiresApproval) {
           return {
             success: false,
-            error: `Tool ${toolName} requires approval before execution.`,
+            error:
+              `Tool ${toolName} exists and is registered, but this specific invocation requires approval ` +
+              `under the disclosure policy (${disclosureResult.reason ?? 'policy gate'}). ` +
+              'This is NOT a missing tool. Do NOT call request_new_tool. ' +
+              'Adjust the payload or recipient to comply with disclosure policy, or escalate via send_agent_message.',
             filesWritten: 0,
             memoryKeysWritten: 0,
             riskLevel: riskAssessment.level,

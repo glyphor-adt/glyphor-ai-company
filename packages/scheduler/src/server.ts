@@ -2602,6 +2602,23 @@ async function runAutoFailurePipeline(
 
   if (isPipelineRun || skipPipeline || agentRole === 'ops') return;
 
+  // Skip auto-investigation for known, self-explanatory failure modes.
+  // These are not novel failures worth burning an ops run on — investigating
+  // them just amplifies a problem the breaker / supervisor is already handling.
+  // (Root cause of the 2026-04-20 ops churn that fed the cost spike.)
+  const KNOWN_NON_INVESTIGABLE_FAILURES = [
+    'circuit_breaker_emergency',
+    'circuit_breaker_halt',
+    'max_turns_exceeded',
+    'stalled',
+    'timeout',
+    'aborted',
+  ];
+  const errLower = (errorMessage ?? '').toLowerCase();
+  if (KNOWN_NON_INVESTIGABLE_FAILURES.some((pattern) => errLower.includes(pattern))) {
+    return;
+  }
+
   const shouldRetry =
     AUTO_RETRY_ON_FAILURE &&
     attempt < AUTO_RETRY_MAX_ATTEMPTS &&

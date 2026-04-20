@@ -83,6 +83,9 @@ const LIVE_ROLE_GLYPHOR_MCP_ALLOWLISTS: Partial<Record<CompanyAgentRole, readonl
   'vp-design': ['mcp_GlyphorDesign', 'mcp_GlyphorData'],
   'ops': ['mcp_GlyphorData'],
   'vp-research': ['mcp_GlyphorData'],
+  'platform-engineer': ['mcp_GlyphorEngineering', 'mcp_GlyphorData'],
+  'devops-engineer': ['mcp_GlyphorEngineering', 'mcp_GlyphorData'],
+  'quality-engineer': ['mcp_GlyphorEngineering', 'mcp_GlyphorData'],
 };
 
 function getDefaultGlyphorServers(agentRole?: string): string[] {
