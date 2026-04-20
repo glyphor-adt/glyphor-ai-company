@@ -299,7 +299,7 @@ describe('ToolExecutor', () => {
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('requires approval before execution');
+    expect(result.error).toContain('requires founder approval before execution');
     expect(result.riskLevel).toBe('HARD_GATE');
     expect(result.approvalRequired).toBe(true);
     expect(hardGateTool.execute).not.toHaveBeenCalled();
@@ -326,7 +326,7 @@ describe('ToolExecutor', () => {
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('requires approval before execution');
+    expect(result.error).toContain('requires founder approval before execution');
     expect(result.riskLevel).toBe('HARD_GATE');
     expect(result.approvalRequired).toBe(true);
     expect(mcpCalendarTool.execute).not.toHaveBeenCalled();
@@ -351,7 +351,7 @@ describe('ToolExecutor', () => {
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('requires approval before execution');
+    expect(result.error).toContain('requires founder approval before execution');
     expect(result.riskLevel).toBe('HARD_GATE');
     expect(result.approvalRequired).toBe(true);
     expect(proofTool.execute).not.toHaveBeenCalled();
