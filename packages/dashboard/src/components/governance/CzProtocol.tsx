@@ -1514,6 +1514,27 @@ function suggestRemediation(
       detail: 'Agent described a plan/directive instead of executing the verification. The CZ executor already instructs agents to perform the task inline; update the agent\'s system prompt or constitution to override its default "delegate and track" behavior when the incoming request is a certification task.',
     });
   }
+  if (has('verification_skipped')) {
+    steps.push({
+      kind: 'verify',
+      action: 'Require inline N-case verification in the agent constitution',
+      detail: 'Agent delivered the primary artifact but skipped the N-case verification the task calls for (e.g. "apply the voice guide to 5 unseen writing tasks and score each"). The CZ executor prompt now spells this out, but if the agent keeps offloading evidence ("saved to SharePoint", "posted for review") add a rule to the agent\'s own system prompt: "When the verification method lists N downstream generations, produce all N in the same response, labeled Generation 1 through N, each with its score against the rubric."',
+    });
+  }
+  if (has('refused_for_missing_inputs')) {
+    steps.push({
+      kind: 'inputs',
+      action: 'Permit synthesized inputs — or seed real ones into the task',
+      detail: 'Agent refused the task because real input data (partner inquiries, transcripts, CRM records) was unavailable. Two durable fixes: (1) the CZ executor prompt now explicitly permits labeled representative inputs for certification runs — if the agent still refuses, its constitution is overriding; patch the agent\'s system prompt with an exception for CZ runs. (2) Or open the task in the Task Grid and paste 1–3 sample inputs directly into the task description so the agent has something concrete to work from. Rerunning without one of these will produce the same refusal.',
+    });
+  }
+  if (has('judge_window_truncation')) {
+    steps.push({
+      kind: 'rerun',
+      action: 'Just rerun — this is a judge-window artifact, not an agent bug',
+      detail: 'The judge flagged truncation but the agent\'s actual output is structurally complete. This used to happen when the judge saw only the first 4000 chars of a longer deliverable (risk registers, battle card decks, voice guide + N generations). The judge window was raised to 16k chars on 2026-04-21; rerun this task and it should score correctly. No prompt changes are needed on the agent.',
+    });
+  }
   if (has('agent_retired', 'not on the live runtime roster', 'retired role', 'roster_blocked')) {
     steps.push({
       kind: 'roster',
@@ -1606,6 +1627,24 @@ const HEURISTIC_GLOSSARY: Array<{ match: string[]; label: string; meaning: strin
     label: 'Planning instead of execution',
     meaning: 'The verification method asks the agent to demonstrate N attempts/cases, but the agent filed a directive, drafted an assignment, or described a plan rather than actually doing the work.',
     where_to_look: 'Most common on orchestrator-style agents (e.g. sarah) where "delegate and track" is the default mode. The CZ executor now tells agents to perform the task end-to-end inline; if this still fires, edit the agent\'s system prompt to add: "When invoked under the Customer Zero Protocol, perform the task yourself in your response — do not delegate."',
+  },
+  {
+    match: ['verification_skipped'],
+    label: 'Verification stage skipped',
+    meaning: 'The agent produced the primary deliverable (a guide, policy, or plan) but did not execute the N-case verification stage that the verification method requires inline. Commonly pairs with "saved to SharePoint" / "posted for review" language that offloads evidence outside the response.',
+    where_to_look: 'The CZ executor prompt now calls out two-stage tasks explicitly. If this still fires, the agent\'s own system prompt likely steers it toward "deliver and hand off" rather than "deliver and self-verify." Add an instruction like: "When a task\'s verification method mentions N downstream generations/evaluations, produce all N in the same response and score each against the criteria."',
+  },
+  {
+    match: ['refused_for_missing_inputs'],
+    label: 'Refused for missing inputs',
+    meaning: 'The agent declined to execute the task because it could not retrieve real input data (partner inquiries, transcripts, CRM records, email text) and would not synthesize plausible inputs. Rerunning alone will not move the score — the agent needs to either be given inputs or be told that synthesis is acceptable for certification.',
+    where_to_look: 'The CZ executor prompt now includes an explicit "INPUTS POLICY" section that permits labeled synthesized inputs under a header for certification runs. If this tag still fires, the agent\'s constitution is overriding. Add an exception in the agent\'s system prompt: "When invoked under the Customer Zero Protocol and real inputs are unavailable, produce clearly-labeled representative inputs and perform the task against them — do not refuse." Alternatively, edit the task itself in the Task Grid to paste 1-3 sample inputs into the task description so the agent has something concrete.',
+  },
+  {
+    match: ['judge_window_truncation'],
+    label: 'Judge-window truncation (false negative)',
+    meaning: 'The judge reasoning mentions the output was truncated or incomplete, but the actual stored agent output is structurally complete (ends cleanly, has a summary/self-assessment). The truncation likely happened in the judge\'s prompt-input window — the agent delivered, but the judge only saw part of the answer.',
+    where_to_look: 'Open the run drawer and read the full `agent_output` — if it\'s complete, the score is a false negative from judge windowing. The judge cap was raised from 4k to 16k chars on 2026-04-21. A single rerun with the updated executor should score the run correctly; no prompt changes are needed on the agent itself.',
   },
   {
     match: ['agent_retired', 'not on the live runtime roster', 'retired role', 'roster_blocked'],

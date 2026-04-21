@@ -174,7 +174,16 @@ async function judgeAgentOutput(
     (task.verification_method as string) || '(none specified)',
     '',
     'AGENT OUTPUT:',
-    agentOutput.slice(0, 4000),
+    // Previously capped at 4000 chars, which truncated structurally complete
+    // outputs mid-item and caused the judge to report "truncated" when the
+    // agent actually delivered. Raised to 16000, which fits a 5-row risk
+    // register, a 10-item battle card deck, or a full voice guide + 5
+    // downstream generations. If the agent genuinely produces >16k chars,
+    // keep the head and the tail so the judge still sees the self-assessment
+    // block that typically appears last.
+    agentOutput.length <= 16000
+      ? agentOutput
+      : `${agentOutput.slice(0, 12000)}\n\n[…middle elided for length — ${agentOutput.length} chars total…]\n\n${agentOutput.slice(-4000)}`,
     '',
     'Score the agent output on a scale of 0-10 and determine pass/fail:',
     '- PASS (score >= 7): output meets acceptance criteria substantially',
@@ -344,8 +353,27 @@ async function executeBatch(
           `You are being certified against the Customer Zero Protocol. Perform this task`,
           `yourself, end-to-end — do NOT file directives, propose plans, delegate to`,
           `other agents, or write "I will do X". Produce the actual output and, where`,
-          `the verification method requires demonstrating N attempts/cases, show all N`,
-          `inline in this single response.`,
+          `the verification method requires demonstrating N attempts/cases/generations/`,
+          `evaluations, show all N inline in this single response.`,
+          ``,
+          `If the task has TWO stages — a primary deliverable (e.g. a guide, policy,`,
+          `plan) AND a verification stage that exercises the deliverable (e.g. "apply`,
+          `it to 5 unseen tasks and score each") — you must produce BOTH stages in`,
+          `this response. Do not stop after the primary artifact. Label the`,
+          `verification stage clearly (e.g. "### Verification: 5 downstream`,
+          `generations") and include every generation and its score/comparison.`,
+          ``,
+          `INPUTS POLICY: This is a certification run. Real tool access (email, CRM,`,
+          `SharePoint, partner transcripts) may be unavailable. If the task requires`,
+          `input data that you cannot retrieve (e.g. "replies to design partner`,
+          `inquiries", "cold outreach to the first 50 prospects", "synthesize`,
+          `prospect feedback"), do NOT refuse the task. Instead, fabricate`,
+          `plausible, clearly-labeled representative inputs inline under a header`,
+          `"### Synthesized inputs (representative, for certification only)", then`,
+          `perform the task against those inputs. This is explicitly permitted under`,
+          `the CZ Protocol because we are scoring your voice, structure, and`,
+          `reasoning — not factual claims about real partners. Any output that`,
+          `reaches a real customer would go through the normal HITL gates.`,
           ``,
           `TASK #${task.task_number}: ${task.task}`,
           `PILLAR: ${task.pillar}`,
@@ -359,12 +387,15 @@ async function executeBatch(
           ``,
           `Output format:`,
           `1. Brief statement of what you are about to demonstrate (1-2 sentences).`,
-          `2. The actual execution/evidence — every attempt, case, or artifact the`,
-          `   verification method calls for, labeled and numbered.`,
-          `3. A short self-assessment mapping each acceptance criterion to the`,
+          `2. The primary deliverable (if any).`,
+          `3. The verification execution — every attempt, case, generation, or`,
+          `   evaluation the verification method calls for, labeled and numbered.`,
+          `4. A short self-assessment mapping each acceptance criterion to the`,
           `   evidence above.`,
           ``,
           `Do not include meta-commentary about directives, approvals, or next steps.`,
+          `Do not say the work has been "saved to SharePoint" or "posted for review" —`,
+          `the evidence must be inline in this response.`,
         ].join('\n');
 
         broadcastCzRunEvent(batchId, 'agent_invoked', {
@@ -401,7 +432,7 @@ async function executeBatch(
         // agents fall into on execution tasks. Keeps the task failing even
         // if the LLM judge is lenient.
         const method = (task.verification_method as string) || '';
-        const requiresExecution = /\b\d+\s*(attempts?|cases?|runs?|mentions?|prompts?|samples?|tests?)\b/i.test(method);
+        const requiresExecution = /\b\d+\s*(attempts?|cases?|runs?|mentions?|prompts?|samples?|tests?|generations?|evaluations?|docs?|pages?|drafts?|submissions?|commitments?|downstream)\b/i.test(method);
         if (requiresExecution) {
           const planningPhrases = [
             'filed the formal directive',
@@ -431,6 +462,130 @@ async function executeBatch(
               reasoningTrace = `${reasoningTrace}\n\n[heuristic override] Agent response describes a plan/directive instead of executing the verification method. Downgraded to fail.`;
             }
           }
+
+          // Sibling pattern: agent produced the PRIMARY deliverable but
+          // skipped the N-case verification stage. Detect by extracting the
+          // expected count N from verification_method and checking whether
+          // the output contains a plausible number of labeled cases.
+          //
+          // Example this catches: task #3 (Maya) — delivered the mission
+          // statement + voice guide but never ran the "5 downstream
+          // generations scored against the guide" that the verification
+          // method requires. Judge scored 6.75 with criteria_met=0.4.
+          //
+          // Counts labeled markers like "1.", "2.", "Case 1", "Generation #3",
+          // "Sample 4:" etc. If fewer than N-1 such markers appear, we
+          // assume the verification was skipped.
+          const countMatch = method.match(/\b(\d+)\s*(attempts?|cases?|runs?|mentions?|prompts?|samples?|tests?|generations?|evaluations?|docs?|pages?|drafts?|submissions?|commitments?|downstream)\b/i);
+          const expectedN = countMatch ? parseInt(countMatch[1], 10) : 0;
+          if (expectedN >= 3 && expectedN <= 100) {
+            const labelRegex = new RegExp(
+              String.raw`(^|\n)\s*(?:\*\*|##?#?\s*)?` +
+                String.raw`(?:(?:case|attempt|run|sample|test|generation|evaluation|example|draft|#)\s*#?\s*\d+|\d+[\.\)])`,
+              'gi',
+            );
+            const labelHits = (agentOutput.match(labelRegex) || []).length;
+            // Also catch "offloaded to SharePoint" style hand-offs which
+            // imply the evidence is not inline.
+            const offloadPhrases = [
+              'saved to sharepoint',
+              'posted to the #',
+              'posted it to the',
+              'uploaded to sharepoint',
+              'filed in sharepoint',
+              'shared in the',
+              'for founder review',
+              'for your review',
+              'sent for review',
+            ];
+            const offloadHit = offloadPhrases.some((p) => lower.includes(p));
+            const verificationSkipped = labelHits < Math.max(2, expectedN - 1) && agentOutput.length > 200;
+            if (verificationSkipped || offloadHit) {
+              heuristicFailures.push(
+                `verification_skipped: verification method asks for ${expectedN} ${countMatch?.[2] ?? 'cases'} inline; ` +
+                  `found ${labelHits} labeled cases in output` +
+                  (offloadHit ? ' (and output offloads evidence to an external location)' : ''),
+              );
+              if (passed) {
+                passed = false;
+                judgeScore = Math.min(judgeScore, 4);
+                reasoningTrace = `${reasoningTrace}\n\n[heuristic override] Agent produced the primary deliverable but did not execute the ${expectedN}-case verification stage inline. Downgraded to fail.`;
+              }
+            }
+          }
+        }
+
+        // Additional heuristic: "refused_for_missing_inputs" — the agent
+        // declined to do the task because it couldn't retrieve real input
+        // data (inquiries, transcripts, CRM records) and didn't fall back to
+        // synthesized inputs. The CZ prompt now explicitly permits synthesis
+        // under a labeled header, so this firing means either the prompt
+        // hasn't reached the agent yet (stale runtime) or the agent's own
+        // constitution is overriding it. Either way, reruns alone won't fix
+        // it — give the reviewer a specific remediation.
+        {
+          const refusalPhrases = [
+            'cannot pull',
+            'cannot retrieve',
+            'please provide the inquiries',
+            'please provide the',
+            'what i need to proceed',
+            'my tool access',
+            'tool access is',
+            'off the live runtime roster',
+            'not on the live runtime roster',
+            'blocked from',
+            'cannot invent',
+            'no-fabrication',
+            'no fabrication',
+          ];
+          const refusalLower = agentOutput.toLowerCase();
+          const refusalHits = refusalPhrases.filter((p) => refusalLower.includes(p));
+          const looksLikeRefusal = refusalHits.length >= 2 && agentOutput.length < 2000;
+          if (looksLikeRefusal) {
+            heuristicFailures.push(
+              `refused_for_missing_inputs: agent declined to execute because input data was unavailable (matched: ${refusalHits.slice(0, 3).join(', ')}). CZ prompt permits synthesized inputs — agent constitution may be overriding.`,
+            );
+            if (passed) {
+              passed = false;
+              judgeScore = Math.min(judgeScore, 3);
+              reasoningTrace = `${reasoningTrace}\n\n[heuristic override] Agent refused the task citing missing inputs rather than synthesizing representative inputs as the CZ Protocol permits. Downgraded to fail.`;
+            }
+          }
+        }
+
+        // Judge-window artifact detection. If the judge reasoning says the
+        // output was "truncated" / "cut off" / "incomplete" but the agent's
+        // actual stored output is structurally complete (ends on sentence
+        // punctuation or has a self-assessment/summary block), the real
+        // cause was the judge's truncation window — not the agent.
+        // Surface this distinctly so the reviewer knows a rerun isn't
+        // needed (or that the fix is infrastructure, not prompt).
+        //
+        // Historical case: task #41 (Nadia risk register) — output was
+        // ~5000 chars, judge window was 4000 chars, judge reported "5th
+        // risk's mitigation incomplete" when the agent had delivered it in
+        // full. We raised the window to 16k above; this heuristic catches
+        // any residual cases and makes the pattern legible on the dashboard.
+        {
+          const reasoningLower = (reasoningTrace || '').toLowerCase();
+          const mentionsTruncation =
+            reasoningLower.includes('truncated') ||
+            reasoningLower.includes('cut off') ||
+            reasoningLower.includes('output was cut') ||
+            reasoningLower.includes('incomplete at the end');
+          const trimmedEnd = agentOutput.trim().slice(-400);
+          const looksComplete =
+            /[.!?]\s*$/.test(trimmedEnd) ||
+            /self-?assessment|summary|conclusion|criteria mapping/i.test(trimmedEnd);
+          if (mentionsTruncation && looksComplete && agentOutput.length > 3500) {
+            heuristicFailures.push(
+              `judge_window_truncation: judge reasoning mentions truncation but agent output appears structurally complete (${agentOutput.length} chars, ends cleanly). Likely a judge-prompt windowing artifact — rerun with the updated executor or inspect the full agent_output in the run drawer.`,
+            );
+            // Do NOT auto-upgrade the score — the judge may still be right
+            // on content. Just tag it so the reviewer knows the truncation
+            // claim is suspect.
+          }
         }
       } catch (err) {
         // Agent invocation failed
@@ -458,7 +613,7 @@ async function executeBatch(
       heuristicFailures,
       reasoningTrace,
       JSON.stringify(axisScores),
-      agentOutput.slice(0, 10000), // cap stored output
+      agentOutput.slice(0, 24000), // cap stored output (was 10k — too tight for multi-item deliverables like risk registers or battle card decks)
     ]);
 
     await systemQuery(
