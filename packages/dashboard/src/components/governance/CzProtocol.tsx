@@ -295,6 +295,12 @@ function TaskGrid() {
   const [error, setError] = useState<string | null>(null);
   const [filterPillar, setFilterPillar] = useState<string | null>(null);
   const [filterP0, setFilterP0] = useState(false);
+  // Last-run date filter: quick presets + optional explicit date range.
+  // Presets are mutually exclusive with a custom range.
+  type RunDatePreset = 'all' | 'today' | '7d' | '30d' | 'never' | 'custom';
+  const [runDatePreset, setRunDatePreset] = useState<RunDatePreset>('all');
+  const [runDateFrom, setRunDateFrom] = useState<string>(''); // yyyy-mm-dd (local)
+  const [runDateTo, setRunDateTo] = useState<string>('');
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [taskDetail, setTaskDetail] = useState<{ scores: Array<{ passed: boolean; judge_score: number; judge_tier: string; reasoning_trace: string | null; agent_output: string | null; axis_scores: Record<string, number> | null; heuristic_failures: string[] | null; mode: string; started_at: string | null }> } | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -323,11 +329,53 @@ function TaskGrid() {
     return unique.sort();
   }, [tasks]);
 
+  // Apply the Last-Run date filter client-side. Presets compute a sliding
+  // window based on task.latest_run_at; 'never' keeps only tasks that have
+  // not run; 'custom' uses the explicit from/to date inputs (inclusive days
+  // in the user's local timezone).
+  const filteredTasks = useMemo(() => {
+    const now = Date.now();
+    const dayMs = 86_400_000;
+    return tasks.filter((t) => {
+      if (runDatePreset === 'all') return true;
+      const raw = t.latest_run_at;
+      if (runDatePreset === 'never') return raw == null;
+      if (raw == null) return false;
+      const ts = new Date(raw).getTime();
+      if (isNaN(ts)) return false;
+      if (runDatePreset === 'today') {
+        const start = new Date(); start.setHours(0, 0, 0, 0);
+        return ts >= start.getTime();
+      }
+      if (runDatePreset === '7d') return now - ts <= 7 * dayMs;
+      if (runDatePreset === '30d') return now - ts <= 30 * dayMs;
+      if (runDatePreset === 'custom') {
+        if (runDateFrom) {
+          const from = new Date(runDateFrom); from.setHours(0, 0, 0, 0);
+          if (ts < from.getTime()) return false;
+        }
+        if (runDateTo) {
+          const to = new Date(runDateTo); to.setHours(23, 59, 59, 999);
+          if (ts > to.getTime()) return false;
+        }
+        return true;
+      }
+      return true;
+    });
+  }, [tasks, runDatePreset, runDateFrom, runDateTo]);
+
   return (
     <Card>
-      <SectionHeader title="Task Grid" subtitle={`${tasks.length} tasks`} />
+      <SectionHeader
+        title="Task Grid"
+        subtitle={
+          filteredTasks.length === tasks.length
+            ? `${tasks.length} tasks`
+            : `${filteredTasks.length} of ${tasks.length} tasks`
+        }
+      />
 
-      {/* Filters */}
+      {/* Pillar + P0 filters */}
       <div className="flex items-center gap-2 mt-3 flex-wrap">
         <button
           className={`text-xs px-2 py-1 rounded ${!filterPillar ? 'bg-cyan/20 text-cyan' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
@@ -352,6 +400,55 @@ function TaskGrid() {
         </button>
       </div>
 
+      {/* Last-Run date filter */}
+      <div className="flex items-center gap-2 mt-2 flex-wrap text-xs">
+        <span className="text-zinc-500">Last run:</span>
+        {([
+          ['all', 'All'],
+          ['today', 'Today'],
+          ['7d', 'Last 7d'],
+          ['30d', 'Last 30d'],
+          ['never', 'Never run'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            className={`px-2 py-1 rounded ${runDatePreset === key ? 'bg-cyan/20 text-cyan' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+            onClick={() => {
+              setRunDatePreset(key);
+              setRunDateFrom('');
+              setRunDateTo('');
+            }}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="ml-1 flex items-center gap-1">
+          <span className="text-zinc-600">from</span>
+          <input
+            type="date"
+            value={runDateFrom}
+            onChange={(e) => { setRunDateFrom(e.target.value); setRunDatePreset('custom'); }}
+            className="bg-zinc-900 border border-zinc-700 rounded px-1.5 py-0.5 text-zinc-200 [color-scheme:dark]"
+          />
+          <span className="text-zinc-600">to</span>
+          <input
+            type="date"
+            value={runDateTo}
+            onChange={(e) => { setRunDateTo(e.target.value); setRunDatePreset('custom'); }}
+            className="bg-zinc-900 border border-zinc-700 rounded px-1.5 py-0.5 text-zinc-200 [color-scheme:dark]"
+          />
+          {(runDateFrom || runDateTo || runDatePreset !== 'all') && (
+            <button
+              className="ml-1 text-zinc-500 hover:text-zinc-300"
+              onClick={() => { setRunDatePreset('all'); setRunDateFrom(''); setRunDateTo(''); }}
+              title="Clear date filter"
+            >
+              ✕ clear
+            </button>
+          )}
+        </span>
+      </div>
+
       {loading && <Skeleton className="h-40 mt-3" />}
       {error && <p className="text-rose-400 text-sm mt-3">{error}</p>}
 
@@ -371,7 +468,7 @@ function TaskGrid() {
               </tr>
             </thead>
             <tbody>
-              {tasks.map((t) => (
+              {filteredTasks.map((t) => (
                 <Fragment key={t.id}>
                   <tr
                     className="border-b border-zinc-800/40 hover:bg-zinc-800/30 cursor-pointer"
@@ -504,6 +601,13 @@ function TaskGrid() {
                   )}
                 </Fragment>
               ))}
+              {filteredTasks.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="py-6 text-center text-zinc-500 text-xs">
+                    No tasks match the current filters.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
