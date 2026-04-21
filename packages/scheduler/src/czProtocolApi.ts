@@ -481,7 +481,7 @@ export async function handleCzApi(
     if (segments[0] === 'blockers' && segments.length === 1 && method === 'GET') {
       const limitRecent = Math.min(Math.max(Number(params.get('limit') ?? 8), 1), 50);
 
-      const [summaryRows, agentRows, pillarRows, recentFailures, stagedFixes] = await Promise.all([
+      const [summaryRows, agentRows, pillarRows, recentFailures, stagedFixes, failingTasksByAgent] = await Promise.all([
         // Summary — latest score per task across all surfaces/modes
         systemQuery(`
           WITH task_latest AS (
@@ -584,7 +584,66 @@ export async function handleCzApi(
           ORDER BY created_at DESC
           LIMIT 25
         `),
+        // Concrete failing tasks per agent — drives the per-agent drill-down and
+        // per-task remediation suggestions in the Blockers panel. We restrict to
+        // the latest score per task so we don't double-count historical failures.
+        systemQuery(`
+          WITH latest AS (
+            SELECT DISTINCT ON (r.task_id)
+              r.task_id,
+              r.completed_at,
+              s.passed,
+              s.judge_score,
+              s.judge_tier,
+              s.heuristic_failures,
+              s.axis_scores,
+              s.reasoning_trace
+            FROM cz_runs r
+            JOIN cz_scores s ON s.run_id = r.id
+            WHERE r.completed_at IS NOT NULL
+            ORDER BY r.task_id, r.completed_at DESC
+          )
+          SELECT
+            COALESCE(t.responsible_agent, 'unassigned') AS agent,
+            t.id            AS task_id,
+            t.task_number,
+            t.task,
+            t.pillar,
+            t.is_p0,
+            l.judge_score,
+            l.judge_tier,
+            l.heuristic_failures,
+            l.axis_scores,
+            l.reasoning_trace,
+            l.completed_at
+          FROM cz_tasks t
+          JOIN latest l ON l.task_id = t.id
+          WHERE t.active = true
+            AND l.passed = false
+          ORDER BY agent, t.is_p0 DESC, t.task_number
+        `),
       ]);
+
+      // Group failing tasks by agent for client-side drill-down.
+      type FailingTask = {
+        agent: string;
+        task_id: string;
+        task_number: number;
+        task: string;
+        pillar: string;
+        is_p0: boolean;
+        judge_score: number | null;
+        judge_tier: string | null;
+        heuristic_failures: string[] | null;
+        axis_scores: Record<string, number> | null;
+        reasoning_trace: string | null;
+        completed_at: string | null;
+      };
+      const failingByAgent: Record<string, Omit<FailingTask, 'agent'>[]> = {};
+      for (const row of failingTasksByAgent as FailingTask[]) {
+        const { agent, ...rest } = row;
+        (failingByAgent[agent] ??= []).push(rest);
+      }
 
       send(200, {
         summary: summaryRows[0] ?? {
@@ -595,6 +654,7 @@ export async function handleCzApi(
         top_pillars: pillarRows,
         recent_failures: recentFailures,
         staged_fixes: stagedFixes,
+        failing_by_agent: failingByAgent,
       });
       return true;
     }
@@ -876,6 +936,16 @@ export async function handleCzApi(
           COUNT(*) FILTER (WHERE s.passed = true)::int AS passed_count,
           COUNT(*) FILTER (WHERE s.passed = false)::int AS failed_count,
           ROUND(AVG(s.judge_score)::numeric, 2) AS avg_judge_score,
+          -- Target metadata so the UI can show *what* was run, not just the mode.
+          -- For pillar/canary the value is uniform across the batch; for single
+          -- we surface the one task; for full/critical we leave them null and
+          -- the client can fall back to a generic label.
+          MAX(t.pillar) FILTER (WHERE r.trigger_type = 'pillar') AS target_pillar,
+          MAX(t.responsible_agent) FILTER (WHERE r.trigger_type = 'canary') AS target_agent,
+          (ARRAY_AGG(t.task_number ORDER BY r.started_at)
+             FILTER (WHERE r.trigger_type = 'single'))[1] AS target_task_number,
+          (ARRAY_AGG(t.task ORDER BY r.started_at)
+             FILTER (WHERE r.trigger_type = 'single'))[1] AS target_task,
           CASE
             WHEN COUNT(*) FILTER (WHERE r.status IN ('queued','running')) > 0 THEN 'running'
             WHEN COUNT(*) FILTER (WHERE r.status = 'failed') > 0 THEN 'partial'
@@ -883,13 +953,22 @@ export async function handleCzApi(
           END AS batch_status
         FROM cz_runs r
         LEFT JOIN cz_scores s ON s.run_id = r.id
+        LEFT JOIN cz_tasks  t ON t.id     = r.task_id
         ${whereClause}
         GROUP BY r.batch_id, r.trigger_type, r.surface, r.triggered_by
         ORDER BY MIN(r.started_at) DESC NULLS LAST
         LIMIT $${idx++} OFFSET $${idx++}
       `, values);
 
-      send(200, { runs: rows });
+      // Total count for pagination — without limit/offset.
+      const countValues = values.slice(0, values.length - 2);
+      const totalRows = await systemQuery(`
+        SELECT COUNT(DISTINCT r.batch_id)::int AS total
+          FROM cz_runs r
+          ${whereClause}
+      `, countValues);
+
+      send(200, { runs: rows, total: totalRows[0]?.total ?? 0, limit, offset });
       return true;
     }
 

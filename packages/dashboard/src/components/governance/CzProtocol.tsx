@@ -61,6 +61,11 @@ interface CzRun {
   avg_judge_score: number | null;
   started_at: string;
   completed_at: string | null;
+  // Target metadata — what the batch was actually run against.
+  target_pillar: string | null;
+  target_agent: string | null;
+  target_task_number: number | null;
+  target_task: string | null;
 }
 
 interface CzDriftPoint {
@@ -657,6 +662,9 @@ function LiveRunConsole() {
   const [batchDetail, setBatchDetail] = useState<{ batch_id: string; runs: BatchDetailRun[] } | null>(null);
   const [batchDetailLoading, setBatchDetailLoading] = useState(false);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  // History pagination — when expanded, show up to `runsLimit` runs.
+  const [runsLimit, setRunsLimit] = useState<number>(10);
+  const [runsTotal, setRunsTotal] = useState<number>(0);
 
   // Fetch tasks for pillar/agent/task selectors
   useEffect(() => {
@@ -668,18 +676,19 @@ function LiveRunConsole() {
     })();
   }, []);
 
-  // Fetch recent runs
+  // Fetch recent runs (paginated — runsLimit grows when "Show all" is used).
   const fetchRuns = useCallback(async () => {
     try {
-      const data = await apiCall<{ runs: CzRun[] }>('/api/cz/runs?limit=10');
+      const data = await apiCall<{ runs: CzRun[]; total?: number }>(`/api/cz/runs?limit=${runsLimit}`);
       setRuns(data.runs);
+      setRunsTotal(data.total ?? data.runs.length);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [runsLimit]);
 
   useEffect(() => { fetchRuns(); }, [fetchRuns]);
 
@@ -984,18 +993,70 @@ function LiveRunConsole() {
 
       {/* Recent Runs */}
       <div className="mt-4">
-        <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Recent Runs</h4>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+            {runsLimit > 10 ? 'Run History' : 'Recent Runs'}
+            <span className="ml-2 text-zinc-600 normal-case font-normal">
+              {runs.length}{runsTotal > runs.length ? ` of ${runsTotal}` : ''}
+            </span>
+          </h4>
+          <div className="flex items-center gap-2">
+            {runsLimit > 10 && (
+              <button
+                onClick={() => setRunsLimit(10)}
+                className="text-[11px] text-zinc-500 hover:text-zinc-300"
+              >
+                Show recent only
+              </button>
+            )}
+            {runsTotal > runs.length && (
+              <button
+                onClick={() => setRunsLimit((l) => Math.min(l + 50, 500))}
+                className="text-[11px] text-cyan hover:text-cyan/80"
+              >
+                Load more ({runsTotal - runs.length} remaining)
+              </button>
+            )}
+            {runsLimit === 10 && runsTotal > 10 && (
+              <button
+                onClick={() => setRunsLimit(50)}
+                className="text-[11px] text-cyan hover:text-cyan/80"
+              >
+                View all runs
+              </button>
+            )}
+          </div>
+        </div>
         {loading && <Skeleton className="h-20" />}
         {error && <p className="text-rose-400 text-sm">{error}</p>}
         {!loading && runs.length === 0 && (
           <p className="text-zinc-500 text-xs">No runs yet.</p>
         )}
         {!loading && runs.length > 0 && (
-          <div className="space-y-2">
+          <div className={`space-y-2 ${runsLimit > 10 ? 'max-h-96 overflow-y-auto pr-1' : ''}`}>
             {runs.map((r) => {
               const passed = r.passed_count ?? 0;
               const total = r.task_count;
               const rate = total > 0 ? passed / total : 0;
+              // Build a human-readable label of *what* this batch ran against.
+              const targetLabel = (() => {
+                switch (r.trigger_type) {
+                  case 'pillar':
+                    return r.target_pillar ? shortPillar(r.target_pillar) : 'pillar';
+                  case 'canary':
+                    return r.target_agent ?? 'canary';
+                  case 'single':
+                    return r.target_task_number != null
+                      ? `#${r.target_task_number}${r.target_task ? ` ${r.target_task}` : ''}`
+                      : 'single task';
+                  case 'critical':
+                    return `${total} P0`;
+                  case 'full':
+                    return `all ${total}`;
+                  default:
+                    return null;
+                }
+              })();
               return (
                 <div
                   key={r.batch_id}
@@ -1021,7 +1082,7 @@ function LiveRunConsole() {
                   }}
                 >
                   <span
-                    className={`w-2 h-2 rounded-full ${
+                    className={`w-2 h-2 rounded-full shrink-0 ${
                       r.batch_status === 'completed'
                         ? 'bg-emerald-400'
                         : r.batch_status === 'running'
@@ -1031,23 +1092,31 @@ function LiveRunConsole() {
                             : 'bg-zinc-600'
                     }`}
                   />
-                  <span className="text-zinc-300 font-medium w-14">{r.trigger_type}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                  <span className="text-zinc-300 font-medium w-14 shrink-0">{r.trigger_type}</span>
+                  {targetLabel && (
+                    <span
+                      className="text-zinc-400 truncate max-w-[16rem]"
+                      title={r.trigger_type === 'single' && r.target_task ? r.target_task : targetLabel}
+                    >
+                      {targetLabel}
+                    </span>
+                  )}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
                     r.surface === 'teams' ? 'bg-indigo-900/40 text-indigo-300' :
                     r.surface === 'slack' ? 'bg-green-900/40 text-green-300' :
                     'bg-zinc-700/40 text-zinc-400'
                   }`}>{r.surface}</span>
-                  <span className={`tabular-nums ${passRateColor(rate)}`}>
+                  <span className={`tabular-nums shrink-0 ${passRateColor(rate)}`}>
                     {passed}/{total}
                   </span>
                   {r.avg_judge_score != null && (
-                    <span className={`tabular-nums ${scoreColor(Number(r.avg_judge_score))}`}>
+                    <span className={`tabular-nums shrink-0 ${scoreColor(Number(r.avg_judge_score))}`}>
                       avg {Number(r.avg_judge_score).toFixed(1)}
                     </span>
                   )}
                   <span
-                    className="text-zinc-600 ml-auto tabular-nums"
-                    title={formatStampFull(r.started_at)}
+                    className="text-zinc-600 ml-auto tabular-nums shrink-0"
+                    title={`${formatStampFull(r.started_at)}${r.triggered_by ? ` · by ${r.triggered_by}` : ''}`}
                   >
                     {formatStamp(r.started_at)} · {timeAgo(r.started_at)}
                   </span>
@@ -1331,6 +1400,107 @@ interface BlockersPayload {
     deployed_at: string | null;
     retired_at: string | null;
   }>;
+  // Per-agent grouped failing tasks (latest score, passed=false). Drives the
+  // per-agent drill-down + bulk re-run actions in the fix plan.
+  failing_by_agent: Record<string, Array<{
+    task_id: string;
+    task_number: number;
+    task: string;
+    pillar: string;
+    is_p0: boolean;
+    judge_score: number | null;
+    judge_tier: string | null;
+    heuristic_failures: string[] | null;
+    axis_scores: Record<string, number> | null;
+    reasoning_trace: string | null;
+    completed_at: string | null;
+  }>>;
+}
+
+/**
+ * Map a heuristic-failure tag (or a normalized substring) to a concrete
+ * investigation/remediation step. Kept here rather than on the server so we can
+ * iterate on the playbook without redeploying the scheduler.
+ */
+function suggestRemediation(
+  heuristics: string[] | null | undefined,
+  axisScores: Record<string, number> | null | undefined,
+): Array<{ kind: string; action: string; detail: string }> {
+  const steps: Array<{ kind: string; action: string; detail: string }> = [];
+  const tags = (heuristics ?? []).map((h) => h.toLowerCase());
+
+  const has = (...needles: string[]) => tags.some((t) => needles.some((n) => t.includes(n)));
+
+  if (has('hallucinat', 'fabricat', 'unsupported_claim', 'no_evidence')) {
+    steps.push({
+      kind: 'evidence',
+      action: 'Tighten evidence requirement in prompt',
+      detail: 'Agent is fabricating. Add explicit "cite source or say I do not know" rule and gate output on retrieved evidence.',
+    });
+  }
+  if (has('tool_misuse', 'wrong_tool', 'missing_tool', 'tool_unavailable', 'no_grant')) {
+    steps.push({
+      kind: 'tool',
+      action: 'Audit tool grants for this agent',
+      detail: 'Heuristic flagged a tool problem. Check agent_tool_grants for missing or stale entries; review the latest tool_call_traces.',
+    });
+  }
+  if (has('format', 'schema', 'invalid_json', 'parse_error')) {
+    steps.push({
+      kind: 'format',
+      action: 'Pin output schema in prompt',
+      detail: 'Output failed structural checks. Add a JSON schema or strict format example to the system prompt and re-run.',
+    });
+  }
+  if (has('incomplete', 'truncated', 'cutoff', 'max_turns')) {
+    steps.push({
+      kind: 'limits',
+      action: 'Raise max_turns / token budget',
+      detail: 'Agent ran out of room. Raise max_turns in agent config (current cap is set in agents package) or split the task.',
+    });
+  }
+  if (has('drift', 'off_topic', 'voice_mismatch', 'persona')) {
+    steps.push({
+      kind: 'voice',
+      action: 'Refresh voice / persona examples',
+      detail: 'Output drifted from brand voice. Update casual_voice_examples or the agent constitution and re-evaluate.',
+    });
+  }
+  if (has('safety', 'policy', 'unsafe', 'pii_leak', 'secret')) {
+    steps.push({
+      kind: 'safety',
+      action: 'Investigate as a P0 safety incident',
+      detail: 'Safety/policy heuristic tripped — escalate to security review before any prompt change.',
+    });
+  }
+  if (has('memory', 'context_loss', 'amnesia')) {
+    steps.push({
+      kind: 'memory',
+      action: 'Check working_memory and conversation_memory_summaries',
+      detail: 'Agent lost prior context. Verify memory writes/reads on the failing run id and the consolidation job.',
+    });
+  }
+
+  // Axis-driven hints — only add if no heuristic-specific guidance fired.
+  if (steps.length === 0 && axisScores) {
+    const lowest = Object.entries(axisScores).sort((a, b) => a[1] - b[1])[0];
+    if (lowest && lowest[1] < 6) {
+      steps.push({
+        kind: 'axis',
+        action: `Target weakest axis: "${lowest[0]}" (${lowest[1].toFixed(1)})`,
+        detail: 'No specific heuristic match. Edit the prompt section that governs this axis, then re-run.',
+      });
+    }
+  }
+
+  if (steps.length === 0) {
+    steps.push({
+      kind: 'general',
+      action: 'Open the run trace and inspect the agent_output',
+      detail: 'No structured failure tags. Read the full reasoning trace and output to form a hypothesis, then re-run.',
+    });
+  }
+  return steps;
 }
 
 function BlockersAndPlan() {
@@ -1341,6 +1511,7 @@ function BlockersAndPlan() {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [actionStatus, setActionStatus] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const [expandedFailure, setExpandedFailure] = useState<string | null>(null);
+  const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -1377,6 +1548,32 @@ function BlockersAndPlan() {
     () => apiCall('/api/cz/runs', {
       method: 'POST',
       body: JSON.stringify({ mode: 'single', task_id: taskId, triggered_by: 'dashboard:blockers' }),
+    }),
+  ), [runAction]);
+
+  // Bulk re-run every failing task currently attributed to one agent. Uses
+  // mode=canary so the scheduler picks up exactly that agent's task surface.
+  const rerunAgent = useCallback((agent: string, count: number) => {
+    if (!window.confirm(`Re-run all ${count} task${count === 1 ? '' : 's'} for ${agent}?`)) {
+      return Promise.resolve();
+    }
+    return runAction(
+      `rerun-agent:${agent}`,
+      `Re-run ${agent} (${count} task${count === 1 ? '' : 's'})`,
+      () => apiCall('/api/cz/runs', {
+        method: 'POST',
+        body: JSON.stringify({ mode: 'canary', agent, triggered_by: 'dashboard:blockers' }),
+      }),
+    );
+  }, [runAction]);
+
+  // Re-run an entire pillar — used when a pillar drops below threshold.
+  const rerunPillar = useCallback((pillar: string) => runAction(
+    `rerun-pillar:${pillar}`,
+    `Re-run pillar "${shortPillar(pillar)}"`,
+    () => apiCall('/api/cz/runs', {
+      method: 'POST',
+      body: JSON.stringify({ mode: 'pillar', pillar, triggered_by: 'dashboard:blockers' }),
     }),
   ), [runAction]);
 
@@ -1418,14 +1615,32 @@ function BlockersAndPlan() {
 
   // Derive ranked actionable recommendations from top agents + staged fixes
   const recommendations = useMemo(() => {
-    if (!data) return [] as Array<{ priority: 'P0' | 'High' | 'Med'; title: string; detail: string }>;
-    const recs: Array<{ priority: 'P0' | 'High' | 'Med'; title: string; detail: string }> = [];
+    if (!data) return [] as Array<{
+      priority: 'P0' | 'High' | 'Med';
+      title: string;
+      detail: string;
+      action?: { label: string; key: string; run: () => Promise<unknown> | void };
+    }>;
+    const recs: Array<{
+      priority: 'P0' | 'High' | 'Med';
+      title: string;
+      detail: string;
+      action?: { label: string; key: string; run: () => Promise<unknown> | void };
+    }> = [];
 
     if (data.summary.p0_failing > 0) {
       recs.push({
         priority: 'P0',
         title: `${data.summary.p0_failing} P0 test${data.summary.p0_failing === 1 ? '' : 's'} failing — block launch`,
-        detail: 'Investigate and fix before promoting any shadow prompts. P0 failures gate certification.',
+        detail: 'Open the per-agent expansions below to see exact failing tasks. Investigate before promoting any shadow prompts; P0 failures gate certification.',
+        action: {
+          label: 'Re-run all P0',
+          key: 'rerun-critical',
+          run: () => runAction('rerun-critical', 'Re-run all P0 tasks', () => apiCall('/api/cz/runs', {
+            method: 'POST',
+            body: JSON.stringify({ mode: 'critical', triggered_by: 'dashboard:blockers' }),
+          })),
+        },
       });
     }
 
@@ -1433,12 +1648,39 @@ function BlockersAndPlan() {
     for (const a of data.top_agents.slice(0, 3)) {
       const hasPlan = stagedAgents.has(a.agent);
       const priority: 'P0' | 'High' | 'Med' = a.p0_failing_count > 0 ? 'P0' : a.failing_count >= 3 ? 'High' : 'Med';
+      // Surface concrete heuristic patterns for this agent so the rec is
+      // diagnostic, not just a count.
+      const agentFails = data.failing_by_agent?.[a.agent] ?? [];
+      const heuristicTally: Record<string, number> = {};
+      for (const t of agentFails) {
+        for (const h of t.heuristic_failures ?? []) {
+          heuristicTally[h] = (heuristicTally[h] ?? 0) + 1;
+        }
+      }
+      const topPatterns = Object.entries(heuristicTally)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 2)
+        .map(([h, n]) => `${h}×${n}`)
+        .join(', ');
+
+      const detailParts = [
+        `${a.failing_count} failing` + (a.p0_failing_count > 0 ? ` (${a.p0_failing_count} P0)` : ''),
+        a.avg_score != null ? `avg judge ${Number(a.avg_score).toFixed(1)}` : null,
+        topPatterns ? `top patterns: ${topPatterns}` : null,
+        hasPlan
+          ? 'Reflection loop has staged a prompt mutation — review & promote below.'
+          : 'No staged fix yet. Re-run to trigger reflection, or expand the agent row to inspect each failure.',
+      ].filter(Boolean);
+
       recs.push({
         priority,
-        title: `${a.agent}: ${a.failing_count} failing${a.p0_failing_count > 0 ? ` (${a.p0_failing_count} P0)` : ''}`,
-        detail: hasPlan
-          ? 'Prompt mutation already staged by reflection loop — review & promote via shadow eval.'
-          : 'No staged fix yet. Re-run failing tasks to trigger reflection, or hand-author a prompt patch.',
+        title: `${a.agent} blocking ${a.failing_count} task${a.failing_count === 1 ? '' : 's'}`,
+        detail: detailParts.join(' · '),
+        action: {
+          label: `Re-run ${a.agent} (${a.failing_count})`,
+          key: `rerun-agent:${a.agent}`,
+          run: () => rerunAgent(a.agent, a.failing_count),
+        },
       });
     }
 
@@ -1448,13 +1690,18 @@ function BlockersAndPlan() {
       if (threshold != null && rate < threshold) {
         recs.push({
           priority: 'High',
-          title: `Pillar "${p.pillar}" below threshold (${(rate * 100).toFixed(0)}% vs ${(threshold * 100).toFixed(0)}%)`,
-          detail: `${p.failing_count}/${p.total_count} tasks failing. Target the shared scenario pattern, not individual tasks.`,
+          title: `Pillar "${shortPillar(p.pillar)}" below threshold (${(rate * 100).toFixed(0)}% vs ${(threshold * 100).toFixed(0)}%)`,
+          detail: `${p.failing_count}/${p.total_count} tasks failing. The pattern is shared across agents in this pillar — look for a common scenario, tool, or guardrail.`,
+          action: {
+            label: 'Re-run pillar',
+            key: `rerun-pillar:${p.pillar}`,
+            run: () => rerunPillar(p.pillar),
+          },
         });
       }
     }
 
-    if (data.recent_failures.length > 0 && recs.length < 3) {
+    if (data.recent_failures.length > 0 && recs.length < 5) {
       const heuristicCounts: Record<string, number> = {};
       for (const f of data.recent_failures) {
         for (const h of f.heuristic_failures ?? []) {
@@ -1463,16 +1710,19 @@ function BlockersAndPlan() {
       }
       const topHeuristic = Object.entries(heuristicCounts).sort((a, b) => b[1] - a[1])[0];
       if (topHeuristic && topHeuristic[1] >= 2) {
+        const stepHint = suggestRemediation([topHeuristic[0]], null)[0];
         recs.push({
           priority: 'Med',
           title: `Recurring heuristic failure: "${topHeuristic[0]}" (${topHeuristic[1]}x)`,
-          detail: 'Common pattern across multiple agents — likely a shared tool, prompt template, or guardrail issue.',
+          detail: stepHint
+            ? `${stepHint.action} — ${stepHint.detail}`
+            : 'Common pattern across multiple agents — likely a shared tool, prompt template, or guardrail issue.',
         });
       }
     }
 
     return recs;
-  }, [data]);
+  }, [data, rerunAgent, rerunPillar, runAction]);
 
   return (
     <Card>
@@ -1555,6 +1805,15 @@ function BlockersAndPlan() {
                       <p className="text-zinc-100">{r.title}</p>
                       <p className="text-zinc-500 text-xs">{r.detail}</p>
                     </div>
+                    {r.action && (
+                      <button
+                        onClick={() => { void r.action!.run(); }}
+                        disabled={pendingAction === r.action.key}
+                        className="shrink-0 px-2 py-1 rounded text-[11px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-50"
+                      >
+                        {pendingAction === r.action.key ? '…' : r.action.label}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -1574,26 +1833,115 @@ function BlockersAndPlan() {
                       <th className="py-1.5 pr-2">Agent</th>
                       <th className="py-1.5 pr-2 text-right">Failing</th>
                       <th className="py-1.5 pr-2 text-right">P0</th>
-                      <th className="py-1.5 text-right">Avg</th>
+                      <th className="py-1.5 pr-2 text-right">Avg</th>
+                      <th className="py-1.5 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {data.top_agents.map((a) => (
-                      <tr key={a.agent} className="border-b border-zinc-800/40">
-                        <td className="py-1.5 pr-2 text-zinc-200">{a.agent}</td>
-                        <td className="py-1.5 pr-2 text-right text-rose-400 tabular-nums">
-                          {a.failing_count}/{a.total_count}
-                        </td>
-                        <td className="py-1.5 pr-2 text-right tabular-nums">
-                          {a.p0_failing_count > 0
-                            ? <span className="text-rose-400 font-semibold">{a.p0_failing_count}</span>
-                            : <span className="text-zinc-600">0</span>}
-                        </td>
-                        <td className={`py-1.5 text-right tabular-nums ${scoreColor(a.avg_score)}`}>
-                          {a.avg_score != null ? Number(a.avg_score).toFixed(1) : '—'}
-                        </td>
-                      </tr>
-                    ))}
+                    {data.top_agents.map((a) => {
+                      const isOpen = expandedAgent === a.agent;
+                      const agentTasks = data.failing_by_agent?.[a.agent] ?? [];
+                      return (
+                        <Fragment key={a.agent}>
+                          <tr className="border-b border-zinc-800/40">
+                            <td className="py-1.5 pr-2">
+                              <button
+                                onClick={() => setExpandedAgent(isOpen ? null : a.agent)}
+                                className="text-zinc-200 hover:text-zinc-50 flex items-center gap-1"
+                                title="Show failing tasks and per-task remediation"
+                              >
+                                <span className="text-zinc-600 text-[10px]">{isOpen ? '▾' : '▸'}</span>
+                                {a.agent}
+                              </button>
+                            </td>
+                            <td className="py-1.5 pr-2 text-right text-rose-400 tabular-nums">
+                              {a.failing_count}/{a.total_count}
+                            </td>
+                            <td className="py-1.5 pr-2 text-right tabular-nums">
+                              {a.p0_failing_count > 0
+                                ? <span className="text-rose-400 font-semibold">{a.p0_failing_count}</span>
+                                : <span className="text-zinc-600">0</span>}
+                            </td>
+                            <td className={`py-1.5 pr-2 text-right tabular-nums ${scoreColor(a.avg_score)}`}>
+                              {a.avg_score != null ? Number(a.avg_score).toFixed(1) : '—'}
+                            </td>
+                            <td className="py-1.5 text-right">
+                              <button
+                                onClick={() => rerunAgent(a.agent, a.failing_count)}
+                                disabled={pendingAction === `rerun-agent:${a.agent}` || a.failing_count === 0}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-40"
+                                title={`Re-run all ${a.failing_count} failing tasks for this agent`}
+                              >
+                                {pendingAction === `rerun-agent:${a.agent}` ? '…' : '↻ Re-run'}
+                              </button>
+                            </td>
+                          </tr>
+                          {isOpen && (
+                            <tr>
+                              <td colSpan={5} className="py-2 px-2 bg-zinc-950/50 border-b border-zinc-800/40">
+                                {agentTasks.length === 0 ? (
+                                  <p className="text-zinc-500 text-[11px]">No detailed failure rows available.</p>
+                                ) : (
+                                  <ul className="space-y-2">
+                                    {agentTasks.map((t) => {
+                                      const steps = suggestRemediation(t.heuristic_failures, t.axis_scores);
+                                      return (
+                                        <li key={t.task_id} className="border border-zinc-800/60 rounded p-2 bg-zinc-900/40">
+                                          <div className="flex items-start gap-2 text-[11px]">
+                                            <span className="text-zinc-500 tabular-nums w-8 shrink-0">#{t.task_number}</span>
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-zinc-100 truncate">{t.task}</p>
+                                              <p className="text-zinc-500 mt-0.5">
+                                                {shortPillar(t.pillar)}
+                                                {t.is_p0 && <span className="text-rose-400 ml-1.5 font-semibold">P0</span>}
+                                                {t.judge_score != null && (
+                                                  <span className={`ml-2 ${scoreColor(t.judge_score)}`}>
+                                                    judge {Number(t.judge_score).toFixed(1)}
+                                                  </span>
+                                                )}
+                                                {t.completed_at && (
+                                                  <span className="ml-2 text-zinc-600" title={formatStampFull(t.completed_at)}>
+                                                    {timeAgo(t.completed_at)}
+                                                  </span>
+                                                )}
+                                              </p>
+                                              {t.heuristic_failures && t.heuristic_failures.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {t.heuristic_failures.map((h, i) => (
+                                                    <span key={i} className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[10px]">
+                                                      {h}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              )}
+                                              <ul className="mt-1.5 space-y-0.5">
+                                                {steps.map((s, i) => (
+                                                  <li key={i} className="text-[11px] text-zinc-300">
+                                                    <span className="text-emerald-400">→</span> <span className="font-medium">{s.action}</span>
+                                                    <span className="text-zinc-500"> — {s.detail}</span>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                            <button
+                                              onClick={() => rerunTask(t.task_id, t.task_number)}
+                                              disabled={pendingAction === `rerun:${t.task_id}`}
+                                              className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-40"
+                                            >
+                                              {pendingAction === `rerun:${t.task_id}` ? '…' : '↻'}
+                                            </button>
+                                          </div>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
@@ -1610,7 +1958,8 @@ function BlockersAndPlan() {
                       <th className="py-1.5 pr-2">Pillar</th>
                       <th className="py-1.5 pr-2 text-right">Pass %</th>
                       <th className="py-1.5 pr-2 text-right">Failing</th>
-                      <th className="py-1.5 text-right">Avg</th>
+                      <th className="py-1.5 pr-2 text-right">Avg</th>
+                      <th className="py-1.5 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1627,8 +1976,18 @@ function BlockersAndPlan() {
                           <td className="py-1.5 pr-2 text-right text-rose-400 tabular-nums">
                             {p.failing_count}/{p.total_count}
                           </td>
-                          <td className={`py-1.5 text-right tabular-nums ${scoreColor(p.avg_score)}`}>
+                          <td className={`py-1.5 pr-2 text-right tabular-nums ${scoreColor(p.avg_score)}`}>
                             {p.avg_score != null ? Number(p.avg_score).toFixed(1) : '—'}
+                          </td>
+                          <td className="py-1.5 text-right">
+                            <button
+                              onClick={() => rerunPillar(p.pillar)}
+                              disabled={pendingAction === `rerun-pillar:${p.pillar}`}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-40"
+                              title="Re-run all tasks in this pillar"
+                            >
+                              {pendingAction === `rerun-pillar:${p.pillar}` ? '…' : '↻ Re-run'}
+                            </button>
                           </td>
                         </tr>
                       );
@@ -1700,6 +2059,24 @@ function BlockersAndPlan() {
                               </div>
                             </div>
                           )}
+                          {/* Concrete remediation steps derived from the heuristic
+                              tags + lowest axis. Renders even with no tags. */}
+                          {(() => {
+                            const steps = suggestRemediation(f.heuristic_failures, f.axis_scores);
+                            return (
+                              <div>
+                                <p className="text-zinc-500 mb-1">Suggested fix steps</p>
+                                <ul className="space-y-1">
+                                  {steps.map((s, i) => (
+                                    <li key={i} className="text-zinc-200">
+                                      <span className="text-emerald-400">{i + 1}.</span> <span className="font-medium">{s.action}</span>
+                                      <span className="text-zinc-500"> — {s.detail}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            );
+                          })()}
                           <div className="flex items-center gap-2 pt-1">
                             <button
                               onClick={(e) => { e.stopPropagation(); rerunTask(f.task_id, f.task_number); }}
