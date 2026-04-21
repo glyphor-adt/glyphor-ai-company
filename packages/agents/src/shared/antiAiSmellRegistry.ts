@@ -260,6 +260,8 @@ export const ANTI_AI_SMELL_TOKENS = {
       micro: '0.6875rem',
     },
     fontWeights: {
+      // Stored as strings to match the Tailwind CSS variable / token format.
+      // These are documentation values — convert to numbers if used in CSS-in-JS contexts.
       display: '800',   // extrabold — hero headlines only
       title: '700',     // bold — section headings
       subtitle: '600',  // semibold — card titles, labels
@@ -400,8 +402,9 @@ export function scoreTypographyHierarchy(source: string): {
   }
 
   // Reward positive signals: distinct size levels in the component
+  // Arbitrary-value Tailwind syntax: text-[clamp(...)] or text-[1.75rem], etc.
   const sizeLevels = [
-    { key: 'display', pattern: /\b(?:text-display|text-[4-9]xl|text-\[clamp)\b/ },
+    { key: 'display', pattern: /\b(?:text-display|text-[4-9]xl|text-\[clamp\()\b/ },
     { key: 'heading', pattern: /\b(?:text-heading|text-[23]xl|text-\[1\.75)\b/ },
     { key: 'subheading', pattern: /\b(?:text-subheading|text-xl|text-\[1\.125)\b/ },
     { key: 'body', pattern: /\b(?:text-body|text-base|text-\[1rem)\b/ },
@@ -413,8 +416,15 @@ export function scoreTypographyHierarchy(source: string): {
     .filter((l) => l.pattern.test(source))
     .map((l) => l.key);
 
+  // Bonus constants for typographic richness reward
+  const MIN_LEVELS_FOR_BONUS = 3;   // at least 3 distinct size levels to earn a bonus
+  const BONUS_PER_EXTRA_LEVEL = 5;  // points awarded per level above the minimum
+  const MAX_LEVEL_BONUS = 10;       // cap so bonus cannot override real penalty signals
+
   // Bonus: components with ≥3 distinct size levels get a positive signal
-  const levelBonus = levelsFound.length >= 3 ? Math.min(10, (levelsFound.length - 2) * 5) : 0;
+  const levelBonus = levelsFound.length >= MIN_LEVELS_FOR_BONUS
+    ? Math.min(MAX_LEVEL_BONUS, (levelsFound.length - MIN_LEVELS_FOR_BONUS + 1) * BONUS_PER_EXTRA_LEVEL)
+    : 0;
 
   const totalPenalty = deductions.reduce((sum, d) => sum + d.penalty, 0);
   const score = Math.min(100, Math.max(0, 100 - totalPenalty + levelBonus));

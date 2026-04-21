@@ -34,12 +34,15 @@ const AI_SMELL_PATTERNS = [
   { pattern: /\blearn more\b/i, label: 'Generic "Learn More" CTA text' },
 
   // ── Typographic flatness ───────────────────────────────────────────────────
-  { pattern: /\bfont-normal\b.*\bfont-normal\b/is, label: 'Flat font-weight: all font-normal (400)' },
-  { pattern: /\bfont-medium\b.*\bfont-medium\b/is, label: 'Flat font-weight: all font-medium (500), no bold/semibold headings' },
+  // Requires three occurrences of the same low-weight utility to reduce false positives
+  // from pages with unrelated components that happen to share a weight class.
+  { pattern: /\bfont-normal\b.*\bfont-normal\b.*\bfont-normal\b/is, label: 'Flat font-weight: three or more font-normal (400) with no bold headings' },
+  { pattern: /\bfont-medium\b.*\bfont-medium\b.*\bfont-medium\b/is, label: 'Flat font-weight: three or more font-medium (500) with no bold/semibold headings' },
   { pattern: /text-(?:base|sm|xs)\b.*text-(?:base|sm|xs)\b.*text-(?:base|sm|xs)\b/is, label: 'Uniform type scale: three or more same-tier text sizes' },
 
   // ── Spacing monoculture ────────────────────────────────────────────────────
-  { pattern: /(?:^|\s)p-4\b.*(?:^|\s)p-4\b.*(?:^|\s)p-4\b/is, label: 'Uniform spacing: three or more p-4 declarations (p-4 monoculture)' },
+  // Match p-4 as a class token (preceded by whitespace, quote, or start-of-string)
+  { pattern: /["\s]p-4\b.*["\s]p-4\b.*["\s]p-4\b/is, label: 'Uniform spacing: three or more p-4 declarations (p-4 monoculture)' },
   { pattern: /gap-4\b.*gap-4\b.*gap-4\b/is, label: 'Uniform gap: three or more gap-4 declarations' },
 
   // ── Default border-radius uniformity ──────────────────────────────────────
