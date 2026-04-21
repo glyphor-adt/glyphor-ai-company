@@ -1535,6 +1535,20 @@ function suggestRemediation(
       detail: 'The judge flagged truncation but the agent\'s actual output is structurally complete. This used to happen when the judge saw only the first 4000 chars of a longer deliverable (risk registers, battle card decks, voice guide + N generations). The judge window was raised to 16k chars on 2026-04-21; rerun this task and it should score correctly. No prompt changes are needed on the agent.',
     });
   }
+  if (has('agent_runtime_abort')) {
+    steps.push({
+      kind: 'runtime',
+      action: 'Check tool budget + grants — the agent had nothing to respond with',
+      detail: 'The runtime aborted before producing any output (stalled / timed out / no verifiable result). This is not a prompt issue — the agent never got far enough to matter. Start by checking the runner wiring in packages/scheduler/src/czProtocolApi.ts STATIC_RUNNERS: does this agent have a tool budget compatible with the task (e.g. vp-research needs maxToolCalls > 0 for anything research-y)? Then check agent_tool_grants for required tools, and the run\'s latency_ms (near 300000 means model timeout). After fixing the wiring, rerun.',
+    });
+  }
+  if (has('tool_attempt_without_synthesis')) {
+    steps.push({
+      kind: 'synthesis',
+      action: 'Patch agent constitution to check synthesis policy before tools',
+      detail: 'Agent tried tools first on an adversarial or input-dependent CZ task, reported failures, and stopped. For red-team tasks (poisoned docs, prompt injection, jailbreak) synthesizing the attack samples inline is the ONLY scorable path — real artifacts are not in the environment. The CZ executor prompt now has an explicit ADVERSARIAL/RED-TEAM section, but if the agent\'s constitution routes to tools unconditionally, add a CZ-specific override: "When invoked under the Customer Zero Protocol: if the verification method mentions poisoned/injection/adversarial/jailbreak/bypass/hard-blocked or asks for N synthesized cases, do not attempt tool retrieval — synthesize the N inputs inline and demonstrate your response to each." This is the same root cause as refused_for_missing_inputs but fires when the agent attempted rather than refused.',
+    });
+  }
   if (has('agent_retired', 'not on the live runtime roster', 'retired role', 'roster_blocked')) {
     steps.push({
       kind: 'roster',
@@ -1645,6 +1659,18 @@ const HEURISTIC_GLOSSARY: Array<{ match: string[]; label: string; meaning: strin
     label: 'Judge-window truncation (false negative)',
     meaning: 'The judge reasoning mentions the output was truncated or incomplete, but the actual stored agent output is structurally complete (ends cleanly, has a summary/self-assessment). The truncation likely happened in the judge\'s prompt-input window — the agent delivered, but the judge only saw part of the answer.',
     where_to_look: 'Open the run drawer and read the full `agent_output` — if it\'s complete, the score is a false negative from judge windowing. The judge cap was raised from 4k to 16k chars on 2026-04-21. A single rerun with the updated executor should score the run correctly; no prompt changes are needed on the agent itself.',
+  },
+  {
+    match: ['agent_runtime_abort'],
+    label: 'Agent runtime abort (no output)',
+    meaning: 'The agent runtime aborted before producing any verifiable output — the stored output is just the boilerplate "execution stalled / timed out / did not produce a verifiable result." This is an infrastructure signal, not a prompt bug. The agent literally had nothing to respond with.',
+    where_to_look: 'Three likely causes in order of likelihood: (1) tool budget too low for a tool-dependent task — check the runner wiring in packages/scheduler/src/czProtocolApi.ts `STATIC_RUNNERS` (vp-research was set to maxToolCalls: 0 on 2026-04-20, fixed to 8 on 2026-04-21). (2) a required tool is missing or mis-granted — check `agent_tool_grants`. (3) model timeout on a deep-context task — check the run\'s latency_ms in cz_runs; if close to 300s it hit the ON_DEMAND_CALL_TIMEOUT_MS cap.',
+  },
+  {
+    match: ['tool_attempt_without_synthesis'],
+    label: 'Tool attempt without synthesis',
+    meaning: 'Agent attempted to execute with real tools, reported partial/failed tool calls ("all tool calls failed", "could not locate", "task remains incomplete"), and stopped there instead of falling back to synthesized inputs. For adversarial red-team tasks (poisoned docs, injection, jailbreak) and input-dependent tasks (partner inquiries, cold outreach), synthesizing the inputs inline is the only scorable path in a certification run.',
+    where_to_look: 'The CZ executor prompt has both an INPUTS POLICY and an ADVERSARIAL/RED-TEAM section that instruct synthesis. If this tag still fires, the agent\'s constitution routes to tools first and never reaches the synthesis fallback. Patch the agent\'s system prompt: "When invoked under the Customer Zero Protocol, check if the task is adversarial/red-team or input-dependent before touching tools; if yes, synthesize representative inputs inline and demonstrate the task against them." For P0 adversarial tasks this is the critical fix.',
   },
   {
     match: ['agent_retired', 'not on the live runtime roster', 'retired role', 'roster_blocked'],
