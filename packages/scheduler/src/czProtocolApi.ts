@@ -1011,7 +1011,15 @@ export async function handleCzApi(
           ORDER BY l.completed_at DESC
           LIMIT $1
         `, [limitRecent]),
-        // Staged prompt mutations from CZ reflection that haven't been deployed yet
+        // Staged prompt mutations from the reflection pipeline that haven't
+        // been deployed yet. Includes both `cz_reflection` (the CZ bridge's
+        // intended tag) and plain `reflection` — in practice applyMutation
+        // writes `source='reflection'` first and the bridge's follow-up
+        // UPDATE to 'cz_reflection' has been getting filtered out by RLS in
+        // a different connection context, leaving all CZ-triggered
+        // challengers under `reflection`. Widen the filter so the dashboard
+        // actually shows them; the underlying source-tag bug is fixed
+        // separately in czReflectionBridge.ts.
         systemQuery(`
           SELECT
             id,
@@ -1024,7 +1032,9 @@ export async function handleCzApi(
             deployed_at,
             retired_at
           FROM agent_prompt_versions
-          WHERE source = 'cz_reflection'
+          WHERE source IN ('cz_reflection', 'reflection')
+            AND deployed_at IS NULL
+            AND retired_at IS NULL
             AND created_at > NOW() - INTERVAL '14 days'
           ORDER BY created_at DESC
           LIMIT 25

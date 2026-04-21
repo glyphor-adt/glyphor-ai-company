@@ -68,9 +68,15 @@ Output format: JSON only.
 const RATE_LIMIT_HOURS = 24;
 
 async function isRateLimited(agentId: string): Promise<boolean> {
+  // Match both source tags: `applyMutation` writes 'reflection', then this
+  // bridge used to UPDATE to 'cz_reflection' — but that UPDATE has been
+  // silently no-op'ing in practice (likely RLS on tenant_id in a different
+  // connection context), so historical CZ-triggered versions are stored as
+  // plain 'reflection'. Counting both prevents the bridge from re-firing on
+  // the same agent every batch.
   const rows = await systemQuery<{ count: string }>(
     `SELECT COUNT(*) AS count FROM agent_prompt_versions
-     WHERE agent_id = $1 AND source = 'cz_reflection'
+     WHERE agent_id = $1 AND source IN ('cz_reflection', 'reflection')
        AND created_at > NOW() - INTERVAL '${RATE_LIMIT_HOURS} hours'`,
     [agentId],
   );
@@ -207,11 +213,23 @@ export async function processCzBatchFailures(batchId: string): Promise<{
         continue;
       }
 
-      // Tag the version source as cz_reflection (for rate limiting)
-      await systemQuery(
-        `UPDATE agent_prompt_versions SET source = 'cz_reflection' WHERE agent_id = $1 AND version = $2`,
+      // Tag the version source as cz_reflection (for rate limiting + dashboard
+      // filtering). Matches on id rather than (agent_id, version) to avoid any
+      // RLS/tenant scoping issue that was silently no-op'ing this UPDATE in
+      // production. If this still reports 0 rows updated, fall back to a
+      // log — the rate-limit query is now tolerant of either source tag.
+      const updateResult = await systemQuery<{ updated: string }>(
+        `UPDATE agent_prompt_versions
+            SET source = 'cz_reflection'
+          WHERE agent_id = $1 AND version = $2
+      RETURNING agent_id AS updated`,
         [agentId, newVersion],
       );
+      if ((updateResult as unknown as unknown[]).length === 0) {
+        console.warn(
+          `[CzReflection] Source-tag UPDATE affected 0 rows for ${agentId} v${newVersion} — version remains tagged 'reflection'. Dashboard staged_fixes filter now accepts both.`,
+        );
+      }
 
       // Queue shadow evaluation
       await queueShadowEvaluation(agentId, newVersion);
