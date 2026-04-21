@@ -547,6 +547,9 @@ export async function handleCzApi(
             t.task_number,
             t.task,
             t.pillar,
+            t.sub_category,
+            t.acceptance_criteria,
+            t.verification_method,
             t.responsible_agent,
             t.is_p0,
             r.completed_at,
@@ -556,7 +559,8 @@ export async function handleCzApi(
             s.judge_tier,
             s.reasoning_trace,
             s.heuristic_failures,
-            s.axis_scores
+            s.axis_scores,
+            s.agent_output
           FROM cz_runs r
           JOIN cz_scores s ON s.run_id = r.id
           JOIN cz_tasks t ON t.id = r.task_id
@@ -597,7 +601,8 @@ export async function handleCzApi(
               s.judge_tier,
               s.heuristic_failures,
               s.axis_scores,
-              s.reasoning_trace
+              s.reasoning_trace,
+              s.agent_output
             FROM cz_runs r
             JOIN cz_scores s ON s.run_id = r.id
             WHERE r.completed_at IS NOT NULL
@@ -609,12 +614,16 @@ export async function handleCzApi(
             t.task_number,
             t.task,
             t.pillar,
+            t.sub_category,
+            t.acceptance_criteria,
+            t.verification_method,
             t.is_p0,
             l.judge_score,
             l.judge_tier,
             l.heuristic_failures,
             l.axis_scores,
             l.reasoning_trace,
+            l.agent_output,
             l.completed_at
           FROM cz_tasks t
           JOIN latest l ON l.task_id = t.id

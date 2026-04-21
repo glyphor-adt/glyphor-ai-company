@@ -1378,6 +1378,9 @@ interface BlockersPayload {
     task_number: number;
     task: string;
     pillar: string;
+    sub_category: string | null;
+    acceptance_criteria: string | null;
+    verification_method: string | null;
     responsible_agent: string | null;
     is_p0: boolean;
     completed_at: string | null;
@@ -1388,6 +1391,7 @@ interface BlockersPayload {
     reasoning_trace: string | null;
     heuristic_failures: string[] | null;
     axis_scores: Record<string, number> | null;
+    agent_output: string | null;
   }>;
   staged_fixes: Array<{
     id: string;
@@ -1407,12 +1411,16 @@ interface BlockersPayload {
     task_number: number;
     task: string;
     pillar: string;
+    sub_category: string | null;
+    acceptance_criteria: string | null;
+    verification_method: string | null;
     is_p0: boolean;
     judge_score: number | null;
     judge_tier: string | null;
     heuristic_failures: string[] | null;
     axis_scores: Record<string, number> | null;
     reasoning_trace: string | null;
+    agent_output: string | null;
     completed_at: string | null;
   }>>;
 }
@@ -1503,6 +1511,158 @@ function suggestRemediation(
   return steps;
 }
 
+/**
+ * Human-readable explanations for the heuristic tags the judge emits. Rendered
+ * as tooltips on the red chips and as a glossary in the investigate drawer so
+ * reviewers don't have to guess what "tool_misuse" means.
+ *
+ * Matched by substring (case-insensitive) so variants like `hallucination`,
+ * `hallucinated_quote`, etc. all pick up the same entry.
+ */
+const HEURISTIC_GLOSSARY: Array<{ match: string[]; label: string; meaning: string; where_to_look: string }> = [
+  {
+    match: ['hallucinat', 'fabricat', 'unsupported_claim', 'no_evidence'],
+    label: 'Hallucination / fabrication',
+    meaning: 'Agent produced a claim that cannot be verified against retrieved sources or known facts.',
+    where_to_look: 'Check the retrieval step in the run trace — did the agent have evidence? If yes, tighten the "cite sources" rule in the system prompt. If no, fix the RAG/tool call first.',
+  },
+  {
+    match: ['tool_misuse', 'wrong_tool', 'missing_tool', 'tool_unavailable', 'no_grant'],
+    label: 'Tool misuse / missing grant',
+    meaning: 'Agent tried to use the wrong tool, a tool it lacks permission for, or skipped a required tool.',
+    where_to_look: '`agent_tool_grants` for this agent and the latest `tool_call_traces` row on this run. Missing grants are the most common cause of this tag on new agents.',
+  },
+  {
+    match: ['format', 'schema', 'invalid_json', 'parse_error'],
+    label: 'Format / schema violation',
+    meaning: 'Output did not match the expected structure (JSON schema, markdown blocks, required fields).',
+    where_to_look: 'The task\'s verification_method tells you what shape was expected. Pin the schema in the system prompt with an example and re-run.',
+  },
+  {
+    match: ['incomplete', 'truncated', 'cutoff', 'max_turns'],
+    label: 'Incomplete / truncated',
+    meaning: 'Agent ran out of turns or tokens before finishing.',
+    where_to_look: 'Agent config `max_turns` + `token_budget`. For orchestrated runs, check whether the handoff happened before the subtask was complete.',
+  },
+  {
+    match: ['drift', 'off_topic', 'voice_mismatch', 'persona'],
+    label: 'Voice / persona drift',
+    meaning: 'Output does not match the agent\'s brand voice, persona, or the task scope.',
+    where_to_look: '`casual_voice_examples`, the agent constitution, and the pillar sub_category. Refresh the voice snippets and re-evaluate.',
+  },
+  {
+    match: ['safety', 'policy', 'unsafe', 'pii_leak', 'secret'],
+    label: 'Safety / policy violation',
+    meaning: 'Output triggered a safety, privacy, or compliance guardrail.',
+    where_to_look: 'Do NOT promote any prompt change for this agent until security has reviewed. Capture the run id and escalate.',
+  },
+  {
+    match: ['memory', 'context_loss', 'amnesia'],
+    label: 'Memory / context loss',
+    meaning: 'Agent failed to recall prior context it was supposed to persist.',
+    where_to_look: '`working_memory`, `conversation_memory_summaries`, and the memory consolidation job log for the failing run id.',
+  },
+  {
+    match: ['acceptance_criteria too short', 'no verification_method'],
+    label: 'Bad task definition',
+    meaning: 'The test itself is under-specified — the judge cannot fairly score it.',
+    where_to_look: 'Edit the task\'s `acceptance_criteria` and `verification_method` in the Task Grid. This is a protocol bug, not an agent bug.',
+  },
+];
+
+function explainHeuristic(tag: string): { label: string; meaning: string; where_to_look: string } | null {
+  const lower = tag.toLowerCase();
+  for (const entry of HEURISTIC_GLOSSARY) {
+    if (entry.match.some((m) => lower.includes(m))) return entry;
+  }
+  return null;
+}
+
+/**
+ * Build a self-contained markdown brief for one failing task so the reviewer
+ * can paste it into an issue tracker or agent chat and get started immediately.
+ */
+function buildFixBrief(f: {
+  task_id: string;
+  task_number: number;
+  task: string;
+  pillar: string;
+  sub_category?: string | null;
+  acceptance_criteria?: string | null;
+  verification_method?: string | null;
+  responsible_agent?: string | null;
+  is_p0: boolean;
+  judge_score: number | null;
+  judge_tier?: string | null;
+  reasoning_trace: string | null;
+  heuristic_failures: string[] | null;
+  axis_scores: Record<string, number> | null;
+  agent_output?: string | null;
+  completed_at?: string | null;
+}): string {
+  const steps = suggestRemediation(f.heuristic_failures, f.axis_scores);
+  const lines: string[] = [];
+  lines.push(`# Fix brief — task #${f.task_number}${f.is_p0 ? ' [P0]' : ''}: ${f.task}`);
+  lines.push('');
+  lines.push(`- **Agent:** ${f.responsible_agent ?? 'unassigned'}`);
+  lines.push(`- **Pillar:** ${f.pillar}${f.sub_category ? ` / ${f.sub_category}` : ''}`);
+  lines.push(`- **Judge score:** ${f.judge_score ?? '—'}${f.judge_tier ? ` (${f.judge_tier})` : ''}`);
+  if (f.completed_at) lines.push(`- **Last run:** ${f.completed_at}`);
+  lines.push(`- **Task id:** \`${f.task_id}\``);
+  lines.push('');
+  if (f.acceptance_criteria) {
+    lines.push('## Acceptance criteria');
+    lines.push(f.acceptance_criteria);
+    lines.push('');
+  }
+  if (f.verification_method) {
+    lines.push('## Verification method');
+    lines.push(f.verification_method);
+    lines.push('');
+  }
+  if (f.heuristic_failures && f.heuristic_failures.length > 0) {
+    lines.push('## Heuristic failures');
+    for (const h of f.heuristic_failures) {
+      const g = explainHeuristic(h);
+      lines.push(`- **${h}**${g ? ` — ${g.meaning} _(look at: ${g.where_to_look})_` : ''}`);
+    }
+    lines.push('');
+  }
+  if (f.axis_scores && Object.keys(f.axis_scores).length > 0) {
+    lines.push('## Axis breakdown');
+    for (const [k, v] of Object.entries(f.axis_scores)) {
+      lines.push(`- ${k}: ${Number(v).toFixed(1)}`);
+    }
+    lines.push('');
+  }
+  if (f.reasoning_trace) {
+    lines.push('## Judge reasoning');
+    lines.push(f.reasoning_trace);
+    lines.push('');
+  }
+  if (f.agent_output) {
+    lines.push('## Agent output');
+    lines.push('```');
+    lines.push(f.agent_output.length > 4000 ? f.agent_output.slice(0, 4000) + '\n…(truncated)' : f.agent_output);
+    lines.push('```');
+    lines.push('');
+  }
+  lines.push('## Suggested fix steps');
+  steps.forEach((s, i) => {
+    lines.push(`${i + 1}. **${s.action}** — ${s.detail}`);
+  });
+  return lines.join('\n');
+}
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function BlockersAndPlan() {
   const [data, setData] = useState<BlockersPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1512,6 +1672,10 @@ function BlockersAndPlan() {
   const [actionStatus, setActionStatus] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const [expandedFailure, setExpandedFailure] = useState<string | null>(null);
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
+  // Inline "show raw output" toggle per failure row.
+  const [showOutputFor, setShowOutputFor] = useState<Set<string>>(new Set());
+  // Transient clipboard confirmation tokens keyed by task id.
+  const [copiedFor, setCopiedFor] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -1576,6 +1740,29 @@ function BlockersAndPlan() {
       body: JSON.stringify({ mode: 'pillar', pillar, triggered_by: 'dashboard:blockers' }),
     }),
   ), [runAction]);
+
+  const toggleOutput = useCallback((taskId: string) => {
+    setShowOutputFor((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
+      return next;
+    });
+  }, []);
+
+  // Build and copy a structured fix brief to the clipboard. Shows a 2s "copied"
+  // badge next to the button on success, an error toast on failure.
+  const copyBrief = useCallback(async (f: Parameters<typeof buildFixBrief>[0]) => {
+    const md = buildFixBrief(f);
+    const ok = await copyToClipboard(md);
+    if (ok) {
+      setCopiedFor(f.task_id);
+      window.setTimeout(() => setCopiedFor((cur) => (cur === f.task_id ? null : cur)), 2000);
+    } else {
+      setActionStatus({ kind: 'err', msg: 'Clipboard blocked by browser — paste the brief from the console instead.' });
+      // Fallback: also log so the user can copy from devtools if needed.
+      console.info('[CZ fix brief]\n' + md);
+    }
+  }, []);
 
   const promoteFix = useCallback((versionId: string, agent: string, version: number) => {
     if (!window.confirm(
@@ -1740,6 +1927,21 @@ function BlockersAndPlan() {
         </button>
       </div>
 
+      {/* How-to-read legend — collapsed on every visit so it doesn't nag, but
+          present so a new reviewer can orient themselves in 10 seconds. */}
+      <details className="mt-2 text-[11px] text-zinc-400">
+        <summary className="cursor-pointer hover:text-zinc-200">How do I use this? What am I looking at?</summary>
+        <div className="mt-2 space-y-1.5 border-l-2 border-zinc-700/50 pl-3">
+          <p><span className="text-zinc-200">1. Plan to fix — ranked.</span> The top-priority things to act on, each with a one-click re-run.</p>
+          <p><span className="text-zinc-200">2. Top blocking agents.</span> Click any row to expand the exact failing tasks for that agent, with acceptance criteria, heuristic tags, and concrete fix steps.</p>
+          <p><span className="text-zinc-200">3. Top blocking pillars.</span> A pillar below threshold means a shared pattern is broken — usually a tool or a prompt template, not one agent.</p>
+          <p><span className="text-zinc-200">4. Recent failures — judge reasoning.</span> Click any row to see the judge&apos;s full reasoning, axis scores, raw agent output, and suggested fix steps.</p>
+          <p><span className="text-zinc-200">5. Copy fix brief.</span> Any failing task can be copied as a markdown brief (criteria, reasoning, fix steps) — paste it into a GitHub issue, Slack, or an agent chat to start remediation.</p>
+          <p><span className="text-zinc-200">6. Staged prompt mutations.</span> Auto-generated fixes from the reflection loop. Review the diff and promote, or let shadow eval decide.</p>
+          <p className="text-zinc-500 pt-1">Tip: hover any red heuristic chip (e.g. <span className="px-1 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">tool_misuse</span>) for a plain-English explanation and where to look in the codebase.</p>
+        </div>
+      </details>
+
       {error && <p className="text-rose-400 text-sm mt-3">{error}</p>}
       {loading && !data && <Skeleton className="h-32 mt-3" />}
       {actionStatus && (
@@ -1893,6 +2095,7 @@ function BlockersAndPlan() {
                                               <p className="text-zinc-100 truncate">{t.task}</p>
                                               <p className="text-zinc-500 mt-0.5">
                                                 {shortPillar(t.pillar)}
+                                                {t.sub_category && <span className="text-zinc-600"> · {t.sub_category}</span>}
                                                 {t.is_p0 && <span className="text-rose-400 ml-1.5 font-semibold">P0</span>}
                                                 {t.judge_score != null && (
                                                   <span className={`ml-2 ${scoreColor(t.judge_score)}`}>
@@ -1905,13 +2108,25 @@ function BlockersAndPlan() {
                                                   </span>
                                                 )}
                                               </p>
+                                              {t.acceptance_criteria && (
+                                                <p className="text-zinc-400 mt-1 text-[10.5px] italic">
+                                                  <span className="text-emerald-400/80 not-italic">passes when:</span> {t.acceptance_criteria}
+                                                </p>
+                                              )}
                                               {t.heuristic_failures && t.heuristic_failures.length > 0 && (
                                                 <div className="flex flex-wrap gap-1 mt-1">
-                                                  {t.heuristic_failures.map((h, i) => (
-                                                    <span key={i} className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[10px]">
-                                                      {h}
-                                                    </span>
-                                                  ))}
+                                                  {t.heuristic_failures.map((h, i) => {
+                                                    const g = explainHeuristic(h);
+                                                    return (
+                                                      <span
+                                                        key={i}
+                                                        className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[10px] cursor-help"
+                                                        title={g ? `${g.label}\n\n${g.meaning}\n\nWhere to look: ${g.where_to_look}` : h}
+                                                      >
+                                                        {h}
+                                                      </span>
+                                                    );
+                                                  })}
                                                 </div>
                                               )}
                                               <ul className="mt-1.5 space-y-0.5">
@@ -1923,13 +2138,26 @@ function BlockersAndPlan() {
                                                 ))}
                                               </ul>
                                             </div>
-                                            <button
-                                              onClick={() => rerunTask(t.task_id, t.task_number)}
-                                              disabled={pendingAction === `rerun:${t.task_id}`}
-                                              className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-40"
-                                            >
-                                              {pendingAction === `rerun:${t.task_id}` ? '…' : '↻'}
-                                            </button>
+                                            <div className="shrink-0 flex flex-col gap-1">
+                                              <button
+                                                onClick={() => rerunTask(t.task_id, t.task_number)}
+                                                disabled={pendingAction === `rerun:${t.task_id}`}
+                                                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-40"
+                                                title="Re-run just this task"
+                                              >
+                                                {pendingAction === `rerun:${t.task_id}` ? '…' : '↻'}
+                                              </button>
+                                              <button
+                                                onClick={() => void copyBrief({
+                                                  ...t,
+                                                  responsible_agent: a.agent,
+                                                })}
+                                                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-700/40 text-zinc-200 hover:bg-zinc-700/60 border border-zinc-600/40"
+                                                title="Copy a structured fix brief (criteria, reasoning, suggested steps) to clipboard"
+                                              >
+                                                {copiedFor === t.task_id ? '✓' : '📋'}
+                                              </button>
+                                            </div>
                                           </div>
                                         </li>
                                       );
@@ -2029,16 +2257,61 @@ function BlockersAndPlan() {
                       </button>
                       {isOpen && (
                         <div className="px-3 pb-3 space-y-2 text-xs border-t border-zinc-800/60 pt-2">
+                          {/* What "passing" means for this task — from the seed
+                              definition. Helps reviewers diagnose whether the
+                              problem is the agent or an unfair test. */}
+                          {(f.acceptance_criteria || f.verification_method) && (
+                            <div className="rounded border border-zinc-800/60 bg-zinc-950/50 p-2 space-y-1.5">
+                              {f.acceptance_criteria && (
+                                <div>
+                                  <p className="text-emerald-400/80 text-[10px] uppercase tracking-wide">Acceptance criteria</p>
+                                  <p className="text-zinc-300 whitespace-pre-wrap">{f.acceptance_criteria}</p>
+                                </div>
+                              )}
+                              {f.verification_method && (
+                                <div>
+                                  <p className="text-emerald-400/80 text-[10px] uppercase tracking-wide">Verification method</p>
+                                  <p className="text-zinc-300 whitespace-pre-wrap">{f.verification_method}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {f.heuristic_failures && f.heuristic_failures.length > 0 && (
                             <div>
-                              <p className="text-zinc-500 mb-1">Heuristic failures</p>
+                              <p className="text-zinc-500 mb-1">Heuristic failures · hover for explanation</p>
                               <div className="flex flex-wrap gap-1">
-                                {f.heuristic_failures.map((h, i) => (
-                                  <span key={i} className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">
-                                    {h}
-                                  </span>
-                                ))}
+                                {f.heuristic_failures.map((h, i) => {
+                                  const g = explainHeuristic(h);
+                                  return (
+                                    <span
+                                      key={i}
+                                      className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 cursor-help"
+                                      title={g ? `${g.label}\n\n${g.meaning}\n\nWhere to look: ${g.where_to_look}` : h}
+                                    >
+                                      {h}
+                                    </span>
+                                  );
+                                })}
                               </div>
+                              {/* Inline glossary for any matched heuristics,
+                                  so the reviewer doesn't have to hover. */}
+                              {(() => {
+                                const seen = new Set<string>();
+                                const entries = (f.heuristic_failures ?? [])
+                                  .map((h) => explainHeuristic(h))
+                                  .filter((g): g is NonNullable<ReturnType<typeof explainHeuristic>> => g !== null && !seen.has(g.label) && !!seen.add(g.label));
+                                if (entries.length === 0) return null;
+                                return (
+                                  <ul className="mt-1.5 space-y-0.5">
+                                    {entries.map((g, i) => (
+                                      <li key={i} className="text-zinc-400">
+                                        <span className="text-zinc-200 font-medium">{g.label}:</span> {g.meaning}{' '}
+                                        <span className="text-zinc-500">→ look at {g.where_to_look}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                );
+                              })()}
                             </div>
                           )}
                           {f.reasoning_trace && (
@@ -2077,7 +2350,27 @@ function BlockersAndPlan() {
                               </div>
                             );
                           })()}
-                          <div className="flex items-center gap-2 pt-1">
+                          {/* Raw agent output — collapsed by default because it
+                              can be huge. Having it inline removes the "I need
+                              to open another tool to see what the agent said"
+                              friction. */}
+                          {f.agent_output && (
+                            <div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleOutput(f.task_id); }}
+                                className="text-zinc-500 hover:text-zinc-300 text-[11px]"
+                              >
+                                {showOutputFor.has(f.task_id) ? '▾ Hide' : '▸ Show'} agent output
+                                <span className="text-zinc-600 ml-1">({f.agent_output.length.toLocaleString()} chars)</span>
+                              </button>
+                              {showOutputFor.has(f.task_id) && (
+                                <pre className="mt-1 text-zinc-300 bg-black/40 border border-zinc-800 rounded p-2 whitespace-pre-wrap overflow-x-auto max-h-64 overflow-y-auto">
+{f.agent_output}
+                                </pre>
+                              )}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 pt-1 flex-wrap">
                             <button
                               onClick={(e) => { e.stopPropagation(); rerunTask(f.task_id, f.task_number); }}
                               disabled={pendingAction === `rerun:${f.task_id}`}
@@ -2085,6 +2378,13 @@ function BlockersAndPlan() {
                               title="Queue a fresh run for this task. On failure, the reflection loop will stage a new prompt mutation."
                             >
                               {pendingAction === `rerun:${f.task_id}` ? 'Queuing…' : '↻ Re-run task'}
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void copyBrief(f); }}
+                              className="px-2 py-1 rounded text-[11px] font-medium bg-zinc-700/40 text-zinc-200 hover:bg-zinc-700/60 border border-zinc-600/40"
+                              title="Copy a structured markdown fix brief to the clipboard — paste into an issue, Slack, or an agent chat to start investigating."
+                            >
+                              {copiedFor === f.task_id ? '✓ Copied' : '📋 Copy fix brief'}
                             </button>
                             <span className="text-zinc-600 text-[11px]">
                               A failed re-run will trigger a new reflection-generated fix within ~24h.
