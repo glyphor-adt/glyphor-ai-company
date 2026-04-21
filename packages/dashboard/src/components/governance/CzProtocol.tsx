@@ -692,6 +692,25 @@ function LiveRunConsole() {
 
   useEffect(() => { fetchRuns(); }, [fetchRuns]);
 
+  // Listen for runs queued by sibling components (e.g. BlockersAndPlan's
+  // "Re-run task" button). Without this, a blockers-initiated run queues
+  // silently and never appears in Recent Runs until the user refreshes.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ batch_id?: string }>).detail;
+      fetchRuns();
+      if (detail?.batch_id) {
+        setSseEvents([]);
+        setActiveRunId(detail.batch_id);
+        setBatchDetail(null);
+        // Scroll the Run Console into view so the user sees the new run.
+        consoleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
+    window.addEventListener('cz:run-queued', handler);
+    return () => window.removeEventListener('cz:run-queued', handler);
+  }, [fetchRuns]);
+
   // SSE stream for active run — uses fetch() so we can send Authorization headers
   // (native EventSource cannot send custom headers → 401 on the scheduler)
   useEffect(() => {
@@ -1488,6 +1507,20 @@ function suggestRemediation(
       detail: 'Agent lost prior context. Verify memory writes/reads on the failing run id and the consolidation job.',
     });
   }
+  if (has('planning_not_execution')) {
+    steps.push({
+      kind: 'mode',
+      action: 'Force execution mode in the agent\'s CZ prompt',
+      detail: 'Agent described a plan/directive instead of executing the verification. The CZ executor already instructs agents to perform the task inline; update the agent\'s system prompt or constitution to override its default "delegate and track" behavior when the incoming request is a certification task.',
+    });
+  }
+  if (has('agent_retired', 'not on the live runtime roster', 'retired role', 'roster_blocked')) {
+    steps.push({
+      kind: 'roster',
+      action: 'Reassign this task — rerunning will not help',
+      detail: 'The responsible_agent resolves to a role that was removed from the live runtime roster (2026-04-18 prune). The agent\'s tools are blocked by the runtime policy gate and every rerun will return the same apologetic non-answer. Open the Task Grid, change responsible_agent to an active role (chief-of-staff, cto, cfo, clo, cpo, cmo, vp-design, ops, vp-research, platform-engineer, devops-engineer, quality-engineer), then re-run. If you want the retired role back instead, add it to ACTIVE_AGENT_ROLES in packages/shared/src/activeAgentRoster.ts and redeploy.',
+    });
+  }
 
   // Axis-driven hints — only add if no heuristic-specific guidance fired.
   if (steps.length === 0 && axisScores) {
@@ -1567,6 +1600,18 @@ const HEURISTIC_GLOSSARY: Array<{ match: string[]; label: string; meaning: strin
     label: 'Bad task definition',
     meaning: 'The test itself is under-specified — the judge cannot fairly score it.',
     where_to_look: 'Edit the task\'s `acceptance_criteria` and `verification_method` in the Task Grid. This is a protocol bug, not an agent bug.',
+  },
+  {
+    match: ['planning_not_execution'],
+    label: 'Planning instead of execution',
+    meaning: 'The verification method asks the agent to demonstrate N attempts/cases, but the agent filed a directive, drafted an assignment, or described a plan rather than actually doing the work.',
+    where_to_look: 'Most common on orchestrator-style agents (e.g. sarah) where "delegate and track" is the default mode. The CZ executor now tells agents to perform the task end-to-end inline; if this still fires, edit the agent\'s system prompt to add: "When invoked under the Customer Zero Protocol, perform the task yourself in your response — do not delegate."',
+  },
+  {
+    match: ['agent_retired', 'not on the live runtime roster', 'retired role', 'roster_blocked'],
+    label: 'Agent retired / roster-blocked',
+    meaning: 'The task is assigned to an agent role that was removed from the live runtime roster (e.g. the 2026-04-18 prune of vp-sales, content-creator, seo-analyst, social-media-manager). Rerunning will not improve the score — the agent\'s tools will keep hitting the runtime policy gate.',
+    where_to_look: 'Reassign the task to an active agent in the Task Grid (responsible_agent column), or if the role needs to come back, add a migration that restores it to ACTIVE_AGENT_ROLES in packages/shared/src/activeAgentRoster.ts and redeploy. Active roles today: chief-of-staff, cto, cfo, clo, cpo, cmo, vp-design, ops, vp-research, platform-engineer, devops-engineer, quality-engineer.',
   },
 ];
 
@@ -1676,6 +1721,7 @@ function BlockersAndPlan() {
   const [showOutputFor, setShowOutputFor] = useState<Set<string>>(new Set());
   // Transient clipboard confirmation tokens keyed by task id.
   const [copiedFor, setCopiedFor] = useState<string | null>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -1687,6 +1733,15 @@ function BlockersAndPlan() {
 
   useEffect(() => { load(); }, [load]);
 
+  // When a toast appears, scroll it into view so the user actually sees the
+  // success/failure confirmation — previously the banner was pinned to the
+  // top of the Blockers card and easy to miss if they were deep in the list.
+  useEffect(() => {
+    if (actionStatus) {
+      statusRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [actionStatus]);
+
   // Shared action wrapper — surfaces success/failure toast and refreshes data.
   const runAction = useCallback(async (
     key: string,
@@ -1696,8 +1751,24 @@ function BlockersAndPlan() {
     setPendingAction(key);
     setActionStatus(null);
     try {
-      await op();
-      setActionStatus({ kind: 'ok', msg: `${label} succeeded` });
+      const result = await op();
+      // If the op returned a batch_id (e.g. re-run endpoints), broadcast it
+      // so the Run Console can refresh its Recent Runs list and auto-attach
+      // its SSE stream. Without this, the run queues silently and the user
+      // thinks nothing happened.
+      const batchId =
+        result && typeof result === 'object' && 'batch_id' in result
+          ? String((result as { batch_id: unknown }).batch_id)
+          : null;
+      if (batchId) {
+        window.dispatchEvent(new CustomEvent('cz:run-queued', { detail: { batch_id: batchId } }));
+      }
+      setActionStatus({
+        kind: 'ok',
+        msg: batchId
+          ? `${label} — queued as batch ${batchId.slice(0, 8)}. Watch it in Run Console above.`
+          : `${label} succeeded`,
+      });
       load();
     } catch (e) {
       setActionStatus({ kind: 'err', msg: `${label} failed: ${e instanceof Error ? e.message : 'unknown error'}` });
@@ -1946,6 +2017,7 @@ function BlockersAndPlan() {
       {loading && !data && <Skeleton className="h-32 mt-3" />}
       {actionStatus && (
         <div
+          ref={statusRef}
           className={`mt-3 text-xs px-3 py-2 rounded border ${
             actionStatus.kind === 'ok'
               ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
@@ -1954,6 +2026,7 @@ function BlockersAndPlan() {
         >
           {actionStatus.msg}
           <button
+            type="button"
             className="ml-2 text-zinc-400 hover:text-zinc-200"
             onClick={() => setActionStatus(null)}
           >

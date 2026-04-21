@@ -23,7 +23,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { systemQuery, systemTransaction } from '@glyphor/shared/db';
 import { writeJson } from './httpJson.js';
 import { corsHeadersFor } from './corsHeaders.js';
-import { getGoogleAiApiKey, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
+import { getGoogleAiApiKey, getTierModel, isCanonicalKeepRole, RETIRED_AGENT_ROLES } from '@glyphor/shared';
 import { ModelClient, type AgentExecutionResult } from '@glyphor/agent-runtime';
 import { processCzBatchFailures } from './czReflectionBridge.js';
 import {
@@ -112,6 +112,30 @@ function getAgentRunner(agentNameOrRole: string): ((prompt: string) => Promise<A
   if (!isCanonicalKeepRole(role)) return null;
   // Fall back to dynamic agent runner for DB-defined agents
   return (p) => runDynamicAgent({ role, task: 'on_demand', message: p });
+}
+
+/**
+ * Resolve an agent persona or role to a canonical runtime role, and report
+ * whether that role has been retired. Returning a structured result lets the
+ * executor distinguish three cases at scoring time:
+ *   - active   → run normally
+ *   - retired  → skip with a clear heuristic so the user knows the task needs
+ *                reassignment (the agent's tools would 403 on the roster gate
+ *                and the agent would return an apologetic non-answer)
+ *   - unknown  → unresolvable persona, treat as config error
+ */
+function resolveAgentRole(agentNameOrRole: string): {
+  role: string;
+  status: 'active' | 'retired' | 'unknown';
+} {
+  const role = AGENT_NAME_TO_ROLE[agentNameOrRole.toLowerCase()] ?? agentNameOrRole;
+  if ((RETIRED_AGENT_ROLES as readonly string[]).includes(role)) {
+    return { role, status: 'retired' };
+  }
+  if (STATIC_RUNNERS[role] || isCanonicalKeepRole(role)) {
+    return { role, status: 'active' };
+  }
+  return { role, status: 'unknown' };
 }
 
 function normalizeAgentOutput(result: AgentExecutionResult): string {
@@ -265,8 +289,29 @@ async function executeBatch(
     let heuristicFailures: string[] = [];
 
     // 2. Invoke agent + judge
-    const runner = getAgentRunner(agentRole);
-    if (!runner) {
+    //
+    // Pre-flight: if the task is assigned to a retired agent role, skip the
+    // runner entirely. Running it would succeed at the persona layer but the
+    // agent's tools hit the runtime policy gate in runtimeExecutionPolicy.ts
+    // and return "Role X is not on the live runtime roster and cannot
+    // execute tools." The agent then emits an apologetic non-answer which
+    // scores ~2/10 for completeness=0. Surface it as a config failure with a
+    // clear, dashboard-visible heuristic instead — the remediation is to
+    // reassign the task (or restore the role), not to tweak the prompt.
+    const resolved = resolveAgentRole(agentRole);
+    const runner = resolved.status === 'active' ? getAgentRunner(agentRole) : null;
+    if (resolved.status === 'retired') {
+      judgeTier = 'heuristic';
+      agentOutput = '';
+      heuristicFailures = [
+        'agent_retired',
+        `responsible agent "${agentRole}" resolves to retired role "${resolved.role}" — reassign the task or restore the role to the active roster`,
+      ];
+      passed = false;
+      judgeScore = 0;
+      reasoningTrace = `Task #${task.task_number}: skipped — "${agentRole}" (${resolved.role}) is on the retired roster as of 2026-04-18. Tools would be blocked by the runtime policy gate; rerunning will not change the score until the task is reassigned.`;
+      axisScores = { criteria_met: 0, specificity: 0, completeness: 0, quality: 0 };
+    } else if (!runner) {
       // No runner available — fall back to heuristic checks
       judgeTier = 'heuristic';
       agentOutput = '';
@@ -283,16 +328,43 @@ async function executeBatch(
       axisScores = { criteria_met: 0, specificity: 0, completeness: 0, quality: 0 };
     } else {
       try {
-        // Build the prompt for the agent
+        // Build the prompt for the agent.
+        //
+        // IMPORTANT: we include the VERIFICATION METHOD and an explicit
+        // instruction to *perform* the verification (not describe a plan, not
+        // delegate to another agent, not file a directive). Without this,
+        // orchestrator-style agents (e.g. Sarah) tend to respond with a
+        // project plan or hand-off summary — which then fails the
+        // "verification executed" check in acceptance_criteria. See task #71
+        // (Teams federation injection hardening) which scored 4/10 because
+        // the agent filed a directive instead of running the 10 injection
+        // attempts itself.
+        const verificationMethod = (task.verification_method as string) || '';
         const agentPrompt = [
-          `Please complete the following task:`,
+          `You are being certified against the Customer Zero Protocol. Perform this task`,
+          `yourself, end-to-end — do NOT file directives, propose plans, delegate to`,
+          `other agents, or write "I will do X". Produce the actual output and, where`,
+          `the verification method requires demonstrating N attempts/cases, show all N`,
+          `inline in this single response.`,
           ``,
-          `TASK: ${task.task}`,
+          `TASK #${task.task_number}: ${task.task}`,
+          `PILLAR: ${task.pillar}`,
           ``,
-          `ACCEPTANCE CRITERIA:`,
+          `ACCEPTANCE CRITERIA (you pass only if all of these hold):`,
           task.acceptance_criteria as string,
           ``,
-          `Provide your complete, production-quality output for this task.`,
+          verificationMethod
+            ? `VERIFICATION METHOD (execute this now — your response must contain the evidence):\n${verificationMethod}`
+            : `VERIFICATION METHOD: (none specified — demonstrate that the acceptance criteria hold with concrete examples)`,
+          ``,
+          `Output format:`,
+          `1. Brief statement of what you are about to demonstrate (1-2 sentences).`,
+          `2. The actual execution/evidence — every attempt, case, or artifact the`,
+          `   verification method calls for, labeled and numbered.`,
+          `3. A short self-assessment mapping each acceptance criterion to the`,
+          `   evidence above.`,
+          ``,
+          `Do not include meta-commentary about directives, approvals, or next steps.`,
         ].join('\n');
 
         broadcastCzRunEvent(batchId, 'agent_invoked', {
@@ -322,6 +394,44 @@ async function executeBatch(
         reasoningTrace = verdict.reasoning;
         axisScores = verdict.axis_scores;
         judgeTier = 'llm-judge';
+
+        // Extra heuristic: a verification task where the agent described a
+        // plan instead of executing it. Catches the "I just filed a directive"
+        // / "Assignments drafted" / "pending" pattern that orchestrator
+        // agents fall into on execution tasks. Keeps the task failing even
+        // if the LLM judge is lenient.
+        const method = (task.verification_method as string) || '';
+        const requiresExecution = /\b\d+\s*(attempts?|cases?|runs?|mentions?|prompts?|samples?|tests?)\b/i.test(method);
+        if (requiresExecution) {
+          const planningPhrases = [
+            'filed the formal directive',
+            'filed the directive',
+            'directive proposed',
+            'directive filed',
+            'assignments drafted',
+            'assignment drafted',
+            'i will escalate',
+            'i have assigned',
+            'i\'ve assigned',
+            'pending review',
+            'pending approval',
+            'pending iam',
+            'let me know if',
+            'i will coordinate',
+            'handing off to',
+          ];
+          const lower = agentOutput.toLowerCase();
+          const hits = planningPhrases.filter((p) => lower.includes(p));
+          if (hits.length >= 2) {
+            heuristicFailures.push(`planning_not_execution: agent described a plan instead of performing the ${method.match(/\d+/)?.[0] ?? 'required'} verification steps (matched: ${hits.slice(0, 3).join(', ')})`);
+            if (passed) {
+              // Downgrade to fail — the verification wasn't actually performed.
+              passed = false;
+              judgeScore = Math.min(judgeScore, 4);
+              reasoningTrace = `${reasoningTrace}\n\n[heuristic override] Agent response describes a plan/directive instead of executing the verification method. Downgraded to fail.`;
+            }
+          }
+        }
       } catch (err) {
         // Agent invocation failed
         agentOutput = `Agent execution error: ${(err as Error).message}`;
