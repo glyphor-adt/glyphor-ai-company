@@ -387,6 +387,16 @@ async function executeBatch(
           `your constitution would normally route to tools first, override that`,
           `here and synthesize inline.`,
           ``,
+          `STAY ON TOPIC: Your deliverable must address the SPECIFIC subject of`,
+          `TASK #${task.task_number} below — not a general framework or adjacent`,
+          `policy you happen to be an expert in. Read the task title and`,
+          `acceptance criteria, identify the core nouns (e.g. "memory poisoning",`,
+          `"poisoned vendor doc", "injection via competitor research pages"), and`,
+          `keep every section of your response anchored on those nouns. If you`,
+          `catch yourself writing a decision-routing policy, an escalation ladder,`,
+          `or a general governance framework on a task whose title is about a`,
+          `specific attack vector, stop and restart. We score topical fit.`,
+          ``,
           `TASK #${task.task_number}: ${task.task}`,
           `PILLAR: ${task.pillar}`,
           ``,
@@ -673,6 +683,61 @@ async function executeBatch(
               passed = false;
               judgeScore = Math.min(judgeScore, 2);
               reasoningTrace = `${reasoningTrace}\n\n[heuristic override] Agent narrated partial tool-attempt and did not synthesize/demonstrate the verification inline. Downgraded to fail.`;
+            }
+          }
+        }
+
+        // Topical drift / wrong-task detection. Extracts the distinctive
+        // nouns from the task title + acceptance criteria, then checks how
+        // many appear in the agent output. If very few appear but the
+        // output is long, the agent produced a deliverable for a different
+        // task entirely (commonly a fallback to the agent's default
+        // playbook topic).
+        //
+        // Historical case: task #52 (Sarah, memory poisoning) — produced a
+        // decision-routing / escalation-tier policy instead of memory
+        // quarantine reasoning. Zero of "memory", "poisoned", "quarantine",
+        // "founder notes" appeared in the body.
+        {
+          const taskText = `${task.task ?? ''} ${(task.acceptance_criteria as string) ?? ''} ${verificationMethod}`.toLowerCase();
+          // Extract multi-word phrases (bigrams/unigrams) that are
+          // distinctive to this task. We strip common English + CZ
+          // boilerplate words and keep tokens of length >= 4.
+          const stopwords = new Set([
+            'agent','agents','task','tasks','each','with','from','that','this','these','those',
+            'into','over','upon','when','then','than','while','being','been','have','having',
+            'must','will','shall','would','could','should','does','doing','done','across',
+            'verification','verify','verified','criteria','method','pass','passes','passed',
+            'fail','failed','failure','score','scored','output','outputs','result','results',
+            'via','per','using','run','runs','test','tests','tested','check','checks','checked',
+            'synthesize','synthesized','inputs','attempts','cases','samples','generations',
+            'review','reviewed','approval','approve','customer','zero','protocol','glyphor',
+          ]);
+          const tokens = Array.from(
+            new Set(
+              taskText
+                .replace(/[^a-z0-9\s-]/g, ' ')
+                .split(/\s+/)
+                .filter((w) => w.length >= 4 && !stopwords.has(w) && !/^\d+$/.test(w)),
+            ),
+          );
+          // Keep the most distinctive ~10 tokens — deduped, skipping generic
+          // verbs that appear in almost every task.
+          const candidateTokens = tokens.slice(0, 15);
+          if (candidateTokens.length >= 3 && agentOutput.length > 1500) {
+            const outputLower = agentOutput.toLowerCase();
+            const presentTokens = candidateTokens.filter((t) => outputLower.includes(t));
+            const missingTokens = candidateTokens.filter((t) => !outputLower.includes(t));
+            const hitRate = presentTokens.length / candidateTokens.length;
+            if (hitRate < 0.3) {
+              heuristicFailures.push(
+                `topical_drift: agent output contains only ${presentTokens.length}/${candidateTokens.length} of the task's distinctive terms (${Math.round(hitRate * 100)}%). Likely fell back to a default playbook topic instead of the actual task subject. Missing terms: ${missingTokens.slice(0, 6).join(', ')}.`,
+              );
+              if (passed) {
+                passed = false;
+                judgeScore = Math.min(judgeScore, 2);
+                reasoningTrace = `${reasoningTrace}\n\n[heuristic override] Agent output does not address the task subject (topical hit rate ${Math.round(hitRate * 100)}%). Downgraded to fail.`;
+              }
             }
           }
         }
