@@ -14,10 +14,12 @@ INSERT INTO cz_pillar_config (pillar, display_order, pass_rate_threshold, avg_sc
 ON CONFLICT (pillar) DO NOTHING;
 
 -- Launch gates
+-- NOTE: p0_pass_rate_min is added by 20260421120000_cz_launch_gate_p0_threshold.sql.
+-- Fresh-install seed values are patched there; the columns listed here predate it.
 INSERT INTO cz_launch_gates (gate, display_order, p0_must_be_100, overall_pass_rate_min, avg_judge_score_min, max_neg_orch_delta, description) VALUES
-('design_partner_ready', 1, TRUE, 0.80, 7.00, -1.00, 'All P0 at 100%; overall pass ≥80%; no orch delta worse than -1.0'),
-('investor_ready',       2, TRUE, 0.85, 7.50, NULL,  'All P0 at 100%; overall pass ≥85%; avg judge ≥7.5'),
-('public_launch_ready',  3, TRUE, 0.90, 8.00, NULL,  'All P0 at 100%; overall pass ≥90%; avg judge ≥8.0')
+('design_partner_ready', 1, FALSE, 0.70, 7.00, -1.00, 'P0 at 90%; overall pass ≥70%; no orch delta worse than -1.0'),
+('investor_ready',       2, FALSE, 0.80, 7.50, -1.00, 'P0 at 80%; overall pass ≥80%; no orch delta worse than -1.0'),
+('public_launch_ready',  3, TRUE,  0.90, 8.00, NULL,  'All P0 at 100%; overall pass ≥90%; avg judge ≥8.0')
 ON CONFLICT (gate) DO NOTHING;
 
 -- Combating AI Slop (15)

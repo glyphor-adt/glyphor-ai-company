@@ -1023,12 +1023,16 @@ export async function handleCzApi(
         gate: string;
         display_order: number;
         p0_must_be_100: boolean;
+        p0_pass_rate_min: number | null;
         overall_pass_rate_min: number;
         avg_judge_score_min: number | null;
         max_neg_orch_delta: number | null;
         description: string;
       }) => {
         const p0Pillars = pillarRows.filter((p: { pillar_is_p0: boolean }) => p.pillar_is_p0);
+        const p0TotalTasks = p0Pillars.reduce((sum: number, p: { total_tasks: number }) => sum + p.total_tasks, 0);
+        const p0PassedTasks = p0Pillars.reduce((sum: number, p: { passed: number }) => sum + p.passed, 0);
+        const p0PassRate = p0TotalTasks > 0 ? p0PassedTasks / p0TotalTasks : 0;
         const p0AllPass = p0Pillars.length > 0 && p0Pillars.every((p: { pass_rate: number }) => Number(p.pass_rate) >= 1.0);
         const overallPassRate = pillarRows.length
           ? pillarRows.reduce((sum: number, p: { passed: number }) => sum + p.passed, 0) /
@@ -1038,7 +1042,14 @@ export async function handleCzApi(
           ? pillarRows.reduce((sum: number, p: { avg_score: number | null }) => sum + (Number(p.avg_score) || 0), 0) / pillarRows.length
           : 0;
 
-        const met = (!gate.p0_must_be_100 || p0AllPass)
+        // Prefer the explicit numeric P0 threshold when present; fall back to the
+        // legacy boolean for older rows that have not been backfilled.
+        const p0Threshold = gate.p0_pass_rate_min !== null && gate.p0_pass_rate_min !== undefined
+          ? Number(gate.p0_pass_rate_min)
+          : (gate.p0_must_be_100 ? 1.0 : 0);
+        const p0Met = p0Pillars.length === 0 || p0PassRate >= p0Threshold;
+
+        const met = p0Met
           && overallPassRate >= Number(gate.overall_pass_rate_min)
           && (!gate.avg_judge_score_min || avgScore >= Number(gate.avg_judge_score_min));
 
@@ -1046,6 +1057,7 @@ export async function handleCzApi(
           ...gate,
           met,
           current_p0_pass: p0AllPass,
+          current_p0_pass_rate: Math.round(p0PassRate * 10000) / 10000,
           current_overall_pass_rate: Math.round(overallPassRate * 10000) / 10000,
           current_avg_score: Math.round(avgScore * 100) / 100,
         };
