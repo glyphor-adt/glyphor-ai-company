@@ -36,6 +36,7 @@ import { createFrontendCodeTools } from '../shared/frontendCodeTools.js';
 import { createScreenshotTools } from '../shared/screenshotTools.js';
 import { createDesignSystemTools } from '../shared/designSystemTools.js';
 import { createAuditTools } from '../shared/auditTools.js';
+import { createAntiAiSmellTools } from '../shared/antiAiSmellRegistry.js';
 import { createAssetTools } from '../shared/assetTools.js';
 import { createScaffoldTools } from '../shared/scaffoldTools.js';
 import { createDeployPreviewTools } from '../shared/deployPreviewTools.js';
@@ -186,6 +187,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
       ...vpDesign,
       ...designSystem,
       ...createAuditTools(),
+      ...createAntiAiSmellTools(),
       ...createScreenshotTools(),
       ...createCoreTools(coreDeps),
       ...createTeamOrchestrationTools(glyphorEventBus),
@@ -198,6 +200,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
     tools = [
       ...vpDesign,
       ...designSystem,
+      ...createAntiAiSmellTools(),
       ...createScreenshotTools(),
       ...createCoreTools(coreDeps),
       ...createFrontendCodeTools(),
@@ -222,6 +225,7 @@ export async function runVPDesign(params: VPDesignRunParams = {}) {
       ...createScreenshotTools(),
       ...createDesignSystemTools(),
       ...createAuditTools(),
+      ...createAntiAiSmellTools(),
       ...createDesignBriefTools(),
       ...createWebBuildPlannerTools(),
       ...createQuickDemoWebAppTools(),
@@ -272,11 +276,12 @@ Steps:
 2. Use get_design_tokens to review current token values
 3. Use get_component_library to assess component coverage
 4. Use get_template_registry to check template performance
-5. Grade the current state: A+/A/B/C/F distribution
-6. Identify the top "AI smell" patterns dragging quality down
-7. Use write_design_audit to save your findings
-8. Use log_activity to record this audit
-9. If any design changes need founder approval, use create_decision`;
+5. Use get_anti_ai_smell_registry to review the full AI-blur pattern catalogue and remediation tokens
+6. Grade the current state: A+/A/B/C/F distribution
+7. Identify the top "AI smell" patterns dragging quality down — cross-reference against the Anti-AI-Smell registry
+8. Use write_design_audit to save your findings
+9. Use log_activity to record this audit
+10. If any design changes need founder approval, use create_decision`;
       break;
 
     case 'design_system_review':
@@ -284,11 +289,12 @@ Steps:
 
 Steps:
 1. Use get_design_tokens to audit typography, color, and spacing tokens
-2. Use get_component_library for component variant coverage
-3. Use get_template_registry for template usage and quality
-4. Assess overall design system maturity and gaps
-5. Write recommendations for improvements
-6. Log your analysis`;
+2. Use get_anti_ai_smell_registry (section: tokens) to compare current tokens against the anti-AI-smell token subset
+3. Use get_component_library for component variant coverage
+4. Use get_template_registry for template usage and quality
+5. Assess overall design system maturity and gaps
+6. Write recommendations for improvements, highlighting any token gaps relative to the anti-AI-smell registry
+7. Log your analysis`;
       break;
 
     case 'on_demand':

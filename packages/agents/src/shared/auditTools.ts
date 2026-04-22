@@ -17,6 +17,7 @@ import { getPlaywrightServiceUrl } from './playwrightServiceUrl.js';
 const ALL_CATEGORIES = ['performance', 'accessibility', 'best-practices', 'seo'] as const;
 
 const AI_SMELL_PATTERNS = [
+  // ── Content placeholders ───────────────────────────────────────────────────
   { pattern: /lorem ipsum/i, label: 'Lorem ipsum placeholder text' },
   { pattern: /welcome to (?:our|the|my|your)/i, label: 'Generic "Welcome to" heading' },
   { pattern: /your content here/i, label: '"Your Content Here" placeholder' },
@@ -25,6 +26,34 @@ const AI_SMELL_PATTERNS = [
   { pattern: /sample text/i, label: 'Sample text placeholder' },
   { pattern: /https?:\/\/(?:via\.placeholder|placekitten|placehold\.it|picsum\.photos)/i, label: 'Stock/placeholder image URL' },
   { pattern: /unsplash\.com\/photos/i, label: 'Unsplash stock photo' },
+
+  // ── Generic button / CTA patterns ─────────────────────────────────────────
+  { pattern: /bg-blue-(?:500|600|700)[^"]*text-white/i, label: 'Generic blue button (bg-blue-x text-white)' },
+  { pattern: /bg-indigo-(?:500|600|700)[^"]*text-white/i, label: 'Generic indigo button (bg-indigo-x text-white)' },
+  { pattern: /\bget started\b/i, label: 'Generic "Get Started" CTA text' },
+  { pattern: /\blearn more\b/i, label: 'Generic "Learn More" CTA text' },
+
+  // ── Typographic flatness ───────────────────────────────────────────────────
+  // Requires three occurrences of the same low-weight utility to reduce false positives
+  // from pages with unrelated components that happen to share a weight class.
+  { pattern: /\bfont-normal\b.*\bfont-normal\b.*\bfont-normal\b/is, label: 'Flat font-weight: three or more font-normal (400) with no bold headings' },
+  { pattern: /\bfont-medium\b.*\bfont-medium\b.*\bfont-medium\b/is, label: 'Flat font-weight: three or more font-medium (500) with no bold/semibold headings' },
+  { pattern: /text-(?:base|sm|xs)\b.*text-(?:base|sm|xs)\b.*text-(?:base|sm|xs)\b/is, label: 'Uniform type scale: three or more same-tier text sizes' },
+
+  // ── Spacing monoculture ────────────────────────────────────────────────────
+  // Match p-4 as a class token (preceded by whitespace, quote, or start-of-string)
+  { pattern: /["\s]p-4\b.*["\s]p-4\b.*["\s]p-4\b/is, label: 'Uniform spacing: three or more p-4 declarations (p-4 monoculture)' },
+  { pattern: /gap-4\b.*gap-4\b.*gap-4\b/is, label: 'Uniform gap: three or more gap-4 declarations' },
+
+  // ── Default border-radius uniformity ──────────────────────────────────────
+  { pattern: /rounded-md\b.*rounded-md\b.*rounded-md\b/is, label: 'Default border-radius: three or more rounded-md (6px) — no radius variety' },
+
+  // ── Surface monotony ──────────────────────────────────────────────────────
+  { pattern: /bg-(?:white|gray-50)\b.*bg-(?:white|gray-50)\b.*bg-(?:white|gray-50)\b/is, label: 'Surface monotony: single light background tone throughout' },
+  { pattern: /bg-(?:slate|zinc|neutral)-900\b.*bg-(?:slate|zinc|neutral)-900\b.*bg-(?:slate|zinc|neutral)-900\b/is, label: 'Surface monotony: single dark background tone throughout' },
+
+  // ── Card-grid sameness ────────────────────────────────────────────────────
+  { pattern: /grid-cols-3\s+gap-(?:4|6|8)/i, label: 'Card-grid sameness: three equal-width columns with uniform gap' },
 ];
 
 /** Known Prism brand tokens for compliance checking */
@@ -229,8 +258,10 @@ export function createAuditTools(): ToolDefinition[] {
       name: 'check_ai_smell',
       description:
         'Analyze a page for AI-generated design signals: generic placeholder text, ' +
-        'inconsistent spacing, default styling, stock photo patterns. Returns a smell score (0-100) ' +
-        'and specific instances found.',
+        'inconsistent spacing, default styling, stock photo patterns, flat font-weight, ' +
+        'uniform type scale, spacing monoculture (p-4 everywhere), default border-radius ' +
+        'uniformity, surface monotony, generic button colors, and card-grid sameness. ' +
+        'Returns a smell score (0-100) and specific instances found.',
       parameters: {
         url: {
           type: 'string',
