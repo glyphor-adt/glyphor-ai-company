@@ -67,11 +67,13 @@ export interface ModelDef {
 
 export const SUPPORTED_MODELS: readonly ModelDef[] = [
   // ── Google Gemini ──────────────────────────────────────────
-  // Gemini cached input = 10% of input price (90% off). Thinking tokens billed at output rate.
-  // Prices are for prompts ≤200K tokens. >200K prompts cost 2× input and 1.5× output for Pro/Flash models.
-  // Rates calibrated against actual GCP billing (Mar 25 2026): 126 runs, $76.39 actual vs $14.97 prior estimate → 5x correction.
-  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',  provider: 'gemini',    tier: 'flagship',  inputPer1M: 10.00, outputPer1M: 60.0,  thinkingPer1M: 60.0,  cachedInputDiscount: 0.10, contextWindowTokens: 2_000_000, selectable: true,  verifier: true  },
-  { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', tier: 'economy', inputPer1M: 1.25, outputPer1M: 7.50, thinkingPer1M: 7.50, cachedInputDiscount: 0.10, contextWindowTokens: 1_000_000, selectable: true, verifier: true  },
+  // Vertex AI list prices (verified 2026-04-22 via model_rate_card and live gcp_billing).
+  // Gemini cached input = 25% of input price. Thinking tokens billed at output rate.
+  // Note: prompts >200K tokens are billed at 2× input / 1.5× output on Pro tier. Not modeled here
+  // because our routing defaults should avoid >200K prompts; executors hitting that threshold
+  // indicate a context-bloat bug, not a pricing issue.
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',  provider: 'gemini',    tier: 'flagship',  inputPer1M: 2.50, outputPer1M: 15.0,  thinkingPer1M: 15.0,  cachedInputDiscount: 0.25, contextWindowTokens: 2_000_000, selectable: true,  verifier: true  },
+  { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite', provider: 'gemini', tier: 'economy', inputPer1M: 0.10, outputPer1M: 0.40, thinkingPer1M: 0.40, cachedInputDiscount: 0.25, contextWindowTokens: 1_000_000, selectable: true, verifier: true  },
 
   // ── OpenAI ─────────────────────────────────────────────────
   // GPT-5.x cached input = 10% of input price. o-series cached = 25% of input price.
