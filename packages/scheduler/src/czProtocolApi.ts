@@ -1996,6 +1996,43 @@ export async function handleCzApi(
       return true;
     }
 
+    // ── POST /api/cz/shadow/backfill ─────────────────────────
+    // One-shot recovery: find reflection-sourced prompt versions that have
+    // no shadow_eval row and create one for each. Used after the
+    // createShadowEval gating bug was fixed so the 59 orphaned staged
+    // challengers actually enter the auto-promotion pipeline.
+    if (segments[0] === 'shadow' && segments[1] === 'backfill' && segments.length === 2 && method === 'POST') {
+      const { createShadowEval } = await import('./czShadowEval.js');
+      const { systemQuery } = await import('@glyphor/shared/db');
+      const orphans = await systemQuery<{ id: string; agent_id: string; tenant_id: string; version: number }>(
+        `SELECT apv.id, apv.agent_id, apv.tenant_id, apv.version
+           FROM agent_prompt_versions apv
+           LEFT JOIN cz_shadow_evals se ON se.prompt_version_id = apv.id
+          WHERE apv.source IN ('reflection', 'cz_reflection')
+            AND apv.deployed_at IS NULL
+            AND apv.retired_at IS NULL
+            AND se.id IS NULL
+          ORDER BY apv.created_at DESC
+          LIMIT 200`,
+      );
+      const created: Array<{ agent_id: string; version: number; shadow_eval_id: string | null }> = [];
+      for (const row of orphans) {
+        try {
+          const id = await createShadowEval({
+            prompt_version_id: row.id,
+            agent_id: row.agent_id,
+            tenant_id: row.tenant_id,
+          });
+          created.push({ agent_id: row.agent_id, version: row.version, shadow_eval_id: id });
+        } catch (e) {
+          console.error(`[CZ backfill] failed for ${row.agent_id} v${row.version}:`, e);
+          created.push({ agent_id: row.agent_id, version: row.version, shadow_eval_id: null });
+        }
+      }
+      send(200, { scanned: orphans.length, created });
+      return true;
+    }
+
     // ── POST /api/cz/loop/tick ───────────────────────────────
     // Cloud Scheduler entry point for Sarah's cz_protocol_loop workflow.
     // Body: { trigger: 'interval' | 'nightly' | 'manual', dry_run?: boolean }

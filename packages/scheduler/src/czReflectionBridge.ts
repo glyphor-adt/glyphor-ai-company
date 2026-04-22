@@ -214,10 +214,10 @@ export async function processCzBatchFailures(batchId: string): Promise<{
       }
 
       // Tag the version source as cz_reflection (for rate limiting + dashboard
-      // filtering). Matches on id rather than (agent_id, version) to avoid any
-      // RLS/tenant scoping issue that was silently no-op'ing this UPDATE in
-      // production. If this still reports 0 rows updated, fall back to a
-      // log — the rate-limit query is now tolerant of either source tag.
+      // filtering) and fetch id/tenant_id so we can wire shadow-eval.
+      // Historically this UPDATE silently affected 0 rows (tenant/RLS quirk);
+      // we now do a SELECT fallback so shadow-eval creation never depends on
+      // the UPDATE succeeding.
       const updateResult = await systemQuery<{ id: string; tenant_id: string }>(
         `UPDATE agent_prompt_versions
             SET source = 'cz_reflection'
@@ -225,30 +225,47 @@ export async function processCzBatchFailures(batchId: string): Promise<{
       RETURNING id, tenant_id`,
         [agentId, newVersion],
       );
-      if (updateResult.length === 0) {
+      let versionRow: { id: string; tenant_id: string } | undefined = updateResult[0];
+      if (!versionRow) {
         console.warn(
-          `[CzReflection] Source-tag UPDATE affected 0 rows for ${agentId} v${newVersion} — version remains tagged 'reflection'. Dashboard staged_fixes filter now accepts both.`,
+          `[CzReflection] Source-tag UPDATE affected 0 rows for ${agentId} v${newVersion} — falling back to SELECT so shadow-eval still fires.`,
         );
+        const selectResult = await systemQuery<{ id: string; tenant_id: string }>(
+          `SELECT id, tenant_id FROM agent_prompt_versions
+             WHERE agent_id = $1 AND version = $2
+             ORDER BY created_at DESC LIMIT 1`,
+          [agentId, newVersion],
+        );
+        versionRow = selectResult[0];
       }
 
       // Queue shadow evaluation
       await queueShadowEvaluation(agentId, newVersion);
 
       // Hand the challenger to the CZ shadow-eval auto-promotion gate.
-      // Fire-and-forget: the shadow_eval table is a derived convenience and
-      // must never prevent a challenger from being staged.
-      if (updateResult[0]?.id) {
-        const versionRow = updateResult[0];
-        // Lazy import to avoid a circular dep between scheduler modules.
-        import('./czShadowEval.js')
-          .then(({ createShadowEval }) =>
-            createShadowEval({
-              prompt_version_id: versionRow.id,
-              agent_id: agentId,
-              tenant_id: versionRow.tenant_id,
-            }),
-          )
-          .catch((e) => console.error('[CzReflection] createShadowEval failed:', e));
+      // Awaited so we actually see errors in logs (previously fire-and-forget
+      // + gated on a 0-row UPDATE meant this never ran in production).
+      if (versionRow?.id) {
+        try {
+          const { createShadowEval } = await import('./czShadowEval.js');
+          const shadowId = await createShadowEval({
+            prompt_version_id: versionRow.id,
+            agent_id: agentId,
+            tenant_id: versionRow.tenant_id,
+          });
+          if (shadowId) {
+            console.log(`[CzReflection] shadow eval ${shadowId.slice(0, 8)} created for ${agentId} v${newVersion}`);
+          }
+        } catch (e) {
+          console.error(
+            `[CzReflection] createShadowEval failed for ${agentId} v${newVersion}:`,
+            e instanceof Error ? e.message : e,
+          );
+        }
+      } else {
+        console.error(
+          `[CzReflection] could not resolve version row for ${agentId} v${newVersion} — shadow eval NOT created.`,
+        );
       }
 
       console.log(

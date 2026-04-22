@@ -561,6 +561,7 @@ function classifySchedulerRoute(pathname: string, method: string): SchedulerRout
   // service call, not an admin dashboard action.
   if (pathname.startsWith('/api/cz/')) {
     if (pathname === '/api/cz/loop/tick' && method === 'POST') return 'internal-service-only';
+    if (pathname === '/api/cz/shadow/backfill' && method === 'POST') return 'internal-service-only';
     if (method === 'GET') return 'authenticated-user';
     return 'admin-only';
   }
@@ -6834,11 +6835,15 @@ const server = createServer(async (req, res) => {
 
     // ── Customer Zero Protocol API (/api/cz/*) ───────────────
     if (url.startsWith('/api/cz/')) {
-      // /api/cz/loop/tick (POST) is called by Cloud Scheduler via OIDC and is
-      // already authenticated upstream by classifySchedulerRoute → requireInternalAuth.
-      // In-process loopback callers (runCzProtocolLoop) also bypass this gate.
-      const isInternalCronTick = method === 'POST' && url.split('?')[0] === '/api/cz/loop/tick';
-      if (method !== 'GET' && !isInternalCronTick && !authContext.internalBypass) {
+      // /api/cz/loop/tick and /api/cz/shadow/backfill (POST) are called by
+      // Cloud Scheduler via OIDC and are already authenticated upstream by
+      // classifySchedulerRoute → requireInternalAuth. In-process loopback
+      // callers also bypass this gate.
+      const cleanPath = url.split('?')[0];
+      const isInternalCron =
+        method === 'POST'
+        && (cleanPath === '/api/cz/loop/tick' || cleanPath === '/api/cz/shadow/backfill');
+      if (method !== 'GET' && !isInternalCron && !authContext.internalBypass) {
         if (!(await requireDashboardUser(req, res, { admin: true }))) return;
       }
     }
