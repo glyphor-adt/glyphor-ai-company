@@ -5,7 +5,6 @@ import AccessControl from '../components/governance/AccessControl';
 import AutonomyDashboard from '../components/governance/AutonomyDashboard';
 import AuthorityControl from '../components/governance/AuthorityControl';
 import ReliabilityDashboard from '../components/governance/ReliabilityDashboard';
-import EnterpriseKpiDashboard from '../components/governance/EnterpriseKpiDashboard';
 import ToolView from '../components/governance/ToolView';
 import CzProtocol from '../components/governance/CzProtocol';
 import ModelAdmin from './ModelAdmin';
@@ -694,14 +693,13 @@ async function apiCallWithTimeout<T = unknown>(path: string, options: RequestIni
 }
 
 const VALID_TABS: GovernanceSurface[] = [
-  'tool-view',
-  'access-control',
+  'certification',
+  'reliability',
   'authority',
   'autonomy',
-  'reliability',
-  'enterprise-kpis',
+  'access-control',
+  'tool-view',
   'models',
-  'certification',
 ];
 const HIDDEN_AUTHORITY_STATUSES = new Set(['retired', 'inactive', 'deleted']);
 
@@ -711,12 +709,12 @@ export default function Governance() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as GovernanceSurface | null;
   const [activeTab, setActiveTab] = useState<GovernanceSurface>(
-    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'reliability'
+    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'certification'
   );
 
   const handleTabChange = useCallback((tab: GovernanceSurface) => {
     setActiveTab(tab);
-    if (tab === 'tool-view') {
+    if (tab === 'certification') {
       setSearchParams({}, { replace: true });
     } else {
       setSearchParams({ tab }, { replace: true });
@@ -736,9 +734,6 @@ export default function Governance() {
   const [pendingCommitmentTotal, setPendingCommitmentTotal] = useState(0);
   const [agentCommitments, setAgentCommitments] = useState<CommitmentRegistryEntry[]>([]);
   const [agentCommitmentTotal, setAgentCommitmentTotal] = useState(0);
-  const [planningGate, setPlanningGate] = useState<PlanningGateSnapshot | null>(null);
-  const [planningGateHealth, setPlanningGateHealth] = useState<PlanningGateHealthSnapshot | null>(null);
-  const [planningGateStage3, setPlanningGateStage3] = useState<PlanningGateStage3Snapshot | null>(null);
 
   const isAdmin = user?.email ? ADMIN_EMAILS.includes(user.email.toLowerCase()) : false;
   const authorityAgents = useMemo(
@@ -765,7 +760,6 @@ export default function Governance() {
 
     try {
       const [
-        riskSummaryRaw,
         actionQueueRaw,
         changeLogRaw,
         trustMapRaw,
@@ -776,11 +770,7 @@ export default function Governance() {
         grantsRaw,
         toolReputationRaw,
         approvalsRaw,
-        planningGateRaw,
-        planningGateHealthRaw,
-        planningGateStage3Raw,
       ] = await Promise.all([
-        fetchWithFallback(['/api/governance/risk-summary']).catch(() => null),
         fetchWithFallback(['/api/governance/action-queue']).catch(() => null),
         fetchWithFallback(['/api/governance/changelog?days=7']).catch(() => null),
         fetchWithFallback(['/api/governance/trust-map']).catch(() => null),
@@ -791,13 +781,10 @@ export default function Governance() {
         apiCallWithTimeout('/api/agent-tool-grants?order=agent_role.asc,tool_name.asc&limit=5000').catch(() => null),
         apiCallWithTimeout('/api/tool-reputation?order=updated_at.desc&limit=2000').catch(() => null),
         apiCallWithTimeout('/api/decisions?status=pending&order=created_at.desc&limit=20').catch(() => null),
-        apiCallWithTimeout('/admin/metrics/planning-gate?window=30').catch(() => null),
-        apiCallWithTimeout('/admin/metrics/planning-gate-health').catch(() => null),
-        apiCallWithTimeout('/admin/metrics/planning-gate-stage3?window=30').catch(() => null),
       ]);
 
       setData({
-        riskSummary: normalizeRiskSummary(riskSummaryRaw),
+        riskSummary: [],
         actionQueue: normalizeActionQueue(actionQueueRaw),
         changeLog: normalizeChangeLog(changeLogRaw),
         trustMap: normalizeTrustMap(trustMapRaw),
@@ -809,9 +796,6 @@ export default function Governance() {
         toolReputation: normalizeToolReputation(toolReputationRaw),
         pendingApprovals: normalizePendingApprovals(approvalsRaw),
       });
-      setPlanningGate(normalizePlanningGate(planningGateRaw));
-      setPlanningGateHealth((isRecord(planningGateHealthRaw) ? planningGateHealthRaw : null) as PlanningGateHealthSnapshot | null);
-      setPlanningGateStage3(normalizePlanningGateStage3(planningGateStage3Raw));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -988,72 +972,13 @@ export default function Governance() {
     );
   }
 
-  const healthTone = planningGateHealth?.status === 'red'
-    ? 'border-prism-critical/40 bg-prism-critical/10 text-prism-critical'
-    : planningGateHealth?.status === 'yellow'
-      ? 'border-prism-elevated/40 bg-prism-elevated/10 text-prism-elevated'
-      : 'border-prism-teal/40 bg-prism-teal/10 text-prism-teal';
-  const healthLabel = planningGateHealth?.status === 'red'
-    ? 'Alert'
-    : planningGateHealth?.status === 'yellow'
-      ? 'Watching'
-      : 'Healthy';
-  const firstRoleAnomaly = planningGateHealth?.report?.roleAnomalies?.[0];
-  const healthDetail = planningGateHealth?.status === 'red'
-    ? (planningGateHealth?.report?.alerts?.[0]?.message ?? 'Threshold breached.')
-    : planningGateHealth?.status === 'yellow'
-      ? (
-          firstRoleAnomaly?.message
-          ?? `Needs at least ${planningGateHealth?.report?.minPlannedRuns ?? 0} planned runs for stable signal.`
-        )
-      : 'Pass rate and retry behavior are within configured thresholds.';
-
   return (
     <div className="outer-cards-transparent space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <SectionHeader
-            title="Governance Control Plane"
-            subtitle="Agent execution rights, approvals, reliability, and tool health."
-          />
-          <Card className="mt-3 max-w-3xl border-border/70 bg-surface">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-txt-muted">
-                Planning & Completion Gate (30d)
-              </p>
-              <div className="flex items-center gap-3">
-                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${healthTone}`}>
-                  {healthLabel}
-                </span>
-                <span className="text-[11px] text-txt-muted">
-                  {formatDateTime(planningGateHealth?.evaluatedAt)}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleTabChange('reliability')}
-                className="text-[12px] font-medium text-prism-sky transition-colors hover:text-prism-teal"
-              >
-                Open Reliability →
-              </button>
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <div>
-                <p className="text-[11px] text-txt-muted">Pass Rate</p>
-                <p className="text-lg font-semibold text-txt-primary">{formatPct(planningGate?.totals.passRate)}</p>
-              </div>
-              <div>
-                <p className="text-[11px] text-txt-muted">Planned Runs</p>
-                <p className="text-lg font-semibold text-txt-primary">{(planningGate?.totals.runsWithPlanning ?? 0).toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-[11px] text-txt-muted">Gate Fails</p>
-                <p className="text-lg font-semibold text-txt-primary">{(planningGate?.totals.gateFailEvents ?? 0).toLocaleString()}</p>
-              </div>
-            </div>
-            <p className="mt-3 text-[12px] text-txt-muted">{healthDetail}</p>
-          </Card>
-        </div>
+        <SectionHeader
+          title="Governance Control Plane"
+          subtitle="Agent execution rights, approvals, reliability, and tool health."
+        />
         <button
           type="button"
           onClick={() => Promise.all([refresh(), refreshAuthority(selectedAgentId)])}
@@ -1066,14 +991,13 @@ export default function Governance() {
 
       <PageTabs<GovernanceSurface>
         tabs={[
-          { key: 'tool-view', label: 'Tool View' },
-          { key: 'access-control', label: 'Access Control' },
+          { key: 'certification', label: 'Certification' },
+          { key: 'reliability', label: 'Reliability' },
           { key: 'authority', label: 'Authority' },
           { key: 'autonomy', label: 'Autonomy' },
-          { key: 'reliability', label: 'Reliability' },
-          { key: 'enterprise-kpis', label: 'Enterprise KPIs' },
+          { key: 'access-control', label: 'Access Control' },
+          { key: 'tool-view', label: 'Tool View' },
           { key: 'models', label: 'Models' },
-          { key: 'certification', label: 'Certification' },
         ]}
         active={activeTab}
         onChange={handleTabChange}
@@ -1147,12 +1071,6 @@ export default function Governance() {
       {activeTab === 'reliability' && (
         <div id="reliability">
           <ReliabilityDashboard />
-        </div>
-      )}
-
-      {activeTab === 'enterprise-kpis' && (
-        <div id="enterprise-kpis">
-          <EnterpriseKpiDashboard />
         </div>
       )}
 

@@ -10,7 +10,6 @@ export type GovernanceSurface =
   | 'authority'
   | 'autonomy'
   | 'reliability'
-  | 'enterprise-kpis'
   | 'models'
   | 'certification';
 export type Platform = 'gcp' | 'm365' | 'github' | 'stripe' | 'vercel';
