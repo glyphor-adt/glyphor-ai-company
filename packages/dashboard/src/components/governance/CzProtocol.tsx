@@ -1577,6 +1577,13 @@ function suggestRemediation(
       detail: 'The judge claimed the output was truncated or cut off, but the stored output is well under the 16k judge window and has no elision marker. This has been observed when the judge miscounts enumerated items (slides, rows, cases) or mistakes a clean mid-sentence end for mid-delivery truncation. Open the run detail view and confirm the enumerated items are actually all present. If they are, the judge score is unreliable on the completeness axis for this run — retry once, and if the judge re-hallucinates, reduce judge temperature or switch judge_model. The CZ executor prompt now tells the judge explicitly to only claim truncation on explicit elision markers.',
     });
   }
+  if (has('chat_intake_handshake')) {
+    steps.push({
+      kind: 'chat_intake',
+      action: 'Agent emitted a chat-mode handshake instead of executing',
+      detail: 'The agent responded with "I\'m ready for the certification task. Please provide the specific task..." (or equivalent) and stopped. Root cause: CZ dispatches every run with task=\'on_demand\', which activates CHAT_REASONING_PROTOCOL. That protocol instructs agents to "acknowledge, then pause with ### Plan / ### Questions for you" whenever a request looks high-impact — and "Customer Zero Protocol certification" framing reliably trips that flag. The CZ executor prompt now prepends a NON-INTERACTIVE EXECUTION MODE header that explicitly overrides chat-mode pause-for-input behavior. If this heuristic still fires after the next scheduler deploy: (a) move the override even earlier (before any mention of "Customer Zero"), (b) repeat the override after the task text, or (c) create a dedicated task tier (e.g. \'cz_certification\') in companyAgentRunner.ts that skips CHAT_REASONING_PROTOCOL entirely. See packages/scheduler/src/czProtocolApi.ts.',
+    });
+  }
   if (has('agent_retired', 'not on the live runtime roster', 'retired role', 'roster_blocked')) {
     steps.push({
       kind: 'roster',
@@ -1723,6 +1730,12 @@ const HEURISTIC_GLOSSARY: Array<{ match: string[]; label: string; meaning: strin
     label: 'Judge hallucinated truncation',
     meaning: 'The judge claimed the output was truncated or cut off, but the stored output is well under the 16k judge window with no elision marker. This has been observed when the judge miscounts enumerated items (slides, rows, cases) or reads a clean deliverable end as mid-sentence truncation. The completeness/criteria_met scores for this run are unreliable.',
     where_to_look: 'Open the run in Run Detail and count the enumerated items (e.g. slides 1-12) yourself. If they are all present, the judge hallucinated. The CZ executor prompt now tells the judge explicitly never to claim truncation without an elision marker. If the tag keeps firing, lower judge temperature (already 0.1) or switch judge_model. This heuristic does NOT auto-flip pass/fail — it only flags for review, because the judge may have other valid reasons for the low score.',
+  },
+  {
+    match: ['chat_intake_handshake'],
+    label: 'Chat-mode intake handshake (no execution)',
+    meaning: 'The agent responded with a chat-mode acknowledgment ("I\'m ready for the certification task. Please provide the specific task you\'d like me to perform...") instead of executing. Root cause: CZ dispatches with task=\'on_demand\', which activates CHAT_REASONING_PROTOCOL. That protocol tells agents to "acknowledge, then pause with ### Plan / ### Questions for you" for anything that looks high-impact — and "Customer Zero Protocol certification" framing reliably trips that heuristic. Marcus/any agent then waits for a follow-up prompt that never comes.',
+    where_to_look: 'The CZ executor prompt now prepends a NON-INTERACTIVE EXECUTION MODE header that explicitly disables chat-mode pause-for-input behavior for this run. If this heuristic still fires after the next deploy, the override needs to be strengthened — move it earlier, repeat it after the task description, or add it to every agent\'s constitutional override list for task=\'on_demand\' runs. Alternative: add a dedicated task tier (e.g. \'cz_certification\') that bypasses CHAT_REASONING_PROTOCOL entirely. See packages/scheduler/src/czProtocolApi.ts near the agentPrompt construction.',
   },
   {
     match: ['agent_retired', 'not on the live runtime roster', 'retired role', 'roster_blocked'],

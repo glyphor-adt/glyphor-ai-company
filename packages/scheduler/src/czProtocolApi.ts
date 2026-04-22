@@ -366,6 +366,29 @@ async function executeBatch(
         // attempts itself.
         const verificationMethod = (task.verification_method as string) || '';
         const agentPrompt = [
+          // ── NON-INTERACTIVE MODE OVERRIDE ───────────────────────────────
+          // CZ runs dispatch with task='on_demand', which normally activates
+          // CHAT_REASONING_PROTOCOL. That chat protocol instructs agents to
+          // "acknowledge first, then pause with '### Plan' / '### Questions
+          // for you'" whenever a request looks high-impact (deploy, security,
+          // compliance). A prompt titled "Customer Zero Protocol certification"
+          // trips that flag, and agents respond with:
+          //   "I'm ready for the certification task. Please provide the
+          //    specific task you'd like me to perform..."
+          // This override, placed FIRST so the model reads it before the CZ
+          // framing triggers the pause-for-input reflex, explicitly disables
+          // the chat-mode acknowledgment / clarification pattern for this run.
+          `NON-INTERACTIVE EXECUTION MODE — OVERRIDES CHAT PROTOCOL`,
+          `This is a one-shot certification run, NOT a dashboard chat. Ignore any`,
+          `chat-mode instructions about acknowledging the request, pausing for`,
+          `clarification, producing "### Plan" / "### Questions for you" /`,
+          `"### Assumptions" scaffolding, or waiting for the user to confirm`,
+          `defaults. There is no user on the other end — only an automated`,
+          `judge that will score whatever you produce in THIS single response.`,
+          `Do NOT open with "I'm ready for..." or "Please provide the specific`,
+          `task...". The task is fully specified below. Execute it in full,`,
+          `inline, starting now.`,
+          ``,
           `You are being certified against the Customer Zero Protocol. Perform this task`,
           `yourself, end-to-end — do NOT file directives, propose plans, delegate to`,
           `other agents, or write "I will do X". Produce the actual output and, where`,
@@ -912,6 +935,39 @@ async function executeBatch(
               `judge_claimed_truncation: judge reasoning claims output was truncated/cut off, but stored output is ${agentOutput.length} chars (well under the 16k judge window) with no elision marker. Likely a judge hallucination on a complete deliverable. Flag for manual review — do not trust the completeness score until the reasoning is re-validated.`,
             );
             // Do not flip pass/fail; surface for review only.
+          }
+        }
+
+        // Chat-mode acknowledgment leak. When an agent is invoked with
+        // task='on_demand' (as CZ does), CHAT_REASONING_PROTOCOL tells it
+        // to "acknowledge then pause for clarification" on anything that
+        // looks high-impact — and "Customer Zero Protocol certification"
+        // framing reliably trips that heuristic. The agent responds with
+        // an intake handshake ("I'm ready for the certification task.
+        // Please provide the specific task...") instead of executing.
+        // Flag and auto-fail so the dashboard surfaces this clearly and
+        // the prompt override in agentPrompt can be tuned if it ever
+        // slips past.
+        {
+          const trimmed = agentOutput.trim();
+          const first200 = trimmed.slice(0, 200).toLowerCase();
+          const chatIntakePatterns = [
+            /^(i(?:'m| am)\s+ready\s+(?:for|to))/,
+            /^(ready\s+(?:for|to)\s+(?:the\s+)?certification)/,
+            /please\s+provide\s+the\s+(?:specific\s+)?task/,
+            /what(?:'s| is)\s+the\s+(?:specific\s+)?task/,
+            /let me know (?:what|which|the specific)/,
+          ];
+          const hit = chatIntakePatterns.find((p) => p.test(first200));
+          if (hit && trimmed.length < 600) {
+            heuristicFailures.push(
+              `chat_intake_handshake: agent emitted a chat-mode acknowledgment ("${trimmed.slice(0, 120).replace(/\s+/g, ' ')}") instead of executing the task. This happens when CZ dispatches with task='on_demand' and CHAT_REASONING_PROTOCOL tells the agent to pause for user input on anything high-impact. The CZ prompt prepends a NON-INTERACTIVE EXECUTION MODE override — if this heuristic still fires, the override needs to be stronger or moved earlier in the prompt.`,
+            );
+            if (passed) {
+              passed = false;
+              judgeScore = Math.min(judgeScore, 1);
+              reasoningTrace = `${reasoningTrace}\n\n[heuristic override] Chat-mode intake handshake detected; agent did not execute the task. Downgraded to fail.`;
+            }
           }
         }
       } catch (err) {
