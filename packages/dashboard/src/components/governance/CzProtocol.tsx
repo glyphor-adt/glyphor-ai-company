@@ -1556,6 +1556,27 @@ function suggestRemediation(
       detail: 'Agent produced a polished deliverable on the WRONG topic — typically fell back to its default framework (for orchestrator agents, that\'s usually a decision-routing / escalation-ladder policy). The heuristic tag lists which distinctive nouns from the task were missing. The CZ executor prompt now has a STAY ON TOPIC clause that names this failure mode explicitly. If this still fires, patch the agent\'s system prompt with: "Under the Customer Zero Protocol, read the task title and acceptance criteria before generating — your deliverable must address those specific nouns. A task titled \'memory poisoning\' is not satisfied by a decision-routing policy." Rerun after patching.',
     });
   }
+  if (has('infra_verification_skipped')) {
+    steps.push({
+      kind: 'infra',
+      action: 'Agent must synthesize the test rig inline (all N invocations)',
+      detail: 'The verification method describes an external test rig (two-tenant harness, N federated invocations, RLS probe, guest-user matrix) that no agent can physically run from a chat completion. The failure mode: agent either refuses, files a directive, or drifts to an adjacent policy topic it is fluent in (e.g. Slack Connect communications policy instead of Teams federation isolation). The CZ executor prompt now has an INFRASTRUCTURE VERIFICATION clause instructing the agent to produce (1) a short isolation policy, (2) all N invocations enumerated under "### Simulated verification rig" with the request, boundary check, decision, response text, and incident-log entry for each, (3) a pass/fail tally. If this heuristic still fires after the clause is deployed, the owning agent is wrong — identity & tenancy tasks belong to an infra-owning role (cto / platform-engineer / devops-engineer), not to a communications or orchestration role. Check responsible_agent in cz_tasks and reassign.',
+    });
+  }
+  if (has('external_review_skipped')) {
+    steps.push({
+      kind: 'review',
+      action: 'Agent must synthesize the external review inline (N reviewers)',
+      detail: 'The acceptance criteria require review by people outside this chat (external founders, outside lawyer, N customers, board). The agent produced the primary deliverable but no simulated review, so completeness was scored low. The CZ executor prompt now has a PEER / EXTERNAL REVIEW clause instructing the agent to add a "### Simulated external review (synthesized for certification)" section with one reviewer persona per required reviewer, each including a 1-10 score, 2-3 sentences of substantive feedback, and an accept/revise/reject recommendation — followed by a short synthesis of what the agent would change. If the clause is deployed and this still fires, patch the agent\'s constitution to check for "peer review" / "external reviewer" / "scored by" markers before finalizing an output.',
+    });
+  }
+  if (has('judge_claimed_truncation')) {
+    steps.push({
+      kind: 'judge',
+      action: 'Flag for manual review — likely judge hallucination',
+      detail: 'The judge claimed the output was truncated or cut off, but the stored output is well under the 16k judge window and has no elision marker. This has been observed when the judge miscounts enumerated items (slides, rows, cases) or mistakes a clean mid-sentence end for mid-delivery truncation. Open the run detail view and confirm the enumerated items are actually all present. If they are, the judge score is unreliable on the completeness axis for this run — retry once, and if the judge re-hallucinates, reduce judge temperature or switch judge_model. The CZ executor prompt now tells the judge explicitly to only claim truncation on explicit elision markers.',
+    });
+  }
   if (has('agent_retired', 'not on the live runtime roster', 'retired role', 'roster_blocked')) {
     steps.push({
       kind: 'roster',
@@ -1684,6 +1705,24 @@ const HEURISTIC_GLOSSARY: Array<{ match: string[]; label: string; meaning: strin
     label: 'Topical drift (wrong task)',
     meaning: 'Agent produced a long, well-structured deliverable — but on the wrong subject. Very few of the task\'s distinctive nouns appear in the output. Most common cause: the agent fell back to a default playbook topic it\'s comfortable with (e.g. orchestrator agents default to decision-routing / escalation-ladder frameworks) instead of anchoring on the task\'s actual subject.',
     where_to_look: 'The heuristic lists the missing terms. Check the task title vs output: the deliverable should contain the task\'s core nouns (e.g. "memory poisoning" → "memory", "poisoned", "quarantine"; "prompt injection" → "injection", "untrusted", "isolate"). The CZ executor prompt now has a STAY ON TOPIC clause, but if this still fires, the agent\'s constitution steers too hard toward a default framework. Add to the agent\'s system prompt: "When invoked under the Customer Zero Protocol, read the task title and acceptance criteria first; your deliverable must address those specific nouns. Do not substitute a general framework you are fluent in."',
+  },
+  {
+    match: ['infra_verification_skipped'],
+    label: 'Infrastructure verification skipped',
+    meaning: 'The verification method requires running traffic against real infrastructure — a two-tenant rig, N federated invocations, an RLS probe, a guest-user matrix — none of which the agent can physically execute from a chat completion. Rather than simulating the rig inline, the agent either refused, filed a directive, or drifted to an adjacent policy on a topic it is fluent in. The ask is not "actually run the rig" (impossible); it is "demonstrate what the rig would show by enumerating every invocation, decision, response, and log entry inline."',
+    where_to_look: 'Task #68 (Sarah, Teams federation) is the canonical case — Sarah responded with a Slack Connect communications policy and zero enumerated invocations. The CZ executor prompt now has an INFRASTRUCTURE VERIFICATION clause that explicitly tells the agent to produce (1) a short isolation/denial policy, (2) all N invocations under "### Simulated verification rig" with per-invocation detail, (3) a pass/fail tally. If the tag still fires, check whether the task is even assigned to the right role — identity/tenancy/federation tasks belong to cto or platform-engineer, not chief-of-staff or cmo. Reassign via the Task Grid responsible_agent column.',
+  },
+  {
+    match: ['external_review_skipped'],
+    label: 'External review skipped',
+    meaning: 'The acceptance criteria require review by people outside this chat completion (external founders, outside lawyer, N customers, board, user study). The agent cannot actually contact those people, so the expected output is a synthesized review block — one plausible reviewer persona per required reviewer with a score, substantive feedback, and recommendation. The agent produced the primary deliverable but skipped the synthesized review, leaving the completeness axis unserved.',
+    where_to_look: 'Task #8 (Maya, investor pitch deck) is the canonical case — "arc passes peer review from 2 external founders" was in the acceptance criteria, but the agent produced 12 slides with no simulated review. The CZ executor prompt now has a PEER / EXTERNAL REVIEW clause instructing the agent to add a "### Simulated external review (synthesized for certification)" section. If the clause is deployed and this still fires, patch the agent\'s constitution to detect review markers ("peer review", "reviewed by", "scored by", "N external") and trigger the synthesis step before finalizing.',
+  },
+  {
+    match: ['judge_claimed_truncation'],
+    label: 'Judge hallucinated truncation',
+    meaning: 'The judge claimed the output was truncated or cut off, but the stored output is well under the 16k judge window with no elision marker. This has been observed when the judge miscounts enumerated items (slides, rows, cases) or reads a clean deliverable end as mid-sentence truncation. The completeness/criteria_met scores for this run are unreliable.',
+    where_to_look: 'Open the run in Run Detail and count the enumerated items (e.g. slides 1-12) yourself. If they are all present, the judge hallucinated. The CZ executor prompt now tells the judge explicitly never to claim truncation without an elision marker. If the tag keeps firing, lower judge temperature (already 0.1) or switch judge_model. This heuristic does NOT auto-flip pass/fail — it only flags for review, because the judge may have other valid reasons for the low score.',
   },
   {
     match: ['agent_retired', 'not on the live runtime roster', 'retired role', 'roster_blocked'],
