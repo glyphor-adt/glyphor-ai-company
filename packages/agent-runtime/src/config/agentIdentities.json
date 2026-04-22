@@ -110,5 +110,45 @@
     "blueprintSpId": "53a1fea2-3d82-4b5c-824b-80979780972f",
     "entraUserId": "dfac9eb1-cd71-498f-95d7-187f0b9b59d3",
     "upn": "sophia@glyphor.ai"
+  },
+  "clo": {
+    "appId": "adaa8d7f-e277-4651-b5ff-d276305c1855",
+    "objectId": "11a460bf-1c19-42bc-96ac-3aef16ef95d9",
+    "spId": "11a460bf-1c19-42bc-96ac-3aef16ef95d9",
+    "displayName": "Glyphor Agent - Victoria Chase (CLO)",
+    "roles": [],
+    "blueprintSpId": "d33570ea-4386-414b-bebf-a95950337455",
+    "entraUserId": "47c2bc52-8c31-4b22-8f60-3384b82a10e6",
+    "upn": "victoria@glyphor.ai"
+  },
+  "platform-engineer": {
+    "appId": "6c36a1b3-c228-422f-abf0-6240323d7c91",
+    "objectId": "e50b6b8a-b95c-4ff7-afa3-d0adc196f28e",
+    "spId": "e50b6b8a-b95c-4ff7-afa3-d0adc196f28e",
+    "displayName": "Glyphor Agent - Alex Park (Platform Eng)",
+    "roles": [],
+    "blueprintSpId": "da0ffbba-b3b9-40d7-82ef-e359b954f1b8",
+    "entraUserId": "9135e02d-f920-473d-b40d-9a10e336d5a1",
+    "upn": "alex@glyphor.ai"
+  },
+  "devops-engineer": {
+    "appId": "023655c6-16cd-41b0-b1de-af361f83a489",
+    "objectId": "45e8332e-1032-4d30-9f92-286bb5d66363",
+    "spId": "45e8332e-1032-4d30-9f92-286bb5d66363",
+    "displayName": "Glyphor Agent - Jordan Hayes (DevOps)",
+    "roles": [],
+    "blueprintSpId": "c9731e05-bd52-4219-9e45-9b49a5ebb331",
+    "entraUserId": "c90fe85f-a497-4a90-b3a1-6da2fb8b0eb9",
+    "upn": "jordan@glyphor.ai"
+  },
+  "quality-engineer": {
+    "appId": "4e34eaee-6575-436a-8d4b-ff8fc81b7774",
+    "objectId": "f5037656-5ab3-4641-b0e7-e6dbcb772461",
+    "spId": "f5037656-5ab3-4641-b0e7-e6dbcb772461",
+    "displayName": "Glyphor Agent - Sam DeLuca (Quality Eng)",
+    "roles": [],
+    "blueprintSpId": "195bc0fb-0d7f-4d7f-bd30-abe2cf210975",
+    "entraUserId": "9deaddb0-7669-4529-89e2-33e95018279e",
+    "upn": "sam@glyphor.ai"
   }
 }
