@@ -40,6 +40,7 @@ export interface CLORunParams {
   task?: 'regulatory_scan' | 'contract_review' | 'compliance_check' | 'agent365_mail_triage' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  systemPromptOverride?: string;
 }
 
 export async function runCLO(params: CLORunParams = {}) {
@@ -126,7 +127,7 @@ IMPORTANT: Only assert findings about live product features (e.g. footer links, 
   const config: AgentConfig = {
     id: `clo-${task}-${today}`,
     role: 'clo',
-    systemPrompt: CLO_SYSTEM_PROMPT,
+    systemPrompt: params.systemPromptOverride ?? CLO_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
     maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
@@ -153,7 +154,7 @@ IMPORTANT: Only assert findings about live product features (e.g. footer links, 
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;

@@ -90,28 +90,37 @@ const AGENT_NAME_TO_ROLE: Record<string, string> = {
   kai: 'social-media-manager',
 };
 
-const STATIC_RUNNERS: Record<string, (prompt: string) => Promise<AgentExecutionResult>> = {
-  'chief-of-staff': (p) => runChiefOfStaff({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
-  cto: (p) => runCTO({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
-  cfo: (p) => runCFO({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
-  cpo: (p) => runCPO({ task: 'on_demand', message: p }),
-  cmo: (p) => runCMO({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
-  'vp-design': (p) => runVPDesign({ task: 'on_demand', message: p }),
-  'vp-research': (p) => runVPResearch({ task: 'on_demand', message: p, maxToolCalls: 8 }),
-  ops: (p) => runOps({ task: 'on_demand', message: p }),
-  clo: (p) => runCLO({ task: 'on_demand', message: p }),
-  'vp-sales': (p) => runVPSales({ task: 'on_demand', message: p }),
-  'content-creator': (p) => runContentCreator({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
-  'seo-analyst': (p) => runSeoAnalyst({ task: 'on_demand', message: p, dryRun: true, evalMode: true }),
+export interface AgentRunnerOpts {
+  /**
+   * When set, the runner uses this text as the agent's system prompt instead
+   * of the currently-deployed versioned prompt. Used by CZ shadow-eval to
+   * canary a challenger prompt version against a baseline.
+   */
+  systemPromptOverride?: string;
+}
+
+const STATIC_RUNNERS: Record<string, (prompt: string, opts?: AgentRunnerOpts) => Promise<AgentExecutionResult>> = {
+  'chief-of-staff': (p, opts) => runChiefOfStaff({ task: 'on_demand', message: p, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
+  cto: (p, opts) => runCTO({ task: 'on_demand', message: p, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
+  cfo: (p, opts) => runCFO({ task: 'on_demand', message: p, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
+  cpo: (p, opts) => runCPO({ task: 'on_demand', message: p, systemPromptOverride: opts?.systemPromptOverride }),
+  cmo: (p, opts) => runCMO({ task: 'on_demand', message: p, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
+  'vp-design': (p, opts) => runVPDesign({ task: 'on_demand', message: p, systemPromptOverride: opts?.systemPromptOverride }),
+  'vp-research': (p, opts) => runVPResearch({ task: 'on_demand', message: p, maxToolCalls: 8, systemPromptOverride: opts?.systemPromptOverride }),
+  ops: (p, opts) => runOps({ task: 'on_demand', message: p, systemPromptOverride: opts?.systemPromptOverride }),
+  clo: (p, opts) => runCLO({ task: 'on_demand', message: p, systemPromptOverride: opts?.systemPromptOverride }),
+  'vp-sales': (p, opts) => runVPSales({ task: 'on_demand', message: p, systemPromptOverride: opts?.systemPromptOverride }),
+  'content-creator': (p, opts) => runContentCreator({ task: 'on_demand', message: p, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
+  'seo-analyst': (p, opts) => runSeoAnalyst({ task: 'on_demand', message: p, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
 };
 
-function getAgentRunner(agentNameOrRole: string): ((prompt: string) => Promise<AgentExecutionResult>) | null {
+function getAgentRunner(agentNameOrRole: string): ((prompt: string, opts?: AgentRunnerOpts) => Promise<AgentExecutionResult>) | null {
   // Resolve name → role (e.g. 'sarah' → 'chief-of-staff')
   const role = AGENT_NAME_TO_ROLE[agentNameOrRole.toLowerCase()] ?? agentNameOrRole;
   if (STATIC_RUNNERS[role]) return STATIC_RUNNERS[role];
   if (!isCanonicalKeepRole(role)) return null;
   // Fall back to dynamic agent runner for DB-defined agents
-  return (p) => runDynamicAgent({ role, task: 'on_demand', message: p });
+  return (p, opts) => runDynamicAgent({ role, task: 'on_demand', message: p, systemPromptOverride: opts?.systemPromptOverride });
 }
 
 /**
@@ -250,7 +259,7 @@ async function judgeAgentOutput(
  */
 async function executeBatch(
   batchId: string,
-  runRows: Array<{ id: string; task_id: string }>,
+  runRows: Array<{ id: string; task_id: string; prompt_version_id?: string | null }>,
 ): Promise<void> {
   // Fetch task details for all tasks in this batch
   const taskIds = runRows.map((r) => r.task_id);
@@ -464,13 +473,30 @@ async function executeBatch(
           `the evidence must be inline in this response.`,
         ].join('\n');
 
+        // Resolve challenger prompt override if this run targets a specific
+        // prompt version (set by shadow-eval canary batches). Falls back to
+        // the deployed prompt when null.
+        let promptOverride: { text: string; version: number } | null = null;
+        if (run.prompt_version_id) {
+          const pv = await systemQuery<{ prompt_text: string | null; version: number }>(
+            'SELECT prompt_text, version FROM agent_prompt_versions WHERE id = $1',
+            [run.prompt_version_id],
+          );
+          if (pv[0]?.prompt_text) {
+            promptOverride = { text: pv[0].prompt_text, version: pv[0].version };
+          }
+        }
+
         broadcastCzRunEvent(batchId, 'agent_invoked', {
           run_id: run.id,
           task_number: task.task_number,
           agent: agentRole,
+          prompt_version: promptOverride ? `v${promptOverride.version} (shadow)` : 'deployed',
         });
 
-        const agentResult = await runner(agentPrompt);
+        const agentResult = await runner(agentPrompt, {
+          systemPromptOverride: promptOverride?.text,
+        });
         agentOutput = normalizeAgentOutput(agentResult);
 
         broadcastCzRunEvent(batchId, 'agent_responded', {
@@ -1447,6 +1473,21 @@ export async function handleCzApi(
         return true;
       }
 
+      // Optional prompt_version_id for shadow-eval canary batches. Only
+      // valid with single/canary modes (category error to override prompts
+      // for a full/critical/pillar run that spans many agents).
+      const promptVersionId: string | undefined = body.prompt_version_id;
+      if (promptVersionId !== undefined && promptVersionId !== null) {
+        if (typeof promptVersionId !== 'string' || !isUuid(promptVersionId)) {
+          send(400, { error: 'Invalid prompt_version_id' });
+          return true;
+        }
+        if (!['single', 'canary'].includes(triggerType)) {
+          send(400, { error: 'prompt_version_id only valid with mode=single|canary' });
+          return true;
+        }
+      }
+
       // Build task filter based on mode
       let taskFilter = '';
       const filterValues: unknown[] = [];
@@ -1482,12 +1523,12 @@ export async function handleCzApi(
       const placeholders: string[] = [];
       let pi = 1;
       for (const task of taskRows) {
-        placeholders.push(`($${pi++}, $${pi++}, $${pi++}, $${pi++}, $${pi++}, $${pi++})`);
-        insertValues.push(batchId, task.id, mode, triggerType, body.triggered_by ?? 'dashboard', surface);
+        placeholders.push(`($${pi++}, $${pi++}, $${pi++}, $${pi++}, $${pi++}, $${pi++}, $${pi++})`);
+        insertValues.push(batchId, task.id, mode, triggerType, body.triggered_by ?? 'dashboard', surface, promptVersionId ?? null);
       }
 
       const runRows = await systemQuery(`
-        INSERT INTO cz_runs (batch_id, task_id, mode, trigger_type, triggered_by, surface)
+        INSERT INTO cz_runs (batch_id, task_id, mode, trigger_type, triggered_by, surface, prompt_version_id)
         VALUES ${placeholders.join(', ')}
         RETURNING *
       `, insertValues);
@@ -1500,7 +1541,11 @@ export async function handleCzApi(
       });
 
       // Fire-and-forget: execute the batch asynchronously
-      executeBatch(batchId, runRows.map((r: { id: string; task_id: string }) => ({ id: r.id, task_id: r.task_id })))
+      executeBatch(batchId, runRows.map((r: { id: string; task_id: string; prompt_version_id?: string | null }) => ({
+        id: r.id,
+        task_id: r.task_id,
+        prompt_version_id: r.prompt_version_id ?? null,
+      })))
         .catch((err) => console.error('[CZ executor]', err instanceof Error ? err.message : err));
 
       send(201, {
@@ -1798,6 +1843,116 @@ export async function handleCzApi(
       `, values);
 
       send(200, { series: rows, days, pillar: pillar ?? 'all', surface: surfaceFilter ?? 'all' });
+      return true;
+    }
+
+    // ── GET /api/cz/shadow ───────────────────────────────────
+    // Dashboard view: all shadow evals grouped by state, with attempts.
+    if (segments[0] === 'shadow' && segments.length === 1 && method === 'GET') {
+      const rows = await systemQuery(`
+        SELECT e.*,
+               apv.version AS challenger_version,
+               apv.change_summary,
+               (
+                 SELECT json_agg(row_to_json(a.*) ORDER BY a.attempt_number)
+                 FROM cz_shadow_attempts a WHERE a.shadow_eval_id = e.id
+               ) AS attempts
+        FROM cz_shadow_evals e
+        JOIN agent_prompt_versions apv ON apv.id = e.prompt_version_id
+        ORDER BY
+          CASE e.state
+            WHEN 'human_review'   THEN 1
+            WHEN 'shadow_running' THEN 2
+            WHEN 'shadow_pending' THEN 3
+            WHEN 'auto_promoted'  THEN 4
+            WHEN 'shadow_passed'  THEN 5
+            WHEN 'shadow_failed'  THEN 6
+          END,
+          e.created_at DESC
+        LIMIT 50
+      `);
+      send(200, { shadow_evals: rows });
+      return true;
+    }
+
+    // ── POST /api/cz/shadow/tick ─────────────────────────────
+    // Called by the cz_protocol_loop orchestrator on a schedule. Finds ready
+    // shadow-evals and advances each by one step (queue canary, or evaluate
+    // completed batch). Returns what it did.
+    if (segments[0] === 'shadow' && segments[1] === 'tick' && segments.length === 2 && method === 'POST') {
+      const { findReadyShadowEvals, runShadowCanary } = await import('./czShadowEval.js');
+      const ready = await findReadyShadowEvals();
+      const results: Array<{ id: string; state: string }> = [];
+      for (const se of ready) {
+        try {
+          const newState = await runShadowCanary(se.id, async ({ task_ids, prompt_version_id, triggered_by }) => {
+            // Queue a canary batch via the same internal path as POST /runs.
+            const canaryBatchId = (await systemQuery<{ id: string }>("SELECT gen_random_uuid() AS id"))[0].id;
+            const canaryPlaceholders: string[] = [];
+            const canaryValues: unknown[] = [];
+            let cpi = 1;
+            for (const tid of task_ids) {
+              canaryPlaceholders.push(`($${cpi++}, $${cpi++}, $${cpi++}, $${cpi++}, $${cpi++}, $${cpi++}, $${cpi++})`);
+              canaryValues.push(canaryBatchId, tid, 'solo', 'canary', triggered_by, 'direct', prompt_version_id);
+            }
+            const canaryRunRows = await systemQuery<{ id: string; task_id: string; prompt_version_id: string | null }>(`
+              INSERT INTO cz_runs (batch_id, task_id, mode, trigger_type, triggered_by, surface, prompt_version_id)
+              VALUES ${canaryPlaceholders.join(', ')}
+              RETURNING id, task_id, prompt_version_id
+            `, canaryValues);
+            broadcastCzRunEvent(canaryBatchId, 'run_started', {
+              batch_id: canaryBatchId,
+              trigger_type: 'canary',
+              surface: 'direct',
+              task_count: canaryRunRows.length,
+              shadow_eval: true,
+            });
+            executeBatch(canaryBatchId, canaryRunRows.map((r) => ({
+              id: r.id, task_id: r.task_id, prompt_version_id: r.prompt_version_id,
+            }))).catch((e) => console.error('[shadow canary]', e));
+            return canaryBatchId;
+          });
+          results.push({ id: se.id, state: newState });
+        } catch (err) {
+          console.error(`[shadow tick] ${se.id} failed:`, err);
+          results.push({ id: se.id, state: 'error' });
+        }
+      }
+      send(200, { ticked: results.length, results });
+      return true;
+    }
+
+    // ── POST /api/cz/shadow/auto-reassign ────────────────────
+    // Runs the heuristic-driven task reassignment pass. Idempotent.
+    if (segments[0] === 'shadow' && segments[1] === 'auto-reassign' && segments.length === 2 && method === 'POST') {
+      const { autoReassignMisroutedTasks } = await import('./czShadowEval.js');
+      const reassignments = await autoReassignMisroutedTasks();
+      send(200, { reassignments });
+      return true;
+    }
+
+    // ── GET /api/cz/shadow/convergence ───────────────────────
+    // Cheap stop-condition check for the orchestrator.
+    if (segments[0] === 'shadow' && segments[1] === 'convergence' && segments.length === 2 && method === 'GET') {
+      const { evaluateConvergence } = await import('./czShadowEval.js');
+      const status = await evaluateConvergence();
+      send(200, status);
+      return true;
+    }
+
+    // ── POST /api/cz/loop/tick ───────────────────────────────
+    // Cloud Scheduler entry point for Sarah's cz_protocol_loop workflow.
+    // Body: { trigger: 'interval' | 'nightly' | 'manual', dry_run?: boolean }
+    if (segments[0] === 'loop' && segments[1] === 'tick' && segments.length === 2 && method === 'POST') {
+      const body = JSON.parse(await readBody(req) || '{}');
+      const trigger = body.trigger ?? 'interval';
+      if (!['interval', 'nightly', 'manual'].includes(trigger)) {
+        send(400, { error: 'trigger must be interval|nightly|manual' });
+        return true;
+      }
+      const { runCzProtocolLoop } = await import('@glyphor/agents');
+      const result = await runCzProtocolLoop({ trigger, dry_run: body.dry_run === true });
+      send(200, result);
       return true;
     }
 

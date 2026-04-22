@@ -35,6 +35,7 @@ export interface DynamicAgentRunParams {
   task?: string;
   message?: string;
   conversationHistory?: ConversationTurn[];
+  systemPromptOverride?: string;
 }
 
 export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<AgentExecutionResult> {
@@ -86,7 +87,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
   // Load system prompt from agent_briefs
   const [brief] = await systemQuery('SELECT system_prompt, skills, tools FROM agent_briefs WHERE agent_id = $1', [role]);
 
-  const systemPrompt = brief?.system_prompt || `You are ${agentRow.display_name || agentRow.name}, ${agentRow.title}. Department: ${agentRow.department}. Reports to: ${agentRow.reports_to}. Complete tasks thoroughly and report your findings.`;
+  const systemPrompt = params.systemPromptOverride ?? brief?.system_prompt ?? `You are ${agentRow.display_name || agentRow.name}, ${agentRow.title}. Department: ${agentRow.department}. Reports to: ${agentRow.reports_to}. Complete tasks thoroughly and report your findings.`;
 
   const modelClient = new ModelClient({
     geminiApiKey: getGoogleAiApiKey(),
@@ -150,7 +151,7 @@ export async function runDynamicAgent(params: DynamicAgentRunParams): Promise<Ag
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   try { await memory.recordAgentRun(role, 0, 0.02); } catch {}

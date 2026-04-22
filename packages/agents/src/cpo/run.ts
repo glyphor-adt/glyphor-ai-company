@@ -42,6 +42,7 @@ export interface CPORunParams {
   task?: 'weekly_usage_analysis' | 'competitive_scan' | 'on_demand' | 'agent365_mail_triage';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  systemPromptOverride?: string;
 }
 
 export async function runCPO(params: CPORunParams = {}) {
@@ -140,7 +141,7 @@ Steps:
   const config: AgentConfig = {
     id: `cpo-${task}-${today}`,
     role: 'cpo',
-    systemPrompt: CPO_SYSTEM_PROMPT,
+    systemPrompt: params.systemPromptOverride ?? CPO_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
     maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
@@ -167,7 +168,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;

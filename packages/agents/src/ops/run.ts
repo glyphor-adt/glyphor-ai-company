@@ -38,6 +38,7 @@ export interface OpsRunParams {
   message?: string;
   eventPayload?: Record<string, unknown>;
   conversationHistory?: ConversationTurn[];
+  systemPromptOverride?: string;
 }
 
 export async function runOps(params: OpsRunParams = {}) {
@@ -229,7 +230,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, doctr
   const config: AgentConfig = {
     id: `ops-${task}-${today}`,
     role: 'ops',
-    systemPrompt: OPS_SYSTEM_PROMPT,
+    systemPrompt: params.systemPromptOverride ?? OPS_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
     maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
@@ -256,7 +257,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, doctr
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;

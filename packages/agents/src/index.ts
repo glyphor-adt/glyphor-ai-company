@@ -25,6 +25,9 @@ export { runSeoAnalyst, type SeoAnalystRunParams } from './seo-analyst/run.js';
 // Dynamic agents (DB-defined, no file-based runner)
 export { runDynamicAgent, type DynamicAgentRunParams } from './shared/runDynamicAgent.js';
 
+// CZ automation — orchestrator loop (driven by Cloud Scheduler)
+export { runCzProtocolLoop } from './chief-of-staff/workflows/czProtocolLoop.js';
+
 // ── System prompt map (keyed by agent role slug) ──
 import { CHIEF_OF_STAFF_SYSTEM_PROMPT } from './chief-of-staff/systemPrompt.js';
 import { CTO_SYSTEM_PROMPT } from './cto/systemPrompt.js';

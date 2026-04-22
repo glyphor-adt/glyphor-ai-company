@@ -61,6 +61,7 @@ export interface VPDesignRunParams {
   task?: 'design_audit' | 'design_system_review' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  systemPromptOverride?: string;
 }
 
 const LANDING_PAGE_INTENT_PATTERN = /(landing\s*page|homepage|home\s*page|marketing\s*site|website|web\s*page|build\s+.*(landing|site|page)|create\s+.*(landing|site|page))/i;
@@ -310,7 +311,7 @@ Do not call github_push_files, github_create_pull_request, github_merge_pull_req
   const config: AgentConfig = {
     id: `vp-design-${task}-${today}`,
     role: 'vp-design',
-    systemPrompt: VP_DESIGN_SYSTEM_PROMPT,
+    systemPrompt: params.systemPromptOverride ?? VP_DESIGN_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
     maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
@@ -339,7 +340,7 @@ Do not call github_push_files, github_create_pull_request, github_merge_pull_req
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;

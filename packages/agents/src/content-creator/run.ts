@@ -30,6 +30,7 @@ export interface ContentCreatorRunParams {
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
   evalMode?: boolean;
+  systemPromptOverride?: string;
 }
 
 export async function runContentCreator(params: ContentCreatorRunParams = {}) {
@@ -82,7 +83,7 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
 
   const config: AgentConfig = {
     id: `tyler-${task}-${today}`, role: 'content-creator',
-    systemPrompt: CONTENT_CREATOR_SYSTEM_PROMPT, model: agentCfg.model,
+    systemPrompt: params.systemPromptOverride ?? CONTENT_CREATOR_SYSTEM_PROMPT, model: agentCfg.model,
     tools, maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns), maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
@@ -90,7 +91,7 @@ export async function runContentCreator(params: ContentCreatorRunParams = {}) {
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory,
-    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory) : createRunDeps(glyphorEventBus, memory),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }) : createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
   if (!params.evalMode) { try { await memory.recordAgentRun('content-creator', 0, 0.08); } catch {} }
   console.log(`[Tyler] ${result.status} (${result.totalTurns} turns)`);

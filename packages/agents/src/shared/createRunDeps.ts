@@ -222,6 +222,7 @@ class PostgresSessionMemoryStore implements SessionMemoryStore {
 export function createRunDeps(
   glyphorEventBus: GlyphorEventBus,
   memory: CompanyMemoryStore,
+  overrides?: { systemPromptOverride?: string },
 ): ClassifiedRunDependencies {
   const ci = memory.getCollectiveIntelligence();
   const graphReader: KnowledgeGraphReader | null = memory.getGraphReader();
@@ -321,6 +322,10 @@ export function createRunDeps(
     },
 
     dynamicBriefLoader: async (agentRole: string): Promise<string | null> => {
+      // If a systemPromptOverride is provided, use it directly instead of loading the versioned prompt
+      if (overrides?.systemPromptOverride) {
+        return overrides.systemPromptOverride;
+      }
       // Versioned prompt lookup — replaces agent_briefs.
       // Returns null if no versioned prompt exists; caller falls back to static systemPrompt.ts.
       return getActivePrompt(agentRole);

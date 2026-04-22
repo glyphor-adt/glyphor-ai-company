@@ -64,6 +64,7 @@ export interface CoSRunParams {
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
   evalMode?: boolean;
+  systemPromptOverride?: string;
 }
 
 /**
@@ -494,12 +495,12 @@ ${lifecycleContext}`;
 
   const agentCfg = await loadAgentConfig('chief-of-staff', { temperature: 0.3, maxTurns: 15 }, task);
 
-  const systemPrompt =
-    task === 'orchestrate'
+  const systemPrompt = params.systemPromptOverride ??
+    (task === 'orchestrate'
       ? CHIEF_OF_STAFF_SYSTEM_PROMPT + ORCHESTRATION_PROMPT
       : task === 'strategic_planning'
         ? CHIEF_OF_STAFF_SYSTEM_PROMPT + STRATEGIC_PLANNING_PROMPT
-        : CHIEF_OF_STAFF_SYSTEM_PROMPT + ORCHESTRATION_PROMPT;
+        : CHIEF_OF_STAFF_SYSTEM_PROMPT + ORCHESTRATION_PROMPT);
 
   const config: AgentConfig = {
     id: `cos-${task}-${today}`,
@@ -531,7 +532,7 @@ ${lifecycleContext}`;
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;

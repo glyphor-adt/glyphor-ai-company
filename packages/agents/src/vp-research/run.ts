@@ -54,6 +54,7 @@ export interface VPResearchRunParams {
   gaps?: unknown[];
   maxToolCalls?: number;
   conversationHistory?: ConversationTurn[];
+  systemPromptOverride?: string;
 }
 
 export async function runVPResearch(params: VPResearchRunParams = {}) {
@@ -167,7 +168,7 @@ Return structured JSON with keys: findings (object), analystBriefs (array of { a
   const config: AgentConfig = {
     id: `sophia-${task}-${today}-${Date.now()}`,
     role: 'vp-research',
-    systemPrompt: VP_RESEARCH_SYSTEM_PROMPT,
+    systemPrompt: params.systemPromptOverride ?? VP_RESEARCH_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
     maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
@@ -188,7 +189,7 @@ Return structured JSON with keys: findings (object), analystBriefs (array of { a
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
   try { await memory.recordAgentRun('vp-research', 0, 0.10); } catch {}
   console.log(`[Sophia] ${result.status} (${result.totalTurns} turns)`);

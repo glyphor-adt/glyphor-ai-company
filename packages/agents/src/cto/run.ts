@@ -59,6 +59,7 @@ export interface CTORunParams {
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
   evalMode?: boolean;
+  systemPromptOverride?: string;
 }
 
 function resolveUrgentResponseModel(configuredModel: string, task: string): string {
@@ -216,7 +217,7 @@ Steps:
   const config: AgentConfig = {
     id: `cto-${task}-${today}`,
     role: 'cto',
-    systemPrompt: CTO_SYSTEM_PROMPT,
+    systemPrompt: params.systemPromptOverride ?? CTO_SYSTEM_PROMPT,
     model: resolvedModel,
     tools,
     maxTurns,
@@ -243,7 +244,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory) : createRunDeps(glyphorEventBus, memory),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }) : createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;

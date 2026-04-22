@@ -12,8 +12,9 @@ import { createRunDeps } from './createRunDeps.js';
 export function createEvalRunDeps(
   glyphorEventBus: GlyphorEventBus,
   memory: CompanyMemoryStore,
+  overrides?: { systemPromptOverride?: string },
 ): ClassifiedRunDependencies {
-  const base = createRunDeps(glyphorEventBus, memory);
+  const base = createRunDeps(glyphorEventBus, memory, overrides);
 
   return {
     glyphorEventBus: base.glyphorEventBus,

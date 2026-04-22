@@ -29,6 +29,7 @@ export interface SeoAnalystRunParams {
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
   evalMode?: boolean;
+  systemPromptOverride?: string;
 }
 
 export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
@@ -76,7 +77,7 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
 
   const config: AgentConfig = {
     id: `lisa-${task}-${today}`, role: 'seo-analyst',
-    systemPrompt: SEO_ANALYST_SYSTEM_PROMPT, model: agentCfg.model,
+    systemPrompt: params.systemPromptOverride ?? SEO_ANALYST_SYSTEM_PROMPT, model: agentCfg.model,
     tools, maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns), maxStallTurns: 3, timeoutMs: 300_000, temperature: agentCfg.temperature,
     thinkingEnabled: agentCfg.thinkingEnabled,
     conversationHistory: params.conversationHistory,
@@ -84,7 +85,7 @@ export async function runSeoAnalyst(params: SeoAnalystRunParams = {}) {
   const supervisor = new AgentSupervisor({ maxTurns: config.maxTurns, maxStallTurns: config.maxStallTurns, timeoutMs: config.timeoutMs, onEvent: (event) => eventBus.emit(event) });
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor, (event) => eventBus.emit(event), memory,
-    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory) : createRunDeps(glyphorEventBus, memory),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }) : createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
   if (!params.evalMode) { try { await memory.recordAgentRun('seo-analyst', 0, 0.03); } catch {} }
   console.log(`[Lisa] ${result.status} (${result.totalTurns} turns)`);

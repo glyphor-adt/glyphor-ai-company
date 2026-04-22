@@ -38,6 +38,7 @@ export interface VPSalesRunParams {
   task?: 'pipeline_review' | 'market_sizing' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  systemPromptOverride?: string;
 }
 
 export async function runVPSales(params: VPSalesRunParams = {}) {
@@ -119,7 +120,7 @@ Steps:
   const config: AgentConfig = {
     id: `vps-${task}-${today}`,
     role: 'vp-sales',
-    systemPrompt: VP_SALES_SYSTEM_PROMPT,
+    systemPrompt: params.systemPromptOverride ?? VP_SALES_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
     maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
@@ -146,7 +147,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory),
+    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;

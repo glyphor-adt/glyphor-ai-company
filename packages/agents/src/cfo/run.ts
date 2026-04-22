@@ -42,6 +42,7 @@ export interface CFORunParams {
   conversationHistory?: ConversationTurn[];
   dryRun?: boolean;
   evalMode?: boolean;
+  systemPromptOverride?: string;
 }
 
 export async function runCFO(params: CFORunParams = {}) {
@@ -145,7 +146,7 @@ Steps:
   const config: AgentConfig = {
     id: `cfo-${task}-${today}`,
     role: 'cfo',
-    systemPrompt: CFO_SYSTEM_PROMPT,
+    systemPrompt: params.systemPromptOverride ?? CFO_SYSTEM_PROMPT,
     model: agentCfg.model,
     tools,
     maxTurns: effectiveMaxTurnsForReactiveTask(task, agentCfg.maxTurns),
@@ -172,7 +173,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory) : createRunDeps(glyphorEventBus, memory),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }) : createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;
