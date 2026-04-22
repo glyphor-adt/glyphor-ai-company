@@ -2151,7 +2151,7 @@ const _SAFE_CODE_GEN_MODEL = _RAW_CODE_GEN_MODEL.startsWith('deepseek-') && !isB
 const DEFAULT_WEBSITE_FOUNDATION_MODEL = _SAFE_CODE_GEN_MODEL;
 const WEBSITE_FOUNDATION_REPAIR_MODEL = _SAFE_CODE_GEN_MODEL;
 const WEBSITE_FOUNDATION_MAX_TOKENS = 100000;
-const WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS = 4;
+const WEBSITE_FOUNDATION_MAX_TOOL_ROUNDS = 20;
 const SANDBOX_MAX_REPAIR_ROUNDS = 3;
 
 /** After full-JSON sandbox repairs exhaust, try Claude Code–style targeted file patches (0 = off). */
