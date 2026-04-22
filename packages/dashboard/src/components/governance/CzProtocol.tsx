@@ -2734,6 +2734,158 @@ function SummaryStat({
 }
 
 /* ══════════════════════════════════════════════════════════════
+   Glance Bar — at-a-glance KPI strip at the top of the page
+   Answers the primary question: "what's my pass rate and trend?"
+   ══════════════════════════════════════════════════════════════ */
+
+interface ConvergencePayload {
+  state: 'green' | 'converging' | 'stuck';
+  pass_rate: number;
+  p0_pass_rate: number;
+  trend_7d: number;
+  stuck_tasks: Array<{ task_number: number }>;
+}
+
+function GlanceBar() {
+  const [data, setData] = useState<ConvergencePayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchStatus = async () => {
+      try {
+        const payload = await apiCall<ConvergencePayload>('/api/cz/shadow/convergence');
+        if (!cancelled) { setData(payload); setError(null); }
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchStatus();
+    // Refresh every minute — convergence is cheap + the loop ticks every 30 min.
+    const timer = setInterval(fetchStatus, 60_000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-3">
+        <Skeleton className="h-10" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-3 text-xs text-zinc-500">
+        Unable to load live status{error ? `: ${error}` : '.'}
+      </div>
+    );
+  }
+
+  const passPct = Math.round((data.pass_rate ?? 0) * 100);
+  const p0Pct = Math.round((data.p0_pass_rate ?? 0) * 100);
+  const trendPct = (data.trend_7d ?? 0) * 100;
+  const trendSign = trendPct > 0 ? '+' : '';
+  const stateLabel = data.state === 'green' ? 'Converged' : data.state === 'stuck' ? 'Stuck' : 'Converging';
+  const stateDot =
+    data.state === 'green' ? 'bg-emerald-400' :
+    data.state === 'stuck' ? 'bg-rose-400' :
+    'bg-amber-400';
+  const stateText =
+    data.state === 'green' ? 'text-emerald-300' :
+    data.state === 'stuck' ? 'text-rose-300' :
+    'text-amber-300';
+  const trendTone =
+    trendPct > 1 ? 'text-emerald-300' :
+    trendPct < -1 ? 'text-rose-300' :
+    'text-zinc-300';
+
+  return (
+    <div className="rounded-lg border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 flex items-center gap-6 flex-wrap">
+      <div className="flex items-baseline gap-2">
+        <span className={`text-2xl font-semibold tabular-nums ${passRateColor(data.pass_rate)}`}>{passPct}%</span>
+        <span className="text-[11px] uppercase tracking-wide text-zinc-500">pass rate</span>
+      </div>
+      <div className="h-8 w-px bg-zinc-800" />
+      <div className="flex items-baseline gap-2">
+        <span className={`text-lg font-semibold tabular-nums ${passRateColor(data.p0_pass_rate)}`}>{p0Pct}%</span>
+        <span className="text-[11px] uppercase tracking-wide text-zinc-500">P0</span>
+      </div>
+      <div className="h-8 w-px bg-zinc-800" />
+      <div className="flex items-baseline gap-2">
+        <span className={`text-lg font-semibold tabular-nums ${trendTone}`}>
+          {trendSign}{trendPct.toFixed(1)} pp
+        </span>
+        <span className="text-[11px] uppercase tracking-wide text-zinc-500">7d trend</span>
+      </div>
+      <div className="h-8 w-px bg-zinc-800" />
+      <div className="flex items-center gap-2">
+        <span className={`w-2 h-2 rounded-full ${stateDot}`} />
+        <span className={`text-sm font-medium ${stateText}`}>{stateLabel}</span>
+        {data.stuck_tasks?.length > 0 && (
+          <span className="text-[11px] text-zinc-500">
+            · {data.stuck_tasks.length} stuck task{data.stuck_tasks.length === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+      <div className="ml-auto text-[11px] text-zinc-500">
+        Auto-refreshes every minute · next loop tick ≤ 30 min
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CollapsibleSection — lets users hide reference-heavy sections
+   ══════════════════════════════════════════════════════════════ */
+
+function CollapsibleSection({
+  storageKey,
+  title,
+  subtitle,
+  defaultOpen = true,
+  children,
+}: {
+  storageKey: string;
+  title: string;
+  subtitle?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const key = `cz.collapsed.${storageKey}`;
+  const [open, setOpen] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw === null) return defaultOpen;
+      return raw === '1';
+    } catch {
+      return defaultOpen;
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(key, open ? '1' : '0'); } catch { /* noop */ }
+  }, [key, open]);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-2 text-left group"
+      >
+        <span className={`text-zinc-500 transition-transform ${open ? 'rotate-90' : ''}`}>▸</span>
+        <span className="text-sm font-medium text-zinc-300 group-hover:text-zinc-100">{title}</span>
+        {subtitle && <span className="text-xs text-zinc-500">{subtitle}</span>}
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
    Main Page
    ══════════════════════════════════════════════════════════════ */
 
@@ -2778,32 +2930,34 @@ export default function CzProtocol() {
   ];
 
   return (
-    <div className="space-y-8">
-      {/* Header + workflow guide */}
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-100">Certification Protocol</h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          89 tasks across 10 pillars, 19 P0 critical tests, 3 launch gates.
-        </p>
-        <div className="flex items-center flex-wrap gap-y-2 mt-4 text-xs">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-xl font-semibold text-zinc-100">Certification Protocol</h1>
+          <p className="text-xs text-zinc-500 mt-1">
+            89 tasks · 10 pillars · 19 P0 · 3 launch gates
+          </p>
+        </div>
+        <div className="flex items-center flex-wrap gap-y-1 text-[11px]">
           {steps.map((step, i) => {
             const isActive = step.num === completedSteps + 1;
             const isDone = step.num <= completedSteps;
             return (
               <span key={step.num} className="flex items-center">
-                {i > 0 && <span className="text-zinc-700 mx-2">&rarr;</span>}
-                <span className="flex items-center gap-1.5">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
+                {i > 0 && <span className="text-zinc-700 mx-1.5">›</span>}
+                <span className="flex items-center gap-1">
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center font-bold text-[9px] ${
                     isDone ? 'bg-emerald-500/20 text-emerald-400' :
                     isActive ? 'bg-cyan/15 text-cyan' :
-                    'bg-zinc-800 text-zinc-500'
+                    'bg-zinc-800 text-zinc-600'
                   }`}>
                     {isDone ? '✓' : step.num}
                   </span>
                   <span className={
                     isDone ? 'text-emerald-400' :
                     isActive ? 'text-cyan' :
-                    'text-zinc-500'
+                    'text-zinc-600'
                   }>{step.label}</span>
                 </span>
               </span>
@@ -2812,20 +2966,37 @@ export default function CzProtocol() {
         </div>
       </div>
 
-      {/* Step 1: Run tests */}
-      <LiveRunConsole />
+      {/* Top: at-a-glance status strip — pass rate, P0, trend, automation state */}
+      <GlanceBar />
 
-      {/* Step 2+3: Scorecard + Launch Gates */}
+      {/* Scorecard — always visible; this is the primary read-at-a-glance view */}
       <Scorecard />
 
-      {/* Blockers & Fix Plan — failure analysis + prioritized recommendations */}
-      <BlockersAndPlan />
-
-      {/* Step 4: Trends over time */}
+      {/* Trend — always visible */}
       <DriftChart />
 
-      {/* Reference: Full task list */}
-      <TaskGrid />
+      {/* Blockers & fix plan — the "what do I do about it" view */}
+      <BlockersAndPlan />
+
+      {/* Run console — collapsible; not every visit is to kick off a run */}
+      <CollapsibleSection
+        storageKey="live-run-console"
+        title="Run console"
+        subtitle="Trigger a batch or watch a live run"
+        defaultOpen={false}
+      >
+        <LiveRunConsole />
+      </CollapsibleSection>
+
+      {/* Full task list — reference; collapsed by default to reduce density */}
+      <CollapsibleSection
+        storageKey="task-grid"
+        title="Full task list"
+        subtitle="All 89 tasks — filters, drill-down, last-run detail"
+        defaultOpen={false}
+      >
+        <TaskGrid />
+      </CollapsibleSection>
     </div>
   );
 }
