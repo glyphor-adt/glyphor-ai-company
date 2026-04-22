@@ -158,6 +158,15 @@ import { appendCorsHeaders, corsHeadersFor } from './corsHeaders.js';
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const oidcClient = new OAuth2Client();
 
+// In-process shared secret used by internal loopback callers (e.g.
+// runCzProtocolLoop calling /api/cz/shadow/* on itself). Since the secret
+// lives only in this process's memory and is attached as a header on
+// loopback fetches, external callers can't forge it.
+if (!process.env.CZ_LOOP_INTERNAL_SECRET) {
+  process.env.CZ_LOOP_INTERNAL_SECRET = crypto.randomUUID();
+}
+const INTERNAL_LOOPBACK_SECRET = process.env.CZ_LOOP_INTERNAL_SECRET;
+
 type SchedulerRouteClass =
   | 'public'
   | 'authenticated-user'
@@ -184,6 +193,8 @@ const DASHBOARD_FALLBACK_ADMINS = new Set([
 interface RouteAuthContext {
   routeClass: SchedulerRouteClass;
   dashboardUser: AuthenticatedDashboardUser | null;
+  /** True when the caller presented the in-process loopback secret. Skips additional admin gates. */
+  internalBypass?: boolean;
 }
 
 // ─── Logo watermark ─────────────────────────────────────────────
@@ -544,8 +555,12 @@ function classifySchedulerRoute(pathname: string, method: string): SchedulerRout
     return 'authenticated-user';
   }
 
-  // CZ Protocol: read-only GETs for any dashboard user, mutations admin-only
+  // CZ Protocol: read-only GETs for any dashboard user, mutations admin-only.
+  // Exception: the cron-driven orchestrator tick (/api/cz/loop/tick) is
+  // invoked by Cloud Scheduler via OIDC — it must be treated as an internal
+  // service call, not an admin dashboard action.
   if (pathname.startsWith('/api/cz/')) {
+    if (pathname === '/api/cz/loop/tick' && method === 'POST') return 'internal-service-only';
     if (method === 'GET') return 'authenticated-user';
     return 'admin-only';
   }
@@ -687,6 +702,18 @@ async function resolveRouteAuthContext(
 
   if (routeClass === 'public') {
     return { routeClass, dashboardUser: null };
+  }
+
+  // Loopback bypass: in-process callers (e.g. runCzProtocolLoop hitting
+  // /api/cz/shadow/*) attach a secret that only lives in this process's
+  // memory. Accept for any non-public route.
+  const loopbackSecret = getHeaderString(req.headers['x-glyphor-internal-secret']);
+  if (
+    loopbackSecret
+    && INTERNAL_LOOPBACK_SECRET
+    && loopbackSecret === INTERNAL_LOOPBACK_SECRET
+  ) {
+    return { routeClass, dashboardUser: null, internalBypass: true };
   }
 
   if (routeClass === 'internal-service-only') {
@@ -6807,7 +6834,11 @@ const server = createServer(async (req, res) => {
 
     // ── Customer Zero Protocol API (/api/cz/*) ───────────────
     if (url.startsWith('/api/cz/')) {
-      if (method !== 'GET') {
+      // /api/cz/loop/tick (POST) is called by Cloud Scheduler via OIDC and is
+      // already authenticated upstream by classifySchedulerRoute → requireInternalAuth.
+      // In-process loopback callers (runCzProtocolLoop) also bypass this gate.
+      const isInternalCronTick = method === 'POST' && url.split('?')[0] === '/api/cz/loop/tick';
+      if (method !== 'GET' && !isInternalCronTick && !authContext.internalBypass) {
         if (!(await requireDashboardUser(req, res, { admin: true }))) return;
       }
     }

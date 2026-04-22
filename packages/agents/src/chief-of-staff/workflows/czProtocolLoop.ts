@@ -29,7 +29,14 @@ import { systemQuery } from '@glyphor/shared/db';
 
 // ── Config & types ──────────────────────────────────────
 
-const CANONICAL_SCHEDULER_URL = process.env.SCHEDULER_URL ?? 'https://scheduler.glyphor.io';
+// When invoked inside the scheduler Cloud Run process, prefer loopback so we
+// don't have to re-authenticate against ourselves. Fall back to SCHEDULER_URL
+// or PUBLIC_URL when running out-of-process.
+const CANONICAL_SCHEDULER_URL =
+  process.env.SCHEDULER_URL
+  ?? (process.env.PORT ? `http://127.0.0.1:${process.env.PORT}` : undefined)
+  ?? process.env.PUBLIC_URL
+  ?? 'http://127.0.0.1:8080';
 
 async function schedulerFetch<T>(
   path: string,
@@ -40,9 +47,17 @@ async function schedulerFetch<T>(
   // scheduler process itself, which is true when this module is imported
   // directly by the Cloud Scheduler Pub/Sub handler. If you want to run
   // this out-of-process, replace this with buildApiHeaders() + fetch().
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // In-process loopback secret minted by scheduler/server.ts on startup.
+  // When runCzProtocolLoop is invoked inside the same process, this header
+  // lets the request bypass dashboard-admin auth without exposing the
+  // bypass to any external caller (the secret only lives in this process's memory).
+  if (process.env.CZ_LOOP_INTERNAL_SECRET) {
+    headers['X-Glyphor-Internal-Secret'] = process.env.CZ_LOOP_INTERNAL_SECRET;
+  }
   const res = await fetch(`${CANONICAL_SCHEDULER_URL}${path}`, {
     method: init.method ?? 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: init.body ? JSON.stringify(init.body) : undefined,
   });
   if (!res.ok) {
