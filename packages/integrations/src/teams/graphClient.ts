@@ -526,10 +526,28 @@ async function postAsAgentIdentity(
   target: ChannelTarget,
   body: Record<string, unknown>,
   agentRole: string,
+  channelName: string,
+  action: 'teams.channel_post.card' | 'teams.channel_post.text',
 ): Promise<boolean> {
   try {
     const token = await getAgenticGraphToken(agentRole);
-    if (!token) return false;
+    if (!token) {
+      // Persist the silent-fail to the audit log so the dashboard can show
+      // WHY a post fell through to delegated/user identity instead of
+      // posting as the agent. Without this, the failure is invisible and
+      // every post appears as the human whose delegated refresh token is
+      // on file (typically the founder — see task #68-adjacent diagnosis).
+      await auditTeamsChannelWrite({
+        action,
+        channelName,
+        target,
+        identityType: 'agent365',
+        agentRole,
+        outcome: 'failure',
+        responseSummary: 'no_agentic_graph_token (getAgenticGraphToken returned null — check AGENT365_ENABLED, agent entraUserId + blueprintSpId, or MSAL consent on the agentic user)',
+      });
+      return false;
+    }
 
     const url = `https://graph.microsoft.com/v1.0/teams/${target.teamId}/channels/${target.channelId}/messages`;
     const res = await fetch(url, {
@@ -540,12 +558,34 @@ async function postAsAgentIdentity(
     if (!res.ok) {
       const text = await res.text();
       console.warn(`[GraphClient] Agent identity post failed for ${agentRole} (${res.status}): ${text.substring(0, 200)}`);
+      await auditTeamsChannelWrite({
+        action,
+        channelName,
+        target,
+        identityType: 'agent365',
+        agentRole,
+        outcome: 'failure',
+        responseCode: res.status,
+        responseSummary: `graph_post_${res.status}: ${text.substring(0, 180)}`,
+      });
       return false;
     }
     console.log(`[GraphClient] ${agentRole} posted to channel as own identity`);
     return true;
   } catch (err) {
-    console.warn(`[GraphClient] Agent identity post error for ${agentRole}:`, (err as Error).message);
+    const msg = (err as Error).message;
+    console.warn(`[GraphClient] Agent identity post error for ${agentRole}:`, msg);
+    try {
+      await auditTeamsChannelWrite({
+        action,
+        channelName,
+        target,
+        identityType: 'agent365',
+        agentRole,
+        outcome: 'failure',
+        responseSummary: `exception: ${msg.slice(0, 200)}`,
+      });
+    } catch { /* audit failures are never fatal */ }
     return false;
   }
 }
@@ -587,7 +627,7 @@ export async function postCardToChannel(
       body: { contentType: 'html', content: '<attachment id="adaptiveCard"></attachment>' },
       attachments: [{ id: 'adaptiveCard', contentType: 'application/vnd.microsoft.card.adaptive', content: JSON.stringify(card) }],
     };
-    const ok = await postAsAgentIdentity(target, graphBody, agentRole);
+    const ok = await postAsAgentIdentity(target, graphBody, agentRole, channelName, 'teams.channel_post.card');
     if (ok) {
       await auditTeamsChannelWrite({
         action: 'teams.channel_post.card',
@@ -694,7 +734,7 @@ export async function postTextToChannel(
   // 0. Agent identity (posts as the agent, not a human or bot)
   if (agentRole && target) {
     const graphBody = buildGraphChannelMessageBody(text, rich);
-    const ok = await postAsAgentIdentity(target, graphBody, agentRole);
+    const ok = await postAsAgentIdentity(target, graphBody, agentRole, channelName, 'teams.channel_post.text');
     if (ok) {
       await auditTeamsChannelWrite({
         action: 'teams.channel_post.text',
