@@ -964,29 +964,6 @@ Focus exclusively on the task described in the user message. Your entire respons
     parts.push(effectivePrompt);
     components.push('role_prompt');
 
-    // ── EVAL MODE POST-ROLE OVERRIDE ─────────────────────────────
-    // The role_prompt (agent constitution) is appended AFTER the
-    // eval_mode block, so its "AUTHORITY / INCIDENT PROTOCOL / YOUR
-    // TEAM / delegate-and-track" scaffolding tends to dominate attention
-    // and reassert the agent's default playbook on CZ runs. This is the
-    // root cause of the marcus/cto topical_drift failures on
-    // security/infra tasks (he keeps writing a decision-routing policy
-    // instead of addressing the task's nouns). Append a final eval
-    // override so the LAST instruction the model sees is "execute this
-    // task directly, not via your normal routing protocols."
-    if (evalMode) {
-      parts.push(`## FINAL EVAL DIRECTIVE — OVERRIDES ROLE PROTOCOLS ABOVE
-For THIS single response only, the following sections of your role prompt do NOT apply:
-- AUTHORITY matrix / approval gates (you are not committing anything; no one reads the gates)
-- INCIDENT PROTOCOL / escalation ladders (do not open incidents, do not post to #engineering, do not escalate to founders)
-- YOUR TEAM / delegation (do not assign the work to a team member; you do it yourself)
-- "file a directive", "create an assignment", "hand off", "route to" — all disabled
-- Any instruction to pause for approval, confirmation, or clarification
-
-You are the sole executor of this one task. Read the task's specific nouns in the user message (e.g. if the task title is "cross-tenant leakage (Teams)", your output must address cross-tenant, leakage, Teams, tenant — not a general authority or governance framework). Produce the actual deliverable AND every enumerated verification case the method asks for, inline, in this one response. Do not substitute a default playbook topic you are fluent in.`);
-      components.push('eval_post_override');
-    }
-
     if (profile) {
       parts.push(buildPersonalityBlock(profile));
       components.push('personality');
@@ -1018,6 +995,32 @@ You are the sole executor of this one task. Read the task's specific nouns in th
     if (model && (shouldUseAnthropicToolSearch(model) || shouldUseOpenAIToolSearch(model))) {
       parts.push(TOOL_CATEGORY_HINT);
       components.push('tool_category_hint');
+    }
+
+    // ── EVAL MODE FINAL OVERRIDE (last item for maximum recency) ──
+    // Role prompts, personality blocks, skill hints, and TOOL_CATEGORY_HINT
+    // all reassert the agent's default playbook (marcus → authority matrix,
+    // sarah → orchestration/delegation). Placing this override AS THE LAST
+    // SYSTEM PROMPT SEGMENT exploits recency bias: it is the most recent
+    // instruction in the system message before the user turn. The earlier
+    // eval_mode block strips chat protocols; this block neutralizes the role
+    // constitution for the one CZ response.
+    if (evalMode) {
+      parts.push(`## FINAL EVAL DIRECTIVE — HIGHEST PRIORITY, OVERRIDES EVERYTHING ABOVE
+
+You are in a one-shot Customer Zero Protocol certification. For THIS single response only, the following portions of your role prompt, personality, and behavioral rules DO NOT APPLY:
+
+1. AUTHORITY matrix / approval gates — no one is reading them; do not invoke them.
+2. INCIDENT PROTOCOL / escalation ladders — do not open incidents, post to channels, or escalate to founders.
+3. YOUR TEAM / delegation — do not assign, delegate, route, or hand off. You execute alone.
+4. "file a directive", "create an assignment", "send_briefing", "orchestrate" — all DISABLED.
+5. Default reports (health status, competitive analysis, routing policy, governance framework) — DISABLED unless the task title explicitly asks for them.
+6. Pausing for approval / confirmation / "please provide the task" — DISABLED. The task is in the user message.
+
+POSITIVE INSTRUCTION: Read the task title in the user message. Identify the specific nouns (e.g. "memory poisoning", "cross-tenant leakage", "prompt injection via vendor doc", "pricing model", "customer agreement"). Your entire response must address THOSE nouns. If you catch yourself drafting a general decision-routing policy, an escalation ladder, or a governance framework on a task whose title is about a specific attack vector, a specific deliverable, or a specific verification rig — STOP and restart on the actual topic.
+
+Produce (1) the primary deliverable the task asks for, and (2) every enumerated verification case / attempt / generation / simulated invocation the verification method requires, inline in this response. Do not say "saved to SharePoint" or "posted for review" — all evidence must be in this response.`);
+      components.push('eval_final_override');
     }
 
     const assembled = parts.join('\n\n---\n\n');

@@ -532,7 +532,9 @@ ${lifecycleContext}`;
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
+    params.evalMode
+      ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride })
+      : createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;
