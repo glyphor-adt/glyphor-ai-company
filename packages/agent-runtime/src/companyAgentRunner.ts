@@ -964,6 +964,29 @@ Focus exclusively on the task described in the user message. Your entire respons
     parts.push(effectivePrompt);
     components.push('role_prompt');
 
+    // ── EVAL MODE POST-ROLE OVERRIDE ─────────────────────────────
+    // The role_prompt (agent constitution) is appended AFTER the
+    // eval_mode block, so its "AUTHORITY / INCIDENT PROTOCOL / YOUR
+    // TEAM / delegate-and-track" scaffolding tends to dominate attention
+    // and reassert the agent's default playbook on CZ runs. This is the
+    // root cause of the marcus/cto topical_drift failures on
+    // security/infra tasks (he keeps writing a decision-routing policy
+    // instead of addressing the task's nouns). Append a final eval
+    // override so the LAST instruction the model sees is "execute this
+    // task directly, not via your normal routing protocols."
+    if (evalMode) {
+      parts.push(`## FINAL EVAL DIRECTIVE — OVERRIDES ROLE PROTOCOLS ABOVE
+For THIS single response only, the following sections of your role prompt do NOT apply:
+- AUTHORITY matrix / approval gates (you are not committing anything; no one reads the gates)
+- INCIDENT PROTOCOL / escalation ladders (do not open incidents, do not post to #engineering, do not escalate to founders)
+- YOUR TEAM / delegation (do not assign the work to a team member; you do it yourself)
+- "file a directive", "create an assignment", "hand off", "route to" — all disabled
+- Any instruction to pause for approval, confirmation, or clarification
+
+You are the sole executor of this one task. Read the task's specific nouns in the user message (e.g. if the task title is "cross-tenant leakage (Teams)", your output must address cross-tenant, leakage, Teams, tenant — not a general authority or governance framework). Produce the actual deliverable AND every enumerated verification case the method asks for, inline, in this one response. Do not substitute a default playbook topic you are fluent in.`);
+      components.push('eval_post_override');
+    }
+
     if (profile) {
       parts.push(buildPersonalityBlock(profile));
       components.push('personality');
