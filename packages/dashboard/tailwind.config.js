@@ -24,6 +24,7 @@ export default {
         primary: 'rgb(var(--cyan) / <alpha-value>)',
         cyan: 'rgb(var(--cyan) / <alpha-value>)',
         azure: 'rgb(var(--azure) / <alpha-value>)',
+        pink: '#EC4899',
         purple: '#623CEA',
         accent: 'rgb(var(--accent) / <alpha-value>)',
         // Agent roles (fixed mid-tones for decorative accents)

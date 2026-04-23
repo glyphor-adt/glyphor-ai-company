@@ -2312,8 +2312,11 @@ ${MEDIA_EXECUTION_RULES}
 
 SCROLLBAR POLISH (Always Apply):
 In src/styles/tailwind.css @layer base:
-  * { scrollbar-width: none; -ms-overflow-style: none; }
-  *::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: thin; scrollbar-color: rgba(100,100,100,0.4) transparent; }
+  *::-webkit-scrollbar { width: 6px; height: 6px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: rgba(100,100,100,0.4); border-radius: 3px; }
+  *::-webkit-scrollbar-thumb:hover { background: rgba(100,100,100,0.6); }
 
 FILE CONTRACT (MECHANICAL — FOLLOW EXACTLY):
 Create these files from scratch with COMPLETE content:
