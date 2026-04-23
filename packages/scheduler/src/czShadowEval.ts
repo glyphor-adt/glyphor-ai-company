@@ -434,7 +434,15 @@ async function evaluateShadowAttempt(se: ShadowEvalRow): Promise<ShadowEvalState
   const challengerAvgScore = Number(outcome[0]?.avg_score ?? 0);
   const baselinePassRate   = Number(se.baseline_pass_rate ?? 0);
   const delta              = challengerPassRate - baselinePassRate;
-  const wasWin             = delta >= Number(se.promotion_margin);
+  // Zero-baseline escape hatch: when the deployed prompt is at 0% pass rate,
+  // a relative-delta margin is mathematically unreachable with small canary
+  // batches. Treat any challenger that clears an absolute 10% pass rate as a
+  // win so the loop can actually climb out of total failure. 2026-04-23.
+  const ZERO_BASELINE_ABSOLUTE_FLOOR = 0.10;
+  const wasWin =
+    baselinePassRate === 0
+      ? challengerPassRate >= ZERO_BASELINE_ABSOLUTE_FLOOR
+      : delta >= Number(se.promotion_margin);
   const attemptNumber      = se.attempts_used + 1;
   const tags               = outcome[0]?.heuristic_tags ?? [];
 
