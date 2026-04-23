@@ -41,6 +41,8 @@ export interface CLORunParams {
   message?: string;
   conversationHistory?: ConversationTurn[];
   systemPromptOverride?: string;
+  evalMode?: boolean;
+  dryRun?: boolean;
 }
 
 export async function runCLO(params: CLORunParams = {}) {
@@ -154,7 +156,7 @@ IMPORTANT: Only assert findings about live product features (e.g. footer links, 
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }) : createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;

@@ -805,6 +805,8 @@ function buildSystemPrompt(
    * token estimate used to assemble the prompt — so callers can persist them
    * to agent_runs.prompt_components for observability. */
   out?: { components?: string[]; tokenEstimate?: number },
+  /** When true, this is a CZ eval run — strip chat protocols entirely. */
+  evalMode = false,
 ): string {
   try {
     const knowledgeDir = join(__dirname, '../../company-knowledge');
@@ -893,7 +895,23 @@ function buildSystemPrompt(
 
     // For on_demand chat and reactive-light urgent paths, use lightweight reasoning
     // protocols. Executives on reactive-light still get orchestration addenda below.
-    if (useChatStyleProtocols) {
+    // ── EVAL MODE: strip all chat/behavioral protocols ────────────
+    // CZ eval runs dispatch as on_demand but the agent must execute the user
+    // message directly without chat scaffolding (Classify → Plan → Execute,
+    // pause for clarification, etc.). Those protocols cause the model to
+    // "classify" the CZ task and default to its persona playbook instead of
+    // following the CZ prompt.
+    if (evalMode) {
+      parts.push(`## Execution Mode: Certification Eval
+You are in a one-shot certification evaluation. The user message contains the FULL task specification.
+Execute it directly and completely. Do NOT:
+- Classify, plan, or acknowledge the request before starting
+- Pause for clarification or produce "### Plan" / "### Questions" scaffolding
+- Default to your standard reports (health status, competitive analysis, etc.)
+- Produce output about topics NOT specified in the user message
+Focus exclusively on the task described in the user message. Your entire response must address THAT task.`);
+      components.push('eval_mode');
+    } else if (useChatStyleProtocols) {
       parts.push(CHAT_REASONING_PROTOCOL);
       parts.push(CHAT_DATA_HONESTY);
       parts.push(ACTION_HONESTY_PROTOCOL);
@@ -1165,6 +1183,8 @@ export interface RunDependencies {
   sessionMemoryStore?: SessionMemoryStore;
   /** Optional post-turn session summary updater. */
   sessionMemoryUpdater?: SessionMemoryUpdater;
+  /** When true, this is a CZ eval run — strip chat protocols from system prompt. */
+  evalMode?: boolean;
 }
 
 /**
@@ -2598,6 +2618,7 @@ Rules:
                 doctrineContext,
                 reactiveLightPrompt,
                 promptOut,
+                deps?.evalMode,
               );
           // Persist component breakdown on turn 1 so every run has structured
           // data about what went into its system prompt. Fire-and-forget —

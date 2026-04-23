@@ -62,6 +62,8 @@ export interface VPDesignRunParams {
   message?: string;
   conversationHistory?: ConversationTurn[];
   systemPromptOverride?: string;
+  evalMode?: boolean;
+  dryRun?: boolean;
 }
 
 const LANDING_PAGE_INTENT_PATTERN = /(landing\s*page|homepage|home\s*page|marketing\s*site|website|web\s*page|build\s+.*(landing|site|page)|create\s+.*(landing|site|page))/i;
@@ -340,7 +342,7 @@ Do not call github_push_files, github_create_pull_request, github_merge_pull_req
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }) : createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;

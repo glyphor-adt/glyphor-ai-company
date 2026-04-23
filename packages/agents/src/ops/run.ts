@@ -39,6 +39,8 @@ export interface OpsRunParams {
   eventPayload?: Record<string, unknown>;
   conversationHistory?: ConversationTurn[];
   systemPromptOverride?: string;
+  evalMode?: boolean;
+  dryRun?: boolean;
 }
 
 export async function runOps(params: OpsRunParams = {}) {
@@ -257,7 +259,7 @@ Goal: Ensure knowledge routing is efficient, stale information is flagged, doctr
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }) : createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;

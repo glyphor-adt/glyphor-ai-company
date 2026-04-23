@@ -55,6 +55,8 @@ export interface VPResearchRunParams {
   maxToolCalls?: number;
   conversationHistory?: ConversationTurn[];
   systemPromptOverride?: string;
+  evalMode?: boolean;
+  dryRun?: boolean;
 }
 
 export async function runVPResearch(params: VPResearchRunParams = {}) {
@@ -189,7 +191,7 @@ Return structured JSON with keys: findings (object), analystBriefs (array of { a
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }) : createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
   try { await memory.recordAgentRun('vp-research', 0, 0.10); } catch {}
   console.log(`[Sophia] ${result.status} (${result.totalTurns} turns)`);

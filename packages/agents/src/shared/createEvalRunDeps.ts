@@ -35,5 +35,6 @@ export function createEvalRunDeps(
     workingMemoryLoader: async () => ({ summary: null, lastRunAt: null }),
     pendingAssignmentLoader: async () => [],
     initializeWorldModel: async (_role: CompanyAgentRole) => {},
+    evalMode: true,
   };
 }

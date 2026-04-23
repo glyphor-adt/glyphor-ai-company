@@ -43,6 +43,8 @@ export interface CPORunParams {
   message?: string;
   conversationHistory?: ConversationTurn[];
   systemPromptOverride?: string;
+  evalMode?: boolean;
+  dryRun?: boolean;
 }
 
 export async function runCPO(params: CPORunParams = {}) {
@@ -168,7 +170,7 @@ Steps:
     toolExecutor,
     (event) => eventBus.emit(event),
     memory,
-    createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }) : createRunDeps(glyphorEventBus, memory, { systemPromptOverride: params.systemPromptOverride }),
   );
 
   const durationMs = Date.now() - startTime;
