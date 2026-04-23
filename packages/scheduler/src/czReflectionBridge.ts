@@ -281,6 +281,21 @@ export async function processCzBatchFailures(batchId: string): Promise<{
   }
 
   console.log(`[CzReflection] Batch ${batchId} complete:`, stats);
+
+  // Reconcile any reflection-sourced versions from the last 48h that still
+  // don't have a cz_shadow_evals row. Self-heals when the per-version
+  // createShadowEval above silently failed in a prior batch (RLS quirks,
+  // transient DB errors, stale deployments).
+  try {
+    const { backfillOrphanReflections } = await import('./czShadowEval.js');
+    const bf = await backfillOrphanReflections();
+    if (bf.reconciled > 0 || bf.failed > 0) {
+      console.log(`[CzReflection] backfill: reconciled=${bf.reconciled} failed=${bf.failed} skipped=${bf.skipped}`);
+    }
+  } catch (e) {
+    console.error('[CzReflection] backfill error:', e instanceof Error ? e.message : e);
+  }
+
   return stats;
 }
 

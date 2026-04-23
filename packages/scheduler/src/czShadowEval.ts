@@ -75,6 +75,11 @@ interface AutomationConfig {
   auto_reassign_enabled: boolean;
   stuck_threshold_attempts: number;
   slack_escalation_channel: string;
+  // Promotion gate defaults — tightened 2026-04-22 after mass drift regression.
+  // These override the hardcoded fallbacks when present in cz_automation_config.
+  promotion_margin_default: number;
+  required_wins_default: number;
+  max_attempts_default: number;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -86,7 +91,8 @@ export async function loadAutomationConfig(): Promise<AutomationConfig> {
     `SELECT key, value_json FROM cz_automation_config
       WHERE key IN (
         'loop_enabled','shadow_eval_enabled','auto_reassign_enabled',
-        'stuck_threshold_attempts','slack_escalation_channel'
+        'stuck_threshold_attempts','slack_escalation_channel',
+        'promotion_margin_default','required_wins_default','max_attempts_default'
       )`,
   );
   const map = new Map(rows.map((r) => [r.key, r.value_json]));
@@ -96,6 +102,9 @@ export async function loadAutomationConfig(): Promise<AutomationConfig> {
     auto_reassign_enabled:     (map.get('auto_reassign_enabled') as boolean)     ?? true,
     stuck_threshold_attempts:  (map.get('stuck_threshold_attempts') as number)   ?? 5,
     slack_escalation_channel:  (map.get('slack_escalation_channel') as string)   ?? '#cz-automation',
+    promotion_margin_default:  Number(map.get('promotion_margin_default') ?? 0.30),
+    required_wins_default:     Number(map.get('required_wins_default')    ?? 3),
+    max_attempts_default:      Number(map.get('max_attempts_default')     ?? 5),
   };
 }
 
@@ -203,9 +212,9 @@ export async function createShadowEval(args: {
     args.agent_id,
     args.tenant_id,
     targetIds,
-    args.promotion_margin ?? 0.20,
-    args.required_wins    ?? 2,
-    args.max_attempts     ?? 3,
+    args.promotion_margin ?? cfg.promotion_margin_default,
+    args.required_wins    ?? cfg.required_wins_default,
+    args.max_attempts     ?? cfg.max_attempts_default,
     baseline[0]?.pass_rate ?? 0,
     baseline[0]?.avg_score ?? null,
   ]);
@@ -228,13 +237,84 @@ function personasForRole(role: string): string[] {
     cmo: ['maya'],
     'vp-design': ['mia'],
     'vp-sales': ['rachel'],
+    'vp-research': ['vp-research'],  // stored as role, no persona alias
     ops: ['atlas'],
     clo: ['victoria'],
     'content-creator': ['tyler'],
     'seo-analyst': ['lisa'],
     'social-media-manager': ['kai'],
   };
-  return map[role] ?? [];
+  return map[role] ?? [role.toLowerCase()];
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Backfill — reconcile orphan reflection versions
+   ══════════════════════════════════════════════════════════════ */
+
+/**
+ * Find reflection-sourced prompt versions from the last 48h that have no
+ * corresponding cz_shadow_evals row, and try to create one for each.
+ *
+ * This exists because the main createShadowEval call inside the reflection
+ * bridge has silently failed in production (tenant/RLS quirks on the INSERT
+ * into cz_shadow_evals). Calling this after every batch self-heals.
+ *
+ * Returns { reconciled, failed } so the caller can log stats.
+ */
+export async function backfillOrphanReflections(): Promise<{
+  reconciled: number;
+  failed: number;
+  skipped: number;
+}> {
+  const stats = { reconciled: 0, failed: 0, skipped: 0 };
+
+  const orphans = await systemQuery<{
+    id: string;
+    agent_id: string;
+    tenant_id: string;
+    version: number;
+  }>(`
+    SELECT apv.id, apv.agent_id, apv.tenant_id, apv.version
+      FROM agent_prompt_versions apv
+     WHERE apv.source IN ('reflection','cz_reflection')
+       AND apv.deployed_at IS NULL
+       AND apv.retired_at IS NULL
+       AND apv.created_at > NOW() - INTERVAL '48 hours'
+       AND NOT EXISTS (
+         SELECT 1 FROM cz_shadow_evals se
+          WHERE se.prompt_version_id = apv.id
+       )
+     ORDER BY apv.created_at ASC
+     LIMIT 20
+  `);
+
+  if (orphans.length === 0) return stats;
+
+  console.log(`[ShadowEval:backfill] found ${orphans.length} orphan reflection versions`);
+
+  for (const o of orphans) {
+    try {
+      const id = await createShadowEval({
+        prompt_version_id: o.id,
+        agent_id: o.agent_id,
+        tenant_id: o.tenant_id,
+      });
+      if (id) {
+        console.log(`[ShadowEval:backfill] reconciled ${o.agent_id} v${o.version} -> ${id.slice(0,8)}`);
+        stats.reconciled++;
+      } else {
+        stats.skipped++;
+      }
+    } catch (e) {
+      console.error(
+        `[ShadowEval:backfill] failed ${o.agent_id} v${o.version}:`,
+        e instanceof Error ? e.message : e,
+      );
+      stats.failed++;
+    }
+  }
+
+  return stats;
 }
 
 /* ══════════════════════════════════════════════════════════════
