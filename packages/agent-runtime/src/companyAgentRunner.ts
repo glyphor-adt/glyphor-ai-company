@@ -1005,7 +1005,14 @@ Focus exclusively on the task described in the user message. Your entire respons
     // instruction in the system message before the user turn. The earlier
     // eval_mode block strips chat protocols; this block neutralizes the role
     // constitution for the one CZ response.
-    if (evalMode) {
+    //
+    // SCOPED to the two roles whose constitutions caused measurable
+    // topical_drift / handshake regressions in pre-fix batches (cto=marcus,
+    // chief-of-staff=sarah). Batch 078d08c8 showed other agents regressed
+    // when this override was applied blanket (maya/nadia/vp-research lost
+    // scaffolding), so it is now opt-in per role.
+    const DRIFT_PRONE_ROLES: ReadonlyArray<CompanyAgentRole> = ['cto', 'chief-of-staff'];
+    if (evalMode && DRIFT_PRONE_ROLES.includes(role)) {
       parts.push(`## FINAL EVAL DIRECTIVE — HIGHEST PRIORITY, OVERRIDES EVERYTHING ABOVE
 
 You are in a one-shot Customer Zero Protocol certification. For THIS single response only, the following portions of your role prompt, personality, and behavioral rules DO NOT APPLY:
