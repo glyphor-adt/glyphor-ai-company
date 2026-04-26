@@ -3,6 +3,7 @@ import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { Orbit } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 
 const NAV = [
   { to: 'dashboard', label: 'Dashboard', icon: GridIcon },
@@ -98,7 +99,8 @@ export default function Layout() {
         </nav>
         {/* Theme Toggle */}
         <div className="relative z-10 px-4 py-3">
-          <button
+          <Button
+            variant="ghost"
             onClick={toggle}
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors ${
               theme === 'dark'
@@ -112,7 +114,7 @@ export default function Layout() {
               <MoonIcon className="h-5 w-5" />
             )}
             {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-          </button>
+          </Button>
         </div>
         {/* Footer */}
         <div className="relative z-10 px-4 py-4">
@@ -126,7 +128,7 @@ export default function Layout() {
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium text-prism-primary">{user?.name ?? 'User'}</p>
-              <button onClick={logout} className="text-[12px] text-prism-tertiary transition-colors hover:text-prism-primary">Sign out</button>
+              <Button variant="ghost" onClick={logout} className="text-[12px] text-prism-tertiary transition-colors hover:text-prism-primary">Sign out</Button>
             </div>
           </div>
         </div>
@@ -143,9 +145,9 @@ export default function Layout() {
             {/* Brand */}
             <div className="relative z-10 flex items-center justify-between px-4 py-4">
               <BrandLockup theme={theme} />
-              <button onClick={() => setDrawerOpen(false)} className="p-1 text-prism-tertiary">
+              <Button variant="ghost" size="icon-sm" onClick={() => setDrawerOpen(false)} className="p-1 text-prism-tertiary">
                 <CloseIcon className="h-5 w-5" />
-              </button>
+              </Button>
             </div>
             {/* Full nav */}
             <nav className="relative z-10 flex-1 space-y-0.5 overflow-y-auto scrollbar-hide px-3">
@@ -171,13 +173,14 @@ export default function Layout() {
             </nav>
             {/* Theme + User */}
             <div className="relative z-10 px-4 py-3">
-              <button
+              <Button
+                variant="ghost"
                 onClick={toggle}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-prism-tertiary"
               >
                 {theme === 'dark' ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
                 {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-              </button>
+              </Button>
             </div>
             <div className="relative z-10 px-4 py-4">
               <div className="flex items-center gap-2.5">
@@ -190,7 +193,7 @@ export default function Layout() {
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-medium text-prism-primary">{user?.name ?? 'User'}</p>
-                  <button onClick={logout} className="text-[12px] text-prism-tertiary">Sign out</button>
+                  <Button variant="ghost" onClick={logout} className="text-[12px] text-prism-tertiary">Sign out</Button>
                 </div>
               </div>
             </div>
@@ -230,13 +233,14 @@ export default function Layout() {
             {label}
           </NavLink>
         ))}
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setDrawerOpen(true)}
           className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-prism-tertiary"
         >
           <MenuIcon className="h-5 w-5" />
           More
-        </button>
+        </Button>
       </nav>
     </div>
     </>

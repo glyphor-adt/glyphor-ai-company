@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { MdSearch, MdClose, MdFileDownload } from 'react-icons/md';
 import * as XLSX from 'xlsx';
 import { Card, GradientButton, SectionHeader, Skeleton } from '../ui';
+import { Button } from '@/components/ui/button';
 import {
   EmptyState,
   GovernanceSurface,
@@ -140,9 +141,9 @@ function ToolHealthOverview({
           const isClickable = card.filter != null;
           const isActive = activeFilter === card.filter;
           return (
-            <button
+            <Button
               key={card.label}
-              type="button"
+              variant="ghost"
               disabled={!isClickable}
               onClick={() => isClickable && onFilter(isActive ? null : card.filter!)}
               className={`rounded-xl border p-4 text-left transition-colors ${
@@ -157,7 +158,7 @@ function ToolHealthOverview({
               {isClickable && (
                 <p className="mt-2 text-[10px] text-txt-muted">{isActive ? 'Showing filtered' : 'Click to filter'}</p>
               )}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -276,13 +277,13 @@ function ToolReputationBoard({
                   </td>
                   <td className="py-3 pr-3">
                     {tool.activeGrantCount > 0 ? (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
                         onClick={() => onOpenSurface('access-control')}
                         className="rounded-full theme-glass-panel-soft px-2.5 py-1 text-[11px] text-txt-secondary transition-colors hover:border-primary/30 hover:text-txt-primary"
                       >
                         {tool.activeGrantCount} active grant{tool.activeGrantCount === 1 ? '' : 's'}
-                      </button>
+                      </Button>
                     ) : (
                       <span className="text-txt-muted">—</span>
                     )}
@@ -322,13 +323,13 @@ function TelemetryGaps({
                 {item.activeGrantCount} active grant{item.activeGrantCount === 1 ? '' : 's'} · next expiry {item.nextExpiry ? formatDateTime(item.nextExpiry) : 'not set'}
               </p>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="outline"
               onClick={() => onOpenSurface('access-control')}
               className="rounded-lg theme-glass-panel-soft px-3 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:border-primary/30 hover:text-txt-primary"
             >
               Manage grants
-            </button>
+            </Button>
           </div>
         ))}
       </div>
@@ -470,9 +471,9 @@ function ToolAssignmentSearch({ grants }: { grants: ToolGrant[] }) {
           className="flex-1 bg-transparent text-sm text-txt-primary placeholder:text-txt-muted outline-none"
         />
         {query && (
-          <button type="button" onClick={() => setQuery('')} className="text-txt-muted hover:text-txt-primary">
+          <Button variant="ghost" size="icon-sm" onClick={() => setQuery('')} className="text-txt-muted hover:text-txt-primary">
             <MdClose className="h-4 w-4" />
-          </button>
+          </Button>
         )}
       </div>
 
