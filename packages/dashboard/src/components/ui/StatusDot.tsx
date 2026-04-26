@@ -3,8 +3,8 @@ import { cn } from '@/lib/utils';
 type AgentStatus = 'active' | 'paused' | 'inactive';
 
 const STATUS_COLORS: Record<AgentStatus, string> = {
-  active: 'bg-green-400',
-  paused: 'bg-yellow-400',
+  active: 'bg-emerald-400',
+  paused: 'bg-amber-400',
   inactive: 'bg-prism-muted',
 };
 
