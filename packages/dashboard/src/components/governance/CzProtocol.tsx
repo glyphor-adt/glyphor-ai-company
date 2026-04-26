@@ -107,14 +107,14 @@ function shortPillar(p: string): string {
 }
 
 function scoreColor(score: number | null): string {
-  if (score == null) return 'text-zinc-500';
+  if (score == null) return 'text-white0';
   if (score >= 8) return 'text-emerald-400';
   if (score >= 6) return 'text-amber-400';
   return 'text-rose-400';
 }
 
 function passRateColor(rate: number | null): string {
-  if (rate == null) return 'text-zinc-500';
+  if (rate == null) return 'text-white0';
   if (rate >= 0.9) return 'text-emerald-400';
   if (rate >= 0.7) return 'text-amber-400';
   return 'text-rose-400';
@@ -202,7 +202,7 @@ function Scorecard() {
         {[null, 'direct', 'teams', 'slack'].map((s) => (
           <button
             key={s ?? 'all'}
-            className={`text-xs px-2 py-1 rounded ${surface === s ? 'bg-cyan/20 text-cyan' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+            className={`text-xs px-2 py-1 rounded ${surface === s ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
             onClick={() => setSurface(s)}
           >
             {s ? s.charAt(0).toUpperCase() + s.slice(1) : 'All'}
@@ -211,9 +211,9 @@ function Scorecard() {
       </div>
 
       {!hasPillarData && (
-        <div className="mt-4 rounded-lg border border-dashed border-zinc-700/40 bg-zinc-900/30 p-8 text-center">
-          <p className="text-zinc-400 text-sm font-medium">No completed runs yet</p>
-          <p className="text-zinc-600 text-xs mt-1">Execute a test run to populate pillar scores and pass rates</p>
+        <div className="mt-4 rounded-lg border border-dashed border-border/40 bg-surface/30 p-8 text-center">
+          <p className="text-prism-secondary text-sm font-medium">No completed runs yet</p>
+          <p className="text-txt-faint text-xs mt-1">Execute a test run to populate pillar scores and pass rates</p>
         </div>
       )}
 
@@ -230,11 +230,11 @@ function Scorecard() {
                 className={`rounded-lg border p-3 ${
                   p.pillar_is_p0
                     ? 'border-rose-700/40 bg-rose-950/20'
-                    : 'border-zinc-700/40 bg-zinc-800/30'
+                    : 'border-border/40 bg-raised/30'
                 }`}
               >
                 <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-[11px] font-medium text-zinc-300 truncate">{shortPillar(p.pillar)}</span>
+                  <span className="text-[11px] font-medium text-prism-primary truncate">{shortPillar(p.pillar)}</span>
                   {p.pillar_is_p0 && <Badge color="red">P0</Badge>}
                 </div>
                 <div className="flex items-baseline gap-2">
@@ -245,12 +245,12 @@ function Scorecard() {
                     avg {score.toFixed(1)}
                   </span>
                 </div>
-                <div className="text-[10px] mt-1 text-zinc-500">
+                <div className="text-[10px] mt-1 text-white0">
                   {p.passed}/{p.total_tasks} passed
                   {!meetsRate && <span className="text-rose-400 ml-2">below {(Number(p.pass_rate_threshold) * 100).toFixed(0)}%</span>}
                   {!meetsScore && <span className="text-amber-400 ml-2">avg &lt; {Number(p.avg_score_threshold).toFixed(1)}</span>}
                 </div>
-                <div className="w-full h-1 rounded-full bg-zinc-700/40 mt-2">
+                <div className="w-full h-1 rounded-full bg-raised/40 mt-2">
                   <div
                     className={`h-full rounded-full transition-all ${
                       rate >= Number(p.pass_rate_threshold) ? 'bg-emerald-500' : rate >= 0.5 ? 'bg-amber-500' : 'bg-rose-500'
@@ -266,22 +266,22 @@ function Scorecard() {
 
       {/* Launch Gates */}
       <div className="mt-6">
-        <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Launch Gates</h4>
+        <h4 className="text-xs font-semibold text-prism-secondary uppercase tracking-wider mb-2">Launch Gates</h4>
         <div className="flex gap-3">
           {gates.map((g) => (
             <div
               key={g.gate}
               className={`flex-1 rounded-lg border p-3 ${
-                g.met ? 'border-emerald-700/40 bg-emerald-950/20' : 'border-zinc-700/40 bg-zinc-800/30'
+                g.met ? 'border-emerald-700/40 bg-emerald-950/20' : 'border-border/40 bg-raised/30'
               }`}
             >
               <div className="flex items-center gap-2">
-                <span className={`text-lg ${g.met ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                <span className={`text-lg ${g.met ? 'text-emerald-400' : 'text-white0'}`}>
                   {g.met ? '✓' : '○'}
                 </span>
-                <span className="text-xs font-medium text-zinc-300">{gateLabel(g.gate)}</span>
+                <span className="text-xs font-medium text-prism-primary">{gateLabel(g.gate)}</span>
               </div>
-              <p className="text-[10px] text-zinc-500 mt-1">{g.description}</p>
+              <p className="text-[10px] text-white0 mt-1">{g.description}</p>
             </div>
           ))}
         </div>
@@ -383,7 +383,7 @@ function TaskGrid() {
       {/* Pillar + P0 filters */}
       <div className="flex items-center gap-2 mt-3 flex-wrap">
         <button
-          className={`text-xs px-2 py-1 rounded ${!filterPillar ? 'bg-cyan/20 text-cyan' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+          className={`text-xs px-2 py-1 rounded ${!filterPillar ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
           onClick={() => setFilterPillar(null)}
         >
           All Pillars
@@ -391,14 +391,14 @@ function TaskGrid() {
         {pillarList.map((p) => (
           <button
             key={p}
-            className={`text-xs px-2 py-1 rounded ${filterPillar === p ? 'bg-cyan/20 text-cyan' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+            className={`text-xs px-2 py-1 rounded ${filterPillar === p ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
             onClick={() => setFilterPillar(p === filterPillar ? null : p)}
           >
             {shortPillar(p)}
           </button>
         ))}
         <button
-          className={`text-xs px-2 py-1 rounded ml-2 ${filterP0 ? 'bg-rose-900/40 text-rose-300' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+          className={`text-xs px-2 py-1 rounded ml-2 ${filterP0 ? 'bg-rose-900/40 text-rose-300' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
           onClick={() => setFilterP0(!filterP0)}
         >
           P0 Only
@@ -407,7 +407,7 @@ function TaskGrid() {
 
       {/* Last-Run date filter */}
       <div className="flex items-center gap-2 mt-2 flex-wrap text-xs">
-        <span className="text-zinc-500">Last run:</span>
+        <span className="text-white0">Last run:</span>
         {([
           ['all', 'All'],
           ['today', 'Today'],
@@ -417,7 +417,7 @@ function TaskGrid() {
         ] as const).map(([key, label]) => (
           <button
             key={key}
-            className={`px-2 py-1 rounded ${runDatePreset === key ? 'bg-cyan/20 text-cyan' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+            className={`px-2 py-1 rounded ${runDatePreset === key ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
             onClick={() => {
               setRunDatePreset(key);
               setRunDateFrom('');
@@ -428,23 +428,23 @@ function TaskGrid() {
           </button>
         ))}
         <span className="ml-1 flex items-center gap-1">
-          <span className="text-zinc-600">from</span>
+          <span className="text-txt-faint">from</span>
           <input
             type="date"
             value={runDateFrom}
             onChange={(e) => { setRunDateFrom(e.target.value); setRunDatePreset('custom'); }}
-            className="bg-zinc-900 border border-zinc-700 rounded px-1.5 py-0.5 text-zinc-200 [color-scheme:dark]"
+            className="bg-surface border border-border rounded px-1.5 py-0.5 text-prism-primary [color-scheme:dark]"
           />
-          <span className="text-zinc-600">to</span>
+          <span className="text-txt-faint">to</span>
           <input
             type="date"
             value={runDateTo}
             onChange={(e) => { setRunDateTo(e.target.value); setRunDatePreset('custom'); }}
-            className="bg-zinc-900 border border-zinc-700 rounded px-1.5 py-0.5 text-zinc-200 [color-scheme:dark]"
+            className="bg-surface border border-border rounded px-1.5 py-0.5 text-prism-primary [color-scheme:dark]"
           />
           {(runDateFrom || runDateTo || runDatePreset !== 'all') && (
             <button
-              className="ml-1 text-zinc-500 hover:text-zinc-300"
+              className="ml-1 text-white0 hover:text-prism-primary"
               onClick={() => { setRunDatePreset('all'); setRunDateFrom(''); setRunDateTo(''); }}
               title="Clear date filter"
             >
@@ -461,7 +461,7 @@ function TaskGrid() {
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-zinc-500 text-left border-b border-zinc-700/40">
+              <tr className="text-white0 text-left border-b border-border/40">
                 <th className="py-2 pr-2 w-8">#</th>
                 <th className="py-2 pr-3">Task</th>
                 <th className="py-2 pr-3 w-24">Pillar</th>
@@ -476,7 +476,7 @@ function TaskGrid() {
               {filteredTasks.map((t) => (
                 <Fragment key={t.id}>
                   <tr
-                    className="border-b border-zinc-800/40 hover:bg-zinc-800/30 cursor-pointer"
+                    className="border-b border-border/40 hover:bg-raised/30 cursor-pointer"
                     onClick={() => {
                       if (expandedTask === t.id) {
                         setExpandedTask(null);
@@ -492,10 +492,10 @@ function TaskGrid() {
                       }
                     }}
                   >
-                    <td className="py-2 pr-2 text-zinc-500 tabular-nums">{t.task_number}</td>
-                    <td className="py-2 pr-3 text-zinc-200 max-w-[300px] truncate">{t.task}</td>
-                    <td className="py-2 pr-3 text-zinc-400">{shortPillar(t.pillar)}</td>
-                    <td className="py-2 pr-2 text-zinc-400">{t.responsible_agent ?? '—'}</td>
+                    <td className="py-2 pr-2 text-white0 tabular-nums">{t.task_number}</td>
+                    <td className="py-2 pr-3 text-prism-primary max-w-[300px] truncate">{t.task}</td>
+                    <td className="py-2 pr-3 text-prism-secondary">{shortPillar(t.pillar)}</td>
+                    <td className="py-2 pr-2 text-prism-secondary">{t.responsible_agent ?? '—'}</td>
                     <td className="py-2 pr-2 text-center">
                       {t.is_p0 && <span className="text-rose-400 font-bold">●</span>}
                     </td>
@@ -504,7 +504,7 @@ function TaskGrid() {
                     </td>
                     <td className="py-2 pr-2 text-center">
                       {t.latest_pass == null ? (
-                        <span className="text-zinc-600">—</span>
+                        <span className="text-txt-faint">—</span>
                       ) : t.latest_pass ? (
                         <span className="text-emerald-400">✓</span>
                       ) : (
@@ -512,46 +512,46 @@ function TaskGrid() {
                       )}
                     </td>
                     <td
-                      className="py-2 text-zinc-400 tabular-nums whitespace-nowrap"
+                      className="py-2 text-prism-secondary tabular-nums whitespace-nowrap"
                       title={formatStampFull(t.latest_run_at)}
                     >
                       {t.latest_run_at ? (
                         <span>
                           {formatStamp(t.latest_run_at)}
-                          <span className="text-zinc-600 ml-1">({timeAgo(t.latest_run_at)})</span>
+                          <span className="text-txt-faint ml-1">({timeAgo(t.latest_run_at)})</span>
                         </span>
                       ) : (
-                        <span className="text-zinc-600">never</span>
+                        <span className="text-txt-faint">never</span>
                       )}
                     </td>
                   </tr>
                   {expandedTask === t.id && (
-                    <tr key={`${t.id}-detail`} className="bg-zinc-900/50">
+                    <tr key={`${t.id}-detail`} className="bg-surface/50">
                       <td colSpan={8} className="p-3">
                         <div className="grid grid-cols-2 gap-4 text-xs">
                           <div>
-                            <p className="text-zinc-500 mb-1">Acceptance Criteria</p>
-                            <p className="text-zinc-300">{t.acceptance_criteria}</p>
+                            <p className="text-white0 mb-1">Acceptance Criteria</p>
+                            <p className="text-prism-primary">{t.acceptance_criteria}</p>
                           </div>
                           <div>
-                            <p className="text-zinc-500 mb-1">Verification Method</p>
-                            <p className="text-zinc-300">{t.verification_method ?? '—'}</p>
+                            <p className="text-white0 mb-1">Verification Method</p>
+                            <p className="text-prism-primary">{t.verification_method ?? '—'}</p>
                           </div>
                           <div>
-                            <p className="text-zinc-500 mb-1">Sub-category</p>
-                            <p className="text-zinc-300">{t.sub_category ?? '—'}</p>
+                            <p className="text-white0 mb-1">Sub-category</p>
+                            <p className="text-prism-primary">{t.sub_category ?? '—'}</p>
                           </div>
                           <div>
-                            <p className="text-zinc-500 mb-1">Last Run</p>
-                            <p className="text-zinc-300" title={formatStampFull(t.latest_run_at)}>
+                            <p className="text-white0 mb-1">Last Run</p>
+                            <p className="text-prism-primary" title={formatStampFull(t.latest_run_at)}>
                               {t.latest_run_at ? (
                                 <>
                                   {formatStamp(t.latest_run_at)}
-                                  <span className="text-zinc-500 ml-2">({timeAgo(t.latest_run_at)})</span>
+                                  <span className="text-white0 ml-2">({timeAgo(t.latest_run_at)})</span>
                                 </>
                               ) : 'Never'}
                               {t.latest_judge_tier && (
-                                <span className="text-zinc-500 ml-2">tier: {t.latest_judge_tier}</span>
+                                <span className="text-white0 ml-2">tier: {t.latest_judge_tier}</span>
                               )}
                             </p>
                           </div>
@@ -561,45 +561,45 @@ function TaskGrid() {
                         {!detailLoading && taskDetail && taskDetail.scores.length > 0 && (() => {
                           const s = taskDetail.scores[0];
                           return (
-                            <div className="mt-4 space-y-3 border-t border-zinc-800/40 pt-3">
+                            <div className="mt-4 space-y-3 border-t border-border/40 pt-3">
                               <div className="flex items-center gap-4 text-xs">
-                                <span className="text-zinc-500">Score: <span className={scoreColor(s.judge_score)}>{s.judge_score?.toFixed(1)}</span></span>
-                                <span className="text-zinc-500">Tier: <span className="text-zinc-300">{s.judge_tier}</span></span>
+                                <span className="text-white0">Score: <span className={scoreColor(s.judge_score)}>{s.judge_score?.toFixed(1)}</span></span>
+                                <span className="text-white0">Tier: <span className="text-prism-primary">{s.judge_tier}</span></span>
                                 <span className={s.passed ? 'text-emerald-400' : 'text-rose-400'}>{s.passed ? 'PASS' : 'FAIL'}</span>
                                 {s.axis_scores && Object.keys(s.axis_scores).length > 0 && (
-                                  <span className="text-zinc-600">
+                                  <span className="text-txt-faint">
                                     {Object.entries(s.axis_scores).map(([k, v]) => `${k}: ${(v * 10).toFixed(0)}`).join(' · ')}
                                   </span>
                                 )}
                               </div>
                               {s.reasoning_trace && (
                                 <div>
-                                  <p className="text-zinc-500 text-[11px] font-medium mb-1">Judge Reasoning</p>
-                                  <p className="text-zinc-400 text-xs">{s.reasoning_trace}</p>
+                                  <p className="text-white0 text-[11px] font-medium mb-1">Judge Reasoning</p>
+                                  <p className="text-prism-secondary text-xs">{s.reasoning_trace}</p>
                                 </div>
                               )}
                               {s.heuristic_failures && s.heuristic_failures.length > 0 && (
                                 <div>
-                                  <p className="text-zinc-500 text-[11px] font-medium mb-1">Heuristic Failures</p>
+                                  <p className="text-white0 text-[11px] font-medium mb-1">Heuristic Failures</p>
                                   <p className="text-rose-400/80 text-xs">{s.heuristic_failures.join('; ')}</p>
                                 </div>
                               )}
                               {s.agent_output && (
                                 <div>
-                                  <p className="text-zinc-500 text-[11px] font-medium mb-1">Agent Output</p>
-                                  <pre className="text-zinc-300 text-xs whitespace-pre-wrap break-words max-h-80 overflow-y-auto border border-zinc-700/40 rounded-lg p-3 bg-zinc-950/60 leading-relaxed">
+                                  <p className="text-white0 text-[11px] font-medium mb-1">Agent Output</p>
+                                  <pre className="text-prism-primary text-xs whitespace-pre-wrap break-words max-h-80 overflow-y-auto border border-border/40 rounded-lg p-3 bg-base/60 leading-relaxed">
                                     {s.agent_output}
                                   </pre>
                                 </div>
                               )}
                               {!s.agent_output && s.judge_tier === 'heuristic' && (
-                                <p className="text-zinc-600 text-xs italic">No agent output — test used heuristic scoring only (no LLM was invoked).</p>
+                                <p className="text-txt-faint text-xs italic">No agent output — test used heuristic scoring only (no LLM was invoked).</p>
                               )}
                             </div>
                           );
                         })()}
                         {!detailLoading && taskDetail && taskDetail.scores.length === 0 && (
-                          <p className="text-zinc-600 text-xs mt-3 italic">No scores recorded for this task yet.</p>
+                          <p className="text-txt-faint text-xs mt-3 italic">No scores recorded for this task yet.</p>
                         )}
                       </td>
                     </tr>
@@ -608,7 +608,7 @@ function TaskGrid() {
               ))}
               {filteredTasks.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-6 text-center text-zinc-500 text-xs">
+                  <td colSpan={8} className="py-6 text-center text-white0 text-xs">
                     No tasks match the current filters.
                   </td>
                 </tr>
@@ -820,7 +820,7 @@ function LiveRunConsole() {
       {/* Launch Controls */}
       <div className="flex items-center gap-3 mt-3 flex-wrap">
         <select
-          className="bg-zinc-800 text-zinc-200 text-xs px-2 py-1.5 rounded border border-zinc-700"
+          className="bg-raised text-prism-primary text-xs px-2 py-1.5 rounded border border-border"
           value={launchMode}
           onChange={(e) => setLaunchMode(e.target.value)}
         >
@@ -833,7 +833,7 @@ function LiveRunConsole() {
 
         {launchMode === 'pillar' && (
           <select
-            className="bg-zinc-800 text-zinc-200 text-xs px-2 py-1.5 rounded border border-zinc-700"
+            className="bg-raised text-prism-primary text-xs px-2 py-1.5 rounded border border-border"
             value={launchPillar}
             onChange={(e) => setLaunchPillar(e.target.value)}
           >
@@ -844,7 +844,7 @@ function LiveRunConsole() {
 
         {launchMode === 'canary' && (
           <select
-            className="bg-zinc-800 text-zinc-200 text-xs px-2 py-1.5 rounded border border-zinc-700"
+            className="bg-raised text-prism-primary text-xs px-2 py-1.5 rounded border border-border"
             value={launchAgent}
             onChange={(e) => setLaunchAgent(e.target.value)}
           >
@@ -855,7 +855,7 @@ function LiveRunConsole() {
 
         {launchMode === 'single' && (
           <select
-            className="bg-zinc-800 text-zinc-200 text-xs px-2 py-1.5 rounded border border-zinc-700 max-w-[200px]"
+            className="bg-raised text-prism-primary text-xs px-2 py-1.5 rounded border border-border max-w-[200px]"
             value={launchTaskId}
             onChange={(e) => setLaunchTaskId(e.target.value)}
           >
@@ -865,7 +865,7 @@ function LiveRunConsole() {
         )}
 
         <select
-          className="bg-zinc-800 text-zinc-200 text-xs px-2 py-1.5 rounded border border-zinc-700"
+          className="bg-raised text-prism-primary text-xs px-2 py-1.5 rounded border border-border"
           value={launchSurface}
           onChange={(e) => setLaunchSurface(e.target.value)}
         >
@@ -880,25 +880,25 @@ function LiveRunConsole() {
 
       {/* Console Output */}
       {sseEvents.length === 0 && !activeRunId && (
-        <div className="mt-3 rounded-lg border border-dashed border-zinc-700/40 bg-zinc-950/30 p-8 flex items-center justify-center">
-          <p className="text-zinc-600 text-xs">Click <span className="text-zinc-400 font-medium">Run Now</span> to execute tests — live output will stream here</p>
+        <div className="mt-3 rounded-lg border border-dashed border-border/40 bg-base/30 p-8 flex items-center justify-center">
+          <p className="text-txt-faint text-xs">Click <span className="text-prism-secondary font-medium">Run Now</span> to execute tests — live output will stream here</p>
         </div>
       )}
       {sseEvents.length > 0 && (
         <div
           ref={consoleRef}
-          className="mt-3 bg-zinc-950 rounded-lg border border-zinc-800 p-3 max-h-80 overflow-y-auto font-mono text-[11px]"
+          className="mt-3 bg-base rounded-lg border border-border p-3 max-h-80 overflow-y-auto font-mono text-[11px]"
         >
           {sseEvents.map((evt, i) => {
             const ts = new Date(evt.timestamp).toLocaleTimeString();
             if (evt.event === 'task_started') {
               return (
-                <div key={i} className="text-zinc-400 leading-relaxed">
-                  <span className="text-zinc-600">{ts}</span>{' '}
+                <div key={i} className="text-prism-secondary leading-relaxed">
+                  <span className="text-txt-faint">{ts}</span>{' '}
                   <span className="text-blue-400">▶</span>{' '}
-                  <span className="text-zinc-500">#{(evt.data as { task_number?: number }).task_number}</span>{' '}
-                  <span className="text-zinc-300">{(evt.data as { task?: string }).task ?? ''}</span>{' '}
-                  <span className="text-zinc-600">({shortPillar((evt.data as { pillar?: string }).pillar ?? '')})</span>
+                  <span className="text-white0">#{(evt.data as { task_number?: number }).task_number}</span>{' '}
+                  <span className="text-prism-primary">{(evt.data as { task?: string }).task ?? ''}</span>{' '}
+                  <span className="text-txt-faint">({shortPillar((evt.data as { pillar?: string }).pillar ?? '')})</span>
                 </div>
               );
             }
@@ -907,26 +907,26 @@ function LiveRunConsole() {
               return (
                 <div key={i} className="leading-relaxed mb-1">
                   <div className={d.pass ? 'text-emerald-400' : 'text-rose-400'}>
-                    <span className="text-zinc-600">{ts}</span>{' '}
+                    <span className="text-txt-faint">{ts}</span>{' '}
                     <span>{d.pass ? '✓' : '✗'}</span>{' '}
-                    <span className="text-zinc-500">#{d.task_number}</span>{' '}
+                    <span className="text-white0">#{d.task_number}</span>{' '}
                     <span className={d.pass ? 'text-emerald-300' : 'text-rose-300'}>{d.task ?? ''}</span>{' '}
                     <span className={scoreColor(d.judge_score ?? null)}>
                       {d.judge_score?.toFixed(1)}
                     </span>
-                    {d.judge_tier && <span className="text-zinc-600 ml-1">[{d.judge_tier}]</span>}
-                    {d.latency_ms != null && <span className="text-zinc-600 ml-1">{(d.latency_ms / 1000).toFixed(1)}s</span>}
+                    {d.judge_tier && <span className="text-txt-faint ml-1">[{d.judge_tier}]</span>}
+                    {d.latency_ms != null && <span className="text-txt-faint ml-1">{(d.latency_ms / 1000).toFixed(1)}s</span>}
                   </div>
                   {d.reasoning_trace && (
-                    <div className="text-zinc-500 ml-6 text-[10px]">{d.reasoning_trace}</div>
+                    <div className="text-white0 ml-6 text-[10px]">{d.reasoning_trace}</div>
                   )}
                   {d.agent_output_preview && (
-                    <div className="text-zinc-600 ml-6 text-[10px] mt-0.5 border-l border-zinc-800 pl-2 max-h-16 overflow-hidden">
+                    <div className="text-txt-faint ml-6 text-[10px] mt-0.5 border-l border-border pl-2 max-h-16 overflow-hidden">
                       {d.agent_output_preview}
                     </div>
                   )}
                   {d.axis_scores && Object.keys(d.axis_scores).length > 0 && (
-                    <div className="text-zinc-600 ml-6 text-[10px] mt-0.5 flex gap-3">
+                    <div className="text-txt-faint ml-6 text-[10px] mt-0.5 flex gap-3">
                       {Object.entries(d.axis_scores).map(([k, v]) => (
                         <span key={k} className={v >= 0.7 ? 'text-emerald-600' : v >= 0.5 ? 'text-amber-600' : 'text-rose-600'}>
                           {k}: {(v * 10).toFixed(0)}
@@ -946,7 +946,7 @@ function LiveRunConsole() {
               const d = evt.data as { task_number?: number; agent?: string };
               return (
                 <div key={i} className="text-indigo-400/70 leading-relaxed text-[10px] ml-6">
-                  <span className="text-zinc-600">{ts}</span>{' '}
+                  <span className="text-txt-faint">{ts}</span>{' '}
                   ⚡ invoking <span className="text-indigo-300">{d.agent}</span> for #{d.task_number}…
                 </div>
               );
@@ -955,20 +955,20 @@ function LiveRunConsole() {
               const d = evt.data as { task_number?: number; agent?: string; status?: string; output_length?: number; elapsed_ms?: number; model?: string; cost?: number };
               return (
                 <div key={i} className="text-indigo-400/70 leading-relaxed text-[10px] ml-6">
-                  <span className="text-zinc-600">{ts}</span>{' '}
+                  <span className="text-txt-faint">{ts}</span>{' '}
                   ← <span className="text-indigo-300">{d.agent}</span>{' '}
                   <span className={d.status === 'completed' ? 'text-emerald-600' : 'text-rose-600'}>{d.status}</span>{' '}
-                  {d.output_length != null && <span className="text-zinc-600">{d.output_length} chars</span>}{' '}
-                  {d.elapsed_ms != null && <span className="text-zinc-600">{(d.elapsed_ms / 1000).toFixed(1)}s</span>}{' '}
-                  {d.model && <span className="text-zinc-700">{d.model}</span>}
+                  {d.output_length != null && <span className="text-txt-faint">{d.output_length} chars</span>}{' '}
+                  {d.elapsed_ms != null && <span className="text-txt-faint">{(d.elapsed_ms / 1000).toFixed(1)}s</span>}{' '}
+                  {d.model && <span className="text-txt-faint">{d.model}</span>}
                 </div>
               );
             }
             if (evt.event === 'pillar_complete') {
               const d = evt.data as { pillar?: string; passed?: number; total?: number; pass_rate?: number };
               return (
-                <div key={i} className="text-cyan leading-relaxed border-t border-zinc-800/50 mt-1 pt-1">
-                  <span className="text-zinc-600">{ts}</span>{' '}
+                <div key={i} className="text-cyan leading-relaxed border-t border-border/50 mt-1 pt-1">
+                  <span className="text-txt-faint">{ts}</span>{' '}
                   <span className="text-cyan">■</span>{' '}
                   <span className="text-cyan font-medium">{shortPillar(d.pillar ?? '')}</span>{' '}
                   <span className={passRateColor(d.pass_rate ?? null)}>
@@ -980,19 +980,19 @@ function LiveRunConsole() {
             if (evt.event === 'run_complete') {
               const d = evt.data as { passed?: number; failed?: number; total?: number };
               return (
-                <div key={i} className="text-cyan leading-relaxed border-t border-zinc-700/50 mt-1 pt-1 font-medium">
-                  <span className="text-zinc-600">{ts}</span>{' '}
+                <div key={i} className="text-cyan leading-relaxed border-t border-border/50 mt-1 pt-1 font-medium">
+                  <span className="text-txt-faint">{ts}</span>{' '}
                   <span className="text-cyan">✔ Run complete</span>{' '}
                   <span className="text-emerald-400">{d.passed} passed</span>
                   {(d.failed ?? 0) > 0 && <span className="text-rose-400"> · {d.failed} failed</span>}
-                  <span className="text-zinc-500"> / {d.total} total</span>
+                  <span className="text-white0"> / {d.total} total</span>
                 </div>
               );
             }
             if (evt.event === 'error') {
               return (
                 <div key={i} className="text-rose-400 leading-relaxed">
-                  <span className="text-zinc-600">{ts}</span>{' '}
+                  <span className="text-txt-faint">{ts}</span>{' '}
                   <span>[error]</span>{' '}
                   {JSON.stringify(evt.data)}
                 </div>
@@ -1000,9 +1000,9 @@ function LiveRunConsole() {
             }
             // Fallback for connected or unknown events
             return (
-              <div key={i} className="text-zinc-400 leading-relaxed">
-                <span className="text-zinc-600">{ts}</span>{' '}
-                <span className="text-zinc-500">[{evt.event}]</span>{' '}
+              <div key={i} className="text-prism-secondary leading-relaxed">
+                <span className="text-txt-faint">{ts}</span>{' '}
+                <span className="text-white0">[{evt.event}]</span>{' '}
                 {JSON.stringify(evt.data)}
               </div>
             );
@@ -1013,9 +1013,9 @@ function LiveRunConsole() {
       {/* Recent Runs */}
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+          <h4 className="text-xs font-semibold text-prism-secondary uppercase tracking-wider">
             {runsLimit > 10 ? 'Run History' : 'Recent Runs'}
-            <span className="ml-2 text-zinc-600 normal-case font-normal">
+            <span className="ml-2 text-txt-faint normal-case font-normal">
               {runs.length}{runsTotal > runs.length ? ` of ${runsTotal}` : ''}
             </span>
           </h4>
@@ -1023,7 +1023,7 @@ function LiveRunConsole() {
             {runsLimit > 10 && (
               <button
                 onClick={() => setRunsLimit(10)}
-                className="text-[11px] text-zinc-500 hover:text-zinc-300"
+                className="text-[11px] text-white0 hover:text-prism-primary"
               >
                 Show recent only
               </button>
@@ -1049,7 +1049,7 @@ function LiveRunConsole() {
         {loading && <Skeleton className="h-20" />}
         {error && <p className="text-rose-400 text-sm">{error}</p>}
         {!loading && runs.length === 0 && (
-          <p className="text-zinc-500 text-xs">No runs yet.</p>
+          <p className="text-white0 text-xs">No runs yet.</p>
         )}
         {!loading && runs.length > 0 && (
           <div className={`space-y-2 ${runsLimit > 10 ? 'max-h-96 overflow-y-auto pr-1' : ''}`}>
@@ -1079,7 +1079,7 @@ function LiveRunConsole() {
               return (
                 <div
                   key={r.batch_id}
-                  className="flex items-center gap-3 text-xs border border-zinc-800/40 rounded p-2 hover:bg-zinc-800/20 cursor-pointer"
+                  className="flex items-center gap-3 text-xs border border-border/40 rounded p-2 hover:bg-raised/20 cursor-pointer"
                   onClick={async () => {
                     if (r.batch_status === 'running') {
                       setSseEvents([]);
@@ -1111,10 +1111,10 @@ function LiveRunConsole() {
                             : 'bg-zinc-600'
                     }`}
                   />
-                  <span className="text-zinc-300 font-medium w-14 shrink-0">{r.trigger_type}</span>
+                  <span className="text-prism-primary font-medium w-14 shrink-0">{r.trigger_type}</span>
                   {targetLabel && (
                     <span
-                      className="text-zinc-400 truncate max-w-[16rem]"
+                      className="text-prism-secondary truncate max-w-[16rem]"
                       title={r.trigger_type === 'single' && r.target_task ? r.target_task : targetLabel}
                     >
                       {targetLabel}
@@ -1123,7 +1123,7 @@ function LiveRunConsole() {
                   <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
                     r.surface === 'teams' ? 'bg-indigo-900/40 text-indigo-300' :
                     r.surface === 'slack' ? 'bg-green-900/40 text-green-300' :
-                    'bg-zinc-700/40 text-zinc-400'
+                    'bg-raised/40 text-prism-secondary'
                   }`}>{r.surface}</span>
                   <span className={`tabular-nums shrink-0 ${passRateColor(rate)}`}>
                     {passed}/{total}
@@ -1134,7 +1134,7 @@ function LiveRunConsole() {
                     </span>
                   )}
                   <span
-                    className="text-zinc-600 ml-auto tabular-nums shrink-0"
+                    className="text-txt-faint ml-auto tabular-nums shrink-0"
                     title={`${formatStampFull(r.started_at)}${r.triggered_by ? ` · by ${r.triggered_by}` : ''}`}
                   >
                     {formatStamp(r.started_at)} · {timeAgo(r.started_at)}
@@ -1153,12 +1153,12 @@ function LiveRunConsole() {
       {batchDetail && !batchDetailLoading && (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-              Run Detail · <span className="text-zinc-500 font-mono">{batchDetail.batch_id.slice(0, 8)}</span>
+            <h4 className="text-xs font-semibold text-prism-secondary uppercase tracking-wider">
+              Run Detail · <span className="text-white0 font-mono">{batchDetail.batch_id.slice(0, 8)}</span>
             </h4>
             <button
               onClick={() => setBatchDetail(null)}
-              className="text-zinc-600 hover:text-zinc-400 text-xs"
+              className="text-txt-faint hover:text-prism-secondary text-xs"
             >✕ close</button>
           </div>
           <div className="space-y-1">
@@ -1166,39 +1166,39 @@ function LiveRunConsole() {
               const rid = s.run_id ?? s.id ?? `${s.task_number}`;
               const isExpanded = expandedRunId === rid;
               return (
-                <div key={rid} className="border border-zinc-800/40 rounded">
+                <div key={rid} className="border border-border/40 rounded">
                   <div
-                    className="flex items-center gap-2 text-[11px] p-2 cursor-pointer hover:bg-zinc-800/20"
+                    className="flex items-center gap-2 text-[11px] p-2 cursor-pointer hover:bg-raised/20"
                     onClick={() => setExpandedRunId(isExpanded ? null : rid)}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${s.passed ? 'bg-emerald-400' : s.passed === false ? 'bg-rose-400' : 'bg-zinc-600'}`} />
-                    <span className="text-zinc-500">#{s.task_number}</span>
-                    <span className="text-zinc-300 flex-1 truncate">{s.task}</span>
+                    <span className="text-white0">#{s.task_number}</span>
+                    <span className="text-prism-primary flex-1 truncate">{s.task}</span>
                     {s.responsible_agent && <span className="text-indigo-400/70 text-[10px]">{s.responsible_agent}</span>}
                     {s.judge_score != null && (
                       <span className={`tabular-nums ${scoreColor(s.judge_score)}`}>
                         {s.judge_score.toFixed(1)}
                       </span>
                     )}
-                    {s.judge_tier && <span className="text-zinc-600 text-[10px]">[{s.judge_tier}]</span>}
-                    <span className="text-zinc-700">{isExpanded ? '▾' : '▸'}</span>
+                    {s.judge_tier && <span className="text-txt-faint text-[10px]">[{s.judge_tier}]</span>}
+                    <span className="text-txt-faint">{isExpanded ? '▾' : '▸'}</span>
                   </div>
                   {isExpanded && (
-                    <div className="border-t border-zinc-800/30 p-3 bg-zinc-950/50 text-xs space-y-3">
-                      <div className="flex gap-4 text-zinc-500">
-                        <span>Pillar: <span className="text-zinc-400">{s.pillar}</span></span>
+                    <div className="border-t border-border/30 p-3 bg-base/50 text-xs space-y-3">
+                      <div className="flex gap-4 text-white0">
+                        <span>Pillar: <span className="text-prism-secondary">{s.pillar}</span></span>
                         {s.is_p0 && <span className="text-amber-500">P0</span>}
-                        {s.latency_ms != null && <span>Latency: <span className="text-zinc-400">{(s.latency_ms / 1000).toFixed(1)}s</span></span>}
+                        {s.latency_ms != null && <span>Latency: <span className="text-prism-secondary">{(s.latency_ms / 1000).toFixed(1)}s</span></span>}
                       </div>
                       {s.reasoning_trace && (
                         <div>
-                          <p className="text-zinc-500 font-medium text-[11px] mb-1">Judge Reasoning</p>
-                          <p className="text-zinc-400">{s.reasoning_trace}</p>
+                          <p className="text-white0 font-medium text-[11px] mb-1">Judge Reasoning</p>
+                          <p className="text-prism-secondary">{s.reasoning_trace}</p>
                         </div>
                       )}
                       {s.axis_scores && Object.keys(s.axis_scores).length > 0 && (
                         <div>
-                          <p className="text-zinc-500 font-medium text-[11px] mb-1">Axis Scores</p>
+                          <p className="text-white0 font-medium text-[11px] mb-1">Axis Scores</p>
                           <div className="flex gap-3">
                             {Object.entries(s.axis_scores).map(([k, v]) => (
                               <span key={k} className={v >= 0.7 ? 'text-emerald-500' : v >= 0.5 ? 'text-amber-500' : 'text-rose-500'}>
@@ -1210,20 +1210,20 @@ function LiveRunConsole() {
                       )}
                       {s.heuristic_failures && s.heuristic_failures.length > 0 && (
                         <div>
-                          <p className="text-zinc-500 font-medium text-[11px] mb-1">Failures</p>
+                          <p className="text-white0 font-medium text-[11px] mb-1">Failures</p>
                           <p className="text-rose-400/80">{s.heuristic_failures.join('; ')}</p>
                         </div>
                       )}
                       {s.agent_output && (
                         <div>
-                          <p className="text-zinc-500 font-medium text-[11px] mb-1">Agent Output</p>
-                          <pre className="text-zinc-300 whitespace-pre-wrap break-words max-h-96 overflow-y-auto border border-zinc-700/40 rounded-lg p-3 bg-zinc-950/60 leading-relaxed">
+                          <p className="text-white0 font-medium text-[11px] mb-1">Agent Output</p>
+                          <pre className="text-prism-primary whitespace-pre-wrap break-words max-h-96 overflow-y-auto border border-border/40 rounded-lg p-3 bg-base/60 leading-relaxed">
                             {s.agent_output}
                           </pre>
                         </div>
                       )}
                       {!s.agent_output && s.judge_tier === 'heuristic' && (
-                        <p className="text-zinc-600 italic">No agent output — heuristic scoring only (no LLM invoked).</p>
+                        <p className="text-txt-faint italic">No agent output — heuristic scoring only (no LLM invoked).</p>
                       )}
                     </div>
                   )}
@@ -1291,17 +1291,17 @@ function DriftChart() {
         {[7, 14, 30, 60, 90].map((d) => (
           <button
             key={d}
-            className={`text-xs px-2 py-1 rounded ${days === d ? 'bg-cyan/20 text-cyan' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+            className={`text-xs px-2 py-1 rounded ${days === d ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
             onClick={() => setDays(d)}
           >
             {d}d
           </button>
         ))}
-        <span className="text-zinc-600 mx-1">|</span>
+        <span className="text-txt-faint mx-1">|</span>
         {[null, 'direct', 'teams', 'slack'].map((s) => (
           <button
             key={s ?? 'all'}
-            className={`text-xs px-2 py-1 rounded ${filterSurface === s ? 'bg-cyan/20 text-cyan' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+            className={`text-xs px-2 py-1 rounded ${filterSurface === s ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
             onClick={() => setFilterSurface(s)}
           >
             {s ? s.charAt(0).toUpperCase() + s.slice(1) : 'All'}
@@ -1313,7 +1313,7 @@ function DriftChart() {
       {error && <p className="text-rose-400 text-sm mt-3">{error}</p>}
 
       {!loading && series.length === 0 && (
-        <p className="text-zinc-500 text-xs mt-3">No drift data yet. Complete some runs to see trends.</p>
+        <p className="text-white0 text-xs mt-3">No drift data yet. Complete some runs to see trends.</p>
       )}
 
       {!loading && series.length > 0 && (
@@ -1328,9 +1328,9 @@ function DriftChart() {
             return (
               <div
                 key={pillar}
-                className="flex items-center gap-4 border-b border-zinc-800/30 pb-2"
+                className="flex items-center gap-4 border-b border-border/30 pb-2"
               >
-                <span className="text-xs text-zinc-300 w-28 flex-shrink-0">{shortPillar(pillar)}</span>
+                <span className="text-xs text-prism-primary w-28 flex-shrink-0">{shortPillar(pillar)}</span>
                 <div className="flex-1 h-8">
                   <Sparkline data={data.passRates.map((r) => r * 100)} />
                 </div>
@@ -1339,7 +1339,7 @@ function DriftChart() {
                 </span>
                 <span
                   className={`text-[10px] tabular-nums w-10 text-right ${
-                    delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-zinc-500'
+                    delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-white0'
                   }`}
                 >
                   {delta > 0 ? '+' : ''}{(delta * 100).toFixed(1)}
@@ -2130,16 +2130,16 @@ function BlockersAndPlan() {
 
       {/* How-to-read legend — collapsed on every visit so it doesn't nag, but
           present so a new reviewer can orient themselves in 10 seconds. */}
-      <details className="mt-2 text-[11px] text-zinc-400">
-        <summary className="cursor-pointer hover:text-zinc-200">How do I use this? What am I looking at?</summary>
-        <div className="mt-2 space-y-1.5 border-l-2 border-zinc-700/50 pl-3">
-          <p><span className="text-zinc-200">1. Plan to fix — ranked.</span> The top-priority things to act on, each with a one-click re-run.</p>
-          <p><span className="text-zinc-200">2. Top blocking agents.</span> Click any row to expand the exact failing tasks for that agent, with acceptance criteria, heuristic tags, and concrete fix steps.</p>
-          <p><span className="text-zinc-200">3. Top blocking pillars.</span> A pillar below threshold means a shared pattern is broken — usually a tool or a prompt template, not one agent.</p>
-          <p><span className="text-zinc-200">4. Recent failures — judge reasoning.</span> Click any row to see the judge&apos;s full reasoning, axis scores, raw agent output, and suggested fix steps.</p>
-          <p><span className="text-zinc-200">5. Copy fix brief.</span> Any failing task can be copied as a markdown brief (criteria, reasoning, fix steps) — paste it into a GitHub issue, Slack, or an agent chat to start remediation.</p>
-          <p><span className="text-zinc-200">6. Staged prompt mutations.</span> Auto-generated fixes from the reflection loop. Review the diff and promote, or let shadow eval decide.</p>
-          <p className="text-zinc-500 pt-1">Tip: hover any red heuristic chip (e.g. <span className="px-1 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">tool_misuse</span>) for a plain-English explanation and where to look in the codebase.</p>
+      <details className="mt-2 text-[11px] text-prism-secondary">
+        <summary className="cursor-pointer hover:text-prism-primary">How do I use this? What am I looking at?</summary>
+        <div className="mt-2 space-y-1.5 border-l-2 border-border/50 pl-3">
+          <p><span className="text-prism-primary">1. Plan to fix — ranked.</span> The top-priority things to act on, each with a one-click re-run.</p>
+          <p><span className="text-prism-primary">2. Top blocking agents.</span> Click any row to expand the exact failing tasks for that agent, with acceptance criteria, heuristic tags, and concrete fix steps.</p>
+          <p><span className="text-prism-primary">3. Top blocking pillars.</span> A pillar below threshold means a shared pattern is broken — usually a tool or a prompt template, not one agent.</p>
+          <p><span className="text-prism-primary">4. Recent failures — judge reasoning.</span> Click any row to see the judge&apos;s full reasoning, axis scores, raw agent output, and suggested fix steps.</p>
+          <p><span className="text-prism-primary">5. Copy fix brief.</span> Any failing task can be copied as a markdown brief (criteria, reasoning, fix steps) — paste it into a GitHub issue, Slack, or an agent chat to start remediation.</p>
+          <p><span className="text-prism-primary">6. Staged prompt mutations.</span> Auto-generated fixes from the reflection loop. Review the diff and promote, or let shadow eval decide.</p>
+          <p className="text-white0 pt-1">Tip: hover any red heuristic chip (e.g. <span className="px-1 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">tool_misuse</span>) for a plain-English explanation and where to look in the codebase.</p>
         </div>
       </details>
 
@@ -2157,7 +2157,7 @@ function BlockersAndPlan() {
           {actionStatus.msg}
           <button
             type="button"
-            className="ml-2 text-zinc-400 hover:text-zinc-200"
+            className="ml-2 text-prism-secondary hover:text-prism-primary"
             onClick={() => setActionStatus(null)}
           >
             ✕
@@ -2191,7 +2191,7 @@ function BlockersAndPlan() {
           {/* Recommendations */}
           {recommendations.length > 0 && (
             <div className="mt-5">
-              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Plan to fix — ranked</h3>
+              <h3 className="text-xs uppercase tracking-wide text-white0 mb-2">Plan to fix — ranked</h3>
               <ul className="space-y-2">
                 {recommendations.map((r, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm">
@@ -2201,14 +2201,14 @@ function BlockersAndPlan() {
                           ? 'bg-rose-500/20 text-rose-300'
                           : r.priority === 'High'
                             ? 'bg-amber-500/20 text-amber-300'
-                            : 'bg-zinc-700/50 text-zinc-300'
+                            : 'bg-raised/50 text-prism-primary'
                       }`}
                     >
                       {r.priority}
                     </span>
                     <div className="flex-1">
-                      <p className="text-zinc-100">{r.title}</p>
-                      <p className="text-zinc-500 text-xs">{r.detail}</p>
+                      <p className="text-prism-primary">{r.title}</p>
+                      <p className="text-white0 text-xs">{r.detail}</p>
                     </div>
                     {r.action && (
                       <button
@@ -2228,12 +2228,12 @@ function BlockersAndPlan() {
           {/* Two-column: Top agents + Top pillars */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
             <div>
-              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Top blocking agents</h3>
+              <h3 className="text-xs uppercase tracking-wide text-white0 mb-2">Top blocking agents</h3>
               {data.top_agents.length === 0 ? (
                 <p className="text-xs text-emerald-400">No failing agents. 🎉</p>
               ) : (
                 <table className="w-full text-xs">
-                  <thead className="text-zinc-500 text-left border-b border-zinc-700/40">
+                  <thead className="text-white0 text-left border-b border-border/40">
                     <tr>
                       <th className="py-1.5 pr-2">Agent</th>
                       <th className="py-1.5 pr-2 text-right">Failing</th>
@@ -2248,14 +2248,14 @@ function BlockersAndPlan() {
                       const agentTasks = data.failing_by_agent?.[a.agent] ?? [];
                       return (
                         <Fragment key={a.agent}>
-                          <tr className="border-b border-zinc-800/40">
+                          <tr className="border-b border-border/40">
                             <td className="py-1.5 pr-2">
                               <button
                                 onClick={() => setExpandedAgent(isOpen ? null : a.agent)}
-                                className="text-zinc-200 hover:text-zinc-50 flex items-center gap-1"
+                                className="text-prism-primary hover:text-white flex items-center gap-1"
                                 title="Show failing tasks and per-task remediation"
                               >
-                                <span className="text-zinc-600 text-[10px]">{isOpen ? '▾' : '▸'}</span>
+                                <span className="text-txt-faint text-[10px]">{isOpen ? '▾' : '▸'}</span>
                                 {a.agent}
                               </button>
                             </td>
@@ -2265,7 +2265,7 @@ function BlockersAndPlan() {
                             <td className="py-1.5 pr-2 text-right tabular-nums">
                               {a.p0_failing_count > 0
                                 ? <span className="text-rose-400 font-semibold">{a.p0_failing_count}</span>
-                                : <span className="text-zinc-600">0</span>}
+                                : <span className="text-txt-faint">0</span>}
                             </td>
                             <td className={`py-1.5 pr-2 text-right tabular-nums ${scoreColor(a.avg_score)}`}>
                               {a.avg_score != null ? Number(a.avg_score).toFixed(1) : '—'}
@@ -2283,22 +2283,22 @@ function BlockersAndPlan() {
                           </tr>
                           {isOpen && (
                             <tr>
-                              <td colSpan={5} className="py-2 px-2 bg-zinc-950/50 border-b border-zinc-800/40">
+                              <td colSpan={5} className="py-2 px-2 bg-base/50 border-b border-border/40">
                                 {agentTasks.length === 0 ? (
-                                  <p className="text-zinc-500 text-[11px]">No detailed failure rows available.</p>
+                                  <p className="text-white0 text-[11px]">No detailed failure rows available.</p>
                                 ) : (
                                   <ul className="space-y-2">
                                     {agentTasks.map((t) => {
                                       const steps = suggestRemediation(t.heuristic_failures, t.axis_scores);
                                       return (
-                                        <li key={t.task_id} className="border border-zinc-800/60 rounded p-2 bg-zinc-900/40">
+                                        <li key={t.task_id} className="border border-border/60 rounded p-2 bg-surface/40">
                                           <div className="flex items-start gap-2 text-[11px]">
-                                            <span className="text-zinc-500 tabular-nums w-8 shrink-0">#{t.task_number}</span>
+                                            <span className="text-white0 tabular-nums w-8 shrink-0">#{t.task_number}</span>
                                             <div className="flex-1 min-w-0">
-                                              <p className="text-zinc-100 truncate">{t.task}</p>
-                                              <p className="text-zinc-500 mt-0.5">
+                                              <p className="text-prism-primary truncate">{t.task}</p>
+                                              <p className="text-white0 mt-0.5">
                                                 {shortPillar(t.pillar)}
-                                                {t.sub_category && <span className="text-zinc-600"> · {t.sub_category}</span>}
+                                                {t.sub_category && <span className="text-txt-faint"> · {t.sub_category}</span>}
                                                 {t.is_p0 && <span className="text-rose-400 ml-1.5 font-semibold">P0</span>}
                                                 {t.judge_score != null && (
                                                   <span className={`ml-2 ${scoreColor(t.judge_score)}`}>
@@ -2306,13 +2306,13 @@ function BlockersAndPlan() {
                                                   </span>
                                                 )}
                                                 {t.completed_at && (
-                                                  <span className="ml-2 text-zinc-600" title={formatStampFull(t.completed_at)}>
+                                                  <span className="ml-2 text-txt-faint" title={formatStampFull(t.completed_at)}>
                                                     {timeAgo(t.completed_at)}
                                                   </span>
                                                 )}
                                               </p>
                                               {t.acceptance_criteria && (
-                                                <p className="text-zinc-400 mt-1 text-[10.5px] italic">
+                                                <p className="text-prism-secondary mt-1 text-[10.5px] italic">
                                                   <span className="text-emerald-400/80 not-italic">passes when:</span> {t.acceptance_criteria}
                                                 </p>
                                               )}
@@ -2334,9 +2334,9 @@ function BlockersAndPlan() {
                                               )}
                                               <ul className="mt-1.5 space-y-0.5">
                                                 {steps.map((s, i) => (
-                                                  <li key={i} className="text-[11px] text-zinc-300">
+                                                  <li key={i} className="text-[11px] text-prism-primary">
                                                     <span className="text-emerald-400">→</span> <span className="font-medium">{s.action}</span>
-                                                    <span className="text-zinc-500"> — {s.detail}</span>
+                                                    <span className="text-white0"> — {s.detail}</span>
                                                   </li>
                                                 ))}
                                               </ul>
@@ -2355,7 +2355,7 @@ function BlockersAndPlan() {
                                                   ...t,
                                                   responsible_agent: a.agent,
                                                 })}
-                                                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-700/40 text-zinc-200 hover:bg-zinc-700/60 border border-zinc-600/40"
+                                                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-raised/40 text-prism-primary hover:bg-raised/60 border border-border/40"
                                                 title="Copy a structured fix brief (criteria, reasoning, suggested steps) to clipboard"
                                               >
                                                 {copiedFor === t.task_id ? '✓' : '📋'}
@@ -2379,12 +2379,12 @@ function BlockersAndPlan() {
             </div>
 
             <div>
-              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Top blocking pillars</h3>
+              <h3 className="text-xs uppercase tracking-wide text-white0 mb-2">Top blocking pillars</h3>
               {data.top_pillars.length === 0 ? (
                 <p className="text-xs text-emerald-400">All pillars passing thresholds.</p>
               ) : (
                 <table className="w-full text-xs">
-                  <thead className="text-zinc-500 text-left border-b border-zinc-700/40">
+                  <thead className="text-white0 text-left border-b border-border/40">
                     <tr>
                       <th className="py-1.5 pr-2">Pillar</th>
                       <th className="py-1.5 pr-2 text-right">Pass %</th>
@@ -2399,10 +2399,10 @@ function BlockersAndPlan() {
                       const threshold = p.pass_rate_threshold != null ? Number(p.pass_rate_threshold) * 100 : null;
                       const belowThreshold = threshold != null && rate < threshold;
                       return (
-                        <tr key={p.pillar} className="border-b border-zinc-800/40">
-                          <td className="py-1.5 pr-2 text-zinc-200">{shortPillar(p.pillar)}</td>
-                          <td className={`py-1.5 pr-2 text-right tabular-nums ${belowThreshold ? 'text-rose-400' : 'text-zinc-300'}`}>
-                            {rate.toFixed(0)}%{threshold != null && <span className="text-zinc-600"> /{threshold.toFixed(0)}</span>}
+                        <tr key={p.pillar} className="border-b border-border/40">
+                          <td className="py-1.5 pr-2 text-prism-primary">{shortPillar(p.pillar)}</td>
+                          <td className={`py-1.5 pr-2 text-right tabular-nums ${belowThreshold ? 'text-rose-400' : 'text-prism-primary'}`}>
+                            {rate.toFixed(0)}%{threshold != null && <span className="text-txt-faint"> /{threshold.toFixed(0)}</span>}
                           </td>
                           <td className="py-1.5 pr-2 text-right text-rose-400 tabular-nums">
                             {p.failing_count}/{p.total_count}
@@ -2432,24 +2432,24 @@ function BlockersAndPlan() {
           {/* Recent failure reasoning */}
           {data.recent_failures.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Recent failures — judge reasoning</h3>
+              <h3 className="text-xs uppercase tracking-wide text-white0 mb-2">Recent failures — judge reasoning</h3>
               <ul className="space-y-2">
                 {data.recent_failures.map((f) => {
                   const isOpen = expandedFailure === f.task_id;
                   return (
-                    <li key={f.task_id} className="border border-zinc-800/60 rounded-md bg-zinc-900/30">
+                    <li key={f.task_id} className="border border-border/60 rounded-md bg-surface/30">
                       <button
-                        className="w-full flex items-start gap-3 p-2.5 text-left hover:bg-zinc-800/30"
+                        className="w-full flex items-start gap-3 p-2.5 text-left hover:bg-raised/30"
                         onClick={() => setExpandedFailure(isOpen ? null : f.task_id)}
                       >
-                        <span className="text-zinc-600 tabular-nums text-xs pt-0.5 w-8 shrink-0">#{f.task_number}</span>
+                        <span className="text-txt-faint tabular-nums text-xs pt-0.5 w-8 shrink-0">#{f.task_number}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-zinc-100 text-sm truncate">{f.task}</p>
-                          <p className="text-zinc-500 text-xs mt-0.5">
+                          <p className="text-prism-primary text-sm truncate">{f.task}</p>
+                          <p className="text-white0 text-xs mt-0.5">
                             {f.responsible_agent ?? '—'} · {shortPillar(f.pillar)}
                             {f.is_p0 && <span className="text-rose-400 ml-1.5 font-semibold">P0</span>}
                             {f.surface && f.surface !== 'direct' && <span className="ml-1.5">({f.surface})</span>}
-                            <span className="ml-2 text-zinc-600" title={formatStampFull(f.completed_at)}>
+                            <span className="ml-2 text-txt-faint" title={formatStampFull(f.completed_at)}>
                               {formatStamp(f.completed_at)}
                             </span>
                           </p>
@@ -2459,29 +2459,29 @@ function BlockersAndPlan() {
                         </span>
                       </button>
                       {isOpen && (
-                        <div className="px-3 pb-3 space-y-2 text-xs border-t border-zinc-800/60 pt-2">
+                        <div className="px-3 pb-3 space-y-2 text-xs border-t border-border/60 pt-2">
                           {/* What "passing" means for this task — from the seed
                               definition. Helps reviewers diagnose whether the
                               problem is the agent or an unfair test. */}
                           {(f.acceptance_criteria || f.verification_method) && (
-                            <div className="rounded border border-zinc-800/60 bg-zinc-950/50 p-2 space-y-1.5">
+                            <div className="rounded border border-border/60 bg-base/50 p-2 space-y-1.5">
                               {f.acceptance_criteria && (
                                 <div>
                                   <p className="text-emerald-400/80 text-[10px] uppercase tracking-wide">Acceptance criteria</p>
-                                  <p className="text-zinc-300 whitespace-pre-wrap">{f.acceptance_criteria}</p>
+                                  <p className="text-prism-primary whitespace-pre-wrap">{f.acceptance_criteria}</p>
                                 </div>
                               )}
                               {f.verification_method && (
                                 <div>
                                   <p className="text-emerald-400/80 text-[10px] uppercase tracking-wide">Verification method</p>
-                                  <p className="text-zinc-300 whitespace-pre-wrap">{f.verification_method}</p>
+                                  <p className="text-prism-primary whitespace-pre-wrap">{f.verification_method}</p>
                                 </div>
                               )}
                             </div>
                           )}
                           {f.heuristic_failures && f.heuristic_failures.length > 0 && (
                             <div>
-                              <p className="text-zinc-500 mb-1">Heuristic failures · hover for explanation</p>
+                              <p className="text-white0 mb-1">Heuristic failures · hover for explanation</p>
                               <div className="flex flex-wrap gap-1">
                                 {f.heuristic_failures.map((h, i) => {
                                   const g = explainHeuristic(h);
@@ -2507,9 +2507,9 @@ function BlockersAndPlan() {
                                 return (
                                   <ul className="mt-1.5 space-y-0.5">
                                     {entries.map((g, i) => (
-                                      <li key={i} className="text-zinc-400">
-                                        <span className="text-zinc-200 font-medium">{g.label}:</span> {g.meaning}{' '}
-                                        <span className="text-zinc-500">→ look at {g.where_to_look}</span>
+                                      <li key={i} className="text-prism-secondary">
+                                        <span className="text-prism-primary font-medium">{g.label}:</span> {g.meaning}{' '}
+                                        <span className="text-white0">→ look at {g.where_to_look}</span>
                                       </li>
                                     ))}
                                   </ul>
@@ -2519,16 +2519,16 @@ function BlockersAndPlan() {
                           )}
                           {f.reasoning_trace && (
                             <div>
-                              <p className="text-zinc-500 mb-1">Judge reasoning ({f.judge_tier ?? 'unknown tier'})</p>
-                              <p className="text-zinc-300 whitespace-pre-wrap">{f.reasoning_trace}</p>
+                              <p className="text-white0 mb-1">Judge reasoning ({f.judge_tier ?? 'unknown tier'})</p>
+                              <p className="text-prism-primary whitespace-pre-wrap">{f.reasoning_trace}</p>
                             </div>
                           )}
                           {f.axis_scores && Object.keys(f.axis_scores).length > 0 && (
                             <div>
-                              <p className="text-zinc-500 mb-1">Axis breakdown</p>
+                              <p className="text-white0 mb-1">Axis breakdown</p>
                               <div className="flex flex-wrap gap-2">
                                 {Object.entries(f.axis_scores).map(([k, v]) => (
-                                  <span key={k} className="text-zinc-400">
+                                  <span key={k} className="text-prism-secondary">
                                     {k}: <span className={scoreColor(Number(v))}>{Number(v).toFixed(1)}</span>
                                   </span>
                                 ))}
@@ -2541,12 +2541,12 @@ function BlockersAndPlan() {
                             const steps = suggestRemediation(f.heuristic_failures, f.axis_scores);
                             return (
                               <div>
-                                <p className="text-zinc-500 mb-1">Suggested fix steps</p>
+                                <p className="text-white0 mb-1">Suggested fix steps</p>
                                 <ul className="space-y-1">
                                   {steps.map((s, i) => (
-                                    <li key={i} className="text-zinc-200">
+                                    <li key={i} className="text-prism-primary">
                                       <span className="text-emerald-400">{i + 1}.</span> <span className="font-medium">{s.action}</span>
-                                      <span className="text-zinc-500"> — {s.detail}</span>
+                                      <span className="text-white0"> — {s.detail}</span>
                                     </li>
                                   ))}
                                 </ul>
@@ -2561,13 +2561,13 @@ function BlockersAndPlan() {
                             <div>
                               <button
                                 onClick={(e) => { e.stopPropagation(); toggleOutput(f.task_id); }}
-                                className="text-zinc-500 hover:text-zinc-300 text-[11px]"
+                                className="text-white0 hover:text-prism-primary text-[11px]"
                               >
                                 {showOutputFor.has(f.task_id) ? '▾ Hide' : '▸ Show'} agent output
-                                <span className="text-zinc-600 ml-1">({f.agent_output.length.toLocaleString()} chars)</span>
+                                <span className="text-txt-faint ml-1">({f.agent_output.length.toLocaleString()} chars)</span>
                               </button>
                               {showOutputFor.has(f.task_id) && (
-                                <pre className="mt-1 text-zinc-300 bg-black/40 border border-zinc-800 rounded p-2 whitespace-pre-wrap overflow-x-auto max-h-64 overflow-y-auto">
+                                <pre className="mt-1 text-prism-primary bg-black/40 border border-border rounded p-2 whitespace-pre-wrap overflow-x-auto max-h-64 overflow-y-auto">
 {f.agent_output}
                                 </pre>
                               )}
@@ -2584,12 +2584,12 @@ function BlockersAndPlan() {
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); void copyBrief(f); }}
-                              className="px-2 py-1 rounded text-[11px] font-medium bg-zinc-700/40 text-zinc-200 hover:bg-zinc-700/60 border border-zinc-600/40"
+                              className="px-2 py-1 rounded text-[11px] font-medium bg-raised/40 text-prism-primary hover:bg-raised/60 border border-border/40"
                               title="Copy a structured markdown fix brief to the clipboard — paste into an issue, Slack, or an agent chat to start investigating."
                             >
                               {copiedFor === f.task_id ? '✓ Copied' : '📋 Copy fix brief'}
                             </button>
-                            <span className="text-zinc-600 text-[11px]">
+                            <span className="text-txt-faint text-[11px]">
                               A failed re-run will trigger a new reflection-generated fix within ~24h.
                             </span>
                           </div>
@@ -2605,9 +2605,9 @@ function BlockersAndPlan() {
           {/* Staged fixes from reflection bridge */}
           {data.staged_fixes.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">
+              <h3 className="text-xs uppercase tracking-wide text-white0 mb-2">
                 Prompt mutations staged by reflection loop
-                <span className="ml-2 text-zinc-600 normal-case font-normal">
+                <span className="ml-2 text-txt-faint normal-case font-normal">
                   (auto-generated fixes — review &amp; promote, or let shadow eval decide)
                 </span>
               </h3>
@@ -2620,26 +2620,26 @@ function BlockersAndPlan() {
                     'staged';
                   const statusClass =
                     status === 'deployed' ? 'bg-emerald-500/15 text-emerald-300' :
-                    status === 'retired' ? 'bg-zinc-700/40 text-zinc-400 line-through' :
+                    status === 'retired' ? 'bg-raised/40 text-prism-secondary line-through' :
                     'bg-amber-500/15 text-amber-300';
                   const actionable = status === 'staged';
                   return (
-                    <li key={s.id} className="border border-zinc-800/60 rounded-md bg-zinc-900/30">
+                    <li key={s.id} className="border border-border/60 rounded-md bg-surface/30">
                       <div className="flex items-start gap-3 px-3 py-2 text-xs">
                         <button
                           onClick={() => setExpandedFix(isOpen ? null : s.id)}
-                          className="flex-1 min-w-0 flex items-start gap-3 text-left hover:bg-zinc-800/20 -mx-1 px-1 rounded"
+                          className="flex-1 min-w-0 flex items-start gap-3 text-left hover:bg-raised/20 -mx-1 px-1 rounded"
                         >
-                          <span className="text-zinc-600 text-[10px] pt-0.5 shrink-0">{isOpen ? '▾' : '▸'}</span>
-                          <span className="text-zinc-200 w-24 shrink-0 truncate">{s.agent_id}</span>
-                          <span className="text-zinc-500 w-12 shrink-0 tabular-nums">v{s.version}</span>
+                          <span className="text-txt-faint text-[10px] pt-0.5 shrink-0">{isOpen ? '▾' : '▸'}</span>
+                          <span className="text-prism-primary w-24 shrink-0 truncate">{s.agent_id}</span>
+                          <span className="text-white0 w-12 shrink-0 tabular-nums">v{s.version}</span>
                           <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] ${statusClass}`}>
                             {status}
                           </span>
-                          <span className="text-zinc-400 flex-1 min-w-0 truncate" title={s.change_summary ?? ''}>
+                          <span className="text-prism-secondary flex-1 min-w-0 truncate" title={s.change_summary ?? ''}>
                             {s.change_summary ?? '(no summary)'}
                           </span>
-                          <span className="text-zinc-600 tabular-nums shrink-0" title={formatStampFull(s.created_at)}>
+                          <span className="text-txt-faint tabular-nums shrink-0" title={formatStampFull(s.created_at)}>
                             {formatStamp(s.created_at)}
                           </span>
                         </button>
@@ -2665,22 +2665,22 @@ function BlockersAndPlan() {
                         )}
                       </div>
                       {isOpen && (
-                        <div className="px-3 pb-3 pt-1 text-xs border-t border-zinc-800/60 space-y-2">
+                        <div className="px-3 pb-3 pt-1 text-xs border-t border-border/60 space-y-2">
                           {s.change_summary && (
                             <div>
-                              <p className="text-zinc-500 mb-1">Change summary</p>
-                              <p className="text-zinc-300 whitespace-pre-wrap">{s.change_summary}</p>
+                              <p className="text-white0 mb-1">Change summary</p>
+                              <p className="text-prism-primary whitespace-pre-wrap">{s.change_summary}</p>
                             </div>
                           )}
                           {s.prompt_text ? (
                             <div>
-                              <p className="text-zinc-500 mb-1">Proposed prompt (v{s.version})</p>
-                              <pre className="text-zinc-300 bg-black/40 border border-zinc-800 rounded p-2 whitespace-pre-wrap overflow-x-auto max-h-64 overflow-y-auto">
+                              <p className="text-white0 mb-1">Proposed prompt (v{s.version})</p>
+                              <pre className="text-prism-primary bg-black/40 border border-border rounded p-2 whitespace-pre-wrap overflow-x-auto max-h-64 overflow-y-auto">
 {s.prompt_text}
                               </pre>
                             </div>
                           ) : (
-                            <p className="text-zinc-600 italic">No prompt text recorded for this version.</p>
+                            <p className="text-txt-faint italic">No prompt text recorded for this version.</p>
                           )}
                         </div>
                       )}
@@ -2692,8 +2692,8 @@ function BlockersAndPlan() {
           )}
 
           {data.staged_fixes.length === 0 && data.summary.failing > 0 && (
-            <div className="mt-6 text-xs text-zinc-500 border border-zinc-800/60 rounded-md p-3 bg-zinc-900/30">
-              <p className="text-zinc-300">No staged prompt fixes yet.</p>
+            <div className="mt-6 text-xs text-white0 border border-border/60 rounded-md p-3 bg-surface/30">
+              <p className="text-prism-primary">No staged prompt fixes yet.</p>
               <p className="mt-1">
                 The reflection loop stages a prompt mutation after a batch completes with failures. Re-run the failing tasks above to trigger a fresh analysis,
                 or hand-author a prompt change in the agents package.
@@ -2724,10 +2724,10 @@ function SummaryStat({
   const color =
     tone === 'pos' ? 'text-emerald-300' :
     tone === 'neg' ? 'text-rose-300' :
-    'text-zinc-100';
+    'text-prism-primary';
   return (
-    <div className="border border-zinc-800/60 rounded-md px-3 py-2 bg-zinc-900/30" title={title}>
-      <p className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</p>
+    <div className="border border-border/60 rounded-md px-3 py-2 bg-surface/30" title={title}>
+      <p className="text-[10px] uppercase tracking-wide text-white0">{label}</p>
       <p className={`text-sm font-semibold tabular-nums mt-0.5 ${color}`}>{value}</p>
     </div>
   );
@@ -2771,7 +2771,7 @@ function GlanceBar() {
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-3">
+      <div className="rounded-lg border border-border/60 bg-surface/40 p-3">
         <Skeleton className="h-10" />
       </div>
     );
@@ -2779,7 +2779,7 @@ function GlanceBar() {
 
   if (error || !data) {
     return (
-      <div className="rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-3 text-xs text-zinc-500">
+      <div className="rounded-lg border border-border/60 bg-surface/40 p-3 text-xs text-white0">
         Unable to load live status{error ? `: ${error}` : '.'}
       </div>
     );
@@ -2801,37 +2801,37 @@ function GlanceBar() {
   const trendTone =
     trendPct > 1 ? 'text-emerald-300' :
     trendPct < -1 ? 'text-rose-300' :
-    'text-zinc-300';
+    'text-prism-primary';
 
   return (
-    <div className="rounded-lg border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 flex items-center gap-6 flex-wrap">
+    <div className="rounded-lg border border-border/60 bg-surface/40 px-4 py-3 flex items-center gap-6 flex-wrap">
       <div className="flex items-baseline gap-2">
         <span className={`text-2xl font-semibold tabular-nums ${passRateColor(data.pass_rate)}`}>{passPct}%</span>
-        <span className="text-[11px] uppercase tracking-wide text-zinc-500">pass rate</span>
+        <span className="text-[11px] uppercase tracking-wide text-white0">pass rate</span>
       </div>
-      <div className="h-8 w-px bg-zinc-800" />
+      <div className="h-8 w-px bg-raised" />
       <div className="flex items-baseline gap-2">
         <span className={`text-lg font-semibold tabular-nums ${passRateColor(data.p0_pass_rate)}`}>{p0Pct}%</span>
-        <span className="text-[11px] uppercase tracking-wide text-zinc-500">P0</span>
+        <span className="text-[11px] uppercase tracking-wide text-white0">P0</span>
       </div>
-      <div className="h-8 w-px bg-zinc-800" />
+      <div className="h-8 w-px bg-raised" />
       <div className="flex items-baseline gap-2">
         <span className={`text-lg font-semibold tabular-nums ${trendTone}`}>
           {trendSign}{trendPct.toFixed(1)} pp
         </span>
-        <span className="text-[11px] uppercase tracking-wide text-zinc-500">7d trend</span>
+        <span className="text-[11px] uppercase tracking-wide text-white0">7d trend</span>
       </div>
-      <div className="h-8 w-px bg-zinc-800" />
+      <div className="h-8 w-px bg-raised" />
       <div className="flex items-center gap-2">
         <span className={`w-2 h-2 rounded-full ${stateDot}`} />
         <span className={`text-sm font-medium ${stateText}`}>{stateLabel}</span>
         {data.stuck_tasks?.length > 0 && (
-          <span className="text-[11px] text-zinc-500">
+          <span className="text-[11px] text-white0">
             · {data.stuck_tasks.length} stuck task{data.stuck_tasks.length === 1 ? '' : 's'}
           </span>
         )}
       </div>
-      <div className="ml-auto text-[11px] text-zinc-500">
+      <div className="ml-auto text-[11px] text-white0">
         Auto-refreshes every minute · next loop tick ≤ 30 min
       </div>
     </div>
@@ -2876,9 +2876,9 @@ function CollapsibleSection({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-2 text-left group"
       >
-        <span className={`text-zinc-500 transition-transform ${open ? 'rotate-90' : ''}`}>▸</span>
-        <span className="text-sm font-medium text-zinc-300 group-hover:text-zinc-100">{title}</span>
-        {subtitle && <span className="text-xs text-zinc-500">{subtitle}</span>}
+        <span className={`text-white0 transition-transform ${open ? 'rotate-90' : ''}`}>▸</span>
+        <span className="text-sm font-medium text-prism-primary group-hover:text-prism-primary">{title}</span>
+        {subtitle && <span className="text-xs text-white0">{subtitle}</span>}
       </button>
       {open && <div className="mt-3">{children}</div>}
     </div>
@@ -2934,8 +2934,8 @@ export default function CzProtocol() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-100">Certification Protocol</h1>
-          <p className="text-xs text-zinc-500 mt-1">
+          <h1 className="text-xl font-semibold text-prism-primary">Certification Protocol</h1>
+          <p className="text-xs text-white0 mt-1">
             89 tasks · 10 pillars · 19 P0 · 3 launch gates
           </p>
         </div>
@@ -2945,19 +2945,19 @@ export default function CzProtocol() {
             const isDone = step.num <= completedSteps;
             return (
               <span key={step.num} className="flex items-center">
-                {i > 0 && <span className="text-zinc-700 mx-1.5">›</span>}
+                {i > 0 && <span className="text-txt-faint mx-1.5">›</span>}
                 <span className="flex items-center gap-1">
                   <span className={`w-4 h-4 rounded-full flex items-center justify-center font-bold text-[9px] ${
                     isDone ? 'bg-emerald-500/20 text-emerald-400' :
                     isActive ? 'bg-cyan/15 text-cyan' :
-                    'bg-zinc-800 text-zinc-600'
+                    'bg-raised text-txt-faint'
                   }`}>
                     {isDone ? '✓' : step.num}
                   </span>
                   <span className={
                     isDone ? 'text-emerald-400' :
                     isActive ? 'text-cyan' :
-                    'text-zinc-600'
+                    'text-txt-faint'
                   }>{step.label}</span>
                 </span>
               </span>
