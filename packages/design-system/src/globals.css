@@ -1,0 +1,69 @@
+/*
+ * Glyphor Site — Global CSS / Design Token Bridge
+ *
+ * Typography scale documented here so every new page pulls from this file
+ * rather than inventing ad-hoc Tailwind classes.
+ *
+ * TOKEN CONVENTIONS
+ * --text-display     → Tailwind text-8xl  (hero h1, used once — intentional)
+ * --text-display-sm  → Tailwind text-6xl  (footer CTA "Start building…", used once — intentional)
+ *
+ * These two sizes are documented as display-headline tokens so future devs
+ * don't treat them as one-offs and reach for text-7xl or text-9xl instead.
+ *
+ * INTENTIONAL BRANDING COLORS (DO NOT CHANGE TO SEMANTIC TOKENS)
+ * The following usages of text-black / text-neutral-900 / bg-white are intentional
+ * because those elements sit over /BG.jpg which stays light in both light AND dark mode.
+ * Converting these to semantic tokens (text-foreground, bg-background) would break the
+ * brand visual in dark mode. Add // intentional: sits on BG.jpg, light in both themes
+ * any time you touch those lines.
+ *
+ *   components/hero.tsx:86    — badge: text-black / text-neutral-900
+ *   components/hero.tsx:90    — h1: text-black / text-neutral-900
+ *   components/hero.tsx:109   — subtitle: text-black / text-neutral-900
+ *   components/footer.tsx:54  — h2 "Start building…": text-black (on BG.jpg)
+ *   components/header.tsx:226 — arrow icon on accent bar: text-black
+ */
+
+@layer base {
+  :root {
+    /* ── Display type scale ─────────────────────────────────────────── */
+    /* Keep these custom properties as the canonical reference.         */
+    /* Tailwind utilities (text-8xl, text-6xl) are the implementation.  */
+    --text-display:    6rem;   /* = Tailwind text-8xl  — hero h1          */
+    --text-display-sm: 3.75rem; /* = Tailwind text-6xl  — section headline */
+
+    /* ── Body type scale (sourced from Tailwind defaults) ───────────── */
+    /* Listed here as living documentation; do NOT add new sizes        */
+    /* outside this set without updating this file.                     */
+    /* text-xs   0.75rem  — captions, labels                           */
+    /* text-sm   0.875rem — secondary body, nav items                  */
+    /* text-base 1rem     — primary body                               */
+    /* text-lg   1.125rem — lead paragraphs                            */
+    /* text-xl   1.25rem  — card headers                               */
+    /* text-2xl  1.5rem   — section sub-headers                        */
+    /* text-3xl  1.875rem — section headers                            */
+    /* text-4xl  2.25rem  — page headers                               */
+    /* text-5xl  3rem     — hero sub-headlines                         */
+
+    /* ── Spacing (4 px baseline grid) ──────────────────────────────── */
+    --space-1:  0.25rem;
+    --space-2:  0.5rem;
+    --space-4:  1rem;
+    --space-6:  1.5rem;
+    --space-8:  2rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+
+    /* ── Focus ring ─────────────────────────────────────────────────── */
+    /* Used by Button icon / nav variants. Defined once so the ring     */
+    /* width never drifts between components.                           */
+    --focus-ring-width: 2px;
+    --focus-ring-offset: 2px;
+
+    /* ── Derived foreground opacity aliases ─────────────────────────── */
+    /* Avoids color-mix() in JS token files; use these in both CSS and  */
+    /* componentTokens.                                                 */
+    --color-foreground-80: color-mix(in srgb, var(--color-foreground, #0f0f0f) 80%, transparent);
+  }
+}
