@@ -13,6 +13,7 @@ import {
 import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
 import { MdAttachFile, MdImage, MdDescription, MdClose, MdSearch, MdExpandMore, MdChevronRight } from 'react-icons/md';
+import { Button } from '@/components/ui/button';
 
 interface Attachment {
   name: string;
@@ -134,13 +135,14 @@ function ActionReceipts({ actions }: { actions: ActionReceipt[] }) {
 
   return (
     <div className="mt-2 text-xs">
-      <button
+      <Button
+        variant="ghost"
         onClick={() => setExpanded(!expanded)}
         className="text-muted hover:text-foreground flex items-center gap-1"
       >
         <span>{expanded ? '▼' : '▶'}</span>
         <span>{label}</span>
-      </button>
+      </Button>
       {expanded && (
         <div className="mt-1 pl-4 border-l border-border space-y-1">
           {actions.map((action, i) => (
@@ -739,8 +741,9 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
         {FOUNDERS.map((founder) => {
           const active = selectedFounders.has(founder.id);
           return (
-            <button
+            <Button
               key={founder.id}
+              variant="ghost"
               onClick={() => toggleFounder(founder.id)}
               className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
                 active
@@ -765,7 +768,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                 </p>
                 <p className="text-[10px] text-txt-faint truncate">Co-Founder</p>
               </div>
-            </button>
+            </Button>
           );
         })}
 
@@ -787,14 +790,15 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
         <div className="flex-1 overflow-y-auto space-y-0.5">
           {filteredDepts.map(([dept, agentList]) => (
             <div key={dept}>
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => toggleDept(dept)}
                 className="flex w-full items-center gap-1 px-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-txt-muted hover:text-txt-secondary transition-colors"
               >
                 {isSearching || expandedDepts.has(dept) ? <MdExpandMore size={14} /> : <MdChevronRight size={14} />}
                 {dept}
                 <span className="text-txt-faint font-normal ml-0.5">({agentList.length})</span>
-              </button>
+              </Button>
               {(isSearching || expandedDepts.has(dept)) &&
                 agentList.map((agent) => {
                   const meta = AGENT_META[agent.role];
@@ -802,8 +806,9 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                   const tier = ROLE_TIER[agent.role];
                   const isLead = tier === 'Executive' || tier === 'Orchestrator';
                   return (
-                    <button
+                    <Button
                       key={agent.id}
+                      variant="ghost"
                       onClick={() => toggleAgent(agent.role)}
                       className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${isLead ? '' : 'ml-3'} ${
                         active
@@ -833,7 +838,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                           {tier === 'Orchestrator' ? 'CoS' : 'Lead'}
                         </span>
                       )}
-                    </button>
+                    </Button>
                   );
                 })}
             </div>
@@ -844,7 +849,8 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
         </div>
 
         {/* New conversation button */}
-        <button
+        <Button
+          variant="ghost"
           onClick={() => {
             const id = `gc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             localStorage.setItem('glyphor-group-chat-id', id);
@@ -855,7 +861,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
           className="mt-2 w-full rounded-lg border border-border bg-raised px-3 py-2 text-[11px] text-txt-muted hover:text-cyan hover:border-cyan/30 transition-colors text-center"
         >
           + New Conversation
-        </button>
+        </Button>
       </div>
 
       {/* ── Chat Area (Right) ────────────── */}
@@ -1036,7 +1042,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                   <MdDescription className="text-[14px] text-txt-muted" />
                 )}
                 <span className="text-[11px] text-txt-secondary truncate max-w-[100px]">{f.name}</span>
-                <button onClick={() => removeFile(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors"><MdClose className="text-[14px]" /></button>
+                <Button variant="ghost" size="icon-sm" onClick={() => removeFile(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors"><MdClose className="text-[14px]" /></Button>
               </div>
             ))}
           </div>
@@ -1050,8 +1056,9 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
               {filteredMentions.map((m, i) => {
                 const isFounder = FOUNDERS.some((f) => f.id === m.role);
                 return (
-                  <button
+                  <Button
                     key={m.role}
+                    variant="ghost"
                     onClick={() => insertMention(m)}
                     className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors ${
                       i === mentionIdx ? 'bg-surface text-txt-primary ring-1 ring-inset ring-border' : 'text-txt-secondary hover:bg-[var(--color-hover-bg)]'
@@ -1069,7 +1076,7 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
                     )}
                     <span className="font-medium">{m.name}</span>
                     <span className="text-txt-faint ml-auto text-[10px]">{isFounder ? 'Founder' : m.role}</span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -1106,14 +1113,14 @@ export default function GroupChat({ embedded }: { embedded?: boolean } = {}) {
               onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; }}
             />
             <div className={composerFooterRowClassName}>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={() => fileInputRef.current?.click()}
                 className={composerIconButtonClassName}
                 title="Attach file"
               >
                 <MdAttachFile className="text-[15px]" />
-              </button>
+              </Button>
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <GradientButton
                   size="sm"

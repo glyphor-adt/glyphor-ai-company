@@ -6,6 +6,7 @@ import {
 } from 'react-icons/md';
 import { SCHEDULER_URL } from '../lib/firebase';
 import { GradientButton } from '../components/ui';
+import { Button } from '@/components/ui/button';
 import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
 import { getModelsByProvider, PROVIDER_LABELS } from '../lib/models';
 
@@ -276,9 +277,9 @@ export default function WorkforceBuilder() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={exportJSON} disabled={!nodes.length} className="theme-glass-panel-soft rounded-lg px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan disabled:opacity-40">
+          <Button variant="outline" onClick={exportJSON} disabled={!nodes.length} className="theme-glass-panel-soft rounded-lg px-4 py-2 text-sm font-medium text-txt-secondary transition-colors hover:border-cyan hover:text-cyan disabled:opacity-40">
             <span className="flex items-center gap-1"><MdFileDownload /> Export JSON</span>
-          </button>
+          </Button>
           <GradientButton onClick={deployAll} disabled={deploying || !nodes.length}>
             {deploying ? 'Deploying...' : 'Deploy All'}
           </GradientButton>
@@ -436,7 +437,7 @@ export default function WorkforceBuilder() {
                     <span className="text-lg" style={{ color: TEMPLATES.find(x => x.id === selected.templateId)?.color }}>{(() => { const T = TEMPLATES.find(x => x.id === selected.templateId); return T ? <T.icon className="h-5 w-5" /> : <MdStar className="h-5 w-5" />; })()}</span>
                     <h3 className="text-sm font-semibold text-txt-primary">Configure Agent</h3>
                   </div>
-                  <button onClick={() => setSelectedId(null)} className="grid h-6 w-6 place-items-center rounded text-txt-faint transition-colors hover:bg-raised hover:text-txt-primary"><MdClose /></button>
+                  <Button variant="ghost" size="icon-sm" onClick={() => setSelectedId(null)} className="grid h-6 w-6 place-items-center rounded text-txt-faint transition-colors hover:bg-raised hover:text-txt-primary"><MdClose /></Button>
                 </div>
 
                 {/* Fields */}
@@ -493,14 +494,15 @@ export default function WorkforceBuilder() {
                           <span className="text-txt-faint">{isReporter ? 'Reports to' : 'Manages'}:</span>{' '}
                           {other?.name || ot?.label || '—'}
                         </span>
-                        <button onClick={() => removeEdge(edge.id)} className="text-[11px] text-prism-critical hover:text-prism-critical/80 transition-colors">×</button>
+                        <Button variant="ghost" onClick={() => removeEdge(edge.id)} className="text-[11px] text-prism-critical hover:text-prism-critical/80 transition-colors">×</Button>
                       </div>
                     );
                   })}
                   {!edges.some(e => e.from === selectedId || e.to === selectedId) && (
                     <p className="py-1 text-[12px] text-txt-faint">No connections yet</p>
                   )}
-                  <button
+                  <Button
+                    variant="ghost"
                     onClick={() => setConnectFrom(connectFrom === selectedId ? null : selectedId)}
                     className={`mt-2 w-full rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                       connectFrom === selectedId
@@ -509,7 +511,7 @@ export default function WorkforceBuilder() {
                     }`}
                   >
                     {connectFrom === selectedId ? 'Cancel — click target node' : <span className="flex items-center gap-1">Connect to Manager <MdArrowForward /></span>}
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Actions */}
