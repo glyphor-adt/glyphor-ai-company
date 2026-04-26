@@ -818,8 +818,8 @@ async function writeLevelChange(
   await systemTransaction(async (client) => {
     await client.query(
       `UPDATE agent_autonomy_config
-       SET current_level = $2,
-           promoted_at = CASE WHEN $2 > $1 THEN COALESCE($3::timestamptz, promoted_at) ELSE promoted_at END,
+       SET current_level = $2::int,
+           promoted_at = CASE WHEN $2::int > $1::int THEN COALESCE($3::timestamptz, promoted_at) ELSE promoted_at END,
            last_level_change_at = NOW(),
            last_level_change_reason = $4,
            updated_at = NOW()
@@ -869,12 +869,12 @@ export async function updateAgentAutonomyConfig(agentId: string, input: UpdateAg
   await systemTransaction(async (client) => {
     await client.query(
       `UPDATE agent_autonomy_config
-       SET current_level = $2,
-           max_allowed_level = $3,
+       SET current_level = $2::int,
+           max_allowed_level = $3::int,
            auto_promote = $4,
            auto_demote = $5,
-           last_level_change_reason = CASE WHEN $2 <> $1 THEN $6 ELSE last_level_change_reason END,
-           last_level_change_at = CASE WHEN $2 <> $1 THEN NOW() ELSE last_level_change_at END,
+           last_level_change_reason = CASE WHEN $2::int <> $1::int THEN $6 ELSE last_level_change_reason END,
+           last_level_change_at = CASE WHEN $2::int <> $1::int THEN NOW() ELSE last_level_change_at END,
            updated_at = NOW()
        WHERE agent_id = $7`,
       [
