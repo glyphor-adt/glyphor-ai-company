@@ -1122,6 +1122,139 @@ export async function handleCzApi(
       return true;
     }
 
+    // ── GET /api/cz/automation ───────────────────────────────
+    // Pipeline-level signals so the dashboard can show "is automation
+    // actually doing anything?" rather than just "here's what's broken,
+    // click re-run." Returns:
+    //   - last_loop_run_at: timestamp of the most recent loop-driven cz_run
+    //     (interval/nightly/critical/full/canary). Confirms the in-process
+    //     CZ loop is ticking.
+    //   - flow_24h / flow_7d: shadow_evals counts grouped by state.
+    //   - per_agent_status: for each agent, the latest shadow eval state +
+    //     prompt version. Drives the per-row automation badge in the
+    //     "Top blocking agents" table.
+    //   - stuck_evals: human_review or recently shadow_failed rows that
+    //     need a human glance. Drives the "Stuck — needs you" callout.
+    //   - agents_no_active_prompt: agents with failures but no deployed
+    //     prompt version (the silent-skip class of bug we just fixed for
+    //     marcus/cto). If this list is non-empty, the reflection bridge
+    //     is dropping mutations on the floor.
+    if (segments[0] === 'automation' && segments.length === 1 && method === 'GET') {
+      const [lastLoop, flow24h, flow7d, perAgent, stuckEvals, agentsNoPrompt] = await Promise.all([
+        systemQuery<{ last: string | null; trigger_type: string | null }>(`
+          SELECT MAX(started_at) AS last,
+                 (SELECT trigger_type FROM cz_runs
+                   WHERE trigger_type IN ('interval','nightly','critical','full','canary')
+                   ORDER BY started_at DESC LIMIT 1) AS trigger_type
+            FROM cz_runs
+            WHERE trigger_type IN ('interval','nightly','critical','full','canary')
+        `),
+        systemQuery<{ state: string; n: number }>(`
+          SELECT state, COUNT(*)::int AS n
+            FROM cz_shadow_evals
+            WHERE created_at > NOW() - INTERVAL '24 hours'
+            GROUP BY state
+        `),
+        systemQuery<{ state: string; n: number }>(`
+          SELECT state, COUNT(*)::int AS n
+            FROM cz_shadow_evals
+            WHERE created_at > NOW() - INTERVAL '7 days'
+            GROUP BY state
+        `),
+        systemQuery<{
+          agent_id: string;
+          state: string;
+          shadow_eval_id: string;
+          version: number;
+          attempts_used: number;
+          consecutive_wins: number;
+          last_pass_rate: number | null;
+          baseline_pass_rate: number | null;
+          created_at: string;
+          last_ran_at: string | null;
+        }>(`
+          SELECT DISTINCT ON (apv.agent_id)
+            apv.agent_id,
+            e.state,
+            e.id AS shadow_eval_id,
+            apv.version,
+            e.attempts_used,
+            e.consecutive_wins,
+            e.last_pass_rate,
+            e.baseline_pass_rate,
+            e.created_at,
+            e.last_ran_at
+          FROM cz_shadow_evals e
+          JOIN agent_prompt_versions apv ON apv.id = e.prompt_version_id
+          ORDER BY apv.agent_id, e.created_at DESC
+        `),
+        systemQuery<{
+          id: string;
+          agent_id: string;
+          state: string;
+          version: number;
+          escalation_reason: string | null;
+          created_at: string;
+        }>(`
+          SELECT e.id, apv.agent_id, e.state, apv.version,
+                 e.escalation_reason, e.created_at
+            FROM cz_shadow_evals e
+            JOIN agent_prompt_versions apv ON apv.id = e.prompt_version_id
+            WHERE (
+              e.state = 'human_review'
+              OR (e.state = 'shadow_failed' AND e.created_at > NOW() - INTERVAL '48 hours')
+            )
+            ORDER BY
+              CASE e.state WHEN 'human_review' THEN 1 ELSE 2 END,
+              e.created_at DESC
+            LIMIT 25
+        `),
+        systemQuery<{ agent_id: string; failing_count: number }>(`
+          WITH failing AS (
+            SELECT t.responsible_agent AS agent_id, COUNT(*)::int AS failing_count
+              FROM cz_tasks t
+              JOIN cz_latest_scores ls ON ls.task_id = t.id
+              WHERE t.active = true
+                AND ls.passed = false
+                AND t.responsible_agent IS NOT NULL
+              GROUP BY t.responsible_agent
+          )
+          SELECT f.agent_id, f.failing_count
+            FROM failing f
+            WHERE NOT EXISTS (
+              SELECT 1 FROM agent_prompt_versions apv
+                WHERE apv.agent_id = f.agent_id
+                  AND apv.deployed_at IS NOT NULL
+                  AND apv.retired_at IS NULL
+            )
+            ORDER BY f.failing_count DESC
+        `),
+      ]);
+
+      const flowSummary = (rows: Array<{ state: string; n: number }>) => {
+        const out: Record<string, number> = {
+          shadow_pending: 0, shadow_running: 0, auto_promoted: 0,
+          human_review: 0, shadow_failed: 0, shadow_passed: 0,
+        };
+        for (const r of rows) out[r.state] = r.n;
+        return out;
+      };
+
+      const perAgentStatus: Record<string, typeof perAgent[number]> = {};
+      for (const row of perAgent) perAgentStatus[row.agent_id] = row;
+
+      send(200, {
+        last_loop_run_at: lastLoop[0]?.last ?? null,
+        last_loop_trigger: lastLoop[0]?.trigger_type ?? null,
+        flow_24h: flowSummary(flow24h),
+        flow_7d: flowSummary(flow7d),
+        per_agent_status: perAgentStatus,
+        stuck_evals: stuckEvals,
+        agents_no_active_prompt: agentsNoPrompt,
+      });
+      return true;
+    }
+
     // ── GET /api/cz/blockers ─────────────────────────────────
     // Aggregated view of failing tasks + recent failure reasoning + any
     // prompt mutations already staged by the CZ reflection pipeline.
