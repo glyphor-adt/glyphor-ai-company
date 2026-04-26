@@ -200,6 +200,21 @@ export async function createShadowEval(args: {
     FROM latest
   `, [targetIds]);
 
+  // Baseline-aware promotion gate.
+  // When the active prompt is failing every target task (baseline ≈ 0), the
+  // configured required_wins=3 is mathematically near-impossible: a candidate
+  // needs 3 consecutive judge wins out of max_attempts (default 5) starting
+  // from a 0% floor where most fails are rubric-grade (no heuristic tag).
+  // Empirically (2026-04-26 audit) this caused 18/27 shadow_evals to expire
+  // as `shadow_failed` over 7 days with only 1 auto_promotion. When baseline
+  // is effectively zero, ANY judge win is a strict improvement, so we relax
+  // required_wins to 1. promotion_margin still enforces +0.20 over baseline,
+  // so a single 0->>=20% gain is required.
+  const baselinePassRate = Number(baseline[0]?.pass_rate ?? 0);
+  const lowBaseline = baselinePassRate <= 0.05;
+  const effectiveRequiredWins = args.required_wins
+    ?? (lowBaseline ? 1 : cfg.required_wins_default);
+
   const rows = await systemQuery<{ id: string }>(`
     INSERT INTO cz_shadow_evals (
       prompt_version_id, agent_id, tenant_id, target_task_ids,
@@ -213,7 +228,7 @@ export async function createShadowEval(args: {
     args.tenant_id,
     targetIds,
     args.promotion_margin ?? cfg.promotion_margin_default,
-    args.required_wins    ?? cfg.required_wins_default,
+    effectiveRequiredWins,
     args.max_attempts     ?? cfg.max_attempts_default,
     baseline[0]?.pass_rate ?? 0,
     baseline[0]?.avg_score ?? null,
