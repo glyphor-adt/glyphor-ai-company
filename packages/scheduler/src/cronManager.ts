@@ -372,10 +372,27 @@ export function getJobsForAgent(role: CompanyAgentRole): ScheduledJob[] {
 }
 
 /**
+ * Jobs that trigger live agent runs (heartbeat → POST /heartbeat → wakes agents).
+ * Suppressed when CZ_FOCUS_MODE=true so only CZ certification + external data syncs run.
+ */
+const FOCUS_MODE_SUPPRESSED_SYNC_JOBS = new Set<string>(['heartbeat']);
+
+/**
  * Get all enabled data sync jobs.
+ *
+ * When `CZ_FOCUS_MODE=true`, agent-triggering jobs (e.g. heartbeat) are filtered out
+ * so the scheduler container will not dispatch work_loop / proactive / urgent_message_response
+ * runs while we focus on the CZ certification pipeline.
  */
 export function getEnabledSyncJobs(): DataSyncJob[] {
-  return DATA_SYNC_JOBS.filter(j => j.enabled);
+  const focusMode = (process.env.CZ_FOCUS_MODE ?? '').toLowerCase() === 'true';
+  return DATA_SYNC_JOBS.filter((j) => {
+    if (!j.enabled) return false;
+    if (focusMode && FOCUS_MODE_SUPPRESSED_SYNC_JOBS.has(j.id)) {
+      return false;
+    }
+    return true;
+  });
 }
 
 /**

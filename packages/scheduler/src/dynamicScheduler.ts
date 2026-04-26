@@ -189,6 +189,11 @@ export class DynamicScheduler {
     if (currentMinute === this.lastCheckMinute) return;
     this.lastCheckMinute = currentMinute;
 
+    // CZ focus mode: suppress all in-process agent dispatch so only CZ certification runs.
+    if ((process.env.CZ_FOCUS_MODE ?? '').toLowerCase() === 'true') {
+      return;
+    }
+
     try {
       // Fetch enabled schedules for active agents
       const schedules = await systemQuery<DynamicScheduleRow>(
