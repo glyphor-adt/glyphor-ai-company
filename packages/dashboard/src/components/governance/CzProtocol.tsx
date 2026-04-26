@@ -264,27 +264,23 @@ function Scorecard() {
         </div>
       )}
 
-      {/* Launch Gates */}
-      <div className="mt-6">
-        <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Launch Gates</h4>
-        <div className="flex gap-3">
-          {gates.map((g) => (
-            <div
-              key={g.gate}
-              className={`flex-1 rounded-lg border p-3 ${
-                g.met ? 'border-emerald-700/40 bg-emerald-950/20' : 'border-zinc-700/40 bg-zinc-800/30'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className={`text-lg ${g.met ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                  {g.met ? '✓' : '○'}
-                </span>
-                <span className="text-xs font-medium text-zinc-300">{gateLabel(g.gate)}</span>
-              </div>
-              <p className="text-[10px] text-zinc-500 mt-1">{g.description}</p>
-            </div>
-          ))}
-        </div>
+      {/* Launch Gates — compact pill row */}
+      <div className="mt-4 flex items-center gap-2 flex-wrap text-[11px]">
+        <span className="text-zinc-500 uppercase tracking-wider mr-1">Launch gates</span>
+        {gates.map((g) => (
+          <span
+            key={g.gate}
+            title={g.description}
+            className={`px-2 py-0.5 rounded-full border flex items-center gap-1.5 ${
+              g.met
+                ? 'border-emerald-700/40 bg-emerald-950/30 text-emerald-300'
+                : 'border-zinc-700/40 bg-zinc-800/30 text-zinc-400'
+            }`}
+          >
+            <span>{g.met ? '✓' : '○'}</span>
+            <span>{gateLabel(g.gate)}</span>
+          </span>
+        ))}
       </div>
     </Card>
   );
@@ -2298,6 +2294,7 @@ function BlockersAndPlan() {
     if (scored === 0) return null;
     return data.summary.passing / scored;
   }, [data]);
+  void passRate; // referenced via recommendations / future panels
 
   // Derive ranked actionable recommendations from top agents + staged fixes
   const recommendations = useMemo(() => {
@@ -2426,21 +2423,6 @@ function BlockersAndPlan() {
         </button>
       </div>
 
-      {/* How-to-read legend — collapsed on every visit so it doesn't nag, but
-          present so a new reviewer can orient themselves in 10 seconds. */}
-      <details className="mt-2 text-[11px] text-zinc-400">
-        <summary className="cursor-pointer hover:text-zinc-200">How do I use this? What am I looking at?</summary>
-        <div className="mt-2 space-y-1.5 border-l-2 border-zinc-700/50 pl-3">
-          <p><span className="text-zinc-200">1. Plan to fix — ranked.</span> The top-priority things to act on, each with a one-click re-run.</p>
-          <p><span className="text-zinc-200">2. Top blocking agents.</span> Click any row to expand the exact failing tasks for that agent, with acceptance criteria, heuristic tags, and concrete fix steps.</p>
-          <p><span className="text-zinc-200">3. Top blocking pillars.</span> A pillar below threshold means a shared pattern is broken — usually a tool or a prompt template, not one agent.</p>
-          <p><span className="text-zinc-200">4. Recent failures — judge reasoning.</span> Click any row to see the judge&apos;s full reasoning, axis scores, raw agent output, and suggested fix steps.</p>
-          <p><span className="text-zinc-200">5. Copy fix brief.</span> Any failing task can be copied as a markdown brief (criteria, reasoning, fix steps) — paste it into a GitHub issue, Slack, or an agent chat to start remediation.</p>
-          <p><span className="text-zinc-200">6. Staged prompt mutations.</span> Auto-generated fixes from the reflection loop. Review the diff and promote, or let shadow eval decide.</p>
-          <p className="text-zinc-500 pt-1">Tip: hover any red heuristic chip (e.g. <span className="px-1 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">tool_misuse</span>) for a plain-English explanation and where to look in the codebase.</p>
-        </div>
-      </details>
-
       {error && <p className="text-rose-400 text-sm mt-3">{error}</p>}
       {loading && !data && <Skeleton className="h-32 mt-3" />}
       {actionStatus && (
@@ -2465,27 +2447,6 @@ function BlockersAndPlan() {
 
       {data && (
         <>
-          {/* Summary strip */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
-            <SummaryStat label="Total" value={String(data.summary.total_tasks)} />
-            <SummaryStat
-              label="Passing"
-              value={`${data.summary.passing}${passRate != null ? ` (${(passRate * 100).toFixed(0)}%)` : ''}`}
-              tone="pos"
-            />
-            <SummaryStat label="Failing" value={String(data.summary.failing)} tone={data.summary.failing > 0 ? 'neg' : 'neutral'} />
-            <SummaryStat
-              label="P0 Failing"
-              value={`${data.summary.p0_failing}/${data.summary.p0_total}`}
-              tone={data.summary.p0_failing > 0 ? 'neg' : 'pos'}
-            />
-            <SummaryStat
-              label="Last Run"
-              value={data.summary.last_run_at ? formatStamp(data.summary.last_run_at) : 'never'}
-              title={formatStampFull(data.summary.last_run_at)}
-            />
-          </div>
-
           {/* Automation pipeline strip — shows whether the reflection→shadow-eval
               →promote loop is actually doing work, vs. just passively logging
               failures. This is the single most-asked dashboard question:
@@ -2529,8 +2490,8 @@ function BlockersAndPlan() {
             </div>
           )}
 
-          {/* Two-column: Top agents + Top pillars */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+          {/* Top blocking agents (top pillars removed — duplicates Scorecard tiles above) */}
+          <div className="mt-6">
             <div>
               <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Top blocking agents</h3>
               {data.top_agents.length === 0 ? (
@@ -2683,63 +2644,17 @@ function BlockersAndPlan() {
                 </table>
               )}
             </div>
-
-            <div>
-              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Top blocking pillars</h3>
-              {data.top_pillars.length === 0 ? (
-                <p className="text-xs text-emerald-400">All pillars passing thresholds.</p>
-              ) : (
-                <table className="w-full text-xs">
-                  <thead className="text-zinc-500 text-left border-b border-zinc-700/40">
-                    <tr>
-                      <th className="py-1.5 pr-2">Pillar</th>
-                      <th className="py-1.5 pr-2 text-right">Pass %</th>
-                      <th className="py-1.5 pr-2 text-right">Failing</th>
-                      <th className="py-1.5 pr-2 text-right">Avg</th>
-                      <th className="py-1.5 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.top_pillars.map((p) => {
-                      const rate = p.total_count > 0 ? (p.passing_count / p.total_count) * 100 : 0;
-                      const threshold = p.pass_rate_threshold != null ? Number(p.pass_rate_threshold) * 100 : null;
-                      const belowThreshold = threshold != null && rate < threshold;
-                      return (
-                        <tr key={p.pillar} className="border-b border-zinc-800/40">
-                          <td className="py-1.5 pr-2 text-zinc-200">{shortPillar(p.pillar)}</td>
-                          <td className={`py-1.5 pr-2 text-right tabular-nums ${belowThreshold ? 'text-rose-400' : 'text-zinc-300'}`}>
-                            {rate.toFixed(0)}%{threshold != null && <span className="text-zinc-600"> /{threshold.toFixed(0)}</span>}
-                          </td>
-                          <td className="py-1.5 pr-2 text-right text-rose-400 tabular-nums">
-                            {p.failing_count}/{p.total_count}
-                          </td>
-                          <td className={`py-1.5 pr-2 text-right tabular-nums ${scoreColor(p.avg_score)}`}>
-                            {p.avg_score != null ? Number(p.avg_score).toFixed(1) : '—'}
-                          </td>
-                          <td className="py-1.5 text-right">
-                            <button
-                              onClick={() => rerunPillar(p.pillar)}
-                              disabled={pendingAction === `rerun-pillar:${p.pillar}`}
-                              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-40"
-                              title="Re-run all tasks in this pillar"
-                            >
-                              {pendingAction === `rerun-pillar:${p.pillar}` ? '…' : '↻ Re-run'}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
           </div>
 
-          {/* Recent failure reasoning */}
+          {/* Recent failure reasoning — collapsed by default; drill-down detail */}
           {data.recent_failures.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Recent failures — judge reasoning</h3>
-              <ul className="space-y-2">
+            <details className="mt-6 group">
+              <summary className="cursor-pointer text-xs uppercase tracking-wide text-zinc-500 hover:text-zinc-300 select-none flex items-center gap-2">
+                <span className="text-zinc-600 group-open:rotate-90 transition-transform inline-block">▸</span>
+                Recent failures — judge reasoning
+                <span className="text-zinc-600 normal-case tracking-normal">({data.recent_failures.length})</span>
+              </summary>
+              <ul className="space-y-2 mt-3">
                 {data.recent_failures.map((f) => {
                   const isOpen = expandedFailure === f.task_id;
                   return (
@@ -2905,19 +2820,20 @@ function BlockersAndPlan() {
                   );
                 })}
               </ul>
-            </div>
+            </details>
           )}
 
-          {/* Staged fixes from reflection bridge */}
+          {/* Staged fixes from reflection bridge — collapsed by default */}
           {data.staged_fixes.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-xs uppercase tracking-wide text-zinc-500 mb-2">
+            <details className="mt-6 group">
+              <summary className="cursor-pointer text-xs uppercase tracking-wide text-zinc-500 hover:text-zinc-300 select-none flex items-center gap-2">
+                <span className="text-zinc-600 group-open:rotate-90 transition-transform inline-block">▸</span>
                 Prompt mutations staged by reflection loop
-                <span className="ml-2 text-zinc-600 normal-case font-normal">
-                  (auto-generated fixes — review &amp; promote, or let shadow eval decide)
+                <span className="ml-1 text-zinc-600 normal-case tracking-normal font-normal">
+                  ({data.staged_fixes.length} — auto-generated fixes; review &amp; promote or let shadow eval decide)
                 </span>
-              </h3>
-              <ul className="space-y-1.5">
+              </summary>
+              <ul className="space-y-1.5 mt-3">
                 {data.staged_fixes.map((s) => {
                   const isOpen = expandedFix === s.id;
                   const status =
@@ -2994,17 +2910,7 @@ function BlockersAndPlan() {
                   );
                 })}
               </ul>
-            </div>
-          )}
-
-          {data.staged_fixes.length === 0 && data.summary.failing > 0 && (
-            <div className="mt-6 text-xs text-zinc-500 border border-zinc-800/60 rounded-md p-3 bg-zinc-900/30">
-              <p className="text-zinc-300">No staged prompt fixes yet.</p>
-              <p className="mt-1">
-                The reflection loop stages a prompt mutation after a batch completes with failures. Re-run the failing tasks above to trigger a fresh analysis,
-                or hand-author a prompt change in the agents package.
-              </p>
-            </div>
+            </details>
           )}
 
           {data.summary.failing === 0 && data.summary.p0_failing === 0 && (
@@ -3013,29 +2919,6 @@ function BlockersAndPlan() {
         </>
       )}
     </Card>
-  );
-}
-
-function SummaryStat({
-  label,
-  value,
-  tone = 'neutral',
-  title,
-}: {
-  label: string;
-  value: string;
-  tone?: 'pos' | 'neg' | 'neutral';
-  title?: string;
-}) {
-  const color =
-    tone === 'pos' ? 'text-emerald-300' :
-    tone === 'neg' ? 'text-rose-300' :
-    'text-zinc-100';
-  return (
-    <div className="border border-zinc-800/60 rounded-md px-3 py-2 bg-zinc-900/30" title={title}>
-      <p className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</p>
-      <p className={`text-sm font-semibold tabular-nums mt-0.5 ${color}`}>{value}</p>
-    </div>
   );
 }
 
@@ -3196,81 +3079,10 @@ function CollapsibleSection({
    ══════════════════════════════════════════════════════════════ */
 
 export default function CzProtocol() {
-  // Determine workflow step based on data availability
-  const [completedSteps, setCompletedSteps] = useState(0);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        // Check if any runs exist (step 1 done)
-        const runsData = await apiCall<{ batches: Array<{ batch_status: string }> }>('/api/cz/runs?limit=1');
-        if (!runsData.batches?.length) { setCompletedSteps(0); return; }
-
-        // Runs exist — step 1 is done
-        const hasCompleted = runsData.batches.some((b) => b.batch_status === 'completed' || b.batch_status === 'scored');
-        if (!hasCompleted) { setCompletedSteps(1); return; }
-
-        // Completed runs exist — scorecard is reviewable (step 2 done)
-        // Check if any launch gate is met (step 3)
-        const scorecard = await apiCall<{ gates: Array<{ met: boolean }> }>('/api/cz/scorecard');
-        const anyGateMet = scorecard.gates?.some((g) => g.met);
-
-        // Check if drift data exists (step 4)
-        const drift = await apiCall<{ series: unknown[] }>('/api/cz/drift?days=30');
-        const hasDrift = (drift.series?.length ?? 0) > 1;
-
-        if (hasDrift && anyGateMet) setCompletedSteps(4);
-        else if (anyGateMet) setCompletedSteps(3);
-        else setCompletedSteps(2);
-      } catch {
-        setCompletedSteps(0);
-      }
-    })();
-  }, []);
-
-  const steps = [
-    { num: 1, label: 'Run tests' },
-    { num: 2, label: 'Review scorecard' },
-    { num: 3, label: 'Check gates' },
-    { num: 4, label: 'Track drift' },
-  ];
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-100">Certification Protocol</h1>
-          <p className="text-xs text-zinc-500 mt-1">
-            89 tasks · 10 pillars · 19 P0 · 3 launch gates
-          </p>
-        </div>
-        <div className="flex items-center flex-wrap gap-y-1 text-[11px]">
-          {steps.map((step, i) => {
-            const isActive = step.num === completedSteps + 1;
-            const isDone = step.num <= completedSteps;
-            return (
-              <span key={step.num} className="flex items-center">
-                {i > 0 && <span className="text-zinc-700 mx-1.5">›</span>}
-                <span className="flex items-center gap-1">
-                  <span className={`w-4 h-4 rounded-full flex items-center justify-center font-bold text-[9px] ${
-                    isDone ? 'bg-emerald-500/20 text-emerald-400' :
-                    isActive ? 'bg-cyan/15 text-cyan' :
-                    'bg-zinc-800 text-zinc-600'
-                  }`}>
-                    {isDone ? '✓' : step.num}
-                  </span>
-                  <span className={
-                    isDone ? 'text-emerald-400' :
-                    isActive ? 'text-cyan' :
-                    'text-zinc-600'
-                  }>{step.label}</span>
-                </span>
-              </span>
-            );
-          })}
-        </div>
-      </div>
+      {/* Header — minimal; numbers live in GlanceBar below */}
+      <h1 className="text-xl font-semibold text-zinc-100">Certification Protocol</h1>
 
       {/* Top: at-a-glance status strip — pass rate, P0, trend, automation state */}
       <GlanceBar />
