@@ -2913,6 +2913,7 @@ function CollapsibleSection({
         {subtitle && <span className="text-xs text-prism-tertiary">{subtitle}</span>}
       </Button>
       {open && <div className="mt-3">{children}</div>}
+    </div>
   );
 }
 

@@ -1651,7 +1651,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   <MdDescription className="text-[14px] text-txt-muted" />
                 )}
                 <span className="text-[11px] text-txt-secondary truncate max-w-[100px]">{f.name}</span>
-                <Button variant="ghost" size="icon-sm" onClick={() => removeFile(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors"><MdClose className="text-[14px]" /></Button>
+                <Button variant="ghost" size="icon-sm" onClick={() => removeFile(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors"><MdClose /></Button>
               </div>
             ))}
           </div>

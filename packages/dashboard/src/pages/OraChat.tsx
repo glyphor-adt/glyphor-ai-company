@@ -4,6 +4,7 @@ import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff, MessageSquarePlus, PanelLeftClose, PanelLeft, Search, Trash2, ArrowUp } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
+import { MdClose } from 'react-icons/md';
 import { Card } from '../components/ui';
 import {
   ChatComposerFrame,
@@ -1374,7 +1375,7 @@ export default function OraChat() {
                 <span>📎</span>
               )}
               <span className="text-[11px] text-txt-secondary truncate max-w-[100px]">{a.name}</span>
-              <Button variant="ghost" size="icon-sm" onClick={() => removeAttachment(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors">✕</Button>
+              <Button variant="ghost" size="icon-sm" onClick={() => removeAttachment(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors"><MdClose /></Button>
             </div>
           ))}
         </div>
