@@ -1720,12 +1720,19 @@ export async function searchSharePoint(
   const siteId = (options?.siteId ?? process.env.SHAREPOINT_SITE_ID ?? '').trim();
   if (!siteId) throw new Error('Missing SHAREPOINT_SITE_ID');
 
-  const { token } = await resolveSharePointGraphToken('search_sharepoint', options?.agentRole);
+  const { token, identityType } = await resolveSharePointGraphToken(
+    'search_sharepoint',
+    options?.agentRole,
+  );
   const maxResults = options?.maxResults ?? 20;
 
   const searchUrl = `${GRAPH_BASE}/search/query`;
-  // Region is required when using application permissions (client credentials)
-  const region = (process.env.SHAREPOINT_REGION ?? 'NAM').trim();
+  // 'region' is ONLY valid with application permissions (client credentials).
+  // Graph rejects delegated (Agent365) requests that include 'region' with:
+  //   400 SearchRequest Invalid (Region is not supported when request with delegated permission.)
+  // So we only attach region for app-only tokens.
+  const isDelegated = identityType === 'agent365';
+  const region = isDelegated ? undefined : (process.env.SHAREPOINT_REGION ?? 'NAM').trim();
   const response = await fetch(searchUrl, {
     method: 'POST',
     headers: {
