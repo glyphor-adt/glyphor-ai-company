@@ -107,14 +107,14 @@ function shortPillar(p: string): string {
 }
 
 function scoreColor(score: number | null): string {
-  if (score == null) return 'text-white0';
+  if (score == null) return 'text-prism-tertiary';
   if (score >= 8) return 'text-emerald-400';
   if (score >= 6) return 'text-amber-400';
   return 'text-rose-400';
 }
 
 function passRateColor(rate: number | null): string {
-  if (rate == null) return 'text-white0';
+  if (rate == null) return 'text-prism-tertiary';
   if (rate >= 0.9) return 'text-emerald-400';
   if (rate >= 0.7) return 'text-amber-400';
   return 'text-rose-400';
@@ -245,7 +245,7 @@ function Scorecard() {
                     avg {score.toFixed(1)}
                   </span>
                 </div>
-                <div className="text-[10px] mt-1 text-white0">
+                <div className="text-[10px] mt-1 text-prism-tertiary">
                   {p.passed}/{p.total_tasks} passed
                   {!meetsRate && <span className="text-rose-400 ml-2">below {(Number(p.pass_rate_threshold) * 100).toFixed(0)}%</span>}
                   {!meetsScore && <span className="text-amber-400 ml-2">avg &lt; {Number(p.avg_score_threshold).toFixed(1)}</span>}
@@ -276,12 +276,12 @@ function Scorecard() {
               }`}
             >
               <div className="flex items-center gap-2">
-                <span className={`text-lg ${g.met ? 'text-emerald-400' : 'text-white0'}`}>
+                <span className={`text-lg ${g.met ? 'text-emerald-400' : 'text-prism-tertiary'}`}>
                   {g.met ? '✓' : '○'}
                 </span>
                 <span className="text-xs font-medium text-prism-primary">{gateLabel(g.gate)}</span>
               </div>
-              <p className="text-[10px] text-white0 mt-1">{g.description}</p>
+              <p className="text-[10px] text-prism-tertiary mt-1">{g.description}</p>
             </div>
           ))}
         </div>
@@ -407,7 +407,7 @@ function TaskGrid() {
 
       {/* Last-Run date filter */}
       <div className="flex items-center gap-2 mt-2 flex-wrap text-xs">
-        <span className="text-white0">Last run:</span>
+        <span className="text-prism-tertiary">Last run:</span>
         {([
           ['all', 'All'],
           ['today', 'Today'],
@@ -444,7 +444,7 @@ function TaskGrid() {
           />
           {(runDateFrom || runDateTo || runDatePreset !== 'all') && (
             <button
-              className="ml-1 text-white0 hover:text-prism-primary"
+              className="ml-1 text-prism-tertiary hover:text-prism-primary"
               onClick={() => { setRunDatePreset('all'); setRunDateFrom(''); setRunDateTo(''); }}
               title="Clear date filter"
             >
@@ -461,7 +461,7 @@ function TaskGrid() {
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-white0 text-left border-b border-border/40">
+              <tr className="text-prism-tertiary text-left border-b border-border/40">
                 <th className="py-2 pr-2 w-8">#</th>
                 <th className="py-2 pr-3">Task</th>
                 <th className="py-2 pr-3 w-24">Pillar</th>
@@ -492,7 +492,7 @@ function TaskGrid() {
                       }
                     }}
                   >
-                    <td className="py-2 pr-2 text-white0 tabular-nums">{t.task_number}</td>
+                    <td className="py-2 pr-2 text-prism-tertiary tabular-nums">{t.task_number}</td>
                     <td className="py-2 pr-3 text-prism-primary max-w-[300px] truncate">{t.task}</td>
                     <td className="py-2 pr-3 text-prism-secondary">{shortPillar(t.pillar)}</td>
                     <td className="py-2 pr-2 text-prism-secondary">{t.responsible_agent ?? '—'}</td>
@@ -530,28 +530,28 @@ function TaskGrid() {
                       <td colSpan={8} className="p-3">
                         <div className="grid grid-cols-2 gap-4 text-xs">
                           <div>
-                            <p className="text-white0 mb-1">Acceptance Criteria</p>
+                            <p className="text-prism-tertiary mb-1">Acceptance Criteria</p>
                             <p className="text-prism-primary">{t.acceptance_criteria}</p>
                           </div>
                           <div>
-                            <p className="text-white0 mb-1">Verification Method</p>
+                            <p className="text-prism-tertiary mb-1">Verification Method</p>
                             <p className="text-prism-primary">{t.verification_method ?? '—'}</p>
                           </div>
                           <div>
-                            <p className="text-white0 mb-1">Sub-category</p>
+                            <p className="text-prism-tertiary mb-1">Sub-category</p>
                             <p className="text-prism-primary">{t.sub_category ?? '—'}</p>
                           </div>
                           <div>
-                            <p className="text-white0 mb-1">Last Run</p>
+                            <p className="text-prism-tertiary mb-1">Last Run</p>
                             <p className="text-prism-primary" title={formatStampFull(t.latest_run_at)}>
                               {t.latest_run_at ? (
                                 <>
                                   {formatStamp(t.latest_run_at)}
-                                  <span className="text-white0 ml-2">({timeAgo(t.latest_run_at)})</span>
+                                  <span className="text-prism-tertiary ml-2">({timeAgo(t.latest_run_at)})</span>
                                 </>
                               ) : 'Never'}
                               {t.latest_judge_tier && (
-                                <span className="text-white0 ml-2">tier: {t.latest_judge_tier}</span>
+                                <span className="text-prism-tertiary ml-2">tier: {t.latest_judge_tier}</span>
                               )}
                             </p>
                           </div>
@@ -563,8 +563,8 @@ function TaskGrid() {
                           return (
                             <div className="mt-4 space-y-3 border-t border-border/40 pt-3">
                               <div className="flex items-center gap-4 text-xs">
-                                <span className="text-white0">Score: <span className={scoreColor(s.judge_score)}>{s.judge_score?.toFixed(1)}</span></span>
-                                <span className="text-white0">Tier: <span className="text-prism-primary">{s.judge_tier}</span></span>
+                                <span className="text-prism-tertiary">Score: <span className={scoreColor(s.judge_score)}>{s.judge_score?.toFixed(1)}</span></span>
+                                <span className="text-prism-tertiary">Tier: <span className="text-prism-primary">{s.judge_tier}</span></span>
                                 <span className={s.passed ? 'text-emerald-400' : 'text-rose-400'}>{s.passed ? 'PASS' : 'FAIL'}</span>
                                 {s.axis_scores && Object.keys(s.axis_scores).length > 0 && (
                                   <span className="text-txt-faint">
@@ -574,19 +574,19 @@ function TaskGrid() {
                               </div>
                               {s.reasoning_trace && (
                                 <div>
-                                  <p className="text-white0 text-[11px] font-medium mb-1">Judge Reasoning</p>
+                                  <p className="text-prism-tertiary text-[11px] font-medium mb-1">Judge Reasoning</p>
                                   <p className="text-prism-secondary text-xs">{s.reasoning_trace}</p>
                                 </div>
                               )}
                               {s.heuristic_failures && s.heuristic_failures.length > 0 && (
                                 <div>
-                                  <p className="text-white0 text-[11px] font-medium mb-1">Heuristic Failures</p>
+                                  <p className="text-prism-tertiary text-[11px] font-medium mb-1">Heuristic Failures</p>
                                   <p className="text-rose-400/80 text-xs">{s.heuristic_failures.join('; ')}</p>
                                 </div>
                               )}
                               {s.agent_output && (
                                 <div>
-                                  <p className="text-white0 text-[11px] font-medium mb-1">Agent Output</p>
+                                  <p className="text-prism-tertiary text-[11px] font-medium mb-1">Agent Output</p>
                                   <pre className="text-prism-primary text-xs whitespace-pre-wrap break-words max-h-80 overflow-y-auto border border-border/40 rounded-lg p-3 bg-base/60 leading-relaxed">
                                     {s.agent_output}
                                   </pre>
@@ -608,7 +608,7 @@ function TaskGrid() {
               ))}
               {filteredTasks.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-6 text-center text-white0 text-xs">
+                  <td colSpan={8} className="py-6 text-center text-prism-tertiary text-xs">
                     No tasks match the current filters.
                   </td>
                 </tr>
@@ -896,7 +896,7 @@ function LiveRunConsole() {
                 <div key={i} className="text-prism-secondary leading-relaxed">
                   <span className="text-txt-faint">{ts}</span>{' '}
                   <span className="text-blue-400">▶</span>{' '}
-                  <span className="text-white0">#{(evt.data as { task_number?: number }).task_number}</span>{' '}
+                  <span className="text-prism-tertiary">#{(evt.data as { task_number?: number }).task_number}</span>{' '}
                   <span className="text-prism-primary">{(evt.data as { task?: string }).task ?? ''}</span>{' '}
                   <span className="text-txt-faint">({shortPillar((evt.data as { pillar?: string }).pillar ?? '')})</span>
                 </div>
@@ -909,7 +909,7 @@ function LiveRunConsole() {
                   <div className={d.pass ? 'text-emerald-400' : 'text-rose-400'}>
                     <span className="text-txt-faint">{ts}</span>{' '}
                     <span>{d.pass ? '✓' : '✗'}</span>{' '}
-                    <span className="text-white0">#{d.task_number}</span>{' '}
+                    <span className="text-prism-tertiary">#{d.task_number}</span>{' '}
                     <span className={d.pass ? 'text-emerald-300' : 'text-rose-300'}>{d.task ?? ''}</span>{' '}
                     <span className={scoreColor(d.judge_score ?? null)}>
                       {d.judge_score?.toFixed(1)}
@@ -918,7 +918,7 @@ function LiveRunConsole() {
                     {d.latency_ms != null && <span className="text-txt-faint ml-1">{(d.latency_ms / 1000).toFixed(1)}s</span>}
                   </div>
                   {d.reasoning_trace && (
-                    <div className="text-white0 ml-6 text-[10px]">{d.reasoning_trace}</div>
+                    <div className="text-prism-tertiary ml-6 text-[10px]">{d.reasoning_trace}</div>
                   )}
                   {d.agent_output_preview && (
                     <div className="text-txt-faint ml-6 text-[10px] mt-0.5 border-l border-border pl-2 max-h-16 overflow-hidden">
@@ -985,7 +985,7 @@ function LiveRunConsole() {
                   <span className="text-cyan">✔ Run complete</span>{' '}
                   <span className="text-emerald-400">{d.passed} passed</span>
                   {(d.failed ?? 0) > 0 && <span className="text-rose-400"> · {d.failed} failed</span>}
-                  <span className="text-white0"> / {d.total} total</span>
+                  <span className="text-prism-tertiary"> / {d.total} total</span>
                 </div>
               );
             }
@@ -1002,7 +1002,7 @@ function LiveRunConsole() {
             return (
               <div key={i} className="text-prism-secondary leading-relaxed">
                 <span className="text-txt-faint">{ts}</span>{' '}
-                <span className="text-white0">[{evt.event}]</span>{' '}
+                <span className="text-prism-tertiary">[{evt.event}]</span>{' '}
                 {JSON.stringify(evt.data)}
               </div>
             );
@@ -1023,7 +1023,7 @@ function LiveRunConsole() {
             {runsLimit > 10 && (
               <button
                 onClick={() => setRunsLimit(10)}
-                className="text-[11px] text-white0 hover:text-prism-primary"
+                className="text-[11px] text-prism-tertiary hover:text-prism-primary"
               >
                 Show recent only
               </button>
@@ -1049,7 +1049,7 @@ function LiveRunConsole() {
         {loading && <Skeleton className="h-20" />}
         {error && <p className="text-rose-400 text-sm">{error}</p>}
         {!loading && runs.length === 0 && (
-          <p className="text-white0 text-xs">No runs yet.</p>
+          <p className="text-prism-tertiary text-xs">No runs yet.</p>
         )}
         {!loading && runs.length > 0 && (
           <div className={`space-y-2 ${runsLimit > 10 ? 'max-h-96 overflow-y-auto pr-1' : ''}`}>
@@ -1154,7 +1154,7 @@ function LiveRunConsole() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-xs font-semibold text-prism-secondary uppercase tracking-wider">
-              Run Detail · <span className="text-white0 font-mono">{batchDetail.batch_id.slice(0, 8)}</span>
+              Run Detail · <span className="text-prism-tertiary font-mono">{batchDetail.batch_id.slice(0, 8)}</span>
             </h4>
             <button
               onClick={() => setBatchDetail(null)}
@@ -1172,7 +1172,7 @@ function LiveRunConsole() {
                     onClick={() => setExpandedRunId(isExpanded ? null : rid)}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${s.passed ? 'bg-emerald-400' : s.passed === false ? 'bg-rose-400' : 'bg-zinc-600'}`} />
-                    <span className="text-white0">#{s.task_number}</span>
+                    <span className="text-prism-tertiary">#{s.task_number}</span>
                     <span className="text-prism-primary flex-1 truncate">{s.task}</span>
                     {s.responsible_agent && <span className="text-indigo-400/70 text-[10px]">{s.responsible_agent}</span>}
                     {s.judge_score != null && (
@@ -1185,20 +1185,20 @@ function LiveRunConsole() {
                   </div>
                   {isExpanded && (
                     <div className="border-t border-border/30 p-3 bg-base/50 text-xs space-y-3">
-                      <div className="flex gap-4 text-white0">
+                      <div className="flex gap-4 text-prism-tertiary">
                         <span>Pillar: <span className="text-prism-secondary">{s.pillar}</span></span>
                         {s.is_p0 && <span className="text-amber-500">P0</span>}
                         {s.latency_ms != null && <span>Latency: <span className="text-prism-secondary">{(s.latency_ms / 1000).toFixed(1)}s</span></span>}
                       </div>
                       {s.reasoning_trace && (
                         <div>
-                          <p className="text-white0 font-medium text-[11px] mb-1">Judge Reasoning</p>
+                          <p className="text-prism-tertiary font-medium text-[11px] mb-1">Judge Reasoning</p>
                           <p className="text-prism-secondary">{s.reasoning_trace}</p>
                         </div>
                       )}
                       {s.axis_scores && Object.keys(s.axis_scores).length > 0 && (
                         <div>
-                          <p className="text-white0 font-medium text-[11px] mb-1">Axis Scores</p>
+                          <p className="text-prism-tertiary font-medium text-[11px] mb-1">Axis Scores</p>
                           <div className="flex gap-3">
                             {Object.entries(s.axis_scores).map(([k, v]) => (
                               <span key={k} className={v >= 0.7 ? 'text-emerald-500' : v >= 0.5 ? 'text-amber-500' : 'text-rose-500'}>
@@ -1210,13 +1210,13 @@ function LiveRunConsole() {
                       )}
                       {s.heuristic_failures && s.heuristic_failures.length > 0 && (
                         <div>
-                          <p className="text-white0 font-medium text-[11px] mb-1">Failures</p>
+                          <p className="text-prism-tertiary font-medium text-[11px] mb-1">Failures</p>
                           <p className="text-rose-400/80">{s.heuristic_failures.join('; ')}</p>
                         </div>
                       )}
                       {s.agent_output && (
                         <div>
-                          <p className="text-white0 font-medium text-[11px] mb-1">Agent Output</p>
+                          <p className="text-prism-tertiary font-medium text-[11px] mb-1">Agent Output</p>
                           <pre className="text-prism-primary whitespace-pre-wrap break-words max-h-96 overflow-y-auto border border-border/40 rounded-lg p-3 bg-base/60 leading-relaxed">
                             {s.agent_output}
                           </pre>
@@ -1313,7 +1313,7 @@ function DriftChart() {
       {error && <p className="text-rose-400 text-sm mt-3">{error}</p>}
 
       {!loading && series.length === 0 && (
-        <p className="text-white0 text-xs mt-3">No drift data yet. Complete some runs to see trends.</p>
+        <p className="text-prism-tertiary text-xs mt-3">No drift data yet. Complete some runs to see trends.</p>
       )}
 
       {!loading && series.length > 0 && (
@@ -1339,7 +1339,7 @@ function DriftChart() {
                 </span>
                 <span
                   className={`text-[10px] tabular-nums w-10 text-right ${
-                    delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-white0'
+                    delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-prism-tertiary'
                   }`}
                 >
                   {delta > 0 ? '+' : ''}{(delta * 100).toFixed(1)}
@@ -2139,7 +2139,7 @@ function BlockersAndPlan() {
           <p><span className="text-prism-primary">4. Recent failures — judge reasoning.</span> Click any row to see the judge&apos;s full reasoning, axis scores, raw agent output, and suggested fix steps.</p>
           <p><span className="text-prism-primary">5. Copy fix brief.</span> Any failing task can be copied as a markdown brief (criteria, reasoning, fix steps) — paste it into a GitHub issue, Slack, or an agent chat to start remediation.</p>
           <p><span className="text-prism-primary">6. Staged prompt mutations.</span> Auto-generated fixes from the reflection loop. Review the diff and promote, or let shadow eval decide.</p>
-          <p className="text-white0 pt-1">Tip: hover any red heuristic chip (e.g. <span className="px-1 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">tool_misuse</span>) for a plain-English explanation and where to look in the codebase.</p>
+          <p className="text-prism-tertiary pt-1">Tip: hover any red heuristic chip (e.g. <span className="px-1 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">tool_misuse</span>) for a plain-English explanation and where to look in the codebase.</p>
         </div>
       </details>
 
@@ -2191,7 +2191,7 @@ function BlockersAndPlan() {
           {/* Recommendations */}
           {recommendations.length > 0 && (
             <div className="mt-5">
-              <h3 className="text-xs uppercase tracking-wide text-white0 mb-2">Plan to fix — ranked</h3>
+              <h3 className="text-xs uppercase tracking-wide text-prism-tertiary mb-2">Plan to fix — ranked</h3>
               <ul className="space-y-2">
                 {recommendations.map((r, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm">
@@ -2208,7 +2208,7 @@ function BlockersAndPlan() {
                     </span>
                     <div className="flex-1">
                       <p className="text-prism-primary">{r.title}</p>
-                      <p className="text-white0 text-xs">{r.detail}</p>
+                      <p className="text-prism-tertiary text-xs">{r.detail}</p>
                     </div>
                     {r.action && (
                       <button
@@ -2228,12 +2228,12 @@ function BlockersAndPlan() {
           {/* Two-column: Top agents + Top pillars */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
             <div>
-              <h3 className="text-xs uppercase tracking-wide text-white0 mb-2">Top blocking agents</h3>
+              <h3 className="text-xs uppercase tracking-wide text-prism-tertiary mb-2">Top blocking agents</h3>
               {data.top_agents.length === 0 ? (
                 <p className="text-xs text-emerald-400">No failing agents. 🎉</p>
               ) : (
                 <table className="w-full text-xs">
-                  <thead className="text-white0 text-left border-b border-border/40">
+                  <thead className="text-prism-tertiary text-left border-b border-border/40">
                     <tr>
                       <th className="py-1.5 pr-2">Agent</th>
                       <th className="py-1.5 pr-2 text-right">Failing</th>
@@ -2285,7 +2285,7 @@ function BlockersAndPlan() {
                             <tr>
                               <td colSpan={5} className="py-2 px-2 bg-base/50 border-b border-border/40">
                                 {agentTasks.length === 0 ? (
-                                  <p className="text-white0 text-[11px]">No detailed failure rows available.</p>
+                                  <p className="text-prism-tertiary text-[11px]">No detailed failure rows available.</p>
                                 ) : (
                                   <ul className="space-y-2">
                                     {agentTasks.map((t) => {
@@ -2293,10 +2293,10 @@ function BlockersAndPlan() {
                                       return (
                                         <li key={t.task_id} className="border border-border/60 rounded p-2 bg-surface/40">
                                           <div className="flex items-start gap-2 text-[11px]">
-                                            <span className="text-white0 tabular-nums w-8 shrink-0">#{t.task_number}</span>
+                                            <span className="text-prism-tertiary tabular-nums w-8 shrink-0">#{t.task_number}</span>
                                             <div className="flex-1 min-w-0">
                                               <p className="text-prism-primary truncate">{t.task}</p>
-                                              <p className="text-white0 mt-0.5">
+                                              <p className="text-prism-tertiary mt-0.5">
                                                 {shortPillar(t.pillar)}
                                                 {t.sub_category && <span className="text-txt-faint"> · {t.sub_category}</span>}
                                                 {t.is_p0 && <span className="text-rose-400 ml-1.5 font-semibold">P0</span>}
@@ -2336,7 +2336,7 @@ function BlockersAndPlan() {
                                                 {steps.map((s, i) => (
                                                   <li key={i} className="text-[11px] text-prism-primary">
                                                     <span className="text-emerald-400">→</span> <span className="font-medium">{s.action}</span>
-                                                    <span className="text-white0"> — {s.detail}</span>
+                                                    <span className="text-prism-tertiary"> — {s.detail}</span>
                                                   </li>
                                                 ))}
                                               </ul>
@@ -2379,12 +2379,12 @@ function BlockersAndPlan() {
             </div>
 
             <div>
-              <h3 className="text-xs uppercase tracking-wide text-white0 mb-2">Top blocking pillars</h3>
+              <h3 className="text-xs uppercase tracking-wide text-prism-tertiary mb-2">Top blocking pillars</h3>
               {data.top_pillars.length === 0 ? (
                 <p className="text-xs text-emerald-400">All pillars passing thresholds.</p>
               ) : (
                 <table className="w-full text-xs">
-                  <thead className="text-white0 text-left border-b border-border/40">
+                  <thead className="text-prism-tertiary text-left border-b border-border/40">
                     <tr>
                       <th className="py-1.5 pr-2">Pillar</th>
                       <th className="py-1.5 pr-2 text-right">Pass %</th>
@@ -2432,7 +2432,7 @@ function BlockersAndPlan() {
           {/* Recent failure reasoning */}
           {data.recent_failures.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-xs uppercase tracking-wide text-white0 mb-2">Recent failures — judge reasoning</h3>
+              <h3 className="text-xs uppercase tracking-wide text-prism-tertiary mb-2">Recent failures — judge reasoning</h3>
               <ul className="space-y-2">
                 {data.recent_failures.map((f) => {
                   const isOpen = expandedFailure === f.task_id;
@@ -2445,7 +2445,7 @@ function BlockersAndPlan() {
                         <span className="text-txt-faint tabular-nums text-xs pt-0.5 w-8 shrink-0">#{f.task_number}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-prism-primary text-sm truncate">{f.task}</p>
-                          <p className="text-white0 text-xs mt-0.5">
+                          <p className="text-prism-tertiary text-xs mt-0.5">
                             {f.responsible_agent ?? '—'} · {shortPillar(f.pillar)}
                             {f.is_p0 && <span className="text-rose-400 ml-1.5 font-semibold">P0</span>}
                             {f.surface && f.surface !== 'direct' && <span className="ml-1.5">({f.surface})</span>}
@@ -2481,7 +2481,7 @@ function BlockersAndPlan() {
                           )}
                           {f.heuristic_failures && f.heuristic_failures.length > 0 && (
                             <div>
-                              <p className="text-white0 mb-1">Heuristic failures · hover for explanation</p>
+                              <p className="text-prism-tertiary mb-1">Heuristic failures · hover for explanation</p>
                               <div className="flex flex-wrap gap-1">
                                 {f.heuristic_failures.map((h, i) => {
                                   const g = explainHeuristic(h);
@@ -2509,7 +2509,7 @@ function BlockersAndPlan() {
                                     {entries.map((g, i) => (
                                       <li key={i} className="text-prism-secondary">
                                         <span className="text-prism-primary font-medium">{g.label}:</span> {g.meaning}{' '}
-                                        <span className="text-white0">→ look at {g.where_to_look}</span>
+                                        <span className="text-prism-tertiary">→ look at {g.where_to_look}</span>
                                       </li>
                                     ))}
                                   </ul>
@@ -2519,13 +2519,13 @@ function BlockersAndPlan() {
                           )}
                           {f.reasoning_trace && (
                             <div>
-                              <p className="text-white0 mb-1">Judge reasoning ({f.judge_tier ?? 'unknown tier'})</p>
+                              <p className="text-prism-tertiary mb-1">Judge reasoning ({f.judge_tier ?? 'unknown tier'})</p>
                               <p className="text-prism-primary whitespace-pre-wrap">{f.reasoning_trace}</p>
                             </div>
                           )}
                           {f.axis_scores && Object.keys(f.axis_scores).length > 0 && (
                             <div>
-                              <p className="text-white0 mb-1">Axis breakdown</p>
+                              <p className="text-prism-tertiary mb-1">Axis breakdown</p>
                               <div className="flex flex-wrap gap-2">
                                 {Object.entries(f.axis_scores).map(([k, v]) => (
                                   <span key={k} className="text-prism-secondary">
@@ -2541,12 +2541,12 @@ function BlockersAndPlan() {
                             const steps = suggestRemediation(f.heuristic_failures, f.axis_scores);
                             return (
                               <div>
-                                <p className="text-white0 mb-1">Suggested fix steps</p>
+                                <p className="text-prism-tertiary mb-1">Suggested fix steps</p>
                                 <ul className="space-y-1">
                                   {steps.map((s, i) => (
                                     <li key={i} className="text-prism-primary">
                                       <span className="text-emerald-400">{i + 1}.</span> <span className="font-medium">{s.action}</span>
-                                      <span className="text-white0"> — {s.detail}</span>
+                                      <span className="text-prism-tertiary"> — {s.detail}</span>
                                     </li>
                                   ))}
                                 </ul>
@@ -2561,7 +2561,7 @@ function BlockersAndPlan() {
                             <div>
                               <button
                                 onClick={(e) => { e.stopPropagation(); toggleOutput(f.task_id); }}
-                                className="text-white0 hover:text-prism-primary text-[11px]"
+                                className="text-prism-tertiary hover:text-prism-primary text-[11px]"
                               >
                                 {showOutputFor.has(f.task_id) ? '▾ Hide' : '▸ Show'} agent output
                                 <span className="text-txt-faint ml-1">({f.agent_output.length.toLocaleString()} chars)</span>
@@ -2605,7 +2605,7 @@ function BlockersAndPlan() {
           {/* Staged fixes from reflection bridge */}
           {data.staged_fixes.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-xs uppercase tracking-wide text-white0 mb-2">
+              <h3 className="text-xs uppercase tracking-wide text-prism-tertiary mb-2">
                 Prompt mutations staged by reflection loop
                 <span className="ml-2 text-txt-faint normal-case font-normal">
                   (auto-generated fixes — review &amp; promote, or let shadow eval decide)
@@ -2632,7 +2632,7 @@ function BlockersAndPlan() {
                         >
                           <span className="text-txt-faint text-[10px] pt-0.5 shrink-0">{isOpen ? '▾' : '▸'}</span>
                           <span className="text-prism-primary w-24 shrink-0 truncate">{s.agent_id}</span>
-                          <span className="text-white0 w-12 shrink-0 tabular-nums">v{s.version}</span>
+                          <span className="text-prism-tertiary w-12 shrink-0 tabular-nums">v{s.version}</span>
                           <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] ${statusClass}`}>
                             {status}
                           </span>
@@ -2668,13 +2668,13 @@ function BlockersAndPlan() {
                         <div className="px-3 pb-3 pt-1 text-xs border-t border-border/60 space-y-2">
                           {s.change_summary && (
                             <div>
-                              <p className="text-white0 mb-1">Change summary</p>
+                              <p className="text-prism-tertiary mb-1">Change summary</p>
                               <p className="text-prism-primary whitespace-pre-wrap">{s.change_summary}</p>
                             </div>
                           )}
                           {s.prompt_text ? (
                             <div>
-                              <p className="text-white0 mb-1">Proposed prompt (v{s.version})</p>
+                              <p className="text-prism-tertiary mb-1">Proposed prompt (v{s.version})</p>
                               <pre className="text-prism-primary bg-black/40 border border-border rounded p-2 whitespace-pre-wrap overflow-x-auto max-h-64 overflow-y-auto">
 {s.prompt_text}
                               </pre>
@@ -2692,7 +2692,7 @@ function BlockersAndPlan() {
           )}
 
           {data.staged_fixes.length === 0 && data.summary.failing > 0 && (
-            <div className="mt-6 text-xs text-white0 border border-border/60 rounded-md p-3 bg-surface/30">
+            <div className="mt-6 text-xs text-prism-tertiary border border-border/60 rounded-md p-3 bg-surface/30">
               <p className="text-prism-primary">No staged prompt fixes yet.</p>
               <p className="mt-1">
                 The reflection loop stages a prompt mutation after a batch completes with failures. Re-run the failing tasks above to trigger a fresh analysis,
@@ -2727,7 +2727,7 @@ function SummaryStat({
     'text-prism-primary';
   return (
     <div className="border border-border/60 rounded-md px-3 py-2 bg-surface/30" title={title}>
-      <p className="text-[10px] uppercase tracking-wide text-white0">{label}</p>
+      <p className="text-[10px] uppercase tracking-wide text-prism-tertiary">{label}</p>
       <p className={`text-sm font-semibold tabular-nums mt-0.5 ${color}`}>{value}</p>
     </div>
   );
@@ -2779,7 +2779,7 @@ function GlanceBar() {
 
   if (error || !data) {
     return (
-      <div className="rounded-lg border border-border/60 bg-surface/40 p-3 text-xs text-white0">
+      <div className="rounded-lg border border-border/60 bg-surface/40 p-3 text-xs text-prism-tertiary">
         Unable to load live status{error ? `: ${error}` : '.'}
       </div>
     );
@@ -2807,31 +2807,31 @@ function GlanceBar() {
     <div className="rounded-lg border border-border/60 bg-surface/40 px-4 py-3 flex items-center gap-6 flex-wrap">
       <div className="flex items-baseline gap-2">
         <span className={`text-2xl font-semibold tabular-nums ${passRateColor(data.pass_rate)}`}>{passPct}%</span>
-        <span className="text-[11px] uppercase tracking-wide text-white0">pass rate</span>
+        <span className="text-[11px] uppercase tracking-wide text-prism-tertiary">pass rate</span>
       </div>
       <div className="h-8 w-px bg-raised" />
       <div className="flex items-baseline gap-2">
         <span className={`text-lg font-semibold tabular-nums ${passRateColor(data.p0_pass_rate)}`}>{p0Pct}%</span>
-        <span className="text-[11px] uppercase tracking-wide text-white0">P0</span>
+        <span className="text-[11px] uppercase tracking-wide text-prism-tertiary">P0</span>
       </div>
       <div className="h-8 w-px bg-raised" />
       <div className="flex items-baseline gap-2">
         <span className={`text-lg font-semibold tabular-nums ${trendTone}`}>
           {trendSign}{trendPct.toFixed(1)} pp
         </span>
-        <span className="text-[11px] uppercase tracking-wide text-white0">7d trend</span>
+        <span className="text-[11px] uppercase tracking-wide text-prism-tertiary">7d trend</span>
       </div>
       <div className="h-8 w-px bg-raised" />
       <div className="flex items-center gap-2">
         <span className={`w-2 h-2 rounded-full ${stateDot}`} />
         <span className={`text-sm font-medium ${stateText}`}>{stateLabel}</span>
         {data.stuck_tasks?.length > 0 && (
-          <span className="text-[11px] text-white0">
+          <span className="text-[11px] text-prism-tertiary">
             · {data.stuck_tasks.length} stuck task{data.stuck_tasks.length === 1 ? '' : 's'}
           </span>
         )}
       </div>
-      <div className="ml-auto text-[11px] text-white0">
+      <div className="ml-auto text-[11px] text-prism-tertiary">
         Auto-refreshes every minute · next loop tick ≤ 30 min
       </div>
     </div>
@@ -2876,9 +2876,9 @@ function CollapsibleSection({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-2 text-left group"
       >
-        <span className={`text-white0 transition-transform ${open ? 'rotate-90' : ''}`}>▸</span>
+        <span className={`text-prism-tertiary transition-transform ${open ? 'rotate-90' : ''}`}>▸</span>
         <span className="text-sm font-medium text-prism-primary group-hover:text-prism-primary">{title}</span>
-        {subtitle && <span className="text-xs text-white0">{subtitle}</span>}
+        {subtitle && <span className="text-xs text-prism-tertiary">{subtitle}</span>}
       </button>
       {open && <div className="mt-3">{children}</div>}
     </div>
@@ -2935,7 +2935,7 @@ export default function CzProtocol() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold text-prism-primary">Certification Protocol</h1>
-          <p className="text-xs text-white0 mt-1">
+          <p className="text-xs text-prism-tertiary mt-1">
             89 tasks · 10 pillars · 19 P0 · 3 launch gates
           </p>
         </div>
