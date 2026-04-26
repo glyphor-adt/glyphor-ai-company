@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Settings from './Settings';
 import { useSmbSettings } from '../lib/smb';
 import { AgentAvatar, Badge, Card, GradientButton, SectionHeader } from '../components/ui';
+import { Button } from '@/components/ui/button';
 
 type AccordionKey = 'team' | 'work' | 'integrations' | 'brand' | 'advanced';
 
@@ -20,13 +21,13 @@ function AccordionSection({
 }) {
   return (
     <Card>
-      <button onClick={onToggle} className="flex w-full items-start justify-between gap-4 text-left">
+      <Button variant="ghost" onClick={onToggle} className="flex w-full items-start justify-between gap-4 text-left">
         <div>
           <p className="text-base font-semibold text-txt-primary">{title}</p>
           <p className="mt-1 text-sm text-txt-secondary">{subtitle}</p>
         </div>
         <span className="text-sm text-cyan">{open ? 'Hide' : 'Show'}</span>
-      </button>
+      </Button>
       {open && <div className="mt-5">{children}</div>}
     </Card>
   );
@@ -124,13 +125,14 @@ export default function SmbSettings() {
             {data.team.available_departments.map((department) => {
               const enabled = data.team.active_departments.includes(department);
               return (
-                <button
+                <Button
                   key={department}
+                  variant="ghost"
                   onClick={() => toggleDepartment(department)}
                   className={`rounded-full border px-3 py-2 text-sm transition-colors ${enabled ? 'border-cyan bg-cyan/15 text-cyan' : 'border-border text-txt-secondary hover:text-txt-primary'}`}
                 >
                   {department}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -218,12 +220,13 @@ export default function SmbSettings() {
               <div key={integration.key} className="rounded-xl border border-border bg-base/50 p-4">
                 <p className="text-sm font-semibold text-txt-primary">{integration.label}</p>
                 <p className="mt-2 text-sm text-txt-secondary">{connected ? 'Connected and ready to use.' : 'Not connected yet.'}</p>
-                <button
+                <Button
+                  variant="outline"
                   onClick={() => toggleIntegration(integration.key as 'slack' | 'teams' | 'google_workspace' | 'hubspot')}
                   className="mt-4 rounded-lg border border-border px-3 py-2 text-sm font-medium text-txt-primary transition-colors hover:border-border-hover hover:bg-base"
                 >
                   {connected ? 'Disconnect' : 'Connect'}
-                </button>
+                </Button>
               </div>
             );
           })}

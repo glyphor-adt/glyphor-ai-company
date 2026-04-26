@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 const NAV: Array<{
   to: string;
@@ -87,7 +88,8 @@ export default function SmbLayout() {
           </nav>
 
           <div className="relative z-10 px-4 py-3">
-            <button
+            <Button
+              variant="ghost"
               onClick={openInternalDashboard}
               className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors ${
                 theme === 'dark'
@@ -97,8 +99,9 @@ export default function SmbLayout() {
             >
               <OrbitIcon className="h-5 w-5" />
               Advanced view
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
               onClick={toggle}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors ${
                 theme === 'dark'
@@ -108,7 +111,7 @@ export default function SmbLayout() {
             >
               {theme === 'dark' ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-            </button>
+            </Button>
           </div>
 
           <div className="relative z-10 px-4 py-4">
@@ -122,9 +125,9 @@ export default function SmbLayout() {
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-medium text-prism-primary">{user?.name ?? 'User'}</p>
-                <button onClick={logout} className="text-[12px] text-prism-tertiary transition-colors hover:text-prism-primary">
+                <Button variant="ghost" onClick={logout} className="text-[12px] text-prism-tertiary transition-colors hover:text-prism-primary">
                   Sign out
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -139,9 +142,9 @@ export default function SmbLayout() {
             >
               <div className="relative z-10 flex items-center justify-between px-4 py-4">
                 <BrandLockup theme={theme} />
-                <button onClick={() => setDrawerOpen(false)} className="p-1 text-prism-tertiary">
+                <Button variant="ghost" size="icon-sm" onClick={() => setDrawerOpen(false)} className="p-1 text-prism-tertiary">
                   <CloseIcon className="h-5 w-5" />
-                </button>
+                </Button>
               </div>
 
               <nav className="relative z-10 flex-1 space-y-0.5 overflow-y-auto scrollbar-hide px-3">
@@ -167,20 +170,22 @@ export default function SmbLayout() {
               </nav>
 
               <div className="relative z-10 px-4 py-3">
-                <button
+                <Button
+                  variant="ghost"
                   onClick={openInternalDashboard}
                   className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-prism-tertiary"
                 >
                   <OrbitIcon className="h-5 w-5" />
                   Advanced view
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={toggle}
                   className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-prism-tertiary"
                 >
                   {theme === 'dark' ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
                   {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                </button>
+                </Button>
               </div>
 
               <div className="relative z-10 px-4 py-4">
@@ -194,9 +199,9 @@ export default function SmbLayout() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium text-prism-primary">{user?.name ?? 'User'}</p>
-                    <button onClick={logout} className="text-[12px] text-prism-tertiary">
+                    <Button variant="ghost" onClick={logout} className="text-[12px] text-prism-tertiary">
                       Sign out
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -224,13 +229,14 @@ export default function SmbLayout() {
               {label}
             </NavLink>
           ))}
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setDrawerOpen(true)}
             className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-prism-tertiary"
           >
             <MenuIcon className="h-5 w-5" />
             More
-          </button>
+          </Button>
         </nav>
       </div>
     </>

@@ -25,6 +25,7 @@ import { useVoiceChat } from '../lib/useVoiceChat';
 import VoiceOverlay from '../components/VoiceOverlay';
 import OrgChartPicker from '../components/OrgChartPicker';
 import DashboardChatIframe, { type DashboardChatEmbed } from '../components/DashboardChatIframe';
+import { Button } from '@/components/ui/button';
 
 interface Attachment {
   name: string;
@@ -299,7 +300,8 @@ function HtmlArtifactPreview({ html }: { html: string }) {
       <div className="flex items-center justify-between px-3 py-1.5 bg-surface border-b border-border">
         <span className="text-[11px] font-medium text-txt-muted">Live Preview</span>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => {
               const blob = new Blob([html], { type: 'text/html' });
               const url = URL.createObjectURL(blob);
@@ -309,13 +311,14 @@ function HtmlArtifactPreview({ html }: { html: string }) {
             className="text-[10px] text-cyan-400 hover:text-cyan-300"
           >
             Open in new tab ↗
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => setExpanded(!expanded)}
             className="text-[10px] text-txt-muted hover:text-foreground"
           >
             {expanded ? 'Collapse' : 'Expand'}
-          </button>
+          </Button>
         </div>
       </div>
       {expanded && (
@@ -339,13 +342,14 @@ function ActionReceipts({ actions }: { actions: ActionReceipt[] }) {
 
   return (
     <div className="mt-2 text-xs">
-      <button
+      <Button
+        variant="ghost"
         onClick={() => setExpanded(!expanded)}
         className="text-muted hover:text-foreground flex items-center gap-1"
       >
         <span>{expanded ? '▼' : '▶'}</span>
         <span>{label}</span>
-      </button>
+      </Button>
       {expanded && (
         <div className="mt-1 pl-4 border-l border-border space-y-1">
           {actions.map((action, i) => (
@@ -393,15 +397,16 @@ function SidebarContent({
   return (
     <>
       <div className="p-3 space-y-2">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => setShowOrgChart(true)}
           aria-label="New chat"
           title="New chat"
           className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-surface/60 text-txt-secondary shadow-sm transition-colors hover:border-border-hover hover:bg-raised hover:text-txt-primary"
         >
           <MdAdd size={22} />
-        </button>
+        </Button>
         {recentChats.length > 3 && (
           <div className="sidebar-glass flex items-center gap-2 rounded-lg border border-border px-3 py-1.5">
             <MdSearch size={14} className="text-txt-faint flex-shrink-0" />
@@ -433,7 +438,8 @@ function SidebarContent({
                 active ? 'bg-surface ring-1 ring-inset ring-border dark:bg-raised/80' : 'hover:bg-[var(--color-hover-bg)]'
               }`}
             >
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => setSelectedRole(chat.agentRole)}
                 className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2.5"
               >
@@ -471,9 +477,11 @@ function SidebarContent({
                     <p className="text-[11px] text-txt-faint italic mt-0.5">New conversation</p>
                   )}
                 </div>
-              </button>
+              </Button>
               {chat.lastMessage && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteSession(chat.agentRole);
@@ -483,7 +491,7 @@ function SidebarContent({
                   title={`Delete chat with ${name}`}
                 >
                   <MdDeleteOutline size={16} />
-                </button>
+                </Button>
               )}
             </div>
           );
@@ -1382,13 +1390,14 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
       >
         {/* Header */}
         <div className="flex items-center gap-2 border-b border-border/70 pb-3 md:gap-3 md:pb-4">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setMobileSidebarOpen(true)}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-txt-muted transition-colors hover:bg-[var(--color-hover-bg)] md:hidden"
           >
             <MdSearch size={18} />
-          </button>
+          </Button>
           <AgentAvatar role={selectedRole} size={36} glow />
           <div className="flex-1">
             <h2 className="text-[15px] font-semibold text-txt-primary">{codename}</h2>
@@ -1420,18 +1429,20 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                 {teamsJoining ? 'Joining…' : 'Add to This Call'}
               </GradientButton>
             ) : (
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => setShowTeamsModal(true)}
                 className="sidebar-glass flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[11px] font-medium text-txt-muted transition-colors hover:text-txt-primary"
                 title="Add agent to a Teams call"
               >
                 <MdVideoCall size={16} />
                 Teams Call
-              </button>
+              </Button>
             )
           )}
           {messages.length > 0 && (
-            <button
+            <Button
+              variant="ghost"
               onClick={async () => {
                 await apiCall(`/api/chat-messages?agent_role=${selectedRole}&user_id=${userEmail}`, { method: 'DELETE' });
                 setMessages([]);
@@ -1439,7 +1450,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
               className="text-[11px] text-txt-faint hover:text-rose transition-colors"
             >
               Clear Chat
-            </button>
+            </Button>
           )}
         </div>
 
@@ -1640,7 +1651,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   <MdDescription className="text-[14px] text-txt-muted" />
                 )}
                 <span className="text-[11px] text-txt-secondary truncate max-w-[100px]">{f.name}</span>
-                <button onClick={() => removeFile(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors"><MdClose className="text-[14px]" /></button>
+                <Button variant="ghost" size="icon-sm" onClick={() => removeFile(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors"><MdClose /></Button>
               </div>
             ))}
           </div>
@@ -1652,8 +1663,9 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
           {showMentions && filteredMentions.length > 0 && (
             <div className="dropdown-panel sidebar-glass absolute bottom-full left-0 z-10 mb-1 max-h-48 w-64 overflow-y-auto rounded-lg">
               {filteredMentions.map((m, i) => (
-                <button
+                <Button
                   key={m.role}
+                  variant="ghost"
                   onClick={() => insertMention(m)}
                   className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors ${
                     i === mentionIdx ? 'bg-surface text-txt-primary ring-1 ring-inset ring-border' : 'text-txt-secondary hover:bg-[var(--color-hover-bg)]'
@@ -1666,7 +1678,7 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   )}
                   <span className="font-medium">{m.name}</span>
                   <span className="text-txt-faint ml-auto text-[10px]">{m.isFounder ? 'Founder' : m.role}</span>
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -1700,16 +1712,16 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
 
             <div className={composerFooterRowClassName}>
               <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => fileInputRef.current?.click()}
                   className={composerIconButtonClassName}
                   title="Attach file"
                 >
                   <MdAttachFile className="text-[15px]" />
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={toggleDictation}
                   className={
                     isListening
@@ -1719,9 +1731,9 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   title={isListening ? 'Stop dictation' : 'Dictate (speech to text)'}
                 >
                   <HiMicrophone size={15} />
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     if (voice.isActive) voice.stopVoice();
                     else voice.startVoice(selectedRole, userEmail);
@@ -1737,18 +1749,18 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                   title={voice.isActive ? 'End voice chat' : 'Start voice chat'}
                 >
                   {voice.isActive ? <HiStop size={15} /> : <HiMiniSignal size={15} />}
-                </button>
+                </Button>
               </div>
 
-              <button
-                type="button"
+              <Button
+                variant="default"
                 onClick={sendMessage}
                 disabled={respondingAgents.has(selectedRole) || (!input.trim() && pendingFiles.length === 0)}
                 className={composerSendButtonClassName}
                 aria-label="Send message"
               >
                 <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
-              </button>
+              </Button>
             </div>
           </ChatComposerFrame>
         </div>
@@ -1764,9 +1776,9 @@ export default function Chat({ embedded }: { embedded?: boolean } = {}) {
                 <MdVideoCall size={20} className="text-txt-secondary" />
                 Add {codename} to Teams Call
               </h3>
-              <button onClick={() => setShowTeamsModal(false)} className="text-txt-faint hover:text-txt-primary transition-colors">
+              <Button variant="ghost" size="icon-sm" onClick={() => setShowTeamsModal(false)} className="text-txt-faint hover:text-txt-primary transition-colors">
                 <MdClose size={18} />
-              </button>
+              </Button>
             </div>
             <p className="text-[12px] text-txt-muted mb-4">
               Paste a Teams meeting join link and {codename} will join the call with voice, listen, and respond in real-time.

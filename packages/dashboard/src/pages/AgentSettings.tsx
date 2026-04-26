@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { StatusDot } from '../components/ui/StatusDot';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { apiCall, buildApiHeaders, SCHEDULER_URL } from '../lib/firebase';
 import { postAgentPauseResume } from '../lib/agentPauseResume';
@@ -412,9 +413,7 @@ export default function AgentSettings() {
                   ? 'badge-yellow'
                   : 'badge-gray'
               }`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${
-                  agent.status === 'active' ? 'bg-green-200' : agent.status === 'paused' ? 'bg-yellow-200' : 'bg-gray-200'
-                }`} />
+                <StatusDot status={agent.status} />
                 {agent.status}
               </span>
             </div>

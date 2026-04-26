@@ -4,6 +4,7 @@ import ChatMarkdown from '../components/ChatMarkdown';
 import { DISPLAY_NAME_MAP } from '../lib/types';
 import { Orbit, Plus, Globe, Brain, Database, Paperclip, Copy, Check, ChevronDown, ChevronRight, Mic, MicOff, MessageSquarePlus, PanelLeftClose, PanelLeft, Search, Trash2, ArrowUp } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
+import { MdClose } from 'react-icons/md';
 import { Card } from '../components/ui';
 import {
   ChatComposerFrame,
@@ -19,6 +20,7 @@ import { getModelLabel, getModelsByProvider, PROVIDER_LABELS, getReasoningSuppor
 import { useAuth, getEmailAliases } from '../lib/auth';
 import { cn } from '../lib/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 /* ── Triangulation types (mirrored from @glyphor/shared) ───── */
 
@@ -280,7 +282,8 @@ function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
   return (
     <div className="mt-3 rounded-xl border border-prism-border bg-prism-card p-4">
       {/* Collapsed view */}
-      <button
+      <Button
+        variant="ghost"
         onClick={() => setExpanded(!expanded)}
         className="flex w-full items-center gap-3 text-left"
       >
@@ -313,7 +316,7 @@ function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
         >
           <path d="M4 6l4 4 4-4" />
         </svg>
-      </button>
+      </Button>
 
       {/* Expanded view */}
       {expanded && (
@@ -327,7 +330,8 @@ function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
               : null;
             return (
               <div key={provider}>
-                <button
+                <Button
+                  variant="ghost"
                   onClick={() => setExpandedProvider(expandedProvider === provider ? null : provider)}
                   className="flex w-full items-center gap-2 text-left"
                 >
@@ -350,9 +354,7 @@ function TriangulationPanel({ tri }: { tri: TriangulationResult }) {
                       <span className="text-[11px] text-prism-tertiary">{scores.total}</span>
                     </>
                   )}
-                </button>
-
-                {/* Error details or dimension scores */}
+                </Button>
                 {expandedProvider === provider && providerError && (
                   <div className="ml-6 mt-2 rounded-lg bg-red-900/20 border border-red-500/30 p-2">
                     <p className="text-[11px] text-red-400">{providerError}</p>
@@ -402,8 +404,8 @@ function ReasoningPanel({ reasoning }: { reasoning: string }) {
 
   return (
     <div className="mt-4 rounded-2xl border border-prism-border bg-prism-bg2/60">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setExpanded((value) => !value)}
         className="flex w-full items-center gap-2 px-4 py-3 text-left"
       >
@@ -411,7 +413,7 @@ function ReasoningPanel({ reasoning }: { reasoning: string }) {
         <span className="text-[12px] font-medium text-prism-primary">Reasoning</span>
         <span className="text-[11px] text-prism-tertiary">{expanded ? 'Hide' : 'Show'}</span>
         <ChevronDown className={`ml-auto h-4 w-4 text-prism-tertiary transition-transform ${expanded ? 'rotate-180' : ''}`} />
-      </button>
+      </Button>
       {expanded && (
         <div className="border-t border-prism-border px-4 py-4">
           <div className="prose-chat text-[12px] text-prism-tertiary">
@@ -441,8 +443,8 @@ function MenuAction({
   trailing?: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={onClick}
       disabled={disabled}
       className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-prism-bg2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -455,7 +457,7 @@ function MenuAction({
         {subtitle ? <div className="text-[11px] text-prism-tertiary">{subtitle}</div> : null}
       </div>
       {trailing ?? (active ? <Check className="h-4 w-4 text-cyan-400" /> : null)}
-    </button>
+    </Button>
   );
 }
 
@@ -1113,23 +1115,25 @@ export default function OraChat() {
       {sidebarOpen && (
         <div className="chat-sidebar-glass sidebar-glass fixed inset-y-0 left-0 z-50 flex w-full max-w-full flex-shrink-0 flex-col border-r border-border md:relative md:inset-auto md:z-auto md:w-72 md:max-w-none md:rounded-2xl md:border" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2 px-3 py-3">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={startNewSession}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-prism-primary transition-colors hover:bg-prism-bg2 hover:text-cyan"
               aria-label="New chat"
               title="New chat"
             >
               <MessageSquarePlus className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setSidebarOpen(false)}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary transition-colors"
               title="Hide sidebar"
             >
               <PanelLeftClose className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
 
           {/* Search */}
@@ -1162,8 +1166,8 @@ export default function OraChat() {
                     : 'hover:bg-prism-bg2'
                 }`}
               >
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => setActiveSessionId(session.id)}
                   className="min-w-0 flex-1 text-left"
                 >
@@ -1173,15 +1177,16 @@ export default function OraChat() {
                   <p className="text-[11px] text-prism-tertiary">
                     {new Date(session.updated_at).toLocaleDateString()}
                   </p>
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={(e) => { e.stopPropagation(); deleteSession(session.id); }}
                   className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-prism-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-400"
                   title="Delete conversation"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -1195,14 +1200,15 @@ export default function OraChat() {
         {/* Header */}
         <div className="flex items-center gap-2 md:gap-3 pb-3 md:pb-4">
           {/* Sidebar toggle — always visible on mobile, only when closed on desktop */}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setSidebarOpen((v) => !v)}
             className={`flex h-9 w-9 items-center justify-center rounded-lg text-prism-tertiary hover:bg-prism-bg2 hover:text-prism-primary transition-colors ${sidebarOpen ? 'md:hidden' : ''}`}
             title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           >
             {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
-          </button>
+          </Button>
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan/20">
             <Orbit className="h-4 w-4 text-cyan" strokeWidth={1.8} />
           </div>
@@ -1313,14 +1319,14 @@ export default function OraChat() {
               {/* Copy button for assistant messages */}
               {msg.role === 'assistant' && msg.content && (
                 <div className="mt-2 flex items-center gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => copyMessage(msg.id, msg.content)}
                     className="inline-flex items-center gap-1 text-[10px] text-txt-faint hover:text-cyan transition-colors"
                   >
                     {copiedMessageId === msg.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                     {copiedMessageId === msg.id ? 'Copied' : 'Copy'}
-                  </button>
+                  </Button>
                   <span className="text-[10px] text-txt-faint">
                     {msg.metadata?.singleModel
                       ? getModelLabel(msg.metadata.singleModel.model)
@@ -1369,7 +1375,7 @@ export default function OraChat() {
                 <span>📎</span>
               )}
               <span className="text-[11px] text-txt-secondary truncate max-w-[100px]">{a.name}</span>
-              <button onClick={() => removeAttachment(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors">✕</button>
+              <Button variant="ghost" size="icon-sm" onClick={() => removeAttachment(i)} className="ml-1 text-txt-faint hover:text-rose transition-colors"><MdClose /></Button>
             </div>
           ))}
         </div>
@@ -1452,20 +1458,20 @@ export default function OraChat() {
                 </div>
 
                 <div className="mb-3 grid grid-cols-2 gap-2 px-3">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => setMode('triangulated')}
                     className={`rounded-xl px-3 py-2 text-[12px] transition-colors ${mode === 'triangulated' ? 'bg-cyan-500/10 text-cyan-300' : 'bg-prism-bg2 text-prism-secondary hover:bg-prism-bg2/80'}`}
                   >
                     Triangulated
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
                     onClick={() => setMode('single-model')}
                     className={`rounded-xl px-3 py-2 text-[12px] transition-colors ${mode === 'single-model' ? 'bg-cyan-500/10 text-cyan-300' : 'bg-prism-bg2 text-prism-secondary hover:bg-prism-bg2/80'}`}
                   >
                     Single model
-                  </button>
+                  </Button>
                 </div>
 
                 {mode === 'single-model' ? (
@@ -1477,15 +1483,15 @@ export default function OraChat() {
                         </div>
                         <div className="space-y-1.5">
                           {modelGroups[provider].map((modelOption) => (
-                            <button
+                            <Button
                               key={modelOption.value}
-                              type="button"
+                              variant="ghost"
                               onClick={() => setSelectedModel(modelOption.value)}
                               className={`flex w-full items-center rounded-xl px-3 py-2 text-left text-[12px] transition-colors ${selectedModel === modelOption.value ? 'bg-cyan-500/10 text-cyan-300' : 'text-prism-secondary hover:bg-prism-bg2'}`}
                             >
                               <span>{modelOption.label}</span>
                               {selectedModel === modelOption.value ? <Check className="ml-auto h-4 w-4 text-cyan-400" /> : null}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                       </div>
@@ -1544,9 +1550,9 @@ export default function OraChat() {
                 </div>
                 <div className="space-y-1 px-3 pb-1">
                   {activeReasoningSupport.levels.map((level) => (
-                    <button
+                    <Button
                       key={level}
-                      type="button"
+                      variant="ghost"
                       onClick={() => setFeatures((prev) => ({ ...prev, reasoningLevel: level }))}
                       className={`flex w-full items-center rounded-xl px-3 py-3 text-left transition-colors ${features.reasoningLevel === level ? 'bg-cyan-500/10 text-cyan-300' : 'text-prism-secondary hover:bg-prism-bg2'}`}
                     >
@@ -1555,7 +1561,7 @@ export default function OraChat() {
                         <div className="text-[11px] text-prism-tertiary">{getReasoningSubtitle(level)}</div>
                       </div>
                       {features.reasoningLevel === level ? <Check className="ml-auto h-4 w-4 text-cyan-400" /> : null}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -1582,17 +1588,17 @@ export default function OraChat() {
 
             <div className={composerFooterRowClassName}>
               <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => setMenuOpen((prev) => !prev)}
                   disabled={isLoading}
                   className={cn(composerIconButtonClassName, 'disabled:opacity-40', menuOpen && composerIconButtonActiveMenuClassName)}
                   aria-label="Open Ora options"
                 >
                   <Plus className={`h-3.5 w-3.5 transition-transform ${menuOpen ? 'rotate-45' : ''}`} strokeWidth={2.25} />
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={toggleDictation}
                   disabled={isLoading}
                   className={
@@ -1603,18 +1609,18 @@ export default function OraChat() {
                   title={isListening ? 'Stop dictation' : 'Dictate'}
                 >
                   {isListening ? <MicOff className="h-3.5 w-3.5" strokeWidth={2.25} /> : <Mic className="h-3.5 w-3.5" strokeWidth={2.25} />}
-                </button>
+                </Button>
               </div>
 
-              <button
-                type="button"
+              <Button
+                variant="default"
                 onClick={send}
                 disabled={isLoading || (!input.trim() && attachments.length === 0)}
                 className={composerSendButtonClassName}
                 aria-label="Send message"
               >
                 <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
-              </button>
+              </Button>
             </div>
         </ChatComposerFrame>
       </div>

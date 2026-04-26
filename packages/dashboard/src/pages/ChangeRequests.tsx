@@ -8,6 +8,7 @@ import type { DashboardChangeRequest } from '../lib/types';
 import { normalizeText } from '../lib/normalizeText';
 import { MdAdd, MdClose, MdOpenInNew, MdCode, MdBugReport, MdAutoFixHigh, MdBuild, MdCheck, MdBlock } from 'react-icons/md';
 import { GlowingTextareaFrame, glowingTextareaInnerClassName } from '../components/ui/glowing-textarea-frame';
+import { Button } from '@/components/ui/button';
 
 /* ── Constants ─────────────────────────────────── */
 
@@ -106,8 +107,9 @@ export default function ChangeRequests() {
           { key: 'done' as const, label: `Done (${doneCount})` },
           { key: 'all' as const, label: `All (${requests.length})` },
         ]).map(tab => (
-          <button
+          <Button
             key={tab.key}
+            variant="ghost"
             onClick={() => setFilter(tab.key)}
             className={`rounded-md px-4 py-1.5 text-[13px] font-medium transition-colors ${
               filter === tab.key
@@ -116,7 +118,7 @@ export default function ChangeRequests() {
             }`}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -396,9 +398,9 @@ function NewRequestModal({
       >
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-txt-primary">New Change Request</h2>
-          <button onClick={onClose} className="text-txt-muted hover:text-txt-primary transition-colors">
+          <Button variant="ghost" size="icon-sm" onClick={onClose} className="text-txt-muted hover:text-txt-primary transition-colors">
             <MdClose className="text-xl" />
-          </button>
+          </Button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

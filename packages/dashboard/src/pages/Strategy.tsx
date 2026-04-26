@@ -11,6 +11,7 @@ import {
   Skeleton,
   timeAgo,
 } from '../components/ui';
+import { Button } from '@/components/ui/button';
 import { MultiStepLoader } from '../components/ui/multi-step-loader';
 import { inferTier } from '../components/ui/multi-step-loader-states';
 import { useAsyncLoader } from '../hooks/useAsyncLoader';
@@ -248,8 +249,9 @@ export default function Strategy() {
       {/* Tab Toggle */}
       <div className="flex w-fit gap-1 rounded-lg border border-border/60 theme-glass-panel p-1">
         {(['strategy-lab-v2', 'deep-dives', 'simulations', 'cot'] as Tab[]).map((t) => (
-          <button
+          <Button
             key={t}
+            variant="ghost"
             onClick={() => setTab(t)}
             className={`rounded-md px-4 py-1.5 text-[13px] font-medium transition-colors ${
               tab === t
@@ -258,7 +260,7 @@ export default function Strategy() {
             }`}
           >
             {TAB_LABELS[t]}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -533,7 +535,7 @@ function DeepDiveCard({ record, expanded, onToggle }: { record: DeepDiveRecord; 
 
   return (
     <Card className="overflow-hidden">
-      <button onClick={onToggle} className="w-full text-left px-5 py-4 flex items-center justify-between group">
+      <Button variant="ghost" onClick={onToggle} className="w-full text-left px-5 py-4 flex items-center justify-between group">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5">
             <span className={`h-2 w-2 rounded-full flex-shrink-0 ${ddStatusColor(record.status)}`} />
@@ -563,7 +565,7 @@ function DeepDiveCard({ record, expanded, onToggle }: { record: DeepDiveRecord; 
           </div>
         </div>
         <MdExpandMore className={`text-xl text-txt-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
-      </button>
+      </Button>
 
       {expanded && record.report && <DeepDiveDetail record={record} report={record.report} />}
       {expanded && !record.report && (
@@ -682,15 +684,16 @@ function DeepDiveDetail({ record, report }: { record: DeepDiveRecord; report: De
       <div className="border-b border-border px-4 py-2 sm:px-5">
         <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg border border-border/60 theme-glass-panel p-1">
           {TAB_ITEMS.map((t) => (
-            <button
+            <Button
               key={t.key}
+              variant="ghost"
               onClick={() => setDdTab(t.key)}
               className={`shrink-0 rounded-md px-3 py-1.5 text-[12px] font-medium whitespace-nowrap transition-colors ${
                 ddTab === t.key ? 'border border-cyan/40 bg-transparent text-cyan' : 'border border-transparent text-txt-muted hover:text-txt-secondary'
               }`}
             >
               {t.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -1053,10 +1056,10 @@ function FrameworkCard({ label, color, summary, keyInsight, data }: {
 
   return (
     <div className="glass-outline rounded-xl p-4" style={{ borderTopColor: 'currentColor', borderTopWidth: '2px' }}>
-      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between text-left">
+      <Button variant="ghost" onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between text-left">
         <span className={`text-xs font-semibold uppercase tracking-wider ${color}`}>{label}</span>
         <MdExpandMore className={`h-4 w-4 text-txt-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
-      </button>
+      </Button>
       {summary && <p className="text-[12px] text-txt-secondary leading-relaxed mt-2">{summary}</p>}
       {keyInsight && (
         <div className="mt-2 rounded-md border border-prism-elevated/35 bg-transparent px-3 py-1.5">
@@ -1224,19 +1227,19 @@ function DDWatchlist({ items }: { items?: WatchlistItem[] }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => setCategoryFilter(null)}
           className={!categoryFilter ? filterChipActiveAllClassName : filterChipInactiveClassName}
         >
           All ({items.length})
-        </button>
+        </Button>
         {categories.map((cat) => {
           const colors = WATCHLIST_CATEGORY_COLORS[cat] || { bg: 'border-border/60', text: 'text-txt-muted' };
           return (
-            <button
+            <Button
               key={cat}
-              type="button"
+              variant="ghost"
               onClick={() => setCategoryFilter(cat)}
               className={
                 categoryFilter === cat
@@ -1245,7 +1248,7 @@ function DDWatchlist({ items }: { items?: WatchlistItem[] }) {
               }
             >
               {cat} ({items.filter((w) => w.category === cat).length})
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -1469,7 +1472,8 @@ function SimulationsPanel() {
           <div className="mt-3 space-y-3">
             {simulations.map((s) => (
               <Card key={s.id}>
-                <button
+                <Button
+                  variant="ghost"
                   onClick={() => setExpanded(expanded === s.id ? null : s.id)}
                   className="flex w-full items-center justify-between text-left"
                 >
@@ -1484,7 +1488,7 @@ function SimulationsPanel() {
                     </div>
                   </div>
                   <span className="text-[11px] text-txt-faint">{timeAgo(s.created_at)}</span>
-                </button>
+                </Button>
 
                 {expanded === s.id && s.report && (
                   <SimulationDetail report={s.report} record={s} onAccept={() => acceptSim(s.id)} />
@@ -1685,12 +1689,13 @@ function SimulationDetail({ report, record, onAccept }: { report: SimulationRepo
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
         {record.status === 'completed' && (
-          <button
+          <Button
+            variant="default"
             onClick={onAccept}
             className="rounded-lg bg-tier-green/15 border border-tier-green/30 px-4 py-1.5 text-sm font-medium text-tier-green transition-opacity hover:opacity-90"
           >
             Accept Recommendation
-          </button>
+          </Button>
         )}
         <ExportButton label="Word (.docx)" href={`${SCHEDULER_URL}/simulation/${record.id}/export?format=docx`} />
         <ExportButton label="PowerPoint" href={`${SCHEDULER_URL}/simulation/${record.id}/export?format=pptx`} />
@@ -1854,7 +1859,8 @@ function ChainOfThoughtPanel() {
           <div className="mt-3 space-y-3">
             {records.map((r) => (
               <Card key={r.id}>
-                <button
+                <Button
+                  variant="ghost"
                   onClick={() => setExpanded(expanded === r.id ? null : r.id)}
                   className="flex w-full items-center justify-between text-left"
                 >
@@ -1869,7 +1875,7 @@ function ChainOfThoughtPanel() {
                     </div>
                   </div>
                   <span className="text-[11px] text-txt-faint">{timeAgo(r.created_at)}</span>
-                </button>
+                </Button>
 
                 {expanded === r.id && r.report && (
                   <CotDetail report={r.report} id={r.id} />
@@ -1905,8 +1911,9 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
       <div className="w-full overflow-x-auto">
         <div className="inline-flex min-w-0 gap-1 rounded-lg border border-border/60 theme-glass-panel p-1">
           {(['decomposition', 'solution_space', 'options', 'validation'] as CotPhase[]).map((p) => (
-            <button
+            <Button
               key={p}
+              variant="ghost"
               onClick={() => setPhase(p)}
               className={`shrink-0 rounded-md px-3 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
                 phase === p
@@ -1915,7 +1922,7 @@ function CotDetail({ report, id }: { report: CotReport; id: string }) {
               }`}
             >
               {COT_PHASE_LABELS[p]}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -2456,7 +2463,7 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
 
   return (
     <Card>
-      <button onClick={onToggle} className="w-full text-left">
+      <Button variant="ghost" onClick={onToggle} className="w-full text-left">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2">
@@ -2479,8 +2486,7 @@ function SLv2RecordCard({ record, expanded, onToggle }: { record: SLv2Record; ex
             <MdExpandMore className={`h-5 w-5 text-txt-faint transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </div>
         </div>
-      </button>
-
+      </Button>
       {expanded && (
         <div className="mt-4 space-y-5 border-t border-border pt-4">
           {/* Workflow Step Progress */}
@@ -2645,15 +2651,16 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
           ['risks', 'Risks & Questions'],
           ...(hasWatchlist ? [['watchlist', 'Watchlist'] as const] : []),
         ] as const).map(([k, label]) => (
-          <button
+          <Button
             key={k}
+            variant="ghost"
             onClick={() => setShowSection(k)}
             className={`rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors ${
               showSection === k ? 'border border-cyan/40 bg-transparent text-cyan' : 'border border-transparent text-txt-muted hover:text-txt-secondary'
             }`}
           >
             {label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -2851,13 +2858,14 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
         <ExportButton label="Markdown" href={`${SCHEDULER_URL}/strategy-lab/${id}/export?format=markdown`} />
         <ExportButton label="JSON" href={`${SCHEDULER_URL}/strategy-lab/${id}/export?format=json`} />
         <span className="mx-1 h-5 w-px bg-border" />
-        <button
+        <Button
+          variant="ghost"
           onClick={generateVisual}
           disabled={generatingVisual}
           className="rounded-lg border border-cyan/40 bg-transparent px-3 py-1.5 text-[12px] font-medium text-cyan transition-colors hover:border-cyan/55 hover:bg-cyan/5 disabled:opacity-40"
         >
           {generatingVisual ? 'Generating…' : <><MdPalette className="inline h-4 w-4 mr-1 -mt-0.5" />AI Visual</>}
-        </button>
+        </Button>
         {visualError && <span className="text-[11px] text-prism-critical">{visualError}</span>}
       </div>
 
@@ -2866,7 +2874,8 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
         <div className="rounded-xl border border-cyan/35 bg-transparent p-5">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-cyan">AI-Generated Infographic</p>
-            <button
+            <Button
+              variant="ghost"
               onClick={() => {
                 const byteChars = atob(visualImage.data);
                 const byteArray = new Uint8Array(byteChars.length);
@@ -2881,7 +2890,7 @@ function SLv2SynthesisView({ synthesis, id, frameworkOutputs, frameworkConvergen
               className="text-xs text-cyan hover:underline font-medium"
             >
               Download Image
-            </button>
+            </Button>
           </div>
           <img
             src={`data:${visualImage.mimeType};base64,${visualImage.data}`}

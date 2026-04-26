@@ -303,18 +303,18 @@ export default function OnboardingDashboard() {
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-200/80">Activation Progress</p>
               <div>
                 <h2 className="text-3xl font-semibold">{progress.active} of {progress.total} departments live</h2>
-                <p className="mt-2 max-w-2xl text-sm text-slate-200/80">Each department is activated from the catalog, inherits its default operating controls, and connects to existing teams through handoff contracts.</p>
+                <p className="mt-2 max-w-2xl text-sm text-prism-secondary">Each department is activated from the catalog, inherits its default operating controls, and connects to existing teams through handoff contracts.</p>
               </div>
             </div>
             <div className="min-w-[220px] rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-              <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-slate-300">
+              <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-prism-secondary">
                 <span>Coverage</span>
                 <span>{progress.percent}%</span>
               </div>
               <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/10">
                 <div className="h-full rounded-full bg-gradient-to-r from-amber-300 via-orange-400 to-cyan-300 transition-all duration-500" style={{ width: `${progress.percent}%` }} />
               </div>
-              <p className="mt-3 text-sm text-slate-200/80">Active departments unlock new collaboration routes and reduce manual setup for the next launch wave.</p>
+              <p className="mt-3 text-sm text-prism-secondary">Active departments unlock new collaboration routes and reduce manual setup for the next launch wave.</p>
             </div>
           </div>
         </Card>

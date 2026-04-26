@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, SectionHeader, Skeleton } from '../ui';
 import { CollapsibleCard } from './shared';
+import { Button } from '@/components/ui/button';
 import { apiCall, buildApiHeaders, CANONICAL_SCHEDULER_URL, isDashboardSchedulerSplitHost, SCHEDULER_URL } from '../../lib/firebase';
 
 interface FleetLeaderMetric {
@@ -923,14 +924,14 @@ export default function ReliabilityDashboard() {
               <option value={90}>90 days</option>
             </select>
           </label>
-          <button
-            type="button"
+          <Button
+            variant="outline"
             onClick={() => void refresh()}
             disabled={refreshing}
             className="rounded-lg theme-glass-panel-soft px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary disabled:opacity-50"
           >
             {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1092,14 +1093,14 @@ export default function ReliabilityDashboard() {
         title="Stage 3 — Golden Eval Loop"
         subtitle="Weekly golden eval suite and auto-repair conversion tracking"
         action={
-          <button
-            type="button"
+          <Button
+            variant="default"
             disabled={goldenRunBusy || refreshing}
             onClick={(e) => { e.stopPropagation(); void runGoldenSuiteNow(); }}
             className="rounded-lg border border-prism-teal/50 bg-prism-teal/10 px-4 py-2 text-[13px] font-semibold text-prism-teal transition-colors hover:bg-prism-teal/20 disabled:opacity-50"
           >
             {goldenRunBusy ? 'Running…' : 'Run golden suite'}
-          </button>
+          </Button>
         }
       >
         <div className="flex flex-wrap items-center gap-3">
@@ -1333,8 +1334,8 @@ export default function ReliabilityDashboard() {
             {evalSuggestionsCopyHint ? (
               <span className="text-[11px] text-txt-muted">{evalSuggestionsCopyHint}</span>
             ) : null}
-            <button
-              type="button"
+            <Button
+              variant="default"
               disabled={newEvalSuggestionCount === 0 || evalApplyBusy || refreshing}
               title="Inserts every row marked New into agent_eval_scenarios (no manual SQL). Disable with scheduler env PLANNING_GATE_EVAL_APPLY_ENABLED=false."
               onClick={() => void applyEvalSuiteFromGateMisses()}
@@ -1345,9 +1346,9 @@ export default function ReliabilityDashboard() {
                 : newEvalSuggestionCount > 0
                   ? `Add ${newEvalSuggestionCount} to eval suite`
                   : 'Add to eval suite'}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="outline"
               disabled={!evalSuggestions?.suggestions.length}
               onClick={() => {
                 if (!evalSuggestions?.suggestions.length) return;
@@ -1366,9 +1367,9 @@ export default function ReliabilityDashboard() {
               className="rounded-lg theme-glass-panel-soft px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary disabled:opacity-50"
             >
               Copy seed JSON
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="outline"
               disabled={!evalSuggestions?.insertSql?.includes('INSERT INTO')}
               title="Database-ready text for rows marked New only. Usually handed to whoever adds official practice tasks to the system."
               onClick={() => {
@@ -1386,7 +1387,7 @@ export default function ReliabilityDashboard() {
               className="rounded-lg theme-glass-panel-soft px-4 py-2 text-[13px] font-medium text-txt-secondary transition-colors hover:border-primary/40 hover:text-txt-primary disabled:opacity-50"
             >
               Copy INSERT SQL
-            </button>
+            </Button>
           </div>
         </div>
         <div className="mt-3 rounded-lg border border-border/60 bg-bg-elevated/40 p-3 text-[12px] leading-relaxed text-txt-secondary">
@@ -1555,13 +1556,13 @@ export default function ReliabilityDashboard() {
                     </div>
                     <p className="mt-2 text-[13px] text-txt-secondary">{item.escalationReason ?? 'No escalation reason recorded.'}</p>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => setExpandedTaskIds((current) => ({ ...current, [item.taskId]: !expanded }))}
                     className="rounded-lg border border-border px-3 py-1 text-[12px] text-txt-secondary transition-colors hover:border-prism-sky/40 hover:text-txt-primary"
                   >
                     {expanded ? 'Collapse' : 'Expand'}
-                  </button>
+                  </Button>
                 </div>
                 {expanded && (
                   <div className="mt-4 grid gap-3 text-[12px] text-txt-secondary md:grid-cols-2 xl:grid-cols-4">
@@ -1635,9 +1636,9 @@ function MetricCard({ title, value, subtitle }: { title: string; value: string; 
 function SortableHeader({ label, active, descending, onClick }: { label: string; active: boolean; descending: boolean; onClick: () => void }) {
   return (
     <th className="px-3 py-3 font-medium">
-      <button type="button" onClick={onClick} className={`transition-colors hover:text-txt-primary ${active ? 'text-txt-primary' : ''}`}>
+      <Button variant="ghost" onClick={onClick} className={`transition-colors hover:text-txt-primary ${active ? 'text-txt-primary' : ''}`}>
         {label}{active ? (descending ? ' ↓' : ' ↑') : ''}
-      </button>
+      </Button>
     </th>
   );
 }
