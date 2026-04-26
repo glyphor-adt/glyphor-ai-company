@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, SectionHeader, Skeleton, Badge, GradientButton, Sparkline } from '../ui';
 import { apiCall, buildApiHeaders, CANONICAL_SCHEDULER_URL } from '../../lib/firebase';
+import { Button } from '@/components/ui/button';
 
 /* ══════════════════════════════════════════════════════════════
    Types
@@ -200,13 +201,14 @@ function Scorecard() {
       {/* Surface Toggle */}
       <div className="flex items-center gap-2 mt-2">
         {[null, 'direct', 'teams', 'slack'].map((s) => (
-          <button
+          <Button
+            variant="ghost"
             key={s ?? 'all'}
             className={`text-xs px-2 py-1 rounded ${surface === s ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
             onClick={() => setSurface(s)}
           >
             {s ? s.charAt(0).toUpperCase() + s.slice(1) : 'All'}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -382,27 +384,30 @@ function TaskGrid() {
 
       {/* Pillar + P0 filters */}
       <div className="flex items-center gap-2 mt-3 flex-wrap">
-        <button
+        <Button
+          variant="ghost"
           className={`text-xs px-2 py-1 rounded ${!filterPillar ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
           onClick={() => setFilterPillar(null)}
         >
           All Pillars
-        </button>
+        </Button>
         {pillarList.map((p) => (
-          <button
+          <Button
+            variant="ghost"
             key={p}
             className={`text-xs px-2 py-1 rounded ${filterPillar === p ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
             onClick={() => setFilterPillar(p === filterPillar ? null : p)}
           >
             {shortPillar(p)}
-          </button>
+          </Button>
         ))}
-        <button
+        <Button
+          variant="ghost"
           className={`text-xs px-2 py-1 rounded ml-2 ${filterP0 ? 'bg-rose-900/40 text-rose-300' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
           onClick={() => setFilterP0(!filterP0)}
         >
           P0 Only
-        </button>
+        </Button>
       </div>
 
       {/* Last-Run date filter */}
@@ -415,7 +420,8 @@ function TaskGrid() {
           ['30d', 'Last 30d'],
           ['never', 'Never run'],
         ] as const).map(([key, label]) => (
-          <button
+          <Button
+            variant="ghost"
             key={key}
             className={`px-2 py-1 rounded ${runDatePreset === key ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
             onClick={() => {
@@ -425,7 +431,7 @@ function TaskGrid() {
             }}
           >
             {label}
-          </button>
+          </Button>
         ))}
         <span className="ml-1 flex items-center gap-1">
           <span className="text-txt-faint">from</span>
@@ -443,13 +449,15 @@ function TaskGrid() {
             className="bg-surface border border-border rounded px-1.5 py-0.5 text-prism-primary [color-scheme:dark]"
           />
           {(runDateFrom || runDateTo || runDatePreset !== 'all') && (
-            <button
+            <Button
+              variant="ghost"
+              size="icon-sm"
               className="ml-1 text-prism-tertiary hover:text-prism-primary"
               onClick={() => { setRunDatePreset('all'); setRunDateFrom(''); setRunDateTo(''); }}
               title="Clear date filter"
             >
               ✕ clear
-            </button>
+            </Button>
           )}
         </span>
       </div>
@@ -1021,28 +1029,31 @@ function LiveRunConsole() {
           </h4>
           <div className="flex items-center gap-2">
             {runsLimit > 10 && (
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => setRunsLimit(10)}
                 className="text-[11px] text-prism-tertiary hover:text-prism-primary"
               >
                 Show recent only
-              </button>
+              </Button>
             )}
             {runsTotal > runs.length && (
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => setRunsLimit((l) => Math.min(l + 50, 500))}
                 className="text-[11px] text-cyan hover:text-cyan/80"
               >
                 Load more ({runsTotal - runs.length} remaining)
-              </button>
+              </Button>
             )}
             {runsLimit === 10 && runsTotal > 10 && (
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => setRunsLimit(50)}
                 className="text-[11px] text-cyan hover:text-cyan/80"
               >
                 View all runs
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -1156,10 +1167,12 @@ function LiveRunConsole() {
             <h4 className="text-xs font-semibold text-prism-secondary uppercase tracking-wider">
               Run Detail · <span className="text-prism-tertiary font-mono">{batchDetail.batch_id.slice(0, 8)}</span>
             </h4>
-            <button
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setBatchDetail(null)}
               className="text-txt-faint hover:text-prism-secondary text-xs"
-            >✕ close</button>
+            >✕ close</Button>
           </div>
           <div className="space-y-1">
             {(batchDetail.runs ?? []).map((s) => {
@@ -1289,23 +1302,25 @@ function DriftChart() {
 
       <div className="flex items-center gap-2 mt-3">
         {[7, 14, 30, 60, 90].map((d) => (
-          <button
+          <Button
+            variant="ghost"
             key={d}
             className={`text-xs px-2 py-1 rounded ${days === d ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
             onClick={() => setDays(d)}
           >
             {d}d
-          </button>
+          </Button>
         ))}
         <span className="text-txt-faint mx-1">|</span>
         {[null, 'direct', 'teams', 'slack'].map((s) => (
-          <button
+          <Button
+            variant="ghost"
             key={s ?? 'all'}
             className={`text-xs px-2 py-1 rounded ${filterSurface === s ? 'bg-cyan/20 text-cyan' : 'bg-raised text-prism-secondary hover:text-prism-primary'}`}
             onClick={() => setFilterSurface(s)}
           >
             {s ? s.charAt(0).toUpperCase() + s.slice(1) : 'All'}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -2119,13 +2134,14 @@ function BlockersAndPlan() {
           title="Blockers & Fix Plan"
           subtitle="Automated failure analysis with prioritized recommendations."
         />
-        <button
+        <Button
+          variant="outline"
           onClick={load}
           disabled={loading}
           className="text-xs text-cyan hover:text-cyan/80 disabled:opacity-50"
         >
           {loading ? 'Refreshing…' : 'Refresh'}
-        </button>
+        </Button>
       </div>
 
       {/* How-to-read legend — collapsed on every visit so it doesn't nag, but
@@ -2155,13 +2171,15 @@ function BlockersAndPlan() {
           }`}
         >
           {actionStatus.msg}
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             type="button"
             className="ml-2 text-prism-secondary hover:text-prism-primary"
             onClick={() => setActionStatus(null)}
           >
             ✕
-          </button>
+          </Button>
         </div>
       )}
 
@@ -2211,13 +2229,14 @@ function BlockersAndPlan() {
                       <p className="text-prism-tertiary text-xs">{r.detail}</p>
                     </div>
                     {r.action && (
-                      <button
+                      <Button
+                        variant="default"
                         onClick={() => { void r.action!.run(); }}
                         disabled={pendingAction === r.action.key}
                         className="shrink-0 px-2 py-1 rounded text-[11px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-50"
                       >
                         {pendingAction === r.action.key ? '…' : r.action.label}
-                      </button>
+                      </Button>
                     )}
                   </li>
                 ))}
@@ -2250,14 +2269,15 @@ function BlockersAndPlan() {
                         <Fragment key={a.agent}>
                           <tr className="border-b border-border/40">
                             <td className="py-1.5 pr-2">
-                              <button
+                              <Button
+                                variant="ghost"
                                 onClick={() => setExpandedAgent(isOpen ? null : a.agent)}
                                 className="text-prism-primary hover:text-white flex items-center gap-1"
                                 title="Show failing tasks and per-task remediation"
                               >
                                 <span className="text-txt-faint text-[10px]">{isOpen ? '▾' : '▸'}</span>
                                 {a.agent}
-                              </button>
+                              </Button>
                             </td>
                             <td className="py-1.5 pr-2 text-right text-rose-400 tabular-nums">
                               {a.failing_count}/{a.total_count}
@@ -2271,14 +2291,15 @@ function BlockersAndPlan() {
                               {a.avg_score != null ? Number(a.avg_score).toFixed(1) : '—'}
                             </td>
                             <td className="py-1.5 text-right">
-                              <button
+                              <Button
+                                variant="default"
                                 onClick={() => rerunAgent(a.agent, a.failing_count)}
                                 disabled={pendingAction === `rerun-agent:${a.agent}` || a.failing_count === 0}
                                 className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-40"
                                 title={`Re-run all ${a.failing_count} failing tasks for this agent`}
                               >
                                 {pendingAction === `rerun-agent:${a.agent}` ? '…' : '↻ Re-run'}
-                              </button>
+                              </Button>
                             </td>
                           </tr>
                           {isOpen && (
@@ -2342,15 +2363,17 @@ function BlockersAndPlan() {
                                               </ul>
                                             </div>
                                             <div className="shrink-0 flex flex-col gap-1">
-                                              <button
+                                              <Button
+                                                variant="default"
                                                 onClick={() => rerunTask(t.task_id, t.task_number)}
                                                 disabled={pendingAction === `rerun:${t.task_id}`}
                                                 className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-40"
                                                 title="Re-run just this task"
                                               >
                                                 {pendingAction === `rerun:${t.task_id}` ? '…' : '↻'}
-                                              </button>
-                                              <button
+                                              </Button>
+                                              <Button
+                                                variant="outline"
                                                 onClick={() => void copyBrief({
                                                   ...t,
                                                   responsible_agent: a.agent,
@@ -2359,7 +2382,7 @@ function BlockersAndPlan() {
                                                 title="Copy a structured fix brief (criteria, reasoning, suggested steps) to clipboard"
                                               >
                                                 {copiedFor === t.task_id ? '✓' : '📋'}
-                                              </button>
+                                              </Button>
                                             </div>
                                           </div>
                                         </li>
@@ -2411,14 +2434,15 @@ function BlockersAndPlan() {
                             {p.avg_score != null ? Number(p.avg_score).toFixed(1) : '—'}
                           </td>
                           <td className="py-1.5 text-right">
-                            <button
+                            <Button
+                              variant="default"
                               onClick={() => rerunPillar(p.pillar)}
                               disabled={pendingAction === `rerun-pillar:${p.pillar}`}
                               className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-40"
                               title="Re-run all tasks in this pillar"
                             >
                               {pendingAction === `rerun-pillar:${p.pillar}` ? '…' : '↻ Re-run'}
-                            </button>
+                            </Button>
                           </td>
                         </tr>
                       );
@@ -2438,7 +2462,8 @@ function BlockersAndPlan() {
                   const isOpen = expandedFailure === f.task_id;
                   return (
                     <li key={f.task_id} className="border border-border/60 rounded-md bg-surface/30">
-                      <button
+                      <Button
+                        variant="ghost"
                         className="w-full flex items-start gap-3 p-2.5 text-left hover:bg-raised/30"
                         onClick={() => setExpandedFailure(isOpen ? null : f.task_id)}
                       >
@@ -2457,7 +2482,7 @@ function BlockersAndPlan() {
                         <span className={`text-sm tabular-nums shrink-0 ${scoreColor(f.judge_score)}`}>
                           {f.judge_score != null ? Number(f.judge_score).toFixed(1) : '—'}
                         </span>
-                      </button>
+                      </Button>
                       {isOpen && (
                         <div className="px-3 pb-3 space-y-2 text-xs border-t border-border/60 pt-2">
                           {/* What "passing" means for this task — from the seed
@@ -2559,13 +2584,14 @@ function BlockersAndPlan() {
                               friction. */}
                           {f.agent_output && (
                             <div>
-                              <button
+                              <Button
+                                variant="ghost"
                                 onClick={(e) => { e.stopPropagation(); toggleOutput(f.task_id); }}
                                 className="text-prism-tertiary hover:text-prism-primary text-[11px]"
                               >
                                 {showOutputFor.has(f.task_id) ? '▾ Hide' : '▸ Show'} agent output
                                 <span className="text-txt-faint ml-1">({f.agent_output.length.toLocaleString()} chars)</span>
-                              </button>
+                              </Button>
                               {showOutputFor.has(f.task_id) && (
                                 <pre className="mt-1 text-prism-primary bg-black/40 border border-border rounded p-2 whitespace-pre-wrap overflow-x-auto max-h-64 overflow-y-auto">
 {f.agent_output}
@@ -2574,21 +2600,23 @@ function BlockersAndPlan() {
                             </div>
                           )}
                           <div className="flex items-center gap-2 pt-1 flex-wrap">
-                            <button
+                            <Button
+                              variant="default"
                               onClick={(e) => { e.stopPropagation(); rerunTask(f.task_id, f.task_number); }}
                               disabled={pendingAction === `rerun:${f.task_id}`}
                               className="px-2 py-1 rounded text-[11px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-50"
                               title="Queue a fresh run for this task. On failure, the reflection loop will stage a new prompt mutation."
                             >
                               {pendingAction === `rerun:${f.task_id}` ? 'Queuing…' : '↻ Re-run task'}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                              variant="outline"
                               onClick={(e) => { e.stopPropagation(); void copyBrief(f); }}
                               className="px-2 py-1 rounded text-[11px] font-medium bg-raised/40 text-prism-primary hover:bg-raised/60 border border-border/40"
                               title="Copy a structured markdown fix brief to the clipboard — paste into an issue, Slack, or an agent chat to start investigating."
                             >
                               {copiedFor === f.task_id ? '✓ Copied' : '📋 Copy fix brief'}
-                            </button>
+                            </Button>
                             <span className="text-txt-faint text-[11px]">
                               A failed re-run will trigger a new reflection-generated fix within ~24h.
                             </span>
@@ -2626,7 +2654,8 @@ function BlockersAndPlan() {
                   return (
                     <li key={s.id} className="border border-border/60 rounded-md bg-surface/30">
                       <div className="flex items-start gap-3 px-3 py-2 text-xs">
-                        <button
+                        <Button
+                          variant="ghost"
                           onClick={() => setExpandedFix(isOpen ? null : s.id)}
                           className="flex-1 min-w-0 flex items-start gap-3 text-left hover:bg-raised/20 -mx-1 px-1 rounded"
                         >
@@ -2642,25 +2671,27 @@ function BlockersAndPlan() {
                           <span className="text-txt-faint tabular-nums shrink-0" title={formatStampFull(s.created_at)}>
                             {formatStamp(s.created_at)}
                           </span>
-                        </button>
+                        </Button>
                         {actionable && (
                           <div className="flex items-center gap-1 shrink-0">
-                            <button
+                            <Button
+                              variant="default"
                               onClick={(e) => { e.stopPropagation(); promoteFix(s.id, s.agent_id, s.version); }}
                               disabled={pendingAction !== null}
                               className="px-2 py-1 rounded text-[11px] font-medium bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 disabled:opacity-50"
                               title="Deploy this prompt mutation now, retiring the current baseline. Skips the 10-run shadow eval gate."
                             >
                               {pendingAction === `promote:${s.id}` ? '…' : '✓ Promote'}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                              variant="outline"
                               onClick={(e) => { e.stopPropagation(); rejectFix(s.id, s.agent_id, s.version); }}
                               disabled={pendingAction !== null}
                               className="px-2 py-1 rounded text-[11px] font-medium bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border border-rose-500/30 disabled:opacity-50"
                               title="Retire this staged mutation without deploying. The reflection loop may stage a new one after the next failure."
                             >
                               {pendingAction === `reject:${s.id}` ? '…' : '✗ Reject'}
-                            </button>
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -2871,7 +2902,8 @@ function CollapsibleSection({
 
   return (
     <div>
-      <button
+      <Button
+        variant="ghost"
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-2 text-left group"
@@ -2879,9 +2911,8 @@ function CollapsibleSection({
         <span className={`text-prism-tertiary transition-transform ${open ? 'rotate-90' : ''}`}>▸</span>
         <span className="text-sm font-medium text-prism-primary group-hover:text-prism-primary">{title}</span>
         {subtitle && <span className="text-xs text-prism-tertiary">{subtitle}</span>}
-      </button>
+      </Button>
       {open && <div className="mt-3">{children}</div>}
-    </div>
   );
 }
 

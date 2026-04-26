@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { StatusDot } from '../components/ui/StatusDot';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   MdEmojiEvents, MdLocalFireDepartment, MdMenuBook, MdCelebration,
@@ -383,9 +384,7 @@ export default function AgentProfile() {
                 : agent.status === 'paused' ? 'badge-yellow'
                 : 'badge-gray'
               }`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${
-                  agent.status === 'active' ? 'bg-green-200' : agent.status === 'paused' ? 'bg-yellow-200' : 'bg-gray-200'
-                }`} />
+                <StatusDot status={agent.status} />
                 {agent.status}
               </span>
               <span className="text-[11px] text-txt-faint">·</span>
@@ -714,9 +713,7 @@ function OverviewTab({
               : agent.status === 'paused' ? 'badge-yellow'
               : 'badge-gray'
             }`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${
-                agent.status === 'active' ? 'bg-green-200' : agent.status === 'paused' ? 'bg-yellow-200' : 'bg-gray-200'
-              }`} />
+              <StatusDot status={agent.status} />
               {agent.status}
             </span>
           </div>
