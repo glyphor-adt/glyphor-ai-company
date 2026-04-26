@@ -1445,6 +1445,47 @@ interface BlockersPayload {
 }
 
 /**
+ * Pipeline-state payload from /api/cz/automation. Tells us whether the
+ * automated reflection→shadow-eval→promote loop is ticking and which
+ * agents are currently being auto-fixed vs. need a human eye.
+ */
+type ShadowEvalState =
+  | 'shadow_pending'
+  | 'shadow_running'
+  | 'auto_promoted'
+  | 'human_review'
+  | 'shadow_failed'
+  | 'shadow_passed';
+
+interface AutomationPayload {
+  last_loop_run_at: string | null;
+  last_loop_trigger: string | null;
+  flow_24h: Record<ShadowEvalState, number>;
+  flow_7d: Record<ShadowEvalState, number>;
+  per_agent_status: Record<string, {
+    agent_id: string;
+    state: ShadowEvalState;
+    shadow_eval_id: string;
+    version: number;
+    attempts_used: number;
+    consecutive_wins: number;
+    last_pass_rate: number | null;
+    baseline_pass_rate: number | null;
+    created_at: string;
+    last_ran_at: string | null;
+  }>;
+  stuck_evals: Array<{
+    id: string;
+    agent_id: string;
+    state: ShadowEvalState;
+    version: number;
+    escalation_reason: string | null;
+    created_at: string;
+  }>;
+  agents_no_active_prompt: Array<{ agent_id: string; failing_count: number }>;
+}
+
+/**
  * Map a heuristic-failure tag (or a normalized substring) to a concrete
  * investigation/remediation step. Kept here rather than on the server so we can
  * iterate on the playbook without redeploying the scheduler.
@@ -1838,8 +1879,260 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * Compact per-agent status badge in the Top Blocking Agents table.
+ * Tells the user at a glance whether the automation pipeline is currently
+ * working on this agent or whether it's stalled / never picked it up.
+ *
+ * State mapping:
+ *  - shadow_pending / shadow_running -> 🟡 "in shadow eval"
+ *  - shadow_passed / auto_promoted   -> 🟢 "auto-fixing" (recent win)
+ *  - human_review                    -> 🔴 "needs you"
+ *  - shadow_failed                   -> ⚫ "automation gave up"
+ *  - null (no shadow eval ever)      -> ⚪ "no fix staged"
+ */
+function AutomationBadge({
+  status,
+}: {
+  status: AutomationPayload['per_agent_status'][string] | null;
+}) {
+  if (!status) {
+    return (
+      <span
+        className="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-800/60 text-zinc-500 border border-zinc-700/50"
+        title="No prompt mutation has been staged yet for this agent. Either failures are rubric-grade (judge said wrong without a heuristic tag, so reflection has nothing to act on) or the reflection rate-limit is holding."
+      >
+        no fix staged
+      </span>
+    );
+  }
+  const { state, version, attempts_used, consecutive_wins } = status;
+  const map: Record<ShadowEvalState, { dot: string; bg: string; text: string; border: string; label: string; tip: string }> = {
+    shadow_pending: {
+      dot: 'bg-amber-400',
+      bg: 'bg-amber-500/10',
+      text: 'text-amber-300',
+      border: 'border-amber-500/30',
+      label: 'queued',
+      tip: `Prompt v${version} is staged and waiting for the next canary tick.`,
+    },
+    shadow_running: {
+      dot: 'bg-amber-400 animate-pulse',
+      bg: 'bg-amber-500/10',
+      text: 'text-amber-300',
+      border: 'border-amber-500/30',
+      label: `eval ${attempts_used}/5`,
+      tip: `Canary running on prompt v${version}. ${consecutive_wins} win(s) so far.`,
+    },
+    shadow_passed: {
+      dot: 'bg-emerald-400',
+      bg: 'bg-emerald-500/10',
+      text: 'text-emerald-300',
+      border: 'border-emerald-500/30',
+      label: 'auto-fixing',
+      tip: `Canary won. Prompt v${version} is being promoted.`,
+    },
+    auto_promoted: {
+      dot: 'bg-emerald-400',
+      bg: 'bg-emerald-500/10',
+      text: 'text-emerald-300',
+      border: 'border-emerald-500/30',
+      label: 'auto-fixed',
+      tip: `Prompt v${version} was auto-promoted by shadow eval. Improvements should land in the next batch.`,
+    },
+    human_review: {
+      dot: 'bg-rose-400',
+      bg: 'bg-rose-500/10',
+      text: 'text-rose-300',
+      border: 'border-rose-500/30',
+      label: 'needs you',
+      tip: `Prompt v${version} got stuck — auto-promotion gate failed but no clear regression. Human review required.`,
+    },
+    shadow_failed: {
+      dot: 'bg-zinc-500',
+      bg: 'bg-zinc-700/40',
+      text: 'text-zinc-400',
+      border: 'border-zinc-600/40',
+      label: 'auto-gave-up',
+      tip: `Prompt v${version} failed shadow eval (${attempts_used}/5 attempts, ${consecutive_wins} win(s)). Automation will retry only if a new mutation is staged.`,
+    },
+  };
+  const m = map[state];
+  return (
+    <span
+      className={`text-[9px] px-1.5 py-0.5 rounded-full ${m.bg} ${m.text} border ${m.border} flex items-center gap-1`}
+      title={m.tip}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${m.dot}`} />
+      {m.label}
+    </span>
+  );
+}
+
+/**
+ * Pipeline status strip — sits above "Plan to fix" and tells the user
+ * (a) whether the CZ loop is ticking, (b) what's in flight in the last
+ * 24h / 7d, and (c) what's stuck waiting on a human.
+ *
+ * Without this strip, the dashboard implies "everything is broken and
+ * you need to click Re-run." With it, the user sees that automation IS
+ * fixing things — they just need to look at the small "needs you" list.
+ */
+function AutomationStrip({ automation }: { automation: AutomationPayload | null }) {
+  if (!automation) return null;
+  const { last_loop_run_at, last_loop_trigger, flow_24h, flow_7d, stuck_evals, agents_no_active_prompt } = automation;
+
+  const inFlight24h = (flow_24h.shadow_pending ?? 0) + (flow_24h.shadow_running ?? 0);
+  const inFlight7d = (flow_7d.shadow_pending ?? 0) + (flow_7d.shadow_running ?? 0);
+  const promoted24h = flow_24h.auto_promoted ?? 0;
+  const promoted7d = flow_7d.auto_promoted ?? 0;
+  const failed7d = flow_7d.shadow_failed ?? 0;
+  const review = (flow_24h.human_review ?? 0) || (flow_7d.human_review ?? 0);
+
+  const loopHealthy = last_loop_run_at
+    ? (Date.now() - new Date(last_loop_run_at).getTime()) < 60 * 60 * 1000 // < 1h
+    : false;
+
+  const stuckCount = stuck_evals.length;
+  const noPromptCount = agents_no_active_prompt.length;
+
+  return (
+    <div className="mt-5 rounded-lg border border-zinc-800/60 bg-gradient-to-br from-zinc-900/60 to-zinc-950/40 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs uppercase tracking-wide text-zinc-400">
+          Automation pipeline
+          <span className="ml-2 text-[10px] text-zinc-500 normal-case tracking-normal">
+            reflection → shadow eval → auto-promote
+          </span>
+        </h3>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className={`w-1.5 h-1.5 rounded-full ${loopHealthy ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+          <span className={loopHealthy ? 'text-emerald-300' : 'text-amber-300'}>
+            {loopHealthy ? 'Loop ticking' : 'Loop stale'}
+          </span>
+          <span className="text-zinc-500">
+            {last_loop_run_at
+              ? `· ${last_loop_trigger ?? 'run'} ${timeAgo(last_loop_run_at)}`
+              : '· never'}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <PipelineStat
+          label="In shadow eval"
+          value={inFlight24h}
+          subtitle={`${inFlight7d} in last 7d`}
+          tone={inFlight24h > 0 ? 'cyan' : 'neutral'}
+          title="Prompt mutations currently being canary-tested. Each runs up to 5 attempts and needs to beat the live prompt to auto-promote."
+        />
+        <PipelineStat
+          label="Auto-promoted"
+          value={promoted24h}
+          subtitle={`${promoted7d} in last 7d`}
+          tone={promoted24h > 0 ? 'pos' : 'neutral'}
+          title="Prompts the canary judged better than the live version. These deploy automatically — no human action needed."
+        />
+        <PipelineStat
+          label="Needs you"
+          value={review + stuckCount + noPromptCount}
+          subtitle={
+            review + stuckCount + noPromptCount === 0
+              ? 'all clear'
+              : [
+                  review > 0 ? `${review} review` : '',
+                  noPromptCount > 0 ? `${noPromptCount} no-prompt` : '',
+                ].filter(Boolean).join(' · ') || 'see below'
+          }
+          tone={review + stuckCount + noPromptCount > 0 ? 'neg' : 'pos'}
+          title="Cases automation can't resolve on its own: stuck human-review, agents with no active prompt at all, or recent shadow-eval failures."
+        />
+        <PipelineStat
+          label="Auto gave up"
+          value={failed7d}
+          subtitle="7d shadow_failed"
+          tone={failed7d > 5 ? 'amber' : 'neutral'}
+          title="Mutations that failed canary 5/5 times. Often signals rubric-grade failures (no heuristic tag) where prompt tweaks can't help — needs few-shot exemplars instead."
+        />
+      </div>
+
+      {(noPromptCount > 0 || stuckCount > 0) && (
+        <div className="mt-3 pt-3 border-t border-zinc-800/50 space-y-2">
+          {noPromptCount > 0 && (
+            <div className="text-[11px]">
+              <span className="text-rose-300 font-semibold">⚠ No active prompt:</span>{' '}
+              <span className="text-zinc-400">
+                {agents_no_active_prompt.slice(0, 5).map((a) => `${a.agent_id} (${a.failing_count})`).join(', ')}
+                {noPromptCount > 5 && ` +${noPromptCount - 5} more`}
+              </span>
+              <span className="text-zinc-600 ml-2">
+                — reflection bridge silently skips these. Reactivate or stage a v1.
+              </span>
+            </div>
+          )}
+          {stuckCount > 0 && (
+            <details className="text-[11px]">
+              <summary className="cursor-pointer text-amber-300 hover:text-amber-200">
+                {stuckCount} eval{stuckCount === 1 ? '' : 's'} need a glance
+              </summary>
+              <ul className="mt-1.5 space-y-1 pl-3">
+                {stuck_evals.slice(0, 8).map((e) => (
+                  <li key={e.id} className="text-zinc-400">
+                    <span className="text-zinc-200">{e.agent_id}</span>
+                    <span className="text-zinc-600"> · v{e.version} · </span>
+                    <span className={e.state === 'human_review' ? 'text-rose-300' : 'text-zinc-500'}>
+                      {e.state.replace('shadow_', '').replace('_', ' ')}
+                    </span>
+                    {e.escalation_reason && (
+                      <span className="text-zinc-500"> — {e.escalation_reason}</span>
+                    )}
+                    <span className="text-zinc-600"> · {timeAgo(e.created_at)}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PipelineStat({
+  label,
+  value,
+  subtitle,
+  tone = 'neutral',
+  title,
+}: {
+  label: string;
+  value: number;
+  subtitle?: string;
+  tone?: 'pos' | 'neg' | 'cyan' | 'amber' | 'neutral';
+  title?: string;
+}) {
+  const toneClass = {
+    pos: 'text-emerald-300',
+    neg: 'text-rose-300',
+    cyan: 'text-cyan',
+    amber: 'text-amber-300',
+    neutral: 'text-zinc-200',
+  }[tone];
+  return (
+    <div
+      className="rounded border border-zinc-800/60 bg-zinc-900/40 px-2.5 py-1.5"
+      title={title}
+    >
+      <div className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</div>
+      <div className={`text-lg font-semibold tabular-nums ${toneClass}`}>{value}</div>
+      {subtitle && <div className="text-[10px] text-zinc-500">{subtitle}</div>}
+    </div>
+  );
+}
+
 function BlockersAndPlan() {
   const [data, setData] = useState<BlockersPayload | null>(null);
+  const [automation, setAutomation] = useState<AutomationPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedFix, setExpandedFix] = useState<string | null>(null);
@@ -1855,8 +2148,13 @@ function BlockersAndPlan() {
 
   const load = useCallback(() => {
     setLoading(true);
-    apiCall<BlockersPayload>('/api/cz/blockers?limit=10')
-      .then((d) => { setData(d); setError(null); })
+    Promise.all([
+      apiCall<BlockersPayload>('/api/cz/blockers?limit=10'),
+      // Automation pipeline state — non-blocking; if it fails the page still
+      // works, we just won't show the "in flight / stuck" strip.
+      apiCall<AutomationPayload>('/api/cz/automation').catch(() => null),
+    ])
+      .then(([d, a]) => { setData(d); setAutomation(a); setError(null); })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load blockers'))
       .finally(() => setLoading(false));
   }, []);
@@ -2188,6 +2486,12 @@ function BlockersAndPlan() {
             />
           </div>
 
+          {/* Automation pipeline strip — shows whether the reflection→shadow-eval
+              →promote loop is actually doing work, vs. just passively logging
+              failures. This is the single most-asked dashboard question:
+              "Is anything being fixed?" */}
+          <AutomationStrip automation={automation} />
+
           {/* Recommendations */}
           {recommendations.length > 0 && (
             <div className="mt-5">
@@ -2246,17 +2550,19 @@ function BlockersAndPlan() {
                     {data.top_agents.map((a) => {
                       const isOpen = expandedAgent === a.agent;
                       const agentTasks = data.failing_by_agent?.[a.agent] ?? [];
+                      const autoStatus = automation?.per_agent_status?.[a.agent] ?? null;
                       return (
                         <Fragment key={a.agent}>
                           <tr className="border-b border-zinc-800/40">
                             <td className="py-1.5 pr-2">
                               <button
                                 onClick={() => setExpandedAgent(isOpen ? null : a.agent)}
-                                className="text-zinc-200 hover:text-zinc-50 flex items-center gap-1"
+                                className="text-zinc-200 hover:text-zinc-50 flex items-center gap-1.5"
                                 title="Show failing tasks and per-task remediation"
                               >
                                 <span className="text-zinc-600 text-[10px]">{isOpen ? '▾' : '▸'}</span>
-                                {a.agent}
+                                <span>{a.agent}</span>
+                                <AutomationBadge status={autoStatus} />
                               </button>
                             </td>
                             <td className="py-1.5 pr-2 text-right text-rose-400 tabular-nums">
