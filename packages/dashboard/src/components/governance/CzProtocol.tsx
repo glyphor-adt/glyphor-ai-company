@@ -1963,7 +1963,7 @@ function TriagePanel() {
       },
       secondary: {
         label: 'Open',
-        action: () => { window.location.assign(`/app/fleet?agent=${encodeURIComponent(a.agent_id)}`); },
+        action: () => { window.location.assign(`/app/internal/agents/${encodeURIComponent(a.agent_id)}`); },
       },
     });
   }
