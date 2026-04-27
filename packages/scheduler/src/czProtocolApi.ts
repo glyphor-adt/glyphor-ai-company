@@ -29,7 +29,7 @@ import { processCzBatchFailures } from './czReflectionBridge.js';
 import {
   runChiefOfStaff, runCTO, runCFO, runCPO, runCMO,
   runVPDesign, runVPResearch, runOps,
-  runCLO, runVPSales, runContentCreator, runSeoAnalyst,
+  runCLO,
   runDynamicAgent,
 } from '@glyphor/agents';
 
@@ -82,12 +82,8 @@ const AGENT_NAME_TO_ROLE: Record<string, string> = {
   elena: 'cpo',
   maya: 'cmo',
   mia: 'vp-design',
-  rachel: 'vp-sales',
   atlas: 'ops',
   victoria: 'clo',
-  tyler: 'content-creator',
-  lisa: 'seo-analyst',
-  kai: 'social-media-manager',
 };
 
 export interface AgentRunnerOpts {
@@ -109,9 +105,6 @@ const STATIC_RUNNERS: Record<string, (prompt: string, opts?: AgentRunnerOpts) =>
   'vp-research': (p, opts) => runVPResearch({ task: 'on_demand', message: p, maxToolCalls: 8, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
   ops: (p, opts) => runOps({ task: 'on_demand', message: p, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
   clo: (p, opts) => runCLO({ task: 'on_demand', message: p, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
-  'vp-sales': (p, opts) => runVPSales({ task: 'on_demand', message: p, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
-  'content-creator': (p, opts) => runContentCreator({ task: 'on_demand', message: p, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
-  'seo-analyst': (p, opts) => runSeoAnalyst({ task: 'on_demand', message: p, dryRun: true, evalMode: true, systemPromptOverride: opts?.systemPromptOverride }),
 };
 
 function getAgentRunner(agentNameOrRole: string): ((prompt: string, opts?: AgentRunnerOpts) => Promise<AgentExecutionResult>) | null {

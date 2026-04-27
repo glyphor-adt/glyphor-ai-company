@@ -34,22 +34,12 @@ export type ActiveAgentRole = typeof ACTIVE_AGENT_ROLES[number];
  * are the roles removed during that prune.
  */
 export const RETIRED_AGENT_ROLES = [
-  'content-creator',
-  'seo-analyst',
-  'social-media-manager',
   'onboarding-specialist',
   'support-triage',
   'account-research',
-  'user-researcher',
-  'competitive-intel',
   'revenue-analyst',
   'cost-analyst',
-  'vp-sales',
-  'global-admin',
-  'm365-admin',
-  'frontend-engineer',
   'backend-engineer',
-  'platform-intel',
   'coo',
 ] as const;
 
@@ -65,12 +55,6 @@ export const RETIRED_AGENT_ROLES = [
  * deliberately removed.
  */
 export const SCAFFOLDED_BUT_UNBUILT_ROLES = [
-  'competitive-research-analyst',
-  'design-critic',
-  'head-of-hr',
-  'market-research-analyst',
-  'template-architect',
-  'ui-ux-designer',
   'bob-the-tax-pro',
   'marketing-intelligence-analyst',
   'adi-rose',

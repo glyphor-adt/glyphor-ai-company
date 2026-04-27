@@ -639,30 +639,15 @@ export const EXEC_CHAT_MODEL = 'model-router';
 /** Role → tier mapping. Unlisted roles default to 'standard'. */
 export const ROLE_COST_TIER: Record<string, CostTier> = {
   // ── Economy: routine, structured, low-complexity ────────────
-  'm365-admin':            'economy',
-  'global-admin':          'economy',
-  'seo-analyst':           'economy',
-  'social-media-manager':  'economy',
   'adi-rose':              'economy',
 
   // ── Standard: analysis, creative, department-level ──────────
-  'content-creator':       'standard',
-  'design-critic':         'standard',
-  'ui-ux-designer':        'standard',
-  'frontend-engineer':     'standard',
-  'template-architect':    'standard',
-  'user-researcher':       'standard',
-  'competitive-intel':     'standard',
   'devops-engineer':       'standard',
   'platform-engineer':     'standard',
   'quality-engineer':      'standard',
-  'head-of-hr':            'standard',
-  'vp-sales':              'standard',
   'vp-design':             'standard',
   'bob-the-tax-pro':       'standard',
   'marketing-intelligence-analyst': 'standard',
-  'competitive-research-analyst':   'standard',
-  'market-research-analyst':        'standard',
 
   // ── Pro: orchestrators, C-suite, strategic planning ─────────
   'chief-of-staff':        'pro',

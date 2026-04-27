@@ -18,9 +18,6 @@ export { runVPResearch, type VPResearchRunParams } from './vp-research/run.js';
 
 // Additional roles used by certification tests
 export { runCLO, type CLORunParams } from './clo/run.js';
-export { runVPSales, type VPSalesRunParams } from './vp-sales/run.js';
-export { runContentCreator, type ContentCreatorRunParams } from './content-creator/run.js';
-export { runSeoAnalyst, type SeoAnalystRunParams } from './seo-analyst/run.js';
 
 // Dynamic agents (DB-defined, no file-based runner)
 export { runDynamicAgent, type DynamicAgentRunParams } from './shared/runDynamicAgent.js';
