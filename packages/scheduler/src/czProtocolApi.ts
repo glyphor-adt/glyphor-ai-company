@@ -1205,6 +1205,9 @@ export async function handleCzApi(
               e.state = 'human_review'
               OR (e.state = 'shadow_failed' AND e.created_at > NOW() - INTERVAL '48 hours')
             )
+              -- skip zombies: prompt was already promoted/retired out-of-band
+              AND apv.deployed_at IS NULL
+              AND apv.retired_at IS NULL
             ORDER BY
               CASE e.state WHEN 'human_review' THEN 1 ELSE 2 END,
               e.created_at DESC
@@ -1525,6 +1528,15 @@ export async function handleCzApi(
            WHERE id = $1`,
           [v.id],
         );
+        // Resolve any linked shadow_eval rows so the triage UI stops
+        // showing this as a zombie human_review item.
+        await client.query(
+          `UPDATE cz_shadow_evals
+             SET state = 'auto_promoted', updated_at = NOW()
+             WHERE prompt_version_id = $1
+               AND state IN ('human_review', 'shadow_pending', 'shadow_running')`,
+          [v.id],
+        );
       });
 
       console.log(
@@ -1554,10 +1566,19 @@ export async function handleCzApi(
       if (v.deployed_at) { send(409, { error: 'Already deployed — cannot reject' }); return true; }
       if (v.retired_at) { send(409, { error: 'Already retired' }); return true; }
 
-      await systemQuery(
-        `UPDATE agent_prompt_versions SET retired_at = NOW() WHERE id = $1`,
-        [v.id],
-      );
+      await systemTransaction(async (client) => {
+        await client.query(
+          `UPDATE agent_prompt_versions SET retired_at = NOW() WHERE id = $1`,
+          [v.id],
+        );
+        await client.query(
+          `UPDATE cz_shadow_evals
+             SET state = 'shadow_failed', updated_at = NOW()
+             WHERE prompt_version_id = $1
+               AND state IN ('human_review', 'shadow_pending', 'shadow_running')`,
+          [v.id],
+        );
+      });
       console.log(
         `[CzBlockers] REJECTED ${v.agent_id} v${v.version} by ${body.triggered_by ?? 'dashboard'}` +
         (body.reason ? ` — ${body.reason}` : ''),

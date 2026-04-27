@@ -1914,7 +1914,16 @@ function TriagePanel() {
       setToast({ kind: 'ok', msg: batchId ? `${label} — queued (${batchId.slice(0, 8)})` : `${label} done` });
       load();
     } catch (e) {
-      setToast({ kind: 'err', msg: `${label} failed: ${e instanceof Error ? e.message : 'unknown'}` });
+      const msg = e instanceof Error ? e.message : 'unknown';
+      // 409 "Already deployed" / "Already retired" — the action effectively
+      // already happened. Treat as success and refresh so the zombie row
+      // disappears from the panel.
+      if (/409|already (deployed|retired)/i.test(msg)) {
+        setToast({ kind: 'ok', msg: `${label} — already resolved (refreshed)` });
+        load();
+      } else {
+        setToast({ kind: 'err', msg: `${label} failed: ${msg}` });
+      }
     } finally { setPending(null); }
   }, [load]);
 
@@ -1960,10 +1969,6 @@ function TriagePanel() {
         label: `Re-run ${a.failing_count}`,
         action: () => runAction(`rerun-agent:${a.agent_id}`, `Re-run ${a.agent_id}`,
           () => apiCall('/api/cz/runs', { method: 'POST', body: JSON.stringify({ mode: 'canary', agent: a.agent_id, triggered_by: 'dashboard:triage' }) })),
-      },
-      secondary: {
-        label: 'Open',
-        action: () => { window.location.assign(`/app/internal/agents/${encodeURIComponent(a.agent_id)}`); },
       },
     });
   }
