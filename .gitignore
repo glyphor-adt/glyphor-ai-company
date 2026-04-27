@@ -60,3 +60,7 @@ _test_mcp_tools.js
 _agent_secrets.json
 _create_agent_secrets.ps1
 _apps.txt
+
+# graphrag indexer runtime logs - never commit
+packages/graphrag-indexer/logs/
+*.log
