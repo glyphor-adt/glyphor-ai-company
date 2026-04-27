@@ -1,6 +1,6 @@
 # Glyphor AI Company - Full Technical Architecture
 
-Last updated: 2026-04-05
+Last updated: 2026-04-27
 
 This document is the full technical architecture readout for the current monorepo.
 It combines a full subsystem walkthrough with current, filesystem-verified inventory counts.
@@ -22,11 +22,11 @@ At a high level:
 Verified from repository state:
 
 - Workspace packages under packages: 25
-- Integration modules under packages/integrations/src: 21
+- Integration modules under packages/integrations/src: 22
 - File-based agent role directories under packages/agents/src: 28
 - Dashboard page modules under packages/dashboard/src/pages: 36
-- SQL migrations under db/migrations: 284
-- Docker build files under docker (Dockerfile.*): 18
+- SQL migrations under db/migrations: 326
+- Docker build files under docker (Dockerfile.*): 17
 - Smoketest layers under packages/smoketest/src/layers: 31 (layer 0-30)
 - Dashboard route architecture: dual-mode (app/internal + app/smb) with 27 internal path routes, 7 SMB path routes, legacy redirects, and entry gates
 - Dashboard TABLE_MAP aliases in packages/scheduler/src/dashboardApi.ts: 88 aliases mapped to 60 physical tables
@@ -40,6 +40,7 @@ Top-level packages currently present:
 - company-knowledge
 - company-memory
 - dashboard
+- design-system
 - graphrag-indexer
 - integrations
 - mcp-data-server
@@ -254,10 +255,12 @@ Primary role:
 
 - External system connectivity and domain-specific API clients.
 
-Current integration modules (21):
+Current integration modules (22):
 
 - agent365
 - anthropic
+- aws
+- azure
 - canva
 - cloudflare
 - credentials
@@ -343,6 +346,16 @@ Primary role:
 Primary role:
 
 - Agent-to-agent protocol bridge and task forwarding edge surface.
+
+### 5.12 Design System (packages/design-system)
+
+Primary role:
+
+- Shared design tokens, component guidelines, and anti-AI-smell enforcement registry.
+
+Key contents:
+
+- Anti-AI-smell component registry: enforces human-grade aesthetic tokens and prevents common AI-generated design patterns (over-saturated gradients, excessive blur, unbalanced whitespace).
 
 ## 6. End-to-End Runtime Flows
 
@@ -1081,7 +1094,7 @@ Current page module inventory under src/pages (36 files):
 ### 10.1 Persistence Strategy
 
 - PostgreSQL is used as the primary persistent state store.
-- Migrations are managed as SQL files under db/migrations (284 files currently).
+- Migrations are managed as SQL files under db/migrations (326 files currently).
 - Runtime writes are concentrated in execution, assignment, decision, memory, and telemetry domains.
 
 ### 10.2 Data Domains
@@ -1122,7 +1135,7 @@ Representative data domains persisted in the platform include:
 
 ### 10.3 Dashboard API Table Map and Domain Coverage
 
-The dashboard CRUD layer currently maps 97 URL slugs to 68 physical PostgreSQL tables through TABLE_MAP in packages/scheduler/src/dashboardApi.ts.
+The dashboard CRUD layer currently maps 88 URL slugs to 60 physical PostgreSQL tables through TABLE_MAP in packages/scheduler/src/dashboardApi.ts.
 
 Primary domains and current table ownership anchors:
 
@@ -1211,6 +1224,52 @@ Recent migration trend highlights:
 
 - Deprecations
   - 20260401143000_deprecate_pulse_creative_stack.sql (removed pulse integration module)
+
+- Dream consolidation and runtime spine
+  - 20260406120000_agent_dream_consolidation.sql
+  - 20260406223500_runtime_spine_sessions_attempts_events.sql
+
+- Microsoft tenant hardening
+  - 20260407174500_microsoft_tenant_binding_hardening.sql
+  - 20260407191500_run_sessions_run_id_compat.sql
+  - 20260407210000_microsoft_write_audit_view.sql
+
+- Roster and agent lifecycle management
+  - 20260408001000_task_run_outcomes_proof_of_work.sql
+  - 20260408002000_agent_claim_evidence_view.sql
+  - 20260408120000_dead_agent_hard_purge_reset.sql
+  - 20260408213000_reduce_live_roster_to_core_eight.sql
+
+- Tool grants and capability expansion
+  - 20260409100000_grant_normalize_design_brief_web_pipeline.sql
+  - 20260409120000_agent_run_compliance_manifests.sql
+  - 20260410120000_grant_github_get_repository_file.sql
+  - 20260410150000_widen_advanced_web_creation_task_map.sql
+  - 20260410170000_grant_vp_design_cto_recommended_tools.sql
+  - 20260410200000_grant_build_website_foundation_web_pipeline.sql
+  - 20260410220000_active_agents_raise_max_turns.sql
+  - 20260411090000_agent_tool_grants_tenant_default.sql
+
+- Model and skill updates
+  - 20260411120000_strip_kling_from_skills_and_sync_status.sql
+  - 20260411150000_replace_claude_sonnet_with_gemini_flash_lite.sql
+  - 20260411163000_cloud_credit_ledger.sql
+
+- Fleet and scheduling
+  - 20260416180000_run_checkpoints.sql
+  - 20260416200000_schedule_daily_fleet_audit.sql
+
+- CZ (client zone) schema and scoring
+  - 20260417160000_cz_schema.sql
+  - 20260417160001_cz_seed.sql
+  - 20260417160002_cz_surface_addon.sql
+  - 20260417210000_cz_scores_agent_output.sql
+  - 20260419180000_cost_observability.sql
+  - 20260421120000_cz_launch_gate_p0_threshold.sql
+  - 20260421120100_cz_investor_gate_relax.sql
+  - 20260421130000_cz_reassign_retired_agents.sql
+  - 20260421190000_cz_reassign_tenancy_tasks_to_cto.sql
+  - 20260422081600_cz_shadow_eval.sql
 
 ### 10.5 Complete TABLE_MAP Alias Matrix
 
@@ -1393,6 +1452,8 @@ This means skills are no longer only static prompt concepts; they are persisted,
 - Mercury
 - OpenAI/Anthropic and Google (Gemini/Veo) billing
 - GCP billing exports
+- AWS billing (aws integration module)
+- Azure billing (azure integration module)
 
 ### 12.3 Engineering and Delivery
 
