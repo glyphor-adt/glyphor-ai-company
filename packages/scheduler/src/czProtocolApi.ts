@@ -1214,14 +1214,29 @@ export async function handleCzApi(
             LIMIT 25
         `),
         systemQuery<{ agent_id: string; failing_count: number }>(`
-          WITH failing AS (
-            SELECT t.responsible_agent AS agent_id, COUNT(*)::int AS failing_count
+          -- cz_tasks.responsible_agent stores first-names (sarah, marcus, ...)
+          -- but agent_prompt_versions.agent_id stores canonical role slugs
+          -- (chief-of-staff, cto, ...). Map names → roles BEFORE checking
+          -- for an active prompt, otherwise we get false positives like
+          -- "marcus has no active prompt" when in fact 'cto' does.
+          WITH name_to_role(name, role) AS (VALUES
+            ('sarah','chief-of-staff'),('marcus','cto'),('nadia','cfo'),
+            ('elena','cpo'),('maya','cmo'),('mia','vp-design'),
+            ('rachel','vp-sales'),('atlas','ops'),('victoria','clo'),
+            ('tyler','content-creator'),('lisa','seo-analyst'),
+            ('kai','social-media-manager')
+          ),
+          failing AS (
+            SELECT
+              COALESCE(n.role, t.responsible_agent) AS agent_id,
+              COUNT(*)::int AS failing_count
               FROM cz_tasks t
               JOIN cz_latest_scores ls ON ls.task_id = t.id
+              LEFT JOIN name_to_role n ON n.name = LOWER(t.responsible_agent)
               WHERE t.active = true
                 AND ls.passed = false
                 AND t.responsible_agent IS NOT NULL
-              GROUP BY t.responsible_agent
+              GROUP BY COALESCE(n.role, t.responsible_agent)
           )
           SELECT f.agent_id, f.failing_count
             FROM failing f
