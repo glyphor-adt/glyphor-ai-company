@@ -1358,7 +1358,6 @@ const RUN_STATUS_DEPARTMENT_FALLBACK: Record<string, string> = {
   cpo: 'product',
   cmo: 'marketing',
   'vp-customer-success': 'customer-success',
-  'vp-sales': 'sales',
   'vp-design': 'design',
   ops: 'operations',
 };

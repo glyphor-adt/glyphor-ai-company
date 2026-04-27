@@ -1215,9 +1215,7 @@ export async function handleCzApi(
           WITH name_to_role(name, role) AS (VALUES
             ('sarah','chief-of-staff'),('marcus','cto'),('nadia','cfo'),
             ('elena','cpo'),('maya','cmo'),('mia','vp-design'),
-            ('rachel','vp-sales'),('atlas','ops'),('victoria','clo'),
-            ('tyler','content-creator'),('lisa','seo-analyst'),
-            ('kai','social-media-manager')
+            ('atlas','ops'),('victoria','clo')
           ),
           failing AS (
             SELECT
