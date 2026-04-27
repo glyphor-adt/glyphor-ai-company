@@ -1876,6 +1876,263 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 /**
+ * Two-bucket triage view — the answer to "what should I look at?"
+ * Self-contained: fetches blockers + automation directly so it can sit
+ * at the top of the page above everything else.
+ *
+ * Left column = Needs your attention. Concrete items, each with the
+ * smallest action that resolves it.
+ * Right column = Auto-fixing. What the loop is currently working on
+ * and what it's already shipped, so the user can stop worrying.
+ */
+function TriagePanel() {
+  const [blockers, setBlockers] = useState<BlockersPayload | null>(null);
+  const [automation, setAutomation] = useState<AutomationPayload | null>(null);
+  const [pending, setPending] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+
+  const load = useCallback(() => {
+    Promise.all([
+      apiCall<BlockersPayload>('/api/cz/blockers?limit=10').catch(() => null),
+      apiCall<AutomationPayload>('/api/cz/automation').catch(() => null),
+    ]).then(([b, a]) => { setBlockers(b); setAutomation(a); });
+  }, []);
+  useEffect(() => {
+    load();
+    const t = window.setInterval(load, 60_000);
+    return () => window.clearInterval(t);
+  }, [load]);
+
+  const runAction = useCallback(async (key: string, label: string, op: () => Promise<unknown>) => {
+    setPending(key); setToast(null);
+    try {
+      const res = await op();
+      const batchId = res && typeof res === 'object' && 'batch_id' in res
+        ? String((res as { batch_id: unknown }).batch_id) : null;
+      if (batchId) window.dispatchEvent(new CustomEvent('cz:run-queued', { detail: { batch_id: batchId } }));
+      setToast({ kind: 'ok', msg: batchId ? `${label} — queued (${batchId.slice(0, 8)})` : `${label} done` });
+      load();
+    } catch (e) {
+      setToast({ kind: 'err', msg: `${label} failed: ${e instanceof Error ? e.message : 'unknown'}` });
+    } finally { setPending(null); }
+  }, [load]);
+
+  // Build "Needs you" items in priority order: staged mutations awaiting
+  // promote/reject, agents with no active prompt (silent skip), then
+  // shadow evals stuck in human_review.
+  const needsItems: Array<{
+    key: string;
+    severity: 'p0' | 'high' | 'med';
+    title: string;
+    detail: string;
+    primary?: { label: string; action: () => Promise<unknown> | void };
+    secondary?: { label: string; action: () => Promise<unknown> | void };
+  }> = [];
+
+  const stagedAwaiting = blockers?.staged_fixes.filter((s) => !s.deployed_at && !s.retired_at) ?? [];
+  for (const s of stagedAwaiting.slice(0, 5)) {
+    needsItems.push({
+      key: `staged:${s.id}`,
+      severity: 'high',
+      title: `${s.agent_id} v${s.version} — staged prompt awaiting your call`,
+      detail: s.change_summary?.slice(0, 140) ?? 'No change summary recorded.',
+      primary: {
+        label: 'Promote',
+        action: () => runAction(`promote:${s.id}`, `Promote ${s.agent_id} v${s.version}`,
+          () => apiCall(`/api/cz/fixes/${s.id}/promote`, { method: 'POST', body: JSON.stringify({ triggered_by: 'dashboard:triage' }) })),
+      },
+      secondary: {
+        label: 'Reject',
+        action: () => runAction(`reject:${s.id}`, `Reject ${s.agent_id} v${s.version}`,
+          () => apiCall(`/api/cz/fixes/${s.id}/reject`, { method: 'POST', body: JSON.stringify({ triggered_by: 'dashboard:triage' }) })),
+      },
+    });
+  }
+
+  for (const a of (automation?.agents_no_active_prompt ?? []).slice(0, 5)) {
+    needsItems.push({
+      key: `nofix:${a.agent_id}`,
+      severity: 'p0',
+      title: `${a.agent_id} — no active prompt (${a.failing_count} failing)`,
+      detail: 'Reflection bridge skips this agent because no prompt version is deployed. Re-run to seed a new mutation, or hand-author a v1.',
+      primary: {
+        label: `Re-run ${a.failing_count}`,
+        action: () => runAction(`rerun-agent:${a.agent_id}`, `Re-run ${a.agent_id}`,
+          () => apiCall('/api/cz/runs', { method: 'POST', body: JSON.stringify({ mode: 'canary', agent: a.agent_id, triggered_by: 'dashboard:triage' }) })),
+      },
+    });
+  }
+
+  for (const e of (automation?.stuck_evals ?? []).filter((x) => x.state === 'human_review').slice(0, 5)) {
+    needsItems.push({
+      key: `stuck:${e.id}`,
+      severity: 'high',
+      title: `${e.agent_id} v${e.version} — shadow eval needs human review`,
+      detail: e.escalation_reason ?? 'Canary results are inconclusive; review needed before promote.',
+    });
+  }
+
+  // Build "Auto-fixing" items
+  const inFlight = Object.values(automation?.per_agent_status ?? {})
+    .filter((s) => s.state === 'shadow_pending' || s.state === 'shadow_running')
+    .sort((a, b) => b.attempts_used - a.attempts_used);
+
+  const autoPromoted24h = automation?.flow_24h.auto_promoted ?? 0;
+  const autoPromoted7d = automation?.flow_7d.auto_promoted ?? 0;
+  const failedRecently = automation?.flow_7d.shadow_failed ?? 0;
+
+  const loopFresh = automation?.last_loop_run_at
+    ? (Date.now() - new Date(automation.last_loop_run_at).getTime()) < 60 * 60 * 1000
+    : false;
+
+  return (
+    <div className="space-y-3">
+      {toast && (
+        <div className={`px-3 py-2 rounded text-xs border ${
+          toast.kind === 'ok'
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+            : 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+        }`}>
+          {toast.msg}
+          <button onClick={() => setToast(null)} className="ml-2 text-zinc-400 hover:text-zinc-200">✕</button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* NEEDS YOU */}
+        <div className="rounded-lg border border-rose-700/40 bg-gradient-to-br from-rose-950/30 to-zinc-950/40 p-4">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-sm font-semibold text-rose-200 uppercase tracking-wide">
+              Needs your attention
+            </h2>
+            <span className="text-2xl font-bold text-rose-300 tabular-nums">{needsItems.length}</span>
+          </div>
+          {!blockers || !automation ? (
+            <Skeleton className="h-24" />
+          ) : needsItems.length === 0 ? (
+            <p className="text-sm text-emerald-300">
+              ✓ Nothing for you right now. Automation is handling everything.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {needsItems.slice(0, 8).map((item) => (
+                <li
+                  key={item.key}
+                  className="rounded border border-zinc-800/60 bg-zinc-900/40 p-2.5 flex items-start gap-2"
+                >
+                  <span className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${
+                    item.severity === 'p0' ? 'bg-rose-400'
+                    : item.severity === 'high' ? 'bg-amber-400'
+                    : 'bg-zinc-500'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-zinc-100">{item.title}</p>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">{item.detail}</p>
+                  </div>
+                  {(item.primary || item.secondary) && (
+                    <div className="flex flex-col gap-1 shrink-0">
+                      {item.primary && (
+                        <button
+                          onClick={() => { void item.primary!.action(); }}
+                          disabled={pending !== null}
+                          className="px-2 py-0.5 rounded text-[10px] font-medium bg-cyan/15 text-cyan hover:bg-cyan/25 border border-cyan/30 disabled:opacity-40"
+                        >
+                          {item.primary.label}
+                        </button>
+                      )}
+                      {item.secondary && (
+                        <button
+                          onClick={() => { void item.secondary!.action(); }}
+                          disabled={pending !== null}
+                          className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-700/40 text-zinc-300 hover:bg-zinc-700/60 border border-zinc-600/40 disabled:opacity-40"
+                        >
+                          {item.secondary.label}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </li>
+              ))}
+              {needsItems.length > 8 && (
+                <li className="text-[11px] text-zinc-500 px-1">+{needsItems.length - 8} more — open the drill-down below.</li>
+              )}
+            </ul>
+          )}
+        </div>
+
+        {/* AUTO-FIXING */}
+        <div className="rounded-lg border border-emerald-700/30 bg-gradient-to-br from-emerald-950/20 to-zinc-950/40 p-4">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-sm font-semibold text-emerald-200 uppercase tracking-wide">
+              Auto-fixing
+              <span className="ml-2 text-[10px] font-normal normal-case text-zinc-500">
+                no action needed
+              </span>
+            </h2>
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <span className={`w-1.5 h-1.5 rounded-full ${loopFresh ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <span className={loopFresh ? 'text-emerald-300' : 'text-amber-300'}>
+                {loopFresh ? 'loop active' : 'loop stale'}
+              </span>
+            </div>
+          </div>
+          {!automation ? (
+            <Skeleton className="h-24" />
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <PipelineStat
+                  label="In shadow eval"
+                  value={inFlight.length}
+                  subtitle="being canary-tested"
+                  tone={inFlight.length > 0 ? 'cyan' : 'neutral'}
+                />
+                <PipelineStat
+                  label="Auto-promoted"
+                  value={autoPromoted24h}
+                  subtitle={`${autoPromoted7d} in 7d`}
+                  tone={autoPromoted24h > 0 ? 'pos' : 'neutral'}
+                />
+                <PipelineStat
+                  label="Auto gave up"
+                  value={failedRecently}
+                  subtitle="7d shadow_failed"
+                  tone={failedRecently > 5 ? 'amber' : 'neutral'}
+                />
+              </div>
+              {inFlight.length === 0 && autoPromoted7d === 0 ? (
+                <p className="text-xs text-zinc-500">
+                  No prompt mutations in flight or recently shipped. Failures will trigger
+                  the reflection loop on the next batch.
+                </p>
+              ) : inFlight.length > 0 ? (
+                <ul className="space-y-1.5">
+                  {inFlight.slice(0, 6).map((s) => (
+                    <li key={s.shadow_eval_id} className="flex items-center gap-2 text-xs">
+                      <span className={`w-1.5 h-1.5 rounded-full ${s.state === 'shadow_running' ? 'bg-amber-400 animate-pulse' : 'bg-amber-400'}`} />
+                      <span className="text-zinc-200">{s.agent_id}</span>
+                      <span className="text-zinc-600">v{s.version}</span>
+                      <span className="text-zinc-500 text-[11px]">attempt {s.attempts_used}/5 · {s.consecutive_wins} win{s.consecutive_wins === 1 ? '' : 's'}</span>
+                    </li>
+                  ))}
+                  {inFlight.length > 6 && (
+                    <li className="text-[11px] text-zinc-500 px-1">+{inFlight.length - 6} more in flight</li>
+                  )}
+                </ul>
+              ) : (
+                <p className="text-xs text-emerald-300/80">
+                  ✓ {autoPromoted7d} prompt mutation{autoPromoted7d === 1 ? '' : 's'} auto-promoted in the last 7 days. No active canaries right now.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Compact per-agent status badge in the Top Blocking Agents table.
  * Tells the user at a glance whether the automation pipeline is currently
  * working on this agent or whether it's stalled / never picked it up.
@@ -1962,135 +2219,6 @@ function AutomationBadge({
       <span className={`w-1.5 h-1.5 rounded-full ${m.dot}`} />
       {m.label}
     </span>
-  );
-}
-
-/**
- * Pipeline status strip — sits above "Plan to fix" and tells the user
- * (a) whether the CZ loop is ticking, (b) what's in flight in the last
- * 24h / 7d, and (c) what's stuck waiting on a human.
- *
- * Without this strip, the dashboard implies "everything is broken and
- * you need to click Re-run." With it, the user sees that automation IS
- * fixing things — they just need to look at the small "needs you" list.
- */
-function AutomationStrip({ automation }: { automation: AutomationPayload | null }) {
-  if (!automation) return null;
-  const { last_loop_run_at, last_loop_trigger, flow_24h, flow_7d, stuck_evals, agents_no_active_prompt } = automation;
-
-  const inFlight24h = (flow_24h.shadow_pending ?? 0) + (flow_24h.shadow_running ?? 0);
-  const inFlight7d = (flow_7d.shadow_pending ?? 0) + (flow_7d.shadow_running ?? 0);
-  const promoted24h = flow_24h.auto_promoted ?? 0;
-  const promoted7d = flow_7d.auto_promoted ?? 0;
-  const failed7d = flow_7d.shadow_failed ?? 0;
-  const review = (flow_24h.human_review ?? 0) || (flow_7d.human_review ?? 0);
-
-  const loopHealthy = last_loop_run_at
-    ? (Date.now() - new Date(last_loop_run_at).getTime()) < 60 * 60 * 1000 // < 1h
-    : false;
-
-  const stuckCount = stuck_evals.length;
-  const noPromptCount = agents_no_active_prompt.length;
-
-  return (
-    <div className="mt-5 rounded-lg border border-zinc-800/60 bg-gradient-to-br from-zinc-900/60 to-zinc-950/40 p-3">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-xs uppercase tracking-wide text-zinc-400">
-          Automation pipeline
-          <span className="ml-2 text-[10px] text-zinc-500 normal-case tracking-normal">
-            reflection → shadow eval → auto-promote
-          </span>
-        </h3>
-        <div className="flex items-center gap-1.5 text-[11px]">
-          <span className={`w-1.5 h-1.5 rounded-full ${loopHealthy ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-          <span className={loopHealthy ? 'text-emerald-300' : 'text-amber-300'}>
-            {loopHealthy ? 'Loop ticking' : 'Loop stale'}
-          </span>
-          <span className="text-zinc-500">
-            {last_loop_run_at
-              ? `· ${last_loop_trigger ?? 'run'} ${timeAgo(last_loop_run_at)}`
-              : '· never'}
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <PipelineStat
-          label="In shadow eval"
-          value={inFlight24h}
-          subtitle={`${inFlight7d} in last 7d`}
-          tone={inFlight24h > 0 ? 'cyan' : 'neutral'}
-          title="Prompt mutations currently being canary-tested. Each runs up to 5 attempts and needs to beat the live prompt to auto-promote."
-        />
-        <PipelineStat
-          label="Auto-promoted"
-          value={promoted24h}
-          subtitle={`${promoted7d} in last 7d`}
-          tone={promoted24h > 0 ? 'pos' : 'neutral'}
-          title="Prompts the canary judged better than the live version. These deploy automatically — no human action needed."
-        />
-        <PipelineStat
-          label="Needs you"
-          value={review + stuckCount + noPromptCount}
-          subtitle={
-            review + stuckCount + noPromptCount === 0
-              ? 'all clear'
-              : [
-                  review > 0 ? `${review} review` : '',
-                  noPromptCount > 0 ? `${noPromptCount} no-prompt` : '',
-                ].filter(Boolean).join(' · ') || 'see below'
-          }
-          tone={review + stuckCount + noPromptCount > 0 ? 'neg' : 'pos'}
-          title="Cases automation can't resolve on its own: stuck human-review, agents with no active prompt at all, or recent shadow-eval failures."
-        />
-        <PipelineStat
-          label="Auto gave up"
-          value={failed7d}
-          subtitle="7d shadow_failed"
-          tone={failed7d > 5 ? 'amber' : 'neutral'}
-          title="Mutations that failed canary 5/5 times. Often signals rubric-grade failures (no heuristic tag) where prompt tweaks can't help — needs few-shot exemplars instead."
-        />
-      </div>
-
-      {(noPromptCount > 0 || stuckCount > 0) && (
-        <div className="mt-3 pt-3 border-t border-zinc-800/50 space-y-2">
-          {noPromptCount > 0 && (
-            <div className="text-[11px]">
-              <span className="text-rose-300 font-semibold">⚠ No active prompt:</span>{' '}
-              <span className="text-zinc-400">
-                {agents_no_active_prompt.slice(0, 5).map((a) => `${a.agent_id} (${a.failing_count})`).join(', ')}
-                {noPromptCount > 5 && ` +${noPromptCount - 5} more`}
-              </span>
-              <span className="text-zinc-600 ml-2">
-                — reflection bridge silently skips these. Reactivate or stage a v1.
-              </span>
-            </div>
-          )}
-          {stuckCount > 0 && (
-            <details className="text-[11px]">
-              <summary className="cursor-pointer text-amber-300 hover:text-amber-200">
-                {stuckCount} eval{stuckCount === 1 ? '' : 's'} need a glance
-              </summary>
-              <ul className="mt-1.5 space-y-1 pl-3">
-                {stuck_evals.slice(0, 8).map((e) => (
-                  <li key={e.id} className="text-zinc-400">
-                    <span className="text-zinc-200">{e.agent_id}</span>
-                    <span className="text-zinc-600"> · v{e.version} · </span>
-                    <span className={e.state === 'human_review' ? 'text-rose-300' : 'text-zinc-500'}>
-                      {e.state.replace('shadow_', '').replace('_', ' ')}
-                    </span>
-                    {e.escalation_reason && (
-                      <span className="text-zinc-500"> — {e.escalation_reason}</span>
-                    )}
-                    <span className="text-zinc-600"> · {timeAgo(e.created_at)}</span>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -2447,12 +2575,6 @@ function BlockersAndPlan() {
 
       {data && (
         <>
-          {/* Automation pipeline strip — shows whether the reflection→shadow-eval
-              →promote loop is actually doing work, vs. just passively logging
-              failures. This is the single most-asked dashboard question:
-              "Is anything being fixed?" */}
-          <AutomationStrip automation={automation} />
-
           {/* Recommendations */}
           {recommendations.length > 0 && (
             <div className="mt-5">
@@ -3081,20 +3203,36 @@ function CollapsibleSection({
 export default function CzProtocol() {
   return (
     <div className="space-y-6">
-      {/* Header — minimal; numbers live in GlanceBar below */}
       <h1 className="text-xl font-semibold text-zinc-100">Certification Protocol</h1>
 
-      {/* Top: at-a-glance status strip — pass rate, P0, trend, automation state */}
-      <GlanceBar />
+      {/* Triage — the answer to "what should I look at?" */}
+      <TriagePanel />
 
-      {/* Scorecard — always visible; this is the primary read-at-a-glance view */}
-      <Scorecard />
+      {/* Health metrics — pass rate, P0, trend, scorecard, drift. Reference,
+          not a daily prompt. Collapsed by default to keep the page focused. */}
+      <CollapsibleSection
+        storageKey="health-metrics"
+        title="Health metrics"
+        subtitle="Pass rate, P0, trend, pillar scorecard, drift chart"
+        defaultOpen={false}
+      >
+        <div className="space-y-4">
+          <GlanceBar />
+          <Scorecard />
+          <DriftChart />
+        </div>
+      </CollapsibleSection>
 
-      {/* Trend — always visible */}
-      <DriftChart />
-
-      {/* Blockers & fix plan — the "what do I do about it" view */}
-      <BlockersAndPlan />
+      {/* Drill-down — full failure analysis, recommendations, recent failures,
+          staged mutations. Open this when triage isn't enough. */}
+      <CollapsibleSection
+        storageKey="blockers-drilldown"
+        title="Failure drill-down"
+        subtitle="Recommended actions · top blocking agents · recent failures · staged mutations"
+        defaultOpen={false}
+      >
+        <BlockersAndPlan />
+      </CollapsibleSection>
 
       {/* Run console — collapsible; not every visit is to kick off a run */}
       <CollapsibleSection
