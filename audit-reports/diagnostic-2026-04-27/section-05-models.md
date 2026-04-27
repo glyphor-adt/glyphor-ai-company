@@ -206,7 +206,7 @@ results:
 | `packages/integrations/src/webSearch.ts:114` | `OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'` | Doc comment at line 7 says "Azure OpenAI / Foundry only (no api.openai.com)" — the constant **violates its own header**. |
 | `packages/integrations/src/openai/billing.ts:26` | `https://api.openai.com/v1/organization/costs` | Billing-only; legitimate. |
 | `packages/integrations/src/anthropic/billing.ts:11` | `https://api.anthropic.com` | Billing-only; legitimate (header at line 4 explicitly notes it). |
-| `packages/graphrag-indexer/logs/indexing-engine.log` (60+ entries) | `…gemini-2.5-flash:generateContent?key=AIzaSy…` | **Live evidence** that GraphRAG is calling `gemini-2.5-flash`, which is on the **disabled** list (`models.config.ts:70`). Also: **API key leaked into the log file** committed to the repo (`AIzaSyBtTi78faXgy5EN7Mrdj0TPR6r2qBCZKc4`, `AIzaSyBIrERx-dTIxoPaKBw_jPCrz6hLwNWKB64`). |
+| `packages/graphrag-indexer/logs/indexing-engine.log` (60+ entries) | `…gemini-2.5-flash:generateContent?key=AIzaSy…` | **Live evidence** that GraphRAG is calling `gemini-2.5-flash`, which is on the **disabled** list (`models.config.ts:70`). Also: **API key leaked into the log file** committed to the repo (`AIzaSy***REDACTED-KEY-1***`, `AIzaSy***REDACTED-KEY-2***`). |
 
 > **Finding 5.3.2-A.** `packages/integrations/src/webSearch.ts:114` and
 > `packages/agent-runtime/src/providers/openai.ts:748` and
