@@ -1190,13 +1190,14 @@ export async function handleCzApi(
         `),
         systemQuery<{
           id: string;
+          prompt_version_id: string;
           agent_id: string;
           state: string;
           version: number;
           escalation_reason: string | null;
           created_at: string;
         }>(`
-          SELECT e.id, apv.agent_id, e.state, apv.version,
+          SELECT e.id, e.prompt_version_id, apv.agent_id, e.state, apv.version,
                  e.escalation_reason, e.created_at
             FROM cz_shadow_evals e
             JOIN agent_prompt_versions apv ON apv.id = e.prompt_version_id

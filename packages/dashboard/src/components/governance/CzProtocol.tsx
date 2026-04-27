@@ -1472,6 +1472,7 @@ interface AutomationPayload {
   }>;
   stuck_evals: Array<{
     id: string;
+    prompt_version_id: string;
     agent_id: string;
     state: ShadowEvalState;
     version: number;
@@ -1954,21 +1955,37 @@ function TriagePanel() {
       key: `nofix:${a.agent_id}`,
       severity: 'p0',
       title: `${a.agent_id} — no active prompt (${a.failing_count} failing)`,
-      detail: 'Reflection bridge skips this agent because no prompt version is deployed. Re-run to seed a new mutation, or hand-author a v1.',
+      detail: 'No deployed prompt → reflection skips this agent. Click Re-run to execute the failing tasks; the reflection bridge will then stage a v1 mutation you can promote.',
       primary: {
         label: `Re-run ${a.failing_count}`,
         action: () => runAction(`rerun-agent:${a.agent_id}`, `Re-run ${a.agent_id}`,
           () => apiCall('/api/cz/runs', { method: 'POST', body: JSON.stringify({ mode: 'canary', agent: a.agent_id, triggered_by: 'dashboard:triage' }) })),
       },
+      secondary: {
+        label: 'Open',
+        action: () => { window.location.assign(`/app/fleet?agent=${encodeURIComponent(a.agent_id)}`); },
+      },
     });
   }
 
   for (const e of (automation?.stuck_evals ?? []).filter((x) => x.state === 'human_review').slice(0, 5)) {
+    const reason = e.escalation_reason ?? 'Canary results are inconclusive; review needed before promote.';
+    const shortReason = reason.length > 160 ? reason.slice(0, 160) + '…' : reason;
     needsItems.push({
       key: `stuck:${e.id}`,
       severity: 'high',
       title: `${e.agent_id} v${e.version} — shadow eval needs human review`,
-      detail: e.escalation_reason ?? 'Canary results are inconclusive; review needed before promote.',
+      detail: shortReason,
+      primary: {
+        label: 'Promote',
+        action: () => runAction(`promote-eval:${e.id}`, `Promote ${e.agent_id} v${e.version}`,
+          () => apiCall(`/api/cz/fixes/${e.prompt_version_id}/promote`, { method: 'POST', body: JSON.stringify({ triggered_by: 'dashboard:triage' }) })),
+      },
+      secondary: {
+        label: 'Reject',
+        action: () => runAction(`reject-eval:${e.id}`, `Reject ${e.agent_id} v${e.version}`,
+          () => apiCall(`/api/cz/fixes/${e.prompt_version_id}/reject`, { method: 'POST', body: JSON.stringify({ triggered_by: 'dashboard:triage' }) })),
+      },
     });
   }
 
