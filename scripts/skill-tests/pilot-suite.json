@@ -5,11 +5,11 @@
   "tests": [
     {
       "skillSlug": "access-management",
-      "agentRole": "global-admin",
+      "agentRole": "ops",
       "skillFile": "skills/operations/access-management.md",
       "prompts": [
         "Run an access audit for the last 7 days and summarize over-provisioned, under-provisioned, and orphaned access findings with remediation steps.",
-        "Review a pending request: content-creator asks for deploy_to_staging and grant_tool_access. Decide approve/deny with rationale and safer alternatives.",
+        "Review a pending request: cmo asks for deploy_to_staging and grant_tool_access. Decide approve/deny with rationale and safer alternatives.",
         "Onboard a new agent role called contract-review-assistant with least-privilege access and include an audit log entry plan."
       ],
       "assertions": [
@@ -49,7 +49,7 @@
     },
     {
       "skillSlug": "content-creation",
-      "agentRole": "content-creator",
+      "agentRole": "cmo",
       "skillFile": "skills/marketing/content-creation.md",
       "prompts": [
         "Draft a LinkedIn post announcing that Glyphor's autonomous agents cut incident response time by 43% this quarter.",
