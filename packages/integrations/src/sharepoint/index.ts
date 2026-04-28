@@ -664,7 +664,7 @@ async function saveKnowledgeEntry(
       input.content,
       input.evidence,
       'sharepoint-sync',
-      ['m365-admin'],
+      [],
       'sharepoint_import',
       [],
       [],

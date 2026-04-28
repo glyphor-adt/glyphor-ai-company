@@ -17,9 +17,6 @@ interface AgentSpec {
 
 const MARKETING_AGENTS: AgentSpec[] = [
   { role: 'cmo',                  display_name: 'Maya Brooks',  title: 'Chief Marketing Officer', model_tier: 'high',    brief_template: 'Review customer brand knowledge, plan content calendar, and coordinate the marketing team.' },
-  { role: 'content-creator',      display_name: 'Tyler Reed',   title: 'Content Creator',         model_tier: 'default', brief_template: 'Create blog posts, social media copy, and marketing collateral based on the content calendar.' },
-  { role: 'seo-analyst',          display_name: 'Lisa Chen',    title: 'SEO Analyst',             model_tier: 'default', brief_template: 'Analyze search performance, track keyword rankings, and recommend SEO improvements.' },
-  { role: 'social-media-manager', display_name: 'Kai Johnson',  title: 'Social Media Manager',    model_tier: 'default', brief_template: 'Schedule and publish social media content, monitor engagement, and optimize posting cadence.' },
 ];
 
 interface ScheduleSpec {
@@ -30,9 +27,6 @@ interface ScheduleSpec {
 
 const DEFAULT_SCHEDULES: ScheduleSpec[] = [
   { agent_id: 'cmo',                  task: 'weekly_report',    cron_expression: '0 9 * * 1' },
-  { agent_id: 'content-creator',      task: 'content_check',    cron_expression: '0 8 * * *' },
-  { agent_id: 'seo-analyst',          task: 'ranking_check',    cron_expression: '0 7 * * 1' },
-  { agent_id: 'social-media-manager', task: 'schedule_content', cron_expression: '0 8 * * *' },
 ];
 
 export async function provisionMarketingDepartment(tenantId: string): Promise<void> {

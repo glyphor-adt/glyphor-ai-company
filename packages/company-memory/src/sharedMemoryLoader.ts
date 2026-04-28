@@ -39,23 +39,9 @@ const ROLE_DOMAINS: Record<string, string[]> = {
   'cfo': ['finance', 'operations'],
   'clo': ['legal', 'compliance'],
   'cpo': ['product', 'strategy'],
-  'user-researcher': ['product', 'research'],
-  'competitive-intel': ['product', 'competitive'],
   'cmo': ['marketing', 'content'],
-  'content-creator': ['marketing', 'content'],
-  'seo-analyst': ['marketing', 'seo'],
-  'social-media-manager': ['marketing', 'social'],
-  'vp-sales': ['sales', 'revenue'],
   'vp-design': ['design', 'product'],
-  'ui-ux-designer': ['design', 'ux'],
-  'frontend-engineer': ['design', 'engineering'],
-  'design-critic': ['design', 'quality'],
-  'template-architect': ['design', 'engineering'],
-  'global-admin': ['operations', 'security'],
-  'm365-admin': ['operations', 'infrastructure'],
   'vp-research': ['research', 'strategy'],
-  'competitive-research-analyst': ['research', 'competitive'],
-  'market-research-analyst': ['research', 'market'],
 };
 
 const ORCHESTRATOR_ROLES = new Set([

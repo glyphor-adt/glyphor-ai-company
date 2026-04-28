@@ -328,7 +328,7 @@ export const tools: ToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        agent_role: { type: 'string', description: 'Role slug of the agent to update (e.g. "cto", "vp-sales").' },
+        agent_role: { type: 'string', description: 'Role slug of the agent to update (e.g. "cto", "cfo").' },
         field: { type: 'string', description: 'Column name to update.', enum: ['display_name', 'title', 'department', 'status', 'reports_to', 'is_core'] },
         value: { type: 'string', description: 'New value to set for the field.' },
       },

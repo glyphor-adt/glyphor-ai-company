@@ -40,24 +40,8 @@ export const GITHUB_AGENT_SCOPES: Record<string, GitHubScope> = {
     permissions: { contents: 'write', actions: 'write' },
     pathPattern: '.github/workflows/',
   },
-  // Design & frontend team — full read/write to all repos
+  // Design — full read/write to all repos
   'vp-design': {
-    repos: ALL_REPOS,
-    permissions: { contents: 'write', pull_requests: 'write', actions: 'read', issues: 'write', statuses: 'read' },
-  },
-  'frontend-engineer': {
-    repos: ALL_REPOS,
-    permissions: { contents: 'write', pull_requests: 'write', actions: 'read', issues: 'write', statuses: 'read' },
-  },
-  'design-critic': {
-    repos: ALL_REPOS,
-    permissions: { contents: 'write', pull_requests: 'write', actions: 'read', issues: 'write', statuses: 'read' },
-  },
-  'ui-ux-designer': {
-    repos: ALL_REPOS,
-    permissions: { contents: 'write', pull_requests: 'write', actions: 'read', issues: 'write', statuses: 'read' },
-  },
-  'template-architect': {
     repos: ALL_REPOS,
     permissions: { contents: 'write', pull_requests: 'write', actions: 'read', issues: 'write', statuses: 'read' },
   },

@@ -64,15 +64,11 @@ const SPECIALIST_TIER: CompanyAgentRole[] = [];
 const OPS_ATLAS_TIER: CompanyAgentRole[] = filterLiveRuntimeRoles(['ops']);          // every 1 hour
 const OPS_MORGAN_TIER: CompanyAgentRole[] = [];
 
-/** Tier 5: Platform Intelligence — every 2 hours to drain queued wakes */
-const PLATFORM_INTEL_TIER: CompanyAgentRole[] = [];
-
 const EXEC_CADENCE_CYCLES = 12;
 const SUBTEAM_CADENCE_CYCLES = 24;
 const SPECIALIST_CADENCE_CYCLES = 36;
 const OPS_ATLAS_CADENCE_CYCLES = 6;
 const OPS_MORGAN_CADENCE_CYCLES = 24;
-const PLATFORM_INTEL_CADENCE_CYCLES = 12;
 
 /** Minimum minutes since last run before a heartbeat can wake an agent */
 const MIN_RUN_GAP_MS = 5 * 60 * 1000;
@@ -876,7 +872,6 @@ export class HeartbeatManager {
       ...this.getStaggeredDueAgents(SPECIALIST_TIER, SPECIALIST_CADENCE_CYCLES, cycle),
       ...this.getStaggeredDueAgents(OPS_ATLAS_TIER, OPS_ATLAS_CADENCE_CYCLES, cycle),
       ...this.getStaggeredDueAgents(OPS_MORGAN_TIER, OPS_MORGAN_CADENCE_CYCLES, cycle),
-      ...this.getStaggeredDueAgents(PLATFORM_INTEL_TIER, PLATFORM_INTEL_CADENCE_CYCLES, cycle),
     ];
 
     return Array.from(new Set(due));

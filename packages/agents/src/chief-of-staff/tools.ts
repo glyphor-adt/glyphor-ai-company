@@ -61,7 +61,6 @@ const INITIATIVE_OWNER_CATEGORY: Record<string, string> = {
   cpo: 'product',
   cmo: 'marketing',
   cfo: 'revenue',
-  'vp-sales': 'sales',
   ops: 'operations',
   'vp-design': 'general',
   'vp-research': 'general',
@@ -1762,7 +1761,7 @@ export function createOrchestrationTools(
               assigned_to: {
                 type: 'string',
                 description:
-                  'Company agent role slug from get_agent_directory: use the `role_slug` or `role` field (e.g. social-media-manager, content-creator). Do not use `name` or hyphenated display names like tyler-reed.',
+                  'Company agent role slug from get_agent_directory: use the `role_slug` or `role` field (e.g. cmo, cfo). Do not use `name` or hyphenated display names like maya-brooks.',
               },
               task_description: { type: 'string', description: 'Clear outcome description for the executive' },
               task_type: { type: 'string', description: 'Agent task type (e.g., on_demand, blog_post)' },
@@ -1824,7 +1823,7 @@ export function createOrchestrationTools(
             return {
               success: false,
               error:
-                `Assignment #${i + 1}: Unknown assignee "${raw}". Use the role slug (e.g. content-creator) or the agent's display name.`,
+                `Assignment #${i + 1}: Unknown assignee "${raw}". Use the role slug (e.g. cmo) or the agent's display name.`,
             };
           }
           assignmentsWithResolvedRoles.push({ ...assignment, assigned_to: resolved });
