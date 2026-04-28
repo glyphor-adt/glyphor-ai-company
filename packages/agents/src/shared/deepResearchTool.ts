@@ -10,8 +10,7 @@
  *   2. web_fetch in parallel (retrieve top N results)
  *   3. Synthesis (combine findings into a structured research summary)
  *
- * Designed for research-heavy roles: competitive-research-analyst,
- * market-research-analyst, content-creator, cmo, vp-research.
+ * Designed for research-heavy roles: cmo, vp-research.
  */
 
 import { buildTool, type SafeToolDefinition } from '@glyphor/agent-runtime';

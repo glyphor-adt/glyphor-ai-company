@@ -220,7 +220,7 @@ export function createDiagnosticTools(): ToolDefinition[] {
       parameters: {
         agent_role: {
           type: 'string',
-          description: 'The agent role to check (e.g. "head-of-hr", "cto")',
+          description: 'The agent role to check (e.g. "ops", "cto")',
           required: true,
         },
         hours: {

@@ -85,7 +85,6 @@ const EXECUTIVE_ROLES = new Set<string>([
   'clo',
   'ops',
   'vp-research',
-  'vp-sales',
   'vp-design',
 ]);
 

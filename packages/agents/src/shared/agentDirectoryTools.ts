@@ -181,9 +181,9 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
         }> = [
           {
             keywords: ['tool failure', 'tool error', 'tool broken', 'tool bug', 'tool fix', 'agent health', 'agent performance', 'fleet health', 'agent failing', 'agent broken', 'column does not exist', 'schema error', 'sql error', 'tool access', 'tool grant', 'tool block', 'performance score', 'eval score', 'prompt version', 'shadow run', 'reflection', 'agent paused', 'gtm readiness'],
-            role: 'platform-intel',
-            name: 'Nexus',
-            reason: 'Platform Intelligence — diagnoses tool failures, fixes schema mismatches, manages tool grants, monitors agent fleet health, and creates code fix proposals. Escalate tool bugs and agent issues here, not to CTO.',
+            role: 'cto',
+            name: 'Marcus Reeves',
+            reason: 'CTO — diagnoses tool failures, fixes schema mismatches, manages tool grants, monitors agent fleet health, and creates code fix proposals.',
           },
           {
             keywords: ['infrastructure', 'deploy', 'cloud run', 'build', 'ci/cd', 'platform', 'incident', 'outage', 'tool request', 'new tool', 'api integration', 'tool registry'],
@@ -211,9 +211,9 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
           },
           {
             keywords: ['sales', 'pipeline', 'enterprise', 'proposal', 'deal', 'prospect', 'account', 'lead', 'contract'],
-            role: 'vp-sales',
-            name: 'Rachel Kim',
-            reason: 'VP Sales — owns sales pipeline, customer conversations, proposals, and deal strategy',
+            role: 'cpo',
+            name: 'Elena Vasquez',
+            reason: 'CPO — owns sales pipeline, customer conversations, and deal strategy',
           },
           {
             keywords: ['design', 'ui', 'ux', 'template', 'frontend', 'component', 'figma', 'layout', 'visual'],
@@ -228,16 +228,10 @@ export function createAgentDirectoryTools(): ToolDefinition[] {
             reason: 'VP Research — owns market research, competitive analysis, and industry intelligence',
           },
           {
-            keywords: ['permission', 'access', 'iam', 'license', 'entra', 'gcp access', 'onboard', 'offboard', 'provision'],
-            role: 'global-admin',
-            name: 'Morgan Blake',
-            reason: 'Global Admin — owns access provisioning, GCP/Entra/M365 permissions, and onboarding',
-          },
-          {
-            keywords: ['teams channel', 'teams', 'm365', 'calendar', 'sharepoint', 'email config', 'channel', 'membership'],
-            role: 'm365-admin',
-            name: 'Riley Morgan',
-            reason: 'M365 Admin — owns Teams channels, calendars, SharePoint, and M365 platform operations',
+            keywords: ['permission', 'access', 'iam', 'license', 'entra', 'gcp access', 'onboard', 'offboard', 'provision', 'teams channel', 'teams', 'm365', 'calendar', 'sharepoint', 'email config', 'channel', 'membership'],
+            role: 'cto',
+            name: 'Marcus Reeves',
+            reason: 'CTO — owns access provisioning, GCP/Entra/M365 permissions, Teams/SharePoint config, and onboarding',
           },
           {
             keywords: ['coordinate', 'brief', 'directive', 'cross-department', 'escalat', 'route', 'assign', 'orchestrat', 'decision'],

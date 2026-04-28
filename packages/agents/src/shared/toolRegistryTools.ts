@@ -14,7 +14,7 @@ import type { ToolDefinition, ToolResult, ApiToolConfig } from '@glyphor/agent-r
 import { refreshDynamicToolCache } from '@glyphor/agent-runtime';
 import { systemQuery } from '@glyphor/shared/db';
 
-const REGISTRY_REVIEWERS = new Set(['cto', 'global-admin', 'kristina', 'system']);
+const REGISTRY_REVIEWERS = new Set(['cto', 'kristina', 'system']);
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]{2,63}$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {

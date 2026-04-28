@@ -169,12 +169,6 @@ function getDefaultChannelPermissions(agentRole: string): string[] {
       return ['briefings', 'reports', 'general', 'dm_owner'];
     case 'cmo':
       return ['deliverables', 'briefings', 'reports', 'general', 'dm_owner'];
-    case 'content-creator':
-      return ['deliverables', 'general'];
-    case 'seo-analyst':
-      return ['reports', 'general'];
-    case 'social-media-manager':
-      return ['deliverables', 'general'];
     default:
       return [];
   }
@@ -374,8 +368,7 @@ export function createSlackOutputTools(): ToolDefinition[] {
         // Build the agent-branded approval card
         const AGENT_NAMES: Record<string, string> = {
           'chief-of-staff': 'Sarah', cmo: 'Maya', cto: 'Marcus',
-          cfo: 'Nadia', cpo: 'Elena', 'content-creator': 'Tyler',
-          'seo-analyst': 'Lisa', 'social-media-manager': 'Kai',
+          cfo: 'Nadia', cpo: 'Elena',
         };
         const agentName = AGENT_NAMES[agentRole] ?? agentRole;
         const costLine = estimatedCost ? ` — ${estimatedCost} est.` : '';

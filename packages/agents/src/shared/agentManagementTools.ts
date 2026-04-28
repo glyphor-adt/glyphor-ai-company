@@ -18,7 +18,7 @@ export function createAgentManagementTools(): ToolDefinition[] {
       parameters: {
         role: {
           type: 'string',
-          description: 'The agent role slug (e.g. "vp-design", "content-creator"). Use get_agent_directory to find it.',
+          description: 'The agent role slug (e.g. "vp-design", "cmo"). Use get_agent_directory to find it.',
           required: true,
         },
         display_name: {

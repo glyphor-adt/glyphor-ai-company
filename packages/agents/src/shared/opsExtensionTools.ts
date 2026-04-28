@@ -8,14 +8,6 @@
  *   get_system_costs_realtime  — Real-time cost tracking
  *   create_status_report       — Generate system status report
  *   predict_capacity           — Forecast capacity needs
- *
- * Morgan Blake (global-admin) tools:
- *   get_access_matrix          — Full access matrix
- *   provision_access           — Grant platform access
- *   revoke_access              — Revoke access
- *   audit_access               — Run access audit
- *   rotate_secrets             — Trigger secret rotation
- *   get_platform_audit_log     — View platform actions
  */
 
 import type { PredictionJournalRecord, ToolDefinition, ToolResult } from '@glyphor/agent-runtime';
@@ -762,7 +754,7 @@ export function createOpsExtensionTools(): ToolDefinition[] {
             `INSERT INTO activity_log (agent_role, action, summary, details)
              VALUES ($1, $2, $3, $4::jsonb)`,
             [
-              'global-admin',
+              'ops',
               'secret_rotation',
               `Secret rotation triggered for ${platform}/${secretName}`,
               JSON.stringify({ secret_name: secretName, triggered_at: new Date().toISOString(), platform }),

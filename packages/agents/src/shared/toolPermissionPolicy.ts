@@ -4,12 +4,12 @@
  * Default stance: tool grants/requests are self-service.
  * Approval is required only for:
  * 1) paid/spend-impacting capabilities, or
- * 2) global-admin / IAM / secret / tenant-level permissioning capabilities.
+ * 2) tenant-admin / IAM / secret / tenant-level permissioning capabilities.
  */
 
 export interface ToolPermissionDecision {
   requiresApproval: boolean;
-  reason: 'paid' | 'global-admin' | 'paid+global-admin' | 'none';
+  reason: 'paid' | 'tenant-admin' | 'paid+tenant-admin' | 'none';
   matches: string[];
 }
 
@@ -24,8 +24,8 @@ const PAID_RISK_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
   { label: 'spend', pattern: /\bcost\b|\bspend\b|\bbudget\b|\$\s*\d+/i },
 ];
 
-const GLOBAL_ADMIN_RISK_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
-  { label: 'global-admin', pattern: /\bglobal\s*admin\b|\btenant\s*admin\b|\bsuper\s*admin\b/i },
+const TENANT_ADMIN_RISK_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
+  { label: 'tenant-admin', pattern: /\bglobal\s*admin\b|\btenant\s*admin\b|\bsuper\s*admin\b/i },
   { label: 'iam-rbac', pattern: /\biam\b|\brbac\b|\bdirectory\s*role\b|\bgrant\s+.*\brole\b|\brevoke\s+.*\brole\b/i },
   { label: 'secret-manager', pattern: /\bsecret\s*manager\b|\bsecret\s*access\b|\bupdate\s*secret\b|\brotate\s*secret\b/i },
   { label: 'credential-rotation', pattern: /\bcredential\b|\bclient\s*secret\b|\bcertificate\b|\bapp\s*registration\b/i },
@@ -54,7 +54,7 @@ export function evaluateToolPermissionGate(input: {
     .toLowerCase();
 
   const paidMatches = collectMatches(source, PAID_RISK_PATTERNS);
-  const adminMatches = collectMatches(source, GLOBAL_ADMIN_RISK_PATTERNS);
+  const adminMatches = collectMatches(source, TENANT_ADMIN_RISK_PATTERNS);
 
   const paidRisk = paidMatches.length > 0;
   const adminRisk = adminMatches.length > 0;
@@ -62,7 +62,7 @@ export function evaluateToolPermissionGate(input: {
   if (paidRisk && adminRisk) {
     return {
       requiresApproval: true,
-      reason: 'paid+global-admin',
+      reason: 'paid+tenant-admin',
       matches: [...paidMatches, ...adminMatches],
     };
   }
@@ -78,7 +78,7 @@ export function evaluateToolPermissionGate(input: {
   if (adminRisk) {
     return {
       requiresApproval: true,
-      reason: 'global-admin',
+      reason: 'tenant-admin',
       matches: adminMatches,
     };
   }

@@ -53,14 +53,8 @@ const RECIPIENT_ROLE_ALIASES: Record<string, CompanyAgentRole> = {
   maya: 'cmo',
   marcus: 'cto',
   atlas: 'ops',
-  nexus: 'platform-intel',
   victoria: 'clo',
-  riley: 'm365-admin',
-  morgan: 'global-admin',
   mia: 'vp-design',
-  tyler: 'content-creator',
-  lisa: 'seo-analyst',
-  kai: 'social-media-manager',
 };
 
 /** Cache for email → Entra Object ID lookups */
@@ -224,7 +218,7 @@ export function createDmTools(): ToolDefinition[] {
           type: 'string',
           description:
             'Who to DM — founder name (kristina/andrew), agent role ' +
-            '(cto, vp-sales), display name ("Maya Brooks"), or email',
+            '(cto, cmo), display name ("Maya Brooks"), or email',
           required: true,
         },
         message: {

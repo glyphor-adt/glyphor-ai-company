@@ -396,12 +396,12 @@ You are responsible for knowing what you need BEFORE you start working.
 **Capability owners:**
 - Infrastructure, deploys, CI/CD, platform health → CTO Marcus Reeves (\`cto\`)
 - New tool or API integration (doesn't exist yet) → CTO Marcus Reeves (\`cto\`) — or use \`request_new_tool\`
-- Access, permissions, GCP/Entra/M365 grants → Global Admin Morgan Blake (\`global-admin\`)
-- Teams channels, calendars, M365 config → M365 Admin Riley Morgan (\`m365-admin\`)
+- Access, permissions, GCP/Entra/M365 grants → CTO Marcus Reeves (\`cto\`)
+- Teams channels, calendars, M365 config → CTO Marcus Reeves (\`cto\`)
 - Cost, budget, financial analysis → CFO Nadia Okafor (\`cfo\`)
 - Product roadmap, features, prioritization → CPO Elena Vasquez (\`cpo\`)
 - Marketing, content, SEO, brand → CMO Maya Brooks (\`cmo\`)
-- Sales, pipeline, enterprise accounts → VP Sales Rachel Kim (\`vp-sales\`)
+- Sales, pipeline, enterprise accounts → CPO Elena Vasquez (\`cpo\`)
 - Design, UI/UX, templates → VP Design Mia Tanaka (\`vp-design\`)
 - Research, market analysis, competitive landscape → VP Research Sophia Lin (\`vp-research\`)
 - Legal, compliance, contracts → CLO Victoria Chase (\`clo\`)

@@ -70,7 +70,7 @@ export const APP_ROLE_IDS: Record<GlyphorAppRole, string> = {
  * Per-agent Entra app role assignments.
  * Determines which Glyphor MCP server tools each agent can access.
  */
-export const AGENT_ROLE_ASSIGNMENTS: Record<CompanyAgentRole, GlyphorAppRole[]> = {
+export const AGENT_ROLE_ASSIGNMENTS: Partial<Record<CompanyAgentRole, GlyphorAppRole[]>> = {
   // C-Suite
   'chief-of-staff':       ['Glyphor.Admin.Read', 'Glyphor.Ops.Read'],
   'cto':                  ['Glyphor.Code.Read', 'Glyphor.Code.Write', 'Glyphor.Deploy.Production', 'Glyphor.Engineering.Read'],
@@ -78,45 +78,21 @@ export const AGENT_ROLE_ASSIGNMENTS: Record<CompanyAgentRole, GlyphorAppRole[]> 
   'cmo':                  ['Glyphor.Marketing.Read', 'Glyphor.Marketing.Content.Write', 'Glyphor.Marketing.Publish', 'Glyphor.Marketing.Social.Write'],
   'cpo':                  ['Glyphor.Product.Read', 'Glyphor.Research.Read'],
   'clo':                  ['Glyphor.Admin.Read'],
-  'vp-sales':             ['Glyphor.Research.Read'],
   'vp-design':            ['Glyphor.Design.Read', 'Glyphor.Design.Write', 'Glyphor.Figma.Read', 'Glyphor.Figma.Write', 'Glyphor.Code.Read'],
 
   // Engineering team
   'platform-engineer':    ['Glyphor.Code.Read', 'Glyphor.Code.Write', 'Glyphor.Engineering.Read'],
   'quality-engineer':     ['Glyphor.Code.Read', 'Glyphor.Engineering.Read'],
   'devops-engineer':      ['Glyphor.Code.Read', 'Glyphor.Deploy.Preview', 'Glyphor.Engineering.Read'],
-  'm365-admin':           ['Glyphor.Admin.Read'],
-
-  // Product team
-  'user-researcher':      ['Glyphor.Product.Read', 'Glyphor.Support.Read'],
-  'competitive-intel':    ['Glyphor.Product.Read', 'Glyphor.Research.Read'],
-
-  // Marketing team
-  'content-creator':      ['Glyphor.Marketing.Read', 'Glyphor.Marketing.Content.Write'],
-  'seo-analyst':          ['Glyphor.Marketing.SEO.Read', 'Glyphor.Marketing.Read'],
-  'social-media-manager': ['Glyphor.Marketing.Read', 'Glyphor.Marketing.Social.Write'],
-
-  // Design & Frontend team
-  'ui-ux-designer':       ['Glyphor.Design.Read', 'Glyphor.Figma.Read'],
-  'frontend-engineer':    ['Glyphor.Design.Read', 'Glyphor.Code.Read', 'Glyphor.Code.Write'],
-  'design-critic':        ['Glyphor.Design.Read', 'Glyphor.Figma.Read'],
-  'template-architect':   ['Glyphor.Design.Read', 'Glyphor.Design.Write', 'Glyphor.Code.Read', 'Glyphor.Code.Write'],
 
   // Operations
   'ops':                  ['Glyphor.Ops.Read', 'Glyphor.Admin.Read'],
-  'global-admin':         ['Glyphor.Admin.Read'],
-
-  // People & Culture
-  'head-of-hr':           ['Glyphor.Admin.Read'],
 
   // Research & Intelligence
   'vp-research':          ['Glyphor.Research.Read', 'Glyphor.Product.Read'],
-  'competitive-research-analyst': ['Glyphor.Research.Read'],
-  'market-research-analyst':      ['Glyphor.Research.Read'],
   'bob-the-tax-pro':               ['Glyphor.Finance.Revenue.Read'],
   'marketing-intelligence-analyst': ['Glyphor.Marketing.Read', 'Glyphor.Research.Read'],
   'adi-rose':                      ['Glyphor.Admin.Read', 'Glyphor.Ops.Read'],
-  'platform-intel':                ['Glyphor.Ops.Read', 'Glyphor.Engineering.Read'],
 };
 
 /**

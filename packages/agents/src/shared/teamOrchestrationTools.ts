@@ -33,7 +33,6 @@ const EXECUTIVE_ROLES = new Set<string>([
   'cfo',
   'cpo',
   'cmo',
-  'vp-sales',
   'vp-design',
   'vp-research',
   'clo',

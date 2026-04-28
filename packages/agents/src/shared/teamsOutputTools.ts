@@ -445,8 +445,7 @@ export function createTeamsOutputTools(): ToolDefinition[] {
 
         const AGENT_NAMES: Record<string, string> = {
           'chief-of-staff': 'Sarah', cmo: 'Maya', cto: 'Marcus',
-          cfo: 'Nadia', cpo: 'Elena', 'content-creator': 'Tyler',
-          'seo-analyst': 'Lisa', 'social-media-manager': 'Kai',
+          cfo: 'Nadia', cpo: 'Elena',
         };
         const agentName = AGENT_NAMES[agentRole] ?? agentRole;
         const costLine = estimatedCost ? ` — ${estimatedCost} est.` : '';

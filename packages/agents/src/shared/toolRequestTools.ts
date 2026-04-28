@@ -175,7 +175,7 @@ export function findFuzzyDuplicates(
   return out;
 }
 
-const ADMIN_REVIEW_ASSIGNEES = ['cto', 'global-admin'];
+const ADMIN_REVIEW_ASSIGNEES = ['cto'];
 const RESTRICTED_REVIEW_ASSIGNEES = ['kristina', ...ADMIN_REVIEW_ASSIGNEES];
 
 async function queueToolReviewDecision(input: {
@@ -442,7 +442,7 @@ export function createToolRequestTools(): ToolDefinition[] {
         'Request a new tool capability that does not currently exist in the system. ' +
         'Creates a tool request for CTO build review. Include a clear description of what the tool should do, ' +
         'why it is needed, and optionally suggest an API configuration if the tool wraps an external API. ' +
-        'Approval is required only for paid/spend-impacting or global-admin permissioning tools.',
+        'Approval is required only for paid/spend-impacting or tenant-admin permissioning tools.',
       parameters: {
         tool_name: {
           type: 'string',

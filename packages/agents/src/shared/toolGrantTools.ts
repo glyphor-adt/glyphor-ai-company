@@ -14,8 +14,8 @@ import { systemQuery } from '@glyphor/shared/db';
 import { evaluateToolPermissionGate } from './toolPermissionPolicy.js';
 
 /** Roles allowed to activate live grants directly. */
-const DIRECT_GRANT_ADMINS = new Set(['cto', 'global-admin', 'kristina', 'system']);
-const ADMIN_REVIEW_ASSIGNEES = ['cto', 'global-admin'];
+const DIRECT_GRANT_ADMINS = new Set(['cto', 'kristina', 'system']);
+const ADMIN_REVIEW_ASSIGNEES = ['cto'];
 const RESTRICTED_REVIEW_ASSIGNEES = ['kristina', ...ADMIN_REVIEW_ASSIGNEES];
 
 export function createToolGrantTools(
@@ -33,7 +33,7 @@ export function createToolGrantTools(
       parameters: {
         agent_role: {
           type: 'string',
-          description: 'Agent role to grant the tool to (e.g., "cmo", "vp-sales")',
+          description: 'Agent role to grant the tool to (e.g., "cmo", "cpo")',
           required: true,
         },
         tool_name: {

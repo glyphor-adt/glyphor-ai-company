@@ -101,7 +101,7 @@ export function createClaudeParityTools(glyphorEventBus: GlyphorEventBus): ToolD
     name: 'delegate_codebase_explore',
     description:
       'Delegate a read-only codebase exploration to a specialist agent (Claude Code Explore–style). ' +
-      'Queues a message to **frontend-engineer** (default) or **platform-engineer** with your question. ' +
+      'Queues a message to **platform-engineer** with your question. ' +
       'They will use their sandbox and tools on the next run. Use for large repo maps when you should not burn turns on grep yourself.',
     parameters: {
       query: {
@@ -119,7 +119,7 @@ export function createClaudeParityTools(glyphorEventBus: GlyphorEventBus): ToolD
         type: 'string',
         description: 'Specialist to wake',
         required: false,
-        enum: ['frontend-engineer', 'platform-engineer'],
+        enum: ['platform-engineer'],
       },
       workspace_hint: {
         type: 'string',
@@ -135,9 +135,7 @@ export function createClaudeParityTools(glyphorEventBus: GlyphorEventBus): ToolD
       const query = String(params.query ?? '').trim();
       if (!query) return { success: false, error: 'query is required' };
 
-      const requested = (params.target_agent as string) === 'platform-engineer'
-        ? 'platform-engineer'
-        : 'frontend-engineer';
+      const requested = 'platform-engineer';
       const toAgent = normalizeAssigneeRole(requested);
       if (toAgent === ctx.agentRole) {
         return { success: false, error: 'Cannot delegate to yourself' };

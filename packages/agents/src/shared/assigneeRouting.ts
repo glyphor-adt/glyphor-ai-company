@@ -3,10 +3,7 @@ import { systemQuery } from '@glyphor/shared/db';
 const ASSIGNEE_ROLE_ALIASES: Record<string, string> = {
   chief_of_staff: 'chief-of-staff',
   vp_design: 'vp-design',
-  vp_sales: 'vp-sales',
   vp_cs: 'vp-cs',
-  competitive_intel: 'competitive-research-analyst',
-  'competitive-intel': 'competitive-research-analyst',
   // Common role aliases used by model outputs
   cos: 'chief-of-staff',
   ctos: 'cto',
@@ -28,8 +25,6 @@ const ASSIGNEE_ROLE_ALIASES: Record<string, string> = {
   atlas: 'ops',
   'sophia-lin': 'vp-research',
   sophia: 'vp-research',
-  'rachel-kim': 'vp-sales',
-  rachel: 'vp-sales',
   'mia-tanaka': 'vp-design',
   mia: 'vp-design',
 };

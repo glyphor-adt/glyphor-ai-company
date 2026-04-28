@@ -22,7 +22,7 @@
  *   const tools = createSandboxDevTools({
  *     repo: 'glyphor-adt/glyphor-ai-company',
  *     branch: 'feature/agent-fix-123',
- *     agentRole: 'frontend-engineer',
+ *     agentRole: 'platform-engineer',
  *     runId: 'ava-fix-2026-04-06',
  *     allowedShellPatterns: ['npm *', 'git *', 'node *', 'tsc *'],
  *   });

@@ -25,14 +25,10 @@ type FounderTarget = 'kristina' | 'andrew';
 const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'chief-of-staff': 'Sarah Chen', cto: 'Marcus Reeves', cpo: 'Elena Vasquez',
   cfo: 'Nadia Okafor', cmo: 'Maya Brooks',
-  'vp-sales': 'Rachel Kim', 'vp-design': 'Mia Tanaka', ops: 'Atlas Vega',
+  'vp-design': 'Mia Tanaka', ops: 'Atlas Vega',
   'platform-engineer': 'Alex Park', 'quality-engineer': 'Sam DeLuca',
-  'devops-engineer': 'Jordan Hayes', 'user-researcher': 'Priya Sharma',
-  'competitive-intel': 'Daniel Ortiz', 'content-creator': 'Tyler Reed',
-  'seo-analyst': 'Lisa Chen', 'social-media-manager': 'Kai Johnson',
-  'm365-admin': 'Riley Morgan', 'global-admin': 'Morgan Blake',
-  'head-of-hr': 'Ava Martinez', clo: 'Legal', 'vp-research': 'Research Lead',
-  'platform-intel': 'Nexus',
+  'devops-engineer': 'Jordan Hayes',
+  clo: 'Legal', 'vp-research': 'Research Lead',
 };
 
 const FOUNDER_DISPLAY_NAMES: Record<FounderTarget, string> = {

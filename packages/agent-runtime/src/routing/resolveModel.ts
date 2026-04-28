@@ -127,8 +127,6 @@ const CODE_INTENSIVE_ROLES = new Set([
   'platform-engineer',
   'quality-engineer',
   'devops-engineer',
-  'frontend-engineer',
-  'template-architect',
   'cto',
 ]);
 
@@ -142,7 +140,7 @@ const ORCHESTRATION_TASKS = new Set([
 ]);
 
 const EXECUTIVE_ROLES = new Set([
-  'chief-of-staff', 'cto', 'cfo', 'cpo', 'cmo', 'vp-sales', 'vp-design', 'vp-research', 'clo',
+  'chief-of-staff', 'cto', 'cfo', 'cpo', 'cmo', 'vp-design', 'vp-research', 'clo',
 ]);
 
 const NANO_ELIGIBLE_TASKS = new Set([
