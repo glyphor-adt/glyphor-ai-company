@@ -1,3 +1,0 @@
-[main eda00c0f] fix: include CORE.md in all context tiers, add email signatures
- 6 files changed, 355 insertions(+), 17 deletions(-)
- create mode 100644 packages/agent-runtime/src/config/emailSignatures.ts

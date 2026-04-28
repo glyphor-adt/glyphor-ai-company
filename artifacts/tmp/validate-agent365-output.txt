@@ -1,3 +1,0 @@
-[FAIL] Missing ToolingManifest.json: C:\Users\KristinaDenney\source\repos\glyphor-ai-company\ToolingManifest.json
-
-Summary: PASS 0 | WARN 0 | FAIL 1
