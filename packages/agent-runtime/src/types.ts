@@ -68,36 +68,18 @@ export type CompanyAgentRole =
   | 'cmo'
   | 'cfo'
   | 'clo'
-  | 'vp-sales'
   | 'vp-design'
   // Sub-team members
   | 'platform-engineer'       // Alex Park → reports to CTO
   | 'quality-engineer'        // Sam DeLuca → reports to CTO
   | 'devops-engineer'         // Jordan Hayes → reports to CTO
-  | 'user-researcher'         // Priya Sharma → reports to CPO
-  | 'competitive-intel'       // Daniel Ortiz → reports to CPO
-  | 'content-creator'         // Tyler Reed → reports to CMO
-  | 'seo-analyst'             // Lisa Chen → reports to CMO
-  | 'social-media-manager'    // Kai Johnson → reports to CMO
-  | 'ui-ux-designer'          // Leo Vargas → reports to VP-Design
-  | 'frontend-engineer'       // Ava Chen → reports to VP-Design
-  | 'design-critic'           // Sofia Marchetti → reports to VP-Design
-  | 'template-architect'      // Ryan Park → reports to VP-Design
-  | 'm365-admin'              // Riley Morgan → reports to CTO, manages Microsoft 365
-  | 'global-admin'            // Morgan Blake → reports to CoS, cross-project IAM & onboarding
   | 'ops'                     // Atlas Vega → Operations & System Intelligence
-  // People & Culture
-  | 'head-of-hr'                // Jasmine Rivera → Head of People & Culture, reports to CoS
   // Research & Intelligence
   | 'vp-research'                   // Sophia Lin → VP of Research & Intelligence
-  | 'competitive-research-analyst'  // Lena Park → reports to Sophia Lin
-  | 'market-research-analyst'       // Daniel Okafor → reports to Sophia Lin
   // Specialists
   | 'bob-the-tax-pro'                 // Robert "Bob" Finley → CPA & Tax Strategist, reports to CLO
   | 'marketing-intelligence-analyst'  // Zara Petrov → reports to CMO
-  | 'adi-rose'                        // Adi Rose → Executive Assistant, reports to CoS
-  // Platform Intelligence
-  | 'platform-intel';                 // Nexus → Platform Intelligence, Operations peer
+  | 'adi-rose';                       // Adi Rose → Executive Assistant, reports to CoS
 
 export type ContextInjector = (
   turnNumber: number,
@@ -741,7 +723,6 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'clo':                  { perRunUsd: 0.10, dailyUsd: 3.00, monthlyUsd: 90 },
   'cpo':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
   'cmo':                  { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
-  'vp-sales':             { perRunUsd: 0.08, dailyUsd: 1.50, monthlyUsd: 45 },
   // VP Design runs web pipeline tools (invoke_web_build, foundation, etc.); each is ~$0.02 in the
   // estimator vs former perRunUsd 0.08, which blocked builds after a handful of prior tool calls.
   'vp-design':            { perRunUsd: 1.00, dailyUsd: 5.00, monthlyUsd: 150 },
@@ -751,28 +732,12 @@ export const AGENT_BUDGETS: Record<CompanyAgentRole, AgentBudget> = {
   'platform-engineer':    { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'quality-engineer':     { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
   'devops-engineer':      { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'user-researcher':      { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'competitive-intel':    { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'content-creator':      { perRunUsd: 0.08, dailyUsd: 1.00, monthlyUsd: 30 },
-  'seo-analyst':          { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'social-media-manager': { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'ui-ux-designer':       { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'frontend-engineer':    { perRunUsd: 1.00, dailyUsd: 1.00, monthlyUsd: 30 },
-  'design-critic':        { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'template-architect':   { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'm365-admin':           { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  'global-admin':          { perRunUsd: 0.05, dailyUsd: 1.00, monthlyUsd: 30 },
-  // People & Culture
-  'head-of-hr':             { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
   // Research & Intelligence
   'vp-research':                    { perRunUsd: 0.10, dailyUsd: 2.00, monthlyUsd: 60 },
-  'competitive-research-analyst': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
-  'market-research-analyst':      { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   // Specialists
   'bob-the-tax-pro':               { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'marketing-intelligence-analyst': { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
   'adi-rose':                      { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
-  'platform-intel':                { perRunUsd: 0.08, dailyUsd: 2.00, monthlyUsd: 60 },
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -860,13 +825,11 @@ export type AgentTier = 'executive' | 'sub-team';
 
 export const EXECUTIVE_ROLES: CompanyAgentRole[] = [
   'chief-of-staff', 'cto', 'cpo', 'cmo', 'cfo',
-  'vp-sales', 'vp-design',
+  'vp-design',
 ];
 
 export const SUB_TEAM_ROLES: CompanyAgentRole[] = [
   'platform-engineer', 'quality-engineer', 'devops-engineer',
-  'user-researcher', 'competitive-intel',
-  'content-creator', 'seo-analyst', 'social-media-manager',
 ];
 
 /** Events executives can emit */
@@ -987,11 +950,6 @@ export const AGENT_MANAGER: Partial<Record<CompanyAgentRole, CompanyAgentRole>> 
   'platform-engineer':     'cto',
   'quality-engineer':      'cto',
   'devops-engineer':       'cto',
-  'user-researcher':       'cpo',
-  'competitive-intel':     'cpo',
-  'content-creator':       'cmo',
-  'seo-analyst':           'cmo',
-  'social-media-manager':  'cmo',
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1010,11 +968,8 @@ export const ORCHESTRATOR_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
 
 /** All remaining roles use the TaskRunner — they receive, reason, execute, and report. */
 export const TASK_AGENT_ROLES: ReadonlySet<CompanyAgentRole> = new Set([
-  'cfo', 'cpo', 'vp-sales', 'vp-design',
+  'cfo', 'cpo', 'vp-design',
   'platform-engineer', 'quality-engineer', 'devops-engineer',
-  'user-researcher', 'competitive-intel',
-  'content-creator', 'seo-analyst', 'social-media-manager',
-  'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect',
 ]);
 
 export function getAgentArchetype(role: CompanyAgentRole): AgentArchetype {

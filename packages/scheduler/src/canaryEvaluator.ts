@@ -79,7 +79,6 @@ const EXPANSION_ORDER = [
   'cmo',                   // Large team, content is domain-specific
   'cpo',                   // Product requires domain judgment
   'cfo',                   // Financial analysis requires precision
-  'vp-sales',              // Sales research is specialized
   'vp-design',
   'vp-research',
 ];

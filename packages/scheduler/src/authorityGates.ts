@@ -71,11 +71,6 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
     'regulatory_scan', 'contract_review', 'compliance_check',
     'on_demand', 'agent365_mail_triage',
   ]),
-  'vp-sales': new Set([
-    'account_research', 'roi_calculator', 'market_sizing',
-    'kyc_research', 'proposal_draft', 'pipeline_review',
-    'on_demand', 'agent365_mail_triage',
-  ]),
   'vp-design': new Set([
     'design_audit', 'design_system_review',
     'audit',
@@ -85,17 +80,6 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   'platform-engineer': new Set(['health_check', 'metrics_report', 'on_demand']),
   'quality-engineer': new Set(['qa_report', 'regression_check', 'on_demand']),
   'devops-engineer': new Set(['optimization_scan', 'pipeline_report', 'on_demand']),
-  'user-researcher': new Set(['cohort_analysis', 'churn_signals', 'on_demand']),
-  'competitive-intel': new Set(['landscape_scan', 'deep_dive', 'on_demand']),
-  'content-creator': new Set(['blog_draft', 'social_batch', 'performance_review', 'on_demand']),
-  'seo-analyst': new Set(['ranking_report', 'keyword_research', 'competitor_gap', 'on_demand']),
-  'social-media-manager': new Set(['engagement_report', 'schedule_batch', 'mention_scan', 'on_demand']),
-  'm365-admin': new Set(['channel_audit', 'user_audit', 'agent365_mail_triage', 'on_demand']),
-  'global-admin': new Set(['access_audit', 'compliance_report', 'onboarding', 'agent365_mail_triage', 'on_demand']),
-  'ui-ux-designer': new Set(['on_demand']),
-  'frontend-engineer': new Set(['on_demand']),
-  'design-critic': new Set(['on_demand']),
-  'template-architect': new Set(['on_demand']),
   'ops': new Set([
     'health_check', 'freshness_check', 'cost_check', 'morning_status',
     'evening_status', 'on_demand', 'event_response',
@@ -105,22 +89,10 @@ const GREEN_ACTIONS: Record<CompanyAgentRole, Set<string>> = {
   ]),
   // Research & Intelligence
   'vp-research': new Set(['decompose_research', 'qc_and_package_research', 'follow_up_research', 'on_demand']),
-  'competitive-research-analyst': new Set(['research', 'on_demand']),
-  'market-research-analyst': new Set(['research', 'on_demand']),
-  'head-of-hr': new Set(['on_demand', 'agent365_mail_triage']),
   // Sales, Finance, Marketing, Operations specialists
   'bob-the-tax-pro': new Set(['on_demand']),
   'marketing-intelligence-analyst': new Set(['on_demand']),
   'adi-rose': new Set(['on_demand']),
-  'platform-intel': new Set([
-    'daily_analysis',
-    'research',
-    'on_demand',
-    'watch_tool_gaps',
-    'remediate_tool_gaps',
-    'memory_consolidation',
-    'fleet_audit',
-  ]),
 };
 
 /**

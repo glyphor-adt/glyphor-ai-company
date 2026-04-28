@@ -11,10 +11,9 @@ const SQL = `
 SELECT agent_id, cron_expression, enabled, task, payload
 FROM agent_schedules
 WHERE agent_id IN (
-  'cmo', 'content-creator', 'seo-analyst',
-  'social-media-manager', 'chief-of-staff',
-  'cto', 'ops', 'platform-intel',
-  'clo', 'm365-admin', 'global-admin',
+  'cmo', 'chief-of-staff',
+  'cto', 'ops',
+  'clo',
   'vp-design'
 )
 ORDER BY agent_id, cron_expression

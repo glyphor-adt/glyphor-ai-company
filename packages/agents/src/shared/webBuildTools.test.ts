@@ -17,7 +17,7 @@ const MOCK_FOUNDATION_FILES: Record<string, string> = {
 function createContext(executeChildTool: (toolName: string, params: Record<string, unknown>) => Promise<unknown>) {
   return {
     agentId: 'test-agent',
-    agentRole: 'frontend-engineer',
+    agentRole: 'platform-engineer',
     turnNumber: 1,
     abortSignal: new AbortController().signal,
     memoryBus: {

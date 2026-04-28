@@ -494,7 +494,7 @@ export class ModelClient {
 /** Executive roles get more aggressive retry behavior. */
 const EXECUTIVE_ROLES = new Set([
   'cto', 'cfo', 'cpo', 'cmo', 'clo', 'chief-of-staff',
-  'vp-research', 'vp-design', 'vp-sales',
+  'vp-research', 'vp-design',
 ]);
 
 /** Background sources don't warrant aggressive retries. */

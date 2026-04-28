@@ -55,15 +55,6 @@ const SUBTEAM_TIER: CompanyAgentRole[] = filterLiveRuntimeRoles([
   'platform-engineer',
   'quality-engineer',
   'devops-engineer',
-  'user-researcher',
-  'competitive-intel',
-  'content-creator',
-  'seo-analyst',
-  'social-media-manager',
-  'ui-ux-designer',
-  'frontend-engineer',
-  'design-critic',
-  'template-architect',
 ]);
 
 /** Tier 3: Specialists — every 6 hours (36 cycles) */

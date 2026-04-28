@@ -74,7 +74,7 @@ const KEYWORD_TOOL_MAP: Record<string, string[]> = {
 };
 
 /** Marketing/creative agents — "calendar" / "onboarding" in copy usually do not imply scheduling or analytics tools. */
-const CREATIVE_MARKETING_ROLES = new Set(['cmo', 'content-creator', 'social-media-manager']);
+const CREATIVE_MARKETING_ROLES = new Set(['cmo']);
 
 /** Keywords not subjected to KEYWORD_TOOL_MAP for creative marketing roles (avoid false positives). */
 const KEYWORD_TOOL_SKIPS_FOR_CREATIVE_ROLES = new Set(['calendar', 'onboarding']);

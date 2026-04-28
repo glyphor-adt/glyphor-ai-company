@@ -63,15 +63,6 @@ export const DEFAULT_CONSTITUTIONS: Record<string, ConstitutionalPrinciple[]> = 
     p('cmo-authentic', 'Prefer authentic messaging over hype — underpromise and overdeliver', 'ethical', 0.7),
   ],
 
-  // ─── VP Sales ───
-  'vp-sales': [
-    p('vps-nocaps', 'Never make commitments about product capabilities that are not yet built', 'ethical', 0.95),
-    p('vps-pipeline', 'Always quantify pipeline values with probability-weighted estimates', 'output_quality', 0.85),
-    p('vps-painpoints', 'When engaging prospects, lead with their pain points, not our features', 'communication', 0.8),
-    p('vps-funnel', 'Track and report on conversion rates at each funnel stage', 'output_quality', 0.75),
-    p('vps-disqualify', 'Recommend disqualifying prospects that are not a good fit rather than forcing a deal', 'ethical', 0.7),
-  ],
-
   // ─── CPO ───
   cpo: [
     p('cpo-userdata', 'Ground product decisions in user data and research, not assumptions', 'output_quality', 0.9),
@@ -99,10 +90,7 @@ export const DEFAULT_CONSTITUTIONS: Record<string, ConstitutionalPrinciple[]> = 
 };
 
 /** Roles that map to an analyst constitution. */
-const ANALYST_ROLES = new Set([
-  'competitive-intel', 'user-researcher',
-  'competitive-research-analyst', 'market-research-analyst',
-]);
+const ANALYST_ROLES = new Set<string>([]);
 
 /**
  * Get the default constitution for an agent role.

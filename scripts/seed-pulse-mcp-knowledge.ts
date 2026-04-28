@@ -1,6 +1,6 @@
 /**
- * Seeds company_knowledge_base (pulse_mcp_guide) and deploys new agent_prompt_versions
- * for cmo, content-creator, social-media-manager (retires prior active versions).
+ * Seeds company_knowledge_base (pulse_mcp_guide) and deploys a new agent_prompt_versions
+ * for cmo (retires prior active version).
  *
  * Run (recommended):
  *   npx tsx scripts/run-with-gcp-db-secret.ts --db-user glyphor_app --db-password-secret db-password scripts/seed-pulse-mcp-knowledge.ts
@@ -13,15 +13,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { CMO_SYSTEM_PROMPT } from '../packages/agents/src/cmo/systemPrompt.js';
-import { CONTENT_CREATOR_SYSTEM_PROMPT } from '../packages/agents/src/content-creator/systemPrompt.js';
-import { SOCIAL_MEDIA_MANAGER_SYSTEM_PROMPT } from '../packages/agents/src/social-media-manager/systemPrompt.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const ROLES = [
   { id: 'cmo', prompt: CMO_SYSTEM_PROMPT },
-  { id: 'content-creator', prompt: CONTENT_CREATOR_SYSTEM_PROMPT },
-  { id: 'social-media-manager', prompt: SOCIAL_MEDIA_MANAGER_SYSTEM_PROMPT },
 ] as const;
 
 async function main(): Promise<void> {
@@ -78,7 +74,7 @@ ON CONFLICT (section) DO UPDATE SET
        WHERE agent_id = ANY($1::text[])
          AND deployed_at IS NOT NULL
          AND retired_at IS NULL`,
-      [['cmo', 'content-creator', 'social-media-manager']],
+      [['cmo']],
     );
     console.log(`agent_prompt_versions: retired ${retire.rowCount} active row(s)`);
 

@@ -3476,12 +3476,6 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Retired platform-intel approvals are intentionally unavailable after the live-roster purge.
-    if (method === 'GET' && url?.startsWith('/platform-intel/')) {
-      json(res, 404, { error: 'platform-intel approvals are not available on the live roster' });
-      return;
-    }
-
     // Directive approval/rejection webhooks (GET shows confirm page, POST processes)
     if ((method === 'GET' || method === 'POST') && url?.startsWith('/directives/')) {
       const handled = await handleDirectiveApproval(url, req, res);

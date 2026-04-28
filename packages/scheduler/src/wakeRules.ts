@@ -44,7 +44,7 @@ export const WAKE_RULES: WakeRule[] = [
   // ── STRIPE WEBHOOKS ──────────────────────────────────────────
   {
     event: 'customer.subscription.created',
-    wake: ['vp-sales'],
+    wake: ['cmo'],
     task: 'new_customer_welcome',
     priority: 'immediate',
     cooldown_min: 5,

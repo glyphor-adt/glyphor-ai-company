@@ -27,11 +27,6 @@ const TIER_0_CONFIG_IDS = new Set([
   'ops-cost-check',
   'ops-morning-status',
   'ops-evening-status',
-  'social-media-morning',
-  'social-media-afternoon',
-  'seo-analyst-daily',
-  'm365-admin-weekly-audit',
-  'm365-admin-user-audit',
 ]);
 
 const TIER_0_TASKS = new Set([

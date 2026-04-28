@@ -20,7 +20,7 @@ import { acceptContractForTask, markContractInProgressForTask } from './handoffC
 /** Executive roles that manage teams and evaluate team output */
 const EXECUTIVE_ROLES = new Set([
   'cto', 'cpo', 'cmo', 'cfo',
-  'vp-sales', 'vp-design', 'vp-research',
+  'vp-design', 'vp-research',
 ]);
 
 /** Appended to all P1/P2 assignment execution messages */
@@ -44,10 +44,8 @@ export const PROACTIVE_COOLDOWNS: Record<string, number> = {
   'cpo':                 2 * 60 * 60 * 1000,
   'cmo':                 2 * 60 * 60 * 1000,
   'clo':                 2 * 60 * 60 * 1000,
-  'vp-sales':            2 * 60 * 60 * 1000,
   'vp-design':           2 * 60 * 60 * 1000,
   'vp-research':         2 * 60 * 60 * 1000,
-  'head-of-hr':          2 * 60 * 60 * 1000,
   'ops':                 2 * 60 * 60 * 1000,
 
   // Non-executive roles do not run standalone proactive tasks.
@@ -64,46 +62,30 @@ async function getDirectReportsForExecutive(executiveRole: string): Promise<stri
 const ROLE_DEPARTMENT: Record<string, string> = {
   'chief-of-staff': 'operations',
   ops: 'operations',
-  'global-admin': 'operations',
-  'head-of-hr': 'operations',
   'adi-rose': 'operations',
   cto: 'engineering',
   'platform-engineer': 'engineering',
   'quality-engineer': 'engineering',
   'devops-engineer': 'engineering',
-  'm365-admin': 'engineering',
   cpo: 'product',
-  'user-researcher': 'product',
-  'competitive-intel': 'product',
   cfo: 'finance',
   clo: 'legal',
   'bob-the-tax-pro': 'legal',
   cmo: 'marketing',
-  'content-creator': 'marketing',
-  'seo-analyst': 'marketing',
-  'social-media-manager': 'marketing',
   'marketing-intelligence-analyst': 'marketing',
-  'vp-sales': 'sales',
   'vp-design': 'design',
-  'ui-ux-designer': 'design',
-  'frontend-engineer': 'design',
-  'design-critic': 'design',
-  'template-architect': 'design',
   'vp-research': 'research',
-  'competitive-research-analyst': 'research',
-  'market-research-analyst': 'research',
 };
 
 const DEPARTMENT_ROLE_GROUPS: Record<string, string[]> = {
-  operations: ['chief-of-staff', 'ops', 'global-admin', 'head-of-hr', 'adi-rose'],
-  engineering: ['cto', 'platform-engineer', 'quality-engineer', 'devops-engineer', 'm365-admin'],
-  product: ['cpo', 'user-researcher', 'competitive-intel'],
+  operations: ['chief-of-staff', 'ops', 'adi-rose'],
+  engineering: ['cto', 'platform-engineer', 'quality-engineer', 'devops-engineer'],
+  product: ['cpo'],
   finance: ['cfo'],
   legal: ['clo', 'bob-the-tax-pro'],
-  marketing: ['cmo', 'content-creator', 'seo-analyst', 'social-media-manager', 'marketing-intelligence-analyst'],
-  sales: ['vp-sales'],
-  design: ['vp-design', 'ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect'],
-  research: ['vp-research', 'competitive-research-analyst', 'market-research-analyst'],
+  marketing: ['cmo', 'marketing-intelligence-analyst'],
+  design: ['vp-design'],
+  research: ['vp-research'],
 };
 
 const DEPARTMENT_DIRECTIVE_CATEGORIES: Record<string, string[]> = {
@@ -844,14 +826,6 @@ Pick the one with the highest potential impact. Execute it — don't just report
 3. SOCIAL ENGAGEMENT: Review last week's social media performance. Double down on what worked.
 4. BRAND MONITORING: Web search "Glyphor" and "Pulse AI" for new mentions or reviews.
 5. INITIATIVE: If you've identified a recurring marketing pattern across 3+ runs, use propose_initiative to propose a marketing campaign or growth project.
-Pick the one with the highest potential impact. Execute it — don't just report on it.`,
-
-  'vp-sales': `PROACTIVE WORK — Choose ONE high-value initiative:
-1. PIPELINE HEALTH: Check pipeline stage conversion rates. If any stage has >50% drop-off, investigate.
-2. PROSPECT RESEARCH: Research top 3 prospects in the pipeline — find recent news, funding, or hiring signals.
-3. WIN/LOSS ANALYSIS: Review last 5 closed deals. Identify patterns in wins vs losses.
-4. OUTREACH: Draft personalized outreach for the highest-priority prospect not yet contacted.
-5. INITIATIVE: If you've identified a recurring sales pattern across 3+ runs, use propose_initiative to propose a sales process improvement.
 Pick the one with the highest potential impact. Execute it — don't just report on it.`,
 
   'vp-design': `PROACTIVE WORK — Choose ONE high-value initiative:

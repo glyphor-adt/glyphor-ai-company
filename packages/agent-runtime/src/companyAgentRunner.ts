@@ -254,7 +254,7 @@ const ON_DEMAND_TOOL_ONLY_ACK =
   'Working on it now.';
 
 /** Roles that commonly run multi-minute web-build tool chains in dashboard chat. */
-const ON_DEMAND_WEB_PIPELINE_ROLES = new Set<string>(['vp-design', 'frontend-engineer', 'template-architect']);
+const ON_DEMAND_WEB_PIPELINE_ROLES = new Set<string>(['vp-design']);
 
 function onDemandToolGating(role: string): {
   maxToolTurn: number;
@@ -543,33 +543,17 @@ const ROLE_TO_BRIEF: Record<CompanyAgentRole, string> = {
   'clo': 'victoria-chase',
   'cpo': 'elena-vasquez',
   'cmo': 'maya-brooks',
-  'vp-sales': 'rachel-kim',
   'vp-design': 'mia-tanaka',
   // Sub-team members
   'platform-engineer': 'alex-park',
   'quality-engineer': 'sam-deluca',
   'devops-engineer': 'jordan-hayes',
-  'user-researcher': 'priya-sharma',
-  'competitive-intel': 'daniel-ortiz',
-  'content-creator': 'tyler-reed',
-  'seo-analyst': 'lisa-chen',
-  'social-media-manager': 'kai-johnson',
-  'ui-ux-designer': 'leo-vargas',
-  'frontend-engineer': 'ava-chen',
-  'design-critic': 'sofia-marchetti',
-  'template-architect': 'ryan-park',
-  'm365-admin': 'riley-morgan',
-  'global-admin': 'morgan-blake',
   'ops': 'atlas-vega',
   // Research & Intelligence
   'vp-research': 'sophia-lin',
-  'competitive-research-analyst': 'lena-park',
-  'market-research-analyst': 'daniel-okafor',
-  'head-of-hr': 'jasmine-rivera',
   'bob-the-tax-pro': 'robert-finley',
   'marketing-intelligence-analyst': 'zara-petrov',
   'adi-rose': 'adi-rose',
-  'platform-intel': 'nexus',
 };
 
 /** Maps roles to their department for knowledge base audience targeting. */
@@ -581,30 +565,14 @@ const ROLE_DEPARTMENT: Record<string, string> = {
   'platform-engineer': 'engineering',
   'quality-engineer': 'engineering',
   'devops-engineer': 'engineering',
-  'm365-admin': 'engineering',
   'cfo': 'finance',
   'clo': 'legal',
   'bob-the-tax-pro': 'legal',
   'cmo': 'marketing',
-  'content-creator': 'marketing',
-  'seo-analyst': 'marketing',
-  'social-media-manager': 'marketing',
-  'vp-sales': 'sales',
   'vp-design': 'design',
   'vp-research': 'research',
-  'competitive-research-analyst': 'research',
-  'market-research-analyst': 'research',
-  'user-researcher': 'product',
-  'competitive-intel': 'product',
-  'ui-ux-designer': 'design',
-  'frontend-engineer': 'design',
-  'design-critic': 'design',
-  'template-architect': 'design',
-  'global-admin': 'operations',
   'marketing-intelligence-analyst': 'marketing',
   'adi-rose': 'operations',
-  'platform-intel': 'operations',
-  'head-of-hr': 'operations',
 };
 
 /** Maps roles to their department context files. */
@@ -616,30 +584,14 @@ const ROLE_CONTEXT_FILES: Record<string, string[]> = {
   'platform-engineer': ['engineering.md'],
   'quality-engineer': ['engineering.md'],
   'devops-engineer': ['engineering.md'],
-  'm365-admin': ['engineering.md'],
   'cfo': ['finance.md'],
   'clo': ['legal.md'],
   'bob-the-tax-pro': ['legal.md'],
   'cmo': ['marketing.md'],
-  'content-creator': ['marketing.md'],
-  'seo-analyst': ['marketing.md'],
-  'social-media-manager': ['marketing.md'],
-  'vp-sales': ['sales-cs.md'],
   'vp-design': ['design.md'],
   'vp-research': ['research.md'],
-  'competitive-research-analyst': ['research.md'],
-  'market-research-analyst': ['research.md'],
-  'user-researcher': ['product.md'],
-  'competitive-intel': ['product.md'],
-  'ui-ux-designer': ['design.md'],
-  'frontend-engineer': ['design.md', 'engineering.md'],
-  'design-critic': ['design.md'],
-  'template-architect': ['design.md'],
-  'global-admin': ['operations.md'],
   'marketing-intelligence-analyst': ['marketing.md'],
   'adi-rose': ['operations.md'],
-  'platform-intel': ['operations.md'],
-  'head-of-hr': ['operations.md'],
 };
 
 /** Profile data loaded from agent_profiles table. */
@@ -662,7 +614,7 @@ export interface AgentProfileData {
 /** Roles that report directly to chief-of-staff and manage their own teams */
 const EXECUTIVE_ROLES = new Set([
   'cto', 'cpo', 'cmo', 'cfo', 'clo',
-  'vp-sales', 'vp-design', 'vp-research',
+  'vp-design', 'vp-research',
 ]);
 
 /** Build a dynamic orchestration protocol section from DB-driven config. */

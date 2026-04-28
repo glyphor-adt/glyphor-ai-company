@@ -144,7 +144,7 @@ describe('shouldBlockToolCall()', () => {
   it('does not block when fleet is not halted', async () => {
     mockSystemQuery.mockResolvedValueOnce(configRows(notHaltedConfig()));
 
-    const result = await shouldBlockToolCall('save_file', 'frontend-engineer');
+    const result = await shouldBlockToolCall('save_file', 'platform-engineer');
     expect(result.blocked).toBe(false);
   });
 
@@ -153,7 +153,7 @@ describe('shouldBlockToolCall()', () => {
       circuit_breaker_halt_level: '1',
     })));
 
-    const result = await shouldBlockToolCall('save_file', 'frontend-engineer');
+    const result = await shouldBlockToolCall('save_file', 'platform-engineer');
     expect(result.blocked).toBe(true);
     expect(result.message).toContain('CAUTION');
   });
@@ -188,7 +188,7 @@ describe('shouldBlockToolCall()', () => {
   it('does not block agents not in affectedAgents list', async () => {
     mockSystemQuery.mockResolvedValueOnce(configRows(haltedConfig({
       circuit_breaker_halt_level: '2',
-      circuit_breaker_halt_affected_agents: '["frontend-engineer"]',
+      circuit_breaker_halt_affected_agents: '["platform-engineer"]',
     })));
 
     const result = await shouldBlockToolCall('save_file', 'cto');
@@ -198,10 +198,10 @@ describe('shouldBlockToolCall()', () => {
   it('blocks agents in the affectedAgents list', async () => {
     mockSystemQuery.mockResolvedValueOnce(configRows(haltedConfig({
       circuit_breaker_halt_level: '2',
-      circuit_breaker_halt_affected_agents: '["frontend-engineer"]',
+      circuit_breaker_halt_affected_agents: '["platform-engineer"]',
     })));
 
-    const result = await shouldBlockToolCall('save_file', 'frontend-engineer');
+    const result = await shouldBlockToolCall('save_file', 'platform-engineer');
     expect(result.blocked).toBe(true);
   });
 });
@@ -229,7 +229,7 @@ describe('shouldBlockHeartbeat()', () => {
 
   it('does not block unaffected agents', async () => {
     mockSystemQuery.mockResolvedValueOnce(configRows(haltedConfig({
-      circuit_breaker_halt_affected_agents: '["frontend-engineer"]',
+      circuit_breaker_halt_affected_agents: '["platform-engineer"]',
     })));
 
     const result = await shouldBlockHeartbeat('ops');

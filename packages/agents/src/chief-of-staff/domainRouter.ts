@@ -62,12 +62,12 @@ interface DepartmentDef {
 const DEPARTMENTS: Record<string, DepartmentDef> = {
   engineering: {
     executive: 'cto',
-    team: ['platform-engineer', 'quality-engineer', 'devops-engineer', 'm365-admin'],
+    team: ['platform-engineer', 'quality-engineer', 'devops-engineer'],
     keywords: ['deploy', 'build', 'code', 'github', 'ci/cd', 'infrastructure', 'migration', 'bug', 'test', 'api', 'backend', 'server', 'database', 'devops', 'pipeline', 'release', 'engineering'],
   },
   marketing: {
     executive: 'cmo',
-    team: ['content-creator', 'social-media-manager', 'seo-analyst', 'marketing-intelligence-analyst'],
+    team: ['marketing-intelligence-analyst'],
     keywords: ['content', 'social', 'seo', 'campaign', 'brand', 'launch', 'marketing', 'email marketing', 'newsletter', 'advertising', 'promotion'],
   },
   finance: {
@@ -77,22 +77,17 @@ const DEPARTMENTS: Record<string, DepartmentDef> = {
   },
   product: {
     executive: 'cpo',
-    team: ['user-researcher', 'competitive-intel'],
-    keywords: ['roadmap', 'feature', 'usage', 'competitive', 'user research', 'product', 'prioritization', 'backlog', 'requirements', 'specification'],
-  },
-  sales: {
-    executive: 'vp-sales',
     team: [],
-    keywords: ['pipeline', 'lead', 'enterprise', 'proposal', 'account', 'sales', 'prospect', 'deal', 'quota', 'crm', 'outbound'],
+    keywords: ['roadmap', 'feature', 'usage', 'competitive', 'user research', 'product', 'prioritization', 'backlog', 'requirements', 'specification'],
   },
   design: {
     executive: 'vp-design',
-    team: ['ui-ux-designer', 'frontend-engineer', 'design-critic', 'template-architect'],
+    team: [],
     keywords: ['design', 'ui', 'ux', 'frontend', 'component', 'template', 'wireframe', 'mockup', 'figma', 'layout', 'visual'],
   },
   research: {
     executive: 'vp-research',
-    team: ['competitive-research-analyst', 'market-research-analyst'],
+    team: [],
     keywords: ['research', 'analysis', 'market', 'competitive landscape', 'industry', 'trend', 'benchmark', 'study', 'intelligence'],
   },
   legal: {

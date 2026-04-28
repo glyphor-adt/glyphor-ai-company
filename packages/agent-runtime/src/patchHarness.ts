@@ -134,7 +134,7 @@ export async function applyPatchToGitHub(
         title: params.commit_message,
         head: params.branch,
         base: 'main',
-        body: `Automated fix by Nexus (platform-intel).\n\nFiles changed:\n${filesWritten.map(f => '- ' + f).join('\n')}`,
+        body: `Automated fix.\n\nFiles changed:\n${filesWritten.map(f => '- ' + f).join('\n')}`,
       };
       const pr = await githubRequest<{ html_url: string; number: number }>(
         `/repos/${GITHUB_OWNER}/${params.repo}/pulls`,

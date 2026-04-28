@@ -17,9 +17,9 @@ function createConfig(role: CompanyAgentRole): AgentConfig {
 
 describe('planningPolicy', () => {
   it('defaults strict roles to required mode on scheduled tasks', () => {
-    const config = createConfig('frontend-engineer');
+    const config = createConfig('vp-design');
     const policy = resolvePlanningPolicy({
-      role: 'frontend-engineer',
+      role: 'vp-design',
       task: 'implement_component',
       config,
       taskTierHint: true,
@@ -32,9 +32,9 @@ describe('planningPolicy', () => {
   });
 
   it('defaults on_demand to off mode', () => {
-    const config = createConfig('frontend-engineer');
+    const config = createConfig('platform-engineer');
     const policy = resolvePlanningPolicy({
-      role: 'frontend-engineer',
+      role: 'platform-engineer',
       task: 'on_demand',
       config,
       taskTierHint: true,
@@ -85,18 +85,18 @@ describe('planningPolicy', () => {
   it('allows env overrides and respects explicit config overrides', () => {
     vi.stubEnv('AGENT_PLANNING_POLICY_JSON', JSON.stringify({
       default: { planningMode: 'auto', completionGateMaxRetries: 1 },
-      roles: { 'content-creator': { planningMode: 'required' } },
+      roles: { 'cmo': { planningMode: 'required' } },
       tasks: { on_demand: { planningMode: 'auto', completionGateAutoRepairEnabled: true } },
     }));
 
-    const config = createConfig('content-creator');
+    const config = createConfig('cmo');
     config.planningMode = 'off';
     config.completionGateEnabled = false;
     config.completionGateMaxRetries = 0;
     config.completionGateAutoRepairEnabled = false;
 
     const policy = resolvePlanningPolicy({
-      role: 'content-creator',
+      role: 'cmo',
       task: 'on_demand',
       config,
       taskTierHint: true,
@@ -111,12 +111,12 @@ describe('planningPolicy', () => {
 
   it('supports enabling auto-repair by role via env policy', () => {
     vi.stubEnv('AGENT_PLANNING_POLICY_JSON', JSON.stringify({
-      roles: { 'platform-intel': { completionGateAutoRepairEnabled: true } },
+      roles: { 'ops': { completionGateAutoRepairEnabled: true } },
     }));
 
-    const config = createConfig('platform-intel');
+    const config = createConfig('ops');
     const policy = resolvePlanningPolicy({
-      role: 'platform-intel',
+      role: 'ops',
       task: 'watch_tool_gaps',
       config,
       taskTierHint: true,

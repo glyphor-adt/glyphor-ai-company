@@ -20,7 +20,7 @@ vi.mock('./deliverableTools.js', () => ({
 
 const { createSocialMediaTools } = await import('./socialMediaTools.js');
 
-function createContext(agentRole: 'social-media-manager' | 'cmo') {
+function createContext(agentRole: 'cmo' | 'cmo') {
   return {
     agentId: 'test-agent',
     agentRole,
@@ -95,7 +95,7 @@ describe('socialMediaTools publishing workflow', () => {
     const tool = createSocialMediaTools().find((entry) => entry.name === 'schedule_social_post');
     const result = await tool!.execute(
       { draft_id: 'draft-1', scheduled_at: '2026-03-09T09:00:00.000Z' },
-      createContext('social-media-manager'),
+      createContext('cmo'),
     );
 
     expect(result.success).toBe(true);
@@ -150,7 +150,7 @@ describe('socialMediaTools publishing workflow', () => {
     const tool = createSocialMediaTools().find((entry) => entry.name === 'schedule_social_post');
     const result = await tool!.execute(
       { draft_id: 'draft-2', scheduled_at: '2026-03-09T09:00:00.000Z' },
-      createContext('social-media-manager'),
+      createContext('cmo'),
     );
 
     expect(result.success).toBe(false);

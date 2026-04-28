@@ -17,7 +17,7 @@ interface AgentRun {
   finished_at: string | null;
 }
 
-const EXECUTIVE_ROLES = ['chief-of-staff', 'cto', 'cfo', 'cmo', 'clo', 'cpo', 'ops', 'vp-sales', 'vp-design', 'vp-research', 'head-of-hr'];
+const EXECUTIVE_ROLES = ['chief-of-staff', 'cto', 'cfo', 'cmo', 'clo', 'cpo', 'ops', 'vp-design', 'vp-research'];
 
 export async function run(config: SmokeTestConfig): Promise<LayerResult> {
   const tests: TestResult[] = [];

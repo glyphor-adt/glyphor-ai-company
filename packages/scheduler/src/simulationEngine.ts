@@ -109,7 +109,6 @@ const SIMULATION_AGENTS: Array<{ role: string; area: string }> = [
   { role: 'cfo', area: 'Financial Impact' },
   { role: 'cmo', area: 'Marketing & Brand' },
   { role: 'cpo', area: 'Product & User Experience' },
-  { role: 'vp-sales', area: 'Sales & Revenue' },
 ];
 
 /* ── Engine ─────────────────────────────────── */

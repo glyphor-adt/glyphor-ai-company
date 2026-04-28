@@ -26,8 +26,8 @@ vi.mock('@glyphor/shared/db', () => ({
 const DEVOPS: CompanyAgentRole = 'devops-engineer';
 const CTO: CompanyAgentRole = 'cto';
 const CMO: CompanyAgentRole = 'cmo';
-const FRONTEND: CompanyAgentRole = 'frontend-engineer';
-const CONTENT: CompanyAgentRole = 'content-creator';
+const FRONTEND: CompanyAgentRole = 'platform-engineer';
+const CONTENT: CompanyAgentRole = 'cmo';
 
 /** Build a raw DB row for agent_policy_limits. */
 function policyRow(overrides: Partial<{
@@ -747,7 +747,7 @@ describe('edge cases', () => {
   it('handles multiple rules for the same key but different agents', async () => {
     const cache = await cacheWith([
       policyRow({ policy_key: 'can_deploy', allowed: true, agent_role: 'devops-engineer' }),
-      policyRow({ policy_key: 'can_deploy', allowed: false, agent_role: 'content-creator' }),
+      policyRow({ policy_key: 'can_deploy', allowed: false, agent_role: 'cmo' }),
     ]);
 
     expect(cache.isPolicyAllowed('can_deploy', DEVOPS).allowed).toBe(true);

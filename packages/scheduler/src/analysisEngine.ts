@@ -70,10 +70,10 @@ export interface AnalysisRecord {
 /* ── Perspective → Thread mapping ─────────── */
 
 const ANALYSIS_PERSPECTIVES: Record<AnalysisType, string[]> = {
-  market_opportunity: ['cmo', 'vp-sales', 'cfo', 'cpo'],
-  competitive_landscape: ['competitive-intel', 'cto', 'cmo', 'vp-sales'],
-  product_strategy: ['cpo', 'cto', 'user-researcher', 'vp-design'],
-  growth_diagnostic: ['cmo', 'vp-sales', 'cfo'],
+  market_opportunity: ['cmo', 'cfo', 'cpo'],
+  competitive_landscape: ['cto', 'cmo'],
+  product_strategy: ['cpo', 'cto', 'vp-design'],
+  growth_diagnostic: ['cmo', 'cfo'],
   risk_assessment: ['cfo', 'cto', 'ops', 'chief-of-staff'],
 };
 
@@ -243,8 +243,8 @@ export class AnalysisEngine {
   private getEnhancedPerspectives(type: AnalysisType): string[] {
     const base = ANALYSIS_PERSPECTIVES[type];
     const allPerspectives = [
-      'cto', 'cfo', 'cmo', 'cpo', 'vp-sales',
-      'vp-design', 'competitive-intel', 'user-researcher', 'ops', 'chief-of-staff',
+      'cto', 'cfo', 'cmo', 'cpo',
+      'vp-design', 'ops', 'chief-of-staff',
     ];
     // Return all perspectives not in the base set — plus always include financial and ops
     return allPerspectives.filter((p) => !base.includes(p));
@@ -414,10 +414,7 @@ function buildThreadPrompt(type: AnalysisType, query: string, perspective: strin
     cfo: 'financial viability and cost',
     cmo: 'marketing and brand positioning',
     cpo: 'product strategy and user impact',
-    'vp-sales': 'sales pipeline and revenue potential',
     'vp-design': 'user experience and design impact',
-    'competitive-intel': 'competitive landscape and market positioning',
-    'user-researcher': 'user behavior and needs',
     ops: 'operational feasibility and risks',
     'chief-of-staff': 'cross-functional coordination and strategic alignment',
   };
@@ -451,10 +448,7 @@ function buildEnhancedThreadPrompt(
     cfo: 'financial viability and cost',
     cmo: 'marketing and brand positioning',
     cpo: 'product strategy and user impact',
-    'vp-sales': 'sales pipeline and revenue potential',
     'vp-design': 'user experience and design impact',
-    'competitive-intel': 'competitive landscape and market positioning',
-    'user-researcher': 'user behavior and needs',
     ops: 'operational feasibility and risks',
     'chief-of-staff': 'cross-functional coordination and strategic alignment',
   };

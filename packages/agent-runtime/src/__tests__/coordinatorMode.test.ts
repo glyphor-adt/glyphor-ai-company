@@ -20,7 +20,7 @@ const CTO: CompanyAgentRole = 'cto';
 const DEVOPS: CompanyAgentRole = 'devops-engineer';
 const COS: CompanyAgentRole = 'chief-of-staff';
 const CMO: CompanyAgentRole = 'cmo';
-const FRONTEND: CompanyAgentRole = 'frontend-engineer';
+const FRONTEND: CompanyAgentRole = 'platform-engineer';
 
 function defaultConfig(overrides?: Partial<CoordinatorSessionConfig>): CoordinatorSessionConfig {
   return {
@@ -665,7 +665,7 @@ describe('isCoordinatorEligible()', () => {
     expect(isCoordinatorEligible(DEVOPS)).toBe(false);
     expect(isCoordinatorEligible(FRONTEND)).toBe(false);
     expect(isCoordinatorEligible(CMO)).toBe(false);
-    expect(isCoordinatorEligible('content-creator')).toBe(false);
+    expect(isCoordinatorEligible('cmo')).toBe(false);
   });
 
   it('COORDINATOR_ELIGIBLE_ROLES set contains exactly 5 roles', () => {
@@ -695,7 +695,7 @@ describe('buildWorkerCapabilityContext()', () => {
     expect(ctx).toContain('read_file');
     expect(ctx).toContain('write_file');
     expect(ctx).toContain('devops-engineer');
-    expect(ctx).toContain('frontend-engineer');
+    expect(ctx).toContain('platform-engineer');
   });
 
   it('truncates long tool lists with count', () => {

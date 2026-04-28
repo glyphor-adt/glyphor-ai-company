@@ -80,22 +80,6 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
       'approve_content_draft',
       'validate_brand_compliance',
     ],
-    'content-creator': [
-      'create_content_draft',
-      'submit_content_for_review',
-      'read_company_knowledge',
-    ],
-    'seo-analyst': [
-      'analyze_content_seo',
-      'analyze_page_seo',
-      'discover_keywords',
-      'read_company_knowledge',
-    ],
-    'social-media-manager': [
-      'schedule_social_post',
-      'reply_to_social',
-      'read_company_knowledge',
-    ],
     ops: [
       'get_platform_health',
       'query_agent_health',
@@ -103,10 +87,9 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
       'pause_agent',
       'resume_agent',
     ],
-    'global-admin': [],
     'vp-design': [
       // Pinned before CORE_PINNED_TOOLS: model tool-caps (e.g. 25–40) can fill with core pins only and
-      // skip retrieval entirely — then invoke_web_build never reaches the LLM and “build an app” stalls.
+      // skip retrieval entirely — then invoke_web_build never reaches the LLM and "build an app" stalls.
       'normalize_design_brief',
       'invoke_web_build',
       'invoke_web_iterate',
@@ -118,50 +101,6 @@ export const ALWAYS_LOADED: AlwaysLoadedMap = {
       'github_get_pull_request_status',
       'github_wait_for_pull_request_checks',
       'github_merge_pull_request',
-    ],
-    'frontend-engineer': [
-      'normalize_design_brief',
-      'invoke_web_build',
-      'invoke_web_iterate',
-      'invoke_web_coding_loop',
-    ],
-    'ui-ux-designer': [
-      'normalize_design_brief',
-      'invoke_web_build',
-      'invoke_web_iterate',
-      'invoke_web_coding_loop',
-    ],
-    'platform-intel': [
-      'read_gtm_report',
-      'read_fleet_health',
-      'read_agent_eval_detail',
-      'read_handoff_health',
-      'read_tool_failure_rates',
-      'read_tool_call_errors',
-      'read_tool_call_trace',
-      'validate_tool_sql',
-      'check_env_credentials',
-      'trigger_reflection_cycle',
-      'promote_prompt_version',
-      'discard_prompt_version',
-      'pause_agent',
-      'resume_agent',
-      'write_fleet_finding',
-      'write_world_model_correction',
-      'create_approval_request',
-      'grant_tool_to_agent',
-      'revoke_tool_from_agent',
-      'emergency_block_tool',
-      'register_dynamic_tool',
-      'update_dynamic_tool',
-      'deactivate_tool',
-      'create_tool_fix_proposal',
-      'list_tool_fix_proposals',
-      'mark_tool_fix_applied',
-      'apply_patch_call',
-      'read_agent_config',
-      'check_table_schema',
-      'diagnose_column_error',
     ],
   },
 };
@@ -192,7 +131,7 @@ export function getAlwaysLoadedTools(role?: CompanyAgentRole): Set<string> {
     ]);
   }
 
-  if (role === 'chief-of-staff' || role === 'global-admin') {
+  if (role === 'chief-of-staff') {
     return new Set([...GRANT_PRELUDE, ...ALWAYS_LOADED._universal, ...rolePins]);
   }
 
@@ -209,7 +148,6 @@ export const TOOL_CATEGORY_HINT = [
   '- Research: competitors, market data, briefs, monitoring',
   '- Operations: agent health, event bus, retries, data freshness',
   '- Legal: contracts, compliance, IP, regulations, privacy',
-  '- M365/Entra: users, groups, licenses, directory roles, sign-in audits',
   '- Pulse Creative: image generation, video, storyboards, brand kits',
   '- Communication: Teams, email, calendar, channels',
 ].join('\n');

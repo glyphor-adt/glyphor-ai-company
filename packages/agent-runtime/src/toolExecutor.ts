@@ -2152,8 +2152,8 @@ function collectEmails(value: unknown, emails: Set<string>): void {
 // ─── Tool Failure Tracking & Auto-Escalation ──────────────────────
 // When the same tool fails repeatedly (across any agent), log a
 // diagnostic alert so CTO/ops can investigate the tool implementation.
-// When the threshold is hit, we emit a tool.failure GlyphorEvent so Nexus
-// (platform-intel) is woken up to diagnose and fix the root cause.
+// When the threshold is hit, we emit a tool.failure GlyphorEvent so the
+// system can wake an operator agent to diagnose and fix the root cause.
 
 import type { GlyphorEventBus } from './glyphorEventBus.js';
 
@@ -2209,7 +2209,7 @@ function trackToolFailure(
       ],
     ).catch(err => console.warn(`[ToolFailureTracker] Failed to log escalation:`, (err as Error).message));
 
-    // Emit tool.failure event to wake Nexus (platform-intel)
+    // Emit tool.failure event for operator agents to investigate
     if (eventBus) {
       eventBus.emit({
         type: 'tool.failure',

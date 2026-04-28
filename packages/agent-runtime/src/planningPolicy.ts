@@ -62,25 +62,13 @@ interface PlanningPolicyConfig {
 }
 
 const STRICT_ROLE_DEFAULTS = new Set<CompanyAgentRole>([
-  'frontend-engineer',
   'vp-design',
-  'ui-ux-designer',
 ]);
 
 const TASK_ROLE_DEFAULTS = new Set<CompanyAgentRole>([
   'platform-engineer',
   'quality-engineer',
   'devops-engineer',
-  'user-researcher',
-  'competitive-intel',
-  'content-creator',
-  'seo-analyst',
-  'social-media-manager',
-  'template-architect',
-  'design-critic',
-  'market-research-analyst',
-  'competitive-research-analyst',
-  'platform-intel',
 ]);
 
 function clampInt(value: unknown, fallback: number, min = 0, max = 10): number {

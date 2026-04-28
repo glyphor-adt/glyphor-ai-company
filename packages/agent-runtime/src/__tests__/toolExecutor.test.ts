@@ -44,7 +44,7 @@ vi.mock('../behavioralFingerprint.js', () => ({
 }));
 
 import { invalidateBlockCache, ToolExecutor } from '../toolExecutor.js';
-import type { ToolContext, ToolDefinition } from '../types.js';
+import type { CompanyAgentRole, ToolContext, ToolDefinition } from '../types.js';
 import type { ToolHookRunner } from '../hooks/hookRunner.js';
 import { systemQuery } from '@glyphor/shared/db';
 
@@ -91,7 +91,7 @@ describe('ToolExecutor', () => {
     const result = await executor.execute(
       'search_docs',
       { query: 'architecture' },
-      buildContext({ agentRole: 'platform-intel' as any }),
+      buildContext({ agentRole: 'retired-role-x' as unknown as CompanyAgentRole }),
     );
 
     expect(result.success).toBe(false);

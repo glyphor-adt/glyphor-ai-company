@@ -276,7 +276,7 @@ export default function Activity() {
               const isExpanded = expandedId === run.id;
               const hasDetail = !!(run.output || run.input || run.result_summary || run.error);
               const nexusSummaryMd =
-                run.agent_id === 'platform-intel' &&
+                run.agent_id === 'ops' &&
                 run.output &&
                 (run.task === 'daily_analysis' || isLikelyNexusStructuredOutput(run.output))
                   ? buildNexusHumanSummaryMarkdown(run.output)

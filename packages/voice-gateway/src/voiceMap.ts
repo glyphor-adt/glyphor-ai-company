@@ -14,7 +14,6 @@ export const AGENT_VOICES: Record<string, RealtimeVoice> = {
   'cmo':             'shimmer',   // Maya Brooks — energetic, creative
   'clo':             'echo',      // Victoria Chase — authoritative, calm
   'vp-design':       'cedar',     // Mia Tanaka — expressive, artistic
-  'vp-sales':        'alloy',     // Rachel Kim — confident, persuasive
   'ops':             'verse',     // Atlas Vega — steady, operational
   'vp-research':     'coral',     // Sophia Lin — articulate, precise
   // Sub-team: Engineering
@@ -22,25 +21,12 @@ export const AGENT_VOICES: Record<string, RealtimeVoice> = {
   'quality-engineer':  'ash',     // Sam DeLuca
   'devops-engineer':   'marin',   // Jordan Hayes
   // Sub-team: Product
-  'user-researcher':     'coral', // Priya Sharma
-  'competitive-intel':   'sage',  // Daniel Ortiz
   // Sub-team: Finance
   // Sub-team: Marketing
-  'content-creator':       'shimmer', // Tyler Reed
-  'seo-analyst':           'cedar',   // Lisa Chen
-  'social-media-manager':  'marin',   // Kai Johnson
   // Sub-team: Sales
   // Sub-team: Design
-  'ui-ux-designer':    'coral',       // Leo Vargas
-  'frontend-engineer': 'sage',        // Ava Chen
-  'design-critic':     'echo',        // Sofia Marchetti
-  'template-architect':'verse',       // Ryan Park
   // IT / Admin
-  'm365-admin':   'cedar',            // Riley Morgan
-  'global-admin': 'ballad',           // Morgan Blake
   // Research team
-  'competitive-research-analyst': 'marin',   // Lena Park
-  'market-research-analyst':      'shimmer', // Daniel Okafor
 };
 
 /** Display names for agents (mirrors dashboard DISPLAY_NAME_MAP) */
@@ -50,7 +36,6 @@ const DISPLAY_NAMES: Record<string, string> = {
   cpo: 'Elena Vasquez',
   cfo: 'Nadia Okafor',
   cmo: 'Maya Brooks',
-  'vp-sales': 'Rachel Kim',
   'vp-design': 'Mia Tanaka',
   ops: 'Atlas Vega',
   clo: 'Victoria Chase',
@@ -58,19 +43,6 @@ const DISPLAY_NAMES: Record<string, string> = {
   'platform-engineer': 'Alex Park',
   'quality-engineer': 'Sam DeLuca',
   'devops-engineer': 'Jordan Hayes',
-  'user-researcher': 'Priya Sharma',
-  'competitive-intel': 'Daniel Ortiz',
-  'content-creator': 'Tyler Reed',
-  'seo-analyst': 'Lisa Chen',
-  'social-media-manager': 'Kai Johnson',
-  'ui-ux-designer': 'Leo Vargas',
-  'frontend-engineer': 'Ava Chen',
-  'design-critic': 'Sofia Marchetti',
-  'template-architect': 'Ryan Park',
-  'm365-admin': 'Riley Morgan',
-  'global-admin': 'Morgan Blake',
-  'competitive-research-analyst': 'Lena Park',
-  'market-research-analyst': 'Daniel Okafor',
 };
 /** Title map for voice prompts */
 const TITLE_MAP: Record<string, string> = {
@@ -81,25 +53,11 @@ const TITLE_MAP: Record<string, string> = {
   cmo: 'Chief Marketing Officer',
   clo: 'Chief Legal Officer',
   'vp-design': 'VP of Design',
-  'vp-sales': 'VP of Sales',
   'vp-research': 'VP of Research & Intelligence',
   ops: 'Director of Operations & System Intelligence',
   'platform-engineer': 'Platform Engineer',
   'quality-engineer': 'Quality Engineer',
   'devops-engineer': 'DevOps Engineer',
-  'user-researcher': 'User Researcher',
-  'competitive-intel': 'Competitive Intelligence Analyst',
-  'content-creator': 'Content Creator',
-  'seo-analyst': 'SEO Analyst',
-  'social-media-manager': 'Social Media Manager',
-  'ui-ux-designer': 'UI/UX Designer',
-  'frontend-engineer': 'Frontend Engineer',
-  'design-critic': 'Design Critic',
-  'template-architect': 'Template Architect',
-  'm365-admin': 'Microsoft 365 Administrator',
-  'global-admin': 'Global Administrator',
-  'competitive-research-analyst': 'Competitive Research Analyst',
-  'market-research-analyst': 'Market Research Analyst',
 };
 
 export function getAgentVoiceConfig(role: CompanyAgentRole): AgentVoiceConfig {

@@ -32,9 +32,6 @@ export const GTM_THRESHOLDS = {
 // Which agents must pass for Marketing Department GTM
 export const GTM_REQUIRED_AGENTS = [
   'cmo',
-  'content-creator',
-  'seo-analyst',
-  'social-media-manager',
   'chief-of-staff',   // orchestrates all of the above
 ] as const;
 

@@ -8,7 +8,7 @@ vi.mock('@glyphor/shared/db', () => ({
 
 const { createContentTools } = await import('./contentTools.js');
 
-function createContext(agentRole: 'content-creator' | 'cmo') {
+function createContext(agentRole: 'cmo' | 'cmo') {
   return {
     agentId: 'test-agent',
     agentRole,
@@ -56,7 +56,7 @@ describe('contentTools social review workflow', () => {
 
     const submitResult = await submitTool!.execute(
       { draft_id: 'draft-1', review_notes: 'Ready for Maya review.' },
-      createContext('content-creator'),
+      createContext('cmo'),
     );
     const approveResult = await approveTool!.execute(
       { draft_id: 'draft-1', approval_notes: 'Approved for LinkedIn schedule.' },

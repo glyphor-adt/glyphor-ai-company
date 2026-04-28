@@ -459,11 +459,9 @@ function getDepartmentForRole(role: CompanyAgentRole): string {
   const map: Record<string, string> = {
     'chief-of-staff': 'operations', 'cto': 'engineering', 'cpo': 'product',
     'cmo': 'marketing', 'cfo': 'finance', 'clo': 'legal', 'ops': 'operations',
-    'vp-sales': 'sales', 'vp-design': 'design', 'vp-research': 'research',
+    'vp-design': 'design', 'vp-research': 'research',
     'platform-engineer': 'engineering', 'quality-engineer': 'engineering',
-    'devops-engineer': 'engineering', 'frontend-engineer': 'design',
-    'content-creator': 'marketing', 'seo-analyst': 'marketing',
-    'competitive-research-analyst': 'research', 'market-research-analyst': 'research',
+    'devops-engineer': 'engineering',
   };
   return map[role] ?? 'general';
 }

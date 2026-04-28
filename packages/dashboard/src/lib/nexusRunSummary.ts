@@ -1,5 +1,5 @@
 /**
- * Parse Nexus (platform-intel) daily_analysis output: optional markdown lead + JSON block,
+ * Parse legacy Nexus daily_analysis output: optional markdown lead + JSON block,
  * or JSON-only — produce a human-readable markdown summary for the Activity UI.
  */
 

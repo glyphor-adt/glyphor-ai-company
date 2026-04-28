@@ -98,10 +98,6 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
   ],
 
   // ── VP-level ───────────────────────────────────────────────────────────────
-  'vp-sales': [
-    ...SHARED_BASELINE,
-    'create_decision', 'log_activity',
-  ],
   'vp-design': [
     ...SHARED_BASELINE,
     'call_meeting',
@@ -114,14 +110,6 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
     'emit_insight', 'emit_alert', 'request_new_tool',
     'web_search', 'web_fetch', 'submit_research_packet',
     'query_knowledge_graph', 'add_knowledge',
-  ],
-  'global-admin': [
-    ...SHARED_BASELINE,
-    'call_meeting',
-    'emit_insight', 'emit_alert', 'request_new_tool',
-    'grant_tool_access', 'revoke_tool_access',
-    'query_knowledge_graph', 'add_knowledge',
-    'list_project_iam', 'list_service_accounts',
   ],
 
   // ── Engineering sub-team ───────────────────────────────────────────────────
@@ -137,20 +125,6 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
     ...SHARED_BASELINE,
     'query_cache_metrics', 'query_pipeline_metrics', 'get_pipeline_runs', 'log_activity',
   ],
-  'm365-admin': [
-    ...SHARED_BASELINE,
-    'list_users', 'list_channels', 'create_channel',
-  ],
-
-  // ── Product sub-team ───────────────────────────────────────────────────────
-  'user-researcher': [
-    ...SHARED_BASELINE,
-    'query_user_analytics', 'query_onboarding_funnel', 'design_experiment', 'log_activity',
-  ],
-  'competitive-intel': [
-    ...SHARED_BASELINE,
-    'fetch_github_releases', 'search_hacker_news', 'store_intel', 'log_activity',
-  ],
 
   // ── Finance sub-team ──────────────────────────────────────────────────────
   'revenue-analyst': [
@@ -164,23 +138,6 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
     'get_gcp_costs', 'get_burn_rate', 'get_cash_balance',
   ],
 
-  // ── Marketing sub-team ────────────────────────────────────────────────────
-  'content-creator': [
-    ...SHARED_BASELINE,
-    'draft_blog_post', 'draft_social_post', 'query_content_performance', 'log_activity',
-    'create_content_draft', 'get_content_metrics',
-  ],
-  'seo-analyst': [
-    ...SHARED_BASELINE,
-    'query_seo_rankings', 'discover_keywords', 'analyze_content_seo', 'log_activity',
-    'get_seo_data', 'get_search_performance',
-  ],
-  'social-media-manager': [
-    ...SHARED_BASELINE,
-    'schedule_social_post', 'query_social_metrics', 'monitor_mentions', 'log_activity',
-    'get_scheduled_posts', 'get_social_metrics',
-  ],
-
   // ── Sales sub-team ────────────────────────────────────────────────────────
   'account-research': [
     ...SHARED_BASELINE,
@@ -192,35 +149,7 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
     'web_search', 'web_fetch',
   ],
 
-  // ── Design sub-team ───────────────────────────────────────────────────────
-  'ui-ux-designer': [
-    ...SHARED_BASELINE,
-    'call_meeting', 'emit_insight', 'emit_alert', 'request_new_tool',
-    'screenshot_page', 'get_figma_file', 'save_component_spec',
-    'read_frontend_file', 'search_frontend_code',
-  ],
-  'frontend-engineer': [
-    ...SHARED_BASELINE,
-    'call_meeting', 'emit_insight', 'emit_alert', 'request_new_tool',
-    'run_lighthouse', 'push_component', 'create_component_pr',
-    'read_frontend_file', 'write_frontend_file',
-  ],
-  'design-critic': [
-    ...SHARED_BASELINE,
-    'call_meeting', 'emit_insight', 'emit_alert', 'request_new_tool',
-    'grade_build', 'run_lighthouse', 'query_build_grades', 'log_activity',
-    'run_lighthouse_audit', 'run_accessibility_audit',
-  ],
-  'template-architect': [
-    ...SHARED_BASELINE,
-    'call_meeting', 'emit_insight', 'emit_alert', 'request_new_tool',
-    'save_template_variant', 'query_template_variants', 'log_activity',
-    'read_frontend_file', 'write_frontend_file',
-  ],
-
   // ── Research analysts ─────────────────────────────────────────────────────
-  'competitive-research-analyst': [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'web_search', 'web_fetch', 'submit_research_packet' ],
-  'market-research-analyst':      [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'web_search', 'web_fetch', 'submit_research_packet' ],
   'technical-research-analyst':   [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'web_search', 'web_fetch', 'submit_research_packet' ],
   'industry-research-analyst':    [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'web_search', 'web_fetch', 'submit_research_packet' ],
   'ai-impact-analyst':            [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert', 'web_search', 'web_fetch', 'submit_research_packet' ],
@@ -232,8 +161,7 @@ const ROLE_TOOL_EXPECTATIONS: Record<string, string[]> = {
   'tax-strategy-specialist':        [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert',  'query_knowledge_graph' ],
   'lead-gen-specialist':            [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert',  'web_search', 'web_fetch' ],
   'marketing-intelligence-analyst': [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert',  'web_search', 'web_fetch' ],
-  'adi-rose':                       [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert' ],  // was incomplete per bulk_missing
-  'head-of-hr':                     [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert',  'query_knowledge_graph', 'audit_workforce', 'provision_agent' ],
+  'adi-rose':                       [ ...SHARED_BASELINE, 'call_meeting', 'emit_insight', 'emit_alert' ],
 };
 
 // ─── Layer Runner ─────────────────────────────────────────────────────────────

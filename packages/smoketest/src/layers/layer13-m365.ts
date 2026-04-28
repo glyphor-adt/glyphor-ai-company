@@ -109,37 +109,6 @@ export async function run(config: SmokeTestConfig): Promise<LayerResult> {
     }),
   );
 
-  // T13.6 — M365 Admin Agents
-  tests.push(
-    await runTest('T13.6', 'M365 Admin Agents', async () => {
-      const adminRoles = ['m365-admin', 'global-admin'];
-      const agents = await query<{ role: string; status: string }>(
-        `SELECT role, status FROM company_agents WHERE role IN ($1, $2)`,
-        adminRoles,
-      );
-      const missing = adminRoles.filter(r => !agents.some(a => a.role === r));
-      if (missing.length > 0) {
-        throw new Error(`Missing admin agents: ${missing.join(', ')}`);
-      }
-
-      // Check they have tool grants
-      const grants = await query<{ agent_role: string; count: number }>(
-        `SELECT agent_role, COUNT(*)::int AS count FROM agent_tool_grants
-         WHERE agent_role IN ($1, $2) AND is_active = true
-         GROUP BY agent_role`,
-        adminRoles,
-      );
-      const noGrants = adminRoles.filter(
-        r => !grants.some(g => g.agent_role === r && g.count > 0),
-      );
-      if (noGrants.length > 0) {
-        return `Admin agents exist but ${noGrants.join(', ')} missing tool grants — run grant setup`;
-      }
-
-      return `Both M365 admin agents exist with active tool grants`;
-    }),
-  );
-
   // T13.7 — SharePoint Knowledge Ingested
   tests.push(
     await runTest('T13.7', 'SharePoint Knowledge Ingested', async () => {

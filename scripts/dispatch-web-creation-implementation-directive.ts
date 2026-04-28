@@ -98,7 +98,7 @@ const ASSIGNMENTS: AssignmentSeed[] = [
   {
     code: '1.2',
     title: 'Update elite-design-review skill',
-    ownerRole: 'design-critic',
+    ownerRole: 'vp-design',
     priority: 'high',
     blocking: true,
     dependsOn: [],
@@ -109,7 +109,7 @@ const ASSIGNMENTS: AssignmentSeed[] = [
   {
     code: '1.3',
     title: 'Add Pulse media routing to content-creation',
-    ownerRole: 'content-creator',
+    ownerRole: 'cmo',
     priority: 'high',
     blocking: false,
     dependsOn: [],
@@ -124,8 +124,8 @@ const ASSIGNMENTS: AssignmentSeed[] = [
     priority: 'urgent',
     blocking: true,
     dependsOn: ['0.3'],
-    task: 'Install Codex CLI in scheduler runtime, register mcp_Codex server, expose codex/codex-reply, and grant access to frontend-engineer.',
-    deliverable: 'Codex tools callable by frontend-engineer from agent runtime with Azure OpenAI / Gemini-backed auth.',
+    task: 'Install Codex CLI in scheduler runtime, register mcp_Codex server, expose codex/codex-reply, and grant access to platform-engineer.',
+    deliverable: 'Codex tools callable by platform-engineer from agent runtime with Azure OpenAI / Gemini-backed auth.',
     acceptanceTest: 'Frontend engineer executes codex() against web-template-react branch and produces PR that passes npm run build.',
   },
   {
@@ -142,7 +142,7 @@ const ASSIGNMENTS: AssignmentSeed[] = [
   {
     code: '3.1',
     title: 'Persist reference patterns after ship',
-    ownerRole: 'design-critic',
+    ownerRole: 'vp-design',
     priority: 'normal',
     blocking: false,
     dependsOn: ['2.1'],

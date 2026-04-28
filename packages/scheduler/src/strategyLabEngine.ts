@@ -309,8 +309,7 @@ function recoverMalformedSynthesisObject(value: unknown): Record<string, unknown
 /* ── Constants ──────────────────────────────── */
 
 const RESEARCH_ANALYST_ROLES: Record<string, { name: string; packetType: string }> = {
-  'competitive-research-analyst': { name: 'Lena Park', packetType: 'competitor_profiles' },
-  'market-research-analyst': { name: 'Daniel Okafor', packetType: 'market_data' },
+  'vp-research': { name: 'Sophia Lin', packetType: 'research_packet' },
 };
 
 /** Normalise analyst role strings from LLM output to canonical role IDs */
@@ -319,12 +318,12 @@ function normalizeAnalystRole(raw: string): string {
   const key = raw.toLowerCase().replace(/[_\s]+/g, '-').trim();
   if (RESEARCH_ANALYST_ROLES[key]) return key;
   // Match by keyword prefix
-  if (/^compet/.test(key)) return 'competitive-research-analyst';
-  if (/^market/.test(key)) return 'market-research-analyst';
+  if (/^compet/.test(key)) return 'vp-research';
+  if (/^market/.test(key)) return 'vp-research';
   // Match by analyst name
   const lower = raw.toLowerCase();
-  if (lower.includes('lena')) return 'competitive-research-analyst';
-  if (lower.includes('daniel')) return 'market-research-analyst';
+  if (lower.includes('lena')) return 'vp-research';
+  if (lower.includes('daniel')) return 'vp-research';
   return '';
 }
 
@@ -374,31 +373,31 @@ const DEFAULT_ROUTING: ExecutiveRouting = {
 /** Analysis type → which analysts and executives to use */
 const ANALYSIS_CONFIGS: Record<StrategyAnalysisType, { analysts: string[]; executives: string[] }> = {
   competitive_landscape: {
-    analysts: ['competitive-research-analyst', 'market-research-analyst'],
+    analysts: ['vp-research'],
     executives: ['cpo', 'cfo', 'cmo', 'cto'],
   },
   market_opportunity: {
-    analysts: ['market-research-analyst', 'competitive-research-analyst'],
+    analysts: ['vp-research'],
     executives: ['cmo', 'cfo', 'cpo'],
   },
   product_strategy: {
-    analysts: ['competitive-research-analyst', 'market-research-analyst'],
+    analysts: ['vp-research'],
     executives: ['cpo', 'cto', 'cmo'],
   },
   growth_diagnostic: {
-    analysts: ['market-research-analyst', 'competitive-research-analyst'],
+    analysts: ['vp-research'],
     executives: ['cmo', 'cfo', 'cpo'],
   },
   risk_assessment: {
-    analysts: ['competitive-research-analyst', 'market-research-analyst'],
+    analysts: ['vp-research'],
     executives: ['cto', 'cfo', 'cpo'],
   },
   market_entry: {
-    analysts: ['market-research-analyst', 'competitive-research-analyst'],
+    analysts: ['vp-research'],
     executives: ['cmo', 'cfo', 'cpo', 'cto'],
   },
   due_diligence: {
-    analysts: ['competitive-research-analyst', 'market-research-analyst'],
+    analysts: ['vp-research'],
     executives: ['cfo', 'cpo', 'cto', 'cmo'],
   },
 };
@@ -1234,8 +1233,7 @@ Return a JSON object with keys: strategicContext (string), founderPriorities (st
     // are trapped in text output. Extract and submit them as fallback packets.
     if (Object.keys(researchPackets).length === 0) {
       const ROLE_TO_PACKET_TYPE: Record<string, string> = {
-        'competitive-research-analyst': 'competitor_profiles',
-        'market-research-analyst': 'market_data',
+        'vp-research': 'research_packet',
       };
 
       let fallbackCount = 0;
@@ -2412,8 +2410,7 @@ CURRENT SYNTHESIS:
 ${JSON.stringify(synthesis, null, 2)}
 
 AVAILABLE ANALYSTS:
-- competitive-research-analyst (Lena): competitive intelligence
-- market-research-analyst (Daniel): market data, financials
+- vp-research (Sophia): research, competitive intelligence, market data
 
 Return JSON array: [{ "analystRole": "...", "researchBrief": "...", "searchQueries": ["..."] }]
 Return an empty array [] if the analysis is sufficiently thorough.`;
@@ -2692,8 +2689,8 @@ Return valid JSON: { "checks": [...], "overall_consistency_score": N, "critical_
       let suggestedSearches: string[];
 
       switch (role) {
-        case 'competitive-research-analyst':
-          researchBrief = `Research the competitive landscape for: ${query}\n\nFind and profile all relevant competitors. For each competitor, gather: company overview, founding date, funding history, pricing tiers, key features, customer reviews (G2, Capterra), target market, and market position. Build a feature comparison matrix. Assess threat levels.`;
+        case 'vp-research':
+          researchBrief = `Research for: ${query}\n\nProfile all relevant competitors (overview, funding, pricing, features, reviews from G2/Capterra, threat levels) AND find market data (TAM/SAM/SOM with sources, competitor revenue, pricing benchmarks, funding landscape, growth rates).`;
           suggestedSearches = [
             `${query} competitors comparison`,
             `${query} alternatives best tools`,
@@ -2701,14 +2698,6 @@ Return valid JSON: { "checks": [...], "overall_consistency_score": N, "critical_
             `${query} competitor pricing plans`,
             `${query} startup funding crunchbase`,
             `best ${query} tools 2026 review`,
-            `${query} vs comparison`,
-            `${query} capterra reviews ratings`,
-          ];
-          break;
-
-        case 'market-research-analyst':
-          researchBrief = `Research market data for: ${query}\n\nFind TAM/SAM/SOM estimates with sources. Track competitor revenue data (confirmed and estimated). Compile pricing benchmarks across the market. Map funding landscape and investment trends. Identify growth rates and market trajectory.`;
-          suggestedSearches = [
             `${query} market size TAM 2026`,
             `${query} market growth rate CAGR forecast`,
             `${query} industry revenue data`,

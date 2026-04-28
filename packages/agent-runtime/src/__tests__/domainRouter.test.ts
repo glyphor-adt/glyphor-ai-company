@@ -20,7 +20,7 @@ describe('domainRouter', () => {
 
   it('flags cross-domain directives when multiple domain signals are strong', () => {
     const routing = inferDomainRouting({
-      role: 'market-research-analyst',
+      role: 'vp-research',
       task: 'on_demand',
       message: 'Run legal compliance and contract review, then produce budget forecast and margin impact analysis.',
       toolNames: ['evaluate_assignment', 'query_costs'],
@@ -62,7 +62,7 @@ describe('domain-aware runtime routing', () => {
 
   it('escalates cross-domain work with stronger reasoning settings', async () => {
     const decision = await resolveModelConfig({
-      role: 'market-research-analyst',
+      role: 'vp-research',
       task: 'on_demand',
       message: 'Synthesize legal compliance findings, contract risks, and budget forecast recommendations from research evidence.',
       toolNames: ['evaluate_assignment', 'query_costs', 'web_search'],

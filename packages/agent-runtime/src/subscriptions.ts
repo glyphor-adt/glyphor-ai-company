@@ -63,12 +63,6 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
     'message.sent',
     'meeting.completed',
   ],
-  'vp-sales': [
-    'insight.detected',
-    'decision.resolved',
-    'message.sent',
-    'meeting.completed',
-  ],
   'vp-design': [
     'insight.detected',
     'agent.completed',
@@ -79,47 +73,13 @@ export const SUBSCRIPTIONS: Record<CompanyAgentRole, GlyphorEventType[]> = {
   'platform-engineer': ['alert.triggered', 'message.sent'],
   'quality-engineer': ['alert.triggered', 'message.sent'],
   'devops-engineer': ['alert.triggered', 'message.sent'],
-  'user-researcher': ['insight.detected', 'message.sent'],
-  'competitive-intel': ['insight.detected', 'message.sent'],
-  'content-creator': ['insight.detected', 'message.sent'],
-  'seo-analyst': ['insight.detected', 'message.sent'],
-  'social-media-manager': ['insight.detected', 'message.sent'],
-  'ui-ux-designer': ['insight.detected', 'message.sent'],
-  'frontend-engineer': ['agent.completed', 'message.sent'],
-  'design-critic': ['agent.completed', 'message.sent'],
-  'template-architect': ['insight.detected', 'message.sent'],
-  'm365-admin': ['alert.triggered', 'task.requested', 'message.sent'],
   'ops': ['alert.triggered', 'message.sent', 'meeting.completed'],
-  'global-admin': ['alert.triggered', 'task.requested', 'message.sent'],
-  // People & Culture
-  'head-of-hr': [
-    'agent.spawned',
-    'agent.retired',
-    'task.requested',
-    'message.sent',
-    'alert.triggered',
-  ],
   // Research & Intelligence
   'vp-research': ['task.requested', 'message.sent'],
-  'competitive-research-analyst': ['task.requested', 'message.sent'],
-  'market-research-analyst': ['task.requested', 'message.sent'],
   // Sales, Finance, Marketing, Operations specialists
   'bob-the-tax-pro': ['task.requested', 'message.sent'],
   'marketing-intelligence-analyst': ['task.requested', 'message.sent'],
   'adi-rose': ['task.requested', 'message.sent'],
-  'platform-intel': [
-    'alert.triggered',
-    'message.sent',
-    'agent.completed',
-    'agent.spawned',
-    'agent.retired',
-    'escalation.created',
-    'reflection.triggered',
-    'shadow_run.requested',
-    'prompt_version.promoted',
-    'prompt_version.discarded',
-    'tool.failure',
-  ],
 };
 
 /**

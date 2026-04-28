@@ -36,12 +36,9 @@ const TIMEOUT_MS = Math.min(
 
 const ROLES_REQUIRING_GLYPHOR_IN_OUTPUT = new Set([
   'cmo',
-  'content-creator',
-  'social-media-manager',
   'chief-of-staff',
   'clo',
   'vp-design',
-  'global-admin',
 ]);
 
 const AGENTS: { role: string; displayName: string; task: string; expectWebSearch?: boolean }[] = [
@@ -49,22 +46,6 @@ const AGENTS: { role: string; displayName: string; task: string; expectWebSearch
     role: 'cmo',
     displayName: 'Maya Brooks (CMO)',
     task: `What is Glyphor's brand voice and who is our target customer? Give me a 2-sentence summary and one example LinkedIn hook that demonstrates the voice.`,
-  },
-  {
-    role: 'content-creator',
-    displayName: 'Tyler Reed (Content Creator)',
-    task: `Write a 3-sentence LinkedIn post announcing that Glyphor's AI Marketing Department is now in early access. Use our brand voice.`,
-  },
-  {
-    role: 'seo-analyst',
-    displayName: 'Lisa Chen (SEO Analyst)',
-    task: `What are the top 3 keywords we should target for our product page? Use web search to find current search volume.`,
-    expectWebSearch: true,
-  },
-  {
-    role: 'social-media-manager',
-    displayName: 'Kai Johnson (Social Media Manager)',
-    task: `What should we post on LinkedIn tomorrow? Give me one post with a hook, body, and CTA.`,
   },
   {
     role: 'chief-of-staff',
@@ -82,24 +63,9 @@ const AGENTS: { role: string; displayName: string; task: string; expectWebSearch
     task: `Run a system health check and return current status.`,
   },
   {
-    role: 'platform-intel',
-    displayName: 'Nexus (platform-intel)',
-    task: `What is the current GTM readiness status and what are the top 3 blockers?`,
-  },
-  {
     role: 'clo',
     displayName: 'Victoria Chase (CLO)',
     task: `What are the top 3 legal risks Glyphor should address before onboarding our first customer?`,
-  },
-  {
-    role: 'm365-admin',
-    displayName: 'Riley Morgan (M365 Admin)',
-    task: `Confirm Teams is operational and list any pending access requests.`,
-  },
-  {
-    role: 'global-admin',
-    displayName: 'Morgan Blake (Global Admin)',
-    task: `Give me a summary of current platform access and any pending requests.`,
   },
   {
     role: 'vp-design',

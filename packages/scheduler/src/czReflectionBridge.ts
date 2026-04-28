@@ -93,12 +93,8 @@ const AGENT_NAME_TO_ROLE: Record<string, string> = {
   elena: 'cpo',
   maya: 'cmo',
   mia: 'vp-design',
-  rachel: 'vp-sales',
   atlas: 'ops',
   victoria: 'clo',
-  tyler: 'content-creator',
-  lisa: 'seo-analyst',
-  kai: 'social-media-manager',
 };
 
 function resolveAgentId(nameOrRole: string): string {

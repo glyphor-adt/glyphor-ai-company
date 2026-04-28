@@ -102,7 +102,7 @@ export async function handleMisroutedToolGap(
   await writeNegativeEvidence(
     'chief-of-staff',
     'escalation_routing',
-    `Tool gap "${toolName}" from ${requester} reached founders instead of Nexus.`,
+    `Tool gap "${toolName}" from ${requester} reached founders.`,
     -0.75,
   );
 
@@ -110,8 +110,8 @@ export async function handleMisroutedToolGap(
     `INSERT INTO fleet_findings (agent_id, severity, finding_type, title, description, evidence_data, detected_at)
      VALUES ($1, 'P2', 'tool_gap', $2, $3, $4::jsonb, NOW())`,
     [
-      'platform-intel',
-      `Tool gap routed to Nexus: ${toolName}`,
+      'ops',
+      `Tool gap auto-routed: ${toolName}`,
       `Auto-routed tool gap for ${requester}.`,
       JSON.stringify({ requestingAgentRole: requester, toolName, source: 'auto-route' }),
     ],

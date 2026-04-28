@@ -251,13 +251,9 @@ function personasForRole(role: string): string[] {
     cpo: ['elena'],
     cmo: ['maya'],
     'vp-design': ['mia'],
-    'vp-sales': ['rachel'],
     'vp-research': ['vp-research'],  // stored as role, no persona alias
     ops: ['atlas'],
     clo: ['victoria'],
-    'content-creator': ['tyler'],
-    'seo-analyst': ['lisa'],
-    'social-media-manager': ['kai'],
   };
   return map[role] ?? [role.toLowerCase()];
 }
@@ -679,12 +675,7 @@ export async function autoReassignMisroutedTasks(): Promise<Array<{
        )
   `);
 
-  const retiredToActive: Record<string, string> = {
-    rachel: 'maya',  // vp-sales → cmo
-    tyler:  'maya',  // content-creator → cmo
-    lisa:   'maya',  // seo-analyst → cmo
-    kai:    'maya',  // social-media-manager → cmo
-  };
+  const retiredToActive: Record<string, string> = {};
 
   const reassignments: Array<{ task_id: string; task_number: number; from: string | null; to: string; reason: string }> = [];
   for (const t of candidates) {

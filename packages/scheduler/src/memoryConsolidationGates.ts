@@ -1,8 +1,8 @@
 /**
  * Auto-dream v1 — cron-only memory consolidation gates + lease
  *
- * Mirrors Claude auto-dream time + volume gates. Invocation is scheduled
- * (platform-intel / memory_consolidation), not per-turn.
+ * Mirrors Claude auto-dream time + volume gates. Invocation is scheduled,
+ * not per-turn.
  */
 
 import type { AgentExecutionResult } from '@glyphor/agent-runtime';

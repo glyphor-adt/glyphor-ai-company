@@ -60,7 +60,7 @@ describe('buildTool()', () => {
       timeoutMs: 120_000,
       requiresPreCheck: true,
       allowedRoles: ['cto', 'ops'],
-      deniedRoles: ['content-creator'],
+      deniedRoles: ['cmo'],
       categoryHint: 'data',
     });
 
@@ -71,7 +71,7 @@ describe('buildTool()', () => {
     expect(tool.__meta.timeoutMs).toBe(120_000);
     expect(tool.__meta.requiresPreCheck).toBe(true);
     expect(tool.__meta.allowedRoles).toEqual(['cto', 'ops']);
-    expect(tool.__meta.deniedRoles).toEqual(['content-creator']);
+    expect(tool.__meta.deniedRoles).toEqual(['cmo']);
     expect(tool.__meta.categoryHint).toBe('data');
   });
 
@@ -135,14 +135,14 @@ describe('isToolPermittedForRole()', () => {
   it('permits all roles when allowedRoles is empty', () => {
     const tool = makeTool();
     expect(isToolPermittedForRole(tool, 'cto')).toBe(true);
-    expect(isToolPermittedForRole(tool, 'content-creator')).toBe(true);
+    expect(isToolPermittedForRole(tool, 'cmo')).toBe(true);
   });
 
   it('restricts to allowedRoles when specified', () => {
     const tool = makeTool({ allowedRoles: ['cto', 'ops'] });
     expect(isToolPermittedForRole(tool, 'cto')).toBe(true);
     expect(isToolPermittedForRole(tool, 'ops')).toBe(true);
-    expect(isToolPermittedForRole(tool, 'content-creator')).toBe(false);
+    expect(isToolPermittedForRole(tool, 'cmo')).toBe(false);
   });
 
   it('deniedRoles takes precedence over allowedRoles', () => {
@@ -162,7 +162,7 @@ describe('isToolPermittedForRole()', () => {
       execute: noop,
     };
     expect(isToolPermittedForRole(legacy, 'cto')).toBe(true);
-    expect(isToolPermittedForRole(legacy, 'content-creator')).toBe(true);
+    expect(isToolPermittedForRole(legacy, 'cmo')).toBe(true);
   });
 });
 

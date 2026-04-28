@@ -1778,7 +1778,7 @@ const HEURISTIC_GLOSSARY: Array<{ match: string[]; label: string; meaning: strin
   {
     match: ['agent_retired', 'not on the live runtime roster', 'retired role', 'roster_blocked'],
     label: 'Agent retired / roster-blocked',
-    meaning: 'The task is assigned to an agent role that was removed from the live runtime roster (e.g. the 2026-04-18 prune of vp-sales, content-creator, seo-analyst, social-media-manager). Rerunning will not improve the score — the agent\'s tools will keep hitting the runtime policy gate.',
+    meaning: 'The task is assigned to an agent role that was removed from the live runtime roster. Rerunning will not improve the score — the agent\'s tools will keep hitting the runtime policy gate.',
     where_to_look: 'Reassign the task to an active agent in the Task Grid (responsible_agent column), or if the role needs to come back, add a migration that restores it to ACTIVE_AGENT_ROLES in packages/shared/src/activeAgentRoster.ts and redeploy. Active roles today: chief-of-staff, cto, cfo, clo, cpo, cmo, vp-design, ops, vp-research, platform-engineer, devops-engineer, quality-engineer.',
   },
 ];

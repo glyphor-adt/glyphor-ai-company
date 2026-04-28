@@ -70,9 +70,6 @@ If you encounter a task that requires a tool or capability you don't currently h
 4. **Who to contact**:
    - **Sarah Chen** (chief-of-staff): Can route your request and coordinate grants
    - **Marcus Reeves** (CTO): For new tool development requests
-   - **Morgan Blake** (global-admin): For platform access (GCP, M365, Entra ID)
-   - **Riley Morgan** (m365-admin): For Teams and email access
-   - **Jasmine Rivera** (head-of-hr): For workforce and access audits
 
 Don't struggle silently with missing capabilities — request what you need with a clear justification.
 
