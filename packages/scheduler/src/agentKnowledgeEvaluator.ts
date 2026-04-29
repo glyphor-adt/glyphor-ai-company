@@ -1,7 +1,7 @@
 import { systemQuery } from '@glyphor/shared/db';
 import { getModel } from '@glyphor/shared/models';
 import { getGoogleAiApiKey, getTierModel, isCanonicalKeepRole } from '@glyphor/shared';
-import { runCFO, runCMO, runCTO, runChiefOfStaff, runVPResearch } from '@glyphor/agents';
+import { runCFO, runCMO, runCTO, runChiefOfStaff, runPlatformEngineer, runVPResearch } from '@glyphor/agents';
 import { getRedisCache, ModelClient, type AgentExecutionResult } from '@glyphor/agent-runtime';
 
 export interface AgentKnowledgeEvalReport {
@@ -59,6 +59,7 @@ const RUNNERS: Record<string, (prompt: string) => Promise<AgentExecutionResult>>
   cfo: (prompt) => runCFO({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   // Chief of Staff — orchestration quality
   'chief-of-staff': (prompt) => runChiefOfStaff({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
+  'platform-engineer': (prompt) => runPlatformEngineer({ task: 'on_demand', message: prompt, dryRun: true, evalMode: true }),
   'vp-research': (prompt) => runVPResearch({ task: 'on_demand', message: prompt, maxToolCalls: 0 }),
 };
 
@@ -113,7 +114,8 @@ export async function evaluateAgentKnowledgeGaps(options: EvalOptions = {}): Pro
       return report;
     }
 
-    const judgeClient = new ModelClient({      geminiApiKey: getGoogleAiApiKey(),
+    const judgeClient = new ModelClient({
+      geminiApiKey: getGoogleAiApiKey(),
     });
 
     const agentSummaries = new Map<string, AgentKnowledgeEvalReport['agents'][number]>();

@@ -13,6 +13,9 @@ export {
 // Operations
 export { runOps, type OpsRunParams } from './ops/run.js';
 
+// Engineering team (reports to CTO)
+export { runPlatformEngineer, type PlatformEngineerRunParams } from './platform-engineer/run.js';
+
 // Strategy Lab v2 — Research & Intelligence
 export { runVPResearch, type VPResearchRunParams } from './vp-research/run.js';
 

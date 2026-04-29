@@ -132,6 +132,7 @@ import {
   runVPDesign,
   runVPResearch,
   runOps,
+  runPlatformEngineer,
   resolveVpDesignWorkerMessage,
   type VPResearchRunParams,
 } from '@glyphor/agents';
@@ -1233,6 +1234,12 @@ const agentExecutor = async (
   } else if (agentRole === 'cto') {
     return runCTO({
       task: task as CTORunParams['task'],
+      message,
+      conversationHistory,
+    });
+  } else if (agentRole === 'platform-engineer') {
+    return runPlatformEngineer({
+      task: task as 'health_check' | 'metrics_report' | 'on_demand',
       message,
       conversationHistory,
     });

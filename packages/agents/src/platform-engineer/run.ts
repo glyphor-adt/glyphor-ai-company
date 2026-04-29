@@ -36,6 +36,8 @@ export interface PlatformEngineerRunParams {
   task?: 'health_check' | 'metrics_report' | 'on_demand';
   message?: string;
   conversationHistory?: ConversationTurn[];
+  dryRun?: boolean;
+  evalMode?: boolean;
 }
 
 export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}) {
@@ -76,7 +78,7 @@ export async function runPlatformEngineer(params: PlatformEngineerRunParams = {}
     agentRole: 'platform-engineer',
     runId: `alex-${task}-${today}`,
   }));
-  const toolExecutor = new ToolExecutor(tools);
+  const toolExecutor = new ToolExecutor(tools, params.dryRun === true);
 
   let initialMessage: string;
 
@@ -138,11 +140,13 @@ Steps:
   const result = await runner.run(
     config, initialMessage, supervisor, toolExecutor,
     (event) => eventBus.emit(event), memory,
-    createRunDeps(glyphorEventBus, memory),
+    params.evalMode ? (await import('../shared/createEvalRunDeps.js')).createEvalRunDeps(glyphorEventBus, memory) : createRunDeps(glyphorEventBus, memory),
   );
 
   const durationMs = Date.now() - Date.parse(String(result.conversationHistory[0]?.timestamp || new Date().toISOString()));
-  try { await memory.recordAgentRun('platform-engineer', durationMs, 0.02); } catch {}
+  if (!params.evalMode) {
+    try { await memory.recordAgentRun('platform-engineer', durationMs, 0.02); } catch {}
+  }
 
   console.log(`[Alex] ${result.status} (${result.totalTurns} turns)`);
   return result;
