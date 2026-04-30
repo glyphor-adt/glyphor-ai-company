@@ -1,0 +1,17 @@
+{
+  "name": "@glyphor/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Glyphor design system — shared tokens, components, and anti-AI-smell enforcement for glyphor-site and dashboard.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./globals.css": "./src/globals.css",
+    "./tokens": "./src/anti-ai-smell-registry/tokens.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

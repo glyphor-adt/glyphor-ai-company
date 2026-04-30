@@ -83,6 +83,7 @@ function findHexColors(content: string): Record<string, string> {
 // ─── Token source paths to probe ────────────────────────────────────
 
 const TOKEN_PATHS = [
+  'packages/design-system/src/anti-ai-smell-registry/tokens.ts',
   'packages/dashboard/tailwind.config.ts',
   'packages/dashboard/tailwind.config.js',
   'packages/design-tokens/index.ts',
